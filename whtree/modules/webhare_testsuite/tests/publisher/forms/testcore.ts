@@ -467,7 +467,7 @@ test.registerTests(
 
       test.fill('#coretest-dateofbirth', '1979-06-13');
       test.assert((await getFormHandler(formnode)!.validate()).valid);
-      test.fillUpload(test.qS('#coretest-upload'), [{ filename: 'test.txt', mimetype: 'application/octet-stream', data: 'This is a text file' }]);
+      test.fillUpload('#coretest-upload', [{ filename: 'test.txt', mimetype: 'application/octet-stream', data: 'This is a text file' }]);
 
       const field_pulldown2test = test.qR(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
       field_pulldown2test.selectedIndex = 2;

@@ -95,7 +95,7 @@ export async function waitForElement<E extends Element = HTMLElement>(selector: 
     if (lognow)
       logstate = Date.now() + 5000; //wait 5sec again for new reports
 
-    const node = findElement(selector);
+    const node = findElement<E>(selector);
     if (!node) {
       if (lognow)
         console.warn("waitForElement: no match for selector", selector);

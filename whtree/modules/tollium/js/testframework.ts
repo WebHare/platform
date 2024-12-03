@@ -279,7 +279,7 @@ function testClickTolliumLabel(toddlabel: string, options?: { name?: string }) {
   };
 }
 
-export function testClickTolliumToolbarButton(toddlabel: string, submenulabel: string, options?: { name?: string; waits?: string[] }) {
+export function testClickTolliumToolbarButton(toddlabel: string, submenulabel: string, options?: { name?: string; waits?: test.TestWaitItem[] }): test.RegisteredTestStep {
   const name = options?.name || ("Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : ""));
 
   return {
@@ -291,7 +291,7 @@ export function testClickTolliumToolbarButton(toddlabel: string, submenulabel: s
   };
 }
 
-async function selectListRow(listname: string, textinrow: string, options: { rightclick?: boolean; doubleclick?: boolean; waits?: string[] } = {}) {
+async function selectListRow(listname: string, textinrow: string, options: { rightclick?: boolean; doubleclick?: boolean; waits?: test.TestWaitItem[] } = {}) {
   const el = await waitForResult(() => {
     let selector = 'div.wh-ui-listview';
     if (listname)

@@ -172,7 +172,7 @@ const TestImageEditor =
       test.clickTolliumButton("Save");
       await test.wait('ui');
     }
-  ];
+  ] satisfies test.RegisteredTestSteps;
 
 test.registerTests(
   [

@@ -1,5 +1,3 @@
-/// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
-
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 
@@ -7,12 +5,12 @@ import * as domfocus from "dompack/browserfix/focus";
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 
 import * as whtest from '@webhare/test';
-import * as test from 'dompack/testframework';
 import * as pointer from 'dompack/testframework/pointer';
-import { type ValidElementTarget } from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
 import { Annotation } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
+import { isFormControl } from '@webhare/dompack';
+import type { TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
 
 export {
   eq,
@@ -39,7 +37,7 @@ export {
 export {
   findElement,
   waitForElement,
-  Selector
+  type Selector
 } from "../internal/tests/waitforelement";
 
 export {
@@ -52,22 +50,30 @@ export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testfram
 
 export { invoke };
 
+export type { TestWaitItem };
+
 //basic test functions
-const testfw = window.parent ? window.parent.__testframework : null;
+const testfw = (window.parent ? window.parent.__testframework : null)!;
 whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } });
 
-let callbacks = null;
+export type TestFrameWorkCallbacks = {
+  executeWait: (item: TestWaitItem) => Promise<unknown>;
+  subtest: (name: string) => void;
+  setFrame: (name: string, type: "add" | "update" | "delete" | "select", options?: { width: number }) => Promise<void>;
+};
+
+let callbacks: TestFrameWorkCallbacks | null = null;
 
 // Returns something like an ecmascript completion record
-function setTestSuiteCallbacks(cb) {
+function setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
   callbacks = cb;
 }
 
-function initialize_tests(steps) {
+function initialize_tests(steps: TestStep[]) {
   testfw.runTestSteps(steps, setTestSuiteCallbacks);
 }
 
-function rewriteNodeAttributes(node) {
+function rewriteNodeAttributes(node: HTMLElement) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
   // with a function that tries to keep it stable.
   const attrs = domlevel.getAllAttributes(node);
@@ -77,7 +83,7 @@ function rewriteNodeAttributes(node) {
   domlevel.setAttributes(node, attrs);
 }
 
-function isequal(a, b) {
+function isequal(a: unknown, b: unknown) {
   try {
     whtest.eq(a, b);
     return true;
@@ -86,13 +92,16 @@ function isequal(a, b) {
   }
 }
 
-export function registerTests(steps) {
+export type RegisteredTestStep = TestStep | string | NonNullable<TestStep["test"]>;
+export type RegisteredTestSteps = RegisteredTestStep[];
+
+export function registerTests(steps: RegisteredTestSteps) {
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
 
   let lasttestname;
-  const finalsteps = [];
+  const finalsteps: TestStep[] = [];
   for (let step of steps) {
     if (!step)
       continue;  //strip empty items. allows you to be careless with commas when commenting out tests
@@ -103,7 +112,7 @@ export function registerTests(steps) {
     }
 
     if (typeof step === "function")
-      step = { test: step };
+      step = { test: step as () => void };
 
     if (lasttestname && !step.name) { //merge name into the next test for more reliable counters
       step.name = lasttestname;
@@ -113,19 +122,21 @@ export function registerTests(steps) {
   }
   dompack.onDomReady(() => initialize_tests(finalsteps));
 }
-export function getTestArgument(idx) {
+export function getTestArgument(idx: number) {
+  if (!testfw.args)
+    throw new Error(`No test started yet`);
   if (idx > testfw.args.length)
     throw new Error("No argument #" + idx);
   return testfw.args[idx];
 }
-function logExplanation(explanation) {
+function logExplanation(explanation: Annotation) {
   if (typeof explanation === "function")
     explanation = explanation();
   console.error(explanation);
   testfw.log("* " + explanation + "\n");
 }
 
-export function eqHTML(expected, actual, explanation?: Annotation) {
+export function eqHTML(expected: string, actual: string, explanation?: Annotation) {
   const fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again
@@ -146,12 +157,12 @@ export function eqHTML(expected, actual, explanation?: Annotation) {
 
   // Firefox has problems with attribute ordering. Rewrite all attributes to get them in the same order.
   fixer.innerHTML = expected;
-  let list = fixer.getElementsByTagName('*');
+  let list = fixer.getElementsByTagName('*') as HTMLCollectionOf<HTMLElement>;
   for (let i = 0; i < list.length; ++i)
     rewriteNodeAttributes(list[i]);
   expected = fixer.innerHTML;
   fixer.innerHTML = actual;
-  list = fixer.getElementsByTagName('*');
+  list = fixer.getElementsByTagName('*') as HTMLCollectionOf<HTMLElement>;
   for (let i = 0; i < list.length; ++i)
     rewriteNodeAttributes(list[i]);
   actual = fixer.innerHTML;
@@ -159,13 +170,14 @@ export function eqHTML(expected, actual, explanation?: Annotation) {
   whtest.eq(expected, actual, explanation);
 }
 
-export function eqIn(expected_in, actual, explanation?: Annotation) {
+export function eqIn(expected_in: unknown[], actual: unknown, explanation?: Annotation) {
   for (let i = 0; i < expected_in.length; ++i)
     if (isequal(expected_in[i], actual))
       return;
 
-  expected_in = unescape(escape(expected_in).split('%u').join('/u'));
-  actual = unescape(escape(actual).split('%u').join('/u'));
+  // FIXME: this errors out on BigInts
+  expected_in = expected_in.map(e => JSON.stringify(expected_in));
+  actual = JSON.stringify(actual);
 
   if (explanation)
     logExplanation(explanation);
@@ -179,15 +191,12 @@ export function eqIn(expected_in, actual, explanation?: Annotation) {
   throw new Error("testEqIn failed");
 }
 
-export function eqFloat(expected, actual, delta, explanation?: Annotation) {
+export function eqFloat(expected: number, actual: number, delta: number, explanation?: Annotation) {
   if (Math.abs(expected - actual) <= delta)
     return;
 
-  let expected_str = expected;
-  let actual_str = actual;
-
-  try { expected_str = typeof expected === "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
-  try { actual_str = typeof actual === "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
+  const expected_str = JSON.stringify(expected);
+  const actual_str = JSON.stringify(actual);
 
   if (explanation)
     logExplanation(explanation);
@@ -206,7 +215,7 @@ export function eqFloat(expected, actual, delta, explanation?: Annotation) {
   whtest.eq(expected, actual);
 }
 
-export function findElementWithText(doc, tagname, text) {
+export function findElementWithText(doc: Document | HTMLElement | null, tagname: string, text: string) {
   const els = (doc || getDoc()).querySelectorAll(tagname);
   for (let i = 0; i < els.length; ++i)
     if (els[i].textContent === text)
@@ -215,27 +224,29 @@ export function findElementWithText(doc, tagname, text) {
 }
 
 /// Returns a promise for when all gestures have been processed
-export function gesturesDone() {
-  return new Promise(resolve => window.waitForGestures(resolve));
+export function gesturesDone(): Promise<void> {
+  return new Promise<void>(resolve => (window as Window & typeof globalThis & { waitForGestures(callback: () => void): void }).waitForGestures(resolve));
 }
 
-export function dragTransition(pos) {
+export function dragTransition(pos: number) {
   // Decelerate more than accelerate
-  const transition = p => Math.pow(p, 2);
+  const transition = (p: number) => Math.pow(p, 2);
   const easeOut = 1 - transition(1 - pos);
   const easeInOut = (pos <= 0.5 ? transition(2 * pos) : (2 - transition(2 * (1 - pos)))) / 2;
   return easeOut * easeInOut;
 }
 
-export async function pressKey(key: string | string[], options?) {
+export async function pressKey(key: string | string[], options?: keyboard.KeyboardModifierOptions) {
   if (!testfw.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 
   return await testfw.sendDevtoolsRequest({ type: "pressKeys", keys: keyboard.normalizeKeys(key, options), options });
 }
 
+/* could not find any use in current modules/omni, disabling for now
+
 //ADDME non-LMB support for the non-haveDevtoolsUplink paths
-export async function asyncMouseMove(x, y, options) {
+export async function asyncMouseMove(x: number, y: number, options: never) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y }]);
     return;
@@ -244,21 +255,21 @@ export async function asyncMouseMove(x, y, options) {
   y += whtest.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
   return await testfw.sendDevtoolsRequest({ type: "mouseMove", x, y, options });
 }
-export async function asyncMouseDown(type, options) {
+export async function asyncMouseDown(type: never, options: never) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), down: 0 }]);
     return;
   }
   return await testfw.sendDevtoolsRequest({ type: "mouseDown", options });
 }
-export async function asyncMouseUp(type, options) {
+export async function asyncMouseUp(type: never, options: never) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), up: 0 }]);
     return;
   }
   return await testfw.sendDevtoolsRequest({ type: "mouseUp", options });
 }
-export async function asyncMouseClick(x, y, options) {
+export async function asyncMouseClick(x: number, y: number, options: never) {
   if (!testfw.haveDevtoolsUplink()) {
     await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y, down: 0 }]);
     await pointer.sendMouseGesture([{ up: 0 }]);
@@ -268,26 +279,27 @@ export async function asyncMouseClick(x, y, options) {
   y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
   return await testfw.sendDevtoolsRequest({ type: "mouseClick", x, y, options });
 }
+  */
 
 export function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
-export function getOpenMenuItem(containstext) {
+export function getOpenMenuItem(containstext: string) {
   const menu = getOpenMenu();
   if (!menu)
     return null;
-  const item = dompack.qSA(menu, 'li').filter(_ => _.textContent.includes(containstext));
+  const item = dompack.qSA(menu, 'li').filter(_ => _.textContent!.includes(containstext));
   if (item.length > 1)
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0] || null;
 }
 export function getWin(): WindowProxy {
-  return testfw.getFrameRecord().win;
+  return testfw.getFrameRecord().win!;
 }
 export function getDoc(): Document {
-  return testfw.getFrameRecord().doc;
+  return testfw.getFrameRecord().doc!;
 }
-export function setFormsapiFileElement(el, filedata, filename) {
+export function setFormsapiFileElement(el: HTMLInputElement, filedata: string, filename: string) {
   //formsapi permits a hack to allow us to fake submissions to input type=file fields
   //unfortunately we can't change the type of an input element, so we'll have to recreate it
 
@@ -296,18 +308,24 @@ export function setFormsapiFileElement(el, filedata, filename) {
   newinput.type = 'text';
   newinput.value = filedata;
   newinput.id = el.id;
-  el.parentNode.replaceChild(newinput, el);
+  el.parentNode!.replaceChild(newinput, el);
 
   //  $(el).destroy();
 }
 
 /** Focus and fill an element, triggering any input/change handlers */
-export function fill(element: ValidElementTarget, newvalue: string | number | boolean): void {
+export function fill(element: pointer.ValidElementTarget, newvalue: string | number | boolean): void {
   element = pointer._resolveToSingleElement(element);
+  if (!isFormControl(element))
+    throw new Error(`Cannot use test.fill on an element that is not a form control, got a ${JSON.stringify(element.tagName)}`);
   element.focus();
   dompack.changeValue(element, newvalue);
 }
-export function fillUpload(element, files) {
+export function fillUpload(element: pointer.ValidElementTarget, files: Array<{ data: BlobPart; filename: string; mimetype: string }>) {
+  element = pointer._resolveToSingleElement(element);
+  if (!("files" in element))
+    throw new Error(`Cannot use test.fill on an element that doesn't have a "files" property, got a ${JSON.stringify(element)}`);
+
   const blobs = files.map(file => {
     if (!file.mimetype)
       throw new Error("Missing mimetype");
@@ -315,7 +333,8 @@ export function fillUpload(element, files) {
       throw new Error("Missing filename");
 
     const output = new Blob([file.data], { type: file.mimetype });
-    output.name = file.filename;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (output as any).name = file.filename; //  Make it look like a File object
     return output;
   });
   Object.defineProperty(element, 'files', { get: function () { return blobs; }, configurable: true });
@@ -328,19 +347,19 @@ export function getTestSiteRoot(): string {
   return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
-export function getListViewHeader(text) {
-  const headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
+export function getListViewHeader(text: string) {
+  const headers = qSA('#listview .listheader > span').filter(node => node.textContent?.includes(text));
   if (headers.length > 1)
     console.error("Multiple header matches for '" + text + "'");
   return headers.length === 1 ? headers[0] : null;
 }
-export function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
-  const rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
+export function getListViewRow(text: string) { //simply reget it for every test, as list may rerender at unspecifide times
+  const rows = qSA('#listview .listrow').filter(node => node.textContent?.includes(text));
   if (rows.length > 1)
     console.error("Multiple row matches for '" + text + "'");
   return rows.length === 1 ? rows[0] : null;
 }
-export function getListViewExpanded(row) {
+export function getListViewExpanded(row: HTMLElement) {
   if (row.querySelector(".fa-caret-down"))
     return true;
   if (row.querySelector(".fa-caret-right"))
@@ -348,14 +367,17 @@ export function getListViewExpanded(row) {
   return null;
 }
 
+type CombineTypes<T extends keyof HTMLInputElement & keyof HTMLSelectElement> = { [K in T]: HTMLInputElement[K] | HTMLSelectElement[K] };
+type UncombinableProps = "addEventListener" | "labels" | "remove" | "removeEventListener" | "type";
+
 /* When testing it's not really worth the effort to explicitly type/cast the returnvalues of test.qS(A). We'll return a
    reasonable superset of <select>/<input> (so you get all the form/value props) and cast some of the often used DOM navigation props */
-export interface TestQueriedElement extends HTMLInputElement, HTMLSelectElement {
+export interface TestQueriedElement extends Omit<HTMLInputElement, UncombinableProps>, Omit<HTMLSelectElement, UncombinableProps>, CombineTypes<UncombinableProps> {
   previousSibling: TestQueriedElement | null;
   nextSibling: TestQueriedElement | null;
   previousElementSibling: TestQueriedElement | null;
   nextElementSibling: TestQueriedElement | null;
-}
+};
 
 //Set up overloads for both call approaches (with and without starting element)
 export function qS<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E | null;
@@ -367,10 +389,10 @@ export function qS<E extends Element = TestQueriedElement>(selector: string): E 
     @returns The first matching element or 'null' if not matched */
 export function qS<E extends Element = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E | null {
   if (typeof node_or_selector !== 'string')
-    return node_or_selector.querySelector(selector);
+    return node_or_selector.querySelector(selector as string);
 
-  const iframe = window.parent.document.querySelector('#testframeholder iframe');
-  return iframe.contentDocument.querySelector(node_or_selector);
+  const iframe = window.parent.document.querySelector<HTMLIFrameElement>('#testframeholder iframe')!;
+  return iframe.contentDocument!.querySelector(node_or_selector);
 }
 
 //Set up overloads for both call approaches (with and without starting element)
@@ -383,10 +405,10 @@ export function qSA<E extends HTMLElement = TestQueriedElement>(selector: string
     @returns An array of matching elements */
 export function qSA<E extends HTMLElement = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E[] {
   if (typeof node_or_selector !== 'string')
-    return Array.from(node_or_selector.querySelectorAll(selector));
+    return Array.from(node_or_selector.querySelectorAll(selector as string));
 
-  const iframe = window.parent.document.querySelector('#testframeholder iframe');
-  return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
+  const iframe = window.parent.document.querySelector<HTMLIFrameElement>('#testframeholder iframe')!;
+  return Array.from(iframe.contentDocument!.querySelectorAll(node_or_selector));
 }
 
 //Set up overloads for both call approaches (with and without starting element)
@@ -398,7 +420,7 @@ export function qR<E extends HTMLElement = TestQueriedElement>(selector: string)
     @param selector - CSS selector to use
     @returns The only matching element. Throws if not found */
 export function qR<E extends HTMLElement = TestQueriedElement>(node_or_selector: ParentNode | string, selector?: string): E {
-  const matches = qSA<E>(node_or_selector, selector);
+  const matches = qSA<E>(node_or_selector as ParentNode, selector as string);
   if (matches.length === 1)
     return matches[0];
 
@@ -411,22 +433,25 @@ export function qR<E extends HTMLElement = TestQueriedElement>(node_or_selector:
   }
 }
 
-export function getWrdLogoutURL(returnurl) {
+export function getWrdLogoutURL(returnurl: string) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
 export function wrdAuthLogout() {
   const redirectto = getWrdLogoutURL(getWin().location.href);
-  window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
+  window.parent.document.querySelector<HTMLIFrameElement>('#testframeholder iframe')!.src = redirectto;
 }
-export async function writeLogMarker(text) {
+export async function writeLogMarker(text: string) {
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
-export async function wait(waitfor, annotation?) {
+export async function wait<T>(waitfor: (doc: Document, win: Window) => T | Promise<T>, annotation?: string): Promise<NonNullable<T>>;
+export async function wait(waitfor: TestWaitItem, annotation?: string): Promise<void>;
+
+export async function wait(waitfor: TestWaitItem, annotation?: string) {
   if (annotation && typeof annotation !== "string")
     throw new Error("wait()ing on multiple things is no longer supported");
 
-  return await callbacks.executeWait(waitfor);
+  return await callbacks!.executeWait(waitfor);
 }
 
 // email: The email address to look for
@@ -482,24 +507,24 @@ export async function waitForEmails(addressmask: string, options?: RetrieveEmail
   });
 }
 
-export function subtest(name) {
-  callbacks.subtest(name);
+export function subtest(name: string) {
+  callbacks!.subtest(name);
 }
 
-export async function addFrame(name, { width }) {
-  return callbacks.setFrame(name, "add", { width });
+export async function addFrame(name: string, { width }: { width: number }) {
+  return callbacks!.setFrame(name, "add", { width });
 }
 
-export async function updateFrame(name, { width }) {
-  return callbacks.setFrame(name, "update", { width });
+export async function updateFrame(name: string, { width }: { width: number }) {
+  return callbacks!.setFrame(name, "update", { width });
 }
 
-export async function removeFrame(name) {
-  return callbacks.setFrame(name, "delete");
+export async function removeFrame(name: string) {
+  return callbacks!.setFrame(name, "delete");
 }
 
-export async function selectFrame(name) {
-  return callbacks.setFrame(name, "select");
+export async function selectFrame(name: string) {
+  return callbacks!.setFrame(name, "select");
 }
 
 // eslint-disable-next-line @typescript-eslint/no-shadow
@@ -509,7 +534,7 @@ export async function load(page: string, { waitUI = true } = {}): Promise<void> 
     throw new Error(`test.load exects a string`);
   }
 
-  const topwhdebug = new URL(window.top.location.href).searchParams.get("wh-debug");
+  const topwhdebug = new URL(window.top!.location.href).searchParams.get("wh-debug");
   if (topwhdebug !== null) { //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
     const gotourl = new URL(page);
     if (gotourl.searchParams.get("wh-debug") === null) {
@@ -524,8 +549,8 @@ export async function load(page: string, { waitUI = true } = {}): Promise<void> 
     await wait("ui-nocheck");
 }
 
-export function pasteHTML(content) {
-  const target = domfocus.getCurrentlyFocusedElement();
+export function pasteHTML(content: string | HTMLElement) {
+  const target = domfocus.getCurrentlyFocusedElement()!;
   const htmltext = typeof content === 'string' ? content : content.innerHTML;
 
   /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
@@ -534,7 +559,7 @@ export function pasteHTML(content) {
 
   const cpdata = {
     types: ['text/html'],
-    getData: type => {
+    getData: (type: string) => {
       if (type !== 'text/html')
         return null;
       return htmltext;
@@ -551,12 +576,12 @@ export function pasteHTML(content) {
   return dodefault;
 }
 
-export function canFocus(element) {
+export function canFocus(element: pointer.ValidElementTarget) {
   element = pointer._resolveToSingleElement(element);
   return domfocus.canFocusTo(element);
 }
 
-export function hasFocus(element) {
+export function hasFocus(element: pointer.ValidElementTarget) {
   element = pointer._resolveToSingleElement(element);
   return element === domfocus.getActiveElement(element.ownerDocument);
 }
@@ -564,7 +589,7 @@ export function hasFocus(element) {
 /** Get pxl log entries
     @param eventtypefilter - Expression to match on event type
     @returns Filtered log entries, or an empty array if the log hasn't started yet*/
-export function getPxlLog(eventtypefilter) {
+export function getPxlLog(eventtypefilter?: RegExp) {
   let log = getWin().whPxlLog || [];
   if (eventtypefilter)
     log = log.filter(evt => evt.event.match(eventtypefilter));
@@ -572,7 +597,7 @@ export function getPxlLog(eventtypefilter) {
 }
 
 export function getWebhareVersionNumber() {
-  return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
+  return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber!);
 }
 
 export const keyboardCopyModifier = { alt: browser.getPlatform() === 'mac', ctrl: browser.getPlatform() !== 'mac' };
@@ -581,10 +606,10 @@ export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() === 'mac
 
 /** Wait for the UI to be ready (UI is marked busy by flagUIBusy) */
 export async function waitUI() { //eases transition to the less-flexible @webhare/test wait()
-  return await callbacks.executeWait('ui');
+  return await callbacks!.executeWait('ui');
 }
 
 /** Wait for navigation to complete  */
 export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
-  return await callbacks.executeWait('load');
+  return await callbacks!.executeWait('load');
 }

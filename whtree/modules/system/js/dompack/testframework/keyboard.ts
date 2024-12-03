@@ -1,13 +1,24 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import { debugflags } from "../src/debug";
-import { fireHTMLEvent } from "../src/events";
 import { checkedDispatchEvent } from "./pointer";
 import { getName as browserName } from "../extra/browser";
 import * as domfocus from "../browserfix/focus";
+import { debugFlags } from "@webhare/env";
+import { dispatchDomEvent } from "@webhare/dompack";
 
-export function getKeyboardEventProps(data) {
+export type KeyboardModifierOptions = {
+  ctrlKey?: boolean;
+  altKey?: boolean;
+  location?: number;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  repeat?: boolean;
+};
+
+type KeyboardEventProps = {
+  key: string;
+  code?: string;
+} & KeyboardModifierOptions;
+
+export function getKeyboardEventProps(data: KeyboardEventProps) {
   let keycode = 0;
   let presscode = 0;
   let ischar = false;
@@ -132,20 +143,18 @@ export function getKeyboardEventProps(data) {
         data.code = "Key" + data.key.toUpperCase();
       else {
         // Code values, see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code#Code_values for existing values
-        const key_to_code_mapping =
-        {
+        const key_to_code_mapping = {
           ",": "Comma",
           ".": "Period",
           "/": "Slash",
           " ": "Space"
           // ... and more, add them when necessary
-        };
-        data.code = key_to_code_mapping[data.key] || "Unidentified";
+        } as const;
+        data.code = key_to_code_mapping[data.key as keyof typeof key_to_code_mapping] || "Unidentified";
       }
 
     } else {
-      const key_to_code_mapping =
-      {
+      const key_to_code_mapping = {
         "F1": "F1",
         "F2": "F2",
         "F3": "F3",
@@ -167,9 +176,9 @@ export function getKeyboardEventProps(data) {
         "ArrowRight": "ArrowRight",
         "ArrowUp": "ArrowUp",
         "ArrowDown": "ArrowDown"
-      };
+      } as const;
 
-      data.code = key_to_code_mapping[data.key] || "Unidentified";
+      data.code = key_to_code_mapping[data.key as keyof typeof key_to_code_mapping] || "Unidentified";
     }
   }
 
@@ -201,7 +210,7 @@ export function getKeyboardEventProps(data) {
   return props;
 }
 
-export function generateKeyboardEvent(target: HTMLElement, eventname: string, data) {
+export function generateKeyboardEvent(target: HTMLElement, eventname: string, data: KeyboardEventProps) {
   if (!data.key)
     throw new Error("Empty key passed to generateKeyboardEvent");
 
@@ -238,14 +247,13 @@ export function generateKeyboardEvent(target: HTMLElement, eventname: string, da
     Object.defineProperty(evt, 'keyCode', { get: function () { return vals.keyCode; } });
     Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
 
-    if (debugflags.testfw)
+    if (debugFlags.testfw)
       console.log('[testfw] Constructed chrome keyboardevent', evt);
   } else if (browserName() === "firefox") {
-    const keymapping =
-    {
+    const keymapping = {
       "Meta": "OS"
-    };
-    props.key = keymapping[props.key] || props.key;
+    } as const;
+    props.key = keymapping[props.key as keyof typeof keymapping] || props.key;
 
     // firefox zeroes the keycode for printable characters in keypress events
     evt = new KeyboardEvent(eventname, {
@@ -264,11 +272,11 @@ export function generateKeyboardEvent(target: HTMLElement, eventname: string, da
       bubbles: true,
       cancelable: true
     });
-    if (debugflags.testfw)
+    if (debugFlags.testfw)
       console.log('[testfw] Constructed firefox keyboardevent', evt);
   } else if (browserName() === "safari") {
-    const keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" };
-    props.key = keymapping[props.key] || props.key;
+    const keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" } as const;
+    props.key = keymapping[props.key as keyof typeof keymapping] || props.key;
 
     const hasucode = props.ischar || ["Escape", "Tab", "Backspace", "Delete"].includes(props.key);
     const hascharcode = props.ischar || ["Escape", "Enter", "Backspace"].includes(props.key);
@@ -287,7 +295,6 @@ export function generateKeyboardEvent(target: HTMLElement, eventname: string, da
       view: doc.defaultView,
       key: props.key,
       code: props.code,
-      keyIdentifier: vals.keyIdentifier,
       ctrlKey: props.ctrlKey,
       altKey: props.altKey,
       location: props.location,
@@ -303,49 +310,51 @@ export function generateKeyboardEvent(target: HTMLElement, eventname: string, da
     Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
   }
 
-  if (debugflags.testfw)
+  if (debugFlags.testfw)
     console.log('[testfw] Constructed ' + browserName() + ' keyboardevent', evt);
 
   return evt;
 }
 
-function _fireKeyboardEvent(target, eventname, props) {
+function _fireKeyboardEvent(target: HTMLElement, eventname: string, props: KeyboardEventProps | string) {
   if (typeof props === "string")
     props = { key: props };
 
-  if (debugflags.testfw)
+  if (debugFlags.testfw)
     console.log(`[testfw] Send ${eventname} with key '${encodeURIComponent(props.key)}' and code ${props.code} to `, target);
 
   const evt = generateKeyboardEvent(target, eventname, props);
-  if (debugflags.testfw)
+  if (debugFlags.testfw)
     console.log('[testfw] Dispatching event ', evt);
 
   return checkedDispatchEvent(target, evt);
 }
 
-export function normalizeKeys(key: string | string[], props) {
+export function normalizeKeys(key: string | string[], props?: KeyboardModifierOptions) {
   let keys = Array.isArray(key) ? key : [key];
   const shift = props && props.shiftKey;
   //match single-char keys (real keys) to upper or lowercase depending on shift state
-  keys = keys.map(key => key.length > 1 ? key : shift ? key.toUpperCase() : key.toLowerCase());
+  keys = keys.map(keyItem => keyItem.length > 1 ? keyItem : shift ? keyItem.toUpperCase() : keyItem.toLowerCase());
   return keys;
 }
 
-export async function pressKey(keylist: string | string[], props) {
+export async function pressKey(keylist: string | string[], modifierprops?: KeyboardModifierOptions) {
   //key must be one of the names documented at https://w3c.github.io/uievents/#events-keyboardevents
-  const keys: string[] = normalizeKeys(keylist, props);
+  const keys: string[] = normalizeKeys(keylist, modifierprops);
 
   for (const key of keys) {
     //ensure asynchronous invocation for each keypress
     await new Promise(resolve => setTimeout(resolve, 1));
 
-    props = { ...props, key: key };
+    const props = { ...modifierprops, key: key };
     const eventprops = getKeyboardEventProps(props);
 
     //Figure out which element has focus
     const focused = domfocus.getCurrentlyFocusedElement();
-    if (debugflags.testfw)
+    if (debugFlags.testfw)
       console.log('[testfw] SendKeyPress "' + key + '" to focused element:', focused);
+    if (!focused)
+      throw new Error(`No focused element to send keypress to`);
 
     let retval = _fireKeyboardEvent(focused, 'keydown', props);
     if (eventprops.presscode && retval) //only fire press if down not cancelled
@@ -354,40 +363,44 @@ export async function pressKey(keylist: string | string[], props) {
     if (retval) {
       if (eventprops.key === 'Tab') {
         doTabKey(eventprops.shiftKey ? -1 : +1);
-      } else if (focused?.nodeName === 'TEXTAREA' || (focused?.nodeName === 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
+      } else if (focused?.nodeName === 'TEXTAREA' || (focused?.nodeName === 'INPUT' && !['radio', 'textarea'].includes((focused as HTMLInputElement).type))) {
+        const focusedElt = focused as HTMLTextAreaElement | HTMLInputElement;
         if (eventprops.key === 'Backspace') {
-          if (focused.selectionStart === focused.selectionEnd) //delete the character before the cursor
-            focused.value = focused.value.substr(0, focused.selectionStart - 1) + focused.value.substr(focused.selectionEnd);
-          else //delete the character
-            focused.value = focused.value.substr(0, focused.selectionStart) + focused.value.substr(focused.selectionEnd);
+          if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
+            if (focusedElt.selectionStart === focusedElt.selectionEnd) //delete the character before the cursor
+              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart - 1) + focusedElt.value.substr(focusedElt.selectionEnd);
+            else //delete the character
+              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + focusedElt.value.substr(focusedElt.selectionEnd);
+          }
 
-          fireHTMLEvent(focused, 'input');
+          dispatchDomEvent(focused, 'input');
         } else if (eventprops.key === 'ArrowUp' || eventprops.key === 'ArrowDown') {
-          if (focused.nodeName === 'INPUT' && focused.type === 'number') {
-            let value = parseInt(focused.value);
+          if (focusedElt.nodeName === 'INPUT' && focusedElt.type === 'number') {
+            let value = parseInt(focusedElt.value);
             if (!isNaN(value)) {
-              const step = parseInt(focused.getAttribute("step")) || 1;
+              const step = parseInt(focused.getAttribute("step") || "1") || 1;
               value = value + (eventprops.key === 'ArrowUp' ? Number(step) : -step);
 
-              if (eventprops.key === 'ArrowUp' && focused.hasAttribute("max") && value > parseInt(focused.getAttribute("max")))
-                value = parseInt(focused.getAttribute("max"));
-              if (eventprops.key === 'ArrowDown' && focused.hasAttribute("min") && value < parseInt(focused.getAttribute("min")))
-                value = parseInt(focused.getAttribute("min"));
+              if (eventprops.key === 'ArrowUp' && focused.hasAttribute("max") && value > parseInt(focused.getAttribute("max")!))
+                value = parseInt(focused.getAttribute("max")!);
+              if (eventprops.key === 'ArrowDown' && focused.hasAttribute("min") && value < parseInt(focused.getAttribute("min")!))
+                value = parseInt(focused.getAttribute("min")!);
 
-              focused.value = value;
-              fireHTMLEvent(focused, 'input');
+              focusedElt.value = String(value);
+              dispatchDomEvent(focused, 'input');
             }
           }
         } else if (eventprops.haspress) {
-          if (!(props.ctrlKey || props.metaKey || props.altKey)) //these don't trigger text input
-          {
+          if (!(props.ctrlKey || props.metaKey || props.altKey)) { //these don't trigger text input
             // Insert single character into the input field
-            focused.value = focused.value.substr(0, focused.selectionStart) + key + focused.value.substr(focused.selectionEnd);
-            if (debugflags.testfw)
-              console.log('[testfw] SendKeyPress manually added "' + key + '" value now "' + focused.value + '"');
+            if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
+              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + key + focusedElt.value.substr(focusedElt.selectionEnd);
+              if (debugFlags.testfw)
+                console.log('[testfw] SendKeyPress manually added "' + key + '" value now "' + focusedElt.value + '"');
 
-            //        if(focused.nodeName=='TEXTAREA' || (focused.nodeName=='INPUT' && !['radio','textarea'].includes(focused.type)))
-            fireHTMLEvent(focused, 'input');
+              //        if(focused.nodeName=='TEXTAREA' || (focused.nodeName=='INPUT' && !['radio','textarea'].includes(focused.type)))
+              dispatchDomEvent(focused, 'input');
+            }
           }
         }
       } else {
@@ -429,13 +442,13 @@ function doTabKey(direction: 1 | -1): void {
 
   try {
     tofocus.focus();
-    if (tofocus.select)
-      tofocus.select();
+    if ((tofocus as HTMLInputElement).select)
+      (tofocus as HTMLInputElement).select();
   } catch (e) {
     console.log("doTabKey: Focus failed: ", allfocus[curpos], e);
   }
 
-  const nowfocused = domfocus.getCurrentlyFocusedElement();
+  const nowfocused = domfocus.getCurrentlyFocusedElement()!;
   if (allfocus[curpos] !== nowfocused) { //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
     console.log("Tried to focus", allfocus[curpos]);
     console.log("Actually focused", nowfocused);
