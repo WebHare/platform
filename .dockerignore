@@ -2,11 +2,17 @@
 # printf "FROM ubuntu:20.04\nCOPY . /tmp/build" | docker build --progress=plain -f- -t tempfilelist . ; docker run --rm -ti tempfilelist /bin/bash -c "ls -lR /tmp/build; du -sch /tmp/build/*"
 .git
 node_modules
+
+# We need to manage module ignores here (except for webhare_testsuite) so we can easily sync .gitignore & .dockerigonore
+/whtree/modules/devkit/node_modules
+/whtree/modules/*/history
 /whtree/modules/platform/generated
+
 # buildinfo is generated outside the container build because CI_ variables are not copied to the container
 !/whtree/modules/platform/generated/buildinfo
+
+# webhare_testsuite should never ship in the container. testdocker will link it into the containers during CI
 /whtree/modules/webhare_testsuite
-/whtree/modules/*/history
 
 /vendor/emsdk/node
 /vendor/emsdk/python

@@ -136,6 +136,11 @@ testjscomponents:
   script:
     - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.jscomponents
 
+testdevkit:
+  stage: test
+  script:
+    - TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testdocker.sh --nocheckmodule devkit
+
 testexternal:
   stage: test
   allow_failure: true

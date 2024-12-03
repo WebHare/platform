@@ -5,10 +5,16 @@ import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb"
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext, updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config";
+import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config";
 
 
 async function testWebHareConfig() {
+  if (enableDevKit()) {
+    test.assert(backendConfig.module["devkit"]);
+  } else {
+    test.assert(!backendConfig.module["devkit"]);
+  }
+
   /* Tests whether the current WebHare builtin config is properly parsed
      This saves us from having to build modules but we risk a test breaking and having to look for
      new examples if WebHare itself changes (this will probably the new 'testvalidate') */

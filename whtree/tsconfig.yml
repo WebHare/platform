@@ -35,6 +35,8 @@ compilerOptions:
       - jssdk/*
     "@mod-consilio/*":
       - modules/consilio/*
+    "@mod-devkit/*":
+      - modules/devkit/*
     "@mod-platform/*":
       - modules/platform/*
     "@mod-publisher/*":

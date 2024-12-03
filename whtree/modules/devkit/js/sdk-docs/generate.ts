@@ -1,0 +1,50 @@
+import { backendConfig } from "@webhare/services";
+import * as TypeDoc from "typedoc";
+import { readdir, readFile } from "node:fs/promises";
+
+/* TODO: we're currently stuck at typedoc 0.26 as 0.27 switch to ESM and we can't actually load that using tsrun
+         we also had to override the dependency in our package.json to get 'npm install' to not complain about the incompatible version */
+
+const blacklistModules = [
+  //@webhare/deps is a convenience lib but definitely not an official API
+  "deps",
+  //might not want to provide as a separate maintained module in core webhare
+  "dompack-overlays"
+];
+
+export async function setupDocGenerator() {
+  const entryPoints = [];
+  for (const pkg of await readdir(backendConfig.installationroot + "jssdk")) {
+    if (blacklistModules.includes(pkg))
+      continue;
+
+    const pkgPath = backendConfig.installationroot + "jssdk/" + pkg;
+    let packageinfo;
+    try {
+      packageinfo = JSON.parse(await readFile(pkgPath + "/package.json", 'utf8'));
+    } catch {
+      continue;
+    }
+
+    if (!packageinfo.main?.endsWith('.ts'))
+      continue; //not an interesting package (eg. eslint, tsrun)
+
+    entryPoints.push(pkgPath + '/' + packageinfo.main);
+  }
+
+  // Application.bootstrap also exists, which will not load plugins
+  // Also accepts an array of option readers if you want to disable
+  // TypeDoc's tsconfig.json/package.json/typedoc.json option readers
+  const app = await TypeDoc.Application.bootstrapWithPlugins({
+    "entryPoints": entryPoints,
+    "tsconfig": backendConfig.installationroot + "tsconfig.json",
+    "name": "WebHare Platform SDK",
+    // "entryPointStrategy": "packages",
+    "includeVersion": true,
+    "excludeExternals": true,
+    githubPages: false,
+    hideGenerator: true,
+  });
+
+  return app;
+}

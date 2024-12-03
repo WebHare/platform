@@ -1,0 +1,15 @@
+{
+  "private": true,
+  "author": "WebHare bv",
+  "license": "MIT",
+  "dependencies": {
+    "typedoc": "^0.26.11",
+    "typescript": "file:../../node_modules/typescript",
+    "yaml": "file:../../node_modules/yaml"
+  },
+  "overrides": {
+    "typedoc": {
+      "typescript": "$typescript"
+    }
+  }
+}

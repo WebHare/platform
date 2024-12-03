@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="hsengine" site="webhare_testsuite.testsite">
+  <test name="generate-sdk-docs" script="../scripts/whcommands/generate-sdk-docs.ts">
+    <arg value="--ci" />
+    <arg value="--json" />
+  </test>
+</group>

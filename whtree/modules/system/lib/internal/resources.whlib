@@ -242,11 +242,12 @@ PUBLIC STRING ARRAY FUNCTION GetResourceEventMasks(STRING ARRAY inpaths)
     @return @includecelldef #GetCacheableXMLDoc.value
     @cell(string) return.path Resource path
 */
-PUBLIC RECORD FUNCTION OpenXMLDoc(STRING path, BOOLEAN _isschema)
+PUBLIC RECORD FUNCTION OpenXMLDoc(STRING path, BOOLEAN _isschema, STRING mockifmissing DEFAULTSTO "")
 {
-  RECORD doc := GetAdhocCached([ _isschema := _isschema
-                               , path := path
-                               ], PTR GetCacheableXMLDoc(_isschema, path));
+  RECORD doc := GetAdhocCached(CELL[ _isschema
+                                   , path
+                                   , mockifmissing
+                                   ], PTR GetCacheableXMLDoc(_isschema, path, mockifmissing));
 
   RETURN [ doc := doc.doc
          , path := path
@@ -276,13 +277,11 @@ PUBLIC RECORD FUNCTION WebHareDynamicLoader(STRING url, STRING id)
     @cell(string) return.value.files.path Resource path
     @cell(datetime) return.value.files.modified Modification date (not always present)
 */
-RECORD FUNCTION GetCacheableXMLDoc(BOOLEAN _isschema, STRING resourcepath)
+RECORD FUNCTION GetCacheableXMLDoc(BOOLEAN _isschema, STRING resourcepath, STRING mockifmissing)
 {
   RECORD ARRAY files;
-  RECORD res := RetrieveWebhareResource(resourcepath);
-
-  // Not in cache: read from file and parse it
-  BLOB data := res.data;
+  RECORD res := RetrieveWebhareResource(resourcepath, [ allowmissing := mockifmissing != "" ]);
+  BLOB data := RecordExists(res) ? res.data : StringToBlob(mockifmissing);
   files := [ [ path := resourcepath ] ];
 
   OBJECT doc;
@@ -520,4 +519,3 @@ PUBLIC STRING FUNCTION GetCompactResourceName(STRING resourcename)
   }
   RETURN resourcename;
 }
-

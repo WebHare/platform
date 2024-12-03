@@ -179,8 +179,12 @@ PUBLIC RECORD ARRAY FUNCTION ValidateModules()
 
   FOREVERY (STRING module FROM checkmodules)
   {
-    RECORD result := ValidateSingleFile(GetModuleDefinitionXMLResourceName(module));
-    messages := messages CONCAT SELECT *, msg := resourcename || ":" || line || ":" || col || ": " || message FROM result.errors;
+    STRING modpath := GetModuleDefinitionXMLResourceName(module);
+    IF(RecordExists(RetrieveWebHareResource(modpath, [allowmissing := TRUE ])))
+    {
+      RECORD result := ValidateSingleFile(GetModuleDefinitionXMLResourceName(module));
+      messages := messages CONCAT SELECT *, msg := resourcename || ":" || line || ":" || col || ": " || message FROM result.errors;
+    }
   }
   RETURN messages;
 }
