@@ -9,7 +9,6 @@ import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import KeyboardHandler from 'dompack/extra/keyboard';
 require("../../common.lang.json");
-import { ToddImage } from "../components/jsx";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp, type ApplicationBase } from "../application";
 import type IndyShell from '../shell';
@@ -182,8 +181,7 @@ class DashboardApp {
       <li class="dashboard__app" propApp={app} propSection={section}
         on={{ click: e => this._onMenuClick(e, app.instr) }} >
         <a href={app.link} class={{ "dashboard__applink": true, "dashboard__app--hasicon": app.icon }}>
-          {app.icon ? <ToddImage image={app.icon} width="16" height="16" color="w"
-            class="dashboard__appicon" /> : null}
+          {app.icon ? toddImages.createImage(app.icon, 16, 16, 'w', { className: "dashboard__appicon" }) : null}
           <span class="dashboard__apptitle">{app.title}</span>
         </a>
       </li>;
@@ -196,9 +194,7 @@ class DashboardApp {
           {item.editinstr &&
             <span class="dashboard__editgroup"
               on={{ click: e => this._onMenuClick(e, item.editinstr) }} >
-              <ToddImage image='tollium:objects/cog2' width="16" height="16" color="w"
-                class="dashboard__editgroupicon"
-                title={item.edittitle} />
+              {toddImages.createImage('tollium:objects/cog2', 16, 16, 'w', { className: "dashboard__editgroupicon", title: item.edittitle })}
             </span>}
         </div>
         <ul>
