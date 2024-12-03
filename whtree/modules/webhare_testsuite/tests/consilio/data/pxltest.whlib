@@ -1,25 +1,19 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 
 
-PUBLIC STRING ARRAY FUNCTION TestInvoke_GetPxlLogFiles(STRING id, STRING rangestart)
+PUBLIC STRING ARRAY FUNCTION TestInvoke_GetPxlLogFiles(STRING sessionid, STRING rangestart)
 {
-  RETURN FilterRecentHits(id, MakeDateFromText(rangestart));
+  RETURN FilterRecentHits(sessionid, MakeDateFromText(rangestart));
 }
 
 // Borrowed from mod::system/lib/internal/cache/imgcache.whlib
-STRING ARRAY FUNCTION FilterRecentHits(STRING event, DATETIME rangestart)
+STRING ARRAY FUNCTION FilterRecentHits(STRING sessionid, DATETIME rangestart)
 {
-  // Regex for the requested event
-  OBJECT scanregex := NEW RegEx(`[^?]*?.*\\bpe=${EncodeUrl(event)}\\b`);
-
-  // Wait for access log to catch up
-  Sleep(5000);
-
   OBJECT accesslog := OpenWebHareLogStream("pxl", rangestart, GetCurrentDateTime());
   STRING ARRAY lines;
   WHILE (TRUE)
@@ -27,18 +21,9 @@ STRING ARRAY FUNCTION FilterRecentHits(STRING event, DATETIME rangestart)
     RECORD row := accesslog->ReadRecord();
     IF (NOT RecordExists(row))
       BREAK;
-    IF (row.method != "HEAD")
-      CONTINUE;
 
-    // Simple heuristic to avoid expensive regex calls
-    IF (row.url NOT LIKE "*pe=*")
-      CONTINUE;
-
-    RECORD ARRAY scanres := scanregex->Exec(row.url);
-
-    IF (NOT RecordExists(scanres))
-      CONTINUE;
-    INSERT row.url INTO lines AT END;
+    IF(GetVariableFromURL(row.url,"ps") = sessionid)
+      INSERT row.url INTO lines AT END;
   }
   RETURN lines;
 }
