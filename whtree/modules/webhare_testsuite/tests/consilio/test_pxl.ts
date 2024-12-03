@@ -197,6 +197,9 @@ test.run([
     test.throws(/'bigint'.*'b'/, () => sendPxl("webhare_testsuite:nobiggy", { b: 12n }));
     sendPxl("webhare_testsuite:aa", { s: "string", n: 1, b: true });
     sendPxl("webhare_testsuite:event", {}); //TODO would be nice to define a way to not send data at all with an event
+    //FIXME want to reject this too - but & PxlData prevents that
+    sendPxl("webhare_testsuite:aa", { s: "string", superfluous: 123 });
+
     //To get rid of any type checking
     void await new Promise<void>(resolve => sendPxl<PxlData>("webhare_testsuite:unregistered", {}, { onComplete: resolve }));
 
