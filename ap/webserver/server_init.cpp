@@ -95,7 +95,7 @@ struct LogLineBuilder
         }
         void AppendQuotedString(std::string const &value, unsigned maxlen)
         {
-                AppendQuotedString(value.begin(),std::min(value.end(),value.begin() + maxlen));
+                AppendQuotedString(value.begin(), value.size() <= maxlen ? value.end() : value.begin() + maxlen);
         }
 
         /// Append a date
