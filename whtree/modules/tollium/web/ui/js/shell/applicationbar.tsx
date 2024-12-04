@@ -38,11 +38,7 @@ class ApplicationTab {
           "contextmenu": event => this.onTabContextMenu(event),
           "click": event => this.onTabClick(event)
         }}>
-        {this.icon = <ToddImage image={app.appicon || 'tollium:tollium/tollium'}
-          width={app.appiconwidth || 16}
-          height={app.appiconheight || 16}
-          color="w"
-          className="t-apptab__icon" />}
+        {this.icon = toddImages.createImage(app.appicon || 'tollium:tollium/tollium', app.appiconwidth || 16, app.appiconheight || 16, "w", { className: "t-apptab__icon" })}
         {this.close = <span className="t-apptab__close" />}
         {this.title = <span title={app.title} className="t-apptab__title">{app.title}</span>}
         <span className="t-apptab__dirty" title={getTid("tollium:shell.appdirty")} />

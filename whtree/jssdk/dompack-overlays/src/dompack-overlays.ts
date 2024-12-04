@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/dompack-overlays" {
 }
@@ -9,29 +6,33 @@ import * as dompack from "dompack";
 import Keyboard from 'dompack/extra/keyboard';
 import * as movable from 'dompack/browserfix/movable';
 
+type OverlayRect = { left: number; top: number; right: number; bottom: number };
+
+interface OverlayManagerOptions {
+  bounds: null | OverlayRect;
+  allowcreate: boolean;
+  autoselectdrawnoverlays: boolean;
+}
+
 export class OverlayManager {
   holder;
+  options: OverlayManagerOptions;
+  dragcreateinfo: { x: number; y: number; overlay: ResizeableOverlayRectangle | null } | null = null;
+  overlays: ResizeableOverlayRectangle[] = [];
 
-  constructor(container: HTMLElement, classname: string, options) {
+  constructor(container: HTMLElement, public readonly classname: string, options: Partial<OverlayManagerOptions>) {
     if (!container)
       throw new Error("No container specified");
     if (!classname)
       throw new Error("No className specified");
 
-    this.options = { bounds: null, autoselectdrawnoverlays: true, ...options };
+    this.options = { allowcreate: false, bounds: null, autoselectdrawnoverlays: true, ...options };
 
     this.holder = container;
-    this.classname = classname;
-    this.overlays = [];
-    this.dragcreateinfo = null;
 
-    this._boundDragStart = this._onDragStart.bind(this);
-    this._boundDragMove = this._onDragMove.bind(this);
-    this._boundDragEnd = this._onDragEnd.bind(this);
-
-    container.addEventListener("dompack:movestart", this._boundDragStart);
-    container.addEventListener("dompack:move", this._boundDragMove);
-    container.addEventListener("dompack:moveend", this._boundDragEnd);
+    container.addEventListener("dompack:movestart", this._onDragStart);
+    container.addEventListener("dompack:move", this._onDragMove);
+    container.addEventListener("dompack:moveend", this._onDragEnd);
 
     new Keyboard(container,
       {
@@ -42,9 +43,9 @@ export class OverlayManager {
   }
 
   destroy() {
-    this.holder.removeEventListener("dompack:movestart", this._boundDragStart);
-    this.holder.removeEventListener("dompack:move", this._boundDragMove);
-    this.holder.removeEventListener("dompack:moveend", this._boundDragEnd);
+    this.holder.removeEventListener("dompack:movestart", this._onDragStart);
+    this.holder.removeEventListener("dompack:move", this._onDragMove);
+    this.holder.removeEventListener("dompack:moveend", this._onDragEnd);
 
     // FIXME: it isn't safe to cleanup moveable (it's mousedown event)
     //        because whe'd kill moveable's functionality for others too which activated moveable on that container
@@ -56,7 +57,7 @@ export class OverlayManager {
       overlay.remove();
   }
 
-  _onDragStart(e) {
+  _onDragStart = (e: movable.DompackMoveEvent) => {
     e.stopPropagation();
     if (!this.options.allowcreate) {
       e.preventDefault();
@@ -70,9 +71,9 @@ export class OverlayManager {
       y: e.detail.clientY - bounds.top,
       overlay: null
     };
-  }
+  };
 
-  _onDragMove(e) {
+  _onDragMove = (e: movable.DompackMoveEvent) => {
     e.stopPropagation();
 
     if (!this.dragcreateinfo)
@@ -107,9 +108,9 @@ export class OverlayManager {
       this.dragcreateinfo.overlay = new ResizeableOverlayRectangle(this, area);
     } else
       this.dragcreateinfo.overlay.update(area);
-  }
+  };
 
-  _onDragCancel(e) {
+  _onDragCancel(e: Event) {
     if (this.dragcreateinfo) {
       movable.cancelMove();
       e.stopPropagation();
@@ -117,12 +118,12 @@ export class OverlayManager {
     }
   }
 
-  _onDragEnd(e) {
+  _onDragEnd = (e: movable.DompackMoveEvent) => {
     e.stopPropagation();
     this._finishCreateDrag(true);
-  }
+  };
 
-  _finishCreateDrag(commit) {
+  _finishCreateDrag(commit: boolean) {
     if (!this.dragcreateinfo)
       return;
 
@@ -149,7 +150,7 @@ export class OverlayManager {
     this.dragcreateinfo = null;
   }
 
-  _fireOverlayChange(useraction) {
+  _fireOverlayChange(useraction: boolean) {
     dompack.dispatchCustomEvent(this.holder, "dompack:overlay-areachange",
       {
         bubbles: true,
@@ -158,13 +159,13 @@ export class OverlayManager {
       });
   }
 
-  addRectangle(options) {
+  addRectangle(options: RectangleDimensions) {
     const newoverlay = new ResizeableOverlayRectangle(this, options);
     this.overlays.push(newoverlay);
     return newoverlay;
   }
 
-  delete(overlay) {
+  delete(overlay: ResizeableOverlayRectangle) {
     const idx = this.overlays.indexOf(overlay);
     console.info("overlay deleted from OverlayManager");//, idx, overlay["overlay-data"].rowkey);
 
@@ -174,7 +175,7 @@ export class OverlayManager {
     }
   }
 
-  updateOptions(options) {
+  updateOptions(options: Partial<OverlayManagerOptions>) {
     Object.assign(this.options, options);
   }
 
@@ -182,7 +183,7 @@ export class OverlayManager {
     return this.overlays.filter(overlay => overlay.selected);
   }
 
-  setSelection(selection, { uaeraction: useraction = false } = {}) {
+  setSelection(selection: ResizeableOverlayRectangle[], { useraction = false } = {}) {
     let anychange = false;
 
     this.overlays.forEach(overlay => {
@@ -207,37 +208,46 @@ FIXME: ignore right click
 FIXME: support for touch devices
 */
 
+type RectangleDimensions = {
+  left?: number;
+  top?: number;
+  right?: number;
+  bottom?: number;
+  width?: number;
+  height?: number;
+};
+
 class ResizeableOverlayRectangle { //we may export these separately in the future, but not sure yet why
   selected = false;
-  overlaymgr;
+  classname;
+  deleted = false;
+  options;
+  dragging = false; // when in dragging mode, the temporary drag coordinates/sizes must be used by the redraw function
+  rect: OverlayRect;
+  rect_temp: OverlayRect;
+  contentnode: HTMLDivElement | null = null;
 
-  constructor(overlaymgr: OverlayManager, options) {
+  constructor(public overlaymgr: OverlayManager, options: RectangleDimensions) {
     if (!overlaymgr)
       throw new Error("No container node specified");
 
-    if (typeof options.width === "undefined")
-      options.width = options.right - options.left + 1;
-    if (typeof options.height === "undefined")
-      options.height = options.bottom - options.top + 1;
+    if (typeof options.width === "undefined" && typeof options.right !== "undefined" && typeof options.left !== "undefined")
+      options.width = options.right! - options.left + 1;
+    if (typeof options.height === "undefined" && typeof options.bottom !== "undefined" && typeof options.top !== "undefined")
+      options.height = options.bottom! - options.top + 1;
 
-    this.overlaymgr = overlaymgr;
     this.classname = overlaymgr.classname;
-    this.deleted = false;
     this.options = {
       enabled: true,   // option not implemented yet
       top: 0,
       left: 0,
       width: 100,
       height: 100,
-      //, minwidth:  40     // min size (also usefull to prevent overlay accidently becoming so small it's hard to edit)
-      //, minheight: 40
 
       bounds: null,   // pass the reference to an object with { x: 0, y: 0, width: , height: } or leave null to have no bounds
       ...options
     };
     //console.log("ResizeableOverlay options", this.options);
-
-    this.dragging = false; // when in dragging mode, the temporary drag coordinates/sizes must be used by the redraw function
 
     this.rect = {
       left: this.options.left,
@@ -248,7 +258,7 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
 
     // This is a temporary state which the overlay has which has the position the overlay will have if the drag is finalized
     // (and not canceled using ESQ)
-    this.rect_temp = null; //{ x: 0, y: 0, width: 0, height: 0 };
+    this.rect_temp = { ...this.rect };
 
     this._createDOM();
     this._addListeners();
@@ -276,6 +286,14 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     return this.contentnode;
   }
 
+  nodes!: {
+    container: HTMLElement;
+    dragger_nw: HTMLElement;
+    dragger_sw: HTMLElement;
+    dragger_ne: HTMLElement;
+    dragger_se: HTMLElement;
+  };
+
   _createDOM() {
     this.nodes =
     {
@@ -302,12 +320,11 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
   }
 
   _addListeners() {
-    //this.nodes.container.addEventListener("touchstart", this._doActivateSelectedMode.bind(this));
     this.nodes.container.addEventListener("focusin", this.onFocusIn);
 
-    this.nodes.container.addEventListener("dompack:movestart", this._onDragStart.bind(this));
-    this.nodes.container.addEventListener("dompack:move", this._onDragMoveOverlay.bind(this));
-    this.nodes.container.addEventListener("dompack:moveend", this._onDragEnd.bind(this));
+    this.nodes.container.addEventListener("dompack:movestart", this._onDragStart);
+    this.nodes.container.addEventListener("dompack:move", this._onDragMoveOverlay);
+    this.nodes.container.addEventListener("dompack:moveend", this._onDragEnd);
 
     new Keyboard(this.nodes.container
       , {
@@ -337,38 +354,38 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
       });
   }
 
-  /** @short if specified area is a change, the changed will be used and an overlay change event will be fired
+  /** if specified area is a change, the changed will be used and an overlay change event will be fired
   */
-  _setNewAreaAndFireOverlayChange(area, useraction) {
+  _setNewAreaAndFireOverlayChange(area: OverlayRect, useraction: boolean) {
     if (this.rect.left === area.left
       && this.rect.top === area.top
-      && (this.rect.right - this.rect.left) === area.width
-      && (this.rect.bottom - this.rect.top) === area.height)
+      && this.rect.right === area.right
+      && this.rect.bottom === area.bottom)
       return; // no change, so nothing to do
 
-    this.rect = area;
+    this.rect = { ...area };
     this.overlaymgr._fireOverlayChange(useraction);
   }
 
-  _moveBy(movex, movey) {
+  _moveBy(movex: number, movey: number) {
     this._refresh();
 
     const newrect = this._getMovedRect(this.rect, movex, movey);
     this._setNewAreaAndFireOverlayChange(newrect, true);
   }
 
-  /** @return a new object with the new coordinates
+  /** @returns a new object with the new coordinates
   */
-  _getMovedRect(rect, movex, movey) {
+  _getMovedRect(rect: OverlayRect, movex: number, movey: number) {
     const cr = { ...rect };
     //console.info(cr);
     this._updateRectMovedBy(cr, movex, movey);
     return cr;
   }
 
-  /** @return the object specified in the parameters, but the left/top properties will have been updated
+  /** @returns the object specified in the parameters, but the left/top properties will have been updated
   */
-  _updateRectMovedBy(rect, movex, movey) {
+  _updateRectMovedBy(rect: OverlayRect, movex: number, movey: number) {
     // with bounds just try to snap to the edge
     // (no going beyond the bounds are shrinking the overlay's size)
     if (this.overlaymgr.options.bounds) {
@@ -437,7 +454,7 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     this.overlaymgr._fireOverlayChange(true);
   }
 
-  _clampRectWithinBounds(rect) {
+  _clampRectWithinBounds(rect: OverlayRect) {
     //console.log("before", rect);
 
     // FIXME: either allow dragging a corner over another OR have a min width/height and force to user to drag the other corner
@@ -496,11 +513,11 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
       this.overlaymgr.setSelection([this], { useraction: true });
   };
 
-  _doActivateSelectedMode(evt) {
+  _doActivateSelectedMode() {
     this.overlaymgr.setSelection([this], { useraction: true });
   }
 
-  _onDragStart(evt) {
+  _onDragStart = (evt: movable.DompackMoveEvent) => {
     this._doActivateSelectedMode();
 
     this.rect_temp = { ...this.rect };
@@ -510,15 +527,15 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
 
     // Explicit focus, because dompack:movestart will prevent default. Focus is necessary for keyboard handling
     this.focus();
-  }
+  };
 
   // dragging started on the overlay container will move the whole overlay
-  _onDragMoveOverlay(evt) {
+  _onDragMoveOverlay = (evt: movable.DompackMoveEvent) => {
     /*
     DOMPACK movable is too primitive and cannot handle overlapping drag areas,
     we must detect the source of the drag ourselves
     */
-    if (evt.target.classList.contains(`${this.classname}__dragger`)) {
+    if ((evt.target as HTMLElement)?.classList.contains(`${this.classname}__dragger`)) {
       this._onDragCorner(evt);
       return;
     }
@@ -529,12 +546,12 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
 
     this._refresh();
     evt.stopPropagation();
-  }
+  };
 
-  _onDragCorner(evt) {
+  _onDragCorner = (evt: movable.DompackMoveEvent) => {
     //console.log(evt.detail.movedX, evt.detail.movedY);
-    const left = evt.target.classList.contains(`${this.classname}__dragger--nw`) || evt.target.classList.contains(`${this.classname}__dragger--sw`);
-    const top = evt.target.classList.contains(`${this.classname}__dragger--nw`) || evt.target.classList.contains(`${this.classname}__dragger--ne`);
+    const left = (evt.target as HTMLElement)?.classList.contains(`${this.classname}__dragger--nw`) || (evt.target as HTMLElement)?.classList.contains(`${this.classname}__dragger--sw`);
+    const top = (evt.target as HTMLElement)?.classList.contains(`${this.classname}__dragger--nw`) || (evt.target as HTMLElement)?.classList.contains(`${this.classname}__dragger--ne`);
 
     if (left)
       this.rect_temp.left = this.rect.left + evt.detail.movedX;
@@ -549,9 +566,9 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     this._clampRectWithinBounds(this.rect_temp);
     this._refresh();
     evt.stopPropagation();
-  }
+  };
 
-  _onDragCancel(evt) {
+  _onDragCancel(evt: Event) {
     console.log("_onDragCancel");
     if (this.dragging) {
       movable.cancelMove();
@@ -561,7 +578,7 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     }
   }
 
-  _onDragEnd(evt) {
+  _onDragEnd = (evt: movable.DompackMoveEvent) => {
     this.dragging = false;
 
     const newrect = { ...this.rect_temp };
@@ -569,14 +586,14 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
 
     // finalize/store the new position
     this.rect = newrect;
-  }
+  };
 
-  update(options) {
+  update(options: RectangleDimensions) {
     options = { ...options };
-    if (typeof options.width === "undefined")
-      options.width = options.right - options.left + 1;
-    if (typeof options.height === "undefined")
-      options.height = options.bottom - options.top + 1;
+    if (typeof options.width === "undefined" && typeof options.right !== "undefined" && typeof options.left !== "undefined")
+      options.width = options.right! - options.left + 1;
+    if (typeof options.height === "undefined" && typeof options.bottom !== "undefined" && typeof options.top !== "undefined")
+      options.height = options.bottom! - options.top + 1;
 
     Object.assign(this.options, options);
 
@@ -590,10 +607,10 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     this._refresh();
   }
 
-  deleteSelf(evt) {
+  deleteSelf(evt: Event) {
     //console.log("User 'del' on: ",this, this["overlay-data"].rowkey);
 
-    const result = dompack.dispatchCustomEvent(this.nodes.container, "dompack:overlay-deleted",
+    dompack.dispatchCustomEvent(this.nodes.container, "dompack:overlay-deleted",
       {
         bubbles: true,
         cancelable: false,
@@ -608,17 +625,11 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
   }
 
   remove() {
-    //console.log("ResizeableOverlayRectangle:remove()", this.overlaymgr.holder, this.nodes.container);
-
-    //this.overlaymgr.holder.removeChild(this.nodes.container);
-
     const pn = this.nodes.container.parentNode;
     if (pn) {
       this.nodes.container.innerHTML = "DELETED";
       pn.removeChild(this.nodes.container);
     }
-    //else
-    //  console.error("Removing overlay which already has been removed from the DOM");
   }
 
   focus() {
