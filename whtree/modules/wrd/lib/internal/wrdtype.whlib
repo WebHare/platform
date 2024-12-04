@@ -1124,7 +1124,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           BREAK;
         testtype := SELECT AS INTEGER parenttype FROM wrd.types WHERE id = testtype;
         IF (testtype = 0)
-          THROW NEW Exception("The domain of a domain attribute can only be changed to a parent type of the current domain");
+          THROW NEW Exception(`The domain of domain attribute '${this->tag}:${tag}' can only be changed to a parent type of its current domain '${this->wrdschema->GetTypeById(attr.domain)->tag}', not to '${this->wrdschema->GetTypeById(newsettings.domain)->tag}'`);
       }
       INSERT CELL domain := newsettings.domain INTO toset;
     }

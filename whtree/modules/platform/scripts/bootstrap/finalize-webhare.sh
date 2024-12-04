@@ -49,7 +49,7 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
-rm -rf "$WEBHARE_HSBUILDCACHE" # Mostly useful on dev machines so the direct__ check later doesn't fail you
+rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
 (
   cd "$WEBHARE_DIR/modules" ;
   # shellcheck disable=SC2207,SC2010

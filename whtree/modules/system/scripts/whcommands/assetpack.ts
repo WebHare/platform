@@ -55,7 +55,7 @@ program.command("compile")
   .option('--development', 'force development compile')
   .option("--onlyfailed", "Only recompile failed asset packs")
   .action(async (assetpacks, options) => {
-    if ((options.development || options.production) && !options.froreground)
+    if ((options.development || options.production) && !options.foreground)
       throw new Error("Cannot specify --development or --production without --foreground");
 
     if (options.foreground) {

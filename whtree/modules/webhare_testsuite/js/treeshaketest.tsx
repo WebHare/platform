@@ -1,12 +1,14 @@
 /* Also test .tsx doesn't introduce additional surprises
-   To verify the result, make sure treeshaketest is in PROD mode and go to whdata/publisher.ap/webhare_testsuite.treeshaketest
+   To verify the result:
+      wh assetpack compile --foreground --production  webhare_testsuite:treeshaketest
+      ls -l $(wh getdatadir)/generated/platform/ap/webhare_testsuite.treeshaketest/
    verify the MJS and CSS files
 */
 import "@webhare/dompack";
-// import "@webhare/forms";
+// import "@webhare/forms"; //TODO include!
 import "@webhare/frontend";
 import "@webhare/gettid";
-// import "@webhare/image-edit";
+// import "@webhare/image-edit"; //TODO include!
 import "@webhare/js-api-tools";
 import "@webhare/jsonrpc-client";
 import "@webhare/std";
