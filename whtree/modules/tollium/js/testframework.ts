@@ -245,7 +245,7 @@ function clickTolliumButton(toddbuttontitle) {
     throw new Error(`No button titled '${toddbuttontitle}'`);
   test.click(button);
 }
-function testClickTolliumButton(toddbuttontitle, options, _deprecated_waits?) {
+function testClickTolliumButton(toddbuttontitle, options?, _deprecated_waits?) {
   options = typeof options === "string" ? { name: options } : { ...options };
   if (_deprecated_waits)
     options.waits = _deprecated_waits;
