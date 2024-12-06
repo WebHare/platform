@@ -215,19 +215,6 @@ export function eqFloat(expected: number, actual: number, delta: number, explana
   whtest.eq(expected, actual);
 }
 
-export function findElementWithText(doc: Document | HTMLElement | null, tagname: string, text: string) {
-  const els = (doc || getDoc()).querySelectorAll(tagname);
-  for (let i = 0; i < els.length; ++i)
-    if (els[i].textContent === text)
-      return els[i];
-  return null;
-}
-
-/// Returns a promise for when all gestures have been processed
-export function gesturesDone(): Promise<void> {
-  return new Promise<void>(resolve => (window as Window & typeof globalThis & { waitForGestures(callback: () => void): void }).waitForGestures(resolve));
-}
-
 export function dragTransition(pos: number) {
   // Decelerate more than accelerate
   const transition = (p: number) => Math.pow(p, 2);
