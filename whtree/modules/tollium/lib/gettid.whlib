@@ -119,7 +119,7 @@ VARIANT FUNCTION ParseTextNode(OBJECT part)
   {
     SWITCH(localname)
     {
-      CASE "b", "i"  , "u"  , "li" , "ul" , "ol"
+      CASE "b", "i", "u"
       {
         RETURN CELL[ t := "tag"
                    , tag := localname

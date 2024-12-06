@@ -64,9 +64,6 @@ function parseTextNode(node: Node): LanguagePart {
       case "b":
       case "i":
       case "u":
-      case "li":
-      case "ul":
-      case "ol":
         return {
           t: "tag",
           tag: localname,
