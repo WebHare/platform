@@ -803,7 +803,39 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
   PUBLIC OBJECT FUNCTION __GetFormMember(STRING name)
   {
-    RETURN GetMember(this, "^" || name);
+    /* TODO Turns out we also get invoked if a form randomly makes up fieldnames
+       with type=email, eg https://gitlab.webhare.com/utwente/utwente_base/-/issues/2589#note_222674
+
+       We may need to explicitly mark email fields that actual support/have any form of server side validation
+       to prevent us from calling out. Or explictly set a data-form-validator-rpc with eg the serverside field name
+       which is just a generic form hint 'this may require immediate server side validation' and we can also offer
+       that to 'plain' field types
+
+        For now, we'll never THROW but return DEFAULT OBJECTs for that case
+       */
+    IF(name LIKE "*.*.*")
+    {
+      //TODO I don't think we have a server-side generic getmember informs ? this assumes 'contacts.0.email' syntax
+      STRING ARRAY toks := Tokenize(name,'.');
+      OBJECT target := GetMember(this, "^" || toks[0]);
+      toks := ArraySlice(toks,1);
+
+      WHILE(Length(toks) > 0)
+      {
+        //We assume toks[0] is the array index and toks[1] the actual array member. TODO perhaps verify it's actually an arrayfield at the toplevel we're dealing with?
+        IF(Length(toks) = 1) //just one member
+          RETURN DEFAULT OBJECT;
+
+        IF(NOT MemberExists(target, "^" || toks[1]))
+          RETURN DEFAULT OBJECT;
+
+        target := GetMember(target, "^" || toks[1]);
+        toks := ArraySlice(toks,2);
+      }
+      RETURN target;
+    }
+
+    RETURN MemberExists(this, "^" || name) ? GetMember(this, "^" || name) : DEFAULT OBJECT;
   }
 
   PUBLIC RECORD FUNCTION __FormDoInvoke(STRING methodname, VARIANT ARRAY args)

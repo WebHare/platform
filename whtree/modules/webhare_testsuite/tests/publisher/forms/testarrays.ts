@@ -80,6 +80,9 @@ test.registerTests(
       test.fill("input[name=text]", "still not array");
       test.fill(test.qS(".wh-form__arrayrow input[type=text]")!, "array name");
 
+      // Set email to check especially server side email validation
+      test.fill(test.qS(".wh-form__arrayrow input[type=email]")!, "klaasje@beta.webhare.net");
+
       //Set select option
       test.fill(test.qS(".wh-form__arrayrow select")!, "2");
 
@@ -151,6 +154,21 @@ test.registerTests(
 
       test.click("button[type=submit]");
       await test.wait("ui");
+
+      test.eqPartial({
+        value: {
+          "contacts":
+            [
+              {
+                "email": "klaasje@beta.webhare.net",
+                "name": "array name",
+              }, {
+                "email": "",
+                "name": "another name"
+              }
+            ]
+        }
+      }, JSON.parse(test.qR("#dynamicformsubmitresponse").textContent!));
     },
 
     {

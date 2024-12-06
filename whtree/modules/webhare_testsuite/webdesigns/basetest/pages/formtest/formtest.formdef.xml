@@ -363,6 +363,7 @@
       <array name="contacts" max="2" min="1" title="Contacts">
         <hidden name="row_uid" title="Row UID" />
         <textedit name="name" required="true" title="Name" />
+        <textedit name="email" validationchecks="email" title="Email" />
         <imgedit name="photo" title="Photo" />
         <upload name="upload" title="Upload" />
         <select name="gender" type="pulldown" rowkeytype="integer" title="Gender" />
