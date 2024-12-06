@@ -456,8 +456,8 @@ class TestFramework {
     result = result.finally(function () { test.finished = true; });
 
     // If we're in report mode, swallow any errors from loading the iframe / test registration
-    // if (this.reportid)
-    //   result = result.catch(function (e) { console.error('Swallowed exception', e); });
+    if (this.reportid)
+      result = result.catch(function (e) { console.error('Swallowed exception', e); });
 
     return result;
   }
@@ -668,7 +668,14 @@ class TestFramework {
     const lognode = this.log("Location: computing...");
 
     test.fails = (test.fails || []);
-    const failrecord = { stepname: fullname, stepnr: this.currentstep, text: text, e: String(e || ''), stack: (e && e instanceof Error && e.stack) as string ?? "", lognode };
+    const failrecord = {
+      stepname: fullname,
+      stepnr: this.currentstep,
+      text: text,
+      e: String(e || ''),
+      stack: (isError(e) ? e.stack : "") ?? "",
+      lognode
+    };
     test.fails.push(failrecord);
     this.updateTestState();
     this.lastlognodes = [];
