@@ -429,7 +429,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
 
   getFocusTarget(): HTMLElement | null {
     //ignoreInertAttribute:: getFocusTarget needs to work on disabled screens to support server-side focus setting (The dialog might not be active then)
-    return domfocus.getFocusableComponents(this.node)[0] ?? (this.node && domfocus.canFocusTo(this.node, { ignoreInertAttribute: true }) ? this.node : null);
+    return domfocus.getFocusableComponents(this.node, { ignoreInertAttribute: true })[0] ?? (this.node && domfocus.canFocusTo(this.node, { ignoreInertAttribute: true }) ? this.node : null);
   }
 
   hasfocus() {

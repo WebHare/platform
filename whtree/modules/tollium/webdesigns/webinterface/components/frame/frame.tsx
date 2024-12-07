@@ -232,7 +232,6 @@ export default class Frame extends ToddCompBase {
 
     this.node.addEventListener("dompack:takefocus", evt => this.onTakeFocus(evt));
     this.node.addEventListener("focusin", evt => this.onFocusIn(evt));
-    this.node.addEventListener("focusout", evt => this.onFocusOut(evt));
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
@@ -288,18 +287,6 @@ export default class Frame extends ToddCompBase {
         comp.queueMessage("focusin", {});
     }
     this.focusedcomponentnames = new_focusedcomponentnames;
-  }
-
-  private onFocusOut(evt: FocusEvent) {
-    if (!evt.relatedTarget && document.activeElement === document.body && evt.target) {
-      //this is the focus jumping to an iframe. prevent that
-      if (debugFlags["tollium-focus"])
-        console.log(`[tollium-focus] Preventing focus theft, returning it to %o`, evt.target);
-      (evt.target as HTMLElement)?.focus();
-    } else if (!evt.relatedTarget || !this.node.contains(evt.relatedTarget as Node)) {
-      if (debugFlags["tollium-focus"])
-        console.log(`[tollium-focus] Losing focus from %o to %o`, evt.target, evt.relatedTarget);
-    }
   }
 
   _updateDefaultButton(activenode: HTMLElement) {
@@ -998,6 +985,7 @@ export default class Frame extends ToddCompBase {
   rebuildContentNode() {
     const newnodes = [this.menubarnode, this.toolbar ? this.toolbar.getNode() : null, this.bodynode?.getNode()].filter(isTruthy);
     this.nodes.contentnode.replaceChildren(...newnodes);
+    this.updateFocusable(); //repair focus if it was inside us (but now replaced)
   }
 
   /****************************************************************************************************************************
@@ -1285,7 +1273,7 @@ export default class Frame extends ToddCompBase {
     this.destroy();
   }
 
-  updateFocusable() { //ADDME 'inert' would make our lives easier once browsers start implementing it
+  updateFocusable() {
     this.node.inert = !this.active || !this.displayapp?.isActiveApplication() || this.displayapp?.isBusy();
     if (this.node.inert)
       return;  //we're not in browser focus

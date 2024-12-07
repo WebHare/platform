@@ -6,7 +6,6 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import ObjText from '../text/text';
 
 import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
-import * as domscroll from 'dompack/browserfix/scroll';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type ObjPanel from '../panel/panel';
 
@@ -652,14 +651,7 @@ export default class ObjTabs extends ComponentBase {
     if (this.tabtype !== "regular")
       return;
 
-    // Keeps left side of node in view with 50px context, works nice
-    domscroll.scrollToElement(
-      this.selected.labelnode,
-      {
-        limitnode: this.nodes.nav,
-        allownodes: [this.nodes.nav],
-        context: "0 50px"
-      });
+    this.selected.labelnode?.scrollIntoView();
 
     this.navscroll.left = this.nodes.nav.scrollLeft;
     this.nodes["nav-left"].classList.toggle('show', this.navscroll.left > 0);

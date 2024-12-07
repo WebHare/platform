@@ -3,11 +3,11 @@
 
 import * as dompack from 'dompack';
 import * as domevents from '../src/events';
-import * as domscroll from '../browserfix/scroll';
 import * as domfocus from "../browserfix/focus";
 import { getName, getPlatform } from "../extra/browser";
 import { qSA } from '@webhare/test-frontend';
 import { SimulatedFileSystemFileEntry, type RawDragItem } from './filesystem';
+import { getRelativeBounds } from "@webhare/dompack";
 
 const default_mousestate =
 {
@@ -499,7 +499,11 @@ function _processPartPositionTarget(part: MouseGesture) {
     position = getPartPosition(part);
 
     // Make sure requested point is in view, and recalculate the client position
-    domscroll.scrollToElement(part.el, { x: position.relx, y: position.rely });
+    if (!canClick(part.el, { x: part.relx, y: part.rely })) {
+      // console.log("scrolling into view", part, getRelativeBounds(part.el));
+      part.el.scrollIntoView();
+    }
+
     position = getPartPosition(part);
     //console.log("We think el",part.el,"is at",position.x,position.y);
   } else // apply relx/rely to the coordinates at the start of the part execution

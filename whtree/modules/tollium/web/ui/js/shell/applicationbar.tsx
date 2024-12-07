@@ -4,7 +4,6 @@
 import * as dompack from 'dompack';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
-import * as domscroll from 'dompack/browserfix/scroll';
 const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 const toddImages = require("@mod-tollium/js/icons");
 import { getTid } from "@mod-tollium/js/gettid";
@@ -39,7 +38,10 @@ class ApplicationTab {
           "click": event => this.onTabClick(event)
         }}>
         {this.icon = toddImages.createImage(app.appicon || 'tollium:tollium/tollium', app.appiconwidth || 16, app.appiconheight || 16, "w", { className: "t-apptab__icon" })}
-        {this.close = <span className="t-apptab__close" />}
+        {this.close = <span className="t-apptab__close" onMousedown={
+          //prevent taking focus when the closer is clicked. this mirrors current Tollium behavior and is tested by testappbar
+          (evt: Event) => evt.preventDefault()
+        } />}
         {this.title = <span title={app.title} className="t-apptab__title">{app.title}</span>}
         <span className="t-apptab__dirty" title={getTid("tollium:shell.appdirty")} />
       </div>;
@@ -361,17 +363,7 @@ export default class ApplicationBar {
       this.apps[appidx].root.classList.add("t-apptab--activeapp");
 
       // Scroll to active node
-      try {
-        domscroll.scrollToElement(
-          this.apps[appidx].root,
-          {
-            limitnode: this.node,
-            allownodes: [this.dyn_content_node],
-            context: "0 50px"
-          });
-      } catch (e) {
-        console.warn("scrolltoelement fail", e);
-      }
+      this.apps[appidx].root.scrollIntoView();
       this.scrollstate = null;
 
       this._resize();
