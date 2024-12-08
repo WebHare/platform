@@ -96,7 +96,7 @@ export default class ListView {
   listbodyholder: HTMLDivElement | null = null;
   listinsertline: HTMLDivElement | null = null;
 
-  datacolumns = new Array<WrappedDataColumn>;
+  lv_datacolumns = new Array<WrappedDataColumn>;
 
   selectedidx = 0; // index of the cell containing the selected state
   expandedidx = 0;
@@ -106,7 +106,6 @@ export default class ListView {
 
   constructor(public node, datasource, options) {
     this.listcount = 0;
-    this.vscroll_width = null; // null means it's not defined
     // 0 means the scrollbar is an overlay, not taking any space
     // >0 takes space next to the content which can be scrolled
 
@@ -118,7 +117,7 @@ export default class ListView {
     this.numvisiblerows = 0; // amount of rows which can be visible (with the rowheight we have, which is calculated using the lineheight * linesperrow)
 
     // List of all footerrows
-    this.footerrows = [];
+    this.lv_footerrows = [];
 
     //Selected cell numbers
     this._selectedcellnumbers = [];
@@ -134,10 +133,10 @@ export default class ListView {
         - coupled_cols Set of column nrs (including current) that have their *left* splits coupled (moving together)
                 If this set includes 0, the split cannot be moved.
     */
-    this.cols = [];
+    this.lv_cols = [];
 
     // List of all source columns present (will be combined through rowlayout and mapped to the visible columns)
-    // cols & datacolumns for dragging
+    // cols & lv_datacolumns for dragging
     this.dragdatacolumns = [];
 
     this.istreeview = false;
@@ -145,8 +144,8 @@ export default class ListView {
     this.linepadding = 0;
     this.rowheight = 0; // READ-ONLY (calculated with this.options.lineheight * this.linesperrow + this.linepadding * 2)
     this.linesperrow = 1;
-    this.sortcolumn = null;
-    this.sortascending = true;
+    this.lv_sortcolumn = null;
+    this.lv_sortascending = true;
 
     this.dragrowheight = 0;
     this.draglinesperrow = 1;
@@ -250,7 +249,7 @@ export default class ListView {
   }
 
   getSelectedColumns() {
-    return this._selectedcellnumbers.map(nr => this.datacolumns[nr].src);
+    return this._selectedcellnumbers.map(nr => this.lv_datacolumns[nr].src);
   }
 
   setDataSource(newdatasource) {
@@ -457,13 +456,13 @@ export default class ListView {
   }
   //update column widths. although we accept the original columns structure, we'll only use the 'width' parameter
   setColumnsWidths(columns) {
-    if (columns.length !== this.cols.length)
+    if (columns.length !== this.lv_cols.length)
       throw new Error("updateColumnsWidths did not receive the number of columns expected");
 
     for (let i = 0; i < columns.length; ++i)
-      this.cols[i].width = columns[i].width;
+      this.lv_cols[i].width = columns[i].width;
 
-    this._refreshColCalculation(this.cols);
+    this._refreshColCalculation(this.lv_cols);
 
     this.applyColumnWidths();
   }
@@ -487,20 +486,20 @@ export default class ListView {
     return Math.floor(scrolltop / this.rowheight);
   }
   setSort(colidx, ascending) {
-    if (this.sortcolumn !== null) {
-      const hdrnode = this.datacolumns[this.sortcolumn].headernode;
+    if (this.lv_sortcolumn !== null) {
+      const hdrnode = this.lv_datacolumns[this.lv_sortcolumn].headernode;
       hdrnode.classList.remove('sortascending');
       hdrnode.classList.remove('sortdescending');
     }
-    this.sortcolumn = colidx;
-    this.sortascending = Boolean(ascending);
+    this.lv_sortcolumn = colidx;
+    this.lv_sortascending = Boolean(ascending);
 
-    if (this.sortcolumn !== null) {
-      const hdrnode = this.datacolumns[this.sortcolumn].headernode;
+    if (this.lv_sortcolumn !== null) {
+      const hdrnode = this.lv_datacolumns[this.lv_sortcolumn].headernode;
       if (hdrnode) {
         dompack.toggleClasses(hdrnode, {
-          sortascending: this.sortascending,
-          sortdescending: !this.sortascending
+          sortascending: this.lv_sortascending,
+          sortdescending: !this.lv_sortascending
         });
       }
     }
@@ -604,17 +603,17 @@ export default class ListView {
       dragrow: false
     };
 
-    this._renderRowContents(rowel, this.datacolumns, this.visiblerows[rownum]);
+    this._renderRowContents(rowel, this.lv_datacolumns, this.visiblerows[rownum]);
     if (rowel.parentNode !== this.listbody)
       this.listbody.appendChild(rowel);
-    this._applyRowColumnWidths(this.datacolumns, false, this.visiblerows[rownum]);
+    this._applyRowColumnWidths(this.lv_datacolumns, false, this.visiblerows[rownum]);
   }
 
   updateFooterRows(rowdata) {
-    const old_footerrows_count = this.footerrows.length;
+    const old_footerrows_count = this.lv_footerrows.length;
 
     rowdata.forEach((data, rownum) => {
-      const existingrow = this.footerrows.length > rownum ? this.footerrows[rownum] : null;
+      const existingrow = this.lv_footerrows.length > rownum ? this.lv_footerrows[rownum] : null;
 
       let rowel;
       if (existingrow && existingrow.node) {
@@ -638,23 +637,23 @@ export default class ListView {
         dragrow: false
       };
 
-      if (this.footerrows.length === rownum)
-        this.footerrows.push(rec);
+      if (this.lv_footerrows.length === rownum)
+        this.lv_footerrows.push(rec);
       else
-        this.footerrows[rownum] = rec;
+        this.lv_footerrows[rownum] = rec;
 
-      this._renderRowContents(rowel, this.datacolumns, rec);
+      this._renderRowContents(rowel, this.lv_datacolumns, rec);
       this.listfooter.appendChild(rowel);
-      this._applyRowColumnWidths(this.datacolumns, false, rec);
+      this._applyRowColumnWidths(this.lv_datacolumns, false, rec);
     });
 
-    // Remove extra footerrows
-    while (this.footerrows.length > rowdata.length) {
-      const recs = this.footerrows.splice(rowdata.length, 1);
+    // Remove extra lv_footerrows
+    while (this.lv_footerrows.length > rowdata.length) {
+      const recs = this.lv_footerrows.splice(rowdata.length, 1);
       recs[0].node.remove();
     }
 
-    if (this.footerrows.length !== old_footerrows_count) {
+    if (this.lv_footerrows.length !== old_footerrows_count) {
       // Reapply dimensions, must update body height
       this.applyDimensions();
     }
@@ -673,9 +672,9 @@ export default class ListView {
     const cellnr = Array.prototype.indexOf.call(rownode.childNodes, cellnode);
 
     let curcell = 0;
-    for (let i = 0; i < this.datacolumns.length; ++i) {
-      // Skip invisible datacolumns
-      if (this.datacolumns[i].x === -1)
+    for (let i = 0; i < this.lv_datacolumns.length; ++i) {
+      // Skip invisible lv_datacolumns
+      if (this.lv_datacolumns[i].x === -1)
         continue;
       // Match?
       if (curcell === cellnr)
@@ -685,8 +684,8 @@ export default class ListView {
     }
 
     // See if any handler owns this node
-    for (let i = 0; i < this.datacolumns.length; ++i) {
-      const handler = this.datacolumns[i].handler;
+    for (let i = 0; i < this.lv_datacolumns.length; ++i) {
+      const handler = this.lv_datacolumns[i].handler;
       if (handler && handler.ownsNode(cellnode))
         return i;
     }
@@ -694,11 +693,11 @@ export default class ListView {
     return -1;
   }
 
-  _renderRowContents(rowel, datacolumns, rowdata) {
+  _renderRowContents(rowel, lv_datacolumns, rowdata) {
     const isrowselected = rowdata.cells[this.selectedidx];
     let curcell = 0;
-    for (let i = 0; i < datacolumns.length; ++i) {
-      const col = datacolumns[i];
+    for (let i = 0; i < lv_datacolumns.length; ++i) {
+      const col = lv_datacolumns[i];
       if (col.x === -1)
         continue;
 
@@ -831,7 +830,7 @@ export default class ListView {
     if (this._columnselect) {
       if (this.cursorcol >= 0) { //we had a selected column.
 
-        this.cursorcol = Math.max(0, Math.min(this.cols.length - 1, this.cursorcol + distance));
+        this.cursorcol = Math.max(0, Math.min(this.lv_cols.length - 1, this.cursorcol + distance));
         this._selectedcellnumbers = [this.cursorcol];
         dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
         this.refreshSelectedRows();
@@ -972,7 +971,7 @@ export default class ListView {
         return;
       }
 
-      const column = this.datacolumns[cellnum]; // defined visual columns
+      const column = this.lv_datacolumns[cellnum]; // defined visual columns
       if (column.src && column.src.edittype === "textedit") {
         // If this an editable column, start editing if the current is already selected or not selectable at all
         const canselectrow = srcrow.options && srcrow.options.selectable;
@@ -1024,7 +1023,7 @@ export default class ListView {
   }
 
   _editCell(rownum, cellnum, cancel) {
-    const col = this.datacolumns[cellnum];
+    const col = this.lv_datacolumns[cellnum];
     if (col.handler) {
       const rowdata = this.visiblerows[rownum];
       let data = rowdata.cells[col.src.dataidx];
@@ -1060,7 +1059,7 @@ export default class ListView {
         "position": "absolute",
         "top": 0,
         "left": 0,
-        "width": this.cols[this.cols.length - 1].dragright + "px",
+        "width": this.lv_cols[this.lv_cols.length - 1].dragright + "px",
         "height": this.dragrowheight * rows.length + "px"
       });
     this.dragnode.className = 'dragbodyholder';
@@ -1226,7 +1225,7 @@ export default class ListView {
       // NOTE: this code would be a lot simpler if we stored a reference to the columnref and row in our cell node
       const column_nr = this._findDataColumnFromCellNode(rownode, cellnode);
       const row_nr = rownode.propRow;
-      const column = this.datacolumns[column_nr].src; // defined visual columns
+      const column = this.lv_datacolumns[column_nr].src; // defined visual columns
       const hintidx = column.hintidx;
 
       if (this.options.debug)
@@ -1235,7 +1234,7 @@ export default class ListView {
       if (hintidx > 0) {
         let hint;
         if (event.target.closest(".listfooterholder"))
-          hint = this.footerrows[row_nr].cells[hintidx];
+          hint = this.lv_footerrows[row_nr].cells[hintidx];
         else
           hint = this.visiblerows[row_nr].cells[hintidx];
 
@@ -1263,22 +1262,22 @@ export default class ListView {
 
     // Copy the original sizes
     this.draginfo.orgsizes.forEach((item, idx) => {
-      this.cols[idx].width = item.width;
+      this.lv_cols[idx].width = item.width;
     });
 
     // Adjust the sizes the columns that are adjacent to a coupled split
     this.draginfo.coupled_cols.forEach(idx => {
-      this.cols[idx - 1].width += move;
-      this.cols[idx].width -= move;
+      this.lv_cols[idx - 1].width += move;
+      this.lv_cols[idx].width -= move;
     });
 
     // Apply the new widths
-    this._refreshColCalculation(this.cols); // updated .left/.right/.dragleft/.dragright
+    this._refreshColCalculation(this.lv_cols); // updated .left/.right/.dragleft/.dragright
 
     this.applyHeaderColumnWidths();
     this.applyColumnWidths();
 
-    const widths = this.cols.map(item => item.width);
+    const widths = this.lv_cols.map(item => item.width);
     dompack.dispatchCustomEvent(this.node, "wh:listview-columnresize", { bubbles: true, cancelable: false, detail: { target: this, widths: widths } });
   }
 
@@ -1286,7 +1285,7 @@ export default class ListView {
     event.stopPropagation();
     // Get the info of the column right to the moved split
     const splitinfo = event.detail.listener.propWhUiListviewSplit;
-    const rightcol = this.cols[splitinfo.rightcolumn];
+    const rightcol = this.lv_cols[splitinfo.rightcolumn];
 
     // If the left split of column 0 is coupled to this column, this split isn't movable at all.
     if (rightcol.coupled_cols.indexOf(0) !== -1) {
@@ -1297,7 +1296,7 @@ export default class ListView {
     // Save the original widths and minwidths, plus some info we need in _applySplitMove
     this.draginfo = {
       lastpos: { x: event.detail.movedX, y: event.detail.movedY },
-      orgsizes: this.cols.map(function (item) {
+      orgsizes: this.lv_cols.map(function (item) {
         return {
           width: item.width,
           minwidth: item.minwidth,
@@ -1567,7 +1566,7 @@ export default class ListView {
     dompack.dispatchCustomEvent(this.node, "wh:listview-contextmenu", { bubbles: true, cancelable: false, detail: { originalevent: event } });
   }
   setupFromDatasource() {
-    this.datacolumns = [];
+    this.lv_datacolumns = [];
     this.numrows = 0;
     this.cursorrow = -1;
 
@@ -1584,7 +1583,7 @@ export default class ListView {
       if (handler && !handler.render)
         throw new Error("Column '" + col.title + "' has invalid 'handler' type");
 
-      this.datacolumns.push(
+      this.lv_datacolumns.push(
         {
           title: dscolumns[i].title,
           src: dscolumns[i],
@@ -1617,11 +1616,11 @@ export default class ListView {
     this._setupColumns(structure.cols);
     this._setupRowLayouts(structure.rowlayout, structure.dragrowlayout);
 
-    for (let i = 0; i < this.cols.length; ++i) {
-      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
+    for (let i = 0; i < this.lv_cols.length; ++i) {
+      if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
         continue;
 
-      const col = this.datacolumns[this.cols[i].header];
+      const col = this.lv_datacolumns[this.lv_cols[i].header];
       const headernode = dompack.create("span", { "class": "list__header__cell" });
 
       if (col) {
@@ -1630,8 +1629,8 @@ export default class ListView {
         headernode.textContent = col.title;
         headernode.addEventListener("click", this.onHeaderClick.bind(this, i));
       }
-      if (this.sortcolumn === this.cols[i].header)
-        headernode.append(this.sortascending ? " (asc)" : " (desc)");
+      if (this.lv_sortcolumn === this.lv_cols[i].header)
+        headernode.append(this.lv_sortascending ? " (asc)" : " (desc)");
 
       this.listheader.appendChild(headernode);
     }
@@ -1640,8 +1639,8 @@ export default class ListView {
     this.headerfiller = dompack.create("span");
     this.listheader.appendChild(this.headerfiller);
 
-    for (let i = 1; i < this.cols.length; ++i) {
-      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
+    for (let i = 1; i < this.lv_cols.length; ++i) {
+      if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
         continue;
 
       const splitnode = dompack.create('div', {
@@ -1668,21 +1667,21 @@ export default class ListView {
 
   _refreshColCalculation() {
     let pos = 0, dragpos = 0;
-    for (let i = 0; i < this.cols.length; ++i) {
-      this.cols[i].left = pos;
-      this.cols[i].dragleft = dragpos;
+    for (let i = 0; i < this.lv_cols.length; ++i) {
+      this.lv_cols[i].left = pos;
+      this.lv_cols[i].dragleft = dragpos;
 
-      pos += this.cols[i].width;
-      if (this.cols[i].indraglayout)
-        dragpos += this.cols[i].width;
+      pos += this.lv_cols[i].width;
+      if (this.lv_cols[i].indraglayout)
+        dragpos += this.lv_cols[i].width;
 
-      this.cols[i].right = pos;
-      this.cols[i].dragright = dragpos;
+      this.lv_cols[i].right = pos;
+      this.lv_cols[i].dragright = dragpos;
     }
   }
 
   _setupColumns(cols) {
-    this.cols = [];
+    this.lv_cols = [];
     this.lineheight = this.options.lineheight;
     this.linepadding = this.options.linepadding;
 
@@ -1719,59 +1718,59 @@ export default class ListView {
         newcol.minwidth += this.options.lastcolumn_rightpadding;
       }
 
-      this.istreeview = this.istreeview || ((newcol.header >= 0 && this.datacolumns[newcol.header].handler && this.datacolumns[newcol.header].handler.istree) || false);
-      this.cols.push(newcol);
+      this.istreeview = this.istreeview || ((newcol.header >= 0 && this.lv_datacolumns[newcol.header].handler && this.lv_datacolumns[newcol.header].handler.istree) || false);
+      this.lv_cols.push(newcol);
     }
 
     this._refreshColCalculation();
   }
 
   // Returns number of lines per row
-  _setupRowLayoutCells(datacolumns, layout, dragmode) {
-    // reset datacolumns x,y,w,h
-    datacolumns.forEach(function (item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
+  _setupRowLayoutCells(lv_datacolumns, layout, dragmode) {
+    // reset lv_datacolumns x,y,w,h
+    lv_datacolumns.forEach(function (item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
 
     if (!layout || !layout.length) { //no layout specified
-      for (let i = 0; i < datacolumns.length && i < this.cols.length; ++i) {
-        datacolumns[i].x = i;
+      for (let i = 0; i < lv_datacolumns.length && i < this.lv_cols.length; ++i) {
+        lv_datacolumns[i].x = i;
 
-        if (datacolumns[i].handler) {
-          const sizeinfo = datacolumns[i].handler.getSizeInfo(this, datacolumns[i].src, false);
+        if (lv_datacolumns[i].handler) {
+          const sizeinfo = lv_datacolumns[i].handler.getSizeInfo(this, lv_datacolumns[i].src, false);
 
-          datacolumns[i].minwidth = Math.max(datacolumns[i].minwidth, sizeinfo.minwidth);
-          datacolumns[i].resizable = sizeinfo.resizable;
+          lv_datacolumns[i].minwidth = Math.max(lv_datacolumns[i].minwidth, sizeinfo.minwidth);
+          lv_datacolumns[i].resizable = sizeinfo.resizable;
 
           // Adjust minwidth for paddings
           if (i === 0)
-            datacolumns[i].minwidth += this.options.firstcolumn_leftpadding;
-          if (i === this.cols.length - 1)
-            datacolumns[i].minwidth += this.options.lastcolumn_rightpadding;
+            lv_datacolumns[i].minwidth += this.options.firstcolumn_leftpadding;
+          if (i === this.lv_cols.length - 1)
+            lv_datacolumns[i].minwidth += this.options.lastcolumn_rightpadding;
         }
       }
 
       return 1;
-    } else if (this.cols.length === 0) {
+    } else if (this.lv_cols.length === 0) {
       return 1;
     } else {
-      //console.log("Amount of columns: " + this.cols.length);
+      //console.log("Amount of columns: " + this.lv_cols.length);
 
       const filldepth = [];
-      for (let i = 0; i < this.cols.length; ++i)
+      for (let i = 0; i < this.lv_cols.length; ++i)
         filldepth.push(0);
 
       // Dragmode only uses a subset of the columns. Make a mapping from 'virtual' columns to real columns fot that
       const colmapping = [];
-      for (let i = 0; i < this.cols.length; ++i) {
-        if (!dragmode || this.cols[i].indraglayout)
+      for (let i = 0; i < this.lv_cols.length; ++i) {
+        if (!dragmode || this.lv_cols[i].indraglayout)
           colmapping.push(i);
       }
-      colmapping.push(this.cols.length);
+      colmapping.push(this.lv_cols.length);
 
       for (let linenum = 0; linenum < layout.length; ++linenum) {
         const layoutline = layout[linenum];
         for (let j = 0; j < layoutline.cells.length; j++) {
           const cellnum = layoutline.cells[j].cellnum;
-          const cell = (cellnum >= 0 && cellnum < datacolumns.length) ? datacolumns[cellnum] : null;
+          const cell = (cellnum >= 0 && cellnum < lv_datacolumns.length) ? lv_datacolumns[cellnum] : null;
 
           const rowspan = layoutline.cells[j].rowspan || 1;
           const colspan = layoutline.cells[j].colspan || 1;
@@ -1814,7 +1813,7 @@ export default class ListView {
             // Adjust minwidth for paddings
             if (cell.x === 0)
               cell.minwidth += this.options.firstcolumn_leftpadding;
-            if (cell.x + cell.w === this.cols.length)
+            if (cell.x + cell.w === this.lv_cols.length)
               cell.minwidth += this.options.lastcolumn_rightpadding;
           }
         }
@@ -1835,7 +1834,7 @@ export default class ListView {
 
   _setupRowLayouts(layout, draglayout) {
     // Calculate list layout
-    this.linesperrow = this._setupRowLayoutCells(this.datacolumns, layout, false);
+    this.linesperrow = this._setupRowLayoutCells(this.lv_datacolumns, layout, false);
     this._calculateRowLayoutColMinWidths();
 
     this._calculateCoupledColumns();
@@ -1852,8 +1851,8 @@ export default class ListView {
   /** Marks the left splits of two columns as coupled (they must move together)
   */
   _coupleColumns(left, right) {
-    const left_cc = this.cols[left].coupled_cols;
-    const right_cc = this.cols[right].coupled_cols;
+    const left_cc = this.lv_cols[left].coupled_cols;
+    const right_cc = this.lv_cols[right].coupled_cols;
 
     // Already array-coupled? (could test for left in right_cc, but this is faster)
     if (left_cc === right_cc)
@@ -1863,19 +1862,19 @@ export default class ListView {
     for (let i = 0; i < right_cc.length; ++i) {
       const nr = right_cc[i];
       left_cc.push(nr);
-      this.cols[nr].coupled_cols = left_cc;
+      this.lv_cols[nr].coupled_cols = left_cc;
     }
   }
 
   _calculateCoupledColumns() {
     // Reset coupling. Mark all splits as coupled to themselves
-    this.cols.forEach(function (item, idx) { item.coupled_cols = [idx]; });
+    this.lv_cols.forEach(function (item, idx) { item.coupled_cols = [idx]; });
 
     // Make sure coupled columns use the same coupled_cols arrays
-    this.datacolumns.forEach(function (cell) {
+    this.lv_datacolumns.forEach(function (cell) {
       if (!cell.resizable) {
         let rightnr = cell.x + cell.w;
-        if (rightnr >= this.cols.length) // Right-split? Change to 0, to indicate 'don't move'.
+        if (rightnr >= this.lv_cols.length) // Right-split? Change to 0, to indicate 'don't move'.
           rightnr = 0;
 
         this._coupleColumns(cell.x, rightnr);
@@ -1886,9 +1885,9 @@ export default class ListView {
   /** Calculate the real minimum widths for all columns, in the face of colspans
   */
   _calculateRowLayoutColMinWidths() {
-    // Gather the datacolumns per start position, for easy access
-    const celllists = this.cols.map(function () { return []; });
-    this.datacolumns.forEach(function (cell) {
+    // Gather the lv_datacolumns per start position, for easy access
+    const celllists = this.lv_cols.map(function () { return []; });
+    this.lv_datacolumns.forEach(function (cell) {
       if (cell.x !== -1)
         celllists[cell.x].push(cell);
     });
@@ -1899,7 +1898,7 @@ export default class ListView {
       rows.push({ minwidth: 0, until: -1 });
 
     // Process one column at a time
-    this.cols.forEach(function (col, colidx) {
+    this.lv_cols.forEach(function (col, colidx) {
       // Administrate the cells that start at this column (minwidth they need to have, and nr of their last column)
       celllists[colidx].forEach((function (cell) {
         for (let rownr = cell.y; rownr < cell.y + cell.h; ++rownr) {
@@ -1919,18 +1918,18 @@ export default class ListView {
   }
 
   onHeaderClick(colidx, event) {
-    const hdr = this.cols[colidx].header;
-    const col = this.datacolumns[hdr];
+    const hdr = this.lv_cols[colidx].header;
+    const col = this.lv_datacolumns[hdr];
     if (!col || !col.src.sortable)
       return;
 
-    this.setSort(hdr, !(this.sortascending && this.sortcolumn === hdr));
-    dompack.dispatchCustomEvent(this.node, "wh:listview-sortchange", { bubbles: true, cancelable: false, detail: { target: this, column: this.sortcolumn, colidx: hdr, ascending: this.sortascending } });
+    this.setSort(hdr, !(this.lv_sortascending && this.lv_sortcolumn === hdr));
+    dompack.dispatchCustomEvent(this.node, "wh:listview-sortchange", { bubbles: true, cancelable: false, detail: { target: this, column: this.lv_sortcolumn, colidx: hdr, ascending: this.lv_sortascending } });
   }
   applyColumnWidths() {
     this.applyHeaderColumnWidths();
-    Object.keys(this.visiblerows).forEach(key => this._applyRowColumnWidths(this.datacolumns, false, this.visiblerows[key]));
-    Object.keys(this.footerrows).forEach(key => this._applyRowColumnWidths(this.datacolumns, false, this.footerrows[key]));
+    Object.keys(this.visiblerows).forEach(key => this._applyRowColumnWidths(this.lv_datacolumns, false, this.visiblerows[key]));
+    Object.keys(this.lv_footerrows).forEach(key => this._applyRowColumnWidths(this.lv_datacolumns, false, this.lv_footerrows[key]));
   }
   applyHeaderColumnWidths() {
     let total = 0;
@@ -1938,10 +1937,10 @@ export default class ListView {
     let childnr = 0;
     let colwidth = 0;
 
-    for (let i = 0; i < this.cols.length; ++i) {
-      colwidth += this.cols[i].width;
+    for (let i = 0; i < this.lv_cols.length; ++i) {
+      colwidth += this.lv_cols[i].width;
 
-      if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
+      if (i !== this.lv_cols.length - 1 && this.lv_cols[i].combinewithnext)
         continue;
 
       const headernode = this.listheader.childNodes[childnr];
@@ -1953,7 +1952,7 @@ export default class ListView {
       }
 
       // MARK WIP
-      if (i === this.cols.length - 1) {
+      if (i === this.lv_cols.length - 1) {
         headernode.classList.add("rightside");
         //colwidth += this.options.lastcolumn_rightpadding;
       }
@@ -1981,11 +1980,11 @@ export default class ListView {
       this.listheader.childNodes[childnr + 1 + idx].style.left = left + "px";
     });
   }
-  _applyRowColumnWidths(datacolumns: WrappedDataColumn[], dragmode: boolean, visiblerow: VisibleRow) {
+  _applyRowColumnWidths(lv_datacolumns: WrappedDataColumn[], dragmode: boolean, visiblerow: VisibleRow) {
     let outpos = 0;
 
-    for (let i = 0; i < datacolumns.length; ++i) {
-      const col = datacolumns[i];
+    for (let i = 0; i < lv_datacolumns.length; ++i) {
+      const col = lv_datacolumns[i];
       if (col.x === -1)
         continue;
 
@@ -1996,9 +1995,9 @@ export default class ListView {
       {
         dragmode: dragmode,
         width: dragmode
-          ? this.cols[col.x + col.w - 1].dragright - this.cols[col.x].dragleft
-          : this.cols[col.x + col.w - 1].right - this.cols[col.x].left,
-        left: dragmode ? this.cols[col.x].dragleft : this.cols[col.x].left,
+          ? this.lv_cols[col.x + col.w - 1].dragright - this.lv_cols[col.x].dragleft
+          : this.lv_cols[col.x + col.w - 1].right - this.lv_cols[col.x].left,
+        left: dragmode ? this.lv_cols[col.x].dragleft : this.lv_cols[col.x].left,
 
         padleft: 4, // FIXME
         padright: 4 // FIXME
@@ -2018,7 +2017,7 @@ export default class ListView {
       }
 
       // MARK WIP
-      if (col.x === this.cols.length - 1) {
+      if (col.x === this.lv_cols.length - 1) {
         sizes.padright = this.options.lastcolumn_rightpadding;
         cell.classList.add("rightside");
       }
@@ -2045,7 +2044,7 @@ export default class ListView {
   }
 
   refreshSelectedRows() {
-    Object.values(this.visiblerows).filter(row => row.cells[this.selectedidx]).forEach(row => this._renderRowContents(row.node, this.datacolumns, row));
+    Object.values(this.visiblerows).filter(row => row.cells[this.selectedidx]).forEach(row => this._renderRowContents(row.node, this.lv_datacolumns, row));
   }
 
   requestAnyMissingRows() {
@@ -2122,7 +2121,7 @@ export default class ListView {
     const oldvisiblesel = this._findFirstSelectedRowInVisibleRows();
 
     const headerheight = this.options.hideheader ? 0 : this.options.headerheight;
-    const footerheight = this.footerrows.length ? this.footerrows.length * this.rowheight + 1 : 0;
+    const footerheight = this.lv_footerrows.length ? this.lv_footerrows.length * this.rowheight + 1 : 0;
     //With footer rows, we also need to subtract an extra pixel for the line separating the footer from the rest
     this.bodyholderheight = this.options.height - headerheight - footerheight;
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
