@@ -334,26 +334,6 @@ export function getTestSiteRoot(): string {
   return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
-export function getListViewHeader(text: string) {
-  const headers = qSA('#listview .listheader > span').filter(node => node.textContent?.includes(text));
-  if (headers.length > 1)
-    console.error("Multiple header matches for '" + text + "'");
-  return headers.length === 1 ? headers[0] : null;
-}
-export function getListViewRow(text: string) { //simply reget it for every test, as list may rerender at unspecifide times
-  const rows = qSA('#listview .listrow').filter(node => node.textContent?.includes(text));
-  if (rows.length > 1)
-    console.error("Multiple row matches for '" + text + "'");
-  return rows.length === 1 ? rows[0] : null;
-}
-export function getListViewExpanded(row: HTMLElement) {
-  if (row.querySelector(".fa-caret-down"))
-    return true;
-  if (row.querySelector(".fa-caret-right"))
-    return false;
-  return null;
-}
-
 type CombineTypes<T extends keyof HTMLInputElement & keyof HTMLSelectElement> = { [K in T]: HTMLInputElement[K] | HTMLSelectElement[K] };
 type UncombinableProps = "addEventListener" | "labels" | "remove" | "removeEventListener" | "type";
 

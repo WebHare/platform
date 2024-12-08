@@ -215,8 +215,6 @@ MACRO SetupTestSite(OBJECT testsite)
 
   OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
 
-  OBJECT listtest := testpages->CreateFile( [ name := "listtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/listtest", publish := TRUE ] );
-
   OBJECT pagelisttest := testpages->CreateFile( [ name := "pagelisttest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
   OBJECT otherpagelisttest := testpages->CreateFile( [ name := "otherpagelisttest", title := "other", typens := "http://www.webhare.net/xmlns/webhare_testsuite/pagelist", publish := TRUE ] );
 

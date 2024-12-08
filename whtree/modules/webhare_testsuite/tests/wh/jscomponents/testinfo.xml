@@ -1,6 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test name="compat" path="compat/" />
   <test name="imgtransform" path="imgtransform/" />
-  <test name="list" path="list/" />
   <test name="rte" path="rte/" />
 </group>
