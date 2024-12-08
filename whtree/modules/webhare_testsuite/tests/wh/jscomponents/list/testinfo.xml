@@ -1,4 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="list">
   <jstest file="testlistbase.ts" tags="list"/>
-  <jstest file="testlistcolumnselect.ts" tags="list"/>
 </group>

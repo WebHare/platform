@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import * as tt from "@mod-tollium/js/tolliumtest";
 
 test.registerTests(
   [
@@ -34,6 +35,41 @@ test.registerTests(
       test.eq("Bok", test.compByName("selectedrows").textContent);
       test.eq("email", test.compByName("selectedcolumns").textContent);
 
-      await test.sleep(500); // Prevent double click
+      await test.pressKey(['ArrowDown']);
+      await test.wait('ui');
+
+      test.eq("Does", test.compByName("selectedrows").textContent);
+      test.eq("email", test.compByName("selectedcolumns").textContent);
+
+      await test.pressKey(['ArrowLeft']);
+      await test.wait('ui');
+
+      test.eq("Does", test.compByName("selectedrows").textContent);
+      test.eq("title", test.compByName("selectedcolumns").textContent);
+
+      await test.pressKey(['ArrowRight']);
+      await test.wait('ui');
+
+      test.eq("Does", test.compByName("selectedrows").textContent);
+      test.eq("email", test.compByName("selectedcolumns").textContent);
+    },
+
+    "test multiselect",
+    async function () {
+      tt.comp(':List selection mode').set('multiple');
+      await test.wait('ui');
+
+      test.click(test.getCurrentScreen().getListRow("leesplankje", "Aap").childNodes[0]);
+      test.click(test.getCurrentScreen().getListRow("leesplankje", "Duif").childNodes[0], { cmd: true });
+      await test.wait('ui');
+
+      test.eq("Aap; Duif", test.compByName("selectedrows").textContent);
+      test.eq("title", test.compByName("selectedcolumns").textContent);
+
+      await test.pressKey(['ArrowRight']);
+      await test.wait('ui');
+
+      test.eq("Aap; Duif", test.compByName("selectedrows").textContent);
+      test.eq("email", test.compByName("selectedcolumns").textContent);
     }
   ]);
