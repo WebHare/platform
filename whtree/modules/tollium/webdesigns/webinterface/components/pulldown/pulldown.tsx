@@ -77,6 +77,8 @@ export default class ObjPulldown extends ToddCompBase {
 
   buildNode() {
     this.node = <select onChange={(ev: Event) => this.gotControlChange(ev)} />;
+    this.node.ariaLabel = this.title;
+
     let insertdivider = false;
     for (const opt of this.options) {
       if (opt.isdivider) {
