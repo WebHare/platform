@@ -6,7 +6,7 @@ import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import { ListColumnBase, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text, IconColumn, IconsColumn, IconWrapper } from './listcolumns';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ListView from './listview';
-import { getScrollbarWidth } from './listview';
+import { getScrollbarWidth } from './listdomhelpers';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";
