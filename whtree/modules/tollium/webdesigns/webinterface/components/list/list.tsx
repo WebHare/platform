@@ -4,10 +4,10 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
-import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } from '@mod-tollium/web/ui/components/listview/listcolumns';
+import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } from './listcolumns';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
-import ListView from '@mod-tollium/web/ui/components/listview/listview';
-import { getScrollbarWidth } from '@mod-tollium/web/ui/components/listview/listview';
+import ListView from './listview';
+import { getScrollbarWidth } from './listview';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 const toddImages = require("@mod-tollium/js/icons");
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';

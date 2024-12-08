@@ -10,7 +10,7 @@ import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
-import type { DataColumn } from '@mod-tollium/webdesigns/webinterface/components/list/list';
+import type { DataColumn } from './list';
 require('./listview.css');
 const ListColumn = require('./listcolumns');
 

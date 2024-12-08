@@ -1,9 +1,9 @@
-import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 import { isValidEmail } from '@webhare/std';
 import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
+import type ObjList from './list';
 import type ListView from './listview';
-import type { DataColumn } from '@mod-tollium/webdesigns/webinterface/components/list/list';
+import type { DataColumn } from './list';
 import type { VisibleRow } from './listview';
 
 type SizeStyles = {
