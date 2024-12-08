@@ -3,8 +3,7 @@ import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
 import type ObjList from './list';
 import type ListView from './listview';
-import type { DataColumn } from './list';
-import type { VisibleRow } from './listview';
+import type { DataColumn, VisibleRow } from './list';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { createImage, updateImage } from '@mod-tollium/js/icons';
 
