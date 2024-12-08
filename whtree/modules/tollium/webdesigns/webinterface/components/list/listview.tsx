@@ -15,7 +15,6 @@ import * as ListColumn from './listcolumns';
 import { getScrollbarWidth, translatePageCoordinatesToElement } from './listdomhelpers';
 
 
-let globallistcount = 0;
 /*
 Keyboard navigation:
 (all with the exception of page up+down is based on the list selection behaviour in MacOS Finder)
@@ -105,7 +104,6 @@ export default class ListView {
   highlightidx = 0;
 
   constructor(public node, datasource, options) {
-    this.listcount = 0;
     // 0 means the scrollbar is an overlay, not taking any space
     // >0 takes space next to the content which can be scrolled
 
@@ -166,8 +164,6 @@ export default class ListView {
     this.listbody = null;
     this.listinsertpoint = null;
     this.headerfiller = null;
-
-    this.listcount = ++globallistcount;
 
     this.node.classList.add("wh-list"); //this is the new BEM anchor class. as we go, move other classes under us
     this.node.classList.add("wh-ui-listview");
@@ -468,7 +464,7 @@ export default class ListView {
   }
   setDimensions(width, height) {
     if (this.options.debug)
-      console.log("$wh.ListView #" + this.listcount + " - setDimensions (size " + width + "x" + height + ")");
+      console.log("$wh.ListView - setDimensions (size " + width + "x" + height + ")");
 
     // no need to recalculate & relayout everything if our dimensions don't change
     if (width === this.options.width && height === this.options.height) {
@@ -2114,7 +2110,7 @@ export default class ListView {
 
   applyDimensions() {
     if (this.options.debug)
-      console.log("$wh.ListView #" + this.listcount + " - applyDimensions (size " + this.options.width + "x" + this.options.height + ")");
+      console.log("$wh.ListView - applyDimensions (size " + this.options.width + "x" + this.options.height + ")");
     //console.trace();
 
     // Determine if a part of the selection is currently visible. If so, keep it that way
