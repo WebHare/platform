@@ -20,7 +20,8 @@ export {
   eqProps,
   assert,
   throws,
-  waitToggled
+  waitToggled,
+  waitForEvent
 } from '@webhare/test';
 
 export {
@@ -31,7 +32,8 @@ export {
   getValidatedElementFromPoint as getValidatedElementFromPoint,
   startExternalFileDrag,
   getCurrentDragDataStore,
-  cancelDrag
+  cancelDrag,
+  focus
 } from 'dompack/testframework/pointer';
 
 export {
@@ -40,11 +42,7 @@ export {
   type Selector
 } from "../internal/tests/waitforelement";
 
-export {
-  waitForEvent as waitForEvent
-  , focus
-  , waitUIFree
-} from 'dompack/testframework';
+export { waitUIFree } from '@webhare/dompack/impl/busy';
 
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
 
@@ -230,44 +228,6 @@ export async function pressKey(key: string | string[], options?: keyboard.Keyboa
   return await testfw.sendDevtoolsRequest({ type: "pressKeys", keys: keyboard.normalizeKeys(key, options), options });
 }
 
-/* could not find any use in current modules/omni, disabling for now
-
-//ADDME non-LMB support for the non-haveDevtoolsUplink paths
-export async function asyncMouseMove(x: number, y: number, options: never) {
-  if (!testfw.haveDevtoolsUplink()) {
-    await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y }]);
-    return;
-  }
-
-  y += whtest.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
-  return await testfw.sendDevtoolsRequest({ type: "mouseMove", x, y, options });
-}
-export async function asyncMouseDown(type: never, options: never) {
-  if (!testfw.haveDevtoolsUplink()) {
-    await pointer.sendMouseGesture([{ doc: test.getDoc(), down: 0 }]);
-    return;
-  }
-  return await testfw.sendDevtoolsRequest({ type: "mouseDown", options });
-}
-export async function asyncMouseUp(type: never, options: never) {
-  if (!testfw.haveDevtoolsUplink()) {
-    await pointer.sendMouseGesture([{ doc: test.getDoc(), up: 0 }]);
-    return;
-  }
-  return await testfw.sendDevtoolsRequest({ type: "mouseUp", options });
-}
-export async function asyncMouseClick(x: number, y: number, options: never) {
-  if (!testfw.haveDevtoolsUplink()) {
-    await pointer.sendMouseGesture([{ doc: test.getDoc(), clientx: x, clienty: y, down: 0 }]);
-    await pointer.sendMouseGesture([{ up: 0 }]);
-    return;
-  }
-
-  y += test.getWin().frameElement.getBoundingClientRect().top; //devtools see the full page, so add our testiframe position
-  return await testfw.sendDevtoolsRequest({ type: "mouseClick", x, y, options });
-}
-  */
-
 export function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
@@ -286,20 +246,6 @@ export function getWin(): WindowProxy {
 export function getDoc(): Document {
   return testfw.getFrameRecord().doc!;
 }
-export function setFormsapiFileElement(el: HTMLInputElement, filedata: string, filename: string) {
-  //formsapi permits a hack to allow us to fake submissions to input type=file fields
-  //unfortunately we can't change the type of an input element, so we'll have to recreate it
-
-  const newinput = el.ownerDocument.createElement('input');
-  newinput.name = el.name + '$filename=' + filename;
-  newinput.type = 'text';
-  newinput.value = filedata;
-  newinput.id = el.id;
-  el.parentNode!.replaceChild(newinput, el);
-
-  //  $(el).destroy();
-}
-
 /** Focus and fill an element, triggering any input/change handlers */
 export function fill(element: pointer.ValidElementTarget, newvalue: string | number | boolean): void {
   element = pointer._resolveToSingleElement(element);
