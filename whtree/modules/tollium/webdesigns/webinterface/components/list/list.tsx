@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
-import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } from './listcolumns';
+import { ListColumnBase, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text, IconColumn, IconsColumn, IconWrapper } from './listcolumns';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ListView from './listview';
 import { getScrollbarWidth } from './listview';
@@ -52,7 +52,7 @@ export interface DataColumn {
   tree: boolean;
   type: string;
   width: string;
-  render: Base<unknown>;
+  render: ListColumnBase<unknown>;
   rowspan: number;
   colspan: number;
   x: number;
@@ -74,6 +74,7 @@ export default class ObjList extends ComponentBase {
   cols;
   flatrows: FlatRow[] = [];
   datacolumns: DataColumn[] = [];
+  iconnames: string[] = [];
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
@@ -455,7 +456,6 @@ export default class ObjList extends ComponentBase {
 
       if (this.datacolumns[i].iconidx >= 0) {
         this.datacolumns[i].render = new IconWrapper(this, this.datacolumns[i].render);
-        this.datacolumns[i].render.iconholderwidth = $todd.settings.listview_iconholder_width;
       }
 
       if (this.datacolumns[i].checkboxidx >= 0) {
@@ -515,7 +515,7 @@ export default class ObjList extends ComponentBase {
       this.columnwidths.push(sizeobj);
     }
   }
-  getRendererByType(type: string): Base {
+  getRendererByType(type: string): ListColumnBase {
     switch (type) {
       case "email":
         return new Email;
@@ -1250,166 +1250,5 @@ export default class ObjList extends ComponentBase {
       if (event.detail.widths[idx])
         item.new_set = event.detail.widths[idx];
     });
-  }
-}
-
-function setIcon(list, columndef, row, cell, width, height, icon) {
-  const overlayidx = (columndef.overlayidx >= 0 ? row.cells[columndef.overlayidx] : 0) - 1;
-  const overlayicon = overlayidx >= 0 && overlayidx < list.iconnames.length ? list.iconnames[overlayidx] : null;
-  if (overlayicon)
-    icon = icon + "+" + overlayicon;
-
-  const existingicon = cell.firstChild;
-  if (icon) {
-    //We're requesting the color version, the server will fallback to the black icon if needed
-    if (existingicon)
-      toddImages.updateImage(existingicon, icon, width, height, "c");
-    else
-      cell.appendChild(toddImages.createImage(icon, width, height, "c"));
-  } else if (existingicon) {
-    cell.removeChild(existingicon);
-  }
-}
-
-class IconColumn extends Base {
-  constructor(list) {
-    super();
-    this.toddlist = list;
-  }
-  render(list, columndef, row, cell, data, wrapped) {
-    const iconidx = data - 1;
-    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-    if (!icon)
-      return;
-
-    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
-
-    cell.classList.toggle("bigicon", columndef.rowspan > 1);
-    cell.classList.toggle("firsticonmargin", !wrapped && columndef.x === 0);
-
-    setIcon(this.toddlist, columndef, row, cell, icondimensions, icondimensions, icon);
-
-    if (columndef.hintidx && row.cells[columndef.hintidx])
-      cell.firstChild.title = row.cells[columndef.hintidx];
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    // Minwidth: at least one icon + 4 pixels padding on both sides
-    return {
-      resizable: false,
-      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16) // icon must be visible
-    };
-  }
-}
-
-class IconsColumn extends Base {
-  constructor(list) {
-    super();
-    this.toddlist = list;
-  }
-
-  render(list, columndef, row, cell, data, wrapped) {
-    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
-
-    if (columndef.align === "right")
-      cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
-
-    dompack.empty(cell);
-    dompack.toggleClasses(cell, { bigicon: columndef.rowspan > 1 });
-
-    if (data) {
-      data.split(" ").forEach(iconnr => {
-        const iconidx = parseInt(iconnr) - 1;
-        const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-        if (!icon)
-          cell.appendChild(dompack.create("div", { style: "display:inline-block;width:" + icondimensions + "px;height: " + icondimensions + "px;" }));
-        else
-          cell.appendChild(toddImages.createImage(icon, icondimensions, icondimensions, "c"));
-      });
-    }
-
-    if (columndef.hintidx && row.cells[columndef.hintidx])
-      cell.firstChild.title = row.cells[columndef.hintidx];
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    // Minwidth: at least one icon + 4 pixels padding on both sides
-    return {
-      resizable: true,
-      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16)
-    };
-  }
-}
-
-class IconWrapper extends Base {
-  //, restholder: null // the node container of the content we place our icon before
-
-  constructor(list, base) {
-    super();
-    this.iconholderwidth = null;
-    this.toddlist = list;
-    this.base = base;
-  }
-
-  render(list, columndef, row, cell, data, wrapped) {
-    cell.style.display = "inline-flex";
-
-    let iconholder = cell.firstChild;
-    if (!iconholder) {
-      iconholder = dompack.create("span",
-        {
-          style: {
-            "display": multiline ? "none" : "inline-block",
-            "width": this.iconholderwidth + "px"
-          }
-        });
-      cell.appendChild(iconholder);
-    }
-
-    let restholder = cell.childNodes[1];
-    if (!restholder) {
-      restholder = dompack.create("span",
-        {
-          style: {
-            "display": "inline-block",
-            "flex": "1 0 0"
-          }
-        });
-      cell.appendChild(restholder);
-      //this.restholder = restholder;
-    }
-
-    dompack.toggleClasses(cell, { firsticonmargin: !wrapped && columndef.x === 0 });
-
-    var multiline = this.toddlist.list.linesperrow > 1;
-
-    const iconidx = row.cells[columndef.iconidx] - 1;
-    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-
-    setIcon(this.toddlist, columndef, row, iconholder, 16, 16, icon);
-    this.base.render(list, columndef, row, restholder, data, true);
-  }
-
-  applySizes(list, columndef, row, cell, sizestyles) {
-    super.applySizes(list, columndef, row, cell, sizestyles);
-
-    if (cell.childNodes[1]) // did we absorb another column type?
-    {
-      //console.info(cell.childNodes[1].textContent, "X:"+sizestyles.left, "W"+sizestyles.width, );
-
-      sizestyles.width -= sizestyles.padleft + sizestyles.padright + this.iconholderwidth;
-      sizestyles.padleft = 0;
-      sizestyles.padright = 0;
-
-      // stop applying styling to subcells, it breaks offsetWidth/scrollWidth detection
-      // this.base.applySizes(list, columndef, row, cell.childNodes[1], sizestyles);
-    }
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    const info = this.base.getSizeInfo(list, columndef);
-    info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
-    info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x === 0 ? 4 : 0;
-    return info;
   }
 }

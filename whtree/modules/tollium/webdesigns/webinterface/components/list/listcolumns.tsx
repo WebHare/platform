@@ -5,6 +5,8 @@ import type ObjList from './list';
 import type ListView from './listview';
 import type { DataColumn } from './list';
 import type { VisibleRow } from './listview';
+import * as $todd from "@mod-tollium/web/ui/js/support";
+import { createImage, updateImage } from '@mod-tollium/js/icons';
 
 type SizeStyles = {
   width: number;
@@ -18,7 +20,26 @@ type SizeStyles = {
 export const minwidth = 10;
 export const cellpadding_x = 4;
 
-export class Base<DataType> {
+function setIcon(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, width: number, height: number, icon: string | null) {
+  const overlayidx = (columndef.overlayidx >= 0 ? row.cells[columndef.overlayidx] as number : 0) - 1;
+  const overlayicon = overlayidx >= 0 && overlayidx < list.iconnames.length ? list.iconnames[overlayidx] : null;
+  if (overlayicon)
+    icon = icon + "+" + overlayicon;
+
+  const existingicon = cell.firstChild;
+  if (icon) {
+    //We're requesting the color version, the server will fallback to the black icon if needed
+    if (existingicon)
+      updateImage(existingicon, icon, width, height, "c");
+    else
+      cell.appendChild(createImage(icon, width, height, "c"));
+  } else if (existingicon) {
+    cell.removeChild(existingicon);
+  }
+}
+
+
+export class ListColumnBase<DataType> {
   istree = false;
 
   /** Render data into a cell */
@@ -61,7 +82,7 @@ export class Base<DataType> {
 }
 
 //ADDME: Add validators for e-mail and url?
-export class BaseEditable extends Base<string> {
+export class BaseEditable extends ListColumnBase<string> {
   _textedit = dompack.create("input", { "className": "textedit" });
   private _state: { list: ListView; row: VisibleRow; cellnum: number } | null = null;
 
@@ -268,11 +289,11 @@ export class URL extends BaseEditable {
 
 //ADDME It's not really a 'render' if we also handle click actions?
 
-export class TreeWrapper<DataType> extends Base<DataType> {
+export class TreeWrapper<DataType> extends ListColumnBase<DataType> {
   istree = true;
   expanderholderwidth = 12;
 
-  constructor(private datasource: ObjList, protected base: Base<DataType>) {
+  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
     super();
   }
 
@@ -340,8 +361,8 @@ export class TreeWrapper<DataType> extends Base<DataType> {
   }
 }
 
-export class LinkWrapper<DataType> extends Base<DataType> {
-  constructor(private datasource: ObjList, protected base: Base<DataType>) {
+export class LinkWrapper<DataType> extends ListColumnBase<DataType> {
+  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
     super();
   }
 
@@ -371,7 +392,7 @@ export class LinkWrapper<DataType> extends Base<DataType> {
 export class CheckboxWrapper<DataType extends string = string> extends BaseEditable {
   checkboxholderwidth = 20;
 
-  constructor(private datasource: ObjList, protected base: Base<DataType>) {
+  constructor(private datasource: ObjList, protected base: ListColumnBase<DataType>) {
     super();
   }
 
@@ -439,5 +460,149 @@ export class CheckboxWrapper<DataType extends string = string> extends BaseEdita
       // stop applying styling to subcells, it breaks offsetWidth/scrollWidth detection
       // this.base.applySizes(list, columndef, row, cell.childNodes[1], sizestyles);
     }
+  }
+}
+
+export class IconColumn extends ListColumnBase<number> {
+  toddlist;
+
+  constructor(list: ObjList) {
+    super();
+    this.toddlist = list;
+  }
+  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: number, wrapped?: boolean) {
+    const iconidx = data - 1;
+    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
+    if (!icon)
+      return;
+
+    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
+
+    cell.classList.toggle("bigicon", columndef.rowspan > 1);
+    cell.classList.toggle("firsticonmargin", !wrapped && columndef.x === 0);
+
+    setIcon(this.toddlist, columndef, row, cell, icondimensions, icondimensions, icon);
+
+    if (columndef.hintidx && row.cells[columndef.hintidx])
+      (cell.firstElementChild! as HTMLElement).title = row.cells[columndef.hintidx] as string;
+  }
+
+  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+    // Minwidth: at least one icon + 4 pixels padding on both sides
+    return {
+      resizable: false,
+      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16) // icon must be visible
+    };
+  }
+}
+
+export class IconsColumn extends ListColumnBase<string> {
+  toddlist;
+
+  constructor(list: ObjList) {
+    super();
+    this.toddlist = list;
+  }
+
+  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
+    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
+
+    if (columndef.align === "right")
+      cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
+
+    dompack.empty(cell);
+    dompack.toggleClasses(cell, { bigicon: columndef.rowspan > 1 });
+
+    if (data) {
+      data.split(" ").forEach(iconnr => {
+        const iconidx = parseInt(iconnr) - 1;
+        const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
+        if (!icon)
+          cell.appendChild(dompack.create("div", { style: "display:inline-block;width:" + icondimensions + "px;height: " + icondimensions + "px;" }));
+        else
+          cell.appendChild(createImage(icon, icondimensions, icondimensions, "c"));
+      });
+    }
+
+    if (columndef.hintidx && row.cells[columndef.hintidx])
+      (cell.firstElementChild as HTMLElement).title = row.cells[columndef.hintidx] as string;
+  }
+
+  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+    // Minwidth: at least one icon + 4 pixels padding on both sides
+    return {
+      resizable: true,
+      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16)
+    };
+  }
+}
+
+export class IconWrapper<DataType> extends ListColumnBase<DataType> {
+  //, restholder: null // the node container of the content we place our icon before
+  toddlist;
+  iconholderwidth;
+
+  constructor(list: ObjList, public base: ListColumnBase<DataType>) {
+    super();
+    this.toddlist = list;
+    this.iconholderwidth = $todd.settings.listview_iconholder_width;
+  }
+
+  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
+    cell.style.display = "inline-flex";
+
+    let iconholder: HTMLElement | null = cell.firstElementChild as HTMLElement | null;
+    if (!iconholder) {
+      iconholder = dompack.create("span",
+        {
+          style: {
+            "display": "inline-block",
+            "width": this.iconholderwidth + "px"
+          }
+        });
+      cell.appendChild(iconholder);
+    }
+
+    let restholder: HTMLElement | undefined = cell.childNodes[1] as HTMLElement | undefined;
+    if (!restholder) {
+      restholder = dompack.create("span",
+        {
+          style: {
+            "display": "inline-block",
+            "flex": "1 0 0"
+          }
+        });
+      cell.appendChild(restholder);
+    }
+
+    dompack.toggleClasses(cell, { firsticonmargin: !wrapped && columndef.x === 0 });
+
+    const iconidx = row.cells[columndef.iconidx] as number - 1;
+    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] as string : null;
+
+    setIcon(this.toddlist, columndef, row, iconholder, 16, 16, icon);
+    this.base.render(list, columndef, row, restholder, data, true);
+  }
+
+  applySizes(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
+    super.applySizes(list, columndef, row, cell, sizestyles);
+
+    if (cell.childNodes[1]) { // did we absorb another column type?
+      //console.info(cell.childNodes[1].textContent, "X:"+sizestyles.left, "W"+sizestyles.width, );
+
+      sizestyles.width -= sizestyles.padleft + sizestyles.padright + this.iconholderwidth;
+      sizestyles.padleft = 0;
+      sizestyles.padright = 0;
+
+      // stop applying styling to subcells, it breaks offsetWidth/scrollWidth detection
+      // this.base.applySizes(list, columndef, row, cell.childNodes[1], sizestyles);
+    }
+  }
+
+  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+    const info = this.base.getSizeInfo(list, columndef);
+    info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
+    info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x === 0 ? 4 : 0;
+    return info;
   }
 }
