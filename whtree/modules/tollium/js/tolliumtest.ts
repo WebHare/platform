@@ -13,6 +13,33 @@ import { nameToSnakeCase } from "@webhare/std/types";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
+class ListProxy {
+  constructor(private comp: ComponentProxy) {
+  }
+
+  /** Find a visible list row containing the specified text */
+  getRow(searchFor: RegExp): HTMLElement {
+    const rows = qSA(this.comp.node, '.listrow').filter(node => node.textContent?.match(searchFor));
+    if (rows.length > 1)
+      throw new Error(`Multiple rows in ${this.comp.getCompName()} contain '${searchFor}'`);
+    if (rows.length === 0)
+      throw new Error(`No rows in ${this.comp.getCompName()} contain '${searchFor}'`);
+
+    return rows[0];
+  }
+
+  /** Find a list header cell containing the specified text */
+  getHeader(searchFor: RegExp): HTMLElement {
+    const headers = qSA(this.comp.node, '.listheader > span').filter(node => node.textContent?.match(searchFor));
+    if (headers.length > 1)
+      throw new Error(`Multiple headers in ${this.comp.getCompName()} contain '${searchFor}'`);
+    if (headers.length === 0)
+      throw new Error(`No headers in ${this.comp.getCompName()} contain '${searchFor}'`);
+
+    return headers[0];
+  }
+}
+
 class ComponentProxy implements CastableToElement {
   readonly node: HTMLElement;
 
@@ -24,8 +51,18 @@ class ComponentProxy implements CastableToElement {
     return this.node;
   }
 
+  get list() {
+    if (!this.node.classList.contains("wh-list"))
+      throw new Error(`Component ${this.getCompName()} is not a list`);
+    return new ListProxy(this);
+  }
+
   click() {
     this.node.click();
+  }
+
+  getCompName(): string {
+    return this.node.dataset.name ? `'${this.node.dataset.name}'` : `<unnamed ${this.node.tagName.toLowerCase()}>`;
   }
 
   /** Obtain the 'natural' value for this component's form control */

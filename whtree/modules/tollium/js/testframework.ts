@@ -229,7 +229,7 @@ export function compByTitle(title) {
   return compByName(elts[0].dataset.labelfor || elts[0].for);
 }
 function getTestScreen(testscreen) {
-  const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + ')&' + getTolliumDebugVariables();
+  const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + encodeURIComponent(testscreen) + ')&' + getTolliumDebugVariables();
   return baseurl;
 }
 function getCompTestPage(componentname, params?) {

@@ -640,7 +640,14 @@ PUBLIC STATIC OBJECTTYPE ResizeTest EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    ^list->rows := ToRecordArray([ 1, 2, 3, 4, 5, 6 ], "rowkey");
+    ^list->rows := [
+      [ rowkey := 1, col2 := "", col3 := "the third cell", col4 := "", col5 := "" ],
+      [ rowkey := 2, col2 := "", col3 := "", col4 := "the fourth cell", col5 := "the fifth cell" ],
+      [ rowkey := 3, col2 := "", col3 := "", col4 := "", col5 := "" ],
+      [ rowkey := 4, col2 := "", col3 := "", col4 := "", col5 := "" ],
+      [ rowkey := 5, col2 := "", col3 := "", col4 := "", col5 := "" ],
+      [ rowkey := 6, col2 := "", col3 := "", col4 := "", col5 := "" ]
+    ];
   }
 
   MACRO DoSize1()

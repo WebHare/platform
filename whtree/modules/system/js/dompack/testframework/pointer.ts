@@ -619,10 +619,10 @@ function convertbndrec(elt) {
 }
 
 // Validate if the targeted element in part (if el is specitied) is the same as the at element hittested from the mouse cursor target
-function validateMouseDownTarget(part, elhere, position) {
+function validateMouseDownTarget(part: MouseGesture, elhere: Element, position) {
   let wantedtotarget = part.el;
 
-  if (wantedtotarget && elhere !== wantedtotarget && typeof part.down === 'number') { //we only need to validate on mousedown, mouseup is common to hit something different
+  if (wantedtotarget && elhere !== wantedtotarget) { //we only need to validate on mousedown, mouseup is common to hit something different
     while (wantedtotarget && wantedtotarget.inert)
       wantedtotarget = wantedtotarget.parentNode; //if you're targeting an inert node, we should expect you to be targeting its first non-inert parent
 
@@ -643,7 +643,8 @@ function validateMouseDownTarget(part, elhere, position) {
         console.log("AFTER DELAY: Original target", partel, partel.nodeName, partel.getBoundingClientRect());
         console.log("AFTER DELAY: Final target", elhere, elhere.nodeName, elhere.getBoundingClientRect());
       }, 400);
-      throw new Error("Final target element is not a child of the original target! Perhaps target was obscured at the time of the mouse action ?");
+
+      throw new Error("Final target element is not a child of the original target! Perhaps target was obscured at the time of the mouse action ? if this was intentional, add { validateTarget: false } to the gesture");
     }
   }
 }
@@ -896,7 +897,7 @@ function processGestureQueue() {
     if (!elhere) {
       elhere = currentdoc.documentElement;
       console.error("Unable to find element at location " + position.x + "," + position.y);
-    } else
+    } else if (part.validateTarget === true || (part.validateTarget !== false && typeof part.down === 'number')) //by default we validate on mousedown only,  mouseup is common to hit something different
       validateMouseDownTarget(part, elhere, position);
 
     const targetdoc = elhere.ownerDocument;
@@ -1198,6 +1199,8 @@ export type ElementTargetOptions = {
   x?: number | string;
   /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full height. If not set, defaults to 50% */
   y?: number | string;
+  /** Validate the target? By default only done in 'down' is set  */
+  validateTarget?: boolean;
 };
 export type MouseButton = 0 | 1 | 2;
 
