@@ -2,6 +2,14 @@ import * as dompack from '@webhare/dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import { dtapStage } from "@webhare/env";
 
+export type MagicMenuEvent = CustomEvent<{ submenu: HTMLElement }>;
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "tollium:magicmenu": MagicMenuEvent;
+  }
+}
+
 let magicmenuactive = false;
 const clicks = new Array<number>();
 

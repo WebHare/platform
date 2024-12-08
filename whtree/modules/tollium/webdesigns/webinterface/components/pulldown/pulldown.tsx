@@ -1,19 +1,38 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as browser from "dompack/extra/browser";
-import HTMLComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/html';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import { ToddCompBase, type ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import type { MagicMenuEvent } from '@mod-tollium/web/ui/js/debugging/magicmenu';
+import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
 
-export default class ObjPulldown extends HTMLComponentBase {
+interface PulldownOption {
+  indent: number;
+  title: string;
+  value: string;
+  selected: boolean;
+  enabled: boolean;
+  isdivider: boolean;
+  flags: Record<string, boolean>;
+  enablecomponents: string[];
+}
+
+interface PulldownAttributes extends ComponentStandardAttributes {
+  options: PulldownOption[];
+  required: boolean;
+}
+
+export default class ObjPulldown extends ToddCompBase {
   /****************************************************************************************************************************
    * Initialization
    */
+  componenttype = "pulldown2";
+  lastvalue: null | string = null;
+  options: PulldownOption[];
 
-  constructor(parentcomp, data) {
+  declare node: HTMLSelectElement;
+
+  constructor(parentcomp: ToddCompBase | null, data: PulldownAttributes) {
     super(parentcomp, data);
-    this.componenttype = "pulldown2";
-    this.components = [];
 
     this.options = data.options;
     this.options.forEach(opt => {
@@ -33,12 +52,31 @@ export default class ObjPulldown extends HTMLComponentBase {
     this.setEnabled(data.enabled);
   }
 
-  /****************************************************************************************************************************
-   * DOM
-   */
+  getValue() {
+    return this.node.value || '';
+  }
 
-  buildHTMLNode() {
-    const node = <select onChange={ev => this.gotControlChange(ev)} />;
+  setValue(value: string) {
+    dompack.changeValue(this.node, value);
+    //shouldn't be needed: this.onSelect(); - changeValue will fire the event itself
+  }
+
+  setRequired(value: boolean) {
+    if (Boolean(value) !== Boolean(this.node.required)) {
+      this.node.required = Boolean(value);
+    }
+  }
+
+  setEnabled(value: boolean) {
+    this.node.disabled = !value;
+  }
+
+  getSubmitValue() {
+    return this.getValue();
+  }
+
+  buildNode() {
+    this.node = <select onChange={(ev: Event) => this.gotControlChange(ev)} />;
     let insertdivider = false;
     for (const opt of this.options) {
       if (opt.isdivider) {
@@ -50,15 +88,34 @@ export default class ObjPulldown extends HTMLComponentBase {
       if (insertdivider) {
         // Firefox supports using <hr> as menu divider from version 122
         if (browser.getName() === "firefox" && browser.getVersion() < 122)
-          node.append(<option disabled="disabled" class="divider">──────────</option>);
+          this.node.append(<option disabled="disabled" class="divider">──────────</option>);
         else
-          node.append(<hr />);
+          this.node.append(<hr />);
         insertdivider = false;
       }
 
-      node.append(<option value={opt.value} selected={opt.selected} disabled={!opt.enabled}>{opt.title}</option>);
+      this.node.append(<option value={opt.value} selected={opt.selected} disabled={!opt.enabled}>{opt.title}</option>);
     }
-    return node;
+
+    if (this.hint)
+      this.node.title = this.hint;
+    this.node.dataset.name = this.name;
+    this.node.addEventListener("change", () => this.onSelect());
+    this.node.propTodd = this;
+  }
+
+  onSelect() {
+    const newvalue = this.getValue();
+    if (newvalue !== this.lastvalue) {
+      const shouldsetdirty = this.lastvalue !== null;
+      this.lastvalue = newvalue;
+      if (shouldsetdirty)
+        this.setDirty();
+    }
+    if (this.isEventUnmasked("select") || this.enablecomponents.length)
+      this.transferState();
+    // always call actionEnabled or enableon's and clientside visibleon's won't work correctly
+    this.owner.actionEnabler();
   }
 
   /****************************************************************************************************************************
@@ -77,29 +134,23 @@ export default class ObjPulldown extends HTMLComponentBase {
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-
-    const collapsed = this.width.set === this.myminheight;
-
     this.node.style.width = this.width.set + 'px';
-    this.node.classList.toggle("collapsed", collapsed);
   }
-
 
   /****************************************************************************************************************************
    * Events
    */
 
-  gotControlChange(ev) {
+  gotControlChange(ev: Event) {
     this.setDirty();
   }
 
-  onMagicMenu(event) {
+  onMagicMenu(event: MagicMenuEvent) {
     event.stopPropagation();
     event.detail.submenu.prepend(<li onClick={() => this.queueMessage("inspectoptions", {}, true)}>Inspect options</li>);
   }
 
   isEnabledOn(checkflags: string[], min: number, max: number, selectionmatch: SelectionMatch) {
-    //    console.log(this.obj.getSelectedIndex());
     const flags = this.options[this.node.selectedIndex].flags;
     return $todd.checkEnabledFlags([flags], checkflags, min, max, selectionmatch);
   }
