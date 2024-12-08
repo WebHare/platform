@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
@@ -11,8 +10,8 @@ import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import type { DataColumn } from './list';
-require('./listview.css');
-const ListColumn = require('./listcolumns');
+import './listview.css';
+import * as ListColumn from './listcolumns';
 
 
 let globallistcount = 0;
@@ -83,7 +82,7 @@ function translatePageCoordinatesToElement(event, element) {
 }
 
 type WrappedDataColumn = {
-  src: DataColumn
+  src: DataColumn;
 };
 
 let scrollbarwidth = null;
@@ -126,11 +125,11 @@ export function getScrollbarWidth() {
 }
 
 export type VisibleRow = {
-  cells: unknown[],
-  node: HTMLDivElement,
-  rownum: number,
-  options: unknown,
-  dragrow: boolean
+  cells: unknown[];
+  node: HTMLDivElement;
+  rownum: number;
+  options: unknown;
+  dragrow: boolean;
 };
 
 export default class ListView {
@@ -168,14 +167,14 @@ export default class ListView {
     this._selectedcellnumbers = [];
 
     /** List of visible columns in the list
-        @cell width Width in pixels
-        @cell header Index of primary datacolumn for this column
-        @cell left x-position of leftmost pixel (normal layout)
-        @cell right Equal to left + width (normal layout)
-        @cell dragleft x-position of leftmost pixel (for draglayout)
-        @cell dragright Equal to left + width (for draglayout)
-        @cell minwidth Minimum width
-        @cell coupled_cols Set of column nrs (including current) that have their *left* splits coupled (moving together)
+        - width Width in pixels
+        - header Index of primary datacolumn for this column
+        - left x-position of leftmost pixel (normal layout)
+        - right Equal to left + width (normal layout)
+        - dragleft x-position of leftmost pixel (for draglayout)
+        - dragright Equal to left + width (for draglayout)
+        - minwidth Minimum width
+        - coupled_cols Set of column nrs (including current) that have their *left* splits coupled (moving together)
                 If this set includes 0, the split cannot be moved.
     */
     this.cols = [];
@@ -450,17 +449,15 @@ export default class ListView {
     this.__scrollRowIntoView(rownum, false, true);
   }
 
-  scrollRowIntoView(rownum, keep_comfort_distance) //, animate)
-  {
+  scrollRowIntoView(rownum, keep_comfort_distance) {
     this.__scrollRowIntoView(rownum, keep_comfort_distance, false);
   }
 
-  /** @short
-      @param rownum row number which must be in view
-      @param keep_confort_distance whether to keep a 'confort zone' of rows around the cursor position
+  /**
+   * @param rownum - row number which must be in view
+   * @param keep_confort_distance - whether to keep a 'confort zone' of rows around the cursor position
   */
-  __scrollRowIntoView(rownum, keep_comfort_distance, center) //, animate)
-  {
+  __scrollRowIntoView(rownum, keep_comfort_distance, center) {
     if (!this.listdomcreated) {
       this.delayed_scrollrowintoview = rownum; // FIXME: safe?
       return;
@@ -471,8 +468,7 @@ export default class ListView {
     let scrolltop = toscroll.scrollTop;
 
     if (rowtop < scrolltop - this.bodyholderheight // would have to scroll more than a full page (height of the list) ??
-      || center) // (this.cursorrow === -1 )) // the first selection
-    {
+      || center) { // (this.cursorrow === -1 )) // the first selection
       // calculate the scrolltop for getting the specified row in the middle
       const rowmiddle = rowtop + this.rowheight / 2;
       scrolltop = Math.floor(rowmiddle - this.bodyholderheight / 2);
@@ -498,8 +494,7 @@ export default class ListView {
     //boundscheck
     const scrollmax = this.numrows * this.rowheight - this.bodyholderheight;
     scrolltop = Math.max(0, Math.min(scrollmax, scrolltop));
-    if (this.listbodyholder.scrollTop !== scrolltop) //we need to scroll
-    {
+    if (this.listbodyholder.scrollTop !== scrolltop) { //we need to scroll
       scrollmonitor.setScrollPosition(this.listbodyholder, 0, scrolltop);
     }
   }
@@ -714,7 +709,7 @@ export default class ListView {
   //
 
   /** Get the datacolumn nr from the clicked node in a row
-      @return Index of datasource, -1 if not found
+      @returns Index of datasource, -1 if not found
   */
   _findDataColumnFromCellNode(rownode, cellnode) {
     // The cells are inserted in datasource order, sources with x=-1 are skipped.
@@ -877,8 +872,8 @@ export default class ListView {
       return;
 
     if (this._columnselect) {
-      if (this.cursorcol >= 0) //we had a selected column.
-      {
+      if (this.cursorcol >= 0) { //we had a selected column.
+
         this.cursorcol = Math.max(0, Math.min(this.cols.length - 1, this.cursorcol + distance));
         this._selectedcellnumbers = [this.cursorcol];
         dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
@@ -891,12 +886,10 @@ export default class ListView {
     const row = this.visiblerows[this.cursorrow];
     if (row.cells[this.expandedidx] === !expanding) { //expand mode being changed
       this.datasource.setCell(row.propRow, row.cells, this.expandedidx, expanding);
-    } else //already in the proper expand mode...
-    {
+    } else { //already in the proper expand mode...
       // Get the current depth
       const depth = row.cells[this.depthidx];
-      if (depth && !expanding) //go up, but not down!
-      {
+      if (depth && !expanding) {  //go up, but not down!
         const parentrownr = this.datasource.getRowParent(this.cursorrow, row);
         if (parentrownr !== null) {
           // Select the found item and click to close
@@ -1003,8 +996,7 @@ export default class ListView {
     let celledit = false;
     let columnschanged = false;
     let cellnum;
-    if (listcell) // a cell is clicked
-    {
+    if (listcell) { // a cell is clicked
       /* Fire an event on the list allowing our parent to intercept */
       cellnum = this._findDataColumnFromCellNode(listrow, listcell);
 
@@ -1153,8 +1145,8 @@ export default class ListView {
   }
 
   /** Reset the drop target styles
-      @param rownr Rownr to select, -1 to select none
-      @param clearinsertpoint If true, hide insertpoint
+      @param rownr - Rownr to select, -1 to select none
+      @param clearinsertpoint - If true, hide insertpoint
   */
   _setRowDropTarget(rownr: number | -1, clearinsertpoint: boolean): void {
     Object.keys(this.visiblerows).forEach(key => {
@@ -1374,14 +1366,10 @@ export default class ListView {
     }
 
     // Calculate how much the split may be moved to the left
-    this.draginfo.room_left = Math.min.apply(Math, left_resize.map(function (colnr) {
-      return this.draginfo.orgsizes[colnr].room;
-    }.bind(this)));
+    this.draginfo.room_left = Math.min(...left_resize.map(colnr => this.draginfo.orgsizes[colnr].room));
 
     // And to the right
-    this.draginfo.room_right = Math.min.apply(Math, right_resize.map(function (colnr) {
-      return this.draginfo.orgsizes[colnr].room;
-    }.bind(this)));
+    this.draginfo.room_right = Math.min(...right_resize.map(colnr => this.draginfo.orgsizes[colnr].room));
 
     this._applySplitMove();
   }
@@ -1401,7 +1389,7 @@ export default class ListView {
   // Public interface
   //
 
-  /** @short set's the cursor row and makes sure the view scrolls if needed to keep the new cursor row in the view
+  /** set's the cursor row and makes sure the view scrolls if needed to keep the new cursor row in the view
   */
   setCursorRow(new_cursorrow) {
     this.scrollRowIntoView(new_cursorrow, true);
@@ -1423,8 +1411,7 @@ export default class ListView {
 
       this.range_end_idx = 0;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    } else // new selection will be only the first row
-    {
+    } else { // new selection will be only the first row
       this.range_start_idx = firstselectablerow;
       this.range_end_idx = firstselectablerow;
 
@@ -1450,8 +1437,7 @@ export default class ListView {
 
       this.range_end_idx = lastselectablerow;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    } else // new selection will be only the last row
-    {
+    } else { // new selection will be only the last row
       this.range_start_idx = lastselectablerow;
       this.range_end_idx = lastselectablerow;
       this.datasource.clearSelection();
@@ -1583,7 +1569,7 @@ export default class ListView {
   }
 
   getRowForNode(node) {
-    const row = event.target.closest('div.listrow');
+    const row = node.closest('div.listrow');
     return row ? this.visiblerows[row.propRow] : null;
   }
 
@@ -1603,8 +1589,7 @@ export default class ListView {
     let srcrow = this.visiblerows[rownum];
     let status = srcrow.cells[this.selectedidx];
 
-    if (status !== true) // not yet selected? select it now
-    {
+    if (status !== true) { // not yet selected? select it now
       this.clickSelectRowByNumber(event, row.propRow, { immediate_select: true });
 
       srcrow = this.visiblerows[rownum];
@@ -1679,7 +1664,7 @@ export default class ListView {
       if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
-      var col = this.datacolumns[this.cols[i].header];
+      const col = this.datacolumns[this.cols[i].header];
       const headernode = dompack.create("span", { "class": "list__header__cell" });
 
       if (col) {
@@ -1789,8 +1774,7 @@ export default class ListView {
     // reset datacolumns x,y,w,h
     datacolumns.forEach(function (item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
 
-    if (!layout || !layout.length) //no layout specified
-    {
+    if (!layout || !layout.length) { //no layout specified
       for (let i = 0; i < datacolumns.length && i < this.cols.length; ++i) {
         datacolumns[i].x = i;
 
@@ -2213,7 +2197,7 @@ export default class ListView {
     if (!text) //reset
       return;
 
-    const searchregex = new RegExp("^" + text.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "i");
+    const searchregex = new RegExp("^" + text.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&"), "i");
 
     const newidx = this.datasource.selectFirstMatchFromCurrent(searchregex, this.searchidx);
     if (newidx >= 0) {
