@@ -33,9 +33,9 @@ pxl.setOptions(options);
 
 The following options can be set in the `options` object:
 
-* `recordurl`: Base url to which to send PXL events. Defaults to `"/.px/"`.
+* `recordurl`: Base url to which to send PXL events. Defaults to `"/.wh/ea/px/"`.
 * `altsamplerate`: Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to `1/100` (or `.01`) sends 1 in 100 events to the alternative record url. Defaults to `0` (no sampling).
-* `altrecordurl`: Alternative record url. Defaults to `"/.px/alt/"`.
+* `altrecordurl`: Alternative record url. Defaults to `"/.wh/ea/px/alt/"`.
 * `sessionexpiration`: The number of days the user id is valid. Defaults to `30`.
 * `nobrowserenvironment`: Set to true to omit some browser context fields (`bu`, `bs` and `bp`). This option can be used to reduce the length of the pxl url. Defaults to `false`.
 * `debug`: Set to `true` to enable debugging in the JavaScript console. Defaults to the value of the `pxl` dom debug flag.

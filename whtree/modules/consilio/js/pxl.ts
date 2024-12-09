@@ -37,11 +37,11 @@ export type PxlEventData = {
 export interface PxlOptions {
   /** Override pi (pxlId) to control or anonymize user ids*/
   pi?: string | undefined;
-  /**  Base url to which to send PXL events. Defaults to "/.px/". */
+  /**  Base url to which to send PXL events. Defaults to "/.wh/ea/px/". */
   url: string;
   /**  Sample rate for the alternative record url as a fraction of the number of events, for example, setting it to 1/100 sends 1 in 100 events to the alternative record url. Defaults to 0 (no sampling). */
   altSampleRate: number;
-  /**  Alternative record url. Defaults to "/.px/alt/". */
+  /**  Alternative record url. Defaults to "/.wh/ea/px/alt/". */
   altUrl: string;
   /** The number of days the user id is valid. Defaults to 30. */
   sessionExpiration: number; //TODO if we ever camel this, also add 'Days' to the name
@@ -73,9 +73,9 @@ let pxlUserId: string | undefined, pxlSessionId: string | undefined;
 
 function buildOptions(options: Partial<PxlOptions> | undefined): PxlOptions {
   return {
-    url: "/.px/",
+    url: "/.wh/ea/px/",
     altSampleRate: 0,
-    altUrl: "/.px/alt/",
+    altUrl: "/.wh/ea/px/alt/",
     sessionExpiration: max_sessionid_age,
     noBrowser: false,
     beacon: false,

@@ -219,9 +219,8 @@ void WebHareServer::AccessLogFunction(WebServer::Connection &conn, unsigned resp
         builder.Append("}\n");
         accesslog.RawLog(builder.data.begin(), builder.data.end(), now);
 
-        //aww no c++20 yet
-        //if(reqparser.GetReceivedUrl().starts_with("/.px/"))
-        if(reqparser.GetReceivedUrl().compare(0, 5, "/.px/") == 0)
+        // Pxl hits get logged separately for faster scanning
+        if(reqparser.GetReceivedUrl().compare(0, 5, "/.px/") == 0 || reqparser.GetReceivedUrl().compare(0, 11, "/.wh/ea/px/") == 0)
             pxllog.RawLog(builder.data.begin(), builder.data.end(), now);
 }
 void WebHareServer::ErrorLogFunction(Blex::SocketAddress const &remoteaddr, std::string const&error)

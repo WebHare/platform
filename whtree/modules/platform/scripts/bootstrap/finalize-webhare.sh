@@ -49,7 +49,7 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
-rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
+rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
 (
   cd "$WEBHARE_DIR/modules" ;
   # shellcheck disable=SC2207,SC2010
@@ -79,15 +79,14 @@ logWithTime "Update generated files"
 wh update-generated-files --nodb
 
 logWithTime "Precompiling TypeScript"
-rm -rf "$WEBHARE_TSBUILDCACHE"
+rm -rf "$WEBHARE_TSBUILDCACHE" 2>/dev/null || true # ignore errors, often triggered by rebuilding while active
 wh run "$WEBHARE_DIR/jssdk/tsrun/src/precompile.ts" "$WEBHARE_TSBUILDCACHE" "$WEBHARE_DIR"
 
 logWithTime "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg
 
-
 logWithTime "Rebuild plaform:* assetpacks"
-rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata"
+rm -rf "$WEBHARE_DIR/modules/platform/generated/ap" "$WEBHARE_DIR/modules/platform/generated/ap.metadata" 2>/dev/null || true # ignore errors, often triggered by rebuilding while active
 wh assetpack compile --foreground "platform:*"
 
 logWithTime "Final checks"

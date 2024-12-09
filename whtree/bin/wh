@@ -569,7 +569,7 @@ HERE
 
     # Cannot build a target for this in the makefile, we want to serialise these steps
     for P in postuninstall clean install; do
-      "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" $P
+      "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" --output-sync=target $P
     done
     exit
     ;;
