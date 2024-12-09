@@ -294,7 +294,7 @@ export default class ObjList extends ComponentBase {
     };
 
     //no point in storing as 'this.list', setListView will come in before this constructor is done
-    this.constructorLV(this.node, this, listoptions);
+    this.constructorLV(listoptions);
 
     this.node.addEventListener("open", evt => this.onOpen(evt));
 
@@ -325,7 +325,7 @@ export default class ObjList extends ComponentBase {
 
     return {
       rows: this.getRowsSubmitValue(this.rows),
-      selectedcolumns: this.list.getSelectedColumns().map(src => src.name)
+      selectedcolumns: this.getSelectedColumns().map(src => src.name)
     };
   }
   getRowsSubmitValue(rows) {
@@ -378,8 +378,8 @@ export default class ObjList extends ComponentBase {
           }
 
           this.flattenRows();
-          this.list.invalidateAllRows();
-          this.list.setSort(this.sortcolumn, this.sortcolumn ? this.sortascending : true);
+          this.invalidateAllRows();
+          this.setSort(this.sortcolumn, this.sortcolumn ? this.sortascending : true);
         } break;
 
       case "rows":
@@ -395,7 +395,7 @@ export default class ObjList extends ComponentBase {
 
           this._setSelection(selected);
 
-          this.list.invalidateAllRows();
+          this.invalidateAllRows();
         } break;
 
       case "partialrows":
@@ -423,7 +423,7 @@ export default class ObjList extends ComponentBase {
           });
 
           this.flattenRows();
-          this.list.invalidateAllRows();
+          this.invalidateAllRows();
         } break;
 
       case "footerrows":
@@ -433,12 +433,12 @@ export default class ObjList extends ComponentBase {
           let parentkey;
           this.recurseFlattenRows(rows, 0, parentkey, this.footerrows);
 
-          this.list.invalidateAllRows();
+          this.invalidateAllRows();
         } break;
 
       case "emptytext":
         {
-          this.list.updateOptions({ emptytext: data.text });
+          this.updateOptions({ emptytext: data.text });
         } break;
 
       case "selection":
@@ -452,7 +452,7 @@ export default class ObjList extends ComponentBase {
         {
           // Redraw all the lines after the icon set changes
           this.iconnames = data.icons;
-          this.list.invalidateAllRows();
+          this.invalidateAllRows();
         } break;
 
       default:
@@ -490,18 +490,18 @@ export default class ObjList extends ComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
-    this.list.setDimensions(this.width.set, this.height.set);
+    this.setDimensions(this.width.set, this.height.set);
 
     if (this.isfirstlayout) {
-      this.list.activateLayout();
+      this.activateLayout();
 
-      this.list.setSort(this.sortcolumn, this.sortascending);
+      this.setSort(this.sortcolumn, this.sortascending);
 
       this.jumpToSelection();
       this.isfirstlayout = false;
     }
 
-    this.list.setColumnsWidths(this.cols);
+    this.setColumnsWidths(this.cols);
 
     //console.log("<list> relayout to size " + width + " x " + height);
   }
@@ -696,7 +696,7 @@ export default class ObjList extends ComponentBase {
 
   onMagicMenu(event: CustomEvent) {
     event.stopPropagation();
-    const row = this.list.getRowForNode(event.target);
+    const row = this.getRowForNode(event.target);
     if (!row)
       return;
 
@@ -745,8 +745,8 @@ export default class ObjList extends ComponentBase {
     this.sortascending = event.detail.ascending;
 
     this.flattenRows();
-    this.list.invalidateAllRows();
-    this.list.setSort(event.detail.colidx, event.detail.ascending);
+    this.invalidateAllRows();
+    this.setSort(event.detail.colidx, event.detail.ascending);
 
     let sortcolumnname = "<ordered>";
     if (this.sortcolumn !== null)
@@ -805,10 +805,6 @@ export default class ObjList extends ComponentBase {
   // Datasource callbacks
   //
 
-  setListView(list) {
-    this.list = list;
-  }
-
   getDataStructure() {
     // searchidx is the index of the column containing the text which is searched using find-as-you-type. Maybe this could be
     // a setting in the future, but for now we'll take the data cell of the first 'text' column.
@@ -863,7 +859,7 @@ export default class ObjList extends ComponentBase {
   }
 
   sendRow(rownum) {
-    if (!this.list.isRowVisible(rownum))
+    if (!this.isRowVisible(rownum))
       return;
 
     const row = this.flatrows[rownum];
@@ -877,7 +873,7 @@ export default class ObjList extends ComponentBase {
       classes: row[0].classes
     };
 
-    this.list.updateRow(rownum, row, options);
+    this.updateRow(rownum, row, options);
   }
   sendFooterRows() {
     const tosend = [];
@@ -891,10 +887,10 @@ export default class ObjList extends ComponentBase {
           }
         });
     });
-    this.list.updateFooterRows(tosend);
+    this.updateFooterRows(tosend);
   }
   sendNumRows() {
-    this.list.updateNumRows(this.flatrows.length);
+    this.updateNumRows(this.flatrows.length);
   }
   getSelected(rownum, row) {
     return row.isselected; //ADDME non-selectable rows
@@ -913,7 +909,7 @@ export default class ObjList extends ComponentBase {
         this.transferState(this.syncselect);
     } else if (cellidx === 2) { //changing expanded state
       this.flattenRows();
-      this.list.invalidateAllRows();
+      this.invalidateAllRows();
 
       if (row[2] && !row[0].subrows && this.isEventUnmasked("expand"))
         this.queueEvent(this.owner.screenname + "." + this.name, "expand " + row[0].rowkey, false);
@@ -1229,7 +1225,7 @@ export default class ObjList extends ComponentBase {
         this.finishSelectionUpdateGroup();
 
         // And scroll it into view
-        this.list.scrollRowIntoView(i, true);
+        this.scrollRowIntoView(i, true);
         break;
       }
     }
@@ -1304,9 +1300,9 @@ export default class ObjList extends ComponentBase {
     if (selectedrow === -1)
       return;
 
-    //this.list.scrollRowIntoView(selectedrow);
-    this.list.scrollRowIntoCenterOfView(selectedrow);
-    scrollmonitor.saveScrollPosition(this.list.listbodyholder);
+    //this.scrollRowIntoView(selectedrow);
+    this.scrollRowIntoCenterOfView(selectedrow);
+    scrollmonitor.saveScrollPosition(this.listbodyholder);
   }
 
   onColumnResize(event) {
@@ -1330,12 +1326,11 @@ export default class ObjList extends ComponentBase {
   searchidx = 0;
   highlightidx = 0;
 
-  constructorLV(node, datasource, options) {
+  constructorLV(options) {
     // 0 means the scrollbar is an overlay, not taking any space
     // >0 takes space next to the content which can be scrolled
 
     this.listdomcreated = false; // will stay false until .layout() is called if options.delay_layout was set to true
-    this.datasource = null;
 
     this.numrows = 0; // total amount of rows the datasource has
     this.firstvisiblerow = 0; // first row which is in view
@@ -1463,26 +1458,11 @@ export default class ObjList extends ComponentBase {
       onsearch: text => this._onFindAsYouTypeSearch(text)
     });
 
-    this.setDataSource(datasource);
+    this.resetList();
   }
 
   getSelectedColumns() {
     return this._selectedcellnumbers.map(nr => this.lv_datacolumns[nr].src);
-  }
-
-  setDataSource(newdatasource) {
-    //console.log("setDataSource", newdatasource);
-
-    if (this.datasource === newdatasource)
-      return;
-
-    if (this.datasource)
-      this.datasource.setListView(null);
-    this.datasource = newdatasource;
-    if (this.datasource)
-      this.datasource.setListView(this); //datasources are expected to only support one list, as sorting state would possibly differ per list anyway
-
-    this.resetList();
   }
 
   updateOptions(newopts) {
@@ -1535,7 +1515,7 @@ export default class ObjList extends ComponentBase {
     //clear all cached data, all generated content
     dompack.empty(this.node);
 
-    if (!this.datasource)
+    if (!this)
       return;
 
     /* The list dom model:
@@ -1966,7 +1946,7 @@ export default class ObjList extends ComponentBase {
   /// Start an update selection groups (groups partial updates of selection together)
   _startSelectionUpdateGroup() {
     if (!this.updategroupfinish_cb)
-      this.datasource.startSelectionUpdateGroup();
+      this.startSelectionUpdateGroup();
   }
 
   /// Finish the current update selection group (delayed to catch dblclick after click into one group)
@@ -1979,8 +1959,8 @@ export default class ObjList extends ComponentBase {
         cancelled_cb = true;
       }
 
-      if (this.datasource)
-        this.datasource.finishSelectionUpdateGroup();
+      if (this)
+        this.finishSelectionUpdateGroup();
 
       // Remove ui busy after the finish callback
       if (cancelled_cb)
@@ -1994,8 +1974,8 @@ export default class ObjList extends ComponentBase {
 
   _delayedFinishSelectionUpdateGroup() {
     this.updategroupfinish_cb = null;
-    if (this.datasource)
-      this.datasource.finishSelectionUpdateGroup();
+    if (this)
+      this.finishSelectionUpdateGroup();
     this.finishselectlock.release();
   }
 
@@ -2011,7 +1991,7 @@ export default class ObjList extends ComponentBase {
 
     // If the row is expandable, toggle expandability
     if (typeof row.cells[this.expandedidx] === "boolean")
-      this.datasource.setCell(row.propRow, row.cells, this.expandedidx, !row.cells[this.expandedidx]);
+      this.setCell(row.propRow, row.cells, this.expandedidx, !row.cells[this.expandedidx]);
   }
 
   // ---------------------------------------------------------------------------
@@ -2059,12 +2039,12 @@ export default class ObjList extends ComponentBase {
     const expanding = distance > 0; //going right
     const row = this.visiblerows[this.cursorrow];
     if (row.cells[this.expandedidx] === !expanding) { //expand mode being changed
-      this.datasource.setCell(row.propRow, row.cells, this.expandedidx, expanding);
+      this.setCell(row.propRow, row.cells, this.expandedidx, expanding);
     } else { //already in the proper expand mode...
       // Get the current depth
       const depth = row.cells[this.depthidx];
       if (depth && !expanding) {  //go up, but not down!
-        const parentrownr = this.datasource.getRowParent(this.cursorrow, row);
+        const parentrownr = this.getRowParent(this.cursorrow, row);
         if (parentrownr !== null) {
           // Select the found item and click to close
           this.setCursorRow(parentrownr);
@@ -2108,7 +2088,7 @@ export default class ObjList extends ComponentBase {
 
     this.range_start_idx = 0;
     this.range_end_idx = this.numrows - 1;
-    this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
+    this.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
 
     this._finishSelectionUpdateGroup(true);
   }
@@ -2193,7 +2173,7 @@ export default class ObjList extends ComponentBase {
       if (column.src && column.src.edittype === "textedit") {
         // If this an editable column, start editing if the current is already selected or not selectable at all
         const canselectrow = srcrow.options && srcrow.options.selectable;
-        const isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum === this.cursorcol);
+        const isselected = canselectrow && this.isSelected(listrow.propRow) && (!this._columnselect || cellnum === this.cursorcol);
         if (!canselectrow || isselected)
           celledit = true;
       }
@@ -2205,7 +2185,7 @@ export default class ObjList extends ComponentBase {
     if (!listrow) {
       //this.clickSelectRowByNumber(event, -1, false, true);
       this._startSelectionUpdateGroup();
-      this.datasource.clearSelection(); //simple clicks clear selection
+      this.clearSelection(); //simple clicks clear selection
       this._finishSelectionUpdateGroup(true);
 
       return false;
@@ -2344,7 +2324,7 @@ export default class ObjList extends ComponentBase {
       // Calculate desired depth from mouse cursor
       const depth = Math.floor((rel.x - 48) / 16);
 
-      const res = this.datasource.checkPositionedDrop(event, position_rownum, depth);
+      const res = this.checkPositionedDrop(event, position_rownum, depth);
       if (res) {
         this.listinsertpoint.style.left = (res.depth * 16 + 16) + "px";
 
@@ -2359,7 +2339,7 @@ export default class ObjList extends ComponentBase {
     const target_rownum = Math.min(Math.floor(rel.y / this.rowheight), this.numrows);
 
     const cells = this.visiblerows[target_rownum] ? this.visiblerows[target_rownum].cells : null;
-    const res = this.datasource.checkTargetDrop(event, target_rownum, cells, 'target');
+    const res = this.checkTargetDrop(event, target_rownum, cells, 'target');
 
     this._setRowDropTarget(res ? (cells ? target_rownum : -2) : -1, true);
 
@@ -2375,7 +2355,7 @@ export default class ObjList extends ComponentBase {
     const cells = target.classList.contains('listrow') ? this.visiblerows[target.propRow].cells : null;
 
     event.dataTransfer.effectAllowed = "all";
-    const res = this.datasource.tryStartDrag(event, target.propRow, cells);
+    const res = this.tryStartDrag(event, target.propRow, cells);
     if (!res) {
       // Not allowed to drag this
       event.preventDefault();
@@ -2409,7 +2389,7 @@ export default class ObjList extends ComponentBase {
     this._setRowDropTarget(-1, true);
 
     if (res)
-      return this.datasource.executeDrop(event, res);
+      return this.executeDrop(event, res);
 
     return false;
   }
@@ -2575,29 +2555,29 @@ export default class ObjList extends ComponentBase {
 
     this._startSelectionUpdateGroup();
 
-    const firstselectablerow = this.datasource.getSelectableRowAfter(-1);
+    const firstselectablerow = this.getSelectableRowAfter(-1);
 
     if (expandselection && this.options.selectmode === 'multiple') {
       // make the current range stretch up to the first row
 
       if (this.range_start_idx > -1)
-        this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+        this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
 
       this.range_end_idx = 0;
-      this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
+      this.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
     } else { // new selection will be only the first row
       this.range_start_idx = firstselectablerow;
       this.range_end_idx = firstselectablerow;
 
-      this.datasource.clearSelection();
-      this.datasource.setSelectionForRange(0, 0, true);
+      this.clearSelection();
+      this.setSelectionForRange(0, 0, true);
     }
 
     this._finishSelectionUpdateGroup(true);
   }
 
   moveCursorToBottom(expandselection) {
-    const lastselectablerow = this.datasource.getSelectableRowBefore(this.numrows);
+    const lastselectablerow = this.getSelectableRowBefore(this.numrows);
 
     this.setCursorRow(lastselectablerow);
 
@@ -2607,15 +2587,15 @@ export default class ObjList extends ComponentBase {
       // make the current rage stretch down to the last row
 
       if (this.range_start_idx > -1)
-        this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+        this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
 
       this.range_end_idx = lastselectablerow;
-      this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
+      this.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
     } else { // new selection will be only the last row
       this.range_start_idx = lastselectablerow;
       this.range_end_idx = lastselectablerow;
-      this.datasource.clearSelection();
-      this.datasource.setSelectionForRange(lastselectablerow, lastselectablerow, true);
+      this.clearSelection();
+      this.setSelectionForRange(lastselectablerow, lastselectablerow, true);
     }
 
     this._finishSelectionUpdateGroup(true);
@@ -2640,9 +2620,9 @@ export default class ObjList extends ComponentBase {
       new_cursorrow = Math.min(this.range_start_idx, this.range_end_idx); // escape to above our range (when not expanding using shift anymore)
 
     if (distance === 1)
-      new_cursorrow = this.datasource.getSelectableRowBefore(new_cursorrow);
+      new_cursorrow = this.getSelectableRowBefore(new_cursorrow);
     else // find the first selectable row between where we want to be and our cursor position
-      new_cursorrow = this.datasource.getSelectableRowAfter(new_cursorrow - distance < 0 ? -1 : new_cursorrow - distance);
+      new_cursorrow = this.getSelectableRowAfter(new_cursorrow - distance < 0 ? -1 : new_cursorrow - distance);
 
     if (new_cursorrow === -1)
       return; // nothing more to select below us
@@ -2663,9 +2643,9 @@ export default class ObjList extends ComponentBase {
       new_cursorrow = Math.max(this.range_start_idx, this.range_end_idx);
 
     if (distance === 1)
-      new_cursorrow = this.datasource.getSelectableRowAfter(new_cursorrow);
+      new_cursorrow = this.getSelectableRowAfter(new_cursorrow);
     else // find the first selectable row between where we want to be and our cursor position
-      new_cursorrow = this.datasource.getSelectableRowBefore(new_cursorrow + distance > this.numrows ? this.numrows : new_cursorrow + distance);
+      new_cursorrow = this.getSelectableRowBefore(new_cursorrow + distance > this.numrows ? this.numrows : new_cursorrow + distance);
 
     if (new_cursorrow === -1)
       return; // nothing more to select below us
@@ -2695,9 +2675,9 @@ export default class ObjList extends ComponentBase {
       if (rownum > -1 && options.expandselection && this.options.selectmode === 'multiple') {
         // FIXME: improve performance by only clearing/updating the parts that may have changed
         if (this.range_start_idx > -1)
-          this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
+          this.setSelectionForRange(this.range_start_idx, this.range_end_idx, false);
 
-        this.datasource.setSelectionForRange(this.range_start_idx > -1 ? this.range_start_idx : 0, rownum, true);
+        this.setSelectionForRange(this.range_start_idx > -1 ? this.range_start_idx : 0, rownum, true);
 
         this.range_end_idx = rownum;
 
@@ -2711,28 +2691,28 @@ export default class ObjList extends ComponentBase {
 
       if (rownum < 0) {
         if (!options.expandselection || this.options.selectmode !== 'multiple')
-          this.datasource.clearSelection(); //Negative rownumber clears selection
+          this.clearSelection(); //Negative rownumber clears selection
 
         return false;
       }
 
       if (!options.toggle) {
-        this.datasource.clearSelection(); //simple clicks clear selection
-        this.datasource.setSelectionForRange(rownum, rownum, true);
+        this.clearSelection(); //simple clicks clear selection
+        this.setSelectionForRange(rownum, rownum, true);
       } else {
         const srcrow = this.visiblerows[rownum];
         const status = srcrow.cells[this.selectedidx];
         if (this.options.selectmode === "multiple") {
-          this.datasource.setSelectionForRange(rownum, rownum, !status || options.forceselected);
+          this.setSelectionForRange(rownum, rownum, !status || options.forceselected);
           if (options.columnschanged) //then we need to send an update to the rest of the selection to make sure they select the proper cell
             this.refreshSelectedRows();
         } else {
           // in single select mode ctrl+click either disables the selected row
           // or selects a new one
-          this.datasource.clearSelection(); //simple clicks clear selection
+          this.clearSelection(); //simple clicks clear selection
 
           if (!status)
-            this.datasource.setSelectionForRange(rownum, rownum, true);
+            this.setSelectionForRange(rownum, rownum, true);
         }
       }
 
@@ -2778,7 +2758,7 @@ export default class ObjList extends ComponentBase {
     event.preventDefault();
 
     this._startSelectionUpdateGroup();
-    this.datasource.clearSelection();
+    this.clearSelection();
     this._finishSelectionUpdateGroup(true);
 
     dompack.dispatchCustomEvent(this.node, "wh:listview-contextmenu", { bubbles: true, cancelable: false, detail: { originalevent: event } });
@@ -2788,7 +2768,7 @@ export default class ObjList extends ComponentBase {
     this.numrows = 0;
     this.cursorrow = -1;
 
-    const structure = this.datasource.getDataStructure();
+    const structure = this.getDataStructure();
     this.selectedidx = structure.selectedidx;
     this.expandedidx = structure.expandedidx;
     this.depthidx = structure.depthidx;
@@ -3253,8 +3233,8 @@ export default class ObjList extends ComponentBase {
     dompack.empty(this.listbody);
     this.visiblerows = {};
 
-    this.datasource.sendNumRows();
-    this.datasource.sendFooterRows();
+    this.sendNumRows();
+    this.sendFooterRows();
   }
 
   isRowVisible(rownum) {
@@ -3286,7 +3266,7 @@ export default class ObjList extends ComponentBase {
       if (inputrow < 0)
         continue;
 
-      this.datasource.sendRow(inputrow);
+      this.sendRow(inputrow);
     }
 
     // FIXME: is this the right place to do this?
@@ -3325,7 +3305,7 @@ export default class ObjList extends ComponentBase {
     }
 
     for (let idx = firstrow; idx < limitrow && idx < this.numrows; ++idx)
-      if (this.datasource.isSelected(idx))
+      if (this.isSelected(idx))
         return idx;
     return -1;
   }
@@ -3373,7 +3353,7 @@ export default class ObjList extends ComponentBase {
 
     const searchregex = new RegExp("^" + text.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&"), "i");
 
-    const newidx = this.datasource.selectFirstMatchFromCurrent(searchregex, this.searchidx);
+    const newidx = this.selectFirstMatchFromCurrent(searchregex, this.searchidx);
     if (newidx >= 0) {
       this.setCursorRow(newidx);
       this.range_start_idx = newidx;
