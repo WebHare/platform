@@ -8,9 +8,12 @@ class RichDocument {
     this.rawHtml = rawHtml;
   }
 
-  // Not sure if this API will stay
+  // Not sure if these APIs will stay
   async __getRawHTML() {
     return typeof this.rawHtml === 'string' ? this.rawHtml : await this.rawHtml.text();
+  }
+  __getHTMLBlob() {
+    return typeof this.rawHtml === 'string' ? WebHareBlob.from(this.rawHtml) : this.rawHtml;
   }
 }
 

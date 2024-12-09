@@ -2021,7 +2021,23 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichDocum
     if (!value)
       return {};
 
-    throw new Error(`Writing RTDs not implemented in the JS API yet`);
+    return {
+      settings: (async (): Promise<EncodedSetting[]> => {
+        //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
+
+        const htmlBlob = value.__getHTMLBlob();
+        const htmlValue = await ResourceDescriptor.from(htmlBlob);
+        const rawdata = (htmlValue.sourceFile ? "WHFS:" : "") + await addMissingScanData(htmlValue);
+        if (htmlBlob.size)
+          await uploadBlob(htmlBlob);
+        const setting: EncodedSetting = { rawdata, blobdata: htmlBlob.size ? htmlBlob : null, attribute: this.attr.id, id: htmlValue.dbLoc?.id };
+        if (htmlValue.sourceFile) {
+          setting.linktype = 2;
+          setting.link = htmlValue.sourceFile;
+        }
+        return [setting];
+      })()
+    };
   }
 }
 

@@ -16,6 +16,11 @@ PUBLIC MACRO SetTestRichDocumentField(STRING wrdschemaname, INTEGER person, STRI
       ]);
 }
 
+PUBLIC RECORD FUNCTION GetTestRichDocumentField(STRING wrdschemaname, INTEGER person)
+{
+  RETURN OpenWRDSchema(wrdschemaname)->^wrd_person->GetEntityField(person, "richie");
+}
+
 PUBLIC STRING ARRAY FUNCTION GetWRDTypeEventMasks(STRING wrdschemaname, STRING typetag)
 {
   RETURN OpenWRDSchema(wrdschemaname)->__GetTypeByTag(typetag)->GetEventMasks();
