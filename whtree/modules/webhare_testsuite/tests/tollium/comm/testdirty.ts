@@ -190,7 +190,6 @@ test.registerTests(
 
       // Test box
       const box_node = test.compByName("box!heading!cbox");
-      box_node.scrollIntoView({ block: "nearest" });
       box_node.click();
       await test.wait("ui"); // wait for enablecomponents
       test.eq("YES", status_comp.value);
@@ -199,7 +198,6 @@ test.registerTests(
 
       // Test heading enabled after checking box
       const heading_node = test.compByName("heading!cbox");
-      heading_node.scrollIntoView({ block: "nearest" });
       heading_node.click();
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
@@ -207,7 +205,6 @@ test.registerTests(
 
       // Test slider
       const slider_node = test.compByName("slider");
-      slider_node.scrollIntoView();
       test.click(slider_node, { y: 0, x: "51%" }); // just click in the middle to change the slider value from 0 (min) to 1 (max)
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));

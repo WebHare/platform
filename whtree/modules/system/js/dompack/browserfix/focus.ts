@@ -37,22 +37,6 @@ export function getCurrentlyFocusedElement(limitdoc?: Document): HTMLElement | n
   }
 }
 
-function getIframeFocusableNodes(currentnode: HTMLIFrameElement, recurseframes: boolean) {
-  //ADDME force body into list?
-  let subnodes: HTMLElement[] = [];
-  try {
-    const body = currentnode.contentDocument?.body || currentnode.contentWindow?.document.body || null;
-    if (body?.isContentEditable)
-      return subnodes;
-
-    subnodes = getFocusableComponents(body, recurseframes);
-  } catch (e) {
-    console.log("failed to descend into iframe", e);
-  }
-
-  return subnodes;
-}
-
 /** Return whether the node is reachable for focus by keyboard navigation
    (because tabIndex === -1 will be seen a non(keyboard)focusable by this function)
 
@@ -73,7 +57,10 @@ export function canFocusTo(node: Element, { ignoreInertAttribute = false } = {})
   return (node as HTMLElement).tabIndex >= 0 && !(node as HTMLInputElement).disabled && !(node.tagName === 'A' && !(node as HTMLAnchorElement).href);
 }
 
-export function getFocusableComponents(startnode: Element | null, recurseframes?: boolean) {
+export function getFocusableComponents(startnode: Element | null, options?: boolean | { recurseFrames?: boolean; ignoreInertAttribute?: boolean }): HTMLElement[] {
+  if (typeof options !== "object") {
+    options = { recurseFrames: options };
+  }
   let focusable: HTMLElement[] = [];
   if (!startnode)
     return focusable;
@@ -86,18 +73,22 @@ export function getFocusableComponents(startnode: Element | null, recurseframes?
     }
 
     let iframe;
-    if (recurseframes && (iframe = asIframe(currentnode))) { //might contain more things to focus
-      const subnodes = getIframeFocusableNodes(iframe, recurseframes);
-      if (subnodes.length)
-        focusable = focusable.concat(subnodes);
-    } else if (canFocusTo(currentnode)) {
+    if (options?.recurseFrames && (iframe = asIframe(currentnode))) { //might contain more things to focus
+      try {
+        const subnodes = getFocusableComponents(iframe.contentDocument!.documentElement, options);
+        if (subnodes.length)
+          focusable = focusable.concat(subnodes);
+      } catch {
+        //assume permission error
+      }
+    } else if (canFocusTo(currentnode, options)) {
       focusable.push(currentnode);
     }
 
     if ((currentnode as HTMLElement).isContentEditable)
       continue; //don't look for further focusable nodes inside, the whole RTE counts as an editable component
 
-    const subnodes = getFocusableComponents(currentnode, recurseframes);
+    const subnodes = getFocusableComponents(currentnode, options);
     if (subnodes.length)
       focusable = focusable.concat(subnodes);
   }

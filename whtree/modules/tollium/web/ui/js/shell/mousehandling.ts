@@ -63,17 +63,6 @@ function getClosestValidFocusTarget(node) {
   return null;
 }
 
-function onMouseDownFallback(event) {
-  const focusable = getClosestValidFocusTarget(event.target);
-  //console.log("*** mousedown reached toplevel for target:", event.target);
-  //console.log("focusable elment:", focusable);
-
-  if (!focusable) {
-    // console.warn("*** Preventing focus transfer");
-    event.preventDefault(); //prevent the body from receiving focus.
-  }
-}
-
 function onContextMenuCapture(event) {
   if (event.ctrlKey && event.shiftKey)
     event.stopPropagation(); //ensure that if both ctrl&shift are pressed, noone will intercept the context menu
@@ -89,7 +78,6 @@ function onMovingUpdate(start) {
 export function setupMouseHandling() {
   document.addEventListener("selectstart", onSelectStart);
   document.addEventListener("selectionchange", onSelectionChange);
-  window.addEventListener("mousedown", onMouseDownFallback);
   window.addEventListener("click", event => onClick);
   window.addEventListener("dompack:movestart", () => onMovingUpdate(true), true);
   window.addEventListener("dompack:moveend", () => onMovingUpdate(false), true);

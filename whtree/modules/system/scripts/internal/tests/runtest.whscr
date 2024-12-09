@@ -321,7 +321,13 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       OBJECT itr := jstestrunner->RunTest(testinfo);
       WHILE (TRUE)
       {
-        RECORD res := WaitForPromise(itr->Next());
+        RECORD res := WaitForPromise( CreatePromiseRace(OBJECT[ interruptdefer.promise, itr->Next() ]) );
+        IF(NOT res.done AND CellExists(res.value,'type') AND res.value.type = "interrupt")
+        {
+          INSERT [ test := testinfo.testname ] INTO result.failed AT END;
+          result.status := "fail";
+          BREAK;
+        }
         IF (res.done)
         {
           IF (res.value.status != "finished")

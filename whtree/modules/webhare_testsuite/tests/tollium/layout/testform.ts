@@ -1,7 +1,4 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-tollium/js/testframework';
-
 
 test.registerTests(
   [
@@ -50,7 +47,7 @@ test.registerTests(
         test.eq(settext.getBoundingClientRect().top + 28, longlabeltext.getBoundingClientRect().top, 'longlabel should be 28px below settext');
         test.eq(longlabeltext.getBoundingClientRect().top + 28, nolabeltext.getBoundingClientRect().top, 'nolabel should be 28px below longlabel');
 
-        const longlabellabel = test.qSA("t-text").filter(text => text.textContent.includes('a longer label'))[0];
+        const longlabellabel = test.qSA("t-text").filter(text => text.textContent?.includes('a longer label'))[0];
         test.assert(longlabellabel.getBoundingClientRect().right <= longlabeltext.getBoundingClientRect().left);
 
         //the wrapping/cr versions are exactly twice the text of the nolabeltext, and should in the end have the same sizes (one implicitly through wordwrap)
@@ -65,8 +62,8 @@ test.registerTests(
         test.assert(nolabeltext_wrapped.getBoundingClientRect().bottom <= nolabeltext_crs.getBoundingClientRect().top, 'nolabeltext_wrapped and nolabeltext_crs overlapped (' + nolabeltext_wrapped.getBoundingClientRect().bottom + "," + nolabeltext_crs.getBoundingClientRect().top + ')');
 
         //no overlapping
-        const longest_text = longlabellabel.parentNode.nextSibling.querySelector('t-text');
-        test.assert(longest_text.getBoundingClientRect().right <= longlabellabel.parentNode.getBoundingClientRect().right, "text extends out of line, right is " + longest_text.getBoundingClientRect().right + ', max was ' + longlabellabel.parentNode.getBoundingClientRect().right);
+        const longest_text = longlabellabel.parentElement?.nextElementSibling?.querySelector('t-text');
+        test.assert(longest_text!.getBoundingClientRect().right <= longlabellabel.parentElement!.getBoundingClientRect().right, "text extends out of line, right is " + longest_text!.getBoundingClientRect().right + ', max was ' + longlabellabel.parentElement!.getBoundingClientRect().right);
       }
     },
 
@@ -91,12 +88,12 @@ test.registerTests(
     {
       name: 'verifyspacers',
       test: function (doc, win) {
-        const label = test.qSA("t-text").filter(text => text.textContent.includes('label'))[0];
+        const label = test.qSA("t-text").filter(text => text.textContent?.includes('label'))[0];
         test.eq('label:', label.textContent); //Semicolons
 
         const aligntest = test.compByName('grid_aligntest');
 
-        const cells = test.qSA("t-text").filter(text => text.textContent.includes('cell'));
+        const cells = test.qSA("t-text").filter(text => text.textContent?.includes('cell'));
         test.eq(3, cells.length); //3 cells
         test.assert(cells[0].getBoundingClientRect().right < cells[1].getBoundingClientRect().left, "expected a spacer between the grid cells");
 
