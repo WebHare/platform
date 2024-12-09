@@ -16,7 +16,7 @@ ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VER
 endif
 
 #MAKEFLAGS+=--warn-undefined-variables # too much noise with 4.3
-MAKEFLAGS+=--output-sync=target
+#MAKEFLAGS+=--output-sync=target # finalize-webhare step takes frustratingly long with this
 
 ################################################
 #
