@@ -20,5 +20,7 @@
   },
   //Tell us where the embedded types are and encourage you to switch to those so the editor will match the validator
   "typescript.tsdk": "./whtree/node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  //Prefer 'type' imports over default imports so esbuild's transpiler can remove them
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
 }
