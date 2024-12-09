@@ -54,7 +54,7 @@ async function testQueries() {
   test.eq("This is a native blob", await thisisastreamblob.text());
   test.eq("This is a native blob", await thisisastreamblob.text());
 
-  await uploadBlob(thisisablob);
+  test.eq(thisisablob, await uploadBlob(thisisablob), "uploadBlob should return the blob for easier chaining in an insert/update expression");
   await uploadBlob(goudvis.resource);
   await uploadBlob(thisisastreamblob);
 

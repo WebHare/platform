@@ -30,9 +30,9 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
 
 const uploadedblobs = new WeakMap<WebHareBlob, string>();
 
-export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob): Promise<void> {
+export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob): Promise<WebHareBlob> {
   if (blob.size === 0 || uploadedblobs.get(blob))
-    return;
+    return blob;
 
   const blobpartid = generateRandomId('hex', 16);
   //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
@@ -51,6 +51,7 @@ export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob):
 
   uploadedblobs.set(blob, databaseid);
   blob.__registerPGUpload(databaseid);
+  return blob;
 }
 
 function createPGBlob(pgdata: string): WebHareBlob {
