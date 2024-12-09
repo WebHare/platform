@@ -1,14 +1,39 @@
 import bridge, { LogErrorOptions, LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
 import { LoggableRecord } from "./logmessages";
-import { backendConfig } from "./services";
+import { backendConfig, type LogFormats } from "./services";
 import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";
 import { readFileSync } from "fs";
+import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = { "@timestamp": Date };
+
+/** Webserver access log lines
+ */
+export type AccessLogLine = {
+  "@timestamp": Date;
+  ip: string;
+  user?: string;
+  /** Request method */
+  method: keyof HTTPMethod | string; //add most common methods
+  url: string;
+  statusCode: HTTPStatusCode | number; //add most common statuscodes
+  bodySent?: number;
+  bodyReceived?: number;
+  referrer?: string;
+  userAgent?: string;
+  mimeType?: string;
+  responseTime?: number;
+};
+
+/** Webserver PXL log
+ *  This logfile is currently just a subset of the access log with field that may not be supported in the future removed (ie if we want to POST large/multiple pxls together)
+ */
+export type PxlLogLine = Pick<AccessLogLine, "@timestamp" | "ip" | "user" | "url" | "referrer" | "userAgent">;
+
 /** Write a line to a log file
     @param logname - Name of the log file
     @param logline - Line to log - as string or as object (will have a \@timestamp added and be converted to JSON)
@@ -57,17 +82,20 @@ function getDateFromLogFilename(filename: string) {
   return new Date(datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8));
 }
 
-type GenericLogFields = { [key: string]: LogReadField };
+type GenericLogFields = { [key: string]: LogReadField | undefined };
 export type GenericLogLine = GenericLogFields & LogLineBase;
+
+export function readLogLines<LogFormat extends keyof LogFormats>(logname: LogFormat, options?: ReadLogOptions): AsyncGenerator<LogFormats[LogFormat] & LogLineBase>;
+export function readLogLines<LogFields = GenericLogFields>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase>;
 
 /** Read log lines from a specified log between the two given dates. Note that we ONLY support JSON encoded log lines */
 export async function* readLogLines<LogFields = GenericLogFields>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
   const [module, logfile] = checkModuleScopedName(logname);
   let fileinfo = getModuleDefinition(module).logs[logfile];
   if (!fileinfo) {
-    if (module === "system" && logfile === "servicemanager") {
+    if (module === "platform" && ["servicemanager", "access", "pxl"].includes(logfile)) { // 'builtin' logs
       fileinfo = {
-        filename: "servicemanager",
+        filename: logfile,
         timestamps: false
       };
     } else
