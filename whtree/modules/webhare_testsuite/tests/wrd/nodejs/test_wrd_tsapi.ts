@@ -18,6 +18,7 @@ import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
+import { createRichDocumentFromHSRichDoc, createRichDocumentFromHTML, HSRichDoc } from "@webhare/services/src/rtdbuilder";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -52,8 +53,8 @@ async function testSupportAPI() {
   testFields({ WRD_TITLE: "Root unit", WRD_TAG: "TAG" }, { wrdTitle: "Root unit", wrdTag: "TAG" });
   test.eq({ fn: "WRD_FIRSTNAME" }, wrdsupport.outputmapToHS({ fn: "wrdFirstName" }));
   test.eq([{ wrdFirstName: "first", ln: "last" }], wrdsupport.repairResultSet([{ wrdfirstname: "first", ln: "last" }], { wrdFirstName: "wrdFirstName", ln: "wrdLastName" }));
-  await test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
-  await test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
+  test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
+  test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
 
   //exceptions for standard wrd fields
   testTag("WRD_CREATIONDATE", "wrdCreationDate");
@@ -497,11 +498,22 @@ async function testNewAPI() {
   test.eq('image/png', goldBlobAsImage?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldBlobAsImage?.hash);
 
-  // Set the 'richie' rich document document
-  const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+  // Set the 'richie' rich document document through HareScript
+  let testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
   await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
-  const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
-  test.eq(testHTML, await richrec!.__getRawHTML());
+  // Read the rich document in TypeScript
+  let richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
+  test.eq(testHTML, await richdoc!.__getRawHTML());
+
+  // Set the 'richie' rich document document through TypeScript
+  testHTML = `<html><head></head><body>\n<p class="normal">test</p>\n</body></html>`;
+  await schema.update("wrdPerson", newperson, { richie: await createRichDocumentFromHTML(testHTML) });
+  // Read the rich document in HareScript
+  richdoc = await createRichDocumentFromHSRichDoc(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HSRichDoc);
+  test.eq(testHTML, await richdoc!.__getRawHTML());
+  // Read the rich document in TypeScript
+  richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
+  test.eq(testHTML, await richdoc!.__getRawHTML());
 
   // test array & nested record selectors
   {
