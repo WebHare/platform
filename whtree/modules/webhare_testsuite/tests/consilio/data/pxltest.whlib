@@ -25,5 +25,11 @@ STRING ARRAY FUNCTION FilterRecentHits(STRING sessionid, DATETIME rangestart)
     IF(GetVariableFromURL(row.url,"ps") = sessionid)
       INSERT row.url INTO lines AT END;
   }
+
+  lines :=
+      SELECT AS STRING ARRAY line
+        FROM ToRecordArray(lines, "LINE")
+    ORDER BY ToInteger(GetVariableFromURL(line, "pc"), 0);
+
   RETURN lines;
 }
