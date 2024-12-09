@@ -49,6 +49,8 @@
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
       <tryfile path="scripts/routers/unifiedcache.shtml" />
     </webrule>
+    <!-- Formerly /.px/ - move under /.wh/ as you don't want it access controlled, and under /ea/ because this shouldn't count towards anyrate limits -->
+    <webrule path="allroots:/.wh/ea/px/" match="initial" handlebyscript="mod::consilio/web/resources/pxl.txt" />
     <webrule path="allroots:/.wh/openid/" match="initial" router="/js/auth/openid.ts#openIdRouter" />
   </backend>
 

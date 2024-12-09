@@ -262,7 +262,8 @@ function onFetch(event: FetchEvent) {
     || urlpath.startsWith('/.dev/debug.js')
     || urlpath.startsWith(getAssetPackBase("dev:devtools"))
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
-    || urlpath.startsWith("/.px/")) {
+    || urlpath.startsWith("/.px/") //old pxl url. new url introduced with WH5.7
+    || urlpath.startsWith("/.wh/ea/px/")) {
     return;  //well known never cached files
   }
 
