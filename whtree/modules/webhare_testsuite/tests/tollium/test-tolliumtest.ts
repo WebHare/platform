@@ -9,6 +9,13 @@ async function testTTAPI() {
 
   test.assert(tt.comp("button") === tt.comp(":First button"));
   test.assert(tt.comp("textedit") === tt.comp(":First textedit"));
+  test.assert(tt.comp("pulldown") === tt.comp(":First pulldown"));
+  test.eq("Opt 1", tt.comp("pulldown").getTextValue());
+  test.eq("opt1", tt.comp("pulldown").getValue());
+  tt.comp("pulldown").set("opt2");
+  test.eq("Opt 2", tt.comp("pulldown").getTextValue());
+  tt.comp("pulldown").set(":Opt 1");
+  test.eq("opt1", tt.comp("pulldown").getValue());
 }
 
 test.run(

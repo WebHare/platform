@@ -617,6 +617,30 @@ export async function waitToggled<T>({ test, run }: {
   return await wait(test, options);
 }
 
+/** Return a promise that waits for event 'eventtype' to trigger on the node */
+export function waitForEvent<EventType extends Event>(target: EventTarget, eventtype: string, options?:
+  {
+    filter?: (event: EventType) => boolean;
+    stop?: boolean;
+    capture?: boolean;
+  }): Promise<Event> {
+  return new Promise<EventType>(resolve => {
+    //we need access to the eventhandler after declaring, so it must be VAR
+    const eventhandler = (event: EventType) => {
+      if (options && options.filter && !options.filter(event))
+        return;
+
+      if (options && options.stop) {
+        event.stopPropagation();
+        event.preventDefault();
+      }
+
+      target.removeEventListener(eventtype, eventhandler as EventListenerOrEventListenerObject, options && options.capture);
+      resolve(event);
+    };
+    target.addEventListener(eventtype, eventhandler as EventListenerOrEventListenerObject, options && options.capture);
+  });
+}
 
 // from https://github.com/Microsoft/TypeScript/issues/27024
 export type EqualsInternal<X, Y> =

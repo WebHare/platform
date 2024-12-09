@@ -4,6 +4,10 @@
     <body>
       <textedit name="textedit" title="First textedit" />
       <button name="button" title="First button" />
+      <select name="pulldown" type="pulldown" title="First pulldown">
+        <option rowkey="opt1" title="Opt 1" />
+        <option rowkey="opt2" title="Opt 2" />
+      </select>
     </body>
   </screen>
 

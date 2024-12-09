@@ -276,6 +276,10 @@
             width="50x"
             height="15x">
         <column name="rowkey" title="Title" type="integer" />
+        <column name="col2" title="Col2" type="text" />
+        <column name="col3" title="Col3" type="text" />
+        <column name="col4" title="Col4" type="text" />
+        <column name="col5" title="Col5" type="text" />
       </list>
     </body>
   </screen>

@@ -13,6 +13,33 @@ import { nameToSnakeCase } from "@webhare/std/types";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 
+class ListProxy {
+  constructor(private comp: ComponentProxy) {
+  }
+
+  /** Find a visible list row containing the specified text */
+  getRow(searchFor: RegExp): HTMLElement {
+    const rows = qSA(this.comp.node, '.listrow').filter(node => node.textContent?.match(searchFor));
+    if (rows.length > 1)
+      throw new Error(`Multiple rows in ${this.comp.getCompName()} contain '${searchFor}'`);
+    if (rows.length === 0)
+      throw new Error(`No rows in ${this.comp.getCompName()} contain '${searchFor}'`);
+
+    return rows[0];
+  }
+
+  /** Find a list header cell containing the specified text */
+  getHeader(searchFor: RegExp): HTMLElement {
+    const headers = qSA(this.comp.node, '.listheader > span').filter(node => node.textContent?.match(searchFor));
+    if (headers.length > 1)
+      throw new Error(`Multiple headers in ${this.comp.getCompName()} contain '${searchFor}'`);
+    if (headers.length === 0)
+      throw new Error(`No headers in ${this.comp.getCompName()} contain '${searchFor}'`);
+
+    return headers[0];
+  }
+}
+
 class ComponentProxy implements CastableToElement {
   readonly node: HTMLElement;
 
@@ -24,14 +51,26 @@ class ComponentProxy implements CastableToElement {
     return this.node;
   }
 
+  get list() {
+    if (!this.node.classList.contains("wh-list"))
+      throw new Error(`Component ${this.getCompName()} is not a list`);
+    return new ListProxy(this);
+  }
+
   click() {
     this.node.click();
   }
 
+  getCompName(): string {
+    return this.node.dataset.name ? `'${this.node.dataset.name}'` : `<unnamed ${this.node.tagName.toLowerCase()}>`;
+  }
+
   /** Obtain the 'natural' value for this component's form control */
-  getValue() {
+  getValue(): string | boolean | number {
     if (this.node.matches("input[type=checkbox], input[type=radio]"))
       return Boolean((this.node as HTMLInputElement).checked);
+    if (this.node.matches("select"))
+      return (this.node as HTMLSelectElement).value;
 
     throw new Error(`Don't know how to getValue yet for node '${this.node.dataset.name}'`);
   }
@@ -40,6 +79,8 @@ class ComponentProxy implements CastableToElement {
   getTextValue() {
     if (this.node.matches("t-textarea"))
       return this.node.querySelector("textarea")!.value;
+    if (this.node.matches("select"))
+      return (this.node as HTMLSelectElement).selectedOptions[0].textContent || '';
 
     const input = this.node.querySelector("input");
     if (input)
@@ -53,7 +94,7 @@ class ComponentProxy implements CastableToElement {
     if (isFormControl(this.node)) {
       if (this.node.matches("input[type=checkbox]")) {
         if (typeof value !== "boolean")
-          throw new Error(`Checkbox input '${this.node.dataset.name}' expects a boolean value`);
+          throw new Error(`Checkbox input '${this.getCompName()}' expects a boolean value`);
 
         if ((this.node as HTMLInputElement).checked !== value) {
           this.node.focus();
@@ -64,8 +105,28 @@ class ComponentProxy implements CastableToElement {
         return;
       }
 
-      throw new Error(`Don't know how to set() for node '${this.node.dataset.name}'`);
+      if (this.node.matches("select")) {
+        if (typeof value !== "string")
+          throw new Error(`Pulldown '${this.getCompName()}' expects a string value`);
+
+        const targets = value.startsWith(':') ? [...(this.node as HTMLSelectElement).options].filter(opt => opt.textContent === value.substring(1)) :
+          [...(this.node as HTMLSelectElement).options].filter(opt => opt.value === value);
+
+        if (targets.length > 1)
+          throw new Error(`Multiple options in pulldown '${this.getCompName()}' match '${value}'`);
+        if (targets.length === 0)
+          throw new Error(`No options in pulldown '${this.getCompName()}' match '${value}'`);
+
+        if ((this.node as HTMLSelectElement).value !== targets[0].value) {
+          this.node.focus();
+          changeValue(this.node, targets[0].value);
+        } else {
+          console.warn("Puldown", this.node, "already has the value", targets[0].value);
+        }
+        return;
+      }
     }
+    throw new Error(`Don't know how to set() for node '${this.getCompName()}'`);
   }
 
   ////////////////////////////
@@ -101,6 +162,8 @@ export async function launchScreen(resource: string) {
 function matchesLabel(el: HTMLElement, textlabel: string) {
   if (el.textContent === textlabel)
     return true;
+  if (el.ariaLabel === textlabel)
+    return true;
 
   if (qSA(el, '[aria-label]').
     //make sure we're still in the samen tollium component
@@ -120,7 +183,8 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
   const screen = getCurrentScreen();
   const snakeName = nameToSnakeCase(name);
   const candidates = (screen.qSA('*[data-name]')! as HTMLElement[]).filter(
-    el => el.dataset.name === `${screen.win.screenname}:${snakeName}`
+    el => el.dataset.name === `${screen.win.screenname}:${snakeName}` //direct name match
+      || (el.tagName === 'SELECT' && el.dataset.name?.startsWith(`${screen.win.screenname}:${snakeName}$`)) //<select type="pulldown" is sent as a subelement named pulldown$<seqnr>
       || (name.startsWith(':') && matchesLabel(el, name.substring(1))));
 
   if (candidates.length > 1) {
@@ -133,13 +197,6 @@ export function comp(name: string, options?: { allowMissing: boolean }): Compone
       throw new Error(`Component '${name}' not found in screen '${screen.win.screenname}'`);
     return null;
   }
-
-  /* FIXME
-    //look for pulldowns, they have an odd name
-    const pulldown = this.qS(`select[data - name*= ':${toddname}$']`);
-    if (pulldown)
-      return pulldown;
-    */
 
   //TODO emplace for weakmaps
   if (!proxies.has(candidates[0]))

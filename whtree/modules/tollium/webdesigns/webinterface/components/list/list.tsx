@@ -106,9 +106,6 @@ export default class ObjList extends ComponentBase {
     this.node = dompack.create("div",
       {
         dataset: { name: this.name },
-        on: {
-          "focus": this.onFocus.bind(this)
-        },
         propTodd: this,
         className: "wh-ui-listview--" + (data.class || 'normal')
       });
@@ -1238,10 +1235,6 @@ export default class ObjList extends ComponentBase {
     menu.openMenuAt(event.detail.originalevent, { eventnode: this.node, ascontextmenu: true });
   }
 
-  //ADDME: Maybe this can/should be handled globally?
-  onFocus() {
-    this.owner.actionEnabler();
-  }
   jumpToSelection() {
     const selectedrow = this.getFirstSelectedRow();
     if (selectedrow === -1)

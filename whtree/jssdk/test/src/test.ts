@@ -18,6 +18,7 @@ export {
   typeAssert,
   wait,
   waitToggled,
+  waitForEvent
 } from './checks';
 
 export type {

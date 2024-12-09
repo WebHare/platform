@@ -20,11 +20,6 @@
             kind="virtualfile">
     <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/internal/testsite.whlib#TestRequireSysopPage" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/listtest"
-            kind="virtualfile">
-    <bodyrenderer objectname="pages/listtest/listtest.whlib#ListTestPage" />
-  </filetype>
-
   <!-- WRDAuth tests prebuilts -->
   <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest"
             kind="virtualfile">
