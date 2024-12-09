@@ -264,3 +264,5 @@ export const whconstant_typescript_extensions = [".ts", ".tsx"];
 
 // Extension list (compatible with GetExtensionFromPath) for code that needs ts-node or node to run, not runscript
 export const whconstant_javascript_extensions = [...whconstant_typescript_extensions, ".js", ".es"];
+
+export const whconstant_consilio_default_suffix_mask = "-*";

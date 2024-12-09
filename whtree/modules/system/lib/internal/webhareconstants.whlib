@@ -287,3 +287,5 @@ PUBLIC CONSTANT INTEGER whconstant_formstatus_intermediary :=        2; // inter
 PUBLIC CONSTANT INTEGER whconstant_formstatus_cancelled :=           3; // cancelled result (the user has deleted this entry)
 PUBLIC CONSTANT INTEGER whconstant_formstatus_nolongervalid :=       4; // no-longer-valid result. if edited, the 'replacedby' contains the id of the new result. if deleted, replacedby = 0. deprecated
 PUBLIC CONSTANT INTEGER whconstant_formstatus_pendingconfirmation := 5; // pending result, waiting on email confirmation
+
+PUBLIC CONSTANT STRING whconstant_consilio_default_suffix_mask := "-*";

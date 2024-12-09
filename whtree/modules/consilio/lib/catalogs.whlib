@@ -30,9 +30,7 @@ LOADLIB "mod::system/lib/tasks.whlib";
 CONSTANT RECORD default_contentsource_options := CELL[ enabled := TRUE
                                                      ];
 
-CONSTANT STRING default_suffix_mask := "-*";
-
-STRING FUNCTION BuildFieldgroups(STRING ARRAY fieldgroups)
+PUBLIC STRING FUNCTION __BuildFieldgroups(STRING ARRAY fieldgroups)
 {
   //TODO validate whether these groups exist so we give Errors Early ?
   IF(Length(fieldgroups) = 0)
@@ -813,7 +811,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
       settings := CELL[ ...settings
                       , DELETE suffixed
-                      , suffix := settings.suffixed ? default_suffix_mask : ""
+                      , suffix := settings.suffixed ? whconstant_consilio_default_suffix_mask : ""
                       ];
     }
 
@@ -828,7 +826,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     IF(CellExists(settings, 'fieldgroups'))
     {
-      STRING newval := BuildFieldgroups(settings.fieldgroups);
+      STRING newval := __BuildFieldgroups(settings.fieldgroups);
       applyfieldgroups := settings.fieldgroups;
       DELETE CELL fieldgroups FROM settings;
 
@@ -952,7 +950,11 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly)
       FOREVERY(STRING suffix FROM suffixes)
+      {
+        IF(suffix != "" AND NOT IsValidConsilioIndexSuffix(suffix))
+          THROW NEW Exception(`Invalid suffix name '${suffix}'`);
         EnsureOpenSearchIndexConfiguration(opensearch.indexmanager, opensearch.indexname, suffix, synonyms, this->catalog.lang, finalupdate);
+      }
   }
 
   PUBLIC STRING ARRAY FUNCTION __ListSuffixes()
@@ -1425,7 +1427,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   {
     IF("fieldgroups" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
       THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
-    IF("lang" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
+    IF("lang" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'lang'))
       THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=lang so you cannot update it`);
   }
 
@@ -1451,8 +1453,8 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , options.definedby
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
-             , suffix := options.suffixed ? default_suffix_mask : ""
-             , fieldgroups := BuildFieldgroups(fieldgroups)
+             , suffix := options.suffixed ? whconstant_consilio_default_suffix_mask : ""
+             , fieldgroups := __BuildFieldgroups(fieldgroups)
              , lang
              , internalmetadata := EncodeHSONBlob(internalmetadata)
              ] INTO consilio.catalogs;
