@@ -320,7 +320,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       selectFrom("wrd.types").
       selectAll().
       where("wrd_schema", "=", schemaid).
-      where(cb => typeof tagOrId === "string" ? cb.where("tag", "=", tagToHS(tagOrId)) : cb.where("id", "=", tagOrId)).
+      where(cb => typeof tagOrId === "string" ? cb("tag", "=", tagToHS(tagOrId)) : cb("id", "=", tagOrId)).
       executeTakeFirst();
 
     if (!typeinfo)

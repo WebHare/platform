@@ -265,10 +265,10 @@ function where<Select extends ExpressionBuilder<any, any>, Field extends FieldOf
     value = value.filter((v: unknown) => v !== null);
     if (!value.length)
       return sql<false>`false`;
-    return query.cmpr(field, "=", sql`any(${value})`);
+    return query(field, "=", sql`any(${value})`);
 
   } else
-    return query.cmpr(field, condition, value);
+    return query(field, condition, value);
 }
 
 /** Adds a where to a query. Changes `in X` to `= any(X)`, the postgrsql-client expands arrays into a parameter per element when using `in X` */
@@ -356,8 +356,8 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     const filtered_cv = db_cv;
     query = addQueryFilter2(query, this.attr.id, defaultmatches, b => {
       return caseInsensitive
-        ? b.cmpr(sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value)
-        : b.cmpr(`rawdata`, filtered_cv.condition, filtered_cv.value);
+        ? b(sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value)
+        : b(`rawdata`, filtered_cv.condition, filtered_cv.value);
     });
 
     return {
@@ -667,7 +667,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBBooleanConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b.cmpr(`rawdata`, cv.condition, cv.value ? "1" : ""));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`rawdata`, cv.condition, cv.value ? "1" : ""));
 
     return {
       needaftercheck: false,
@@ -960,7 +960,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
       // convert `field in [ null, ...x ]` to `(field is null or field in [ ...x ])`
       const nonnull = fixed_db_cv.value.filter(v => v);
       if (nonnull.length)
-        query = query.where(qb => qb.or([where(qb, fieldname, "in", nonnull), qb.cmpr(fieldname, "is", null)]));
+        query = query.where(qb => qb.or([where(qb, fieldname, "in", nonnull), qb(fieldname, "is", null)]));
       else
         query = addWhere(query, fieldname, "is", null);
     } else
@@ -1627,7 +1627,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
     if (defaultMatches && !maxDateTimeMatches) {
       query = query.where(qb => qb.or([
         where(qb, fieldname, cv.condition, cv.value),
-        qb.cmpr(fieldname, "=", maxDateTime)
+        qb(fieldname, "=", maxDateTime)
       ]));
     } else {
       query = addWhere(query, fieldname, cv.condition, cv.value);

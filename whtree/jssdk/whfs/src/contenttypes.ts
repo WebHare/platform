@@ -329,7 +329,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .where("fs_instance", "=", sql`any(${instanceIds})`);
 
     if (keysToSet)
-      query = query.where(qb => qb.where("fs_member", "=", sql`any(${getMemberIds(descr.members, keysToSet)})`));
+      query = query.where(qb => qb("fs_member", "=", sql`any(${getMemberIds(descr.members, keysToSet)})`));
 
     const dbsettings = await query.execute();
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);

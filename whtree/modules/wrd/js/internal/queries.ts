@@ -163,8 +163,8 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
          we need the outer wrapper to keep ( )s around the OR
       */
       query = query.where(qb => qb.or([
-        qb.and([qb.cmpr("creationdate", "<=", now), qb.cmpr("limitdate", ">", now)]),
-        qb.cmpr("creationdate", "=", maxDateTime)
+        qb.and([qb("creationdate", "<=", now), qb("limitdate", ">", now)]),
+        qb("creationdate", "=", maxDateTime)
       ]));
     } break;
     case "range": {
