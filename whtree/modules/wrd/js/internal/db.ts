@@ -1,4 +1,4 @@
-import { db, Selectable, sql } from "@webhare/whdb";
+import { db, Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDMetaTypeId } from "./types";
@@ -124,7 +124,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
   const attrs = (await db<PlatformDB>()
     .selectFrom("wrd.attrs")
     .select(selectAttrColumns)
-    .where("type", "=", sql`any(${typeids})`)
+    .where("type", "in", typeids)
     .orderBy("tag")
     .execute()).map(attr => ({
       ...attr,

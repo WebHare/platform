@@ -20,7 +20,7 @@ async function getWHFSDescendantIds(basefolder: number, returnfolders: boolean, 
   while (maximumdepth >= 1 && currentlevel.length > 0) {
     //If we're not returning files, don't even get them
     const currentsubsSQL = db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "isfolder"])
-      .where("parent", "=", sql`any(${currentlevel})`);
+      .where("parent", "in", currentlevel);
     if (!returnfiles)
       currentsubsSQL.where("isfolder", "=", true);
 
@@ -45,7 +45,7 @@ async function listSiteIssues() {
     const brokenfiles: number[] = (await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .select(["id", "published"])
-      .where("parent", "=", sql`any(${allparents})`)
+      .where("parent", "in", allparents)
       .execute()).filter(file => file.published % 100000 > 100).map(file => file.id);
 
     //FIXME too low level , rewrite to list call
@@ -54,7 +54,7 @@ async function listSiteIssues() {
       .select(["id", "title", "name", "errordata", "published"])
       .select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("url"))
       .select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath"))
-      .where("id", "=", sql`any(${brokenfiles})`)
+      .where("id", "in", brokenfiles)
       .execute()).map(file => ({
         ...file,
         highestparent: siteid,

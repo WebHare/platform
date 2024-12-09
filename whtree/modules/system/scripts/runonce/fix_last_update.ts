@@ -1,4 +1,4 @@
-import { beginWork, commitWork, sql } from "@webhare/whdb";
+import { beginWork, commitWork } from "@webhare/whdb";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
@@ -20,7 +20,7 @@ async function fixLastUpdate() {
     const groupfiles = await db<PlatformDB>().
       selectFrom("system.fs_objects").
       select(["id", "firstpublishdate", "contentmodificationdate"]).
-      where("id", "=", sql`any(${group.map((item) => item.id)})`).
+      where("id", "in", group.map((item) => item.id)).
       where("contentmodificationdate", "=", defaultDateTime).
       execute();
 

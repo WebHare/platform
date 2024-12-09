@@ -375,13 +375,13 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
   if (deletedSettings.length) {
     await db<PlatformDB>()
       .deleteFrom("wrd.entity_settings")
-      .where("id", "=", sql`any(${deletedSettings})`)
+      .where("id", "in", deletedSettings)
       .execute();
   }
 
   const linkChecks = new Set<number>(current.filter(item => item.used && (linkCheckAttrs.has(item.attribute) || item.rawdata === "WHFS" || item.rawdata.startsWith("WHFS:"))).map(item => item.attribute).concat(newLinks.map(item => item.id)));
   if (linkChecks.size) {
-    const currlinks = (await db<PlatformDB>().selectFrom("wrd.entity_settings_whfslink").select(["fsobject", "id", "linktype"]).where("id", "=", sql`any(${[...linkChecks]})`).execute()).map(_ => ({ ..._, used: false }));
+    const currlinks = (await db<PlatformDB>().selectFrom("wrd.entity_settings_whfslink").select(["fsobject", "id", "linktype"]).where("id", "in", [...linkChecks]).execute()).map(_ => ({ ..._, used: false }));
     for (const link of newLinks) {
       const matchCurrentLink = currlinks.find(item => item.id === link.id);
       if (matchCurrentLink) {
@@ -420,7 +420,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
         INSERT current[RecordLowerBound(current, CELL[id], ["ID"]).position] INTO linkupdates AT END;
 
         */
-    await db<PlatformDB>().deleteFrom("wrd.entity_settings_whfslink").where("id", "=", sql`any(${deletelinks})`).execute();
+    await db<PlatformDB>().deleteFrom("wrd.entity_settings_whfslink").where("id", "in", deletelinks).execute();
   }
 
   /*
@@ -483,7 +483,7 @@ async function validateSettings<
       //@ts-expect-error lacking 'general' support
       const res = await (new WRDSingleQueryBuilder(type, null, [], null, null)).select(["wrdId"]).where(fulltag, currentSubMember ? "mentions" : "=", value).where("wrdId", "!=", currentEntity).limit(1).execute() as [{ wrdId: number }];
       if (res.length)
-        throw new Error(`Unique value conflict with entity #${res[0].wrdId} on attribute '${attr.tag}' (${value})`);
+        throw new Error(`Unique value conflict with entity #${res[0].wrdId} on attribute '${attr.tag}' (${value);
     }
 
     if (attr.attributetype === WRDAttributeTypeId.Array) {
@@ -558,7 +558,7 @@ async function validateSettings<
       RECORD ARRAY res := wrd_query->Execute();
       IF (RecordExists(res))
       {
-        options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${findvalue})`
+        options.errorcallback([ message := `Unique value conflict with entity #${res[0].id} on attribute '${toset.attr.tag}' (${findvalue
                       , tag := toset.attr.tag
                       , code := "NOTUNIQUE"
                       ]);
@@ -838,7 +838,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .selectFrom("wrd.entity_settings")
         .select(selectEntitySettingColumns)
         .where("entity", "=", result.entityId)
-        .where("attribute", "=", kysely.sql`any(${splitData.relevantAttrIds})`)
+        .where("attribute", "in", splitData.relevantAttrIds)
         .orderBy("attribute")
         .orderBy("parentsetting")
         .orderBy("ordering")
@@ -961,8 +961,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           .updateTable("wrd.entity_settings")
           .set({ unique_rawdata: sql`rawdata` })
           .where("entity", "=", result.entityId)
-          // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
-          .where("attribute", "=", sql`any(${uniqueNonEmailAttrs})`)
+          // .where("id", "!=", sql`any(${updateres?.updatedSettings) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+          .where("attribute", "in", uniqueNonEmailAttrs)
           .execute();
       }
       if (uniqueEmailAttrs.length) {
@@ -970,8 +970,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           .updateTable("wrd.entity_settings")
           .set({ unique_rawdata: sql`lower(rawdata)` })
           .where("entity", "=", result.entityId)
-          // .where("id", "!=", sql`any(${updateres?.updatedSettings})`) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
-          .where("attribute", "=", sql`any(${uniqueEmailAttrs})`)
+          // .where("id", "!=", sql`any(${updateres?.updatedSettings) // FIXME if we enable this PG doesn't find anything to update. != doesn't work with any? wrd.nodejs.test_wrd_api will trigger this
+          .where("attribute", "in", uniqueEmailAttrs)
           .execute();
       }
     }
@@ -1034,7 +1034,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           const changesNewSettings = await db<PlatformDB>()
             .selectFrom("wrd.entity_settings")
             .selectAll()
-            .where("id", "=", sql`any(${updateres.updatedSettings})`)
+            .where("id", "in", updateres.updatedSettings)
             .execute();
           changes.oldsettings.settings = await saveEntitySettingAttachments(changeId, changesOldSettings);
           changes.modifications.settings = await saveEntitySettingAttachments(changeId, changesNewSettings);

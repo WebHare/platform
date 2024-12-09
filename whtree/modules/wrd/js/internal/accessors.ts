@@ -1,6 +1,6 @@
 import { WRDBaseAttributeTypeId, WRDAttributeTypeId, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
-import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOperatorExpression, Expression, SqlBool, ReferenceExpression, OperandValueExpressionOrList } from "kysely";
+import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, /*ComparisonOperatorExpression, */Expression, SqlBool/*, ReferenceExpression, OperandValueExpressionOrList*/ } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
@@ -253,33 +253,6 @@ function addQueryFilter2<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities"
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FieldOfExprBuilder<E extends ExpressionBuilder<any, any>> = E extends ExpressionBuilder<infer DB, infer TB> ? ReferenceExpression<DB, TB> : never;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ValueOfExprBuilder<E extends ExpressionBuilder<any, any>, RE extends FieldOfExprBuilder<E>> = E extends ExpressionBuilder<infer DB, infer TB> ? OperandValueExpressionOrList<DB, TB, RE> : never;
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function where<Select extends ExpressionBuilder<any, any>, Field extends FieldOfExprBuilder<Select>>(query: Select, field: Field, condition: ComparisonOperatorExpression, value: ValueOfExprBuilder<Select, Field>): kysely.Expression<kysely.SqlBool> {
-  if (condition === "in") {
-    // null is never a value we can find and it messes up `= any(...)`, so we should remove it
-    value = value.filter((v: unknown) => v !== null);
-    if (!value.length)
-      return sql<false>`false`;
-    return query(field, "=", sql`any(${value})`);
-
-  } else
-    return query(field, condition, value);
-}
-
-/** Adds a where to a query. Changes `in X` to `= any(X)`, the postgrsql-client expands arrays into a parameter per element when using `in X` */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addWhere<Select extends SelectQueryBuilder<any, any, any>>(query: Select, field: string | RawBuilder<any>, condition: ComparisonOperatorExpression, value: unknown) {
-  if (condition === "in")
-    return query.where(field, "=", sql`any(${value})`) as Select;
-  else
-    return query.where(field, condition, value) as Select;
-}
-
 function getAttrBaseCells<T extends keyof typeof baseAttrCells>(tag: string, allowedTypes: readonly T[]): typeof baseAttrCells[T] {
   if (!allowedTypes.includes(tag as T))
     throw new Error(`Unhandled base attribute ${JSON.stringify(tag)}`);
@@ -468,7 +441,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
     }
     return {
       needaftercheck: false,
-      query: addWhere(query, baseAttr, filtered_cv.condition, filtered_cv.value)
+      query: query.where(baseAttr, filtered_cv.condition, filtered_cv.value)
     };
   }
 
@@ -554,7 +527,7 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
 
     return {
       needaftercheck: false,
-      query: addWhere(query, "guid", db_cv.condition, db_cv.value)
+      query: query.where("guid", db_cv.condition, db_cv.value)
     };
   }
 
@@ -723,7 +696,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     if (cv.condition === "in" && !cv.value.length)
       return null;
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql`rawdata::integer`, cv.condition, cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<number>`rawdata::integer`, cv.condition, cv.value));
 
     return {
       needaftercheck: false,
@@ -772,9 +745,9 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
       return null;
 
     switch (this.attr.tag) {
-      case "wrdId": query = addWhere(query, "id", cv.condition, cv.value); break;
-      case "wrdType": query = addWhere(query, "type", cv.condition, cv.value); break;
-      case "wrdOrdering": query = addWhere(query, "ordering", cv.condition, cv.value); break;
+      case "wrdId": query = query.where("id", cv.condition, cv.value); break;
+      case "wrdType": query = query.where("type", cv.condition, cv.value); break;
+      case "wrdOrdering": query = query.where("ordering", cv.condition, cv.value); break;
       default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
 
@@ -876,7 +849,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, `setting`, fixed_db_cv.condition, fixed_db_cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
     return {
       needaftercheck: false,
       query
@@ -953,18 +926,18 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
     const fixed_db_cv = db_cv;
     const fieldname = this.getAttrBaseCells();
     if (fixed_db_cv.condition === "=" && !fixed_db_cv.value)
-      query = addWhere(query, fieldname, "is", null);
+      query = query.where(fieldname, "is", null);
     else if (fixed_db_cv.condition === "!=" && !fixed_db_cv.value)
-      query = addWhere(query, fieldname, "is not", null);
+      query = query.where(fieldname, "is not", null);
     else if (fixed_db_cv.condition === "in" && fixed_db_cv.value.some(v => !v)) {
       // convert `field in [ null, ...x ]` to `(field is null or field in [ ...x ])`
       const nonnull = fixed_db_cv.value.filter(v => v);
       if (nonnull.length)
-        query = query.where(qb => qb.or([where(qb, fieldname, "in", nonnull), qb(fieldname, "is", null)]));
+        query = query.where(qb => qb.or([qb(fieldname, "in", nonnull), qb(fieldname, "is", null)]));
       else
-        query = addWhere(query, fieldname, "is", null);
+        query = query.where(fieldname, "is", null);
     } else
-      query = addWhere(query, fieldname, fixed_db_cv.condition, fixed_db_cv.value);
+      query = query.where(fieldname, fixed_db_cv.condition, fixed_db_cv.value);
 
     return {
       needaftercheck: false,
@@ -1073,7 +1046,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
       // copy to a new variable to satisfy TypeScript type inference
       const fixed_db_cv = db_cv;
 
-      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, `setting`, fixed_db_cv.condition, fixed_db_cv.value));
+      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
     }
 
     return {
@@ -1170,7 +1143,7 @@ abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Req
 
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql`rawdata`, filtered_cv.condition, filtered_cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`rawdata`, filtered_cv.condition, filtered_cv.value));
     return {
       needaftercheck: false,
       query
@@ -1357,7 +1330,7 @@ class WRDDBStatusRecordValue<Options extends { allowedvalues: string; type: obje
 
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql`SPLIT_PART(rawdata, '\t', 1)`, filtered_cv.condition, filtered_cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`SPLIT_PART(rawdata, '\t', 1)`, filtered_cv.condition, filtered_cv.value));
     return {
       needaftercheck: false,
       query
@@ -1493,7 +1466,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
     if (cv.condition === "in" && !cv.value.length)
       return null; // no results!
 
-    query = addWhere(query, fieldname, cv.condition, cv.value);
+    query = query.where(fieldname, cv.condition, cv.value);
     return { needaftercheck: false, query };
   }
 
@@ -1626,13 +1599,13 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
     const maxDateTimeMatches = this.matchesValue(maxDateTime, cv);
     if (defaultMatches && !maxDateTimeMatches) {
       query = query.where(qb => qb.or([
-        where(qb, fieldname, cv.condition, cv.value),
+        qb(fieldname, cv.condition, cv.value),
         qb(fieldname, "=", maxDateTime)
       ]));
     } else {
-      query = addWhere(query, fieldname, cv.condition, cv.value);
+      query = query.where(fieldname, cv.condition, cv.value);
       if (maxDateTimeMatches && !defaultMatches)
-        query = addWhere(query, fieldname, "!=", maxDateTime);
+        query = query.where(fieldname, "!=", maxDateTime);
     }
     return { needaftercheck: false, query };
   }
@@ -1712,7 +1685,7 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
     if (cv.condition === "in" && !cv.value.length)
       return null; // no results!
 
-    query = addWhere(query, "modificationdate", cv.condition, cv.value);
+    query = query.where("modificationdate", cv.condition, cv.value);
     return { needaftercheck: false, query };
   }
 
@@ -2071,10 +2044,10 @@ class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint,
       return null;
 
     if (cv.condition === "in") {
-      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, cv.value));
+      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, cv.value));
     } else {
       const value = typeof cv.value === "number" ? BigInt(cv.value) : cv.value;
-      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, value));
+      query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<bigint>`rawdata::NUMERIC(1000)`, cv.condition, value));
     }
 
     return {
@@ -2149,7 +2122,7 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
         return null;
     }
 
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => where(b, sql<Money>`rawdata::NUMERIC(1000,5)`, cv.condition, cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql<Money>`rawdata::NUMERIC(1000,5)`, cv.condition, cv.value));
 
     return {
       needaftercheck: false,

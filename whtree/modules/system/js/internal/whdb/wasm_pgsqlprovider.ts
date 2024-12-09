@@ -380,7 +380,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
 
-    let valueexpr = sql.value(cond.condition === "LIKE" ? encodePattern(value as string) : value);
+    let valueexpr = sql.val(cond.condition === "LIKE" ? encodePattern(value as string) : value);
     if (cond.condition === "IN")
       valueexpr = sql`Any(${valueexpr})`;
     if (!cond.casesensitive)

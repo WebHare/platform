@@ -1,7 +1,7 @@
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
-import { broadcastOnCommit, db, onFinishWork, sql } from "@webhare/whdb";
+import { broadcastOnCommit, db, onFinishWork } from "@webhare/whdb";
 import { openBackendService } from "@webhare/services";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 
@@ -164,11 +164,11 @@ export async function cancelManagedTasks(taskIds: number[]): Promise<{ runningTa
   if (!taskIds.length)
     return { runningTasksStopped: () => Promise.resolve() };
 
-  const seenTaskTypes = (await db<PlatformDB>().selectFrom("system.managedtasks").select("tasktype").where("id", "=", sql`any(${taskIds})`).distinct().execute()).map(task => task.tasktype);
+  const seenTaskTypes = (await db<PlatformDB>().selectFrom("system.managedtasks").select("tasktype").where("id", "in", taskIds).distinct().execute()).map(task => task.tasktype);
   await db<PlatformDB>()
     .updateTable("system.managedtasks")
     .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by CancelManagedTasks" })
-    .where("id", "=", sql`any(${taskIds})`)
+    .where("id", "in", taskIds)
     .execute();
 
   broadcastOnCommit("system:managedtasks.any.changes");

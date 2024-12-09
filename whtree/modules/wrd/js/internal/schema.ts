@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, sql } from "@webhare/whdb";
+import { db } from "@webhare/whdb";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -735,7 +735,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!typeRec)
       throw new Error(`No such type ${JSON.stringify(this.tag)}`);
 
-    await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "=", sql`any(${ids})`).execute();
+    await db<PlatformDB>().deleteFrom("wrd.entities").where("id", "in", ids).execute();
     for (const id of ids)
       wrdFinishHandler().entityDeleted(schemadata.schema.id, typeRec.id, id);
     return;

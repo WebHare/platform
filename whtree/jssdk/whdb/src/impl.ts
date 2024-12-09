@@ -25,6 +25,7 @@ import { ensureScopedResource, getScopedResource, setScopedResource } from '@web
 import { WHDBPgClient } from './connection';
 import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
+import { KyselyInToAnyPlugin } from './kysely-transforms';
 
 /** Transaction options  */
 export interface WorkOptions {
@@ -272,7 +273,8 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
       // PostgresDialect requires the Cursor dependency
       dialect: new PostgresDialect({
         pool: this
-      })
+      }),
+      plugins: [new KyselyInToAnyPlugin],
     });
   }
 
