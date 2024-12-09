@@ -1,10 +1,5 @@
-//import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
 import { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
 export { type SchemaTypeDefinition } from "./types";
-//import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-//import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-//import { WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
-//import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import type { HistoryModeData, WRDType } from "./schema";
 import { AnyWRDAccessor, getAccessor } from "./accessors";
 import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
@@ -167,7 +162,10 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
          we need the outer wrapper to keep ( )s around the OR
       */
-      query = query.where(qb => query.where(qb2 => qb2.where("creationdate", "<=", now).where("limitdate", ">", now)).orWhere("creationdate", "=", maxDateTime));
+      query = query.where(qb => qb.or([
+        qb.and([qb.cmpr("creationdate", "<=", now), qb.cmpr("limitdate", ">", now)]),
+        qb.cmpr("creationdate", "=", maxDateTime)
+      ]));
     } break;
     case "range": {
       query = query.where("creationdate", "<=", historyMode.limit).where("limitdate", ">", historyMode.start);
