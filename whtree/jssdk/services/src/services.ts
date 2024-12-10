@@ -8,6 +8,7 @@ import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 import { backendConfig } from "./config";
 import type { UploadManifest } from "@webhare/upload";
+import type { AccessLogLine, PxlLogLine } from "./logging";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
@@ -40,6 +41,14 @@ export interface ServerEncryptionScopes {
 
 /** Extend this interface to describe backend services */
 export interface BackendServices {
+}
+
+/** Common logging formats */
+export interface LogFormats {
+  /** Webserver PXL log */
+  "platform:pxl": PxlLogLine;
+  /** Webserver access log */
+  "platform:access": AccessLogLine;
 }
 
 /** Extend this interface to define the format of your own sessions  */
