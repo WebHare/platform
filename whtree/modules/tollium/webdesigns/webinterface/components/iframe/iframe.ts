@@ -273,8 +273,11 @@ export default class ObjIFrame extends ComponentBase {
     this.postQueuedMessages(true);
 
     try {
-      const doc = this.iframe.contentWindow!.document;
-      doc.addEventListener("click", this.clickLink); //TODO we should offer a @webhare/tollium-frame library or soemthing like that and install click interception there
+      //TODO we should offer a @webhare/tollium-frame library or something like that and install click interception there ?
+      this.iframe.contentWindow!.addEventListener("click", this.clickLink);
+      this.iframe.contentWindow!.addEventListener("keydown", this.forwardKey);
+      this.iframe.contentWindow!.addEventListener("keypress", this.forwardKey);
+      this.iframe.contentWindow!.addEventListener("keyup", this.forwardKey);
 
       //flag that we've configured the iframe, some tests need this
       //@ts-ignore -- TODO clean this up. why do we need the flag anyway? make it the frame's problem to install a helper JS script
@@ -299,6 +302,15 @@ export default class ObjIFrame extends ComponentBase {
       this.queueMessage('clicklink', { href: anchor.href }, true);
     else
       window.open(anchor.href, '_blank');
+  };
+
+  forwardKey = (e: KeyboardEvent) => {
+    const evt = new KeyboardEvent(e.type, e);
+    if (!this.iframe.dispatchEvent(evt)) {
+      // console.log("iframe cancelled forward keyboard event", e);
+      e.preventDefault();
+    }
+    return;
   };
 
   handleWindowMessage = (event: MessageEvent) => {
