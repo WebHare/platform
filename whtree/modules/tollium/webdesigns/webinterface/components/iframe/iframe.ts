@@ -273,7 +273,7 @@ export default class ObjIFrame extends ComponentBase {
     this.postQueuedMessages(true);
 
     try {
-      //TODO we should offer a @webhare/tollium-frame library or soemthing like that and install click interception there ?
+      //TODO we should offer a @webhare/tollium-frame library or something like that and install click interception there ?
       this.iframe.contentWindow!.addEventListener("click", this.clickLink);
       this.iframe.contentWindow!.addEventListener("keydown", this.forwardKey);
       this.iframe.contentWindow!.addEventListener("keypress", this.forwardKey);
