@@ -8,6 +8,8 @@ test.registerTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupEmailFieldtest'); //creates a simple blacklist
+      //@ts-ignore expose getFormRPCRequests for test debugging
+      test.getWin().top.getFormRPCRequests = getFormRPCRequests;
     },
 
     'Check smart email field BLOCKING ON SUBMIT',
@@ -71,6 +73,7 @@ test.registerTests(
       await test.pressKey('Tab');
 
       await test.wait(() => test.qR('#emailform-email').value === 'fixme@exact.beta.webhare.net');
+      await test.sleep(100);
       test.eq(3, getFormRPCRequests().length);
     },
     'Check smart email field SUGGESTING on focus',
@@ -97,19 +100,29 @@ test.registerTests(
       await test.wait(() => test.qS('.wh-form__emailcorrected'));
       test.eq(4, getFormRPCRequests().length, "STILL at 4 rpcs... as we cached the previous answer!");
 
-      //now try to correct it ourselves!
+      //now try to correct it ourselves, but we miscorrect
       test.click('#emailform-email');
       test.fill('#emailform-email', "piet@fuzy.beta.webhare.ne");
       await test.wait("ui");
       test.eq(null, test.qS('.wh-form__emailcorrected'), 'suggestion element should be cleared immediately after editing');
 
-      test.eq(4, getFormRPCRequests().length, "STILL only 4 rpcs!");
+      test.click('.wh-form__button--submit');
 
+      //This submit should FAIL as the email address is not acceptable
+      await test.wait('ui');
+      test.eq(5, getFormRPCRequests().length, "Expect 5 rpcs, the validation for piet@fuzy.beta.webhare.ne should have gone out");
+
+      const emailgroup = test.qS('#emailform-email')?.closest('.wh-form__fieldgroup');
+      test.assert(emailgroup && emailgroup.classList.contains('wh-form__fieldgroup--error')); //wait for group to error out
+      test.assert(emailgroup.querySelector('.wh-form__error')?.textContent?.match(/BAD BAD BAD/));
+
+      test.fill('#emailform-email', "pietje@fuzzy.beta.webhare.net");
       test.click('.wh-form__button--submit');
       await test.wait('ui');
 
-      test.eq(5, getFormRPCRequests().length, "We accept 5 rpcs (but no more) as emailvalidation might race submission RPC");
+      test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error')); //should have been cleared
+
+      test.eq(6, getFormRPCRequests().length, "Expect 6 rpcs, just the submission");
+      test.eq("2", test.qS("#currentpage")?.textContent);
     }
-
-
   ]);
