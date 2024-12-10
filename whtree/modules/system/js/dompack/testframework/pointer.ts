@@ -24,7 +24,6 @@ const default_mousestate =
   cursorel: null,
   lastdoc: null,
   lastwin: null,
-  previousclickel: null,
   previousclicktime: null,
   previousclickpos: null,
   dndcandidate: null,
@@ -864,6 +863,32 @@ function finishCurrentDrag(cancel, options) {
   mousestate.dndstate = null;
 }
 
+function mouseFocusTo(el: Element) {
+  let tofocus = getBrowserFocusableElement(el);
+  if (tofocus?.tagName === "LABEL") {
+    tofocus = tofocus.ownerDocument.getElementById((tofocus as HTMLLabelElement).htmlFor);
+  }
+  const lastfocus = domfocus.getCurrentlyFocusedElement();
+
+  if (dompack.debugflags.testfw)
+    console.log("[testfw] Simulate focus events: blur to ", lastfocus, " focus to ", tofocus, " we have focus?", lastfocus?.ownerDocument.hasFocus());
+
+  if (tofocus !== lastfocus) {
+
+    if (lastfocus && !lastfocus.ownerDocument.hasFocus()) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!)
+      domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus || undefined });
+      domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus || undefined });
+    }
+
+    if (tofocus) {
+      tofocus.focus();
+      if (!tofocus.ownerDocument.hasFocus()) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!)
+        domevents.dispatchDomEvent(tofocus, 'focus', { bubbles: false, cancelable: false, relatedTarget: lastfocus });
+        domevents.dispatchDomEvent(tofocus, 'focusin', { bubbles: true, cancelable: false, relatedTarget: lastfocus });
+      }
+    }
+  }
+}
 
 function processGestureQueue() {
   if (mousestate.gesturetimeout) {
@@ -986,30 +1011,7 @@ function processGestureQueue() {
       if (!mousestate.dndstate) {
         const mousedown_dodefault = fireMouseEvent("mousedown", target.cx, target.cy, target.el, part.down, null, part);
         if (mousedown_dodefault) {
-          //mousedown was not prevented, set focus
-          const tofocus = getBrowserFocusableElement(target.el);
-          const lastfocus = currentdoc.activeElement;
-
-          if (dompack.debugflags.testfw)
-            console.log("[testfw] Simulate focus events: blur to ", lastfocus, " focus to ", tofocus, " we have focus?", currentdoc.hasFocus());
-
-          if (tofocus !== lastfocus) {
-
-            if (!currentdoc.hasFocus() && lastfocus) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
-              domevents.dispatchDomEvent(lastfocus, 'blur', { bubbles: false, cancelable: false, relatedTarget: tofocus || undefined });
-              domevents.dispatchDomEvent(lastfocus, 'focusout', { bubbles: true, cancelable: false, relatedTarget: tofocus || undefined });
-            }
-
-            if (tofocus) {
-              tofocus.focus();
-              if (!currentdoc.hasFocus()) { //we need to simulate focus events as browser dont fire them on unfocused docs (even though activeElement will change!
-                domevents.dispatchDomEvent(tofocus, 'focus', { bubbles: false, cancelable: false, relatedTarget: lastfocus });
-                domevents.dispatchDomEvent(tofocus, 'focusin', { bubbles: true, cancelable: false, relatedTarget: lastfocus });
-              }
-            } else {
-              currentdoc.activeElement.blur();
-            }
-          }
+          mouseFocusTo(target.el);  //mousedown was not prevented, set focus
 
           if (part.down === 2) { //RMB
             fireMouseEvent("contextmenu", target.cx, target.cy, target.el, part.down, null, part);
@@ -1042,40 +1044,40 @@ function processGestureQueue() {
       if (mousestate.downbuttons.includes(part.up))
         mousestate.downbuttons.splice(mousestate.downbuttons.indexOf(part.up), 1);
 
-      //Is this a click? (start and end is same element. ADDME doesn't work this way if drag is triggered, ie on button: mousedown,move,up = click, on link: mousedown,move,up = dragging)
-
+      /* Is this a click?
+         originally: (start and end is same element. ADDME doesn't work this way if drag is triggered, ie on button: mousedown,move,up = click, on link: mousedown,move,up = dragging)
+         events spec (https://w3c.github.io/uievents/#event-type-click)
+         ..in general SHOULD fire click and dblclick events when the event target of the associated mousedown and mouseup events is the same element with no mouseout or mouseleave events
+         intervening, and SHOULD fire click and dblclick events on the nearest common inclusive ancestor when the associated mousedown and mouseup event targets are different...
+      */
       if (part.up === 0) {
         mousestate.dndcandidate = null;
-        if (!mousestate.dndstate) {
-          if (target.el && target.el === mousestate.downel) {
+        if (!mousestate.dndstate && mousestate.downel) {
+          const toclick = commonAncestor(mousestate.downel, target.el);
+          if (toclick) { //if no common ancestor, one of the nodes is outside the DOM
+            if (toclick !== target.el) //TODO hide this behind a debug flag as a console.log? but only if we finished updating tests and no longer care about this warning
+              console.warn("[testfw] Sending click to common ancestor %o instead of mousedown target %o or mouseup target %o", toclick, mousestate.downel, target.el);
+
             let clickcount = 1;
-            if (mousestate.previousclickel
-              && mousestate.previousclickel === mousestate.downel
-              && (Date.now() - mousestate.previousclicktime) < 100
+            if ((Date.now() - mousestate.previousclicktime) < 100
               && (Math.abs(mousestate.previousclickpos.cx - target.cx) <= 2)
               && (Math.abs(mousestate.previousclickpos.cy - target.cy) <= 2)) {
               clickcount = mousestate.previousclickpos.clickcount + 1;
             }
 
-            mousestate.previousclickel = mousestate.downel;
             mousestate.previousclicktime = Date.now();
             mousestate.previousclickpos = { cx: target.cx, cy: target.cy, clickcount: clickcount };
 
             //if element leaves dom, it should no longer receive clicks (confirmed at least for chrome in tollium testautosuggest
-            if (isInDeepDom(target.el))
-              fireMouseEvent("click", target.cx, target.cy, target.el, part.up, null, part);
+            if (isInDeepDom(toclick))
+              fireMouseEvent("click", target.cx, target.cy, toclick, part.up, null, part);
 
-            if (isInDeepDom(target.el) && clickcount === 2)
-              fireMouseEvent("dblclick", target.cx, target.cy, target.el, part.up, null, { clickcount: clickcount });
-          } else {
-            console.log("Not generating a 'click' as 'down' target moved away during mouse action, down target:", mousestate.downel, " up target", target.el);
-            if (mousestate.downelrect)
-              console.log("Down target BCR", mousestate.downelrect);
-            if (target.el && target.el.getBoundingClientRect)
-              console.log("Up target BCR", target.el.getBoundingClientRect());
+            //TODO these probably shouldn't be in the same gesture/tick?
+            if (isInDeepDom(toclick) && clickcount === 2)
+              fireMouseEvent("dblclick", target.cx, target.cy, toclick, part.up, null, { clickcount: clickcount });
+            mousestate.downel = null;
           }
-          mousestate.downel = null;
-        } else {
+        } else if (mousestate.dndstate) {
           handleRunningDrag(part);
           finishCurrentDrag(false, part);
         }
@@ -1096,11 +1098,20 @@ function processGestureQueue() {
   callbacks.forEach(callback => callback());
 }
 
-function getParents(el) {
+function getParents(el: Element) {
   const elparents = [];
   for (; el && el.nodeType === 1; el = el.parentNode)
     elparents.unshift(el);
   return elparents;
+}
+
+function commonAncestor(el1: Element, el2: Element) {
+  if (el1 === el2) //common case
+    return el1;
+
+  const parents1 = getParents(el1);
+  const parents2 = getParents(el2);
+  return parents1.findLast(p => parents2.includes(p));
 }
 
 function fireMouseEventsTree(eventtype: string, cx: number, cy: number, el: Element, button: 0 | 1 | 2, relatedtarget: HTMLElement | null, options: PointEventOptions) {

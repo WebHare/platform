@@ -134,4 +134,5 @@ export {
   getDoc,
   startExternalFileDrag,
   sendMouseGesture,
+  hasFocus
 } from "@mod-system/js/wh/testframework";
