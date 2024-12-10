@@ -1,4 +1,4 @@
-import { Selectable, db, nextVal, sql } from "@webhare/whdb";
+import { Selectable, db, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType } from "./siteprofiles";
@@ -326,10 +326,10 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
-      .where("fs_instance", "=", sql`any(${instanceIds})`);
+      .where("fs_instance", "in", instanceIds);
 
     if (keysToSet)
-      query = query.where(qb => qb.where("fs_member", "=", sql`any(${getMemberIds(descr.members, keysToSet)})`));
+      query = query.where(qb => qb("fs_member", "in", getMemberIds(descr.members, keysToSet)));
 
     const dbsettings = await query.execute();
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
@@ -373,7 +373,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object")
       .select(["system.fs_instances.id", "fs_object", "system.fs_objects.creationdate"])
       .where("fs_type", "=", descr.id)
-      .where("fs_object", "=", sql`any(${fsObjIds})`)
+      .where("fs_object", "in", fsObjIds)
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));

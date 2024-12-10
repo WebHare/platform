@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, runInWork, runInSeparateWork, sql } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob, runInWork, runInSeparateWork } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { createVM, loadlib } from "@webhare/harescript";
@@ -41,6 +41,7 @@ async function testWork() {
 
 async function testQueries() {
   await beginWork();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
 
   const emptyblob = WebHareBlob.from("");
   await uploadBlob(WebHareBlob.from(""));
@@ -113,6 +114,32 @@ async function testQueries() {
   await test.throws(/already been closed/, () => rollbackWork());
 }
 
+async function testPlugins() {
+  // Test the `in x` to `= any(x)` transformation
+
+  // prepare test data in
+  await beginWork();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values([{ id: 1, text: "Record 1" }, { id: 2, text: "Record 2" }]).execute();
+  await commitWork();
+
+  for (const testArray of [
+    [1],
+    [1, 2],
+    [1, 3],
+    [null],
+    [null, null],
+    [null, 1],
+    [null, 1, null, 2],
+    [1, null],
+    [1, null, 2, null],
+    []
+  ]) {
+    const expect = [1, 2].filter((id) => testArray.includes(id));
+    test.eq(expect, (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("id").where("id", "in", testArray).execute()).map((r) => r.id));
+  }
+}
+
 async function testTypes() {
   /* HareScript would store DEFAULT_DATETIME (a C++ Blex::DateTime::Invalid()) in a PG TIMESTAMP as std::numeric_limits< int64_t >::min()
      HareScript would store MAX_DATETIME in a PG TIMESTAMP as std::numeric_limits< int64_t >::max()
@@ -123,6 +150,7 @@ async function testTypes() {
 
   // Test types using the consilio_index table
   await beginWork();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.consilio_index").execute();
   const baserec = { groupid: "", objectid: "", grouprequiredindexdate: defaultDateTime, objectrequiredindexdate: maxDateTime, indexdate: new Date, extradata: "" };
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "row1", adate: new Date("2022-05-02T19:07:45Z") }).execute();
   test.eq({
@@ -155,7 +183,7 @@ async function testTypes() {
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "bb", adate: new Date("2022-05-02T19:07:45Z") }).execute();
   await commitWork();
 
-  test.eq(["a", "bb"], (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").where("text", "=", sql`any(${["a", "bb"]})`).select("text").execute()).map((r) => r.text).sort());
+  test.eq(["a", "bb"], (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").where("text", "in", ["a", "bb"]).select("text").execute()).map((r) => r.text).sort());
 }
 
 async function testHSWorkSync() {
@@ -612,6 +640,7 @@ test.run([
   cleanup,
   testWork,
   testQueries,
+  testPlugins,
   testTypes,
   testHSWorkSync,
   testTypesWithHS,

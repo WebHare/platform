@@ -12,7 +12,7 @@ declare module "@webhare/frontend" {
     "webhare_testsuite:nobiggy": {
       b: bigint;
     };
-    "webhare_testsuite:event": object;
+    "webhare_testsuite:event": void;
   }
 }
 
@@ -189,21 +189,53 @@ test.run([
     pxl.sendPxlEvent(pxlEvent, { ds_1: pxlId, dn_fun: eventId });
 
     // Test typed PXL events
-    //@ts-expect-error -- unregistered event
-    sendPxl("webhare_testsuite:nosuchevent", { str: "a" });
-    //@ts-expect-error -- incorrect event
-    sendPxl("webhare_testsuite:aa", { invalid: "a" });
-    //@ts-expect-error -- incorrect types in event
+
+    // Allowed forms:
+    sendPxl("webhare_testsuite:aa", { s: "string", n: 1, b: true }); // aa: 0
+    sendPxl("webhare_testsuite:event");
+    sendPxl("webhare_testsuite:event", undefined, { altSampleRate: 1 });
+    sendPxl<void>("webhare_testsuite:nosuchevent");
+    sendPxl<void>("webhare_testsuite:nosuchevent", undefined, { altSampleRate: 1 });
+    sendPxl<{ str: string }>("webhare_testsuite:nosuchevent", { str: "a" });
+
+    //@ts-expect-error -- argument not provided for known event
+    sendPxl("webhare_testsuite:aa");// aa: 1
+    //@ts-expect-error -- incorrect data for known event
+    sendPxl("webhare_testsuite:aa", { invalid: "a" });// aa: 2
+    //@ts-expect-error -- superfluous data for known event
+    sendPxl("webhare_testsuite:aa", { s: "string", superfluous: 123 });// aa: 3
+
+    //@ts-expect-error -- incorrect types used in known event declaration
     test.throws(/'bigint'.*'b'/, () => sendPxl("webhare_testsuite:nobiggy", { b: 12n }));
-    sendPxl("webhare_testsuite:aa", { s: "string", n: 1, b: true });
-    sendPxl("webhare_testsuite:event", {}); //TODO would be nice to define a way to not send data at all with an event
-    //FIXME want to reject this too - but & PxlData prevents that
-    sendPxl("webhare_testsuite:aa", { s: "string", superfluous: 123 });
+
+    //@ts-expect-error -- disallow data when using a void type
+    sendPxl("webhare_testsuite:event", {});
+
+    //@ts-expect-error -- unregistered event without type parameter
+    sendPxl("webhare_testsuite:nosuchevent");
+    //@ts-expect-error -- unregistered event with empty data
+    sendPxl("webhare_testsuite:nosuchevent", {});
+    //@ts-expect-error -- unregistered event with specified data
+    sendPxl("webhare_testsuite:nosuchevent", { str: "a" });
+
+    //@ts-expect-error -- disallow data when declaring a void type
+    sendPxl<void>("webhare_testsuite:nosuchevent", { str: "a" });
+
+    //@ts-expect-error -- bigints are not allowed in specific typedef
+    test.throws(/'bigint'.*'b'/, () => sendPxl<{ b: bigint }>("webhare_testsuite:nosuchevent", { b: 12n }));
+
+    //@ts-expect-error -- disallow superfluous data when declaring the type
+    sendPxl<{ str: string }>("webhare_testsuite:nosuchevent", { str: "a", superfluous: 123 });
+
+    //@ts-expect-error -- Unknown event doesn't accept an empty object
+    sendPxl("webhare_testsuite:nosuchevent", {});
 
     //To get rid of any type checking
     void await new Promise<void>(resolve => sendPxl<PxlData>("webhare_testsuite:unregistered", {}, { onComplete: resolve }));
 
     lines = await getPxlLogLines();
+
+    console.table(lines);
 
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
     url = new URL("https://example.org" + lines[0]);
@@ -216,10 +248,12 @@ test.run([
     test.eq(`${eventId}`, url.searchParams.get("dn_fun"));
 
     const aaEvents = lines.filter((line) => line.includes("webhare_testsuite%3Aaa"));
-    test.eq("a", new URL(aaEvents[0], location.href).searchParams.get("ds_invalid"), "It's still transmitted, verify the rwapping");
-    test.eq("string", new URL(aaEvents[1], location.href).searchParams.get("ds_s"));
-    test.eq('1', new URL(aaEvents[1], location.href).searchParams.get("dn_n"));
-    test.eq('true', new URL(aaEvents[1], location.href).searchParams.get("db_b"));
+    console.log(aaEvents);
+    test.eq("string", new URL(aaEvents[0], location.href).searchParams.get("ds_s"));
+    test.eq('1', new URL(aaEvents[0], location.href).searchParams.get("dn_n"));
+    test.eq('true', new URL(aaEvents[0], location.href).searchParams.get("db_b"));
+    test.eq("a", new URL(aaEvents[2], location.href).searchParams.get("ds_invalid"), "It's still transmitted, verify the wrapping");
+    test.eq("123", new URL(aaEvents[3], location.href).searchParams.get("dn_superfluous"), "It's still transmitted, verify the wrapping");
   }
   /* TODO restore these tests when we have a way to overwrite islive/dtapstage. might be worth the trouble to add that to SiteResponse (overwriting the #wh-config)
    ,   "Test live mode never throwing",

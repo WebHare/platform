@@ -20,7 +20,7 @@ export async function getTables(schemaName: string): Promise<Array<{ oid: number
     .innerJoin("pg_catalog.pg_class", (join) => join
       .onRef("pg_catalog.pg_namespace.oid", "=", "pg_catalog.pg_class.relnamespace")
     )
-    .where("relkind", "=", sql`any(${["r", "v", "m"]})`) // table, view, materialized view
+    .where("relkind", "in", ["r", "v", "m"])// table, view, materialized view
     // join with primary key contraints
     .leftJoin("pg_catalog.pg_constraint", (join) => join
       .onRef("conrelid", "=", "pg_catalog.pg_class.oid")
@@ -135,14 +135,15 @@ export async function getColumns(schemaName: string, tableName: string): Promise
     if (isColumn && isColumn.column_default) {
       const match = /^nextval\((.*)\)|\(([^.]*\.webhare_autonrs_.*)\(1\)\)\[1\]$/.exec(isColumn.column_default);
       if (match) {
-        let sequenceName: RawBuilder<unknown> | string = match[1];
+        let sequenceName: RawBuilder<number> | string = match[1];
         if (!match[1]) {
           sequenceName = sql`CAST(${match[2].replace(".webhare_autonrs_", ".webhare_seq_")} AS regclass)`;
         }
 
         const seq = await db<PGMetaDB>()
           .selectFrom("pg_catalog.pg_sequence")
-          .where("seqrelid", "=", sql`${sequenceName}`)
+          // When comparing to seqrelid, PostgreSQL will auto-cast a string to the correct type, cast to RawBuilder<number> | number to reflect that
+          .where("seqrelid", "=", sequenceName as unknown as RawBuilder<number> | number)
           .select(["seqstart"])
           .executeTakeFirst();
         if (seq) {

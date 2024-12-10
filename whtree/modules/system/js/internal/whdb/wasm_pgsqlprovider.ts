@@ -1,6 +1,6 @@
 import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { getConnection } from "@webhare/whdb/src/impl";
-import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
+import { AliasedRawBuilder, RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
@@ -122,7 +122,7 @@ type Query = {
   }>;
 };
 
-function buildComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>) {
+function buildComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>): Expression<SqlBool> {
   switch (condition) {
     case "<": return sql`${left} < ${right}`;
     case "<=": return sql`${left} <= ${right}`;
@@ -135,7 +135,7 @@ function buildComparison(left: RawBuilder<unknown>, condition: Condition, right:
   }
 }
 
-function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>) {
+function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>): Expression<SqlBool> {
   switch (condition) {
     case "<": return sql`${left} > ${right}`;
     case "<=": return sql`${left} >= ${right}`;
@@ -366,7 +366,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     }
   }
 
-  const conditions = new Array<RawBuilder<unknown>>();
+  const conditions = new Array<Expression<SqlBool>>();
 
   for (let condidx = 0; condidx < query.singleconditions.length; ++condidx) {
     const cond = query.singleconditions[condidx];
@@ -380,7 +380,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
 
-    let valueexpr = sql.value(cond.condition === "LIKE" ? encodePattern(value as string) : value);
+    let valueexpr = sql.val(cond.condition === "LIKE" ? encodePattern(value as string) : value);
     if (cond.condition === "IN")
       valueexpr = sql`Any(${valueexpr})`;
     if (!cond.casesensitive)
@@ -401,7 +401,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     const column2 = query.tablesources[cond.table2_id].columns[cond.t2_columnid];
     const colref2 = getTableAndColumnExpression(cond.table2_id, column2);
 
-    let expr = sql`${buildComparison(colref1, cond.condition, colref2)}`;
+    let expr = buildComparison(colref1, cond.condition, colref2);
     if (cond.match_double_null) {
       // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
       if (!(column1.flags & ColumnFlags.Key) && !(column2.flags & ColumnFlags.Key))

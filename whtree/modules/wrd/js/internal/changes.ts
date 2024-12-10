@@ -1,5 +1,5 @@
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
-import { db, nextVal, sql } from "@webhare/whdb";
+import { db, nextVal } from "@webhare/whdb";
 import { EntityPartialRec, EntityRec, EntitySettingsRec, TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { isTruthy, omit } from "@webhare/std";
 import { encodeWRDGuid } from "./accessors";
@@ -51,7 +51,7 @@ export async function getWHFSLinksForChanges(ids: number[]): Promise<ChangesWHFS
   const links = await db<PlatformDB>()
     .selectFrom("wrd.entity_settings_whfslink")
     .select(selectEntitySettingWHFSLinkColumns)
-    .where("id", "=", sql`any(${ids})`)
+    .where("id", "in", ids)
     .orderBy("id")
     .execute();
 
@@ -116,7 +116,7 @@ async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<number | n
   return new Map((await db<PlatformDB>()
     .selectFrom("wrd.entities")
     .select(["id", "guid"])
-    .where("id", "=", sql`any(${ids.filter(isTruthy)})`)
+    .where("id", "in", ids.filter(isTruthy))
     .execute()).map(row => [row.id, encodeWRDGuid(row.guid)]));
 }
 

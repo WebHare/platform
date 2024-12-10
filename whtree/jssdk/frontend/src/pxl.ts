@@ -5,13 +5,30 @@ export { setPxlOptions, getPxlId as getPxlUserId, getPxlSessionId } from "@mod-c
 
 export type PxlData = Record<string, string | number | boolean>;
 
-export function sendPxl<EventType extends keyof PxlDataTypes>(dataobject: EventType, data: PxlDataTypes[EventType] & PxlData, options?: Partial<PxlOptions>): void;
-//we use a second parameter to break inferring the first parameter, so we can properly detect it missing
-export function sendPxl<DataType = void, _DataType extends DataType = DataType>(dataobject: string, data: _DataType, options?: Partial<PxlOptions>): void;
+// Combine with `string & {}` to prevent TypeScript from eliminating `keyof PxlDataTypes`
+type AllowedKeys = keyof PxlDataTypes | (string & {});
 
-export function sendPxl<DataType extends PxlData = never>(dataobject: string, data: DataType, options?: Partial<PxlOptions>): void {
-  const pxldata: Record<string, string | number | boolean> = {};
-  for (const [k, v] of Object.entries(data)) {
+// Filters out invalid types from the PXL data type
+type FilterValidTypes<T extends object | void> = T extends object ? {
+  [K in keyof T]: T[K] extends undefined | string | number | boolean ?
+  T[K] :
+  { __error: "Invalid property type used in PXL event declaration, allowed: boolean, number, string"; __type: T[K] };
+} : T;
+
+/// Helper type to allow making the data parameter optional when the datatype is void
+type ParamTuples<DataType, Key extends AllowedKeys> = Key extends keyof PxlDataTypes ?
+  [data: FilterValidTypes<PxlDataTypes[Key]>, options?: Partial<PxlOptions>] :
+  (DataType extends void ?
+    [data?: void, options?: Partial<PxlOptions>] :
+    [data: DataType, options?: Partial<PxlOptions>]);
+
+// Error type for when an event is not declared in PxlDataTypes and no data type override is provided
+type NeedTypeParamError = { __error: "Event not declared in PxlDataTypes and no data type override provided" } & symbol;
+
+export function sendPxl<DataType extends (Event extends keyof PxlDataTypes ? NeedTypeParamError : void | PxlData | NeedTypeParamError) = NeedTypeParamError, Event extends AllowedKeys = AllowedKeys>(eventKey: Event, ...params: ParamTuples<NoInfer<DataType>, Event>): void {
+  const [data, options] = params;
+  const pxldata: PxlEventData = {};
+  for (const [k, v] of Object.entries(data ?? {})) {
     if (typeof v === "string")
       pxldata[`ds_${k}`] = v;
     else if (typeof v === "number")
@@ -22,5 +39,5 @@ export function sendPxl<DataType extends PxlData = never>(dataobject: string, da
       throw new Error(`Invalid type '${typeof v}' for PXL data key '${k}'`);
   }
 
-  sendPxlEvent(dataobject, pxldata as PxlEventData, options);
+  sendPxlEvent(eventKey, pxldata, options);
 }
