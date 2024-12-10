@@ -116,6 +116,7 @@ export const TidType: DataType = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   isType(v: any): boolean {
     return (
+      v &&
       typeof v === "object" &&
       Object.keys(v).length === 2 &&
       typeof v.block === "number" &&
