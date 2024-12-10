@@ -1,15 +1,13 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
-import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } from '@mod-tollium/web/ui/components/listview/listcolumns';
+import { ListColumnBase, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text, IconColumn, IconsColumn, IconWrapper } from './listcolumns';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
-import ListView from '@mod-tollium/web/ui/components/listview/listview';
-import { getScrollbarWidth } from '@mod-tollium/web/ui/components/listview/listview';
+import ListView from './listview';
+import { getScrollbarWidth } from './listdomhelpers';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-const toddImages = require("@mod-tollium/js/icons");
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";
 
@@ -29,7 +27,7 @@ interface FlatRowMeta {
   rowkey: unknown;
 }
 
-interface DataColumn {
+export interface DataColumn {
   align: string;
   checkbox: string;
   checkboxenabledidx: number;
@@ -52,7 +50,7 @@ interface DataColumn {
   tree: boolean;
   type: string;
   width: string;
-  render: unknown;
+  render: ListColumnBase<unknown>;
   rowspan: number;
   colspan: number;
   x: number;
@@ -74,6 +72,7 @@ export default class ObjList extends ComponentBase {
   cols;
   flatrows: FlatRow[] = [];
   datacolumns: DataColumn[] = [];
+  iconnames: string[] = [];
 
   constructor(parentcomp, data) {
     super(parentcomp, data);
@@ -253,16 +252,16 @@ export default class ObjList extends ComponentBase {
   }
   getRowsSubmitValue(rows) {
     let retval = "";
-    for (var i = 0; i < rows.length; ++i) {
+    for (let i = 0; i < rows.length; ++i) {
       if (rows[i][1])
         retval += " s" + rows[i][0].rowkey;
       if (rows[i][2])
         retval += " e" + rows[i][0].rowkey;
 
-      this.checkboxcolumns.forEach(function (col) {
+      for (const col of this.checkboxcolumns) {
         if (rows[i][col.checkboxidx] !== null)
           retval += " c" + rows[i][0].rowkey + "\t" + col.checkbox + "\t" + (rows[i][col.checkboxidx] ? "true" : "");
-      });
+      };
 
       if (rows[i][0].subrows)
         retval += this.getRowsSubmitValue(rows[i][0].subrows);
@@ -455,7 +454,6 @@ export default class ObjList extends ComponentBase {
 
       if (this.datacolumns[i].iconidx >= 0) {
         this.datacolumns[i].render = new IconWrapper(this, this.datacolumns[i].render);
-        this.datacolumns[i].render.iconholderwidth = $todd.settings.listview_iconholder_width;
       }
 
       if (this.datacolumns[i].checkboxidx >= 0) {
@@ -515,7 +513,7 @@ export default class ObjList extends ComponentBase {
       this.columnwidths.push(sizeobj);
     }
   }
-  getRendererByType(type) {
+  getRendererByType(type: string): ListColumnBase {
     switch (type) {
       case "email":
         return new Email;
@@ -543,8 +541,7 @@ export default class ObjList extends ComponentBase {
     this.rows = this.createTreeFromFlatRows(rows);
     this.flattenRows();
   }
-  createTreeFromFlatRows(rows) //ADDME just let the server ship us trees...
-  {
+  createTreeFromFlatRows(rows) { //ADDME just let the server ship us trees...
     const outrows = [];
     const currentstack = [];
 
@@ -576,8 +573,7 @@ export default class ObjList extends ComponentBase {
     }
   }
 
-  onOpen(evt) //doubleclick or enter
-  {
+  onOpen(evt) { //doubleclick or enter
     if (this.openaction) {
       evt.preventDefault();
 
@@ -698,8 +694,7 @@ export default class ObjList extends ComponentBase {
     return changed_selection;
   }
 
-  recurseFlattenRows(rows, depth, parentrowkey, resultrows) //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
-  {
+  recurseFlattenRows(rows, depth, parentrowkey, resultrows) { //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
     let changed_selection = false;
     rows = rows.sort(this.compareRows.bind(this));
     for (let i = 0; i < rows.length; ++i) {
@@ -718,8 +713,7 @@ export default class ObjList extends ComponentBase {
     }
     return changed_selection;
   }
-  flattenRows() //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
-  {
+  flattenRows() { //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
     this.flatrows = [];
     let parentrowkey; // FIXME: variable not used??
     const changed_selection = this.recurseFlattenRows(this.rows, 0, parentrowkey, this.flatrows);
@@ -833,15 +827,13 @@ export default class ObjList extends ComponentBase {
   setCell(rownum, row, cellidx, newvalue) {
     row[cellidx] = newvalue;
 
-    if (cellidx === 1) //changing selected state
-    {
+    if (cellidx === 1) { //changing selected state
       this.sendRow(rownum);
       this.owner.actionEnabler();
 
       if (this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
-    } else if (cellidx === 2) //changing expanded state
-    {
+    } else if (cellidx === 2) { //changing expanded state
       this.flattenRows();
       this.list.invalidateAllRows();
 
@@ -901,8 +893,7 @@ export default class ObjList extends ComponentBase {
   clearSelection() {
     let changed = false;
     for (let i = 0; i < this.flatrows.length; ++i)
-      if (this.flatrows[i][1]) //isselected
-      {
+      if (this.flatrows[i][1]) { //isselected
         if (!changed && this.flatrows[i][1])
           changed = true;
         this.flatrows[i][1] = false;
@@ -914,8 +905,7 @@ export default class ObjList extends ComponentBase {
 
 
   getSelectableRowBefore(rownum) {
-    if (rownum < -1) // -1 means you want the first selectable row
-    {
+    if (rownum < -1) { // -1 means you want the first selectable row
       console.error("Invalid rownum");
       return;
     }
@@ -932,8 +922,7 @@ export default class ObjList extends ComponentBase {
   }
 
   getSelectableRowAfter(rownum) {
-    if (rownum > this.flatrows.length) // last index + 1 means you want the last selectable row
-    {
+    if (rownum > this.flatrows.length) { // last index + 1 means you want the last selectable row
       console.error("Invalid rownum");
       return;
     }
@@ -965,8 +954,7 @@ export default class ObjList extends ComponentBase {
       if (!this.flatrows[i][0].selectable)
         continue;
       //console.log(this.flatrows[i][0]);
-      if (this.flatrows[i][1] !== newvalue) //isselected
-      {
+      if (this.flatrows[i][1] !== newvalue) { //isselected
         changed = true;
         this.flatrows[i][1] = newvalue;
         this.sendRow(i);
@@ -1046,14 +1034,14 @@ export default class ObjList extends ComponentBase {
   }
 
   /** Checks if a positioned drop is allowed
-      @param event Drag event
-      @param rownum Nr of row before where the position drop will take place
-      @param depth Requested drop depth
-      @return Best allowed drop depth (highest depth that is lower than requested depth if allowed, otherwise first other match)
-      @cell return.location 'appendchild'/'insertbefore'
-      @cell return.cells Cells of action row
-      @cell return dragdata Drag data
-      @cell return.depth
+      @param event - Drag event
+      @param rownum - Nr of row before where the position drop will take place
+      @param depth - Requested drop depth
+      @returns Best allowed drop depth (highest depth that is lower than requested depth if allowed, otherwise first other match)
+      - return.location 'appendchild'/'insertbefore'
+      - return.cells Cells of action row
+      - return dragdata Drag data
+      - return.depth
   */
   checkPositionedDrop(event, rownum, depth) {
     //console.log('checkPositionedDrop', rownum, depth);
@@ -1077,11 +1065,10 @@ export default class ObjList extends ComponentBase {
     let append_rownum = rownum - 1;
 
     // Test range of allowed drops (from deepest to shallowest, we want the first match below or at the requested depth)
-    for (let i = maxdepth; i >= mindepth; --i) // mindepth >= 0
-    {
+    for (let i = maxdepth; i >= mindepth; --i) { // mindepth >= 0
       const location = i !== nextdepth ? "appendchild" : "insertbefore";
 
-      var test_rownum;
+      let test_rownum;
       if (location === "insertbefore") {
         // Row in 'rownum' has requested depth, so we must insert before that node
         test_rownum = rownum;
@@ -1122,7 +1109,7 @@ export default class ObjList extends ComponentBase {
   }
 
   executeDrop(event, checkresult) {
-    toddupload.uploadFilesForDrop(this, checkresult.dragdata, function (msg, dialogclosecallback) {
+    void toddupload.uploadFilesForDrop(this, checkresult.dragdata, function (msg, dialogclosecallback) {
       // Upload successfully (or no files)
 
       // Msg contains: source, sourcecomp, items, dropeffect
@@ -1192,8 +1179,7 @@ export default class ObjList extends ComponentBase {
     if (this.selectmode !== "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(",") + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
       return this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, 1);
-    } else //FIXME reimplement adn test checkbox enabledon..
-    {
+    } else { //FIXME reimplement adn test checkbox enabledon..
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by checkboxes/radios");
 
       for (let i = 0; i < this.datacolumns.length; ++i)
@@ -1210,7 +1196,7 @@ export default class ObjList extends ComponentBase {
   }
 
   /** yield selected rows
-      @param checkcolidx Column to check. Normally '1' for selection, but can be set to a checkbox column */
+      @param checkcolidx - Column to check. Normally '1' for selection, but can be set to a checkbox column */
   * getSelectedRows(checkcolidx = 1) {
     for (let i = 0; i < this.flatrows.length; ++i)
       if (this.flatrows[i][checkcolidx])
@@ -1250,166 +1236,5 @@ export default class ObjList extends ComponentBase {
       if (event.detail.widths[idx])
         item.new_set = event.detail.widths[idx];
     });
-  }
-}
-
-function setIcon(list, columndef, row, cell, width, height, icon) {
-  const overlayidx = (columndef.overlayidx >= 0 ? row.cells[columndef.overlayidx] : 0) - 1;
-  const overlayicon = overlayidx >= 0 && overlayidx < list.iconnames.length ? list.iconnames[overlayidx] : null;
-  if (overlayicon)
-    icon = icon + "+" + overlayicon;
-
-  const existingicon = cell.firstChild;
-  if (icon) {
-    //We're requesting the color version, the server will fallback to the black icon if needed
-    if (existingicon)
-      toddImages.updateImage(existingicon, icon, width, height, "c");
-    else
-      cell.appendChild(toddImages.createImage(icon, width, height, "c"));
-  } else if (existingicon) {
-    cell.removeChild(existingicon);
-  }
-}
-
-class IconColumn extends Base {
-  constructor(list) {
-    super();
-    this.toddlist = list;
-  }
-  render(list, columndef, row, cell, data, wrapped) {
-    const iconidx = data - 1;
-    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-    if (!icon)
-      return;
-
-    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
-
-    cell.classList.toggle("bigicon", columndef.rowspan > 1);
-    cell.classList.toggle("firsticonmargin", !wrapped && columndef.x === 0);
-
-    setIcon(this.toddlist, columndef, row, cell, icondimensions, icondimensions, icon);
-
-    if (columndef.hintidx && row.cells[columndef.hintidx])
-      cell.firstChild.title = row.cells[columndef.hintidx];
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    // Minwidth: at least one icon + 4 pixels padding on both sides
-    return {
-      resizable: false,
-      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16) // icon must be visible
-    };
-  }
-}
-
-class IconsColumn extends Base {
-  constructor(list) {
-    super();
-    this.toddlist = list;
-  }
-
-  render(list, columndef, row, cell, data, wrapped) {
-    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
-
-    if (columndef.align === "right")
-      cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
-
-    dompack.empty(cell);
-    dompack.toggleClasses(cell, { bigicon: columndef.rowspan > 1 });
-
-    if (data) {
-      data.split(" ").forEach(iconnr => {
-        const iconidx = parseInt(iconnr) - 1;
-        const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-        if (!icon)
-          cell.appendChild(dompack.create("div", { style: "display:inline-block;width:" + icondimensions + "px;height: " + icondimensions + "px;" }));
-        else
-          cell.appendChild(toddImages.createImage(icon, icondimensions, icondimensions, "c"));
-      });
-    }
-
-    if (columndef.hintidx && row.cells[columndef.hintidx])
-      cell.firstChild.title = row.cells[columndef.hintidx];
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    // Minwidth: at least one icon + 4 pixels padding on both sides
-    return {
-      resizable: true,
-      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16)
-    };
-  }
-}
-
-class IconWrapper extends Base {
-  //, restholder: null // the node container of the content we place our icon before
-
-  constructor(list, base) {
-    super();
-    this.iconholderwidth = null;
-    this.toddlist = list;
-    this.base = base;
-  }
-
-  render(list, columndef, row, cell, data, wrapped) {
-    cell.style.display = "inline-flex";
-
-    let iconholder = cell.firstChild;
-    if (!iconholder) {
-      iconholder = dompack.create("span",
-        {
-          style: {
-            "display": multiline ? "none" : "inline-block",
-            "width": this.iconholderwidth + "px"
-          }
-        });
-      cell.appendChild(iconholder);
-    }
-
-    let restholder = cell.childNodes[1];
-    if (!restholder) {
-      restholder = dompack.create("span",
-        {
-          style: {
-            "display": "inline-block",
-            "flex": "1 0 0"
-          }
-        });
-      cell.appendChild(restholder);
-      //this.restholder = restholder;
-    }
-
-    dompack.toggleClasses(cell, { firsticonmargin: !wrapped && columndef.x === 0 });
-
-    var multiline = this.toddlist.list.linesperrow > 1;
-
-    const iconidx = row.cells[columndef.iconidx] - 1;
-    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
-
-    setIcon(this.toddlist, columndef, row, iconholder, 16, 16, icon);
-    this.base.render(list, columndef, row, restholder, data, true);
-  }
-
-  applySizes(list, columndef, row, cell, sizestyles) {
-    super.applySizes(list, columndef, row, cell, sizestyles);
-
-    if (cell.childNodes[1]) // did we absorb another column type?
-    {
-      //console.info(cell.childNodes[1].textContent, "X:"+sizestyles.left, "W"+sizestyles.width, );
-
-      sizestyles.width -= sizestyles.padleft + sizestyles.padright + this.iconholderwidth;
-      sizestyles.padleft = 0;
-      sizestyles.padright = 0;
-
-      // stop applying styling to subcells, it breaks offsetWidth/scrollWidth detection
-      // this.base.applySizes(list, columndef, row, cell.childNodes[1], sizestyles);
-    }
-  }
-
-  getSizeInfo(list, columndef, wrapped) {
-    const info = this.base.getSizeInfo(list, columndef);
-    info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
-    info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x === 0 ? 4 : 0;
-    return info;
   }
 }

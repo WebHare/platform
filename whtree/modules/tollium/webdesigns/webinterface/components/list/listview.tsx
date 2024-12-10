@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
@@ -10,8 +9,10 @@ import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
-require('./listview.css');
-const ListColumn = require('./listcolumns');
+import type { DataColumn } from './list';
+import './listview.css';
+import * as ListColumn from './listcolumns';
+import { getScrollbarWidth, translatePageCoordinatesToElement } from './listdomhelpers';
 
 
 let globallistcount = 0;
@@ -76,58 +77,16 @@ FIXME: drag crashes?
 ADDME: wrapping option?
 */
 
-function translatePageCoordinatesToElement(event, element) {
-  const rect = element.getBoundingClientRect();
-  return { x: event.clientX - rect.left, y: event.clientY - rect.top };
-}
+type WrappedDataColumn = {
+  src: DataColumn;
+};
 
-
-let scrollbarwidth = null;
-export function getScrollbarWidth() {
-  if (scrollbarwidth === null) //not calculated yet
-  {
-    const inner = document.createElement('p');
-    inner.style.width = "100%";
-    inner.style.height = "200px";
-
-    const outer = document.createElement('div');
-    outer.style.position = "absolute";
-    outer.style.top = "0px";
-    outer.style.left = "0px";
-    outer.style.visibility = "hidden";
-    outer.style.width = "200px";
-    outer.style.height = "150px";
-    outer.style.overflow = "hidden";
-    outer.appendChild(inner);
-
-    document.body.appendChild(outer);
-
-    const w1 = inner.offsetWidth;
-    outer.style.overflow = 'scroll';
-    let w2 = inner.offsetWidth;
-    if (w1 === w2)
-      w2 = outer.clientWidth;
-
-    document.body.removeChild(outer);
-
-    //return (w1 - w2);
-    // if the scrollbar takes no space it means the system/browser
-    // shows the scrollbar as overlay (probably appearing upon mouseover and on scroll actions).
-    // In this case we *don't* want to style the scrollbar, as this forces the browser to disable the scrollbar overlay mode.
-    if (w1 - w2 > 0)
-      document.documentElement.classList.add("stylescrollbars");
-
-    scrollbarwidth = w1 - w2;
-  }
-  return scrollbarwidth;
-}
-
-type VisibleRow = {
-  cells: unknown[],
-  node: HTMLDivElement,
-  rownum: number,
-  options: unknown,
-  dragrow: boolean
+export type VisibleRow = {
+  cells: unknown[];
+  node: HTMLDivElement;
+  rownum: number;
+  options: unknown;
+  dragrow: boolean;
 };
 
 export default class ListView {
@@ -137,7 +96,15 @@ export default class ListView {
   listbodyholder: HTMLDivElement | null = null;
   listinsertline: HTMLDivElement | null = null;
 
-  constructor(node, datasource, options) {
+  datacolumns = new Array<WrappedDataColumn>;
+
+  selectedidx = 0; // index of the cell containing the selected state
+  expandedidx = 0;
+  depthidx = 0;
+  searchidx = 0;
+  highlightidx = 0;
+
+  constructor(public node, datasource, options) {
     this.listcount = 0;
     this.vscroll_width = null; // null means it's not defined
     // 0 means the scrollbar is an overlay, not taking any space
@@ -157,21 +124,19 @@ export default class ListView {
     this._selectedcellnumbers = [];
 
     /** List of visible columns in the list
-        @cell width Width in pixels
-        @cell header Index of primary datacolumn for this column
-        @cell left x-position of leftmost pixel (normal layout)
-        @cell right Equal to left + width (normal layout)
-        @cell dragleft x-position of leftmost pixel (for draglayout)
-        @cell dragright Equal to left + width (for draglayout)
-        @cell minwidth Minimum width
-        @cell coupled_cols Set of column nrs (including current) that have their *left* splits coupled (moving together)
+        - width Width in pixels
+        - header Index of primary datacolumn for this column
+        - left x-position of leftmost pixel (normal layout)
+        - right Equal to left + width (normal layout)
+        - dragleft x-position of leftmost pixel (for draglayout)
+        - dragright Equal to left + width (for draglayout)
+        - minwidth Minimum width
+        - coupled_cols Set of column nrs (including current) that have their *left* splits coupled (moving together)
                 If this set includes 0, the split cannot be moved.
     */
     this.cols = [];
 
     // List of all source columns present (will be combined through rowlayout and mapped to the visible columns)
-    this.datacolumns = [];
-
     // cols & datacolumns for dragging
     this.dragdatacolumns = [];
 
@@ -185,12 +150,6 @@ export default class ListView {
 
     this.dragrowheight = 0;
     this.draglinesperrow = 1;
-
-    this.selectedidx = 0; // index of the cell containing the selected state
-    this.expandedidx = 0;
-    this.depthidx = 0;
-    this.searchidx = 0;
-    this.highlightidx = 0;
 
     this.cursorrow = -1;
     this.cursorcol = -1;
@@ -211,7 +170,6 @@ export default class ListView {
 
     this.listcount = ++globallistcount;
 
-    this.node = node;
     this.node.classList.add("wh-list"); //this is the new BEM anchor class. as we go, move other classes under us
     this.node.classList.add("wh-ui-listview");
     this.node.addEventListener("mouseover", evt => this.onMouseOver(evt));
@@ -349,7 +307,7 @@ export default class ListView {
 
 
   //reconfigure the list
-  resetList(force) {
+  resetList(force?: boolean) {
     if (this.options.delay_layout)
       return;
 
@@ -448,17 +406,15 @@ export default class ListView {
     this.__scrollRowIntoView(rownum, false, true);
   }
 
-  scrollRowIntoView(rownum, keep_comfort_distance) //, animate)
-  {
+  scrollRowIntoView(rownum, keep_comfort_distance) {
     this.__scrollRowIntoView(rownum, keep_comfort_distance, false);
   }
 
-  /** @short
-      @param rownum row number which must be in view
-      @param keep_confort_distance whether to keep a 'confort zone' of rows around the cursor position
+  /**
+   * @param rownum - row number which must be in view
+   * @param keep_confort_distance - whether to keep a 'confort zone' of rows around the cursor position
   */
-  __scrollRowIntoView(rownum, keep_comfort_distance, center) //, animate)
-  {
+  __scrollRowIntoView(rownum, keep_comfort_distance, center) {
     if (!this.listdomcreated) {
       this.delayed_scrollrowintoview = rownum; // FIXME: safe?
       return;
@@ -469,8 +425,7 @@ export default class ListView {
     let scrolltop = toscroll.scrollTop;
 
     if (rowtop < scrolltop - this.bodyholderheight // would have to scroll more than a full page (height of the list) ??
-      || center) // (this.cursorrow === -1 )) // the first selection
-    {
+      || center) { // (this.cursorrow === -1 )) // the first selection
       // calculate the scrolltop for getting the specified row in the middle
       const rowmiddle = rowtop + this.rowheight / 2;
       scrolltop = Math.floor(rowmiddle - this.bodyholderheight / 2);
@@ -496,8 +451,7 @@ export default class ListView {
     //boundscheck
     const scrollmax = this.numrows * this.rowheight - this.bodyholderheight;
     scrolltop = Math.max(0, Math.min(scrollmax, scrolltop));
-    if (this.listbodyholder.scrollTop !== scrolltop) //we need to scroll
-    {
+    if (this.listbodyholder.scrollTop !== scrolltop) { //we need to scroll
       scrollmonitor.setScrollPosition(this.listbodyholder, 0, scrolltop);
     }
   }
@@ -712,7 +666,7 @@ export default class ListView {
   //
 
   /** Get the datacolumn nr from the clicked node in a row
-      @return Index of datasource, -1 if not found
+      @returns Index of datasource, -1 if not found
   */
   _findDataColumnFromCellNode(rownode, cellnode) {
     // The cells are inserted in datasource order, sources with x=-1 are skipped.
@@ -875,8 +829,8 @@ export default class ListView {
       return;
 
     if (this._columnselect) {
-      if (this.cursorcol >= 0) //we had a selected column.
-      {
+      if (this.cursorcol >= 0) { //we had a selected column.
+
         this.cursorcol = Math.max(0, Math.min(this.cols.length - 1, this.cursorcol + distance));
         this._selectedcellnumbers = [this.cursorcol];
         dompack.dispatchCustomEvent(this.node, "wh:listview-selectcolumns", { bubbles: true, cancelable: false });
@@ -889,12 +843,10 @@ export default class ListView {
     const row = this.visiblerows[this.cursorrow];
     if (row.cells[this.expandedidx] === !expanding) { //expand mode being changed
       this.datasource.setCell(row.propRow, row.cells, this.expandedidx, expanding);
-    } else //already in the proper expand mode...
-    {
+    } else { //already in the proper expand mode...
       // Get the current depth
       const depth = row.cells[this.depthidx];
-      if (depth && !expanding) //go up, but not down!
-      {
+      if (depth && !expanding) {  //go up, but not down!
         const parentrownr = this.datasource.getRowParent(this.cursorrow, row);
         if (parentrownr !== null) {
           // Select the found item and click to close
@@ -968,7 +920,7 @@ export default class ListView {
       /* label click, eg checkbox row - we only allow this if selectmode is none,
          otherwise we interfere too much with the selection process (but you really
            shouldn't build lists with checkboxes AND selectionmode) */
-      if (selectnode.listViewClickNeighbour && this.options.selectmode === 'none') {
+      if (selectnode.dataset.listViewClickNeighbour && this.options.selectmode === 'none') {
         let toclick = null;
         if (selectnode.previousSibling)
           toclick = selectnode.previousSibling.querySelector('input');
@@ -1001,8 +953,7 @@ export default class ListView {
     let celledit = false;
     let columnschanged = false;
     let cellnum;
-    if (listcell) // a cell is clicked
-    {
+    if (listcell) { // a cell is clicked
       /* Fire an event on the list allowing our parent to intercept */
       cellnum = this._findDataColumnFromCellNode(listrow, listcell);
 
@@ -1151,8 +1102,8 @@ export default class ListView {
   }
 
   /** Reset the drop target styles
-      @param rownr Rownr to select, -1 to select none
-      @param clearinsertpoint If true, hide insertpoint
+      @param rownr - Rownr to select, -1 to select none
+      @param clearinsertpoint - If true, hide insertpoint
   */
   _setRowDropTarget(rownr: number | -1, clearinsertpoint: boolean): void {
     Object.keys(this.visiblerows).forEach(key => {
@@ -1201,7 +1152,7 @@ export default class ListView {
     return null;
   }
 
-  onDragStart(event) {
+  onDragStart(event: DragEvent) {
     dragdrop.fixupDNDEvent(event);
     const target = event.target.closest('div.listrow');
     const cells = target.classList.contains('listrow') ? this.visiblerows[target.propRow].cells : null;
@@ -1372,14 +1323,10 @@ export default class ListView {
     }
 
     // Calculate how much the split may be moved to the left
-    this.draginfo.room_left = Math.min.apply(Math, left_resize.map(function (colnr) {
-      return this.draginfo.orgsizes[colnr].room;
-    }.bind(this)));
+    this.draginfo.room_left = Math.min(...left_resize.map(colnr => this.draginfo.orgsizes[colnr].room));
 
     // And to the right
-    this.draginfo.room_right = Math.min.apply(Math, right_resize.map(function (colnr) {
-      return this.draginfo.orgsizes[colnr].room;
-    }.bind(this)));
+    this.draginfo.room_right = Math.min(...right_resize.map(colnr => this.draginfo.orgsizes[colnr].room));
 
     this._applySplitMove();
   }
@@ -1399,7 +1346,7 @@ export default class ListView {
   // Public interface
   //
 
-  /** @short set's the cursor row and makes sure the view scrolls if needed to keep the new cursor row in the view
+  /** set's the cursor row and makes sure the view scrolls if needed to keep the new cursor row in the view
   */
   setCursorRow(new_cursorrow) {
     this.scrollRowIntoView(new_cursorrow, true);
@@ -1421,8 +1368,7 @@ export default class ListView {
 
       this.range_end_idx = 0;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    } else // new selection will be only the first row
-    {
+    } else { // new selection will be only the first row
       this.range_start_idx = firstselectablerow;
       this.range_end_idx = firstselectablerow;
 
@@ -1448,8 +1394,7 @@ export default class ListView {
 
       this.range_end_idx = lastselectablerow;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    } else // new selection will be only the last row
-    {
+    } else { // new selection will be only the last row
       this.range_start_idx = lastselectablerow;
       this.range_end_idx = lastselectablerow;
       this.datasource.clearSelection();
@@ -1581,7 +1526,7 @@ export default class ListView {
   }
 
   getRowForNode(node) {
-    const row = event.target.closest('div.listrow');
+    const row = node.closest('div.listrow');
     return row ? this.visiblerows[row.propRow] : null;
   }
 
@@ -1601,8 +1546,7 @@ export default class ListView {
     let srcrow = this.visiblerows[rownum];
     let status = srcrow.cells[this.selectedidx];
 
-    if (status !== true) // not yet selected? select it now
-    {
+    if (status !== true) { // not yet selected? select it now
       this.clickSelectRowByNumber(event, row.propRow, { immediate_select: true });
 
       srcrow = this.visiblerows[rownum];
@@ -1677,7 +1621,7 @@ export default class ListView {
       if (i !== this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
-      var col = this.datacolumns[this.cols[i].header];
+      const col = this.datacolumns[this.cols[i].header];
       const headernode = dompack.create("span", { "class": "list__header__cell" });
 
       if (col) {
@@ -1787,8 +1731,7 @@ export default class ListView {
     // reset datacolumns x,y,w,h
     datacolumns.forEach(function (item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
 
-    if (!layout || !layout.length) //no layout specified
-    {
+    if (!layout || !layout.length) { //no layout specified
       for (let i = 0; i < datacolumns.length && i < this.cols.length; ++i) {
         datacolumns[i].x = i;
 
@@ -2038,7 +1981,7 @@ export default class ListView {
       this.listheader.childNodes[childnr + 1 + idx].style.left = left + "px";
     });
   }
-  _applyRowColumnWidths(datacolumns, dragmode, visiblerow) {
+  _applyRowColumnWidths(datacolumns: WrappedDataColumn[], dragmode: boolean, visiblerow: VisibleRow) {
     let outpos = 0;
 
     for (let i = 0; i < datacolumns.length; ++i) {
@@ -2211,7 +2154,7 @@ export default class ListView {
     if (!text) //reset
       return;
 
-    const searchregex = new RegExp("^" + text.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "i");
+    const searchregex = new RegExp("^" + text.replace(/[-[\]/{}()*+?.\\^$|]/g, "\\$&"), "i");
 
     const newidx = this.datasource.selectFirstMatchFromCurrent(searchregex, this.searchidx);
     if (newidx >= 0) {
