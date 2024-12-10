@@ -7,8 +7,7 @@ import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
-let globalseqnr = 1;
-
+let globalseqnr = 0;
 
 export interface RPCCallOptions {
   /** Append function name to URLs. Purely for better logging/visibility as the WebHare JSONRPC server will ignore it */
