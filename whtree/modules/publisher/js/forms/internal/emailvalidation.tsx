@@ -67,9 +67,17 @@ export async function validateField(form: FormBase | RPCFormBase, field: HTMLInp
 
   if (result?.force) {
     field.value = result.force;
+
+    //we should be able to assume we won't have to revalidate a server-provided suggestion
+    cache["e_" + field.name + "." + result.force] = Promise.resolve<EmailValidationResult>({});
+
     return true;
   } else if (result?.suggestion) {
     const suggestion = getTid("publisher:site.forms.commonerrors.email_suggestion", "___SUGGESTION___").split("___SUGGESTION___");
+
+    //we should be able to assume we won't have to revalidate a server-provided suggestion
+    cache["e_" + field.name + "." + result.suggestion] = Promise.resolve<EmailValidationResult>({});
+
     field.propWhValidationSuggestion =
       <span class="wh-form__emailcorrection">
         {suggestion[0]}

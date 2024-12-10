@@ -407,12 +407,13 @@ export default class RPCFormBase extends FormBase {
         if (field.propWhValidationSuggestion) {
           field.propWhValidationSuggestion = null;
         }
-      } else {
-        const validation = emailvalidation.validateField(this, field);
-        this.pendingrpcs.push(validation);
-        if (!(await validation))
-          return false;
       }
+
+      //Just because it's focused doesn't mean we shouldn't validate it
+      const validation = emailvalidation.validateField(this, field);
+      this.pendingrpcs.push(validation);
+      if (!(await validation))
+        return false;
     }
     return true;
   }
