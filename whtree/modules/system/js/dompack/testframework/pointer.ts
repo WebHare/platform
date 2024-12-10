@@ -1046,7 +1046,7 @@ function processGestureQueue() {
 
       /* Is this a click?
          originally: (start and end is same element. ADDME doesn't work this way if drag is triggered, ie on button: mousedown,move,up = click, on link: mousedown,move,up = dragging)
-         evetns spec (https://w3c.github.io/uievents/#event-type-click)
+         events spec (https://w3c.github.io/uievents/#event-type-click)
          ..in general SHOULD fire click and dblclick events when the event target of the associated mousedown and mouseup events is the same element with no mouseout or mouseleave events
          intervening, and SHOULD fire click and dblclick events on the nearest common inclusive ancestor when the associated mousedown and mouseup event targets are different...
       */
