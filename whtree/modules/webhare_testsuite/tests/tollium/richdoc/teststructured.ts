@@ -33,11 +33,11 @@ test.registerTests(
         test.eq('Heading 2', toddrte.querySelector('.wh-rtd__toolbarstyle').selectedOptions[0].textContent);
 
         const rte = rtetest.getRTE(win, 'structured');
-        test.eqIn(["rgb(255, 255, 255)", "#ffffff"], getComputedStyle(rte.getBody()).backgroundColor);
+        test.eq("rgb(255, 255, 255)", getComputedStyle(rte.getBody()).backgroundColor);
 
         const h2 = rte.qS('h2');
         test.eq('Verdana', getComputedStyle(h2).fontFamily);
-        test.eqIn(['rgb(17, 17, 17)', '#111111'], getComputedStyle(h2).color);
+        test.eq('rgb(17, 17, 17)', getComputedStyle(h2).color);
 
         // Must have an instance
         instanceref = test.qS(rte.editnode, '.wh-rtd-embeddedobject').dataset.instanceref || '';

@@ -81,15 +81,6 @@ function rewriteNodeAttributes(node: HTMLElement) {
   domlevel.setAttributes(node, attrs);
 }
 
-function isequal(a: unknown, b: unknown) {
-  try {
-    whtest.eq(a, b);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
 export type RegisteredTestStep = TestStep | string | NonNullable<TestStep["test"]>;
 export type RegisteredTestSteps = RegisteredTestStep[];
 
@@ -166,27 +157,6 @@ export function eqHTML(expected: string, actual: string, explanation?: Annotatio
   actual = fixer.innerHTML;
 
   whtest.eq(expected, actual, explanation);
-}
-
-export function eqIn(expected_in: unknown[], actual: unknown, explanation?: Annotation) {
-  for (let i = 0; i < expected_in.length; ++i)
-    if (isequal(expected_in[i], actual))
-      return;
-
-  // FIXME: this errors out on BigInts
-  expected_in = expected_in.map(e => JSON.stringify(expected_in));
-  actual = JSON.stringify(actual);
-
-  if (explanation)
-    logExplanation(explanation);
-
-  console.trace();
-  console.log("testEqIn fails: expected one of ", expected_in);
-  testfw.log("testEqIn fails: expected one of " + expected_in);
-
-  console.log("testEqIn fails: actual ", actual);
-  testfw.log("testEqIn fails: actual " + actual);
-  throw new Error("testEqIn failed");
 }
 
 export function eqFloat(expected: number, actual: number, delta: number, explanation?: Annotation) {

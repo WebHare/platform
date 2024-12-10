@@ -311,7 +311,7 @@ test.registerTests(
         //this is the style we applied to HEADING1, we're expecting the rte to have properly set the class
         const h1 = body.getElementsByTagName("H1")[0];
         if (test.getTestArgument(0) !== 'dummy')
-          test.eqIn(['rgb(221, 221, 221)', '#dddddd'], rtetest.getCompStyle(h1, "color"));
+          test.eq('rgb(221, 221, 221)', rtetest.getCompStyle(h1, "color"));
 
         //select the heading1. request the current state
         rte.setCursor(h1, 0);
@@ -329,7 +329,7 @@ test.registerTests(
         const p = body.getElementsByTagName("P")[0];
         rte.setCursor(p, 2);
         if (test.getTestArgument(0) !== 'dummy')
-          test.eqIn(['rgb(255, 0, 0)', '#ff0000'], rtetest.getCompStyle(p, "color"));
+          test.eq('rgb(255, 0, 0)', rtetest.getCompStyle(p, "color"));
 
         //verify that the 'a' was properly copied into the P after whitelisting
         const p_a = p.getElementsByTagName("A")[0];
