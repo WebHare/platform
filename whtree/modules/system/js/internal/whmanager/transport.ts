@@ -19,7 +19,7 @@ class SetOfWeakRef<T extends object> extends Set<WeakRef<T>> {
     }
     return this;
   }
-};
+}
 
 const ports = new SetOfWeakRef<MessagePort>();
 

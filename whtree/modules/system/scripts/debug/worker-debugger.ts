@@ -51,6 +51,7 @@ class DevToolsSocket extends EventSource<DevToolsSocketEvents> {
           resolve();
           this.emit("open", void undefined);
         } catch (e) {
+          //eslint-disable-next-line prefer-promise-reject-errors  -- WH5.6 triggers this, ignoring
           reject(e as Error);
         }
       });
