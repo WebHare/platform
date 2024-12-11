@@ -201,7 +201,7 @@ export default class RPCFormBase extends FormBase {
   }
 
   //Override this function to easily submit extra fields
-  getFormExtraSubmitData() {
+  getFormExtraSubmitData(): object | Promise<object> {
     return {};
   }
 
@@ -268,7 +268,7 @@ export default class RPCFormBase extends FormBase {
       const extraSubmitAwaitable = this.getFormExtraSubmitData();
       const valsAwaitable = this.#getSubmitVals();
 
-      const extrasubmit = { ...extradata, ...(await extraSubmitAwaitable) };
+      const extrasubmit = { ...extradata, ...await extraSubmitAwaitable };
       const vals = await valsAwaitable;
 
       eventdetail.extrasubmitdata = extrasubmit;
