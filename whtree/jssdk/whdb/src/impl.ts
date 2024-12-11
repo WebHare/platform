@@ -120,7 +120,7 @@ class Work implements WorkObject {
     //TODO it's a bit weird for us to be blindly splitting and reeconding table names. but if we take separate schema and table names, we'd be incompatible with Kyseley?
     const fieldtoks = field.split('.');
     if (fieldtoks.length !== 3)
-      throw new Error(`Invalid field name`);
+      throw new Error(`Invalid field name '${field}' - expecting <schema>.<table>.<column>${fieldtoks.length === 2 ? ", did you forget to add '.id' ?" : ""}`);
 
     const [schema, table, column] = fieldtoks;
     const generator = `(${escapePGIdentifier(schema)}.${escapePGIdentifier(`webhare_autonrs_${table}_${column}`)}(${howMany}))`;
