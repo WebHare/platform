@@ -203,7 +203,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
     IF(debug)
       Print(`[wrq] ${debugrequestid} Client-side timeout!\n`);
 
-    // The fetchpool itself should have timed out too, we're just protecting ourselve shere
+    // The fetchpool itself should have timed out too, we're just protecting ourselves here
     THROW NEW Exception("The operation was aborted due to timeout");
   }
 
