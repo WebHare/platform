@@ -7,6 +7,20 @@ import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
 import { createSharpImage, Sharp } from "@webhare/deps/src/deps";
+import { promises as fs } from "node:fs";
+
+async function clearUnifiedCache() {
+  const ucCacheDir = backendConfig.dataroot + "caches/platform/uc/";
+  for (const elt of await fs.readdir(ucCacheDir)) {
+    // Only delete dirs with 3 hex digits
+    if (elt.match(/^[0-9a-f]{3}$/)) {
+      await fs.rm(ucCacheDir + elt, { recursive: true });
+    }
+  }
+
+  // Ensure the directory only has the CACHEDIR.TAG file
+  test.eq(["CACHEDIR.TAG"], await fs.readdir(ucCacheDir));
+}
 
 async function testResizeMethods() {
   const examplePng = { width: 320, height: 240, mediaType: "image/png", rotation: 0, mirrored: false, refPoint: null } as const;
@@ -473,6 +487,7 @@ async function testWRDImgCache() {
 
 test.run([
   test.reset,
+  clearUnifiedCache,
   testResizeMethods,
   testImgMethodPacking,
   testImgCacheTokens,
