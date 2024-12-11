@@ -1,20 +1,33 @@
 import { logError } from "@webhare/services";
 import { AsyncWorker } from "../worker";
 
+type WorkerList = Array<{
+  id: string;
+  worker: AsyncWorker;
+  activeCalls: number;
+  totalCalls: number;
+}>;
+
+const cleanAfterCollection = new FinalizationRegistry((workers: WorkerList) => {
+  for (const worker of workers)
+    worker.worker.close();
+  workers.splice(0);
+});
+
 export class RestAPIWorkerPool {
-  workers = new Array<{
-    id: string;
-    worker: AsyncWorker;
-    activeCalls: number;
-    totalCalls: number;
-  }>;
+  workers: WorkerList = [];
   counter = 0;
+  id: string;
   maxWorkers: number;
   maxCallsPerWorker: number;
 
-  constructor(maxWorkers: number, maxCallsPerWorker: number) {
+  constructor(id: string, maxWorkers: number, maxCallsPerWorker: number) {
+    this.id = id;
     this.maxWorkers = maxWorkers;
     this.maxCallsPerWorker = maxCallsPerWorker;
+
+    // Ensure that workers are closed when the pool is collected
+    cleanAfterCollection.register(this, this.workers);
   }
 
   async runInWorker<T>(fn: (worker: AsyncWorker) => Promise<T>): Promise<T> {
@@ -31,7 +44,7 @@ export class RestAPIWorkerPool {
       ++bestEntry.activeCalls;
       ++bestEntry.totalCalls;
     } else {
-      const id = `worker-${++this.counter}`;
+      const id = `worker-${this.id}-${++this.counter}`;
       const worker = new AsyncWorker();
       this.workers.push(bestEntry = {
         worker,

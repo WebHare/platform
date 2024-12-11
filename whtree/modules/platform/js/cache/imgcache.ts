@@ -1,4 +1,6 @@
+import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
+import { debugFlags } from "@webhare/env";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -136,7 +138,20 @@ export async function returnImageForCache(request: Omit<HSImgCacheRequest, "path
   return (await renderImageForCache(request)).toString("base64");
 }
 
+const workerPool = new RestAPIWorkerPool("restapi", 5, 100);
+
+
 export async function generateImageForCache(request: HSImgCacheRequest): Promise<void> {
+  if (!debugFlags["imgcache-noworkers"]) {
+    return workerPool.runInWorker((worker) => {
+      return worker.callRemote(`@mod-platform/js/cache/imgcache.ts#__generateImageForCacheInternal`, request);
+    });
+  } else {
+    return __generateImageForCacheInternal(request);
+  }
+}
+
+export async function __generateImageForCacheInternal(request: HSImgCacheRequest): Promise<void> {
   const result = await renderImageForCache(request);
   await mkdir(path.dirname(request.path), { recursive: true });
   await storeDiskFile(request.path, result, { overwrite: true });
