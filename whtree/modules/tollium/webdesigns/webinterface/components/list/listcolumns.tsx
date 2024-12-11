@@ -2,9 +2,7 @@ import { isValidEmail } from '@webhare/std';
 import * as dompack from 'dompack';
 import Keyboard from 'dompack/extra/keyboard';
 import type ObjList from './list';
-import type ListView from './listview';
-import type { DataColumn } from './list';
-import type { VisibleRow } from './listview';
+import type { DataColumn, VisibleRow } from './list';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { createImage, updateImage } from '@mod-tollium/js/icons';
 
@@ -43,18 +41,18 @@ export class ListColumnBase<DataType> {
   istree = false;
 
   /** Render data into a cell */
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
   }
 
-  edit(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, cellnum: number) {
+  edit(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, cellnum: number) {
   }
 
-  cancelEdit(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, cellnum: number) {
+  cancelEdit(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, cellnum: number) {
   }
 
   /** Apply size styles to the cell
   */
-  applySizes(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
+  applySizes(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
     // !! don't read sizes here or try to detect overflow, because then whe'll trigger a page reflow for each list column cell
     cell.style.width = sizestyles.width + "px";
     cell.style.top = sizestyles.top + "px";
@@ -62,7 +60,7 @@ export class ListColumnBase<DataType> {
     cell.style.height = sizestyles.height + "px";
   }
 
-  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+  getSizeInfo(list: ObjList, columndef: DataColumn, wrapped?: boolean) {
     return {
       /* Used to be:
       resizable: columndef.resizable === null || columndef.resizable === undefined ? true : columndef.resizable,
@@ -84,7 +82,7 @@ export class ListColumnBase<DataType> {
 //ADDME: Add validators for e-mail and url?
 export class BaseEditable extends ListColumnBase<string> {
   _textedit = dompack.create("input", { "className": "textedit" });
-  private _state: { list: ListView; row: VisibleRow; cellnum: number } | null = null;
+  private _state: { list: ObjList; row: VisibleRow; cellnum: number } | null = null;
 
   constructor() {
     super();
@@ -107,7 +105,7 @@ export class BaseEditable extends ListColumnBase<string> {
 
   }
 
-  edit(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, cellnum: number) {
+  edit(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, cellnum: number) {
     if (!cell)
       throw new Error('no cell');
 
@@ -147,7 +145,7 @@ export class BaseEditable extends ListColumnBase<string> {
     }
   };
 
-  cancelEdit(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, cellnum: number) {
+  cancelEdit(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, cellnum: number) {
     if (!cell)
       throw new Error('no cell');
 
@@ -212,7 +210,7 @@ export class BaseEditable extends ListColumnBase<string> {
 }
 
 export class Text extends BaseEditable {
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
     if (!cell)
       throw new Error('no cell');
 
@@ -232,7 +230,7 @@ export class Text extends BaseEditable {
 }
 
 export class Email extends BaseEditable {
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, address: string, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, address: string, wrapped?: boolean) {
     if (address) {
       if (cell.firstChild) {
         (cell.firstChild as HTMLAnchorElement).href = "mailto:" + address;
@@ -264,7 +262,7 @@ export class Email extends BaseEditable {
 }
 
 export class URL extends BaseEditable {
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, url: string, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, url: string, wrapped?: boolean) {
     if (url) { // FIXME: why? and should !url destroy a link if url was set before?
       if (cell.firstChild) {
         (cell.firstChild as HTMLAnchorElement).href = url;
@@ -297,7 +295,7 @@ export class TreeWrapper<DataType> extends ListColumnBase<DataType> {
     super();
   }
 
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
     //FIXME: proper expand images, only handle clicks on those
     //ADDME: central registration/click handling in listview, so we don't have to explicitly handle each image?
 
@@ -345,7 +343,7 @@ export class TreeWrapper<DataType> extends ListColumnBase<DataType> {
     this.datasource.setCell(row.rownum, row.cells, cellidx, !expanded);
   }
 
-  applySizes(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
+  applySizes(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
     super.applySizes(list, columndef, row, cell, sizestyles);
 
     if (cell.childNodes[1]) { // did we absorb another column type?
@@ -366,7 +364,7 @@ export class LinkWrapper<DataType> extends ListColumnBase<DataType> {
     super();
   }
 
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
     const link = row.cells[columndef.linkidx] as string;
 
     if (link) {
@@ -396,7 +394,7 @@ export class CheckboxWrapper<DataType extends string = string> extends BaseEdita
     super();
   }
 
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType) {
     //FIXME: proper expand images, only handle clicks on those
     //ADDME: central registration/click handling in listview, so we don't have to explicitly handle each image?
 
@@ -441,13 +439,13 @@ export class CheckboxWrapper<DataType extends string = string> extends BaseEdita
     this.base.render(list, columndef, row, restholder, data);
   }
 
-  onInputChange(list: ListView, row: VisibleRow, cellidx: number, event: Event) {
+  onInputChange(list: ObjList, row: VisibleRow, cellidx: number, event: Event) {
     //FIXME need a setCell version that optionally supresses a sendRow
     this.datasource.setCell(row.rownum, row.cells, cellidx, (event.target as HTMLInputElement).checked === true);
     dompack.dispatchCustomEvent(list.node, "wh:listview-check", { bubbles: true, cancelable: false, detail: { target: list, row: row.cells, checkboxidx: cellidx } });
   }
 
-  applySizes(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
+  applySizes(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
     super.applySizes(list, columndef, row, cell, sizestyles);
 
     if (cell.children[1]) { // did we absorb another column type?
@@ -470,7 +468,7 @@ export class IconColumn extends ListColumnBase<number> {
     super();
     this.toddlist = list;
   }
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: number, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: number, wrapped?: boolean) {
     const iconidx = data - 1;
     const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
     if (!icon)
@@ -487,7 +485,7 @@ export class IconColumn extends ListColumnBase<number> {
       (cell.firstElementChild! as HTMLElement).title = row.cells[columndef.hintidx] as string;
   }
 
-  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+  getSizeInfo(list: ObjList, columndef: DataColumn, wrapped?: boolean) {
     // Minwidth: at least one icon + 4 pixels padding on both sides
     return {
       resizable: false,
@@ -504,7 +502,7 @@ export class IconsColumn extends ListColumnBase<string> {
     this.toddlist = list;
   }
 
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: string, wrapped?: boolean) {
     const icondimensions = columndef.rowspan > 1 ? 24 : 16;
 
     if (columndef.align === "right")
@@ -528,7 +526,7 @@ export class IconsColumn extends ListColumnBase<string> {
       (cell.firstElementChild as HTMLElement).title = row.cells[columndef.hintidx] as string;
   }
 
-  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+  getSizeInfo(list: ObjList, columndef: DataColumn, wrapped?: boolean) {
     // Minwidth: at least one icon + 4 pixels padding on both sides
     return {
       resizable: true,
@@ -548,7 +546,7 @@ export class IconWrapper<DataType> extends ListColumnBase<DataType> {
     this.iconholderwidth = $todd.settings.listview_iconholder_width;
   }
 
-  render(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
+  render(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, data: DataType, wrapped?: boolean) {
     cell.style.display = "inline-flex";
 
     let iconholder: HTMLElement | null = cell.firstElementChild as HTMLElement | null;
@@ -584,7 +582,7 @@ export class IconWrapper<DataType> extends ListColumnBase<DataType> {
     this.base.render(list, columndef, row, restholder, data, true);
   }
 
-  applySizes(list: ListView, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
+  applySizes(list: ObjList, columndef: DataColumn, row: VisibleRow, cell: HTMLElement, sizestyles: SizeStyles) {
     super.applySizes(list, columndef, row, cell, sizestyles);
 
     if (cell.childNodes[1]) { // did we absorb another column type?
@@ -599,7 +597,7 @@ export class IconWrapper<DataType> extends ListColumnBase<DataType> {
     }
   }
 
-  getSizeInfo(list: ListView, columndef: DataColumn, wrapped?: boolean) {
+  getSizeInfo(list: ObjList, columndef: DataColumn, wrapped?: boolean) {
     const info = this.base.getSizeInfo(list, columndef);
     info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
     info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x === 0 ? 4 : 0;
