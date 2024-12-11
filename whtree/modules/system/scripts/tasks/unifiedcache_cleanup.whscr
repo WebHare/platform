@@ -3,6 +3,8 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
@@ -22,7 +24,7 @@ IF(NOT RecordExists(info))
 OpenPrimary();
 
 INTEGER ignore_newer_than := Tointeger(info.ignorenewerthan,60)*60*1000; //ignore files created less than 60 minutes ago
-INTEGER delete_after_days := ToInteger(info.deleteafterdays,2); //delete files not requested for more than 2 days
+INTEGER delete_after_days := ToInteger(info.deleteafterdays, ReadRegistryKey("platform.cache.keepucdays")); //delete files not requested for more than X days. initially 7
 
 DATETIME ignore_modified_after := AddTimeToDate(-ignore_newer_than,GetCurrentDatetime());
 //Generate a list of all existing images not generated in the last 2 hours (urltoken := "", expired := TRUE)

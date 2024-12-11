@@ -94,6 +94,7 @@
   <moduleregistry>
     <node name="cache">
       <string name="defaultimageformat" />
+      <integer name="keepucdays" description="Keep unified cache items for at least this many days" initialval="7" />
     </node>
   </moduleregistry>
 
