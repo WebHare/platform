@@ -600,11 +600,14 @@ PUBLIC RECORD ARRAY FUNCTION FilterRecentHits(RECORD ARRAY deletion_candidates, 
   {
     /* Analyze the logfiles to figure out which images are recently accessed */
     OBJECT accesslog := OpenWebHareLogStream("access", rangestart, rangeend);
-    WHILE(TRuE)
+    WHILE(TRUE)
     {
       RECORD row := accesslog->ReadRecord();
-      IF(NOT RecordExists(row) OR row.method != "GET")
+      IF(NOT RecordExists(row))
         BREAK;
+
+      IF(row.method != "GET")
+        CONTINUE;
 
       STRING tok := GetUCTokenFromURL(row.url);
       IF(tok = "")
