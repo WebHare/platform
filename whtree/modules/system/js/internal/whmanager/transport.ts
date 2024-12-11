@@ -9,7 +9,19 @@ interface Trackable {
   [titlesymbol]: string;
 }
 
-const ports = new Array<WeakRef<MessagePort>>();
+class SetOfWeakRef<T extends object> extends Set<WeakRef<T>> {
+  #finalization = new FinalizationRegistry<WeakRef<T>>(ref => this.delete(ref));
+  add(value: WeakRef<T>): this {
+    const deref = value.deref();
+    if (deref) {
+      this.#finalization.register(deref, value);
+      return super.add(value);
+    }
+    return this;
+  }
+};
+
+const ports = new SetOfWeakRef<MessagePort>();
 
 export function getTrackingSymbol(obj: unknown): string | undefined {
   return (obj as Trackable)[titlesymbol];
@@ -39,8 +51,8 @@ export function createTypedMessageChannel<SendType extends object, ReceiveType e
   setTrackingSymbol(retval.port1, title + " - port1");
   setTrackingSymbol(retval.port2, title + " - port2");
 
-  ports.push(new WeakRef(retval.port1));
-  ports.push(new WeakRef(retval.port2));
+  ports.add(new WeakRef(retval.port1));
+  ports.add(new WeakRef(retval.port2));
 
   return retval;
 }
@@ -62,7 +74,7 @@ export function dumpActiveIPCMessagePorts({ onlyreferenced = true } = {}) {
 
 export function registerTransferredPort(port: AnyTypedMessagePort, title = "unknown") {
   setTrackingSymbol(port, title + " - transferred");
-  ports.push(new WeakRef(port as MessagePort));
+  ports.add(new WeakRef(port as MessagePort));
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need it for generics

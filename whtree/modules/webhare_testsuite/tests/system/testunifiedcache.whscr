@@ -28,6 +28,22 @@ STRING incorrect_imgcache := "public, max-age=86400"; //used when requesting inc
 OBJECT homer, wrd_person;
 INTEGER entityid1, entityid2;
 
+MACRO ClearUnifiedCache()
+{
+  STRING cachedir := GetUnifiedCacheDiskRoot();
+  IF (NOT RecordExists(GetDiskFileProperties(cachedir)))
+    RETURN;
+
+  FOREVERY (RECORD dir FROM ReadDiskDirectory(cachedir, "???"))
+  {
+    IF (dir.type != 1)
+      CONTINUE;
+    DeleteDiskDirectoryRecursive(dir.path);
+  }
+
+  TestEQ(STRING[], SELECT AS STRING ARRAY name FROM ReadDiskDirectory(cachedir, "*") WHERE name != "CACHEDIR.TAG");
+}
+
 MACRO ImgCacheTest()
 {
   // Verify AVIF and WEBP support in ScanBlob
@@ -529,7 +545,8 @@ MACRO CleanupTests()
   */
 }
 
-RunTestframework([ PTR ImgCacheTest
+RunTestframework([ PTR ClearUnifiedCache
+                 , PTR ImgCacheTest
                  , PTR ImgCacheSourcesTest
                  , PTR NotTheImageTest
                  , PTR FsCacheTest
