@@ -6,6 +6,7 @@
 */
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -170,12 +171,14 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
       Print(`[wrq] ${debugrequestid} body    ${SanitizeBody(options.body)}\n`);
   }
 
-  RECORD fetchresult;
+  VARIANT fetchresult;
+  OBJECT deadline := CreateSleepPromise(pooloptions.timeout > 0 ? pooloptions.timeout : 5 * 60 * 1000); //5 minute timeout so we eventually abort. fetch() has this timeout internally too
+  OBJECT fetchpromise;
   TRY
   {
-    fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+    fetchpromise := (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+    fetchresult := AWAIT CreatePromiseRace([fetchpromise, deadline]);
   }
-
   CATCH(OBJECT<ServiceDisconnectException> e)
   {
     IF(e->beforerequest OR ToUppercase(options.method) in ["GET", "HEAD"]) //it should be safe to retry GET and HEAD, and it *is* safe to retry if the fetchpool can never have received our request
@@ -184,7 +187,8 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
         Print(`[wrq] ${debugrequestid} ServiceDisconnectException, retrying once\n`);
 
       fetchpool := OpenWebHareService("platform:fetchpool");
-      fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+      fetchpromise := (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+      fetchresult := AWAIT CreatePromiseRace([fetchpromise, deadline]);
     }
     ELSE
     {
@@ -193,6 +197,14 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
 
       THROW NEW Exception("Fetch pool connection was lost, fetch request status is unknown");
     }
+  }
+
+  IF(TYPEID(fetchresult) = TYPEID(INTEGER)) {
+    IF(debug)
+      Print(`[wrq] ${debugrequestid} Client-side timeout!\n`);
+
+    // The fetchpool itself should have timed out too, we're just protecting ourselve shere
+    THROW NEW Exception("The operation was aborted due to timeout");
   }
 
   OBJECT response := NEW FetchResponse(fetchresult);
