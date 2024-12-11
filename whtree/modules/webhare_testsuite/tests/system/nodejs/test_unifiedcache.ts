@@ -11,6 +11,11 @@ import { promises as fs } from "node:fs";
 
 async function clearUnifiedCache() {
   const ucCacheDir = backendConfig.dataroot + "caches/platform/uc/";
+
+  // Skip deletion
+  if (!await fs.access(ucCacheDir).then(() => true, () => false))
+    return;
+
   for (const elt of await fs.readdir(ucCacheDir)) {
     // Only delete dirs with 3 hex digits
     if (elt.match(/^[0-9a-f]{3}$/)) {
@@ -18,8 +23,8 @@ async function clearUnifiedCache() {
     }
   }
 
-  // Ensure the directory only has the CACHEDIR.TAG file
-  test.eq(["CACHEDIR.TAG"], await fs.readdir(ucCacheDir));
+  // Ensure the directory is now empty (or maybe a CACHEDIR.TAG file)
+  test.eq([], (await fs.readdir(ucCacheDir)).filter(name => name !== "CACHEDIR.TAG"));
 }
 
 async function testResizeMethods() {

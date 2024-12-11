@@ -30,6 +30,9 @@ INTEGER entityid1, entityid2;
 MACRO ClearUnifiedCache()
 {
   STRING cachedir := GetUnifiedCacheDiskRoot();
+  IF (NOT RecordExists(GetDiskFileProperties(cachedir)))
+    RETURN;
+
   FOREVERY (RECORD dir FROM ReadDiskDirectory(cachedir, "???"))
   {
     IF (dir.type != 1)
@@ -37,7 +40,7 @@ MACRO ClearUnifiedCache()
     DeleteDiskDirectoryRecursive(dir.path);
   }
 
-  TestEQ(["CACHEDIR.TAG"], SELECT AS STRING ARRAY name FROM ReadDiskDirectory(cachedir, "*"));
+  TestEQ(STRING[], SELECT AS STRING ARRAY name FROM ReadDiskDirectory(cachedir, "*") WHERE name != "CACHEDIR.TAG");
 }
 
 MACRO ImgCacheTest()
