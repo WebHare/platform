@@ -155,7 +155,7 @@ export class RestAPI {
   bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
   private routes: Route[] = [];
-  private workerPool = new RestAPIWorkerPool(maxOpenAPIWorkers, maxCallsPerWorker);
+  private workerPool = new RestAPIWorkerPool("restapi", maxOpenAPIWorkers, maxCallsPerWorker);
   handlers = new WeakMap<AsyncWorker, Handler>();
   inputValidation: OpenAPIValidationMode | null = null;
   outputValidation: OpenAPIValidationMode | null = null;
