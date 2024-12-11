@@ -5,9 +5,9 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -120,7 +120,7 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
       IF(data.datatype = 1 AND data.item.resizemethod.format IN ["image/webp","image/avif"])
       {
         //FIXME we might need a separate service to make scaling easier
-        CallJS("@mod-platform/js/cache/imgcache.ts#generateImageForCache",
+        __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(
           CELL[ ...dbdata
               , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
               , data.item
