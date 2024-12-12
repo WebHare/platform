@@ -119,7 +119,6 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
       //If we get here, the url was validated and the item was not rejected
       IF(data.datatype = 1 AND data.item.resizemethod.format IN ["image/webp","image/avif"])
       {
-        //FIXME we might need a separate service to make scaling easier
         __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(
           CELL[ ...dbdata
               , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
