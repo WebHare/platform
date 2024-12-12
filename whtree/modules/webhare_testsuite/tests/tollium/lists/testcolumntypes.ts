@@ -31,10 +31,10 @@ test.registerTests(
         test.eq(10, row3cells.length);
 
         // test whether <style>'s are picked up and applied correctly
-        test.eqIn(["bold", "700"], getComputedStyle(row1cells[3]).fontWeight);
+        test.eq("700", getComputedStyle(row1cells[3]).fontWeight);
         test.eq("italic", getComputedStyle(row2cells[5]).fontStyle);
-        test.eqIn(["rgb(0, 0, 255)", "#0000ff"], getComputedStyle(row4cells[5]).color);
-        test.eqIn(["rgb(255, 0, 255)", "#ff00ff"], getComputedStyle(row5cells[0].parentNode as HTMLElement).backgroundColor);
+        test.eq("rgb(0, 0, 255)", getComputedStyle(row4cells[5]).color);
+        test.eq("rgb(255, 0, 255)", getComputedStyle(row5cells[0].parentNode as HTMLElement).backgroundColor);
 
         //rowicon
         test.assert(row1cells[0].querySelector('img, canvas'));

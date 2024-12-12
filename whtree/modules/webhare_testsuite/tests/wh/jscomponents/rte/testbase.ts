@@ -596,7 +596,7 @@ test.registerTests(
         });
 
         //necessary sanity checks..
-        test.eqIn([boldelement, spanelement], rte.getSelectionRange().getAncestorElement());
+        test.eq(spanelement, rte.getSelectionRange().getAncestorElement());
 
         rtetest.testEqSelHTMLEx(win, '<b>"this text a b"<span>"(*0*)old(*1*)"</span>" text"</b>');
 

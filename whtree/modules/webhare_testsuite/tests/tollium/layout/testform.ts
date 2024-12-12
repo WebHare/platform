@@ -52,8 +52,8 @@ test.registerTests(
 
         //the wrapping/cr versions are exactly twice the text of the nolabeltext, and should in the end have the same sizes (one implicitly through wordwrap)
         //Rob: FireFox makes the multiline text a pixel wider, though
-        test.eqIn([nolabeltext.offsetWidth, nolabeltext.offsetWidth + 1], nolabeltext_wrapped.offsetWidth);
-        test.eqIn([nolabeltext.offsetWidth, nolabeltext.offsetWidth + 1], nolabeltext_crs.offsetWidth);
+        test.eq(nolabeltext.offsetWidth, nolabeltext_wrapped.offsetWidth);
+        test.eq(nolabeltext.offsetWidth, nolabeltext_crs.offsetWidth);
 
         //split and snappedpanel should be aligned to the grid ( we align the whole panel)
         test.eq(0, (test.compByName('layouttest_splitrow2').getBoundingClientRect().top - test.compByName('snappedpanel').getBoundingClientRect().top) % test.getGridVsize(), 'splitrow2 and nolabeltext_wrapped did not align to the grid');
