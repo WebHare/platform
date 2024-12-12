@@ -6,6 +6,7 @@ LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -62,6 +63,10 @@ FOREVERY(RECORD receiver FROM receivers)
     sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "webfeatures"]);
 
     INSERT CELL sites := sites INTO serverinfo;
+  }
+  IF("issues" IN receiver.reports)
+  {
+    INSERT CELL issues := GetCurrentCheckIssues() INTO serverinfo;
   }
 
   IF(NOT browser->PostWebPageBlob(receiver.url, [[ field := "Content-Type", value := "application/json" ]], EncodeJSONBlob(serverinfo)))

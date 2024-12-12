@@ -42,7 +42,7 @@
     <attributes>
       <free tag="wrd_title" required="true" />
       <free tag="url" required="true" />
-      <enumarray tag="reports" allowedvalues="modules sites" />
+      <enumarray tag="reports" allowedvalues="modules sites issues" />
     </attributes>
   </object>
 
