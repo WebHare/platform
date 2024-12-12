@@ -10,6 +10,7 @@
 /whtree/lib/*
 /whtree/libexec
 /whtree/node_modules
+/whtree/jssdk/*/node_modules
 
 !/whtree/bin/wh
 !/whtree/bin/*.sh

@@ -34,6 +34,7 @@ node_modules/.bin/yaml --json --single --strict < tsconfig.yml | jq > tsconfig.j
 
 ## download sharp
 (cd node_modules/sharp && npm run install)
+node -e 'require("sharp")' || die "Sharp failed"
 
 ## download puppeteer
 (cd node_modules/puppeteer && npm run postinstall)
