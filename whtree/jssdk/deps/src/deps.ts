@@ -19,6 +19,8 @@ export async function loadSharp(): Promise<typeof sharp> {
 /** Load an image (loading sharp as needed) */
 export async function createSharpImage(...args: Parameters<typeof sharp.default>): Promise<Sharp> {
   const lib = await loadSharp();
+  lib.default.cache(false); //disable sharp's cache
+  lib.default.concurrency(1); //we manage workers
   return lib.default(...args);
 }
 
