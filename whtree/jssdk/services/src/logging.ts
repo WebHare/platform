@@ -129,14 +129,15 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
         if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
           continue;
 
-        const parsedline = JSON.parse(line);
-        parsedline["@timestamp"] = new Date(parsedline["@timestamp"]);
-        if (!parsedline["@timestamp"] ||
-          (options?.start && parsedline["@timestamp"].getTime() < options.start) ||
-          (options?.limit && parsedline["@timestamp"].getTime() >= options.limit))
+        const parsedline = JSON.parse(line) as GenericLogFields;
+        if (typeof parsedline["@timestamp"] !== 'string')
           continue;
 
-        yield parsedline;
+        const timestamp = new Date(parsedline["@timestamp"]);
+        if (!timestamp || (options?.start && timestamp < options.start) || (options?.limit && timestamp >= options.limit))
+          continue;
+
+        yield { ...parsedline, ["@timestamp"]: timestamp } as LogFields & LogLineBase;
       } catch (e) {
         continue; //ignore unparseable lines
       }
