@@ -12,7 +12,7 @@ import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";
 import * as styleloader from './styleloader';
 
-import formservice from "@webhare/forms/src/formservice"; //TODO should not require formservice in core RTD code, RTD integration should take care of it
+import { getFormService } from "@webhare/forms/src/formservice"; //TODO should not require formservice in core RTD code, RTD integration should take care of it
 
 import { isMultiSelectKey, loadImage } from '@webhare/dompack';
 import * as browser from "dompack/extra/browser";
@@ -1970,7 +1970,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         img.src = this._getImageDownloadURL();
         img.classList.add("wh-rtd__img--uploading");
 
-        replacementpromises.push(formservice.getImgFromRemoteURL(downloadsrc)
+        replacementpromises.push(getFormService().getImgFromRemoteURL(downloadsrc)
           .then(result => this._handleUploadedRemoteImage(img, result))
           .catch(result => this._handleUploadedRemoteImage(img, null)));
       }
@@ -2881,7 +2881,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     using lock = dompack.flagUIBusy();
     void (lock);
 
-    const properurl = await formservice.getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
+    const properurl = await getFormService().getUploadedFileFinalURL(await getFileAsDataURL(filetoupload));
     imgnode.src = properurl;
     this.knownimages.push(imgnode.src);
     imgnode.classList.add("wh-rtd__img");

@@ -4,7 +4,7 @@ import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
 import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage } from './formbase';
-import publisherFormService from "@webhare/forms/src/formservice";
+import { getFormService, getTSFormService } from "@webhare/forms/src/formservice";
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
@@ -12,7 +12,6 @@ import { debugFlags, isLive, navigateTo } from "@webhare/env";
 import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
-import { tsFormService } from '@webhare/forms/src/formservice';
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
@@ -47,7 +46,7 @@ class FormSubmitter {
 
     const uploader = new SingleFileUploader(file);
     //Ask the server if it's okay to upload these files
-    const uploadinstructions = await tsFormService.requestUpload(this.target, uploader.manifest);
+    const uploadinstructions = await getTSFormService().requestUpload(this.target, uploader.manifest);
     //Run the actual upload. Options: onProgress, signal
     const uploadedfile: UploadResult = await uploader.upload(uploadinstructions);
     this.cache.set(file, uploadedfile);
@@ -170,7 +169,7 @@ export default class RPCFormBase extends FormBase {
 
     const lock = dompack.flagUIBusy({ modal: !background });
     try {
-      const rpc = publisherFormService.formInvoke({
+      const rpc = getFormService().formInvoke({
         ...this.getRPCFormIdentifier(),
         vals: unpackObject(await this.#getSubmitVals()),
         methodname,
@@ -290,7 +289,7 @@ export default class RPCFormBase extends FormBase {
         console.log('[fhv] start submission', submitparameters);
 
       insubmitrpc = true; //so we can easily determine exception source
-      const result = await publisherFormService.formSubmit(submitparameters);
+      const result = await getFormService().formSubmit(submitparameters);
       insubmitrpc = false;
 
       if (debugFlags.fhv)

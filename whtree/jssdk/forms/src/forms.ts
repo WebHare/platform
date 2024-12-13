@@ -1,3 +1,8 @@
+/* To verify tree shaking viability, try:
+   whcd
+   echo 'import "@webhare/forms"' | node_modules/.bin/esbuild --loader:.css=empty --tsconfig=tsconfig.json --bundle --minify
+*/
+
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/forms" {
 }

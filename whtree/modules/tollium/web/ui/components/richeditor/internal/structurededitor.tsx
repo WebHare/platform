@@ -5,7 +5,7 @@ require('./editorbase');
 import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
-import formservice from "@webhare/forms/src/formservice";
+import { getFormService } from "@webhare/forms/src/formservice";
 import * as dompack from "dompack";
 import * as browser from "dompack/extra/browser";
 import * as lists from './structured/lists';
@@ -280,7 +280,7 @@ export default class StructuredEditor extends EditorBase {
     const lock = dompack.flagUIBusy();
     try {
       const ids = embobjs.map(node => node.dataset.instanceref || "");
-      const res = await formservice.validateEmbeddedObjects(ids);
+      const res = await getFormService().validateEmbeddedObjects(ids);
       if (res.tokill.length) //there are broken embedded objects!
       {
         console.warn(`removing embedded objects`, res.tokill);

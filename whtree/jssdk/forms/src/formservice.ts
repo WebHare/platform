@@ -1,4 +1,4 @@
-import { createClient } from "@webhare/jsonrpc-client";
+import { createClient, type GetClientInterface } from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationStatus } from "./address";
 import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission } from "./types";
@@ -52,7 +52,15 @@ export interface PublisherFormService {
   requestBuiltinForm(submitinfo: RPCFormTarget, filename: string, formname: string): Promise<{ html: string }>;
 }
 
-export const hsFormService = createClient<PublisherFormService>("publisher:forms");
-export const tsFormService = createClient<FormService>("publisher:formsts");
+let hsformservice: GetClientInterface<PublisherFormService> | undefined;
+let tsformservice: GetClientInterface<FormService> | undefined;
 
-export default hsFormService;
+export function getFormService(): GetClientInterface<PublisherFormService> {
+  hsformservice ||= createClient<PublisherFormService>("publisher:forms");
+  return hsformservice;
+}
+
+export function getTSFormService(): GetClientInterface<FormService> {
+  tsformservice ||= createClient<FormService>("publisher:formsts");
+  return tsformservice;
+}

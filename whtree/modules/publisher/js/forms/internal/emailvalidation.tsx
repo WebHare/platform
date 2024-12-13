@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
-import formservice from "@webhare/forms/src/formservice";
+import { getFormService } from "@webhare/forms/src/formservice";
 import { isValidEmail } from '@webhare/std';
 import { setFieldError } from './customvalidation';
 import type { EmailValidationResult } from '@webhare/forms/src/types';
@@ -50,8 +50,8 @@ export async function validateField(form: FormBase | RPCFormBase, field: HTMLInp
   if (cache[key] === undefined) {
     cache[key] = "getRPCFormIdentifier" in form ?
       //TODO rendering.whlib should add a data attribute if there are form+field-specific checks, perhaps we can even generalize that for all fields instead of just email whenever they need to do direct validation
-      formservice.formValidateEmail({ ...form.getRPCFormIdentifier(), field: field.name }, checkvalue)
-      : formservice.validateEmail(getTidLanguage(), checkvalue);
+      getFormService().formValidateEmail({ ...form.getRPCFormIdentifier(), field: field.name }, checkvalue)
+      : getFormService().validateEmail(getTidLanguage(), checkvalue);
   }
 
   //TODO should we ever clear the cache? only relevant probably if someone is on the frontend testing emails and doesn't want to refresh

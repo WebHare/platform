@@ -4,7 +4,7 @@ import * as dompack from '@webhare/dompack';
 import * as dialogapi from 'dompack/api/dialog';
 import { type RTDFormElement } from './index';
 import RPCFormBase from '../../rpc';
-import publisherFormService from "@webhare/forms/src/formservice";
+import { getFormService } from "@webhare/forms/src/formservice";
 import type { FormSubmitEmbeddedResult } from '../../formbase';
 
 class EmbedVideoForm extends RPCFormBase {
@@ -32,7 +32,7 @@ export async function insertVideo(rtd: HTMLElement) {
     console.error("Cannot find formhandler for node", rtd);
     throw new Error("Cannot find formhandler for RTD node");
   }
-  const formdata = await publisherFormService.requestBuiltinForm((formhandler as RPCFormBase).getRPCFormIdentifier(), 'rtd', 'embedvideo');
+  const formdata = await getFormService().requestBuiltinForm((formhandler as RPCFormBase).getRPCFormIdentifier(), 'rtd', 'embedvideo');
 
   const dialog = dialogapi.createDialog();
   dialog.contentnode!.innerHTML = formdata.html;

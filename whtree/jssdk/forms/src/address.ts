@@ -1,5 +1,5 @@
 import { stringify, emplace, type AddressValue, omit } from "@webhare/std";
-import PublisherFormService, { type HareScriptAddressValidationResult, type HareScriptAddressValue } from "./formservice";
+import { getFormService, type HareScriptAddressValidationResult, type HareScriptAddressValue } from "./formservice";
 
 export type { HareScriptAddressValue, HareScriptAddressValidationResult } from "./formservice";
 
@@ -32,7 +32,7 @@ export async function verifyHareScriptAddress(address: HareScriptAddressValue, o
 
   const lookupkey = stringify({ address, options }, { stable: true });
   const lookup = emplace(lookupcache, lookupkey, {
-    insert: () => PublisherFormService.verifyAddress(location.pathname, address, options)
+    insert: () => getFormService().verifyAddress(location.pathname, address, options)
   });
   return await lookup;
 }
