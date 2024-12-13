@@ -20,6 +20,8 @@ backendServices:
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:
     clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
+  unifiedcache:
+    clientFactory: js/cache/imgcache.ts#getUnifiedCacheServer
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
     coreService: true
