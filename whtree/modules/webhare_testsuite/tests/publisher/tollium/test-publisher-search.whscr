@@ -200,6 +200,10 @@ ASYNC MACRO SearchAsBart()
   //STORY: having worklists makes publisher & search visible ... but we saw publisher search returning results even without any browser access!
   testfw->BeginWork();
   OBJECT api_sysop := NEW WorkListAPI(testfw->GetUserObject("sysop"));
+
+  FOREVERY(RECORD worklist FROM SELECT * FROM api_sysop->GetAllWorkLists() WHERE name LIKE "TESTFW - *")
+    api_sysop->DeleteWorkList(worklist.id);
+
   INTEGER testworklistid := api_sysop->CreateWorkList([ name := "TESTFW - Test Work List", tag := "webhare_testsuite:testlist" ]);
   api_sysop->AddToWorkList(testworklistid,
       [ [ objectid := linksrtdfile->id, comments := "Work list item 1" ]
