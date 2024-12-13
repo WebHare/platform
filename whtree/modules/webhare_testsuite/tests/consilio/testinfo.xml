@@ -32,5 +32,6 @@
 
   <test name="sitecontent" path="sitecontent/" flaky="true" />
   <test name="whfscatalog" path="whfscatalog/" />
+  <test name="tsapi" path="tsapi/" />
 
 </group>
