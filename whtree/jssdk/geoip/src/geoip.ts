@@ -11,7 +11,10 @@ declare module "@webhare/geoip" {
 
 import { backendConfig } from '@webhare/services';
 import type { CityResponse, CountryResponse, Reader } from 'maxmind';
+
 export { type CityResponse, type CountryResponse } from 'maxmind';
+export type CityLookupCall = (ip: string) => CityResponse | null;
+export type CountryLookupCall = (ip: string) => CountryResponse | null;
 
 let maxmindlib: Promise<typeof import('maxmind')> | undefined;
 interface ResponseTypes {
@@ -24,7 +27,7 @@ type DBs = { [T in keyof ResponseTypes]?: Promise<Reader<ResponseTypes[T]>> };
 /* Cache references to the DBs */
 let dbs: Partial<DBs> | undefined;
 
-async function lookup<T extends keyof DBs>(type: T, ip: string): Promise<ResponseTypes[T] | null> {
+async function lookup<T extends keyof DBs>(type: T): Promise<((ip: string) => ResponseTypes[T] | null) | null> {
   if (!dbs?.[type]) {
     if (!maxmindlib)
       maxmindlib = import('maxmind');
@@ -36,19 +39,27 @@ async function lookup<T extends keyof DBs>(type: T, ip: string): Promise<Respons
     }
   }
 
-  let reader: Reader<ResponseTypes[T]> | undefined;
   try {
-    reader = await (dbs[type]!) as Reader<ResponseTypes[T]>;
+    const reader = await (dbs[type]!);
+    return (ip: string) => reader.get(ip);
   } catch {
     return null; //lookup failed
   }
-  return reader.get(ip);
+}
+
+/** Build a lookup function that synchronously lookups a city by IP in the database */
+export async function getCityLookupCall(): Promise<CityLookupCall | null> {
+  return await lookup("city");
+}
+/** Build a lookup function that synchronously lookups a country by IP in the database */
+export async function getCountryLookupCall(): Promise<CountryLookupCall | null> {
+  return await lookup("country");
 }
 
 export async function lookupCityInfo(ip: string): Promise<CityResponse | null> {
-  return await lookup("city", ip);
+  return (await lookup("city"))?.(ip) || null;
 }
 
 export async function lookupCountryInfo(ip: string): Promise<CountryResponse | null> {
-  return await lookup("country", ip);
+  return (await lookup("country"))?.(ip) || null;
 }

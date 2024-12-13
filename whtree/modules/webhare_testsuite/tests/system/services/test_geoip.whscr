@@ -20,9 +20,13 @@ MACRO TestGEOIP()
   TestEq("BT", GetGeoIPCountryForIP("67.43.156.0")); // see https://github.com/maxmind/MaxMind-DB/blob/15ed5b26ec7bb9b3e1658939b540b27af61ae74b/source-data/GeoLite2-Country-Test.json
   TestEq("BT", GetGeoIPInfoForIP("67.43.156.0").country_code);
   TestEq("Bhutan", GetGeoIPInfoForIP("67.43.156.0").country_name);
-  TestEqStructure([ city := "", country_code := "", country_name := ""
-                  , latitude := 0f, longitude := 0f, postal_code := ""
-                  , region_code := "", region_name := ""], GetGeoIPInfoForIP("67.43.156.0"));
+  TestEq([ city := "", country_code := "BT", country_name := "Bhutan"
+         , latitude := 27.5f, longitude := 90.5f, postal_code := ""
+         , region_code := "", region_name := ""], GetGeoIPInfoForIP("67.43.156.0"));
+
+  TestEq([ city := "London", country_code := "GB", country_name := "United Kingdom"
+         , latitude := 51.5142f, longitude := -0.0931f, postal_code := ""
+         , region_code := "ENG", region_name := "England"], GetGeoIPInfoForIP("81.2.69.142"));
 
   TestEq("", GetGeoIPCountryForIP("10.144.201.112")); //internal IPs should never return a match
   TestEq(DEFAULT RECORD, GetGeoIPInfoForIP("10.144.201.112")); //internal IPs should never return a match

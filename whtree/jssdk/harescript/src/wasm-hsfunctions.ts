@@ -1355,7 +1355,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerAsyncExternalFunction("__GETGEOIPCOUNTRYBYIP:SYSTEM_GEOIP:S:S", async (vm, id_set, var_ip) => {
     const result = await geoip.lookupCountryInfo(var_ip.getString());
-    id_set.setString(result?.country?.iso_code ?? "");
+    id_set.setString((result?.country || result?.registered_country)?.iso_code ?? "");
   });
 
   wasmmodule.registerAsyncExternalFunction("DEBUGGER:::VA", async (vm, id_set) => {
