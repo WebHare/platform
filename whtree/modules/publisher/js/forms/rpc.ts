@@ -3,11 +3,10 @@
 import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
-import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage } from './formbase';
+import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage, type FormSubmitResult } from './formbase';
 import { getFormService, getTSFormService } from "@webhare/forms/src/formservice";
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
-import * as pxl from '@mod-consilio/js/pxl';
 import { debugFlags, isLive, navigateTo } from "@webhare/env";
 import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
@@ -80,40 +79,18 @@ class FormSubmitter {
 /** Directly submit a RPC form to WebHare
  *  @param target - Formtarget as obtained from
  */
-export async function submitForm(target: string, formvalue: FormResultValue, options?: { extrasubmit: unknown }) {
-  const submitstart = Date.now();
+export async function submitForm(target: string, formvalue: FormResultValue, options?: { extrasubmit: unknown }): Promise<FormSubmitResult> {
   const formTarget: RPCFormTarget = { target, url: location.href.split('/').slice(3).join('/') };
   const submitter = new FormSubmitter(formTarget);
 
-  let eventtype = 'publisher:formsubmitted';
-  const fields: pxl.PxlEventData = {
-    ds_formmeta_jssource: 'submitForm'
+  const vals = await submitter.getSubmittable(formvalue);
+  const submitparameters: RPCFormSubmission = {
+    ...formTarget,
+    vals: unpackObject(vals),
+    extrasubmit: options?.extrasubmit || null
   };
 
-  try {
-    const vals = await submitter.getSubmittable(formvalue);
-    const submitparameters: RPCFormSubmission = {
-      ...formTarget,
-      vals: unpackObject(vals),
-      extrasubmit: options?.extrasubmit || null
-    };
-
-    const retval = await publisherFormService.formSubmit(submitparameters);
-    if (!retval.success) {
-      const failedfields = retval.errors.map(error => error.name || "*").sort().join(" ");
-      fields.ds_formmeta_errorfields = failedfields;
-      fields.ds_formmeta_errorsource = 'server';
-    }
-    return retval;
-  } catch (e) {
-    eventtype = 'publisher:formexception';
-    fields.ds_formmeta_exception = String(e);
-    fields.ds_formmeta_errorsource = 'server';
-    throw e;
-  } finally {
-    fields.dn_formmeta_waittime = Date.now() - submitstart;
-    pxl.sendPxlEvent(eventtype, fields);
-  }
+  return await getFormService().formSubmit(submitparameters);
 }
 
 export default class RPCFormBase extends FormBase {
