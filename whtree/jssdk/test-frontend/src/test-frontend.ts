@@ -8,6 +8,7 @@ declare module "@webhare/test-frontend" {
    */
 
 import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
+import { omit } from "@webhare/std";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
@@ -130,6 +131,16 @@ export async function load(page: string, options?: { waitUI?: boolean; urlParams
   if (options?.waitUI)
     await waitForUI({ optional: true });
 }
+
+/** Get the current state of the GTM datalayer */
+export function getCurrentDataLayer(): Record<string, unknown> {
+  let state = {};
+  if (getWin().dataLayer)
+    getWin().dataLayer.forEach(entry =>
+      state = { ...state, ...structuredClone(omit(entry, ["event", "eventCallback"])) });
+  return state;
+}
+
 
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
