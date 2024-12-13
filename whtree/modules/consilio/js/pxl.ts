@@ -273,4 +273,3 @@ function pingPxlEvent(evt: PxlEvent) {
     }
   }
 }
-setPxlOptions(null);

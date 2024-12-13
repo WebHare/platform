@@ -1,5 +1,6 @@
 /* To verify tree shaking viability, try:
    whcd
+   cd whtree
    echo 'import "@webhare/forms"' | node_modules/.bin/esbuild --loader:.css=empty --tsconfig=tsconfig.json --bundle --minify
 */
 
