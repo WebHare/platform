@@ -71,7 +71,7 @@ function executeClear(tag: string | RegExp) {
 
       delete beacons[key];
       if (window.dataLayer)
-        window.dataLayer.push({ event: 'wh:clear-user-beacon', whUserBeacon: tag });
+        window.dataLayer.push({ event: 'wh:clear-user-beacon', whUserBeacon: key });
     }
   }
   dompack.setLocal("wh:beacons", beacons);
