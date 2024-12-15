@@ -46,7 +46,7 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      const events = test.getPxlLog(/^publisher:formsubmitted/);
+      const events = test.getPxlLog(/^platform:form_submitted/);
       test.eq(1, events.length, "Should be one submission");
       test.eq("custom form 2", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
     },

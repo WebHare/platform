@@ -12,7 +12,7 @@ test.run(
 
     'Verify initial form',
     async function () {
-      await test.load(setupdata.url);
+      await test.load(setupdata.url, { urlParams: { gtmFormEvents: "publisher:form" } });
 
       // The thankyou node is only filled after submission, so check for the empty richtext node
       const thankyou = test.qSA('.wh-form__page[data-wh-form-pagerole="thankyou"] .wh-form__fieldgroup[data-wh-form-group-for="thankyou"] .wh-form__richtext');
@@ -40,13 +40,13 @@ test.run(
       test.fill(test.qSA('input[type=text]')[0], 'Joe');
       test.fill(test.qSA('input[type=email]')[0], testemail);
 
-      test.eq(0, Array.from(test.getWin().dataLayer).filter(_ => _.event === "publisher:formsubmitted").length);
+      test.eq(0, Array.from(test.getWin().dataLayer).filter(_ => _.event === "platform:form_submitted").length);
 
       test.click(test.qSA('[type=submit]')[0]);
       test.qSA('[type=submit]')[0].click(); //attempt double submission. click() avoids modality layers
       await test.waitForUI();
 
-      const events = getPxlLog(/^publisher:formsubmitted/);
+      const events = getPxlLog(/^platform:form_submitted/);
       test.eq(1, events.length, "Should be one submission");
       test.eq("webtoolform", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
 
@@ -58,6 +58,7 @@ test.run(
 
       test.assert(thankyou[0].closest('form')!.dataset.whFormResultguid);
 
+      // Expecting classic event names on the datalayer as that's how the test was configured
       await test.wait(() => Array.from(test.getWin().dataLayer).filter(_ => _.event === "publisher:formsubmitted").length === 1);
       const lastsubmitevent = Array.from(test.getWin().dataLayer).filter(_ => _.event === "publisher:formsubmitted").at(-1);
       test.assert(lastsubmitevent);

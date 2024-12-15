@@ -29,7 +29,7 @@ test.registerTests(
       test.assert(test.canClick(test.qS('input[name="email"]')), 'should still be on page 1');
       test.eq('', test.qS('#currentpage').textContent, "No change event on blocked page nav");
 
-      let events = test.getPxlLog(/^publisher:formfailed/);
+      let events = test.getPxlLog(/^platform:form_failed/);
       test.eq(1, events.length, "Should be one failed page");
       test.eq("multipagetest", events[0].data.ds_formmeta_id, "by default we'll just see the form name without path");
       test.eq("nextpage", events[0].data.ds_formmeta_errorsource);
@@ -41,7 +41,7 @@ test.registerTests(
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      events = test.getPxlLog(/^publisher:formnextpage/);
+      events = test.getPxlLog(/^platform:form_nextpage/);
       test.eq(1, events.length, "Should be one 'next' page event");
       test.eq(1, events[0].data.dn_formmeta_pagenum);
       test.eq("firstpage", events[0].data.ds_formmeta_pagetitle);
@@ -59,7 +59,7 @@ test.registerTests(
       test.click(test.qS('.wh-form__button--previous'));
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available again on page 1");
 
-      events = test.getPxlLog(/^publisher:formpreviouspage/);
+      events = test.getPxlLog(/^platform:form_previouspage/);
       test.eq(1, events.length, "Should be one 'previous' page event");
       test.eq(4, events[0].data.dn_formmeta_pagenum);
       test.eq("Last Page", events[0].data.ds_formmeta_pagetitle);

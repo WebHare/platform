@@ -184,7 +184,7 @@ test.registerTests([
     await test.wait('ui');
 
     //the CLIENT should have detected this..
-    const errorinfo = test.getPxlLog(/^publisher:form.+/).at(-1);
+    const errorinfo = test.getPxlLog(/^platform:form_.+/).at(-1);
     test.eq('client', errorinfo?.data.ds_formmeta_errorsource);
 
     // select type="radio" must use a container with role="group"
@@ -207,9 +207,9 @@ test.registerTests([
     test.click('#submitbutton');
     await test.wait('ui');
 
-    let formevents = test.getPxlLog(/^publisher:form.*$/);
+    let formevents = test.getPxlLog(/^platform:form_.*$/);
     test.eq(2, formevents.length, "Should be two PXL events now - one for start and one for failure");
-    test.eq("publisher:formfailed", formevents[1].event);
+    test.eq("platform:form_failed", formevents[1].event);
     test.eq("checkboxes", formevents[1].data.ds_formmeta_errorfields);
     test.eq("client", formevents[1].data.ds_formmeta_errorsource);
 
@@ -261,9 +261,9 @@ test.registerTests([
 
     test.assert(JSON.parse(test.qR('#coreformsubmitresponse').textContent!).form.agree, "expected successful submit");
 
-    formevents = test.getPxlLog(/^publisher:form.*$/);
+    formevents = test.getPxlLog(/^platform:form_.*$/);
     test.eq(3, formevents.length, "Should be three PXL events now - one for start, one for failure and one for submission");
-    test.eq("publisher:formsubmitted", formevents[2].event);
+    test.eq("platform:form_submitted", formevents[2].event);
   },
 
   'Test server fallback error handling',

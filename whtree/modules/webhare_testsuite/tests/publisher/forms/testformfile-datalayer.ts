@@ -21,7 +21,7 @@ test.run(
 
     "Test without GTM tags",
     async function () {
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/?addgtmdatalayer=coretest-submit");
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/", { urlParams: { addgtmdatalayer: "coretest-submit", gtmFormEvents: "" } });
 
       // The quick fill doesn't select option with custom datalayer titles
       quickFillDefaultRequiredFields();
@@ -29,17 +29,18 @@ test.run(
       await test.waitForUI();
 
       // Test option labels on data layer
-      const datalayer = await test.wait(() => Array.from(test.getWin().dataLayer).filter(_ => _.form_checkboxes_all_label)[0]);
-      test.eq("Eins;Polizei", datalayer.form_checkboxes_all_label);
-      test.eq("Option 3", datalayer.form_radiotest_label);
-      test.eq("Two", datalayer.form_pulldowntest_label);
+      await test.wait(() => Array.from(test.getWin().dataLayer).filter(_ => _.event === "platform:form_submitted").length === 1);
+      const datalayer = Array.from(test.getWin().dataLayer).find(_ => _.event === "platform:form_submitted");
+      test.eq("Eins;Polizei", datalayer?.form_checkboxes_all_label);
+      test.eq("Option 3", datalayer?.form_radiotest_label);
+      test.eq("Two", datalayer?.form_pulldowntest_label);
     },
 
     "Test with GTM tags",
     async function () {
       // checkbox '2' has a custom title
       // radiotest '4' has a custom title
-      await test.load(test.getTestSiteRoot() + "testpages/formtest/?addgtmdatalayer=coretest-submit&checkboxes=2&radiotest=4");
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/", { urlParams: { addgtmdatalayer: "coretest-submit", gtmFormEvents: "", checkboxes: "2", radiotest: "4" } });
       quickFillDefaultRequiredFields();
       // pulldowntest '5' has a custom title (set separately as it's set by quickFillDefaultRequiredFields)
       test.qR(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex = 4;
@@ -48,9 +49,10 @@ test.run(
       await test.waitForUI();
 
       // Test option gtm tags on data layer
-      const datalayer = await test.wait(() => Array.from(test.getWin().dataLayer).filter(_ => _.form_checkboxes_all_label)[0]);
-      test.eq("Checkbox custom datalayer title", datalayer.form_checkboxes_all_label);
-      test.eq("Radio custom datalayer title", datalayer.form_radiotest_label);
-      test.eq("Option custom datalayer title", datalayer.form_pulldowntest_label);
+      await test.wait(() => Array.from(test.getWin().dataLayer).filter(_ => _.event === "platform:form_submitted").length === 1);
+      const datalayer = Array.from(test.getWin().dataLayer).find(_ => _.event === "platform:form_submitted");
+      test.eq("Checkbox custom datalayer title", datalayer?.form_checkboxes_all_label);
+      test.eq("Radio custom datalayer title", datalayer?.form_radiotest_label);
+      test.eq("Option custom datalayer title", datalayer?.form_pulldowntest_label);
     },
   ]);

@@ -38,7 +38,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
         await test.waitForElement("#coreform.wh-form--allowsubmit");
 
-        test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");
+        test.eq(0, test.getPxlLog(/^platform:form_.+/).length, "Should be no PXL events yet");
 
         const form = test.qR<HTMLFormElement>("#coreform");
         test.assert(form.action.startsWith("javascript:"), "Action should be JavaScript");
@@ -264,9 +264,9 @@ test.registerTests(
         test.assert(field_matchattributes_type2_true.closest(".wh-form__fieldgroup")?.classList.contains("wh-testsuite-matchattributes-type2-true"));
         test.assert(field_matchattributes_type2_false.closest(".wh-form__fieldgroup")?.classList.contains("wh-testsuite-matchattributes-type2-false"));
 
-        const formevents = test.getPxlLog(/^publisher:form.+/);
+        const formevents = test.getPxlLog(/^platform:form_.+/);
         test.eq(1, formevents.length, "Should be one PXL event now");
-        test.eq("publisher:formstarted", formevents[0].event);
+        test.eq("platform:form_started", formevents[0].event);
         test.eq("coretest", formevents[0].data.ds_formmeta_id, "by default we'll just see the form name");
       }
     },
@@ -491,9 +491,9 @@ test.registerTests(
       test: function () {
         test.eq("pietje@example.com", test.qR("#lastsuccessfulsubmit").textContent);
 
-        const formevents = test.getPxlLog(/^publisher:form.+/);
+        const formevents = test.getPxlLog(/^platform:form_.+/);
         test.eq(2, formevents.length, "Should be two PXL events now");
-        test.eq("publisher:formsubmitted", formevents[1].event);
+        test.eq("platform:form_submitted", formevents[1].event);
 
         const serverresponse = JSON.parse(test.qR('#coreformsubmitresponse').textContent!);
 
@@ -636,8 +636,8 @@ test.registerTests(
       test.click(test.qR('#submitbutton'));
       await test.wait('ui');
 
-      test.eq(3, test.getPxlLog(/^publisher:form.+/).length, "Should be 3 PXL events...");
-      test.eq("publisher:formslow", test.getPxlLog(/^publisher:form.+/)[1].event, 'middle event should be "slow" warning');
+      test.eq(3, test.getPxlLog(/^platform:form_.+/).length, "Should be 3 PXL events...");
+      test.eq("platform:form_slow", test.getPxlLog(/^platform:form_.+/)[1].event, 'middle event should be "slow" warning');
     },
 
     "Test back link",
