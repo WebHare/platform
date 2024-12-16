@@ -128,18 +128,6 @@ PUBLIC OBJECTTYPE ManagedTaskBase
   }
 >;
 
-/** @private deprecated
-    @param module Task module
-    @param name Task name
-    @param nexttime Next time to run
-*/
-PUBLIC MACRO SchedulePredefinedSingleShotTask(STRING module, STRING name, DATETIME nexttime)
-{
-  GetPrimary()->PushWork();
-  ScheduleTimedTask(`${module}:${name}`, [ when := nexttime ]);
-  GetPrimary()->PopWork();
-}
-
 /** @short Schedule a timed task to run
     @long The task will be run at the specified time, or if not set, as soon as possible. If another request is made to
           run the task even earlier, or if the tasks 'runat' causes it to run, this request will be ignored (ie you cannot
@@ -160,7 +148,6 @@ PUBLIC MACRO ScheduleTimedTask(STRING taskname, RECORD options DEFAULTSTO DEFAUL
   IF(NOT GetPrimary()->IsWorkOpen())
     THROW NEW Exception(`ScheduleTimedTask must be invoked with open work`);
 
-  //FIXME throw if task is unknown
   RECORD taskinfo := SELECT FROM system_internal.tasks WHERE tasks.tag = VAR Substitute(taskname,':','.');
   IF(NOT RecordExists(taskinfo))
   {
