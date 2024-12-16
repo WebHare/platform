@@ -22,7 +22,12 @@ async function deleteTestCatalogs() {
 }
 
 async function clearCatalog(cat: Catalog) {
-
+  const rawclient = await cat.getRawClient();
+  await rawclient.client.deleteByQuery({
+    body: { query: { match_all: {} } },
+    index: rawclient.indexname + rawclient.suffix,
+    refresh: true
+  });
 }
 
 async function testBasicAPIs() {
@@ -54,7 +59,7 @@ async function testCatalogAPI() {
 
   await clearCatalog(cat);
   const bulk = cat.startBulkAction();
-  await bulk.index("doc1", { title: "Doc 1", "@timestamp": new Date().toISOString() });
+  await bulk.index({ title: "Doc 1", "@timestamp": new Date().toISOString() });
   await bulk.finish({ refresh: true });
 
   //Find doc1
@@ -72,7 +77,7 @@ async function testCatalogAPI() {
       hits: [
         {
           _index: /^c_.*$/,
-          _id: "doc1",
+          _id: /^.*$/,
         }
       ]
     }
@@ -94,7 +99,7 @@ async function testCatalogAPI() {
       hits: [
         {
           _index: /^c_.*$/,
-          _id: "doc1",
+          _id: docs1.hits.hits[0]._id,
           _source: { title: "Doc 1" }
         }
       ]
@@ -154,10 +159,10 @@ async function testSuffixes() {
   // insert into sfx2 and sfx3, the latter gets auto-created
   {
     const inserter = cat.startBulkAction();
-    await test.throws(/Invalid suffix/, () => inserter.index("doc0", { no: { such: { field: { yet: 0 } } } }, { suffix: "-invalid" }));
-    await inserter.index("doc1", { no: { such: { field: { yet: 1 } } } }, { suffix: "sfx2" });
-    await inserter.index("doc2", { no: { such: { field: { yet: 2 } } } }, { suffix: "sfx2" });
-    await inserter.index("doc3", { no: { such: { field: { yet: 3 } } } }, { suffix: "sfx3" });
+    await test.throws(/Invalid suffix/, () => inserter.index({ _id: "doc0", no: { such: { field: { yet: 0 } } } }, { suffix: "-invalid" }));
+    await inserter.index({ _id: "doc1", no: { such: { field: { yet: 1 } } } }, { suffix: "sfx2" });
+    await inserter.index({ _id: "doc2", no: { such: { field: { yet: 2 } } } }, { suffix: "sfx2" });
+    await inserter.index({ _id: "doc3", no: { such: { field: { yet: 3 } } } }, { suffix: "sfx3" });
     await inserter.finish({ refresh: true });
   }
 

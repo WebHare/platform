@@ -31,6 +31,8 @@ function getBuiltinOpensearchAddress() {
   return `http://${host}:${baseport + whconstant_consilio_osportoffset}/`;
 }
 
+type OpenSearchDocument = { _id?: string } & Record<string, unknown>;
+
 // Extend opensearch model to support document type
 type BaseQueryContainer = NonNullable<NonNullable<OpenSearchAPI.Search_Request["body"]>["query"]>;
 type BaseBool = NonNullable<BaseQueryContainer["bool"]>;
@@ -65,14 +67,14 @@ export type SearchResult<TDocument> = OpenSearchAPI.Search_ResponseBody & {
 };
 
 class BulkUploadError extends Error {
-  constructor(public errors: Array<ErrorCause & { docid: string }>) {
+  constructor(public errors: Array<ErrorCause & { _id: string }>) {
     super(`${errors.length} errors during bulk action`);
   }
 }
 
-class BulkAction<TDocument = unknown> {
-  private queue: Array<Record<string, unknown>> = [];
-  private errors: Array<ErrorCause & { docid: string }> = [];
+class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
+  private queue: Array<{ doc: OpenSearchDocument; suffix: string }> = [];
+  private errors: Array<ErrorCause & { _id: string }> = [];
   private updatedIndices: Set<string> = new Set();
   queuesize = 0;
   debug;
@@ -81,11 +83,11 @@ class BulkAction<TDocument = unknown> {
     this.debug = debug;
   }
 
-  async index(id: string, doc: TDocument, { suffix = "" } = {}) {
+  async index(doc: TDocument, { suffix = "" } = {}) {
     if (suffix && !isValidIndexSuffix(suffix))
       throw new Error(`Invalid suffix '${suffix}'`);
 
-    this.queue.push({ id, doc, suffix });
+    this.queue.push({ doc, suffix });
     this.queuesize += JSON.stringify(doc).length;
 
     if (this.queue.length >= 1000 || this.queuesize >= 262_144)  //upload every 1000 docs or 256KB. these limits are an educated guesstimate
@@ -103,12 +105,13 @@ class BulkAction<TDocument = unknown> {
 
     //FIXME prevent use of -suffix if index isn't suffixed, and vice versa
     //FIXME ensure indices are created peroperly before writing
-    const body = queued.flatMap(({ id, doc, suffix }) => {
+    const body = queued.flatMap(({ doc, suffix }) => {
       const index = indexname + (suffix ? "-" + suffix : "");
+      const addDoc = omit(doc, ["_id"]);
       this.updatedIndices.add(index);
       return [
-        { update: { _index: index, _id: id } },
-        { doc, doc_as_upsert: true }
+        doc?._id ? { update: { _index: index, _id: doc._id } } : { create: { _index: index } },
+        doc?._id ? { doc: addDoc, doc_as_upsert: true } : addDoc
       ];
     });
 
@@ -124,7 +127,7 @@ class BulkAction<TDocument = unknown> {
 
     //TODO what if we get errors not associated with an id..
     if (bulkres.body.errors && bulkres.body.items.length) {
-      const errors = bulkres.body.items?.filter(_ => _.update?.error && _.update._id).map(_ => ({ ..._.update.error!, docid: _.update._id! }));
+      const errors = bulkres.body.items?.filter(_ => _.update?.error && _.update._id).map(_ => ({ ..._.update.error!, _id: _.update._id! }));
       if (errors) {
         if (this.debug)
           console.error(`There were ${errors.length} errors during bulk upload to ${indexname}, first:`, errors[0]);
@@ -147,7 +150,7 @@ class BulkAction<TDocument = unknown> {
   }
 }
 
-class Catalog<TDocument = unknown> {
+class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   constructor(private readonly id: number, public readonly tag: string) {
 
   }
@@ -260,7 +263,7 @@ class Catalog<TDocument = unknown> {
   async getRawClient(): Promise<{ client: OpenSearchClient; indexname: string; suffix: string }> {
     const indices = await this.listFullAttachedIndices();
     if (!indices.length)
-      throw new Error(`No indices attached to catalog ${this.id}`);
+      throw new Error(`No indices attached to catalog '${this.tag}'`);
 
     const imp = await import("@opensearch-project/opensearch");
     const { Client } = imp;
@@ -272,7 +275,7 @@ class Catalog<TDocument = unknown> {
   }
 
   /** Start a bulk action which will automatically do intermediate flushes */
-  startBulkAction<Doc = TDocument>({ debug = false } = {}): BulkAction<Doc> {
+  startBulkAction<Doc extends OpenSearchDocument = TDocument>({ debug = false } = {}): BulkAction<Doc> {
     return new BulkAction<Doc>(this, { debug });
   }
 
@@ -317,7 +320,7 @@ export async function listCatalogs(): Promise<CatalogListEntry[]> {
   }));
 }
 
-export async function openCatalog<DocType = unknown>(catalogName: string): Promise<Catalog<DocType>> {
+export async function openCatalog<DocType extends object = object>(catalogName: string): Promise<Catalog<DocType>> {
   if (!isValidModuleScopedName(catalogName)) //blocks mixed/uppercase values too, so we don't need case insensitive lookups
     throw new Error(`Illegal catalog name '${catalogName}'`);
 
@@ -325,7 +328,7 @@ export async function openCatalog<DocType = unknown>(catalogName: string): Promi
   if (!catalog) //TODO allowMissing
     throw new Error(`Catalog '${catalogName}' not found`);
 
-  return new Catalog<DocType>(catalog.id, catalog.name);
+  return new CatalogObj<DocType & OpenSearchDocument>(catalog.id, catalog.name);
 }
 
 export interface CatalogOptions {
@@ -348,7 +351,7 @@ export interface CatalogOptions {
     @param options - Options
     @returns Catalog object
 */
-export async function createCatalog<DocType = unknown>(tag: string, options?: CatalogOptions): Promise<Catalog<DocType>> {
+export async function createCatalog<DocType extends object = object>(tag: string, options?: CatalogOptions): Promise<Catalog<DocType>> {
   if (!tag || !isValidModuleScopedName(tag))
     throw new Error(`Invalid catalog tag '${tag}'`);
 
@@ -396,4 +399,5 @@ export async function createCatalog<DocType = unknown>(tag: string, options?: Ca
   return await openCatalog<DocType>(tag);
 }
 
-export type { BulkAction, Catalog, BulkUploadError };
+export type Catalog<DocType extends object = object> = CatalogObj<DocType & OpenSearchDocument>;
+export type { BulkAction, BulkUploadError };
