@@ -20,9 +20,6 @@ interface PxlEventDetails {
 export type PxlEvent = CustomEvent<PxlEventDetails>;
 
 declare global {
-  interface GlobalEventHandlersEventMap {
-    "consilio:pxl": PxlEvent & { target: HTMLElement }; //TODO switch/rename to wh:pxl and use the original event data, not ds_ etc fields?
-  }
   interface Window {
     whPxlLog?: PxlEventDetails[];
   }
@@ -222,43 +219,22 @@ export function getPxlSessionId() {
 */
 export function sendPxlEvent(event: string, data?: PxlEventData | null, options?: Partial<PxlOptions>) {
   const finaloptions = buildOptions(options);
-  //we'll always fire at <html>, not window, so receiver get a nice EventTarget
-  if (!dompack.dispatchCustomEvent(finaloptions.node || document.documentElement, "consilio:pxl", {
-    bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: {
-      event,
-      data: data || {},
-      options: finaloptions,
-      isAlt: useAltRecordURL
-    }
-  })) {
-    if (debugFlags.pxl)
-      console.log(`[pxl] Event of type '${event}' cancelled by consilio:pxl event handler`);
-  }
-}
-
-function pingPxlEvent(evt: PxlEvent) {
-  // determine the recordurl for this page
-  const isaltsample = evt.detail.isAlt;
-  const event = evt.detail.event;
-  const data = evt.detail.data;
-  const options = evt.detail.options;
-  const baseurl = isaltsample ? options.altUrl : options.url;
+  const baseurl = useAltRecordURL ? finaloptions.altUrl : finaloptions.url;
 
   // Add the pxl event to the url
-  const url = makePxlURL(baseurl, event, data, options);
+  const url = makePxlURL(baseurl, event, data, finaloptions);
   if (!url)
     return;
 
   if (!window.whPxlLog)
     window.whPxlLog = [];
-  window.whPxlLog.push({ event, data, options, isAlt: isaltsample });
+  window.whPxlLog.push({ event, data: data || {}, options: finaloptions, isAlt: useAltRecordURL });
   if (debugFlags.pxl)
     console.log(`[pxl] Event '${event}'`, data);
 
-  //@ts-ignore Older browsers might not have sendBeacon
-  if (options.beacon) {
+  if (finaloptions.beacon) {
     navigator.sendBeacon(url);
-    options.onComplete?.();
+    finaloptions.onComplete?.();
   } else {
     // Load the pxl file using fetch
     const promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
@@ -267,9 +243,9 @@ function pingPxlEvent(evt: PxlEvent) {
       if (debugFlags.pxl)
         promise.then(() => console.log(`[pxl] Pinged pxl`), error => console.error(`[pxl] Error while pinging pxl`, error));
     }
-    if (options.onComplete) {
+    if (finaloptions.onComplete) {
       //discard text, just make sure all processing is complete before *we* onComplete
-      void promise.then(response => response.text()).finally(() => options.onComplete?.());
+      void promise.then(response => response.text()).finally(() => finaloptions.onComplete?.());
     }
   }
 }

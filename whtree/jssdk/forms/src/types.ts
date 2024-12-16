@@ -1,3 +1,49 @@
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "wh:form-analytics": FormAnalyticsEvent;
+  }
+}
+
+export type FormAnalyticsSubEvents = {
+  event: "started";
+} | {
+  event: "failed";
+  errorfields: string;
+  errorsource: "server" | "nextpage" | "client";
+} | {
+  event: "exception";
+  exception: string;
+  errorsource: "server" | "client";
+} | {
+  event: "slow";
+  waitfor: "submit";
+} | {
+  event: "nextpage" | "previouspage";
+  targetpagenum: number;
+  targetpagetitle: string;
+} | {
+  event: "submitted";
+};
+
+export type FormAnalyticsEventData = {
+  /** Event type */
+  event: FormAnalyticsSubEvents["event"];
+  /** Form identifier */
+  id: string;
+  /** Unique instance id for this form filling session (different per form on a page, always unique per page load) */
+  session: string;
+  /** Number of the current form page (1 based) s*/
+  pagenum: number;
+  /** Title of the current form page */
+  pagetitle: string;
+  /** Time passed since form interaction started */
+  time: number;
+  /** Waiting time in msec since start of form submission */
+  waittime?: number;
+} & FormAnalyticsSubEvents;
+
+export type FormAnalyticsEvent = CustomEvent<FormAnalyticsEventData>;
+
 export interface EmailValidationResult { /** If blocked, the suggested error message */
   blocked?: string;
   /** If set, the emailaddress should be forced to this value */

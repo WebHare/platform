@@ -7,7 +7,8 @@ declare module "@webhare/test-frontend" {
    (this felt more friendly that having to add dozens of throwing APIs "not in the frontend" to @webhare/test)
    */
 
-import { wait as oldWait, load as oldLoad, getWin } from "@mod-system/js/wh/testframework";
+import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
+import { omit } from "@webhare/std";
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 
@@ -108,13 +109,38 @@ export function importExposed<T>(name: string): T {
 
 /** Wait for a page to load
  * @param page - URL to load
- * @param waitUI - Wait for the UI to be ready (default: true)
+ * @param options - options
+   - waitUI - Wait for the UI to be ready (default: true)
+   - urlParams - URL parameters to add to the URL
  */
-export async function load(page: string, { waitUI = true } = {}): Promise<void> {
-  await oldLoad(page);
-  if (waitUI)
+export async function load(page: string, options?: { waitUI?: boolean; urlParams: Record<string, string> }): Promise<void> {
+  const cururl = getWin().location.href;
+  const gotourl = new URL(page, cururl === 'about:blank' ? window.location.href : cururl);
+  if (options?.urlParams)
+    for (const [key, value] of Object.entries(options?.urlParams))
+      gotourl.searchParams.set(key, value);
+
+  if (!gotourl.searchParams.has("wh-debug")) {
+    const topwhdebug = new URL(window.top!.location.href).searchParams.get("wh-debug");
+    if (topwhdebug)  //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
+      gotourl.searchParams.set("wh-debug", topwhdebug);
+  }
+
+  getWin().location.href = gotourl.toString();
+  await waitForLoad();
+  if (options?.waitUI)
     await waitForUI({ optional: true });
 }
+
+/** Get the current state of the GTM datalayer */
+export function getCurrentDataLayer(): Record<string, unknown> {
+  let state = {};
+  if (getWin().dataLayer)
+    getWin().dataLayer.forEach(entry =>
+      state = { ...state, ...structuredClone(omit(entry, ["event", "eventCallback"])) });
+  return state;
+}
+
 
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";

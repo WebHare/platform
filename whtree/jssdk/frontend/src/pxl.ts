@@ -1,5 +1,6 @@
 /* TODO Move consilio pxl here eventually, but limit how much we actually want to export */
 import { sendPxlEvent, type PxlEventData, type PxlOptions } from "@mod-consilio/js/pxl";
+import type { FormAnalyticsEvent } from "@webhare/forms";
 import type { PxlDataTypes } from "@webhare/frontend";
 export { setPxlOptions, getPxlId as getPxlUserId, getPxlSessionId } from "@mod-consilio/js/pxl";
 
@@ -40,4 +41,19 @@ export function sendPxl<DataType extends (Event extends keyof PxlDataTypes ? Nee
   }
 
   sendPxlEvent(eventKey, pxldata, options);
+}
+
+/** Setup pxl events for form analytics events
+ * @param options - Options for the form analytics setup
+     - `eventPrefix`. Prefix to use. Default is `platform:form_` but existing integrations may (also) require `publisher:form`
+*/
+export function setupFormAnalytics(options?: { eventPrefix: string }): void {
+  addEventListener("wh:form-analytics", (e: FormAnalyticsEvent) => {
+    const formeventdata: { [K in `formmeta_${string}`]: string | number | boolean } = {};
+    for (const [key, val] of Object.entries(e.detail))
+      if (key !== "event" && ["string", "number", "boolean"].includes(typeof val))
+        formeventdata[`formmeta_${key}`] = val;
+
+    sendPxl<PxlData>(`${options?.eventPrefix || "platform:form_"}${e.detail.event}`, formeventdata);
+  });
 }

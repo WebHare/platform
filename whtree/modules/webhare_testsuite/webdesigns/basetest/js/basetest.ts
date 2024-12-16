@@ -92,6 +92,7 @@ import * as ga4 from '@mod-publisher/js/analytics/ga4';
 import * as gtm from '@mod-publisher/js/analytics/gtm';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
+import { setupFormAnalytics, setupFormAnalyticsForGTM } from '@webhare/frontend';
 
 window.revokeConsent = function () { consenthandler.setConsent([]); };
 
@@ -152,3 +153,8 @@ window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
 window.formrpc_submitForm = formrpc.submitForm;
 window.formrpc_validateAddress = verifyHareScriptAddress;
+
+setupFormAnalytics();
+
+if (urlparams.has("gtmFormEvents"))
+  setupFormAnalyticsForGTM({ eventPrefix: urlparams.get("gtmFormEvents") || '' });

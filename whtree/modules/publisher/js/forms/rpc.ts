@@ -323,8 +323,7 @@ export default class RPCFormBase extends FormBase {
       }
 
       if (result.success) {
-        dompack.dispatchCustomEvent(this.node, "wh:form-values", { bubbles: true, cancelable: false, detail: eventdetail });
-        this.sendFormEvent('publisher:formsubmitted');
+        this.sendFormEvent({ event: 'submitted' });
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
           merge.run(this.node, { form: await this.getFormValue() });
 
@@ -334,10 +333,7 @@ export default class RPCFormBase extends FormBase {
         }
       } else {
         const failedfields = result.errors.map(error => error.name || "*").sort().join(" ");
-        this.sendFormEvent('publisher:formfailed', {
-          ds_formmeta_errorfields: failedfields,
-          ds_formmeta_errorsource: 'server'
-        });
+        this.sendFormEvent({ event: 'failed', errorfields: failedfields, errorsource: 'server' });
 
         if (globalerrors.length) {
           if (dompack.dispatchCustomEvent(this.node, "wh:form-globalerrors", { bubbles: true, cancelable: true, detail: { globalerrors } }))
@@ -349,10 +345,7 @@ export default class RPCFormBase extends FormBase {
       }
       return pick(result, ["result"]);
     } catch (e) {
-      this.sendFormEvent('publisher:formexception', {
-        ds_formmeta_exception: String(e),
-        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client'
-      });
+      this.sendFormEvent({ event: 'exception', exception: String(e), errorsource: insubmitrpc ? 'server' : 'client' });
 
       if (dompack.dispatchCustomEvent(this.node, "wh:form-exception", { bubbles: true, cancelable: true, detail: eventdetail }))
         this.onSubmitException(e as Error);

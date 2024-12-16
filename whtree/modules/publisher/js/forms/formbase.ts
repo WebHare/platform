@@ -8,12 +8,11 @@ import * as merge from './internal/merge';
 import './internal/requiredstyles.css';
 import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
-import * as pxl from '@mod-consilio/js/pxl';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
-import type { FormCondition, FormFileValue } from '@webhare/forms/src/types';
+import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 
 //Suggestion or error messages
@@ -46,7 +45,6 @@ declare global {
 
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
-    "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
     "wh:form-pagechange": CustomEvent<{
@@ -237,7 +235,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   private validationqueue = new Array<ValidationQueueElement>;
   private _submitter: SubmitSelectorType | null = null;
   private _submittimeout: NodeJS.Timeout | undefined;
-  /** Is the form considered interactive yet? Used to ignore changes done by code/setFieldValue */
+  /** Is the form currently interactive? Used to ignore changes done by code/setFieldValue */
   private isInteractive = true;
   /** Did we warn about old style form controls? */
   private didLegacyWarning = false;
@@ -295,40 +293,39 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
   }
 
-  sendFormEvent(eventtype: string, vars?: pxl.PxlEventData) {
+  protected sendFormEvent(event?: FormAnalyticsSubEvents) {
     const now = Date.now();
-    const isfirst = !this._firstinteraction;
 
-    if (isfirst && !this.isInteractive) { //ignore events triggered by code. we didn't explicitly do this earlier because applyPrefills() happened to run before enabling form processing (_setupFormHandler)
-      if (eventtype)
-        console.warn(`[forms] Got a '${eventtype}' event due to a non-interactive change, ignoring`);
-      return;
+    if (!this._firstinteraction) {   //The user hasn't interacted with the form yet
+      if (!this.isInteractive) { //ignore events triggered by code, eg a form prefill
+        if (event?.event && debugFlags.anl)
+          console.log(`[anl] Form is supressing broadcast of '${event?.event}' because it hasn't been interacted with yet`);
+        return;
+      }
+
+      //The user has interacted, start the clock!
+      this._firstinteraction = now; //set for calculation base *and* to prevent endless loops
+      this.sendFormEvent({ event: "started" });
     }
+
+    if (!event)
+      return; //we were only triggered to signal First Interaction
     this._firstinteraction ||= now;
 
     const pagestate = this._getPageState();
-    vars = {
-      ds_formmeta_id: this.node.dataset.whFormId || '',
-      ds_formmeta_session: this._formsessionid,
-      ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage),
-      ...vars
+    const eventdata: FormAnalyticsEventData = {
+      ...event,
+      id: this.node.dataset.whFormId || '',
+      session: this._formsessionid,
+      pagetitle: this._getPageTitle(pagestate.curpage),
+      pagenum: pagestate.curpage + 1,
+      time: now - this._firstinteraction,
     };
 
     if (this._submitstart) //is set during a pending submission
-      vars.dn_formmeta_waittime = Date.now() - this._submitstart;
+      eventdata.waittime = Date.now() - this._submitstart;
 
-    /* if isfirst and eventtype !== null, the user might eg. try to submit or nextpage *immediately* without ever having
-       any other form interation. to make sure our stats make sense (counting started vs submitted), we'll send the
-       formstarted anyway since WH 5.02 */
-    if (isfirst)
-      pxl.sendPxlEvent("publisher:formstarted", vars, { node: this.node });
-
-    if (eventtype) //if not set, we were only invoked for the implicit formstarted event
-      pxl.sendPxlEvent(eventtype, {
-        ...vars,
-        dn_formmeta_time: now - this._firstinteraction,
-        dn_formmeta_pagenum: pagestate.curpage + 1
-      }, { node: this.node });
+    dompack.dispatchCustomEvent(this.node, "wh:form-analytics", { bubbles: true, cancelable: false, detail: eventdata });
   }
 
   _rewriteEnableOn() { //ADDME move this to webhare server
@@ -619,10 +616,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           this._updateConditions(false);
         }
       } else {
-        this.sendFormEvent('publisher:formfailed', {
-          ds_formmeta_errorfields: getErrorFields(validationresult),
-          ds_formmeta_errorsource: 'client',
-        });
+        this.sendFormEvent({ event: "failed", errorfields: getErrorFields(validationresult), errorsource: 'client' });
       }
     } finally {
       lock.release();
@@ -636,10 +630,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   _submitHasTimedOut() { //TODO extend this to (background) RPCs too, and make waitfor more specific. also check whether we're stuck on client or server side
-    this.sendFormEvent('publisher:formslow', {
-      ds_formmeta_waitfor: "submit"
-    });
-    this._submittimeout = undefined;
+    this.sendFormEvent({ event: "slow", waitfor: "submit" });
   }
 
   //default submission function. eg. RPC will override this
@@ -721,11 +712,11 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       return;
 
     const goingforward = pageidx > state.curpage;
-    this.sendFormEvent(goingforward ? 'publisher:formnextpage' : 'publisher:formpreviouspage'
-      , {
-        dn_formmeta_targetpagenum: pageidx + 1,
-        ds_formmeta_targetpagetitle: this._getPageTitle(pageidx)
-      });
+    this.sendFormEvent({
+      event: goingforward ? 'nextpage' : 'previouspage',
+      targetpagenum: pageidx + 1,
+      targetpagetitle: this._getPageTitle(pageidx)
+    });
 
     this._updatePageVisibility(state.pages, pageidx);
     if (goingforward) //only makes sense to update if we're making progress
@@ -781,10 +772,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
             if (validationstatus.valid) {
               this.gotoPage(this._getDestinationPage(pagestate, +1));
             } else {
-              this.sendFormEvent('publisher:formfailed', {
-                ds_formmeta_errorfields: getErrorFields(validationstatus),
-                ds_formmeta_errorsource: 'nextpage'
-              });
+              this.sendFormEvent({ event: "failed", errorfields: getErrorFields(validationstatus), errorsource: 'nextpage' });
             }
           }
           return;
@@ -801,7 +789,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   _onInputChange() {
-    this.sendFormEvent(''); //only trigger implicit _firstinteraction event
+    this.sendFormEvent(); //only trigger implicit _firstinteraction event
     this._updateConditions(false);
   }
 

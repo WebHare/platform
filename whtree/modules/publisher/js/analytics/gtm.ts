@@ -1,5 +1,6 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
+import { type DataLayerEntry } from "@webhare/frontend/src/gtm";
 import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
@@ -8,12 +9,8 @@ import { onConsentChange, ConsentSettings } from "./consenthandler";
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
 
-//TODO Is there an official description of what GTM datalayer accepts?
-type DataLayerVars = Record<string, unknown>;
-
 declare global {
   interface Window {
-    dataLayer: DataLayerVars[];
     __gtmformsubmit: undefined | 1; //used by dev module for a sanity check
   }
 }
@@ -21,7 +18,6 @@ declare global {
 let seen = 0;
 const gtmsettings = getFrontendData("socialite:gtm", { allowMissing: true });
 let didinit: undefined | true;
-let eventname: undefined | string; //event name used for form submission
 
 function showDataLayerChanges() {
   if (!document.documentElement.classList.contains('dompack--debug-anl'))
@@ -39,7 +35,7 @@ function watchDataLayer() {
 }
 
 /* Send variables to the data layer */
-export function setVariables(vars: DataLayerVars) {
+export function setVariables(vars: DataLayerEntry & { event?: never }) {
   if (vars.event)
     throw new Error("An 'event' is not a a variable. use sendEvent for events");
   window.dataLayer.push(vars);
@@ -51,7 +47,7 @@ export function setVariables(vars: DataLayerVars) {
  * @param vars - The variables to send with the event
  * @returns A promise that resolves when the event is sent or after a timeout of 200ms
 */
-export function sendEvent(event: string | null, vars: DataLayerVars = {}) {
+export function sendEvent(event: string | null, vars: DataLayerEntry & { event?: never } = {}) {
   const defer = Promise.withResolvers();
   try {
     if (event)
@@ -108,107 +104,8 @@ export function initOnConsent() {
   });
 }
 
-///Accepts a pxl.sendPxlEvent compatible event and sends it to the data layer. This is generally done automatically by capturePxlEvent
-export function sendPxlEventToDataLayer(target: EventTarget | null, event: CustomEvent, vars: Record<string, string | boolean | number>) {
-  let datalayervars: DataLayerVars = {};
-  //target may be a window/document instead of a HTMLElement
-  const gtmsubmitvars = (target as HTMLElement | null)?.dataset?.gtmSubmit;
-  if (gtmsubmitvars)
-    datalayervars = JSON.parse(gtmsubmitvars);
-
-  if (vars)
-    Object.keys(vars).forEach(key => {
-      if (key.startsWith('ds_') || key.startsWith('dn_'))
-        datalayervars[key.substring(3)] = vars[key];
-      else if (key.startsWith('db_'))
-        datalayervars[key.substring(3)] = vars[key] ? "true" : "false";
-      else
-        console.error("Invalid pxl event key, cannot be forwarded: ", key);
-    });
-  window.dataLayer.push({ ...datalayervars, event: event });
-}
-
-function capturePxlEvent(evt: CustomEvent) {
-  sendPxlEventToDataLayer(evt.target, evt.detail.event, evt.detail.data);
-}
-
-//FIXME share with formbase es?
-function collectFormValues(formnode: HTMLFormElement): DataLayerVars {
-  const donefields: Record<string, boolean> = {};
-  const outdata: DataLayerVars = {};
-
-  const multifields = dompack.qSA<HTMLInputElement>(formnode, 'input[type=radio], input[type=checkbox]');
-  for (const multifield of multifields) {
-    if (!multifield.name || donefields[multifield.name])
-      continue; //we did this one
-
-    donefields[multifield.name] = true;
-
-    let idx = 0;
-    const values = [];
-    const labels = [];
-    const checkboxes = multifields.filter(node => node.name === multifield.name);
-
-    for (const node of checkboxes.filter(cbox => cbox.checked)) {
-      const keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');
-      let labelsfornode = node.dataset.gtmTag || dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map(labelnode => labelnode.textContent).filter(labelnode => Boolean(labelnode)).join(' ');
-      labelsfornode = labelsfornode.trim(); //TODO normalize whitespace
-      outdata[keyname] = node.value;
-      outdata[keyname + '_label'] = labelsfornode;
-
-      ++idx;
-      values.push(node.value);
-      labels.push(labelsfornode);
-    }
-
-    if (values.length) {
-      const allkeyname = 'form_' + multifield.name + '_all';
-      outdata[allkeyname] = values.join(';');
-      outdata[allkeyname + '_label'] = labels.join(';');
-    }
-  }
-
-  for (const field of formnode.querySelectorAll<HTMLSelectElement | HTMLInputElement>('input:not([type=radio]):not([type=checkbox]),select,textarea')) {
-    if (!field.name || donefields[field.name])
-      continue;
-
-    donefields[field.name] = true;
-
-    const val = field.value;
-    outdata['form_' + field.name] = val;
-    if (field.matches('select')) {
-      const opt = (field as HTMLSelectElement).options[(field as HTMLSelectElement).selectedIndex];
-      if (opt)
-        outdata['form_' + field.name + '_label'] = opt.dataset.gtmTag || opt.textContent;
-    }
-  }
-  return outdata;
-}
-
-function onFormSubmit(evt: CustomEvent) {
-  if (!evt.detail.form.dataset.gtmSubmit)
-    return;
-
-  const layerobj = { ...JSON.parse(evt.detail.form.dataset.gtmSubmit), ...collectFormValues(evt.detail.form) };
-  if (eventname)
-    layerobj.event = eventname;
-
-  window.dataLayer.push(layerobj);
-}
-
 export function configureGTMFormSubmit(opts: { eventname: string }) {
-  if (opts.eventname)
-    eventname = opts.eventname;
 }
-
-//ADDME if we ever figure out a bundler trick to flush this command to the top of all imports/loads, that would be great (we could consider *ALWAYS* putting this in the generated startup code, or we'd need to do a tree pre-walk to see if gtm.es is loaded anywhere)
-if (!window.dataLayer)
-  window.dataLayer = [];
-
-//@ts-ignore FIXME Still need to define these events
-window.addEventListener('consilio:pxl', capturePxlEvent);
-//@ts-ignore FIXME Still need to define these events
-window.addEventListener("wh:form-values", onFormSubmit);
 
 watchDataLayer();
 dompack.register("wh-socialite-gtm", processGTMPluginInstruction);

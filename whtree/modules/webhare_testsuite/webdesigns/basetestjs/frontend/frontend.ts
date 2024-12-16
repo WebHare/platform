@@ -11,7 +11,7 @@ import * as dialogapi from 'dompack/api/dialog';
 import * as test from '@webhare/test';
 import * as env from '@webhare/env';
 import { expose } from "@webhare/test-frontend";
-import { frontendConfig, getFrontendData } from "@webhare/frontend";
+import { frontendConfig, getFrontendData, setupFormAnalytics } from "@webhare/frontend";
 
 import './forms/forms';
 import './rtd/rtd';
@@ -73,3 +73,5 @@ openLinksInNewWindow();
 
 */
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
+
+setupFormAnalytics();
