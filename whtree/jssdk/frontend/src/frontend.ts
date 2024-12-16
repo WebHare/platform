@@ -12,6 +12,12 @@ export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./author
 /** @deprecated Use navigateTo from \@webhare/env */
 export const navigateTo = envNavigateTo; //only the WH5.4+ webshop used this, so it should be safe to remove
 
+//Stubs for GTM configuration - 5.7 may/will actually require calling these APIs
+export function setupGTM(args?: unknown) {
+}
+export function setupFormAnalyticsForGTM(args?: unknown) {
+}
+
 function postRenderChecks() {
   const log = document.getElementById("wh-console-log");
   if (log) {
