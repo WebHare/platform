@@ -172,20 +172,22 @@ async function testTheChecks() {
   for (const row of await listTestSuiteIntervalIssues())
     await systemConfigSchema.delete("serverCheck", row.wrdId);
 
-  await scheduleTimedTask("system:intervalchecks");
+  const task1 = await scheduleTimedTask("system:intervalchecks");
   await whdb.commitWork();
+  await task1.taskDone;
 
-  console.log('Waiting for testissue to appear');
-  await test.wait(async () => (await listTestSuiteIntervalIssues()).length > 0);
+  console.log('Expected testissue to appear');
+  test.assert((await listTestSuiteIntervalIssues()).length > 0);
 
   //clear the test error
   await whdb.beginWork();
   await writeRegistryKey("webhare_testsuite.tests.response", "");
-  await scheduleTimedTask("system:intervalchecks");
+  const task2 = await scheduleTimedTask("system:intervalchecks");
   await whdb.commitWork();
+  await task2.taskDone;
 
-  console.log('Waiting for testissue to disappear');
-  await test.wait(async () => (await listTestSuiteIntervalIssues()).length === 0);
+  console.log('Expected testissue to disappear');
+  test.eq([], await listTestSuiteIntervalIssues());
 }
 
 test.run([

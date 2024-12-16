@@ -129,6 +129,7 @@ MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
              , error := Left(allerrors,4096)
              , lastrun := starttime
            WHERE id=task.id;
+    GetPrimary()->BroadcastOnCommit("system:internal.taskcompleted", DEFAULT RECORD);
     trans->CommitWork();
 
     INTEGER onexecutelist := Searchelement(uncompleted_startup_scripts, task.tag);

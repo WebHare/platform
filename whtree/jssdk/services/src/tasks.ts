@@ -1,9 +1,10 @@
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
-import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
-import { broadcastOnCommit, db, onFinishWork } from "@webhare/whdb";
-import { openBackendService } from "@webhare/services";
+import { convertWaitPeriodToDate, sleep, type WaitPeriod } from "@webhare/std";
+import { broadcastOnCommit, db, isWorkOpen, onFinishWork } from "@webhare/whdb";
+import { openBackendService, subscribeToEventStream } from "@webhare/services";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
+import { checkModuleScopedName } from "./naming";
 
 interface TaskResponseFinished {
   type: "finished";
@@ -94,6 +95,46 @@ export async function scheduleTask(tasktype: string, taskdata?: unknown, options
   return await loadlib("mod::system/lib/tasks.whlib").scheduleManagedTask(tasktype, taskdata, options) as number;
 }
 
+/** Wait for timed tasks to finish
+    @param taskname - Task to wait for
+    @param deadline - Wait until
+    - debug Print debuginfo if waiting
+    - allowMissing Don't fail if the task isn't registered (yet)
+    @returns True if the task finished, false if timed out
+*/
+async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?: { allowMissing?: boolean; expectLastRunAfter?: Date }): Promise<boolean> {
+  checkModuleScopedName(taskname);
+  const matchtag = taskname.replace(":", ".");
+
+  // executetasks now broadcasts this event whenever a task completes, so we know when to rescan the list
+  using taskUpdatedStream = subscribeToEventStream("system:internal.taskcompleted");
+  const abort = new AbortController;
+  const deadlinePromise = sleep(deadline, { signal: abort.signal }).then(() => false);
+
+  try {
+    for (; ;) {
+      //Get current state
+      const taskstate = await db<PlatformDB>().selectFrom("system.tasks").select(["id", "lastrun", "nexttime", "error"]).where("tag", "=", matchtag).executeTakeFirst();
+      if (!options?.allowMissing && !taskstate)
+        throw new Error(`No such timed task '${taskname}' registered`);
+
+      if (taskstate &&
+        taskstate.lastrun && //if it never ran, it's not done
+        (!options?.expectLastRunAfter || taskstate.lastrun >= options.expectLastRunAfter) &&
+        taskstate.nexttime > new Date) //it's not scheduled for the future (TODO should we care if expectLastRunAfter is set? )
+        return true; //Then it appears true, TODO though it would be better to set these things up as managed tasks and just wait for that ID
+
+      if (!taskstate?.nexttime)
+        throw new Error(`No such timed task '${taskname}' scheduled`);
+
+      if (await Promise.race([taskUpdatedStream.next(), deadlinePromise]) === false)
+        return false;
+    }
+  } finally {
+    abort.abort(); //ensure the deadline sleep is aborted
+  }
+}
+
 /** Schedule a timed task to run.
  *
     The task will be run at the specified time, or if not set, as soon as possible. If another request is made to
@@ -103,9 +144,28 @@ export async function scheduleTask(tasktype: string, taskdata?: unknown, options
     @param taskname - module:tag of the task
     @param options - when: When to run the task (if not set, asap)
                      allowMissing: Don't fail if the task isn't registered (yet)
+                     onComplete: Callback to call when the task is completed. (remember to commit or the callback will never fire)
+    @returns An object with taskDone(), which returns a promise that resolves when the task is completed
 */
-export async function scheduleTimedTask(taskname: string, options?: { when?: Date; allowMissing?: boolean }): Promise<void> {
-  await loadlib("mod::system/lib/tasks.whlib").scheduleTimedTask(taskname, options ?? {});
+export async function scheduleTimedTask(taskname: string, options?: { when?: Date; allowMissing?: boolean }): Promise<{
+  get taskDone(): Promise<void>;
+}> {
+  const queuedat = new Date;
+  await loadlib("mod::system/lib/tasks.whlib").scheduleTimedTask(taskname, { ...options, onComplete: undefined });
+  //FIXME actually we should log some sort of iteration count/token - or even better, a managed task id? to be sure we're waiting for *our* scheduled task
+  //      this might race against another task queueing the same task, but running just before our commit
+
+  return {
+    get taskDone(): Promise<void> {
+      if (isWorkOpen())
+        throw new Error("onCompletion should not be used with open work"); //too easy to deadlock yourself, so deny for now
+
+      return waitForTimedTask(taskname, 86400 * 1000, { allowMissing: options?.allowMissing, expectLastRunAfter: queuedat }).then(result => {
+        if (!result)
+          throw new Error(`Timed task '${taskname}' did not finish in time`);
+      });
+    }
+  };
 }
 
 export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: { acceptTimeout: false }): Promise<T>;
