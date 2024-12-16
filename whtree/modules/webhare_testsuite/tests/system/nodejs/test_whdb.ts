@@ -1,4 +1,4 @@
-import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor, subscribe, lockMutex } from "@webhare/services";
+import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -435,11 +435,6 @@ async function testMutex() {
 
 async function testFinishHandlers() {
   const handlerresult: string[] = [];
-  const allevents: BackendEvent[] = [];
-
-  function onEvents(events: BackendEvent[], subscription: BackendEventSubscription) {
-    allevents.push(...events);
-  }
 
   const push_result_callback = {
     onCommit: async () => { await sleep(20); handlerresult.push("commit"); },
@@ -448,7 +443,7 @@ async function testFinishHandlers() {
   };
 
   const klaversymbol = Symbol("klaver");
-  await subscribe("webhare_testsuite:worktest.*", onEvents);
+  using eventStream = subscribeToEventStream("webhare_testsuite:worktest.*");
 
   test.throws(/work has already been closed/i, () => onFinishWork(push_result_callback));
 
@@ -472,16 +467,14 @@ async function testFinishHandlers() {
 
   await commitWork();
   test.eq(["beforecommit", "first", "commit"], handlerresult);
-  await test.wait(() => allevents.length >= 2);
+  const allevents = [(await eventStream.next()).value, (await eventStream.next()).value];
 
   //ensure both expected events are there
   test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.1"));
   test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.2"));
-  test.eq(2, allevents.length);
 
   //clear event logs and prepare to test explicit rollback
   handlerresult.splice(0, handlerresult.length);
-  allevents.splice(0, allevents.length);
 
   await beginWork();
   broadcastOnCommit("webhare_testsuite:worktest.3");
@@ -493,13 +486,10 @@ async function testFinishHandlers() {
   await commitWork();
 
   test.eq(["rollback"], handlerresult);
-  await test.wait(() => allevents.length >= 1);
-  test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.4"));
-  test.eq(1, allevents.length);
+  test.eq("webhare_testsuite:worktest.4", (await eventStream.next()).value.name);
 
   //clear event logs and prepare to test failed commit
   handlerresult.splice(0, handlerresult.length);
-  allevents.splice(0, allevents.length);
 
   await beginWork();
   broadcastOnCommit("webhare_testsuite:worktest.5");
@@ -513,13 +503,10 @@ async function testFinishHandlers() {
   await commitWork();
 
   test.eq(["beforecommit"], handlerresult);
-  await test.wait(() => allevents.length >= 1);
-  test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.6"));
-  test.eq(1, allevents.length);
+  test.eq("webhare_testsuite:worktest.6", (await eventStream.next()).value.name);
 
   //clear event logs and prepare to test failed precommits. these still turn into a visible rollback
   handlerresult.splice(0, handlerresult.length);
-  allevents.splice(0, allevents.length);
 
   await beginWork();
   broadcastOnCommit("webhare_testsuite:worktest.7");
@@ -532,9 +519,7 @@ async function testFinishHandlers() {
   await commitWork();
 
   test.eq(["rollback"], handlerresult);
-  await test.wait(() => allevents.length >= 1);
-  test.assert(allevents.find(_ => _.name === "webhare_testsuite:worktest.8"));
-  test.eq(1, allevents.length);
+  test.eq("webhare_testsuite:worktest.8", (await eventStream.next()).value.name);
 }
 
 async function testSeparatePrimary() {

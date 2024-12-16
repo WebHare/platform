@@ -151,16 +151,20 @@ async function testEvents() {
   await test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe(["webhare_testsuite:testevent", "webhare_testsuite:testevent.*.mask"], onEvents));
 
   const subscription = await services.subscribe("webhare_testsuite:testevent", onEvents);
+  using stream = services.subscribeToEventStream("webhare_testsuite:testevent");
   services.broadcast("webhare_testsuite:otherevent", { event: -1 });
   services.broadcast("webhare_testsuite:testevent", { event: 2 });
+  test.eq({ name: "webhare_testsuite:testevent", data: { event: 2 } }, (await stream.next()).value);
+  const streamNext = stream.next(); //prepare for the next event...
   await test.wait(() => allevents.length > 0);
-  test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
+  test.eqPartial([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
 
   //======= Test remote events
   using serviceJS = await services.openBackendService<any>("webhare_testsuite:demoservice", ["x"]);
   await serviceJS.emitIPCEvent("webhare_testsuite:testevent", { event: 3 });
   await test.wait(() => allevents.length > 1);
-  test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
+  test.eqPartial([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
+  test.eq({ name: "webhare_testsuite:testevent", data: { event: 3 } }, (await streamNext).value);
 
   //======= Test wildcards and empty events
   allevents.splice(0, 2); //clear the array
@@ -169,7 +173,16 @@ async function testEvents() {
   await test.wait(() => allevents.length > 0);
   await serviceJS.emitIPCEvent("webhare_testsuite:testevent2.y", null);
   await test.wait(() => allevents.length > 1);
-  test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
+  test.eqPartial([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
+
+  //Test 'done' events
+  let streamImmediatelyDone;
+  {
+    using closeSoon = services.subscribeToEventStream("webhare_testsuite:testevent");
+    streamImmediatelyDone = closeSoon.next();
+  }
+
+  test.eq(true, (await streamImmediatelyDone).done);
 }
 
 async function runOpenPrimary(hsvm: HSVMWrapper) {

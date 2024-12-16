@@ -16,7 +16,7 @@ export { openBackendService, type GetBackendServiceInterface } from "./backendse
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
 export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
-export { broadcast, subscribe } from "./backendevents";
+export { broadcast, subscribe, subscribeToEventStream } from "./backendevents";
 export type { BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
