@@ -25,7 +25,7 @@ export type FormAnalyticsSubEvents = {
   event: "submitted";
 };
 
-export type FormAnalyticsEventData = {
+export type FormAnalyticsEventData = { //Note that this set needs to correspond with the pxlEvents in mod::platform/moduledefinition.yml
   /** Event type */
   event: FormAnalyticsSubEvents["event"];
   /** Form identifier */

@@ -127,7 +127,7 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
     url.searchParams.set("pr", String(options.altSampleRate));
 
   if (document.location)
-    url.searchParams.set("bl", document.location.href);
+    url.searchParams.set("bl", document.location.href.substring(0, 1000));
   if (document.referrer)
     url.searchParams.set("br", document.referrer.substring(0, 1000));
   url.searchParams.set("bt", dompack.browser.triplet);

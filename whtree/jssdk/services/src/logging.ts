@@ -75,6 +75,7 @@ function flushLog(logname: string | "*"): Promise<void> {
 export interface ReadLogOptions {
   start?: Date | null;
   limit?: Date | null;
+  content?: string;
 }
 
 function getDateFromLogFilename(filename: string) {
@@ -122,8 +123,9 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     if (options?.limit && (logfiledate.getTime() > options.limit.getTime()))
       continue;
 
-    //Okay, this one is in range. Start parsing
-    const loglines = readFileSync(basedir + "/" + name, "utf8").split("\n");
+    //Okay, this one is in range. Start parsing (TODO estimate/skip forward in seekable files - or just add a @offset field and seek to that next time)
+    const content = options?.content ?? readFileSync(basedir + "/" + name, "utf8");
+    const loglines = content.split("\n");
     for (const line of loglines) {
       try {
         if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
