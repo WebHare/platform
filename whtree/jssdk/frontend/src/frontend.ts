@@ -15,7 +15,7 @@ export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, setupFormAnalytics, type PxlData } from "./pxl";
 export { getRemoteIPAddress } from "./analytics";
-export { setupFormAnalyticsForGTM } from "./gtm";
+export { setupGTM, setupFormAnalyticsForGTM } from "./gtm";
 
 // we shouldn't deprecate navigateTo exported from frontend. in fact it makes more sense to export it from frontend than env as it's browser-only
 export { navigateTo } from "@webhare/env";

@@ -1,6 +1,6 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
-import { type DataLayerEntry } from "@webhare/frontend/src/gtm";
+import { pushToDataLayer, setupGTM, type DataLayerEntry } from "@webhare/frontend/src/gtm";
 import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
@@ -15,31 +15,14 @@ declare global {
   }
 }
 
-let seen = 0;
 const gtmsettings = getFrontendData("socialite:gtm", { allowMissing: true });
 let didinit: undefined | true;
-
-function showDataLayerChanges() {
-  if (!document.documentElement.classList.contains('dompack--debug-anl'))
-    return false;
-
-  for (; seen < window.dataLayer.length; ++seen)
-    console.log("[anl] dataLayer.push:", window.dataLayer[seen]);
-  return true;
-}
-
-function watchDataLayer() {
-  if (!showDataLayerChanges())
-    return;
-  window.setTimeout(watchDataLayer, 50);
-}
 
 /* Send variables to the data layer */
 export function setVariables(vars: DataLayerEntry & { event?: never }) {
   if (vars.event)
     throw new Error("An 'event' is not a a variable. use sendEvent for events");
-  window.dataLayer.push(vars);
-  showDataLayerChanges();
+  pushToDataLayer(vars);
 }
 
 /** Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms
@@ -51,10 +34,9 @@ export function sendEvent(event: string | null, vars: DataLayerEntry & { event?:
   const defer = Promise.withResolvers();
   try {
     if (event)
-      window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
+      pushToDataLayer({ event: event, eventCallback: () => defer.resolve(false), ...vars });
     else
-      window.dataLayer.push(vars);
-    showDataLayerChanges();
+      pushToDataLayer(vars);
   } catch (e) {
   }
   window.setTimeout(() => defer.resolve(true), event ? 200 : 0);
@@ -105,12 +87,15 @@ export function initOnConsent() {
 }
 
 export function configureGTMFormSubmit(opts: { eventname: string }) {
+  //STUB to remove sometime after WH5.7 - this used to setup the wh-formevents behavior
 }
 
-watchDataLayer();
 dompack.register("wh-socialite-gtm", processGTMPluginInstruction);
 
 if (gtmsettings?.a && !gtmsettings?.m) //account is set, manual is not set
   void init();
 
 window.__gtmformsubmit = 1; //allow us to validate we're installed - ADDME compile only in dev mode
+
+//unconditionally invoked if you use the 'old' import
+setupGTM();
