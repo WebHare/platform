@@ -102,7 +102,10 @@ export async function scheduleTask(tasktype: string, taskdata?: unknown, options
     - allowMissing Don't fail if the task isn't registered (yet)
     @returns True if the task finished, false if timed out
 */
-async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?: { allowMissing?: boolean; expectLastRunAfter?: Date }): Promise<boolean> {
+async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?: { allowMissing?: boolean; expectLastRunAfter?: Date }): Promise<{
+  completed: boolean;
+  errorMessage: string;
+}> {
   checkModuleScopedName(taskname);
   const matchtag = taskname.replace(":", ".");
 
@@ -122,13 +125,13 @@ async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?
         taskstate.lastrun && //if it never ran, it's not done
         (!options?.expectLastRunAfter || taskstate.lastrun >= options.expectLastRunAfter) &&
         taskstate.nexttime > new Date) //it's not scheduled for the future (TODO should we care if expectLastRunAfter is set? )
-        return true; //Then it appears true, TODO though it would be better to set these things up as managed tasks and just wait for that ID
+        return { completed: true, errorMessage: taskstate.error }; //Then it appears true, TODO though it would be better to set these things up as managed tasks and just wait for that ID
 
       if (!taskstate?.nexttime)
         throw new Error(`No such timed task '${taskname}' scheduled`);
 
       if (await Promise.race([taskUpdatedStream.next(), deadlinePromise]) === false)
-        return false;
+        return { completed: false, errorMessage: "" };
     }
   } finally {
     abort.abort(); //ensure the deadline sleep is aborted
@@ -161,8 +164,10 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Dat
         throw new Error("onCompletion should not be used with open work"); //too easy to deadlock yourself, so deny for now
 
       return waitForTimedTask(taskname, 86400 * 1000, { allowMissing: options?.allowMissing, expectLastRunAfter: queuedat }).then(result => {
-        if (!result)
+        if (!result.completed)
           throw new Error(`Timed task '${taskname}' did not finish in time`);
+        if (result.errorMessage)
+          throw new Error(`Timed task '${taskname}' failed: ${result.errorMessage}`);
       });
     }
   };

@@ -45,11 +45,11 @@ export function deleteCookie(key: string, options?: CookieOptions) {
   setCookie(key, '', { ...options, duration: -1, expires: undefined });
 }
 
-// Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'
+/** Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'. */
 let _available: boolean;
 export function isStorageAvailable(): boolean {
   if (isIsolated())
-    return true;
+    return false; //'true' until WH5.6, but actual users were expecting 'false' from isStorageAvailable if the storage is not present.
 
   if (_available === undefined) {
     try {

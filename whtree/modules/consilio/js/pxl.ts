@@ -116,7 +116,7 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
     pagesession = generateRandomId();
 
   //not using URL object, simplifies support of relative URLs
-  const url = new URL(baseurl, document.baseURI);
+  const url = typeof document !== "undefined" ? new URL(baseurl, document.baseURI) : new URL(baseurl);
   url.searchParams.set("pe", eventname);
   url.searchParams.set("pp", pagesession);
   url.searchParams.set("pc", String(++seqnr));
@@ -126,19 +126,23 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   if (options.altSampleRate)
     url.searchParams.set("pr", String(options.altSampleRate));
 
-  if (document.location)
-    url.searchParams.set("bl", document.location.href.substring(0, 1000));
-  if (document.referrer)
-    url.searchParams.set("br", document.referrer.substring(0, 1000));
   url.searchParams.set("bt", dompack.browser.triplet);
   if (dompack.browser.device)
     url.searchParams.set("bd", dompack.browser.device);
-  if (!options.noBrowser) {
-    url.searchParams.set("bu", window.navigator.userAgent.substring(0, 300));
-    if (window.screen.width && window.screen.height)
-      url.searchParams.set("bs", `${window.screen.width}x${window.screen.height}`);
-    if (window.devicePixelRatio)
-      url.searchParams.set("bp", String(window.devicePixelRatio));
+
+  if (typeof document !== "undefined") {
+    if (document.location)
+      url.searchParams.set("bl", document.location.href.substring(0, 1000));
+    if (document.referrer)
+      url.searchParams.set("br", document.referrer.substring(0, 1000));
+
+    if (!options.noBrowser) {
+      url.searchParams.set("bu", window.navigator.userAgent.substring(0, 300));
+      if (window.screen.width && window.screen.height)
+        url.searchParams.set("bs", `${window.screen.width}x${window.screen.height}`);
+      if (window.devicePixelRatio)
+        url.searchParams.set("bp", String(window.devicePixelRatio));
+    }
   }
 
   if (data) {
@@ -226,13 +230,16 @@ export function sendPxlEvent(event: string, data?: PxlEventData | null, options?
   if (!url)
     return;
 
-  if (!window.whPxlLog)
-    window.whPxlLog = [];
-  window.whPxlLog.push({ event, data: data || {}, options: finaloptions, isAlt: useAltRecordURL });
+  //TODO needed for some tests but they should just move to the server side log, and the server should support flushing pxl immediately, especially if readLogLines is used properly
+  if (typeof window !== "undefined") {
+    if (!window.whPxlLog)
+      window.whPxlLog = [];
+    window.whPxlLog.push({ event, data: data || {}, options: finaloptions, isAlt: useAltRecordURL });
+  }
   if (debugFlags.pxl)
     console.log(`[pxl] Event '${event}'`, data);
 
-  if (finaloptions.beacon) {
+  if (finaloptions.beacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
     navigator.sendBeacon(url);
     finaloptions.onComplete?.();
   } else {

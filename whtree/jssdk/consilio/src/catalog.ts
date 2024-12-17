@@ -268,6 +268,14 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     await catalog.DeleteSuffix(suffix);
   }
 
+  /** Explicitly refresh. This may be needed to ensure visibility of recent insertions if you cannot update that inserter
+   * to do a flush (this often happens during CI tests but excessive refreshing should be avoided in production)
+  */
+  async refresh() {
+    const catalog = await loadlib("mod::consilio/lib/catalogs.whlib").OpenConsilioCatalogById(this.id);
+    await catalog.Refresh();
+  }
+
   /** Get a raw opensearch-project/opensearch client for the index
    * @returns An object containing a client and the indexname to use
    */
@@ -293,11 +301,15 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   /** Search, routing it to the proper index
    * @typeParam SearchDocument - The type of the document we expect to be returned. Defaults to an Optional of the catalog's document class (as we don't known which fields you selected)
   */
-  async search<SearchDocument = Partial<TDocument>>(req: SearchRequest<SearchDocument>): Promise<SearchResult<SearchDocument>> {
+  async search<SearchDocument = Partial<TDocument>>(req: SearchRequest<SearchDocument>, options?: { printRequest?: boolean }): Promise<SearchResult<SearchDocument>> {
     if (req.index)
       throw new Error("Don't specify the index in the search request, it's automatically set by the catalog");
 
     const { client, indexName, suffix } = await this.getRawClient();
+    if (options?.printRequest) {
+      //We can't grab the exact syntax from OpenSearch api I think?  but we can simulate it:
+      console.log(`GET /${indexName + suffix}/_search\n${JSON.stringify(req.body, null, 2)}`);
+    }
     return (await client.search({ index: indexName + suffix, ...req })).body as SearchResult<SearchDocument>;
   }
 
