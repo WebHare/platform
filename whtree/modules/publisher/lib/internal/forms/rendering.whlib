@@ -699,7 +699,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
         {
           type := 'number';
         }
-        ELSE IF('email' IN fielddescription.validationchecks)
+        ELSE IF('email' IN fielddescription.validationchecks OR "email-maysendfrom" IN fielddescription.validationchecks OR "email-maysendto" IN fielddescription.validationchecks)
         {
           type := 'email';
         }
