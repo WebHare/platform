@@ -83,3 +83,11 @@ moduleFileTypes:
     schema: data/schemas/test.schema.yml
     contentValidator: tests/system/modules/data/validator.ts#validateTestFile
     tsType: TestSchemaType
+
+pxlEvents:
+  aa:
+    fields:
+      s: string
+      n: number
+      b: boolean
+  event: {}

@@ -414,6 +414,7 @@ async function testLogs() {
   const logline = await logreader.next();
   test.eqPartial({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
   test.assert(logline.value["@timestamp"] instanceof Date);
+  test.assert(logline.value["@id"], "Should have an ID");
 
   const hardlogline = await logreader.next();
   test.assert(hardlogline.value["@timestamp"] instanceof Date);
@@ -431,6 +432,9 @@ async function testLogs() {
   test.eq("I can speak JSON too!", hsline.value.harescript);
 
   test.assert((await logreader.next()).done);
+
+  const logreader2 = services.readLogLines("webhare_testsuite:test", { start: test.startTime, continueAfter: hardlogline.value["@id"] });
+  test.eq(hsline.value["@id"], (await logreader2.next()).value["@id"], "ContinueAfter should have started after 'hardlogline'");
 
   test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
   services.logDebug("webhare_testsuite:services_test", { test: 42 });

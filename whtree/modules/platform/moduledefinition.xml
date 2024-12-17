@@ -98,4 +98,58 @@
     </node>
   </moduleregistry>
 
+  <consilio>
+    <!-- Set up a fieldgroup in case someone wants to build a custom pxl-like catalog -->
+    <fieldgroup tag="pxlfields">
+      <datetime name="@timestamp" comment="UTC timestamp of the hit" />
+      <keyword name="event" comment="Pxl event, the value of the `pe` query variable" ignore_above="256" />
+      <keyword name="userid" comment="User identifier, the value of the `pi` query variable" ignore_above="256" />
+      <keyword name="sessionid" comment="User session id, the value of the `ps` query variable" ignore_above="256" />
+      <keyword name="pageid" comment="Page session id, the value of the `pp` query variable" ignore_above="256" />
+      <integer64 name="counter" comment="Event counter for this page session, the value of the `pc` query variable" />
+      <keyword name="location"
+               comment="The current url (location) of the page, the value of the `bl` query variable"
+               ignore_above="1000" />
+      <keyword name="referrer" comment="The referrer, if known, the value of the `br` query variable" ignore_above="1000" />
+      <record name="user_agent">
+        <keyword name="os"
+                 comment="The user agent platform (one of `android`, `ios`, `linux`, `mac`, `webos` or `windows`), based on the value of the `bt` query variable"
+                 ignore_above="16" />
+        <keyword name="name"
+                 comment="The user agent browser name (one of `chrome`, `edge`, `firefox`, `ie`, `opera` or `safari`), based on the value of the `bt` query variable"
+                 ignore_above="16" />
+        <integer name="major" comment="The user agent version, based on the value of the `bt` query variable" />
+        <keyword name="device"
+                 comment="Device type (one of `desktop`, `mobile` or `tablet`), the value of the `bd` query variable"
+                 ignore_above="16" />
+      </record>
+      <record name="screen">
+        <integer name="width" comment="Screen width, based on the value of the `bs` query variable" />
+        <integer name="height" comment="Screen height, based on the value of the `bs` query variable" />
+        <float name="pixelratio" comment="Device pixel ratio, the value of the `bp` query variable" />
+      </record>
+      <ipaddress name="remoteip" comment="Anonymized client IP address" />
+      <record name="geoip">
+        <keyword name="country"
+                 comment="Client physical location two-letter country code, based on the client IP address"
+                 ignore_above="2" />
+        <latlng name="location" comment="Client physical location, based on the client IP address" />
+        <keyword name="region"
+                 comment="Client physical location region name, based on the client IP address"
+                 ignore_above="256" />
+        <keyword name="city"
+                 comment="Client physical location city name, based on the client IP address"
+                 ignore_above="256" />
+      </record>
+      <record name="fields" comment="User specified fields">
+        <keyword name="ds_*" comment="Text data, the value of the correspoding `ds_XXX` query variable" ignore_above="1024" />
+        <float name="dn_*" comment="Number data, the value of the correspoding `dn_XXX` query variable" />
+        <boolean name="db_*" comment="Flag data, the value of the correspoding `db_XXX` query variable" />
+      </record>
+    </fieldgroup>
+    <index tag="pxl">
+      <addfieldgroup ref="pxlfields" />
+    </index>
+  </consilio>
+
 </module>

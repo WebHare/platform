@@ -9,12 +9,19 @@ import { readFileSync } from "fs";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
-type LogLineBase = { "@timestamp": Date };
+type LogLineBase = {
+  /** Log line's timestap */
+  "@timestamp": Date;
+  /** ID of this logline (unique inside a logtype but not a logfile) which allows us to resume reading.
+   *
+   * This is currently formatted as `A<date>:<offset>` but you shouldn't rely on that format always staying the same.
+   */
+  "@id": string;
+};
 
 /** Webserver access log lines
  */
-export type AccessLogLine = {
-  "@timestamp": Date;
+export type AccessLogLine = LogLineBase & {
   ip: string;
   user?: string;
   /** Request method */
@@ -32,7 +39,7 @@ export type AccessLogLine = {
 /** Webserver PXL log
  *  This logfile is currently just a subset of the access log with field that may not be supported in the future removed (ie if we want to POST large/multiple pxls together)
  */
-export type PxlLogLine = Pick<AccessLogLine, "@timestamp" | "ip" | "user" | "url" | "referrer" | "userAgent">;
+export type PxlLogLine = LogLineBase & Pick<AccessLogLine, "ip" | "user" | "url" | "referrer" | "userAgent">;
 
 /** Write a line to a log file
     @param logname - Name of the log file
@@ -75,11 +82,9 @@ function flushLog(logname: string | "*"): Promise<void> {
 export interface ReadLogOptions {
   start?: Date | null;
   limit?: Date | null;
-}
-
-function getDateFromLogFilename(filename: string) {
-  const datetok = filename.split('.').at(-2)!; //! as we've already ensured the file ends in .YYYYMMDD.log
-  return new Date(datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8));
+  content?: string;
+  /** Continu reading loglines after the line with this id */
+  continueAfter?: string;
 }
 
 type GenericLogFields = { [key: string]: LogReadField | undefined };
@@ -113,19 +118,36 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
   const logfilenames = (await fs.readdir(basedir)).filter(_ => _.match(filter)).sort();
 
   for (const name of logfilenames) {
-    const logfiledate = getDateFromLogFilename(name); //this is basically the time of the 'first' log entry
+    const datetok = name.split('.').at(-2)!; //... as we've already ensured the file ends in .YYYYMMDD.log
+    const textdate = datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8);
+    const logfiledate = new Date(textdate);
+
     //if the 'last' possible entry is before the start, skip this file
     if (options?.start && (logfiledate.getTime() + (86400 * 1000)) <= options.start.getTime())
+      continue;
+
+    if (options?.continueAfter && options?.continueAfter.split(':')[0] > `A${datetok}:`) //An id/continuation point was given and it's not in this file
       continue;
 
     //if the 'first' possible entry is past the limit, skip the file
     if (options?.limit && (logfiledate.getTime() > options.limit.getTime()))
       continue;
 
+    //FIXME Jump straight to the right position, combine with rewriting to input streaming (but I'm not sure the common 'readline.createInterface' solution allow us to accurately record offsets)
+    const continueAfterOffset: number = options?.continueAfter ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
+
     //Okay, this one is in range. Start parsing
-    const loglines = readFileSync(basedir + "/" + name, "utf8").split("\n");
+    const content = options?.content ?? readFileSync(basedir + "/" + name, "utf8");
+    const loglines = content.split("\n");
+    let curOffset = 0;
     for (const line of loglines) {
       try {
+        const lineOffset = curOffset;
+        curOffset += line.length + 1;
+
+        if (continueAfterOffset && lineOffset <= continueAfterOffset) //we're not there yet
+          continue;
+
         if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
           continue;
 
@@ -137,7 +159,11 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
         if (!timestamp || (options?.start && timestamp < options.start) || (options?.limit && timestamp >= options.limit))
           continue;
 
-        yield { ...parsedline, ["@timestamp"]: timestamp } as LogFields & LogLineBase;
+        /* The ID needs to be usable as a unique identifier inside this log type but also be ascii sortable so we can easily find the most recently
+           stored record (by sorting by ID in descending order and taking the first. So we're padding ID to be 15 in length (the length of MAX_SAFE_INTEGER)
+           to make is ascii sortable. We're prefixing with 'A' so any future improved algorithm can use 'B' and sort after us */
+        const id = `A${datetok}:${String(lineOffset).padStart(15, '0')}`;
+        yield { ...parsedline, ["@id"]: id, ["@timestamp"]: timestamp } as LogFields & LogLineBase;
       } catch (e) {
         continue; //ignore unparseable lines
       }

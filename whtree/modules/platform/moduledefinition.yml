@@ -61,3 +61,37 @@ moduleFileTypes:
     schema: data/schemas/siteprofile.schema.yml
     resourceMask: siteprl\.yml$
     contentValidator: mod::publisher/lib/internal/siteprofiles/parser.ts#validateSiteProfile
+
+pxlEvents:
+  # Form events need to correspond with FormAnalyticsEventData in @webhare/forms/src/types.ts
+  form_started: # 'started' is currently the most minimal event, so we'll use it as the base for others
+    fields:
+      formmeta_id: string
+      formmeta_session: string
+      formmeta_pagenum: number
+      formmeta_pagetitle: string
+      formmeta_time: number
+      formmeta_waittime: number
+  form_failed:
+    includeFields: form_started
+    fields:
+      formmeta_errorfields: string
+      formmeta_errorsource: string
+  form_exception:
+    includeFields: form_started
+    fields:
+      formmeta_exception: string
+      formmeta_errorsource: string
+  form_slow:
+    includeFields: form_started
+    fields:
+      formmeta_waitfor: string
+  form_nextpage:
+    includeFields: form_started
+    fields:
+      formmeta_targetpagenum: number
+      formmeta_targetpagetitle: string
+  form_previouspage:
+    includeFields: form_nextpage
+  form_submitted:
+    includeFields: form_started

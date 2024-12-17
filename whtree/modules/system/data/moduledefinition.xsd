@@ -2459,6 +2459,11 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="comment" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Optional comment/documentation for this field</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
 

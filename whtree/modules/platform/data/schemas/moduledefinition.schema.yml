@@ -30,6 +30,9 @@ properties:
   moduleFileTypes:
     description: Register file types used to build modules
     $ref: "#/$defs/ModuleFileTypes"
+  pxlEvents:
+    description: Declare pxl event types
+    $ref: "#/$defs/PxlEvents"
 
 $defs:
   # Server DTAP stages
@@ -316,3 +319,26 @@ $defs:
             items:
               type: string
             description: "Limit webdesigns to which this feature can apply"
+
+  PxlEvents:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Event name
+        type: object
+        additionalProperties: false
+        properties:
+          fields:
+            type: object
+            description: "Fields sent with event"
+            additionalProperties: false
+            patternProperties:
+              "^[a-z_][-a-z0-9_]*$": # Field name
+                type: string
+                enum:
+                  - boolean
+                  - number
+                  - string
+          includeFields:
+            type: "string"
+            description: "Include fields from another event"
