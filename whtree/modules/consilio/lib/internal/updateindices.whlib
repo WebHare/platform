@@ -225,7 +225,8 @@ MACRO UpdateModuleCatalogs(RECORD options)
                                             , managed
                                             , tag
                                          FROM ListConsilioCatalogs()
-                                        WHERE tag NOT IN wantedtags;
+                                        WHERE ToUppercase(tag) LIKE ToUppercase(options.catalogmask)
+                                              AND tag NOT IN wantedtags;
 
   FOREVERY(RECORD want FROM wantcatalogs CONCAT othermanagedcatalogs) //we also need to manage manually created managed catalogs
   {
