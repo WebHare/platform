@@ -381,12 +381,8 @@ test.registerTests(
 
     "Test scrolling between pages",
     async function () {
-      await test.sleep(100); //workaround but we need to give the form a chance to scroll to its desired position
-      test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);
       test.click(test.qS('.wh-form__button--next'));
-      await test.wait('ui');
-
-      test.assert(test.canClick('input[name="text"]'), 'text field is on page #3 and should be back in sight after page navigation');
+      await test.waitForElement('input[name="text"]'); // 'text field is on page #3 and should be back in sight after page navigation
       test.assert(test.canClick('.multipageform__prefix'), 'we also want the form top to be visible');
       test.fill(test.qS('input[name="text"]'), 'Text');
 
