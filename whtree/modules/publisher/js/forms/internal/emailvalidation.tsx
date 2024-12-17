@@ -40,7 +40,8 @@ export async function validateField(form: FormBase | RPCFormBase, field: HTMLInp
   }
 
   if (!isValidEmail(checkvalue)) {
-    //TODO why aren't we just returning the error like a validator callback?
+    //TODO why aren't we just returning the error like a validator callback? may also help avoid the whFormEamailBlocked hack..
+    field.dataset.whFormEmailBlocked = "true";
     setFieldError(field, getTid("publisher:site.forms.commonerrors.email"));
     return false;
   }
