@@ -29,7 +29,7 @@ PUBLIC STATIC OBJECTTYPE RepublishAssetpackUsersTask EXTEND ManagedTaskBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase
+PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase //publisher:generatewidgetpreview
 <
   UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
   {
@@ -115,4 +115,3 @@ PUBLIC MACRO ExecuteLifecycleCleanup()
     todelete->DeleteSelf();
   }
 }
-
