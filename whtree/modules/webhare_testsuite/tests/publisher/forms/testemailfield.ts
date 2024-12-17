@@ -20,22 +20,28 @@ test.registerTests(
       test.eq("email", test.qR("#emailform-email_sendfrom").type);
 
       test.fill('#emailform-email', "PIETJE@BLOCKED.BETA.WEBHARE.NET");
+      test.fill('#emailform-email_sendfrom', "a@a");
+
       test.click('.wh-form__button--submit');
       await test.wait('ui');
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 
       const emailgroup = test.qS('#emailform-email')?.closest('.wh-form__fieldgroup');
+      const emailSendFromgroup = test.qS('#emailform-email_sendfrom')?.closest('.wh-form__fieldgroup');
       test.assert(emailgroup?.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      test.assert(emailSendFromgroup?.classList.contains('wh-form__fieldgroup--error'));
 
       test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup?.querySelector('.wh-form__error')?.textContent);
 
       test.fill("#emailform-email", "acceptable@beta.webhare.net");
+      test.fill('#emailform-email_sendfrom', ""); //clear it again, should not interfere with submission
       await test.pressKey('Tab');
       await test.wait(() => getFormRPCRequests().length >= 2);// A RPC to check 'acceptable' is okay
 
       test.click('.wh-form__button--submit');
       await test.wait('ui');
 
+      test.assert(!emailSendFromgroup?.classList.contains('wh-form__fieldgroup--error')); //should have cleared after emptying
       test.eq(3, getFormRPCRequests().length, "Should have only added a RPC for the submit, email was already ok");
       test.assert(test.qR('[data-wh-form-pagerole="thankyou"]').classList.contains('wh-form__page--visible'), "thankyou page must be visible now");
     },
