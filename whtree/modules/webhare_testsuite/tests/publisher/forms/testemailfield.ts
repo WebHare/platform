@@ -16,6 +16,8 @@ test.registerTests(
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=1');
       test.eq(0, getFormRPCRequests().length, "Should be no RPC requests yet");
+      test.eq("email", test.qR("#emailform-email").type);
+      test.eq("email", test.qR("#emailform-email_sendfrom").type);
 
       test.fill('#emailform-email', "PIETJE@BLOCKED.BETA.WEBHARE.NET");
       test.click('.wh-form__button--submit');
