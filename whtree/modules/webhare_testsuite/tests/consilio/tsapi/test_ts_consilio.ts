@@ -25,7 +25,7 @@ async function clearCatalog(cat: Catalog) {
   const rawclient = await cat.getRawClient();
   await rawclient.client.deleteByQuery({
     body: { query: { match_all: {} } },
-    index: rawclient.indexname + rawclient.suffix,
+    index: rawclient.indexName + rawclient.suffix,
     refresh: true
   });
 }
@@ -191,8 +191,8 @@ async function testSuffixes() {
 
   //Verify the mapping on index -sfx3
   const clientinfo = await cat.getRawClient();
-  const mapping = await clientinfo.client.indices.getMapping({ index: clientinfo.indexname + "-sfx3" });
-  const myMapping = mapping.body[`${clientinfo.indexname}-sfx3`].mappings;
+  const mapping = await clientinfo.client.indices.getMapping({ index: clientinfo.indexName + "-sfx3" });
+  const myMapping = mapping.body[`${clientinfo.indexName}-sfx3`].mappings;
   test.eq("keyword", myMapping.properties?.nosuchfieldyet_extra.type);
 }
 

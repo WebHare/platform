@@ -101,7 +101,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   }
 
   private async flush() {
-    const { client, indexname } = await this.catalog.getRawClient();
+    const { client, indexName } = await this.catalog.getRawClient();
 
     //extract the queue immediately, so it's safe for parallel actions to add to the queue
     const queued = this.queue;
@@ -110,7 +110,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
 
     //FIXME prevent use of -suffix if index isn't suffixed, and vice versa
     const body = queued.flatMap(({ doc, suffix }) => {
-      const index = getOSIndexName(indexname, suffix);
+      const index = getOSIndexName(indexName, suffix);
       const addDoc = omit(doc, ["_id"]);
       this.updatedSuffixes.add(suffix);
       return [
@@ -128,7 +128,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
 
     //NOTE do *not* use client.helpers.bulk - it doesn't report errors!
     if (this.debug)
-      console.error(`Bulk uploading ${queued.length} documents to ${indexname}`);
+      console.error(`Bulk uploading ${queued.length} documents to ${indexName}`);
 
     const bulkres = await client.bulk({ body });
     if (this.debug)
@@ -141,7 +141,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
       const errors = bulkres.body.items?.filter(_ => _.update?.error && _.update._id).map(_ => ({ ..._.update.error!, _id: _.update._id! }));
       if (errors) {
         if (this.debug)
-          console.error(`There were ${errors.length} errors during bulk upload to ${indexname}, first:`, errors[0]);
+          console.error(`There were ${errors.length} errors during bulk upload to ${indexName}, first:`, errors[0]);
 
         this.errors.push(...errors);
       }
@@ -149,7 +149,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   }
 
   async finish({ refresh = false } = {}) {
-    const { client, indexname } = await this.catalog.getRawClient();
+    const { client, indexName } = await this.catalog.getRawClient();
 
     if (this.queue.length)
       await this.flush();
@@ -157,7 +157,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
       throw new BulkUploadError(this.errors);
     if (refresh)
       for (const suffix of this.updatedSuffixes)
-        await client.indices.refresh({ index: getOSIndexName(indexname, suffix) });
+        await client.indices.refresh({ index: getOSIndexName(indexName, suffix) });
   }
 }
 
@@ -168,9 +168,9 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
 
   /** Attach an index (backing store) to a catalog. Creation may not apply until you've waited for reconfiguration (WaitReady with forconfiguration := TRUE)
     @param options - Options
-      = indexmanager - Index manager to use. Use 0 for the builtin index manager
-      - indexname Index name
-      - readonly Do not write to or apply mappings to this index
+      = indexManager - Index manager to use. Use 0 for the builtin index manager
+      - indexName Index name
+      - readOnly Do not write to or apply mappings to this index
     @returns ID of the newly attached index */
 
   async attachIndex(options?: { indexManager?: number; indexName?: string; readOnly?: boolean }): Promise<number> {
@@ -200,10 +200,10 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   async getStorageInfo() {
     const storage = new Array<string>;
     for (const attachedindex of await this.listAttachedIndices()) {
-      let indexname = attachedindex.indexName;
+      let indexName = attachedindex.indexName;
       if (attachedindex.readOnly)
-        indexname = `${indexname}(r/o)`;
-      storage.push(indexname);
+        indexName = `${indexName}(r/o)`;
+      storage.push(indexName);
     }
 
     if (storage.length >= 1)
@@ -271,7 +271,7 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   /** Get a raw opensearch-project/opensearch client for the index
    * @returns An object containing a client and the indexname to use
    */
-  async getRawClient(): Promise<{ client: OpenSearchClient; indexname: string; suffix: string }> {
+  async getRawClient(): Promise<{ client: OpenSearchClient; indexName: string; suffix: string }> {
     const indices = await this.listFullAttachedIndices();
     if (!indices.length)
       throw new Error(`No indices attached to catalog '${this.tag}'`);
@@ -280,7 +280,7 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     const { Client } = imp;
     return {
       client: new Client({ node: indices[0].baseurl }),
-      indexname: indices[0].indexName,
+      indexName: indices[0].indexName,
       suffix: indices[0].suffix
     };
   }
@@ -297,8 +297,8 @@ class CatalogObj<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     if (req.index)
       throw new Error("Don't specify the index in the search request, it's automatically set by the catalog");
 
-    const { client, indexname, suffix } = await this.getRawClient();
-    return (await client.search({ index: indexname + suffix, ...req })).body as SearchResult<SearchDocument>;
+    const { client, indexName, suffix } = await this.getRawClient();
+    return (await client.search({ index: indexName + suffix, ...req })).body as SearchResult<SearchDocument>;
   }
 
   /** Bulk upload */
