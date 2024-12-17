@@ -103,6 +103,10 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
+
+      events = test.getPxlLog(/^platform:form_.*/);
+      test.assert(!events.find(_ => _.event === "platform:form_nextpage" && _.data.dn_formmeta_targetpagenum >= 5), "No nextpages for page 5 (thankyou) should be present");
+      test.eqPartial({ event: "platform:form_submitted" }, events.at(-1), "Last event should be 'submitted', not 'nextpage'");
     },
 
     async function () {
