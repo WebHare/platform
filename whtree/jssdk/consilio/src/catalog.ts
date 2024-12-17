@@ -31,6 +31,10 @@ function getBuiltinOpensearchAddress() {
   return `http://${host}:${baseport + whconstant_consilio_osportoffset}/`;
 }
 
+function getOSIndexName(indexName: string, suffix: string) {
+  return indexName + (suffix ? "-" + suffix : "");
+}
+
 type OpenSearchDocument = { _id?: string } & Record<string, unknown>;
 
 // Extend opensearch model to support document type
@@ -75,7 +79,8 @@ class BulkUploadError extends Error {
 class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   private queue: Array<{ doc: OpenSearchDocument; suffix: string }> = [];
   private errors: Array<ErrorCause & { _id: string }> = [];
-  private updatedIndices: Set<string> = new Set();
+  private updatedSuffixes: Set<string> = new Set();
+  private ensuredSuffixes: Set<string> = new Set();
   queuesize = 0;
   debug;
 
@@ -104,16 +109,22 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     this.queuesize = 0;
 
     //FIXME prevent use of -suffix if index isn't suffixed, and vice versa
-    //FIXME ensure indices are created peroperly before writing
     const body = queued.flatMap(({ doc, suffix }) => {
-      const index = indexname + (suffix ? "-" + suffix : "");
+      const index = getOSIndexName(indexname, suffix);
       const addDoc = omit(doc, ["_id"]);
-      this.updatedIndices.add(index);
+      this.updatedSuffixes.add(suffix);
       return [
         doc?._id ? { update: { _index: index, _id: doc._id } } : { create: { _index: index } },
         doc?._id ? { doc: addDoc, doc_as_upsert: true } : addDoc
       ];
     });
+
+    //Create any necessary suffixes
+    const toAdd = [...this.updatedSuffixes].filter(suffix => suffix && !this.ensuredSuffixes.has(suffix));
+    if (toAdd.length) {
+      await this.catalog.applyConfiguration({ suffixes: toAdd });
+      this.ensuredSuffixes.forEach(suffix => this.updatedSuffixes.delete(suffix));
+    }
 
     //NOTE do *not* use client.helpers.bulk - it doesn't report errors!
     if (this.debug)
@@ -138,15 +149,15 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   }
 
   async finish({ refresh = false } = {}) {
-    const { client } = await this.catalog.getRawClient();
+    const { client, indexname } = await this.catalog.getRawClient();
 
     if (this.queue.length)
       await this.flush();
     if (this.errors.length)
       throw new BulkUploadError(this.errors);
     if (refresh)
-      for (const index of this.updatedIndices)
-        await client.indices.refresh({ index });
+      for (const suffix of this.updatedSuffixes)
+        await client.indices.refresh({ index: getOSIndexName(indexname, suffix) });
   }
 }
 

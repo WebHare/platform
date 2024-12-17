@@ -162,7 +162,7 @@ async function testSuffixes() {
     await test.throws(/Invalid suffix/, () => inserter.index({ _id: "doc0", no: { such: { field: { yet: 0 } } } }, { suffix: "-invalid" }));
     await inserter.index({ _id: "doc1", no: { such: { field: { yet: 1 } } } }, { suffix: "sfx2" });
     await inserter.index({ _id: "doc2", no: { such: { field: { yet: 2 } } } }, { suffix: "sfx2" });
-    await inserter.index({ _id: "doc3", no: { such: { field: { yet: 3 } } } }, { suffix: "sfx3" });
+    await inserter.index({ _id: "doc3", no: { such: { field: { yet: 3 } } }, nosuchfieldyet_extra: "StringVeld" }, { suffix: "sfx3" });
     await inserter.finish({ refresh: true });
   }
 
@@ -188,6 +188,12 @@ async function testSuffixes() {
       _source: { no: { such: { field: { yet: 3 } } } }
     }
   ], sfx2docs_hits);
+
+  //Verify the mapping on index -sfx3
+  const clientinfo = await cat.getRawClient();
+  const mapping = await clientinfo.client.indices.getMapping({ index: clientinfo.indexname + "-sfx3" });
+  const myMapping = mapping.body[`${clientinfo.indexname}-sfx3`].mappings;
+  test.eq("keyword", myMapping.properties?.nosuchfieldyet_extra.type);
 }
 
 test.run([
