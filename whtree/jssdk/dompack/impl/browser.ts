@@ -84,5 +84,11 @@ export function isCopyKey(event: KeyboardEvent): boolean {
   return browser.platform === 'mac' ? event.altKey : event.ctrlKey;
 }
 
-//module.exports =
+/** @deprecated Use getBrowser() instead, available since WH5.6.3. We will remove `browser` in the future to improve tree shaking */
 export const browser: Readonly<UserAgentInfo> = Object.freeze(parseUserAgent(globalThis.navigator?.userAgent || ""));
+
+/** Get browser information */
+export function getBrowser(): Readonly<UserAgentInfo> {
+  //Offer this as a function to improve treeshakability
+  return browser;
+}

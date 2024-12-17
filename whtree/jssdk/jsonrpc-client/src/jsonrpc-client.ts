@@ -327,8 +327,11 @@ type ConvertToRPCInterface<ServiceType> = {
   [K in Exclude<keyof ServiceType, `_${string}` | "close" | "emit"> as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<ServiceType[K]> : never;
 };
 
+/** Get the client interface type as would be returned by createClient */
+export type GetClientInterface<Client> = ConvertToRPCInterface<Client> & ServiceBase<ConvertToRPCInterface<Client>>;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- If you don't care to type the service, just assume it can do anything
-export function createClient<T = any>(servicename: string, options?: RPCCallOptions): ConvertToRPCInterface<T> & ServiceBase<ConvertToRPCInterface<T>> {
+export function createClient<Client = any>(servicename: string, options?: RPCCallOptions): GetClientInterface<Client> {
   const rpcclient = new RPCClient(servicename, options);
-  return new Proxy({}, new ServiceProxy<T>(rpcclient)) as ConvertToRPCInterface<T> & ServiceBase<ConvertToRPCInterface<T>>;
+  return new Proxy({}, new ServiceProxy<Client>(rpcclient)) as GetClientInterface<Client>;
 }

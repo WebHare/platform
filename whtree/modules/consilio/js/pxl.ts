@@ -249,4 +249,3 @@ export function sendPxlEvent(event: string, data?: PxlEventData | null, options?
     }
   }
 }
-setPxlOptions(null);

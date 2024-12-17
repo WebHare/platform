@@ -8,12 +8,10 @@ const backup: {
 } = {};
 type BrowserStorage = keyof typeof backup;
 
-//isolate us when running previews, CI tests use same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
-const isolated = typeof document === "undefined" || "whIsolateStorage" in document.documentElement.dataset;
-
-/** @returns True if our storage is fully isolated */
+/** We isolate ourselves for eg. widget previews - CI tests which same Chrome for both preview and tests so the previews start increasing visitorcounts behind our back
+ @returns True if our storage is fully isolated */
 export function isIsolated(): boolean {
-  return isolated;
+  return typeof document === "undefined" || "whIsolateStorage" in document.documentElement.dataset;
 }
 
 export function listCookies() {
@@ -50,7 +48,7 @@ export function deleteCookie(key: string, options?: CookieOptions) {
 // Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'
 let _available: boolean;
 export function isStorageAvailable(): boolean {
-  if (isolated)
+  if (isIsolated())
     return true;
 
   if (_available === undefined) {
@@ -65,7 +63,7 @@ export function isStorageAvailable(): boolean {
 
 function get(storage: BrowserStorage, key: string): unknown | null {
   let foundvalue = backup[storage]?.[key];
-  if (foundvalue === undefined && !isolated) { //it's not in the backup
+  if (foundvalue === undefined && !isIsolated()) { //it's not in the backup
     try {
       foundvalue = window[storage].getItem(key) || undefined;
     } catch (e) {
@@ -78,7 +76,7 @@ function get(storage: BrowserStorage, key: string): unknown | null {
 
 function set(storage: BrowserStorage, key: string, value: unknown) {
   const tostore = value !== null && value !== undefined ? stringify(value, { typed: true }) : null;
-  if (!backup[storage] && !isolated) //we didn't fall back yet
+  if (!backup[storage] && !isIsolated()) //we didn't fall back yet
     try {
       if (tostore !== null)
         window[storage].setItem(key, tostore);
