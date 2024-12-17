@@ -1,4 +1,4 @@
-/** Based on https://www.npmjs.com/package/ip6, reated by elgs on 3/5/16.*/
+/** Based on https://www.npmjs.com/package/ip6, created by elgs on 3/5/16.*/
 function normalizeIP6(a: string) {
   a = a.toLowerCase();
 

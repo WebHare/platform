@@ -126,7 +126,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     if (options?.start && (logfiledate.getTime() + (86400 * 1000)) <= options.start.getTime())
       continue;
 
-    if (options?.continueAfter && options?.continueAfter.split(':')[0] > `A${datetok}:`) //An id/contintuation point was given and it's not in this file
+    if (options?.continueAfter && options?.continueAfter.split(':')[0] > `A${datetok}:`) //An id/continuation point was given and it's not in this file
       continue;
 
     //if the 'first' possible entry is past the limit, skip the file
