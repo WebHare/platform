@@ -5,24 +5,25 @@
 
   <screen name="editunit" allowresize="true" footerbuttons="ok cancel" gid="userrights.editunit">
     <compositions>
-      <wrd:entity name="entity" wrdtype="WHUSER_UNIT" />
-      <record composition="entity" cellname="expiration" name="expiration" />
+      <wrd:entity name="unitentity" wrdtype="WHUSER_UNIT" />
+      <record composition="unitentity" cellname="expiration" name="expiration" />
     </compositions>
 
     <body spacers="none">
-      <tabs>
+      <tabs name="maintabs">
         <tab tid="~properties">
-          <textedit composition="entity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
-          <textarea composition="entity" cellname="whuser_comment" height="1pr" tid="~comments" />
+          <textedit composition="unitentity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
+          <textarea composition="unitentity" cellname="whuser_comment" height="4gr" tid="~comments" />
+          <spacer name="extensionpoint" visible="false" />
         </tab>
         <tab tid="~settings">
-          <heading composition="entity"
+          <heading composition="unitentity"
                    cellname="override_passwordchecks"
                    name="override_passwordchecks"
                    checkbox="true"
                    enablecomponents="passwordchecks" />
-          <system:passwordvalidationchecks composition="entity" cellname="passwordchecks" name="passwordchecks" />
-          <heading composition="entity"
+          <system:passwordvalidationchecks composition="unitentity" cellname="passwordchecks" name="passwordchecks" />
+          <heading composition="unitentity"
                    cellname="override_expiration"
                    name="override_expiration"
                    checkbox="true"
@@ -33,7 +34,7 @@
                         onbrowse="selectduration"
                         onmapvalue="mapduration" />
           <heading tid=".policy" />
-          <select composition="entity" cellname="usereditpolicy" name="usereditpolicy" type="pulldown" />
+          <select composition="unitentity" cellname="usereditpolicy" name="usereditpolicy" type="pulldown" />
         </tab>
       </tabs>
     </body>
