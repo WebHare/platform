@@ -1,4 +1,4 @@
-import { buildPxlParser, type PxlDocType } from '@mod-platform/js/logging/accesslog';
+import { buildPxlParser, type PxlDocType } from '@mod-platform/js/logging/pxllog';
 import { openCatalog, type Catalog } from '@webhare/consilio';
 import { lockMutex, readLogLines } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';

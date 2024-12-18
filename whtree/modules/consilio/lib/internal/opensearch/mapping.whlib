@@ -381,7 +381,7 @@ PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, 
   }
 
   IF(catalogtag = "platform:pxl") //TODO make configurable and use for consilio:whfs too... but let's not bother until we port the fieldmaps to YML and this management code to TS
-    fields := CallJS("@mod-platform/js/logging/accesslog.ts#addPxlFieldMappings", fields);
+    fields := CallJS("@mod-platform/js/logging/pxllog.ts#addPxlFieldMappings", fields);
 
   // If there are any suggested fields, add a '_suggested' field with 'completion' type (TODO support 'deeper' suggested fields)
   STRING ARRAY suggestedfields := (SELECT AS STRING ARRAY name FROM fields WHERE suggested);

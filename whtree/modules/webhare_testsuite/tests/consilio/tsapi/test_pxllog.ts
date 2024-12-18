@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-backend";
 import { anonymizeIPAddress } from "@mod-platform/js/logging/parsersupport.ts";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { buildPxlParser, getYMLPxlConfigs, PxlDocType } from "@mod-platform/js/logging/accesslog.ts";
+import { buildPxlParser, getYMLPxlConfigs, PxlDocType } from "@mod-platform/js/logging/pxllog";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, readLogLines, scheduleTimedTask } from "@webhare/services";
 import { sendPxl, setPxlOptions } from "@webhare/frontend/src/pxl"; //we may be able to use @webhare/frontend iff it stops loading CSS
@@ -17,7 +17,6 @@ async function testBasicAPIs() {
 }
 
 async function testPxlConfig() {
-  console.log("testPxlConfig");
   await test.throws(/Circular includeFields/, async () => getYMLPxlConfigs(await parseAndValidateModuleDefYMLText(`
     pxlEvents:
       yin:
@@ -62,7 +61,6 @@ const logfile = `
 `;
 
 async function testPxlParser() {
-  console.log("textPxlParser");;
   const parser = await buildPxlParser();
   const reader = readLogLines("platform:pxl", { content: logfile });
 
@@ -92,7 +90,6 @@ async function testPxlParser() {
       }, userid: "anonymous"
     }, parsed);
   }
-  console.log("textPxlParser");;
 
   {
     const sourceLine = (await reader.next()).value;
@@ -128,8 +125,6 @@ async function testPxlParser() {
       }
     }, parsed);
   }
-  console.log("textPxlParser 3");;
-
 }
 
 async function testPxlTrueEvents() {
@@ -139,17 +134,14 @@ async function testPxlTrueEvents() {
   setPxlOptions({ url: backendConfig.backendURL + ".wh/ea/px/" });
   sendPxl("webhare_testsuite:aa", { s: teststring, n: 121277 });
 
-  console.error("WAIT FOR MY PIXELS", teststring);
   await test.wait(async () => {
     const lines = await readJSONLogLines("platform:pxl", test.startTime) as unknown as Array<{ url: string }>;
     return lines.find(line => line.url.includes(teststring));
   });
 
-  console.log(0);
   await beginWork();
   const pxltask = await scheduleTimedTask("platform:updatepxllog");
   await commitWork();
-  console.log(0);
 
   await pxltask.taskDone;
 
