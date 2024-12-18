@@ -91,3 +91,5 @@ pxlEvents:
       n: number
       b: boolean
   event: {}
+  testevent:
+    includeFields: aa
