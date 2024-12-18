@@ -2,6 +2,8 @@
 
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
+
 LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
@@ -23,12 +25,15 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
             ORDER BY title)
         ];
 
-    ^entity->Load(data.unit);
+    SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:unitproperties" ]);
+
+    ^unitentity->Load(data.unit);
     IF(data.unit = 0)
-      ^entity->extradata := [ wrd_leftentity := data.parent ];
+      ^unitentity->extradata := [ wrd_leftentity := data.parent ];
 
     ^override_passwordchecks->enabled := this->contexts->user->HasRight("system:sysop");
     ^override_expiration->enabled := this->contexts->user->HasRight("system:sysop");
+    ^maintabs->RunExtensionsPostInit();
   }
 
   STRING FUNCTION SelectDuration(STRING value)
@@ -42,15 +47,16 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
   INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork( [ mutex := "wrd:usermgmt" ]);
-    INTEGER parent := ^entity->entityid = 0 ? ^entity->extradata.wrd_leftentity : ^entity->wrdentity->GetField("WRD_LEFTENTITY");
+    INTEGER parent := ^unitentity->entityid = 0 ? ^unitentity->extradata.wrd_leftentity : ^unitentity->wrdentity->GetField("WRD_LEFTENTITY");
 
     this->contexts->userapi->__CheckName(this->contexts->userapi->GetUnit(parent)
-                                        ,^entity->^wrd_title->value
-                                        ,^entity->entityid
+                                        ,^unitentity->^wrd_title->value
+                                        ,^unitentity->entityid
                                         ,FALSE //foruser
                                         ,work);
 
-    INTEGER unitid := ^entity->Store(work);
+    INTEGER unitid := ^unitentity->Store(work);
+    ^maintabs->SubmitExtensions(work);
     IF(NOT work->HasFailed())
       this->contexts->userapi->SyncUnitAfterUpdate(unitid);
 
