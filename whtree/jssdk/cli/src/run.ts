@@ -1,3 +1,5 @@
+import { getBestMatch } from "@webhare/js-api-tools";
+
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /// Type that can be returned by main() functions
@@ -38,7 +40,7 @@ type OptionsTemplate = {
 
 /** An arguments, with an optional formatter */
 type Argument<J> = {
-  name: `<${string}>` | `[${string}]` | `...${string}`;
+  name: `<${string}>` | `[${string}]` | `[${string}...]` | `<${string}...>`;
   description?: string;
   format?: CLIArgumentFormat<J>;
 };
@@ -79,7 +81,7 @@ type WidenDefaultLiteral<T> = T extends boolean ? boolean : T extends string ? s
 type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: Simplify<Omit<Options[Key], "default"> & { default: GetParsedFormat<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> }> };
 
 /// Sanitizes the options and arguments of subcommands
-type SanitizeSubCommandOptArgs<SubCommands extends Record<string, SubCommandTemplate>> = { [Key in keyof SubCommands]: SanitizeOptArgs<SubCommands[Key]> };
+type SanitizeSubCommandOptArgs<SubCommands extends Record<string, SubCommandTemplate>> = { [Key in keyof SubCommands]: SanitizeOptArgs<SubCommands[Key]> & SubCommandTemplate };
 
 /// Sanitizes a single argument. FIXME: probably not needed, see if validation of arguments is ok
 type SanitizeArgument<ThisArgument extends Argument<any>> = ThisArgument; // extends { format: CLIArgumentFormat<any> } ? ThisArgument : ThisArgument extends { format?: any } ? Omit<ThisArgument, "format"> & { format: CLIArgumentFormat<any> } : ThisArgument;
@@ -101,10 +103,10 @@ type SanitizeOptArgs<O extends OptArgBase> =
 type GetFormatterType<O extends { format: CLIArgumentFormat<any> }> = ReturnType<O["format"]["parseValue"]>;
 
 /// Determine the type of an argument (taking the formatter into account)
-type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `...${string}` ? Array<GetParsedFormat<A, string>> : GetParsedFormat<A, string>;
+type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? Array<GetParsedFormat<A, string>> : GetParsedFormat<A, string>;
 
 /// Determine the name of an argument (stripping `...`, `[]` and `<>`)
-type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `...${infer S}` ? S : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never;
+type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `[${infer S}...]` ? S : A["name"] extends `<${infer S2}...>` ? S2 : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never;
 
 /// Get the parsed format for an option or an argument. Simplify<> is needed to work around some weird stuff in the TS compiler. `O extends object` doesn't seem to work here?
 type GetParsedFormat<O extends object, Default> = Simplify<O> extends { readonly format: CLIArgumentFormat<any> } ? GetFormatterType<Simplify<O>> : Default;
@@ -129,16 +131,22 @@ type OptionsResult<Options extends Record<string, OptionsTemplate>> = Simplify<{
 
 /// Calculate the resulting values record for arguments
 type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Arguments] extends [never[]] ? object : Simplify<
-  { [ThisArgument in (Arguments[number]) as ThisArgument["name"] extends `<${string}>` | `...${string}` ? NameOfArgument<ThisArgument> : never]: TypeOfArgument<ThisArgument> } &
+  { [ThisArgument in (Arguments[number]) as ThisArgument["name"] extends `<${string}>` | `[${string}...]` | `[${string}...]` ? NameOfArgument<ThisArgument> : never]: TypeOfArgument<ThisArgument> } &
   { [ThisArgument in (Arguments[number]) as ThisArgument["name"] extends `[${string}]` ? NameOfArgument<ThisArgument> : never]?: TypeOfArgument<ThisArgument> }
 >;
 
+type MainData<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> = Simplify<{
+  args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & OptArgBase["arguments"] & {}>>;
+  opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
+  specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
+} & (Cmd extends string ? { cmd: Cmd } : { cmd?: undefined })>;
+
 /// Build the declarations for the main functions
-type MainDeclarations<Rec extends OptArgBase, ExtraOpts extends OptArgBase | null = null> =
+type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
   (Simplify<Rec> extends { subCommands: any } ? {
-    subCommands: { [K in keyof Rec["subCommands"]]: MainDeclarations<Simplify<Rec>["subCommands"][K], Rec> };
+    subCommands: { [K in keyof Rec["subCommands"] & string]: MainDeclarations<Simplify<Rec>["subCommands"][K], K, Rec> };
   } : {
-    main: (args: ArgumentsResult<Rec["arguments"] & {}>, opts: Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>) => CommandReturn;
+    main: (data: MainData<Rec, Cmd, ExtraOpts>) => CommandReturn;
   });
 
 /// Infers the type of the options and arguments of a record
@@ -148,16 +156,15 @@ type GetRootOptionsArguments<T> = { [K in keyof T & ("options" | "arguments")]: 
 type GetSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: GetRootOptionsArguments<T[K][C]> } };
 
 /// Convert {} to object for options. For some reason, `& object` doesn't work here
-type NarrowOpts<O> = {} extends O ? object : O;
+type NarrowTruthy<O> = {} extends Required<O> ? object : O;
 
 /// The result of parsing a commandline with the 'parse' function
 type ParseResult<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
   (Rec extends { subCommands: any } ? {
-    [K in keyof Rec["subCommands"] & string]: Simplify<{ command: K } & ParseResult<Rec["subCommands"][K], K, Rec>>
-  }[keyof Rec["subCommands"] & string] : Simplify<{
-    args: ArgumentsResult<Rec["arguments"] & {}>;
-    opts: NarrowOpts<Simplify<OptionsResult<Rec["options"] & object> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
-  } & (Cmd extends string ? { command: Cmd } : { command?: undefined })>);
+    [K in keyof Rec["subCommands"] & string]: ParseResult<Rec["subCommands"][K], K, Rec>
+  }[keyof Rec["subCommands"] & string] :
+    MainData<Rec, Cmd, ExtraOpts>);
+
 
 /** Check order of arguments, that required arguments aren't surrounded by optional arguments, max 1 rest parameter, etc
 */
@@ -168,9 +175,9 @@ function checkArgumentsOrder(args: Array<Argument<unknown>>, cmd?: string): { tr
   let trailingRequired = 0;
   const names: string[] = [];
   for (const arg of args) {
-    let level = arg.name[0] === "." ? 1 : arg.name[0] === "[" ? 2 : 3;
+    let level = arg.name.at(-2) === "." ? 1 : arg.name[0] === "[" ? 2 : 3;
     // Strip the <>, [] or ... from the name
-    const name = level === 1 ? arg.name.slice(3) : arg.name.slice(1, -1);
+    const name = level === 1 ? arg.name.slice(1, -4) : arg.name.slice(1, -1);
     // Test for duplicate names
     if (names.indexOf(name) !== -1)
       throw new CLIConfigError(`Argument ${JSON.stringify(name)} is specified twice`, cmd);
@@ -219,6 +226,7 @@ export function parse<
     registerOptions(data.options as Record<string, OptionsTemplate>);
 
   let command: [string, SubCommandTemplate] | undefined;
+  const specifiedOpts: string[] = [];
 
   let gotArgument = false;
   let gotOptionTerminator = false;
@@ -240,13 +248,14 @@ export function parse<
 
         const optionRef = optMap.get(key);
         if (!optionRef) {
-          // ADDME: did you mean?
-          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}`, command?.[0]);
+          const bestMatch = getBestMatch(key, [...optMap.keys()]);
+          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
         }
 
         const { storeName, optionRec } = optionRef;
-        let strValue = parts[1];
+        specifiedOpts.push(storeName);
 
+        let strValue = parts[1];
         if (typeof optionRec.default === "boolean" && !optionRec.format) {
           parsedOpts[storeName] = true;
         } else {
@@ -267,9 +276,10 @@ export function parse<
                   throw new CLISyntaxError(`Illegal number ${JSON.stringify(strValue)} specified for option ${JSON.stringify(key)}`, command?.[0]);
                 parsedOpts[storeName] = parsedNumber;
               } else
-                throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a formatter to generate that kind of type`, command?.[0]);
+                throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default
+                  }, and needs a formatter to generate that kind of type`, command?.[0]);
           } else {
-            parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: storeName, command: command?.[0] });
+            parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
           }
         }
       } else {
@@ -277,11 +287,12 @@ export function parse<
           const key = arg[j];
           const optionRef = optMap.get(key);
           if (!optionRef) {
-            // ADDME: did you mean?
-            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}`, command?.[0]);
+            const bestMatch = getBestMatch(key, [...optMap.keys()]);
+            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
           }
 
           const { storeName, optionRec } = optionRef;
+          specifiedOpts.push(storeName);
           if (typeof optionRec.default === "boolean" && !optionRec.format) {
             parsedOpts[storeName] = true;
           } else {
@@ -307,7 +318,7 @@ export function parse<
                 } else
                   throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a formatter to generate that kind of type`, command?.[0]);
             } else {
-              parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: storeName, command: command?.[0] });
+              parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
             }
           }
         }
@@ -318,8 +329,8 @@ export function parse<
         if (data.subCommands) {
           const cmdObj = data.subCommands[arg];
           if (!cmdObj) {
-            // ADDME: did you mean?
-            throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}`);
+            const bestMatch = getBestMatch(arg, Object.keys(data.subCommands));
+            throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`);
           }
           command = [arg, cmdObj];
           if (cmdObj.options)
@@ -334,39 +345,44 @@ export function parse<
   if (data.subCommands && !command)
     throw new CLISyntaxError(`No subcommand specified`);
 
-  // ADDME: allow required arguments as last arguments
   const cmdArgs = ((command ? command[1].arguments : data.arguments) || []) as Array<Argument<unknown>>;
   const { trailingRequired } = checkArgumentsOrder(cmdArgs, command?.[0]);
 
-  // prefill the args record
+  // parse the arguments
   for (const arg of cmdArgs) {
-    if (arg.name.startsWith("<")) {
+    if (arg.name.endsWith("...>") || arg.name.endsWith("...]")) {
+      const name = arg.name.slice(1, -4);
+      const minRequired = arg.name.startsWith("<") ? 1 : 0;
+      const parsed = argList.length <= trailingRequired ?
+        [] :
+        argList.splice(0, Math.max(minRequired, argList.length - trailingRequired))
+          .map(value => arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value);
+      if (parsed.length < minRequired)
+        throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
+      parsedArgs[name] = parsed;
+    } else if (arg.name.startsWith("<")) {
       const name = arg.name.slice(1, -1);
       if (!argList.length)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
       const value = argList.shift()!;
-      parsedArgs[name] = arg.format?.parseValue(value, { argName: name, command: command?.[0] }) ?? value;
+      parsedArgs[name] = arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
     } else if (arg.name.startsWith("[")) {
       const name = arg.name.slice(1, -1);
       const value = argList.length > trailingRequired ? argList.shift() : undefined;
       if (value !== undefined)
-        parsedArgs[name] = arg.format?.parseValue(value, { argName: name, command: command?.[0] }) ?? value;
-    } else if (arg.name.startsWith("...")) {
-      const name = arg.name.slice(3);
-      parsedArgs[name] = argList.length <= trailingRequired ?
-        [] :
-        argList.splice(0, argList.length - trailingRequired)
-          .map(value => arg.format?.parseValue(value, { argName: name, command: command?.[0] }) ?? value);
-    }
+        parsedArgs[name] = arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
+    } else
+      throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command?.[0]);
   }
 
   if (argList.length)
     throw new CLISyntaxError(`Too many arguments`, command?.[0]);
 
   return {
-    ...(command && { command: command?.[0] }),
+    cmd: command?.[0],
     args: parsedArgs,
     opts: parsedOpts,
+    specifiedOpts,
   } as ParseResult<E & S, null>;
 }
 
@@ -396,14 +412,14 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
 
       const cmdOptionEntries = Object.entries(commandRec?.options || {}).sort(([a], [b]) => a.localeCompare(b));
       if (cmdOptionEntries.length) {
-        console.log(`Options:`);
+        console.log(`  Options:`);
         for (const [name, option] of cmdOptionEntries) {
-          console.error(`  ${name.padEnd(40, " ")} ${option.description || ""}`);
+          console.error(`    ${name.padEnd(40, " ")} ${option.description || ""}`);
         }
       }
-      console.log(`Arguments:`);
+      console.log(`  Arguments:`);
       for (const arg of commandRec.arguments || []) {
-        console.error(`  ${arg.name.padEnd(40, " ")} ${arg.description || ""}`);
+        console.error(`    ${arg.name.padEnd(40, " ")} ${arg.description || ""}`);
       }
     } else {
       console.log(`Subcommands:`);
@@ -424,36 +440,49 @@ export function run<
   const S extends object
 >(
   data: GetRootOptionsArguments<E> & GetSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>>,
-  argv: string[]
-): void {
+  options: {
+    argv?: string[];
+  } = {}
+): { onDone?: () => void } {
+  const runReturn: { onDone?: () => void } = {};
+
   let parsed;
   try {
     // The return type of parse is not very useful in this (generic) context, so we cast it to a useful type
-    parsed = parse<E, S>(data, process.argv.slice(2)) as { args: object; opts: object; command?: string };
+    parsed = parse<E, S>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string };
   } catch (e) {
     if (e instanceof CLIError) {
       printHelp(data, { error: e });
       process.exitCode = 1;
-      return;
+      void Promise.resolve(true).then(() => runReturn.onDone?.());
+      return runReturn;
     }
     throw e;
   }
-  type MainFunc = (arg: object, opts: object) => CommandReturn;
+  type MainFunc = (arg: object) => CommandReturn;
   let retval: CommandReturn;
-  if (parsed.command) {
-    const cmd = data.subCommands![parsed.command];
-    retval = (cmd.main as MainFunc)(parsed.args, parsed.opts);
+  if (parsed.cmd) {
+    const cmd = data.subCommands![parsed.cmd];
+    retval = (cmd.main as MainFunc)(parsed);
   } else
-    retval = (data as { main: MainFunc }).main(parsed.args, parsed.opts);
+    retval = (data as { main: MainFunc }).main(parsed);
 
   // process the return value
-  if (typeof retval === "number")
-    process.exitCode ??= retval;
-  else if (retval && typeof retval === "object" && typeof retval.then === "function")
+  if (retval && typeof retval === "object" && typeof retval.then === "function") {
     void retval.then((code) => {
-      if (code !== undefined)
+      if (typeof code === "number")
         process.exitCode ??= code;
+      runReturn.onDone?.();
+    }); // don't catch, let the error be handled by uncaughtException handler
+  } else {
+    if (typeof retval === "number")
+      process.exitCode ??= retval;
+    void Promise.resolve(true).then(() => {
+      runReturn.onDone?.();
     });
+  }
+
+  return runReturn;
 }
 
 export function intRange(start?: number, end?: number): CLIArgumentFormat<number> {
@@ -463,9 +492,9 @@ export function intRange(start?: number, end?: number): CLIArgumentFormat<number
       if (isNaN(parsed))
         throw new CLISyntaxError(`Illegal integer ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
       if (start !== undefined && parsed < start)
-        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start}`, options.command);
+        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start} for ${options.argName}`, options.command);
       if (end !== undefined && parsed > end)
-        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end}`, options.command);
+        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end} for ${options.argName}`, options.command);
       return parsed;
     },
     description: `integer between ${start ?? "-∞"} and ${end ?? "∞"}`,
@@ -479,9 +508,9 @@ export function floatRange(start?: number, end?: number): CLIArgumentFormat<numb
       if (isNaN(parsed))
         throw new CLISyntaxError(`Illegal number ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
       if (start !== undefined && parsed < start)
-        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start}`, options.command);
+        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start} for ${options.argName}`, options.command);
       if (end !== undefined && parsed > end)
-        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end}`, options.command);
+        throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end} for ${options.argName}`, options.command);
       return parsed;
     },
     description: `number between ${start ?? "-∞"} and ${end ?? "∞"}`,
