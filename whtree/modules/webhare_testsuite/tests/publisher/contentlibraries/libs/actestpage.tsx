@@ -1,9 +1,6 @@
 import * as dompack from '@webhare/dompack';
 import * as beacons from '@mod-publisher/js/contentlibraries/beacons';
 
-if (!window.dataLayer)
-  window.dataLayer = [];
-
 function updateBeacons(nd: HTMLElement) {
   if (window.__testdcoptions && window.__testdcoptions.now)
     nd.textContent = `Override test date ${window.__testdcoptions.now.toISOString()}`;

@@ -1,4 +1,5 @@
 import { qSA } from "@webhare/dompack";
+import { debugFlags } from "@webhare/env";
 import type { FormAnalyticsEvent } from "@webhare/forms";
 
 export type DataLayerVar = boolean | string | number | { [key: string]: DataLayerVar };
@@ -16,10 +17,33 @@ declare global {
 
 //ADDME if we ever figure out a bundler trick to flush this command to the top of all imports/loads, that would be great (we could consider *ALWAYS* putting this in the generated startup code, or we'd need to do a tree pre-walk to see if gtm.es is loaded anywhere)
 window.dataLayer ||= [];
+let lastSeen: DataLayerEntry | undefined;
 
-/** Push to the dataLayer */
-export function pushToDataLayer(vars: DataLayerEntry) {
+function showDataLayerUpdates() {
+  if (typeof window.dataLayer === 'undefined')
+    return; //not set up (yet?)
+
+  if (debugFlags.anl)
+    window.dataLayer.slice(window.dataLayer.indexOf(lastSeen!) + 1).forEach(entry => console.log("[anl] dataLayer.push:", entry));
+
+  lastSeen = window.dataLayer[window.dataLayer.length - 1];
+}
+
+/** Push to the dataLayer
+ * @param vars - The variables to push
+ * @param options - Options for the push
+ *   timeout Time before any eventCallback is forcibly called (default 200ms)
+*/
+export function pushToDataLayer(vars: DataLayerEntry, options?: { timeout?: number }) {
+  if (vars.eventCallback) { //we'll wrap the callback into a promise to ensure it's only invoked once
+    const savecallback = vars.eventCallback;
+    let newcallback: () => void;
+    void (new Promise<void>(resolve => newcallback = resolve)).then(() => savecallback());
+    setTimeout(() => newcallback, options?.timeout || 200);
+  }
+
   window.dataLayer.push(vars);
+  showDataLayerUpdates();
 }
 
 function collectFormValues(formnode: HTMLFormElement): Record<string, unknown> {
@@ -74,11 +98,23 @@ function collectFormValues(formnode: HTMLFormElement): Record<string, unknown> {
   return outdata;
 }
 
+/** Setup the dataLayer */
+let didinit: boolean | undefined;
+export function setupGTM() {
+  if (!didinit) {
+    didinit = true;
+    if (debugFlags.anl)
+      setInterval(showDataLayerUpdates, 100);
+  }
+}
+
 /** Setup dataLayer events for form analytics events
  * @param options - Options for the form analytics setup
      - `eventPrefix`. Prefix to use. Default is `wh-platform:form_` but existing integrations may (also) require `publisher:form`
 */
 export function setupFormAnalyticsForGTM(options?: { eventPrefix: string }): void {
+  setupGTM(); //ensurse the GTM basics are installed
+
   addEventListener("wh:form-analytics", (e: FormAnalyticsEvent) => {
     //we use the same prefixing as pxl events would
     const entry: DataLayerEntry = {

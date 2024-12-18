@@ -704,19 +704,20 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   }
 
   /** Goto a specific page
-      @param pageidx - 0-based index of page to jump to */
-  async gotoPage(page: number | HTMLElement): Promise<void> {
+      @param page - 0-based index of page or the HTML element of the page to jump to */
+  async gotoPage(page: number | HTMLElement, { __isSubmit = false } = {}): Promise<void> {
     const state = this._getPageState();
     const pageidx = getPageIdx(state, page);
     if (state.curpage === pageidx)
       return;
 
     const goingforward = pageidx > state.curpage;
-    this.sendFormEvent({
-      event: goingforward ? 'nextpage' : 'previouspage',
-      targetpagenum: pageidx + 1,
-      targetpagetitle: this._getPageTitle(pageidx)
-    });
+    if (!__isSubmit)
+      this.sendFormEvent({
+        event: goingforward ? __isSubmit ? 'submitted' : 'nextpage' : 'previouspage',
+        targetpagenum: pageidx + 1,
+        targetpagetitle: this._getPageTitle(pageidx)
+      });
 
     this._updatePageVisibility(state.pages, pageidx);
     if (goingforward) //only makes sense to update if we're making progress
@@ -1181,7 +1182,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           navigateTo({ type: "redirect", url: redirectto });
         else {
           this.updateRichValues(state.pages[nextpage], richvalues);
-          this.gotoPage(nextpage);
+          this.gotoPage(nextpage, { __isSubmit: true });
           if (redirectto) {
             // If redirectdelay==0 (redirect immediately, while showing the thank you page), redirect after a small delay to
             // give the browser time to hide the busy layer

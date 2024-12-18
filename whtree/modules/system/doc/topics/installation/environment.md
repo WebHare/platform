@@ -18,7 +18,8 @@ The base port number for various connections. If not set, assumed to be 13679. T
 - `+0` (13679) - Rescue port. Serves an unencrypted webinterface even if the webserver configuration cannot be processed
 - `+5` (13684) - Trusted port - we trust `X-Forwarded-*` headers
 - `+6` (13685) - OpenSearch
-- `+7` (13686) - Reserved for OpenSearch dashboard
+- `+7` (13686) - Used to connnect to chrome headless runner
+- `+8` (13687) - Reserved for OpenSearch dashboard (WebHare runkit)
 
 ### WEBHARE_DTAPSTAGE
 Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'development'. If not set, configurable in WebHare.
