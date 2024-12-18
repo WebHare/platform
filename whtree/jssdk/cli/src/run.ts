@@ -17,6 +17,12 @@ export class CLISyntaxError extends CLIError {
 export class CLIConfigError extends CLIError {
 };
 
+export class CLIRuntimeError extends CLIError {
+  constructor(message: string, public options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
+    super(message, options.command);
+  }
+}
+
 export interface CLIArgumentFormat<ValueType> {
   /** Parses a user-provided value. Throws CLISyntaxError. Required to allow typeinference to work. */
   parseValue(arg: string, options: { argName: string; command?: string }): ValueType;
@@ -387,7 +393,7 @@ export function parse<
 }
 
 export function printHelp(data: ParseData, options: { error?: CLIError; command?: string } = {}): void {
-  if (options.error) {
+  if (options.error && options.error.message) {
     console.error(`Error: ${options.error.message}`);
     console.error(``);
   }
@@ -460,28 +466,37 @@ export function run<
     throw e;
   }
   type MainFunc = (arg: object) => CommandReturn;
-  let retval: CommandReturn;
-  if (parsed.cmd) {
-    const cmd = data.subCommands![parsed.cmd];
-    retval = (cmd.main as MainFunc)(parsed);
-  } else
-    retval = (data as { main: MainFunc }).main(parsed);
 
-  // process the return value
-  if (retval && typeof retval === "object" && typeof retval.then === "function") {
-    void retval.then((code) => {
-      if (typeof code === "number")
-        process.exitCode ??= code;
-      runReturn.onDone?.();
-    }); // don't catch, let the error be handled by uncaughtException handler
-  } else {
-    if (typeof retval === "number")
-      process.exitCode ??= retval;
-    void Promise.resolve(true).then(() => {
-      runReturn.onDone?.();
-    });
-  }
+  void (async () => {
+    try {
+      let retval: CommandReturn;
+      if (parsed.cmd) {
+        const cmd = data.subCommands![parsed.cmd];
+        retval = (cmd.main as MainFunc)(parsed);
+      } else
+        retval = (data as { main: MainFunc }).main(parsed);
 
+      retval = await retval;
+      if (typeof retval === "number")
+        process.exitCode ??= retval;
+    } catch (e) {
+      if (e instanceof CLIRuntimeError) {
+        if (e.options.showHelp)
+          printHelp(data, { error: e });
+        else if (e.message)
+          console.error(`Error: ${e.message}`);
+        if (e.options.exitCode !== undefined)
+          process.exitCode = e.options.exitCode;
+        else
+          process.exitCode ??= 1;
+      } else
+        throw e; // rethrow, let the uncaughtException handler handle it
+    } finally {
+      // Ensure we're one tick further, so the onDone handler can be set
+      await Promise.resolve();
+      runReturn.onDone?.();
+    }
+  })();
   return runReturn;
 }
 

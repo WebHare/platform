@@ -3,4 +3,4 @@ declare module "@webhare/cli" {
 }
 
 export { setAnsiCmdMode, ansiCmd } from "./ansi";
-export { run } from "./run";
+export { run, type CLIRuntimeError } from "./run";

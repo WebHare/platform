@@ -1,5 +1,5 @@
 
-import { intRange, parse, stringEnum, run } from "@webhare/cli/src/run";
+import { intRange, parse, stringEnum, run, CLIRuntimeError } from "@webhare/cli/src/run";
 import * as test from "@webhare/test-backend";
 
 async function testCLIMainParse() {
@@ -329,6 +329,24 @@ async function testCLIRun() {
       }
     }
   }, { argv: ["c", "-a", "a"] }));
+
+  // STORY: test CLIRuntimeError handling
+  // TODO: intercept console.log and check for output
+  test.eq(0, process.exitCode ?? 0);
+  await waitRunDone(run({
+    main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
+  }));
+  test.eq(1, process.exitCode);
+  await waitRunDone(run({
+    main() { throw new CLIRuntimeError("Test error", { exitCode: 2 }); }
+  }));
+  test.eq(2, process.exitCode);
+  await waitRunDone(run({
+    main() { throw new CLIRuntimeError("", {}); }
+  }));
+  test.eq(2, process.exitCode);
+  process.exitCode = 0;
+
 }
 
 test.run([
