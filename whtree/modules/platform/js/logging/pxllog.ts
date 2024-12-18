@@ -8,6 +8,7 @@ type PxlModuleFieldset = Record<string, string | number | boolean>;
 type PxlModuleFields = { [K in `mod_${string}`]: PxlModuleFieldset };
 
 export type PxlDocType = {
+  "_id": string;
   "@timestamp": Date;
   event: string;
   userid: string;
@@ -120,7 +121,8 @@ class PxlParser {
       }
     }
 
-    return {
+    const line: PxlDocType = {
+      _id: logline["@id"],
       "@timestamp": logline["@timestamp"],
       event: event,
       userid: params.get("pi") || "",
@@ -132,16 +134,20 @@ class PxlParser {
       user_agent: parseUserAgent(params.get("bt"), params.get("bd")),
       screen: parseScreen(params.get("bs"), params.get("bp")),
       remoteip: anonymizeIPAddress(logline.ip),
-      ...(georesult ? {
-        geoip: {
-          city: georesult.city?.names.en || '',
-          country: (georesult.country || georesult.registered_country)?.iso_code || '',
-          ...(georesult.location ? { location: { lat: georesult.location.latitude, lon: georesult.location.longitude } } : null),
-          region: georesult.subdivisions?.[0]?.names.en || ''
-        }
-      } : null),
-      [`mod_${event.split(":")[0]}`]: fields
     };
+
+    if (georesult)
+      line.geoip = {
+        city: georesult.city?.names.en || '',
+        country: (georesult.country || georesult.registered_country)?.iso_code || '',
+        ...(georesult.location ? { location: { lat: georesult.location.latitude, lon: georesult.location.longitude } } : null),
+        region: georesult.subdivisions?.[0]?.names.en || ''
+      };
+
+    if (Object.keys(fields).length)
+      line[`mod_${event.split(":")[0]}`] = fields;
+
+    return line;
   }
 }
 
@@ -173,4 +179,69 @@ export async function buildPxlParser() {
       Object.assign(configs, getYMLPxlConfigs(modyml));
 
   return new PxlParser(configs, await getCityLookupCall());
+}
+
+type HSConsilioFieldDef = {
+  settings: {
+    ignore_above?: number;
+  } | null;
+  name: string;
+  suggested: boolean;
+  properties: HSConsilioFieldDef[];
+  type: "datetime" | "keyword" | "integer64" | "record" | "float" | "ipaddress" | "integer" | "boolean";
+  defaultvalue: Date | string | number | boolean | null | bigint;
+  definedby: string;
+};
+
+function getFieldMappingForModule(modYml: ModDefYML) {
+  if (!modYml.pxlEvents)
+    return [];
+
+  const properties: HSConsilioFieldDef[] = [];
+  const fieldTypes: FieldTypes = new Map;
+  const seen = new Set<string>;
+  for (const key of Object.keys(modYml.pxlEvents || {})) {
+    try {
+      const fields = getFields(modYml, key, [], fieldTypes);
+      for (const [name, type] of Object.entries(fields)) {
+        if (seen.has(name))
+          continue;
+        seen.add(name);
+
+        properties.push({
+          settings: type === "string" ? { ignore_above: 1024 } : null,
+          name,
+          suggested: false,
+          properties: [],
+          //TODO number has a bigger range than integer, should we limit dn_ to +- 31 bits?
+          type: type === "boolean" ? "boolean" : type === "number" ? "integer" : "keyword",
+          defaultvalue: null,
+          definedby: modYml.baseResourcePath
+        });
+      }
+    } catch (e) {
+      //TODO Not sure yet where to push these errors but we don't want to fully shut down the pxl catalog? Probably we should just log or ignore here and have a validation step deal with it
+      console.error(`Error while processing pxlEvent '${modYml.module}:${key}': ${(e as Error).message}`, { cause: e });
+      return [];
+    }
+  }
+  return properties;
+}
+
+export async function addPxlFieldMappings(fields: HSConsilioFieldDef[]) {
+  for (const modYml of await getAllModuleYAMLs()) {
+    const props = getFieldMappingForModule(modYml);
+    if (props.length)
+      fields.push({
+        settings: null,
+        name: `mod_${modYml.module}`,
+        suggested: false,
+        properties: props,
+        type: "record",
+        defaultvalue: null,
+        definedby: modYml.baseResourcePath
+      } satisfies HSConsilioFieldDef);
+  }
+
+  return fields;
 }

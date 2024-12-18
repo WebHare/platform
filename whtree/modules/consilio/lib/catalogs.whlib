@@ -24,6 +24,7 @@ LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 
@@ -970,13 +971,21 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO ApplyConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    //TODO? allow us to explicitly specify suffixes to ensure/reconfigure
-    options := ValidateOptions(CELL[ suffixes := STRING[] ], options, [ optional := ["suffixes" ]]);
+    OBJECT lock := OpenLockManager()->LockMutex("consilio:updatecatalog." || this->id);
+    TRY
+    {
+      //TODO? allow us to explicitly specify suffixes to ensure/reconfigure
+      options := ValidateOptions(CELL[ suffixes := STRING[] ], options, [ optional := ["suffixes" ]]);
 
-    STRING ARRAY updatesuffixes := CellExists(options, 'suffixes') ? options.suffixes : this->__ListSuffixes();
+      STRING ARRAY updatesuffixes := CellExists(options, 'suffixes') ? options.suffixes : this->__ListSuffixes();
 
-    this->EnsureIndexSettings(updatesuffixes);
-    this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
+      this->EnsureIndexSettings(updatesuffixes);
+      this->ensuredsuffixes := ArrayUnion(this->ensuredsuffixes, updatesuffixes);
+    }
+    FINALLY
+    {
+      lock->Release();
+    }
   }
 
   /** @short Get the catalog's synonyms list
@@ -1118,20 +1127,28 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO DeleteSuffix(STRING suffix)
   {
-    IF(this->managed)
-      THROW NEW Exception(`Managed catalogs do not support manual document management`);
-    IF(suffix != "" AND NOT this->suffixed)
-      THROW NEW Exception(`Cannot DeleteSuffix on a non-suffixed catalog unless specifying an empty suffix`);
-    IF(suffix = "" AND this->suffixed)
-      THROW NEW Exception(`A suffixed catalog requires you to specify a suffix`);
+    OBJECT lock := OpenLockManager()->LockMutex("consilio:updatecatalog." || this->id);
+    TRY
+    {
+      IF(this->managed)
+        THROW NEW Exception(`Managed catalogs do not support manual document management`);
+      IF(suffix != "" AND NOT this->suffixed)
+        THROW NEW Exception(`Cannot DeleteSuffix on a non-suffixed catalog unless specifying an empty suffix`);
+      IF(suffix = "" AND this->suffixed)
+        THROW NEW Exception(`A suffixed catalog requires you to specify a suffix`);
 
-    //FIXME multiindex support.
-    RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ suffix ]);
-    IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
-      THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
+      //FIXME multiindex support.
+      RECORD res := DeleteIndexManagerContentSource(this->ListAttachedIndices()[0].indexmanager, this->id, 0, CELL[ suffix ]);
+      IF(res.status != SearchOk AND res.status != "indexnotfound") //it's fine if the index is already deleted (this can happen because we currently mark indices as deleted but DeleteIndexManagerContentSource still attempts to delete them again)
+        THROW NEW Exception(`Unable to DeleteIndex: ${res.status}`);
 
-    IF(suffix IN this->ensuredsuffixes)
-      DELETE FROM this->ensuredsuffixes AT SearchElement(this->ensuredsuffixes, suffix);
+      IF(suffix IN this->ensuredsuffixes)
+        DELETE FROM this->ensuredsuffixes AT SearchElement(this->ensuredsuffixes, suffix);
+    }
+    FINALLY
+    {
+      lock->Release();
+    }
   }
 
   /** @short List suffixes created in this index

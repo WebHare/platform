@@ -1,9 +1,14 @@
 import * as test from "@webhare/test-backend";
 import { anonymizeIPAddress } from "@mod-platform/js/logging/parsersupport.ts";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { buildPxlParser, getYMLPxlConfigs } from "@mod-platform/js/logging/accesslog.ts";
+import { buildPxlParser, getYMLPxlConfigs, PxlDocType } from "@mod-platform/js/logging/pxllog";
 import { loadlib } from "@webhare/harescript";
-import { readLogLines } from "@webhare/services";
+import { backendConfig, readLogLines, scheduleTimedTask } from "@webhare/services";
+import { sendPxl, setPxlOptions } from "@webhare/frontend/src/pxl"; //we may be able to use @webhare/frontend iff it stops loading CSS
+import { readJSONLogLines } from "@mod-system/js/internal/logging";
+import { generateRandomId } from "@webhare/std";
+import { beginWork, commitWork } from "@webhare/whdb";
+import { openCatalog } from "@webhare/consilio";
 
 async function testBasicAPIs() {
   test.eq("12.214.31.0", anonymizeIPAddress("12.214.31.144"));
@@ -56,15 +61,14 @@ const logfile = `
 `;
 
 async function testPxlParser() {
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
-
   const parser = await buildPxlParser();
   const reader = readLogLines("platform:pxl", { content: logfile });
 
   {
-    const parsed = parser.parseLine((await reader.next()).value);
-
+    const sourceLine = (await reader.next()).value;
+    const parsed = parser.parseLine(sourceLine);
     test.eq({
+      _id: sourceLine["@id"],
       "@timestamp": new Date("2024-12-09T09:52:24.376Z"),
       counter: 27,
       event: "webhare_testsuite:aa",
@@ -88,9 +92,11 @@ async function testPxlParser() {
   }
 
   {
-    const parsed = parser.parseLine((await reader.next()).value);
+    const sourceLine = (await reader.next()).value;
+    const parsed = parser.parseLine(sourceLine);
 
     test.eq({
+      _id: sourceLine["@id"],
       '@timestamp': new Date("2024-12-10T11:31:37.583Z"),
       event: 'platform:form_nextpage',
       userid: 'yz9MR2JybuzfsQcCm65K1w',
@@ -119,12 +125,59 @@ async function testPxlParser() {
       }
     }, parsed);
   }
+}
 
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").RestoreGEOIPDatabases();
+async function testPxlTrueEvents() {
+  //readJSONLogLines is not really for TS but it's very convenient for tests, as we can't explicitly flush platform:pxl currently
+  //Let's Log Some Things
+  const teststring = "myString-" + generateRandomId();
+  setPxlOptions({ url: backendConfig.backendURL + ".wh/ea/px/" });
+  sendPxl("webhare_testsuite:aa", { s: teststring, n: 121277 });
+
+  await test.wait(async () => {
+    const lines = await readJSONLogLines("platform:pxl", test.startTime) as unknown as Array<{ url: string }>;
+    return lines.find(line => line.url.includes(teststring));
+  });
+
+  await beginWork();
+  const pxltask = await scheduleTimedTask("platform:updatepxllog");
+  await commitWork();
+
+  await pxltask.taskDone;
+
+  //Find our event in consilio!  TODO Convert to TS RunConsilioSearch as soon as it exists
+  const catalog = await openCatalog<PxlDocType>("platform:pxl");
+  await catalog.refresh();
+  const result = await catalog.search({
+    body: {
+      query: {
+        match: {
+          "mod_webhare_testsuite.s": teststring
+        }
+      }
+    }
+  });
+
+  //verify we get exactly one hit
+  test.eqPartial([
+    {
+      _source: {
+        "event": "webhare_testsuite:aa",
+        mod_webhare_testsuite: { s: teststring, n: 121277 }
+      }
+    }
+  ], result.hits.hits);
 }
 
 test.run([
   testBasicAPIs,
   testPxlConfig,
+  async function prepTestGeoip() {
+    await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
+  },
   testPxlParser,
+  testPxlTrueEvents,
+  async function cleanup() {
+    await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").RestoreGEOIPDatabases();
+  }
 ]);

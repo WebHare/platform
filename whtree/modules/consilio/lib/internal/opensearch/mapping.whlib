@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -378,6 +379,9 @@ PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, 
     RECORD ARRAY basefields := SELECT *, definedby := "defaultmappingfields" FROM defaultmappingfields;
     fields := fields CONCAT GetContentSourcesMapping(contentsources, catalogtag, basefields);
   }
+
+  IF(catalogtag = "platform:pxl") //TODO make configurable and use for consilio:whfs too... but let's not bother until we port the fieldmaps to YML and this management code to TS
+    fields := CallJS("@mod-platform/js/logging/pxllog.ts#addPxlFieldMappings", fields);
 
   // If there are any suggested fields, add a '_suggested' field with 'completion' type (TODO support 'deeper' suggested fields)
   STRING ARRAY suggestedfields := (SELECT AS STRING ARRAY name FROM fields WHERE suggested);
