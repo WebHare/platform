@@ -19,12 +19,6 @@ interface PxlEventDetails {
 
 export type PxlEvent = CustomEvent<PxlEventDetails>;
 
-declare global {
-  interface Window {
-    whPxlLog?: PxlEventDetails[];
-  }
-}
-
 export type PxlEventData = {
   [K in `ds_${string}` | `db_${string}` | `dn_${string}`]: (K extends `ds_${string}` ? string :
     (K extends `db_${string}` ? boolean :
@@ -230,12 +224,6 @@ export function sendPxlEvent(event: string, data?: PxlEventData | null, options?
   if (!url)
     return;
 
-  //TODO needed for some tests but they should just move to the server side log, and the server should support flushing pxl immediately, especially if readLogLines is used properly
-  if (typeof window !== "undefined") {
-    if (!window.whPxlLog)
-      window.whPxlLog = [];
-    window.whPxlLog.push({ event, data: data || {}, options: finaloptions, isAlt: useAltRecordURL });
-  }
   if (debugFlags.pxl)
     console.log(`[pxl] Event '${event}'`, data);
 

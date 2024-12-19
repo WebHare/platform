@@ -1,4 +1,4 @@
-import { sendPxl, PxlData, getPxlSessionId } from "@webhare/frontend";
+import { sendPxl, PxlData, getPxlUserId, getPxlSessionId } from "@webhare/frontend";
 import * as test from "@webhare/test-frontend";
 import * as pxl from "@mod-consilio/js/pxl";
 
@@ -16,11 +16,7 @@ declare module "@webhare/frontend" {
   }
 }
 
-let pxlId, pxlEvent: string = '', startTime = new Date;
-
-async function getPxlLogLines() {
-  return await test.invoke("mod::webhare_testsuite/tests/consilio/data/pxltest.whlib#GetPxlLogFiles", getPxlSessionId(), startTime.toISOString()) as string[];
-}
+let startTime = new Date;
 
 test.run([
   "Test pxl urls",
@@ -156,37 +152,28 @@ test.run([
   },
   "Test pxl access logging",
   async function () {
-    pxlId = pxl.getPxlId();
     const eventId = Math.floor(Math.random() * 65536);
-    pxlEvent = `webhare_testsuite:testevent_${eventId}`;
 
     // Send an event with explicit id
     startTime = new Date();
     pxl.setPxlOptions({ pi: "anonymous" });
-    pxl.sendPxlEvent(pxlEvent, null, { pi: undefined });
-    let lines = await getPxlLogLines();
+    pxl.sendPxlEvent("webhare_testsuite:testevent", null, { pi: undefined });
+    let lines = await test.getPxlLogLines({ session: getPxlSessionId() });
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
-    let url = new URL("https://example.org" + lines[0]);
-    test.assert(url.searchParams.has("pe"));
-    test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.assert(url.searchParams.has("pe"));
-    test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.assert(url.searchParams.has("pi"));
-    test.eq(pxlId, url.searchParams.get("pi"));
+    test.eq("webhare_testsuite:testevent", lines[0].event);
+    test.eq(getPxlUserId(), lines[0].userid);
 
     // Send an event without explicit id
     startTime = new Date();
-    pxl.sendPxlEvent(pxlEvent);
-    lines = await getPxlLogLines();
+    pxl.sendPxlEvent("webhare_testsuite:testevent");
+    lines = await test.getPxlLogLines({ session: getPxlSessionId(), start: startTime });
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
-    url = new URL("https://example.org" + lines[0]);
-    test.assert(url.searchParams.has("pe"));
-    test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.eq("anonymous", url.searchParams.get("pi"));
+    test.eq("webhare_testsuite:testevent", lines[0].event);
+    test.eq("anonymous", lines[0].userid);
 
     // Send an event with data
     startTime = new Date();
-    pxl.sendPxlEvent(pxlEvent, { ds_1: pxlId, dn_fun: eventId });
+    pxl.sendPxlEvent("webhare_testsuite:testevent", { ds_s: "data-" + getPxlUserId(), dn_n: eventId });
 
     // Test typed PXL events
 
@@ -233,27 +220,21 @@ test.run([
     //To get rid of any type checking
     void await new Promise<void>(resolve => sendPxl<PxlData>("webhare_testsuite:unregistered", {}, { onComplete: resolve }));
 
-    lines = await getPxlLogLines();
+    lines = await test.getPxlLogLines({ start: startTime });
 
     console.table(lines);
 
     test.assert(lines.length > 0); // 1 or 2 lines, depending on value of preview cookie
-    url = new URL("https://example.org" + lines[0]);
-    test.assert(url.searchParams.has("pe"));
-    test.eq(pxlEvent, url.searchParams.get("pe"));
-    test.eq("anonymous", url.searchParams.get("pi"));
-    test.assert(url.searchParams.has("ds_1"));
-    test.eq(pxlId, url.searchParams.get("ds_1"));
-    test.assert(url.searchParams.has("dn_fun"));
-    test.eq(`${eventId}`, url.searchParams.get("dn_fun"));
+    test.eq("webhare_testsuite:testevent", lines[0].event);
+    test.eq("anonymous", lines[0].userid);
+    test.eq("data-" + getPxlUserId(), lines[0].mod_webhare_testsuite.s);
+    test.eq(eventId, lines[0].mod_webhare_testsuite.n);
 
-    const aaEvents = lines.filter((line) => line.includes("webhare_testsuite%3Aaa"));
+    const aaEvents = lines.filter((line) => line.event === "webhare_testsuite:aa");
     console.log(aaEvents);
-    test.eq("string", new URL(aaEvents[0], location.href).searchParams.get("ds_s"));
-    test.eq('1', new URL(aaEvents[0], location.href).searchParams.get("dn_n"));
-    test.eq('true', new URL(aaEvents[0], location.href).searchParams.get("db_b"));
-    test.eq("a", new URL(aaEvents[2], location.href).searchParams.get("ds_invalid"), "It's still transmitted, verify the wrapping");
-    test.eq("123", new URL(aaEvents[3], location.href).searchParams.get("dn_superfluous"), "It's still transmitted, verify the wrapping");
+    test.eq("string", aaEvents[0].mod_webhare_testsuite.s);
+    test.eq(1, aaEvents[0].mod_webhare_testsuite.n);
+    test.eq(true, aaEvents[0].mod_webhare_testsuite.b);
   }
   /* TODO restore these tests when we have a way to overwrite islive/dtapstage. might be worth the trouble to add that to SiteResponse (overwriting the #wh-config)
    ,   "Test live mode never throwing",

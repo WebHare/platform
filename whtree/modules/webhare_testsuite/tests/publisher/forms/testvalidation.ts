@@ -1,6 +1,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 import FormBase from '@mod-publisher/js/forms/formbase';
 import { debugFlags } from '@webhare/env/src/envbackend';
+import { getPxlLogLines } from '@webhare/test-frontend';
 
 function setRequiredFields() { //fill them with a value so we can submit
   test.fill('#coretest-email', 'pietje@example.com');
@@ -184,8 +185,8 @@ test.registerTests([
     await test.wait('ui');
 
     //the CLIENT should have detected this..
-    const errorinfo = test.getPxlLog(/^platform:form_.+/).at(-1);
-    test.eq('client', errorinfo?.data.ds_formmeta_errorsource);
+    const errorinfo = (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_")).at(-1);
+    test.eq('client', errorinfo?.mod_platform.formmeta_errorsource);
 
     // select type="radio" must use a container with role="group"
     // on which to set the ARIA attributes
@@ -197,6 +198,7 @@ test.registerTests([
   'Test checkboxes min/max',
   async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
+    const start = new Date;
 
     setRequiredFields();
     const formhandler = FormBase.getForNode(test.qR('#coreform'));
@@ -207,11 +209,12 @@ test.registerTests([
     test.click('#submitbutton');
     await test.wait('ui');
 
-    let formevents = test.getPxlLog(/^platform:form_.*$/);
+    let formevents = (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_"));
+
     test.eq(2, formevents.length, "Should be two PXL events now - one for start and one for failure");
     test.eq("platform:form_failed", formevents[1].event);
-    test.eq("checkboxes", formevents[1].data.ds_formmeta_errorfields);
-    test.eq("client", formevents[1].data.ds_formmeta_errorsource);
+    test.eq("checkboxes", formevents[1].mod_platform.formmeta_errorfields);
+    test.eq("client", formevents[1].mod_platform.formmeta_errorsource);
 
     const checkboxgroup = test.qR('#coretest-checkboxes-2').closest<HTMLElement>('.wh-form__fieldgroup');
     test.assert(checkboxgroup);
@@ -261,7 +264,7 @@ test.registerTests([
 
     test.assert(JSON.parse(test.qR('#coreformsubmitresponse').textContent!).form.agree, "expected successful submit");
 
-    formevents = test.getPxlLog(/^platform:form_.*$/);
+    formevents = (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_"));
     test.eq(3, formevents.length, "Should be three PXL events now - one for start, one for failure and one for submission");
     test.eq("platform:form_submitted", formevents[2].event);
   },

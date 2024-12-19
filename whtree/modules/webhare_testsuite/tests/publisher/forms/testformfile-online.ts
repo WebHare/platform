@@ -1,5 +1,5 @@
 import * as test from '@webhare/test-frontend';
-import { getPxlLog } from '@mod-system/js/wh/testframework';
+import { getPxlLogLines } from '@webhare/test-frontend';
 
 const testemail = Math.floor(100000000 * Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
 let setupdata: any;
@@ -46,9 +46,9 @@ test.run(
       test.qSA('[type=submit]')[0].click(); //attempt double submission. click() avoids modality layers
       await test.waitForUI();
 
-      const events = getPxlLog(/^platform:form_submitted/);
+      const events = (await getPxlLogLines()).filter(l => l.event === "platform:form_submitted");
       test.eq(1, events.length, "Should be one submission");
-      test.eq("webtoolform", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
+      test.eq("webtoolform", events[0].mod_platform.formmeta_id, "by default we'll just see the 'webtoolform' name");
 
       // The thankyou node is now filled
       const thankyou = test.qSA('h1').filter(node => node.textContent === "Thank you!");

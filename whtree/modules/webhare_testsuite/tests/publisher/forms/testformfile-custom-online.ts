@@ -1,5 +1,6 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+import { getPxlLogLines } from '@webhare/test-frontend';
 import * as test from '@mod-system/js/wh/testframework';
 
 let setupdata;
@@ -46,9 +47,9 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      const events = test.getPxlLog(/^platform:form_submitted/);
+      const events = (await getPxlLogLines()).filter(l => l.event === "platform:form_submitted");
       test.eq(1, events.length, "Should be one submission");
-      test.eq("custom form 2", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
+      test.eq("custom form 2", events[0].mod_platform.formmeta_id, "by default we'll just see the 'webtoolform' name");
     },
 
     'Request results',

@@ -1,6 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-system/js/wh/testframework';
+import { getPxlLogLines } from '@webhare/test-frontend';
 
 test.registerTests(
   [
@@ -29,24 +30,24 @@ test.registerTests(
       test.assert(test.canClick(test.qS('input[name="email"]')), 'should still be on page 1');
       test.eq('', test.qS('#currentpage').textContent, "No change event on blocked page nav");
 
-      let events = test.getPxlLog(/^platform:form_failed/);
+      let events = (await getPxlLogLines()).filter(l => l.event === "platform:form_failed");
       test.eq(1, events.length, "Should be one failed page");
-      test.eq("multipagetest", events[0].data.ds_formmeta_id, "by default we'll just see the form name without path");
-      test.eq("nextpage", events[0].data.ds_formmeta_errorsource);
-      test.eq("email", events[0].data.ds_formmeta_errorfields);
-      test.eq(1, events[0].data.dn_formmeta_pagenum);
-      test.eq("firstpage", events[0].data.ds_formmeta_pagetitle);
+      test.eq("multipagetest", events[0].mod_platform.formmeta_id, "by default we'll just see the form name without path");
+      test.eq("nextpage", events[0].mod_platform.formmeta_errorsource);
+      test.eq("email", events[0].mod_platform.formmeta_errorfields);
+      test.eq(1, events[0].mod_platform.formmeta_pagenum);
+      test.eq("firstpage", events[0].mod_platform.formmeta_pagetitle);
 
       test.fill(test.qS('input[name="email"]'), 'multipage@beta.webhare.net');
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      events = test.getPxlLog(/^platform:form_nextpage/);
+      events = (await getPxlLogLines()).filter(l => l.event === "platform:form_nextpage");
       test.eq(1, events.length, "Should be one 'next' page event");
-      test.eq(1, events[0].data.dn_formmeta_pagenum);
-      test.eq("firstpage", events[0].data.ds_formmeta_pagetitle);
-      test.eq(4, events[0].data.dn_formmeta_targetpagenum);
-      test.eq("Last Page", events[0].data.ds_formmeta_targetpagetitle);
+      test.eq(1, events[0].mod_platform.formmeta_pagenum);
+      test.eq("firstpage", events[0].mod_platform.formmeta_pagetitle);
+      test.eq(4, events[0].mod_platform.formmeta_targetpagenum);
+      test.eq("Last Page", events[0].mod_platform.formmeta_targetpagetitle);
 
       //test page2 (actually the FOURTH because an intermediate is skipped) visibitility
       test.eq("Page 2", test.qS('form .wh-form__page--visible h2').textContent);
@@ -59,10 +60,10 @@ test.registerTests(
       test.click(test.qS('.wh-form__button--previous'));
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available again on page 1");
 
-      events = test.getPxlLog(/^platform:form_previouspage/);
+      events = (await getPxlLogLines()).filter(l => l.event === "platform:form_previouspage");
       test.eq(1, events.length, "Should be one 'previous' page event");
-      test.eq(4, events[0].data.dn_formmeta_pagenum);
-      test.eq("Last Page", events[0].data.ds_formmeta_pagetitle);
+      test.eq(4, events[0].mod_platform.formmeta_pagenum);
+      test.eq("Last Page", events[0].mod_platform.formmeta_pagetitle);
 
       //...and back to page2 again
       test.click(test.qS('.wh-form__button--next'));
@@ -104,8 +105,8 @@ test.registerTests(
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
 
-      events = test.getPxlLog(/^platform:form_.*/);
-      test.assert(!events.find(_ => _.event === "platform:form_nextpage" && _.data.dn_formmeta_targetpagenum >= 5), "No nextpages for page 5 (thankyou) should be present");
+      events = (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_"));
+      test.assert(!events.find(_ => _.event === "platform:form_nextpage" && (_.mod_platform.formmeta_targetpagenum as number) >= 5), "No nextpages for page 5 (thankyou) should be present");
       test.eqPartial({ event: "platform:form_submitted" }, events.at(-1), "Last event should be 'submitted', not 'nextpage'");
     },
 

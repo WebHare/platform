@@ -469,16 +469,6 @@ export function hasFocus(element: pointer.ValidElementTarget) {
   return element === domfocus.getActiveElement(element.ownerDocument);
 }
 
-/** Get pxl log entries
-    @param eventtypefilter - Expression to match on event type
-    @returns Filtered log entries, or an empty array if the log hasn't started yet*/
-export function getPxlLog(eventtypefilter?: RegExp) {
-  let log = getWin().whPxlLog || [];
-  if (eventtypefilter)
-    log = log.filter(evt => evt.event.match(eventtypefilter));
-  return log;
-}
-
 export function getWebhareVersionNumber() {
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber!);
 }

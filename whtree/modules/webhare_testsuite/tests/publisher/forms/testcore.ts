@@ -1,4 +1,5 @@
 import * as test from '@mod-system/js/wh/testframework';
+import { getPxlLogLines } from "@webhare/test-frontend";
 import * as datetime from 'dompack/types/datetime';
 import type { AddressValue } from '@webhare/std';
 import { getFormData, getFormHandler, type FormBase } from '@webhare/forms';
@@ -38,7 +39,7 @@ test.registerTests(
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
         await test.waitForElement("#coreform.wh-form--allowsubmit");
 
-        test.eq(0, test.getPxlLog(/^platform:form_.+/).length, "Should be no PXL events yet");
+        test.eq(0, (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_")).length, "Should be no PXL events yet");
 
         const form = test.qR<HTMLFormElement>("#coreform");
         test.assert(form.action.startsWith("javascript:"), "Action should be JavaScript");
@@ -264,10 +265,11 @@ test.registerTests(
         test.assert(field_matchattributes_type2_true.closest(".wh-form__fieldgroup")?.classList.contains("wh-testsuite-matchattributes-type2-true"));
         test.assert(field_matchattributes_type2_false.closest(".wh-form__fieldgroup")?.classList.contains("wh-testsuite-matchattributes-type2-false"));
 
-        const formevents = test.getPxlLog(/^platform:form_.+/);
+        const formevents = (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_"));
         test.eq(1, formevents.length, "Should be one PXL event now");
+
         test.eq("platform:form_started", formevents[0].event);
-        test.eq("coretest", formevents[0].data.ds_formmeta_id, "by default we'll just see the form name");
+        test.eq("coretest", formevents[0].mod_platform.formmeta_id, "by default we'll just see the form name");
       }
     },
 
@@ -488,10 +490,10 @@ test.registerTests(
       await test.wait('ui');
     },
     {
-      test: function () {
+      test: async function () {
         test.eq("pietje@example.com", test.qR("#lastsuccessfulsubmit").textContent);
 
-        const formevents = test.getPxlLog(/^platform:form_.+/);
+        const formevents = (await getPxlLogLines()).filter(l => l.event.startsWith("platform:form_"));
         test.eq(2, formevents.length, "Should be two PXL events now");
         test.eq("platform:form_submitted", formevents[1].event);
 
@@ -619,6 +621,8 @@ test.registerTests(
     "Test URL preload and slow submission",
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
+      const start = new Date;
+
       /* URL based prefills -especially on static pages- cannot complete before the JS code is ready. We need to wait for that
          (you can  see this by running the above test with Disable cache and Fast 3G - DOMContentLoaded will fire before the JS code is ready */
       await test.waitForElement("#coreform.wh-form--allowsubmit");
@@ -636,8 +640,9 @@ test.registerTests(
       test.click(test.qR('#submitbutton'));
       await test.wait('ui');
 
-      test.eq(3, test.getPxlLog(/^platform:form_.+/).length, "Should be 3 PXL events...");
-      test.eq("platform:form_slow", test.getPxlLog(/^platform:form_.+/)[1].event, 'middle event should be "slow" warning');
+      const formevents = (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_"));
+      test.eq(3, formevents.length, "Should be 3 PXL events...");
+      test.eq("platform:form_slow", formevents[1].event, 'middle event should be "slow" warning');
     },
 
     "Test back link",
