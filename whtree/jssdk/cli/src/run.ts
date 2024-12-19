@@ -141,11 +141,18 @@ type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Argu
   { [ThisArgument in (Arguments[number]) as ThisArgument["name"] extends `[${string}]` ? NameOfArgument<ThisArgument> : never]?: TypeOfArgument<ThisArgument> }
 >;
 
+/// Calculate the resulting values record for main functions
 type MainData<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> = Simplify<{
   args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & OptArgBase["arguments"] & {}>>;
   opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
   specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
 } & (Cmd extends string ? { cmd: Cmd } : { cmd?: undefined })>;
+
+/// Calculates the data for run() functions
+type GlobalData<Rec extends OptArgBase> = {
+  globalOpts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}>>>;
+  specifiedGlobalOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}>>>;
+};
 
 /// Build the declarations for the main functions
 type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
@@ -165,11 +172,11 @@ type GetSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C i
 type NarrowTruthy<O> = {} extends Required<O> ? object : O;
 
 /// The result of parsing a commandline with the 'parse' function
-type ParseResult<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
+type ParseResult<GlobalRec extends OptArgBase, Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> =
   (Rec extends { subCommands: any } ? {
-    [K in keyof Rec["subCommands"] & string]: ParseResult<Rec["subCommands"][K], K, Rec>
+    [K in keyof Rec["subCommands"] & string]: ParseResult<GlobalRec, Rec["subCommands"][K], K, Rec>
   }[keyof Rec["subCommands"] & string] :
-    MainData<Rec, Cmd, ExtraOpts>);
+    Simplify<MainData<Rec, Cmd, ExtraOpts> & GlobalData<GlobalRec>>);
 
 
 /** Check order of arguments, that required arguments aren't surrounded by optional arguments, max 1 rest parameter, etc
@@ -213,26 +220,30 @@ export function parse<
 >(
   data: GetRootOptionsArguments<E> & GetSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S>>,
   argv: string[]
-): ParseResult<E & S, null> {
+): ParseResult<E & S, E & S, null> {
   const parsedOpts: Record<string, unknown> = {};
+  const parsedGlobalOpts: Record<string, unknown> = {};
   const parsedArgs: Record<string, unknown> = {};
 
-  const optMap = new Map<string, { storeName: string; optionRec: OptionsTemplate }>();
+  const optMap = new Map<string, { storeName: string; isGlobal: boolean; optionRec: OptionsTemplate }>();
 
-  function registerOptions(opts: Record<string, OptionsTemplate>) {
+  function registerOptions(opts: Record<string, OptionsTemplate>, isGlobal: boolean) {
     for (const [keys, optionRec] of Object.entries(opts)) {
       const storeName = nameToCamelCase(keys.split(",").at(-1)!);
       for (const key of keys.split(",")) {
-        optMap.set(key, { storeName, optionRec });
+        optMap.set(key, { storeName, isGlobal, optionRec });
       }
       parsedOpts[storeName] = optionRec.default;
+      if (isGlobal)
+        parsedGlobalOpts[storeName] = optionRec.default;
     }
   }
   if (data.options)
-    registerOptions(data.options as Record<string, OptionsTemplate>);
+    registerOptions(data.options as Record<string, OptionsTemplate>, true);
 
   let command: [string, SubCommandTemplate] | undefined;
   const specifiedOpts: string[] = [];
+  const specifiedGlobalOpts: string[] = [];
 
   let gotArgument = false;
   let gotOptionTerminator = false;
@@ -258,12 +269,16 @@ export function parse<
           throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
         }
 
-        const { storeName, optionRec } = optionRef;
+        const { storeName, isGlobal, optionRec } = optionRef;
         specifiedOpts.push(storeName);
+        if (isGlobal)
+          specifiedGlobalOpts.push(storeName);
 
         let strValue = parts[1];
         if (typeof optionRec.default === "boolean" && !optionRec.format) {
           parsedOpts[storeName] = true;
+          if (isGlobal)
+            parsedGlobalOpts[storeName] = true;
         } else {
           if (strValue === undefined) {
             if (i + 1 >= argv.length)
@@ -273,19 +288,26 @@ export function parse<
           }
 
           if (!optionRec.format) {
-            if (typeof optionRec.default === "string")
+            if (typeof optionRec.default === "string") {
               parsedOpts[storeName] = strValue;
-            else if (typeof optionRec.default === "number")
+              if (isGlobal)
+                parsedGlobalOpts[storeName] = strValue;
+            } else if (typeof optionRec.default === "number")
               if (typeof optionRec.default === "number") {
                 const parsedNumber = parseFloat(strValue);
                 if (isNaN(parsedNumber))
                   throw new CLISyntaxError(`Illegal number ${JSON.stringify(strValue)} specified for option ${JSON.stringify(key)}`, command?.[0]);
                 parsedOpts[storeName] = parsedNumber;
+                if (isGlobal)
+                  parsedGlobalOpts[storeName] = parsedNumber;
               } else
                 throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default
                   }, and needs a formatter to generate that kind of type`, command?.[0]);
           } else {
-            parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+            const parsedValue = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+            parsedOpts[storeName] = parsedValue;
+            if (isGlobal)
+              parsedGlobalOpts[storeName] = parsedValue;
           }
         }
       } else {
@@ -297,10 +319,15 @@ export function parse<
             throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
           }
 
-          const { storeName, optionRec } = optionRef;
+          const { storeName, isGlobal, optionRec } = optionRef;
           specifiedOpts.push(storeName);
+          if (isGlobal)
+            specifiedGlobalOpts.push(storeName);
+
           if (typeof optionRec.default === "boolean" && !optionRec.format) {
             parsedOpts[storeName] = true;
+            if (isGlobal)
+              parsedGlobalOpts[storeName] = true;
           } else {
             let strValue: string;
             if (j + 1 < arg.length) {
@@ -313,18 +340,25 @@ export function parse<
             }
 
             if (!optionRec.format) {
-              if (typeof optionRec.default === "string")
+              if (typeof optionRec.default === "string") {
                 parsedOpts[storeName] = strValue;
-              else if (typeof optionRec.default === "number")
+                if (isGlobal)
+                  parsedGlobalOpts[storeName] = strValue;
+              } else if (typeof optionRec.default === "number")
                 if (typeof optionRec.default === "number") {
                   const parsedNumber = parseFloat(strValue);
                   if (isNaN(parsedNumber))
                     throw new CLISyntaxError(`Illegal number ${JSON.stringify(strValue)} specified for option ${JSON.stringify(key)}`, command?.[0]);
                   parsedOpts[storeName] = parsedNumber;
+                  if (isGlobal)
+                    parsedGlobalOpts[storeName] = parsedNumber;
                 } else
                   throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a formatter to generate that kind of type`, command?.[0]);
             } else {
-              parsedOpts[storeName] = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+              const parsedValue = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+              parsedOpts[storeName] = parsedValue;
+              if (isGlobal)
+                parsedGlobalOpts[storeName] = parsedValue;
             }
           }
         }
@@ -340,7 +374,7 @@ export function parse<
           }
           command = [arg, cmdObj];
           if (cmdObj.options)
-            registerOptions(cmdObj.options);
+            registerOptions(cmdObj.options, false);
           continue;
         }
       }
@@ -389,7 +423,9 @@ export function parse<
     args: parsedArgs,
     opts: parsedOpts,
     specifiedOpts,
-  } as ParseResult<E & S, null>;
+    globalOpts: parsedGlobalOpts,
+    specifiedGlobalOpts,
+  } as ParseResult<E & S, E & S, null>;
 }
 
 export function printHelp(data: ParseData, options: { error?: CLIError; command?: string } = {}): void {
@@ -449,13 +485,22 @@ export function run<
   options: {
     argv?: string[];
   } = {}
-): { onDone?: () => void } {
-  const runReturn: { onDone?: () => void } = {};
+): Simplify<{ onDone?: () => void } & GlobalData<E & S>> {
+  type ReturnType = Simplify<{ onDone?: () => void } & GlobalData<E & S>>;
+  const runReturn: ReturnType = {
+    globalOpts: {},
+    specifiedGlobalOpts: []
+  } as any;
 
-  let parsed;
+  const parsed: Record<string, unknown> & { cmd?: string } = {};
   try {
     // The return type of parse is not very useful in this (generic) context, so we cast it to a useful type
-    parsed = parse<E, S>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string };
+    const parseReturn = parse<E, S>(data, options.argv ?? process.argv.slice(2)) as { cmd?: string } & ReturnType;
+    runReturn.globalOpts = parseReturn.globalOpts;
+    runReturn.specifiedGlobalOpts = parseReturn.specifiedGlobalOpts;
+    for (const [key, value] of Object.entries(parseReturn))
+      if (!["globalOpts", "specifiedGlobalOpts"].includes(key))
+        parsed[key] = value;
   } catch (e) {
     if (e instanceof CLIError) {
       printHelp(data, { error: e });
@@ -468,6 +513,9 @@ export function run<
   type MainFunc = (arg: object) => CommandReturn;
 
   void (async () => {
+    // Execute the main() command after an await, so the run() command can first return and make the global options available.
+    await Promise.resolve();
+
     try {
       let retval: CommandReturn;
       if (parsed.cmd) {
@@ -492,8 +540,6 @@ export function run<
       } else
         throw e; // rethrow, let the uncaughtException handler handle it
     } finally {
-      // Ensure we're one tick further, so the onDone handler can be set
-      await Promise.resolve();
       runReturn.onDone?.();
     }
   })();

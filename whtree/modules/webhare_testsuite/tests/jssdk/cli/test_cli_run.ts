@@ -4,20 +4,24 @@ import * as test from "@webhare/test-backend";
 
 async function testCLIMainParse() {
   test.eq({
+    cmd: undefined,
     args: {},
     opts: {},
-    cmd: undefined,
     specifiedOpts: [],
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     options: {},
     arguments: [],
   }, []));
 
   test.eq({
+    cmd: undefined,
     args: { file: "a" },
     opts: { verbose: false, withBlabla: "b" },
-    cmd: undefined,
     specifiedOpts: ["withBlabla"],
+    globalOpts: { verbose: false, withBlabla: "b" },
+    specifiedGlobalOpts: ["withBlabla"],
   }, parse({
     options: {
       "v,verbose": { default: false, description: "Show verbose output" },
@@ -27,19 +31,23 @@ async function testCLIMainParse() {
   }, ["a", "--with-blabla", "b"]));
 
   test.eq({
+    cmd: undefined,
     args: { file: "a" },
     opts: {},
-    cmd: undefined,
     specifiedOpts: [],
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     arguments: [{ name: "[file]", description: "Optional arg" }],
   }, ["a"]));
 
   test.eq({
+    cmd: undefined,
     args: {},
     opts: { verbose: true, output: "test", num: 3 },
-    cmd: undefined,
     specifiedOpts: ["verbose", "output", "num"],
+    globalOpts: { verbose: true, output: "test", num: 3 },
+    specifiedGlobalOpts: ["verbose", "output", "num"],
   }, parse({
     options: {
       "v,no-verbose,verbose": { default: true, description: "Show verbose output" },
@@ -64,10 +72,12 @@ async function testCLIMainParse() {
   test.eq("va", await testOptionsParse(["-va"]));
 
   test.eq({
+    cmd: undefined,
     args: { file: "-b" },
     opts: { a: true, b: false },
-    cmd: undefined,
     specifiedOpts: ["a"],
+    globalOpts: { a: true, b: false },
+    specifiedGlobalOpts: ["a"],
   }, parse({
     options: {
       "a": { default: false },
@@ -77,10 +87,12 @@ async function testCLIMainParse() {
   }, ["-a", "--", "-b"]));
 
   test.eq({
+    cmd: undefined,
     args: {},
     opts: { a: "--", b: true, c: false },
-    cmd: undefined,
     specifiedOpts: ["a", "b"],
+    globalOpts: { a: "--", b: true, c: false },
+    specifiedGlobalOpts: ["a", "b"],
   }, parse({
     options: {
       "a": { default: "" },
@@ -91,29 +103,24 @@ async function testCLIMainParse() {
   }, ["-a", "--", "-b"]));
 
   test.eq({
-    opts: {},
-    args: {
-      a: "a",
-      c: [],
-      d: "b",
-    },
     cmd: undefined,
+    args: { a: "a", c: [], d: "b" },
+    opts: {},
     specifiedOpts: [],
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b]" }, { name: "[c...]" }, { name: "<d>" },],
   }, ["a", "b"]));
 
   test.eq({
-    opts: {},
-    args: {
-      a: "a",
-      b: "b",
-      c: ["c", "d", "e"],
-      d: "f",
-    },
     cmd: undefined,
+    args: { a: "a", b: "b", c: ["c", "d", "e"], d: "f" },
+    opts: {},
     specifiedOpts: [],
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     options: {},
     arguments: [{ name: "<a>" }, { name: "[b]" }, { name: "[c...]" }, { name: "<d>" },],
@@ -147,10 +154,12 @@ async function testCLISubCommandParse() {
   }, []));
 
   test.eq({
+    cmd: "cmd",
     args: {},
     opts: {},
     specifiedOpts: [],
-    cmd: "cmd",
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     options: {},
     subCommands: {
@@ -162,10 +171,12 @@ async function testCLISubCommandParse() {
   }, ["cmd"]));
 
   test.eq({
+    cmd: "cmd",
     args: { f1: "a" },
     opts: { v: true, a: true },
     specifiedOpts: ["v", "a"],
-    cmd: "cmd",
+    globalOpts: { v: true },
+    specifiedGlobalOpts: ["v"],
   }, parse({
     options: { "v": { default: false } },
     subCommands: {
@@ -181,10 +192,12 @@ async function testCLISubCommandParse() {
   }, ["-v", "cmd", "-a", "a"]));
 
   test.eq({
+    cmd: undefined,
     args: {},
     opts: {},
     specifiedOpts: [],
-    cmd: undefined,
+    globalOpts: {},
+    specifiedGlobalOpts: [],
   }, parse({
     name: "test",
     description: "Test command",
@@ -220,6 +233,12 @@ async function testCLITypes() {
       void res;
 
       test.typeAssert<test.Equals<{
+        cmd?: undefined;
+        args: {
+          f1: string;
+          f2?: string;
+          f3: string[];
+        };
         opts: {
           a: number;
           b: "a" | "b" | "c";
@@ -228,13 +247,16 @@ async function testCLITypes() {
           verbose: boolean;
           all: boolean;
         };
-        args: {
-          f1: string;
-          f2?: string;
-          f3: string[];
-        };
         specifiedOpts: Array<"a" | "b" | "c" | "d" | "verbose" | "all">;
-        cmd?: undefined;
+        globalOpts: {
+          a: number;
+          b: "a" | "b" | "c";
+          c: number;
+          d: string;
+          verbose: boolean;
+          all: boolean;
+        };
+        specifiedGlobalOpts: Array<"a" | "b" | "c" | "d" | "verbose" | "all">;
       }, typeof res>>();
     }
     {
@@ -245,12 +267,14 @@ async function testCLITypes() {
       void res;
 
       test.typeAssert<test.Equals<{
-        opts: object;
+        cmd?: undefined;
         args: {
           f2?: string;
         };
+        opts: object;
         specifiedOpts: never[];
-        cmd?: undefined;
+        globalOpts: object;
+        specifiedGlobalOpts: never[];
       }, typeof res>>();
     }
 
@@ -279,56 +303,72 @@ async function testCLITypes() {
         args: { f1: string };
         opts: { a: boolean };
         specifiedOpts: Array<"a">;
+        globalOpts: object;
+        specifiedGlobalOpts: never[];
       } | {
         cmd: "cmd2";
         args: { f2: string };
         opts: { b: boolean };
         specifiedOpts: Array<"b">;
+        globalOpts: object;
+        specifiedGlobalOpts: never[];
       } | {
         cmd: "cmd3";
         args: object;
         opts: object;
         specifiedOpts: never[];
+        globalOpts: object;
+        specifiedGlobalOpts: never[];
       }, typeof res>>();
     }
   });
 }
 
-async function waitRunDone(r: { onDone?: () => void }) {
+async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<T> {
   await new Promise<void>((resolve) => {
     r.onDone = resolve;
   });
+  return r;
 }
 
 async function testCLIRun() {
-  await waitRunDone(run({
-    name: "test",
-    description: "Test command",
-    options: {},
-    arguments: [],
-    main(data) {
-      test.typeAssert<test.Equals<{ args: object; opts: object; specifiedOpts: never[]; cmd?: undefined }, typeof data>>();
-      test.eq({ args: {}, opts: {}, specifiedOpts: [], cmd: undefined }, data);
-    }
-  }, { argv: [] }));
-
-  await waitRunDone(run({
-    name: "test",
-    description: "Test command",
-    options: { "v,verbose": { default: false } },
-    subCommands: {
-      c: {
-        description: "Command c",
-        shortDescription: "c",
-        options: { a: { default: false } },
-        arguments: [{ name: "<f1>" }],
-        main(data) {
-          test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean }; specifiedOpts: Array<"a" | "verbose">; cmd: "c" }, typeof data>>();
-          test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: "c" }, data);
+  {
+    const res = run({
+      name: "test",
+      description: "Test command",
+      options: {},
+      arguments: [],
+      main(data) {
+        test.typeAssert<test.Equals<{ args: object; opts: object; specifiedOpts: never[]; cmd?: undefined }, typeof data>>();
+        test.eq({ args: {}, opts: {}, specifiedOpts: [], cmd: undefined }, data);
+        test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: object; specifiedGlobalOpts: never[] }, typeof res>>();
+        test.eqPartial({ globalOpts: {}, specifiedGlobalOpts: [] }, res);
+      }
+    }, { argv: [] });
+    await waitRunDone(res);
+  }
+  {
+    const res = run({
+      name: "test",
+      description: "Test command",
+      options: { "v,verbose": { default: false } },
+      subCommands: {
+        c: {
+          description: "Command c",
+          shortDescription: "c",
+          options: { a: { default: false } },
+          arguments: [{ name: "<f1>" }],
+          main(data) {
+            test.typeAssert<test.Equals<{ args: { f1: string }; opts: { verbose: boolean; a: boolean }; specifiedOpts: Array<"a" | "verbose">; cmd: "c" }, typeof data>>();
+            test.eq({ args: { f1: "a" }, opts: { a: true, verbose: false }, specifiedOpts: ["a"], cmd: "c" }, data);
+            test.typeAssert<test.Equals<{ onDone?: () => void; globalOpts: { verbose: boolean }; specifiedGlobalOpts: Array<"verbose"> }, typeof res>>();
+            test.eqPartial({ globalOpts: { verbose: false }, specifiedGlobalOpts: [] }, res);
+          }
         }
       }
-    }
-  }, { argv: ["c", "-a", "a"] }));
+    }, { argv: ["c", "-a", "a"] });
+    await waitRunDone(res);
+  }
 
   // STORY: test CLIRuntimeError handling
   // TODO: intercept console.log and check for output
