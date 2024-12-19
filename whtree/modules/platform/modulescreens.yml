@@ -1,4 +1,4 @@
-# This file serves as the hypothetical 'platform' module's list of built in screens
+# This file serves as the hypothetical 'platform' module's list of built in screens. We might need deeper namespacing than '<module>:<single name level>' ?
 siteproperties:            # describes platform:siteproperties
   extendtabs:              # if this exists, you can add a tabsextension to a backendhook (moduledefinition.yml) targeting this screen
     component: "maintabs"  # The component to extend
@@ -12,3 +12,11 @@ userrights:                # describes the system userrights app
     export:                # 'export' is a category here. each hookable screen would decide by itself which categories it supports
       insertInto:          # where to insert this action in the menus
       - export_insertion_point   # a component name
+
+unitproperties:            # describes the system userrights unit properties dialog
+  extendtabs:              # TODO shouldn't this be extendTabs ?
+    component: maintabs
+    insertpoints:          # .. and insertPoints ?
+    - extensionpoint
+    extendcomponents:      # .. and extendComponents ?
+    - unitentity           # a wrd:entity representing the unit
