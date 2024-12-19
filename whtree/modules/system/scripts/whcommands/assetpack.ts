@@ -22,7 +22,7 @@ const argv = process.argv.slice(2).map(arg => {
   return arg;
 });
 
-run({
+const runData = run({
   name: "wh assetpack",
   description: "Manage asset packs",
   options: {
@@ -38,13 +38,13 @@ run({
       },
       async main({ args: { assetpacks }, opts: options }) {
         if (!options.watch) {
-          await listBundles(assetpacks, options.withwatchcounts, options);
+          await listBundles(assetpacks, options.withwatchcounts);
         } else {
           for (; ;) {
             setTimeout(() => { }, 86400 * 1000); //keep the process alive
             const waiter = waitForEvent("publisher:assetpackcontrol.change.*");
             console.log(`${ansiCmd("erasedisplay", { pos: { x: 2, y: 2 } })}Watching assetpacks, last update: ${new Date().toISOString()}\n\n`);
-            await listBundles(assetpacks, options.withwatchcounts, options);
+            await listBundles(assetpacks, options.withwatchcounts);
             await waiter;
           }
         }
@@ -189,12 +189,11 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
   return bundles.filter(bundle => !onlyfailed || bundle.haserrors);
 }
 
-async function listBundles(masks: string[], withwatchcounts: boolean, options: { quiet: boolean }) {
-  const bundles = await getBundles(masks);
-  if (options.quiet) {
-    bundles.filter(bundle => bundle.haserrors);
+async function listBundles(masks: string[], withwatchcounts: boolean) {
+  let bundles = await getBundles(masks);
+  if (runData.globalOpts.quiet) {
+    bundles = bundles.filter(bundle => bundle.haserrors);
   }
-
   const blen = Math.max(...bundles.map(bundle => bundle.outputtag.length));
   for (const bundle of bundles) {
     const bundlestatus = getBundleStatusString(bundle);
