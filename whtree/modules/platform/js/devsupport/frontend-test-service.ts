@@ -5,7 +5,7 @@ import { buildPxlParser } from "../logging/pxllog";
 
 export class FrontendTestService {
   constructor() {
-    //as we give pretty anonymous users access to potentially sensitive data (eg logs) we should only be avialalbe on development servers ... and we expect users to protect their dev servers!
+    //as we give pretty anonymous users access to potentially sensitive data (eg logs) we should only be avialable on development servers ... and we expect users to protect their dev servers!
     //FIXME switch/add to having the testpage generate a shortlived token and require that as authtoken or httponly cookie
     if (dtapStage !== "development")
       throw new Error("FrontendTestService is only available on development servers");
