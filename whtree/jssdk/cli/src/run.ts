@@ -17,38 +17,43 @@ export class CLISyntaxError extends CLIError {
 export class CLIConfigError extends CLIError {
 };
 
+export class CLIShowHelp extends CLIError {
+  constructor(message: string, public options: { command?: string } = {}) {
+    super(message, options.command);
+  }
+}
 export class CLIRuntimeError extends CLIError {
   constructor(message: string, public options: { exitCode?: number; showHelp?: boolean; command?: string } = {}) {
     super(message, options.command);
   }
 }
 
-export interface CLIArgumentFormat<ValueType> {
+export interface CLIArgumentType<ValueType> {
   /** Parses a user-provided value. Throws CLISyntaxError. Required to allow typeinference to work. */
   parseValue(arg: string, options: { argName: string; command?: string }): ValueType;
   autoComplete?(arg: string, options: { argName: string; command?: string }): string[];
   description?: string;
 }
 
-/** Type of options - with formatter or without. Options with formatter can have any default, but the
- * default will be coerced to the type of the formatter. All options take an argument, except boolean options
- * without formatter.
+/** Type of options - with type or without. Options with type can have any default, but the
+ * default will be coerced to the value type of the type. All options take an argument, except boolean options
+ * without type.
  */
 type OptionsTemplate = {
   default: unknown;
   description?: string;
-  format: CLIArgumentFormat<unknown>;
+  type: CLIArgumentType<unknown>;
 } | {
   default: string | boolean | number;
   description?: string;
-  format?: never;
+  type?: never;
 };
 
-/** An arguments, with an optional formatter */
+/** An arguments, with an optional type */
 type Argument<J> = {
   name: `<${string}>` | `[${string}]` | `[${string}...]` | `<${string}...>`;
   description?: string;
-  format?: CLIArgumentFormat<J>;
+  type?: CLIArgumentType<J>;
 };
 
 type SubCommandTemplate = {
@@ -80,17 +85,17 @@ type OptArgBase = {
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
-/// Widens default literals to their base type. Needed because we infer the types of options 'as const' and we return the wider type (for options without formatter).
+/// Widens default literals to their base type. Needed because we infer the types of options 'as const' and we return the wider type (for options without type).
 type WidenDefaultLiteral<T> = T extends boolean ? boolean : T extends string ? string : T extends number ? number : T;
 
-// Ensures the defaults of options with formatter are compatible with the return type of the formatter.
-type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: Simplify<Omit<Options[Key], "default"> & { default: GetParsedFormat<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> }> };
+// Ensures the defaults of options with type are compatible with the return type of the type.
+type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: Simplify<Omit<Options[Key], "default"> & { default: GetParsedType<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> }> };
 
 /// Sanitizes the options and arguments of subcommands
 type SanitizeSubCommandOptArgs<SubCommands extends Record<string, SubCommandTemplate>> = { [Key in keyof SubCommands]: SanitizeOptArgs<SubCommands[Key]> & SubCommandTemplate };
 
-/// Sanitizes a single argument. FIXME: probably not needed, see if validation of arguments is ok
-type SanitizeArgument<ThisArgument extends Argument<any>> = ThisArgument; // extends { format: CLIArgumentFormat<any> } ? ThisArgument : ThisArgument extends { format?: any } ? Omit<ThisArgument, "format"> & { format: CLIArgumentFormat<any> } : ThisArgument;
+/// Sanitizes a single argument. FIXME: probably not needed, check if validation of arguments is ok
+type SanitizeArgument<ThisArgument extends Argument<any>> = ThisArgument; // extends { type: CLIArgumentType<any> } ? ThisArgument : ThisArgument extends { type?: any } ? Omit<ThisArgument, "type"> & { type: CLIArgumentType<any> } : ThisArgument;
 type SanitizeArguments<Arguments extends Array<Argument<any>>> = Arguments extends [infer FirstArgument extends Argument<any>, ...infer RestArguments extends Array<Argument<any>>] ? [SanitizeArgument<FirstArgument>, ...SanitizeArguments<RestArguments>] : [];
 
 /// Sanitize the options and arguments of a record, and subcommands if present
@@ -105,17 +110,17 @@ type SanitizeOptArgs<O extends OptArgBase> =
     subCommands: SanitizeSubCommandOptArgs<O["subCommands"]>;
   } : {});
 
-/// Returns the type a formatter returns
-type GetFormatterType<O extends { format: CLIArgumentFormat<any> }> = ReturnType<O["format"]["parseValue"]>;
+/// Returns the type a type rec returns
+type GetArgumentTypeType<O extends { type: CLIArgumentType<any> }> = ReturnType<O["type"]["parseValue"]>;
 
-/// Determine the type of an argument (taking the formatter into account)
-type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? Array<GetParsedFormat<A, string>> : GetParsedFormat<A, string>;
+/// Determine the type of an argument (taking the type into account)
+type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? Array<GetParsedType<A, string>> : GetParsedType<A, string>;
 
 /// Determine the name of an argument (stripping `...`, `[]` and `<>`)
 type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `[${infer S}...]` ? S : A["name"] extends `<${infer S2}...>` ? S2 : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never;
 
-/// Get the parsed format for an option or an argument. Simplify<> is needed to work around some weird stuff in the TS compiler. `O extends object` doesn't seem to work here?
-type GetParsedFormat<O extends object, Default> = Simplify<O> extends { readonly format: CLIArgumentFormat<any> } ? GetFormatterType<Simplify<O>> : Default;
+/// Get the parsed type for an option or an argument. Simplify<> is needed to work around some weird stuff in the TS compiler. `O extends object` doesn't seem to work here?
+type GetParsedType<O extends object, Default> = Simplify<O> extends { readonly type: CLIArgumentType<any> } ? GetArgumentTypeType<Simplify<O>> : Default;
 
 /// CamelCases a string separated by '-' or '_'
 type CamelCase<S extends string> = S extends `${infer P1}${"_" | "-"}${infer P2}${infer P3}`
@@ -133,7 +138,7 @@ type GetOptionListStoreName<K extends string> = K extends `${string},${infer E}`
 type Simplify<A extends object> = A extends object ? { [K in keyof A]: A[K] } : never;
 
 /// Calculate the resulting values record for options
-type OptionsResult<Options extends Record<string, OptionsTemplate>> = Simplify<{ -readonly [Key in keyof Options & string as GetOptionListStoreName<Key>]: GetParsedFormat<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> } & object>;
+type OptionsResult<Options extends Record<string, OptionsTemplate>> = Simplify<{ -readonly [Key in keyof Options & string as GetOptionListStoreName<Key>]: GetParsedType<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> } & object>;
 
 /// Calculate the resulting values record for arguments
 type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Arguments] extends [never[]] ? object : Simplify<
@@ -247,7 +252,9 @@ export function parse<
 
   let gotArgument = false;
   let gotOptionTerminator = false;
+  let showHelp = false;
   const argList: string[] = [];
+  argvloop:
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
@@ -265,8 +272,15 @@ export function parse<
 
         const optionRef = optMap.get(key);
         if (!optionRef) {
+          if (key === "help") {
+            showHelp = true;
+            // Try to read the subcommand, but only if there are subcommands specified
+            if (!data.subCommands || command)
+              break;
+            continue;
+          }
           const bestMatch = getBestMatch(key, [...optMap.keys()]);
-          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
+          throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
         }
 
         const { storeName, isGlobal, optionRec } = optionRef;
@@ -275,7 +289,7 @@ export function parse<
           specifiedGlobalOpts.push(storeName);
 
         let strValue = parts[1];
-        if (typeof optionRec.default === "boolean" && !optionRec.format) {
+        if (typeof optionRec.default === "boolean" && !optionRec.type) {
           parsedOpts[storeName] = true;
           if (isGlobal)
             parsedGlobalOpts[storeName] = true;
@@ -287,7 +301,7 @@ export function parse<
             strValue = argv[i];
           }
 
-          if (!optionRec.format) {
+          if (!optionRec.type) {
             if (typeof optionRec.default === "string") {
               parsedOpts[storeName] = strValue;
               if (isGlobal)
@@ -302,9 +316,9 @@ export function parse<
                   parsedGlobalOpts[storeName] = parsedNumber;
               } else
                 throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default
-                  }, and needs a formatter to generate that kind of type`, command?.[0]);
+                  }, and needs a explicit type to generate that kind of value`, command?.[0]);
           } else {
-            const parsedValue = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+            const parsedValue = optionRec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
             parsedOpts[storeName] = parsedValue;
             if (isGlobal)
               parsedGlobalOpts[storeName] = parsedValue;
@@ -315,8 +329,15 @@ export function parse<
           const key = arg[j];
           const optionRef = optMap.get(key);
           if (!optionRef) {
+            if (key === "h") {
+              showHelp = true;
+              // Try to read the subcommand, but only if there are subcommands specified
+              if (!data.subCommands || command)
+                break argvloop;
+              continue;
+            }
             const bestMatch = getBestMatch(key, [...optMap.keys()]);
-            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`, command?.[0]);
+            throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
           }
 
           const { storeName, isGlobal, optionRec } = optionRef;
@@ -324,7 +345,7 @@ export function parse<
           if (isGlobal)
             specifiedGlobalOpts.push(storeName);
 
-          if (typeof optionRec.default === "boolean" && !optionRec.format) {
+          if (typeof optionRec.default === "boolean" && !optionRec.type) {
             parsedOpts[storeName] = true;
             if (isGlobal)
               parsedGlobalOpts[storeName] = true;
@@ -339,7 +360,7 @@ export function parse<
               strValue = argv[++i];
             }
 
-            if (!optionRec.format) {
+            if (!optionRec.type) {
               if (typeof optionRec.default === "string") {
                 parsedOpts[storeName] = strValue;
                 if (isGlobal)
@@ -353,9 +374,9 @@ export function parse<
                   if (isGlobal)
                     parsedGlobalOpts[storeName] = parsedNumber;
                 } else
-                  throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a formatter to generate that kind of type`, command?.[0]);
+                  throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a type to generate that kind of value`, command?.[0]);
             } else {
-              const parsedValue = optionRec.format.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+              const parsedValue = optionRec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
               parsedOpts[storeName] = parsedValue;
               if (isGlobal)
                 parsedGlobalOpts[storeName] = parsedValue;
@@ -370,11 +391,14 @@ export function parse<
           const cmdObj = data.subCommands[arg];
           if (!cmdObj) {
             const bestMatch = getBestMatch(arg, Object.keys(data.subCommands));
-            throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}` : ``}`);
+            throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`);
           }
           command = [arg, cmdObj];
           if (cmdObj.options)
             registerOptions(cmdObj.options, false);
+          // No need to process further if we have got a request for help
+          if (showHelp)
+            break;
           continue;
         }
       }
@@ -388,6 +412,10 @@ export function parse<
   const cmdArgs = ((command ? command[1].arguments : data.arguments) || []) as Array<Argument<unknown>>;
   const { trailingRequired } = checkArgumentsOrder(cmdArgs, command?.[0]);
 
+  // Don't validate arguments when calling help
+  if (showHelp)
+    throw new CLIShowHelp("", { command: command?.[0] });
+
   // parse the arguments
   for (const arg of cmdArgs) {
     if (arg.name.endsWith("...>") || arg.name.endsWith("...]")) {
@@ -396,7 +424,7 @@ export function parse<
       const parsed = argList.length <= trailingRequired ?
         [] :
         argList.splice(0, Math.max(minRequired, argList.length - trailingRequired))
-          .map(value => arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value);
+          .map(value => arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value);
       if (parsed.length < minRequired)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
       parsedArgs[name] = parsed;
@@ -405,12 +433,12 @@ export function parse<
       if (!argList.length)
         throw new CLISyntaxError(`Missing required argument: ${name}`, command?.[0]);
       const value = argList.shift()!;
-      parsedArgs[name] = arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
+      parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
     } else if (arg.name.startsWith("[")) {
       const name = arg.name.slice(1, -1);
       const value = argList.length > trailingRequired ? argList.shift() : undefined;
       if (value !== undefined)
-        parsedArgs[name] = arg.format?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
+        parsedArgs[name] = arg.type?.parseValue(value, { argName: `argument ${JSON.stringify(name)}`, command: command?.[0] }) ?? value;
     } else
       throw new CLIConfigError(`Invalid argument name: ${arg.name}`, command?.[0]);
   }
@@ -429,50 +457,69 @@ export function parse<
 }
 
 export function printHelp(data: ParseData, options: { error?: CLIError; command?: string } = {}): void {
+  const print = options.error ?
+    (...args: unknown[]) => console.error(...args) :
+    (...args: unknown[]) => console.log(...args);
+
   if (options.error && options.error.message) {
-    console.error(`Error: ${options.error.message}`);
-    console.error(``);
+    print(`Error: ${options.error.message}`);
+    print(``);
+  }
+
+  function describeData(toDescribe: { type?: CLIArgumentType<unknown>; default?: unknown }): string {
+    const strs = [
+      toDescribe.type?.description,
+      toDescribe.default !== false ? JSON.stringify(toDescribe.default) : undefined
+    ].filter(_ => _);
+    return strs.length ? ` (${strs.join(", ")})` : "";
+  }
+
+  function formatOptionNames(names: string): string {
+    return names.split(",").map(name => name.length === 1 ? `-${name}` : `--${name}`).join(", ");
   }
 
   if (data.name)
-    console.error(`Command: ${data.name}`);
+    print(`Command: ${data.name}`);
   if (data.description)
-    console.error(`Description: ${data.description}`);
+    print(`Description: ${data.description}`);
+
+  const secondColumnPadAt = 24;
+  const maxDescriptionLen = 80;
 
   const optionEntries = Object.entries(data.options || {}).sort(([a], [b]) => a.localeCompare(b));
   if (optionEntries.length) {
-    console.log(`Options:`);
+    print(`Options:`);
     for (const [name, option] of optionEntries) {
-      console.error(`  ${name.padEnd(40, " ")} ${option.description || ""}`);
+      print(`  ${formatOptionNames(name).padEnd(secondColumnPadAt - 3, " ")} ${option.description || ""}${describeData(option)}`);
     }
   }
   if (data.subCommands) {
     const command = options.command ?? options.error?.command;
     if (command) {
-      console.error(`Command: ${command}`);
+      print(`Subcommand: ${command}`);
       const commandRec = data.subCommands[command];
 
       const cmdOptionEntries = Object.entries(commandRec?.options || {}).sort(([a], [b]) => a.localeCompare(b));
       if (cmdOptionEntries.length) {
-        console.log(`  Options:`);
+        print(`  Options:`);
         for (const [name, option] of cmdOptionEntries) {
-          console.error(`    ${name.padEnd(40, " ")} ${option.description || ""}`);
+          print(`    ${formatOptionNames(name).padEnd(secondColumnPadAt - 5, " ")} ${option.description || ""}${describeData(option)}`);
         }
       }
-      console.log(`  Arguments:`);
+      print(`  Arguments:`);
       for (const arg of commandRec.arguments || []) {
-        console.error(`    ${arg.name.padEnd(40, " ")} ${arg.description || ""}`);
+        print(`    ${arg.name.padEnd(secondColumnPadAt - 5, " ")} ${arg.description || ""}${describeData(arg)}`);
       }
     } else {
-      console.log(`Subcommands:`);
+      print(`Subcommands:`);
       for (const [name, cmd] of Object.entries(data.subCommands).sort(([a], [b]) => a.localeCompare(b))) {
-        console.error(`  ${name.padEnd(40, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > 40 ? cmd.description.slice(0, 37) + "..." : cmd.description) : "")}`);
+        print(`  ${name.padEnd(secondColumnPadAt - 3, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > maxDescriptionLen ? cmd.description.slice(0, maxDescriptionLen - 1) + /*ellipsis*/"\u2026" : cmd.description) : "")}`);
       }
     }
   } else {
-    console.log(`Arguments:`);
+    print(`Arguments:`);
     for (const arg of data.arguments || []) {
-      console.error(`  ${arg.name.padEnd(40, " ")} ${arg.description || ""}`);
+      print(`  ${arg.name.padEnd(secondColumnPadAt - 3, " ")} ${arg.description || ""}`);
     }
   }
 }
@@ -502,6 +549,10 @@ export function run<
       if (!["globalOpts", "specifiedGlobalOpts"].includes(key))
         parsed[key] = value;
   } catch (e) {
+    if (e instanceof CLIShowHelp) {
+      printHelp(data, { command: e.options.command });
+      return runReturn;
+    }
     if (e instanceof CLIError) {
       printHelp(data, { error: e });
       process.exitCode = 1;
@@ -509,6 +560,7 @@ export function run<
       return runReturn;
     }
     throw e;
+
   }
   type MainFunc = (arg: object) => CommandReturn;
 
@@ -546,11 +598,13 @@ export function run<
   return runReturn;
 }
 
-export function intRange(start?: number, end?: number): CLIArgumentFormat<number> {
+export function intOption({ start, end }: { start?: number; end?: number } = {}): CLIArgumentType<number> {
   return {
     parseValue(arg, options) {
-      const parsed = parseInt(arg);
-      if (isNaN(parsed))
+      if (!arg.match(/^-?\d+$/))
+        throw new CLISyntaxError(`Illegal integer ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
+      const parsed = parseInt(arg, 10);
+      if (typeof parsed !== "number" || isNaN(parsed) || parsed < -Number.MAX_SAFE_INTEGER || parsed > Number.MAX_SAFE_INTEGER)
         throw new CLISyntaxError(`Illegal integer ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
       if (start !== undefined && parsed < start)
         throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start} for ${options.argName}`, options.command);
@@ -558,32 +612,50 @@ export function intRange(start?: number, end?: number): CLIArgumentFormat<number
         throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end} for ${options.argName}`, options.command);
       return parsed;
     },
-    description: `integer between ${start ?? "-∞"} and ${end ?? "∞"}`,
+    description: start !== undefined ?
+      end !== undefined ?
+        `integer between ${start} and ${end}` :
+        `integer larger or equal to ${start}` :
+      end !== undefined ?
+        `integer smaller or equal to ${end}` :
+        `integer`
   };
 }
 
-export function floatRange(start?: number, end?: number): CLIArgumentFormat<number> {
+export function floatOption({ start, end }: { start?: number; end?: number } = {}): CLIArgumentType<number> {
   return {
     parseValue(arg, options) {
-      const parsed = parseFloat(arg);
-      if (isNaN(parsed))
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(arg);
+        if (typeof parsed !== "number" || isNaN(parsed))
+          throw new Error();
+      } catch (e) {
         throw new CLISyntaxError(`Illegal number ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
+      }
       if (start !== undefined && parsed < start)
         throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is smaller than ${start} for ${options.argName}`, options.command);
       if (end !== undefined && parsed > end)
         throw new CLISyntaxError(`Number ${JSON.stringify(arg)} is larger than ${end} for ${options.argName}`, options.command);
       return parsed;
     },
-    description: `number between ${start ?? "-∞"} and ${end ?? "∞"}`,
+    description: start !== undefined ?
+      end !== undefined ?
+        `number between ${start} and ${end}` :
+        `number larger or equal to ${start}` :
+      end !== undefined ?
+        `number smaller or equal to ${end}` :
+        `number`
   };
 }
 
-// FIXME: type inference doesn't pick up the correct type for the allowedValues array
-export function stringEnum<const T extends string>(allowedValues: T[]): CLIArgumentFormat<T> {
+export function enumOption<const T extends string>(allowedValues: T[]): CLIArgumentType<T> {
   return {
     parseValue(arg, options): T {
-      if (!allowedValues.includes(arg as T))
-        throw new CLISyntaxError(`Illegal value ${JSON.stringify(arg)} specified for ${options.argName}`, options.command);
+      if (!allowedValues.includes(arg as T)) {
+        const bestMatch = getBestMatch(arg, allowedValues);
+        throw new CLISyntaxError(`Illegal value ${JSON.stringify(arg)} specified for ${options.argName}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, options.command);
+      }
       return arg as T;
     },
     description: `one of ${allowedValues.map(s => JSON.stringify(s)).join(", ")}`,

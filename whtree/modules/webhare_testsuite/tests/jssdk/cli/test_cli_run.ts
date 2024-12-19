@@ -1,5 +1,5 @@
 
-import { intRange, parse, stringEnum, run, CLIRuntimeError } from "@webhare/cli/src/run";
+import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError } from "@webhare/cli/src/run";
 import * as test from "@webhare/test-backend";
 
 async function testCLIMainParse() {
@@ -207,7 +207,7 @@ async function testCLISubCommandParse() {
   }, []));
 
   test.throws(/Illegal value "d" specified for argument "f1"/, () => parse({
-    arguments: [{ name: "<f1>", format: stringEnum(["a", "b", "c"]) }]
+    arguments: [{ name: "<f1>", type: enumOption(["a", "b", "c"]) }]
   }, ["d"]));
 }
 
@@ -221,8 +221,8 @@ async function testCLITypes() {
     {
       const res = parse({
         options: {
-          "a": { default: 0, format: intRange(0, 10) },
-          "b": { default: "a", format: stringEnum(["a", "b", "c"]) },
+          "a": { default: 0, type: intOption({ start: 0, end: 10 }) },
+          "b": { default: "a", type: enumOption(["a", "b", "c"]) },
           "c": { default: 0 },
           "d": { default: "aa" },
           "v,verbose": { default: false },
@@ -386,7 +386,28 @@ async function testCLIRun() {
   }));
   test.eq(2, process.exitCode);
   process.exitCode = 0;
+}
 
+async function testCLIOptionTypes() {
+  test.throws(/s/, () => intOption().parseValue("s", { argName: "a" }));
+  test.throws(/1.0/, () => intOption().parseValue("1.0", { argName: "a" }));
+  test.throws(/11132143423432434343/, () => intOption().parseValue("11132143423432434343", { argName: "a" }));
+  test.throws(/-11132143423432434343/, () => intOption().parseValue("-11132143423432434343", { argName: "a" }));
+  test.eq(3, intOption().parseValue("3", { argName: "a" }));
+  test.eq(-3, intOption().parseValue("-3", { argName: "a" }));
+  test.throws(/0/, () => intOption({ start: 1 }).parseValue("0", { argName: "a" }));
+  test.throws(/4/, () => intOption({ start: 1, end: 3 }).parseValue("4", { argName: "a" }));
+
+  test.throws(/s/, () => floatOption().parseValue("s", { argName: "a" }));
+  test.eq(1.01, floatOption().parseValue("1.01", { argName: "a" }));
+  test.eq(11132143423432434000, floatOption().parseValue("11132143423432434343", { argName: "a" }));
+  test.eq(3, floatOption().parseValue("3", { argName: "a" }));
+  test.throws(/0/, () => floatOption({ start: 1 }).parseValue("0", { argName: "a" }));
+  test.throws(/4/, () => floatOption({ start: 1, end: 3 }).parseValue("4", { argName: "a" }));
+
+  test.throws(/s/, () => enumOption(["a", "b"]).parseValue("s", { argName: "a" }));
+  test.eq("a", enumOption(["a", "b"]).parseValue("a", { argName: "a" }));
+  test.eq(/off/, enumOption(["on", "off"]).parseValue("off", { argName: "a" })); // want a did you mean?
 }
 
 test.run([
@@ -394,4 +415,5 @@ test.run([
   testCLISubCommandParse,
   testCLITypes,
   testCLIRun,
+  testCLIOptionTypes,
 ]);
