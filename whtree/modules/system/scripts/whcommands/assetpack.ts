@@ -4,142 +4,151 @@ import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/vali
 import { openBackendService, subscribe, writeRegistryKey, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
-import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { ansiCmd } from '@webhare/cli';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
+import { run } from '@webhare/cli';
 
 let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 
-program
-  .name('wh assetpack')
-  .description('Manage asset packs')
-  .option("-q --quiet", "Don't report anything that's not an error");
 
-program.command('list')
-  .description("List asset packs")
-  .argument("[assetpacks...]", "Asset packs to list")
-  .option("--withwatchcounts", "Show watch counts")
-  .option("--watch", "Watch asset packs")
-  .action(async (assetpacks, options) => {
-    if (!options.watch) {
-      await listBundles(assetpacks, options.withwatchcounts);
-    } else {
-      for (; ;) {
-        setTimeout(() => { }, 86400 * 1000); //keep the process alive
-        const waiter = waitForEvent("publisher:assetpackcontrol.change.*");
-        console.log(`${ansiCmd("erasedisplay", { pos: { x: 2, y: 2 } })}Watching assetpacks, last update: ${new Date().toISOString()}\n\n`);
-        await listBundles(assetpacks, options.withwatchcounts);
-        await waiter;
-      }
-    }
-  });
-
-program.command("check")
-  .description("Check if assetpacks are okay. List any errors. Omit or use '*' to check all")
-  .argument("[assetpacks...]", "Asset packs to check")
-  .action(async (assetpacks) => {
-    for (const broken of (await getBundles(assetpacks)).filter(bundle => bundle.iscompiling || bundle.haserrors)) {
-      await printBundleMessages(broken.outputtag);
-      process.exitCode = 1;
-    }
-  });
-
-program.command("compile")
-  .description("Compile an asset pack. Use '*' to compile all")
-  .argument("<assetpacks...>", "Asset packs to recompile")
-  .option('-v, --verbose', 'verbose log level')
-  .option("-f, --foreground", "Recompile in foreground, don't use any assetpack service")
-  .option('--production', 'force production compile')
-  .option('--development', 'force development compile')
-  .option("--onlyfailed", "Only recompile failed asset packs")
-  .action(async (assetpacks, options) => {
-    if ((options.development || options.production) && !options.foreground)
-      throw new Error("Cannot specify --development or --production without --foreground");
-
-    if (options.foreground) {
-      process.exitCode = await runForegroundCompile(assetpacks, options) ? 0 : 1;
-      return;
-    }
-
-    const bundles = await getBundles(assetpacks, { onlyfailed: options.onlyfailed });
-    if (!bundles.length) {
-      if (!program.opts().quiet)
-        console.log("No assetpacks to recompile");
-      return;
-    }
-
-    for (const match of bundles)
-      await (await getControlClient()).recompileBundle(match.outputtag);
-
-    if (!program.opts().quiet)
-      console.log("Recompile scheduled, waiting to finish");
-
-    const success = await waitForCompilation(assetpacks, !program.opts().quiet);
-    process.exitCode = success ? 0 : 1;
-  });
-
-program.command("info")
-  .description("Detailed info about an assetpack")
-  .argument("<assetpack>", "Asset pack to show info for")
-  .action(async (assetpack) => {
-    const bundles = await getBundles([assetpack]);
-    for (const bundle of bundles) {
-      console.log(bundle.outputtag);
-      console.log(" Status: " + getBundleStatusString(bundle));
-      console.log(" Compiler: " + (bundle.iscompiling ? "\x1b[1;33mcompiling\x1b[0m" : bundle.requirecompile ? "scheduled" : "idle"));
-      if (bundle.lastcompile)
-        console.log(" Last compile: " + bundle.lastcompile.toISOString());
-      await printBundleMessages(bundle.outputtag);
-      console.log();
-    }
-  });
-
-program.command("wait")
-  .description("Wait for the assetpacks to be compiled. Omit or use '*' to wait for all")
-  .argument("[assetpacks...]", "Asset packs to wait for")
-  .action(async (assetpacks) => {
-    const success = await waitForCompilation(assetpacks, !program.opts().quiet);
-    process.exitCode = success ? 0 : 1;
-  });
-
-program.command("autocompile")
-  .description("Configure autocompilation of production packages")
-  .argument("[state]", "on/off")
-  .action(async (state) => {
-    if (!state) {
-      const config = await loadAssetPacksConfig();
-      console.log(`Assetpack autocompilation is ${config.suspendAutoCompile ? "off" : "on"}`);
-      return;
-    }
-
-    if (state !== "on" && state !== "off")
-      throw new Error("Allowed autocompilation values: on/off");
-
-    await runInWork(() => writeRegistryKey<boolean>("publisher.bundledassets.suspendautocompile", state === "off"));
-    await (await getControlClient()).reload();
-  });
-
-program.command("restart")
-  .description("Restart assetpack control")
-  .action(async () => {
-    //TODO once we have a nice global service mgmt api that can find services inside other processes, switch to that
-    const nodeservices = await openBackendService("platform:nodeservices");
-    await nodeservices.restart("platform:assetpacks");
-
-    if (!program.opts().quiet)
-      console.log("Assetpack service restarted");
-  });
-
-program.parse(process.argv.map(arg => {
+const argv = process.argv.slice(2).map(arg => {
   if (arg === "recompile") {
     //TODO once live_api has switched to wh compile, we can drop this hidden alias
     console.warn("You should switch to 'wh assetpack compile' in WH5.7+");
     return "compile";
   }
   return arg;
-}));
+});
+
+const runData = run({
+  name: "wh assetpack",
+  description: "Manage asset packs",
+  options: {
+    quiet: { default: false, description: "Don't report anything that's not an error" },
+  },
+  subCommands: {
+    list: {
+      description: "List asset packs",
+      arguments: [{ name: "[assetpacks...]", description: "Asset packs to list" }],
+      options: {
+        withwatchcounts: { default: false, description: "Show watch counts" },
+        watch: { default: false, description: "Watch asset packs" },
+      },
+      async main({ args: { assetpacks }, opts: options }) {
+        if (!options.watch) {
+          await listBundles(assetpacks, options.withwatchcounts);
+        } else {
+          for (; ;) {
+            setTimeout(() => { }, 86400 * 1000); //keep the process alive
+            const waiter = waitForEvent("publisher:assetpackcontrol.change.*");
+            console.log(`${ansiCmd("erasedisplay", { pos: { x: 2, y: 2 } })}Watching assetpacks, last update: ${new Date().toISOString()}\n\n`);
+            await listBundles(assetpacks, options.withwatchcounts);
+            await waiter;
+          }
+        }
+      }
+    },
+    check: {
+      description: "Check if assetpacks are okay. List any errors. Omit or use '*' to check all",
+      arguments: [{ name: "[assetpacks...]", description: "Asset packs to check" }],
+      async main({ args: { assetpacks } }) {
+        for (const broken of (await getBundles(assetpacks)).filter(bundle => bundle.iscompiling || bundle.haserrors)) {
+          await printBundleMessages(broken.outputtag);
+          process.exitCode = 1;
+        }
+      }
+    },
+    compile: {
+      description: "Compile an asset pack. Use '*' to compile all",
+      arguments: [{ name: "<assetpacks...>", description: "Asset packs to recompile" }],
+      options: {
+        verbose: { default: false, description: "verbose log level" },
+        foreground: { default: false, description: "Recompile in foreground, don't use any assetpack service" },
+        production: { default: false, description: "force production compile" },
+        development: { default: false, description: "force development compile" },
+        onlyfailed: { default: false, description: "Only recompile failed asset packs" },
+      },
+      async main({ args: { assetpacks }, opts: options }) {
+        if ((options.development || options.production) && !options.foreground)
+          throw new Error("Cannot specify --development or --production without --foreground");
+
+        if (options.foreground) {
+          process.exitCode = await runForegroundCompile(assetpacks, options) ? 0 : 1;
+          return;
+        }
+
+        const bundles = await getBundles(assetpacks, { onlyfailed: options.onlyfailed });
+        if (!bundles.length) {
+          if (!options.quiet)
+            console.log("No assetpacks to recompile");
+          return;
+        }
+
+        for (const match of bundles)
+          await (await getControlClient()).recompileBundle(match.outputtag);
+
+        if (!options.quiet)
+          console.log("Recompile scheduled, waiting to finish");
+
+        const success = await waitForCompilation(assetpacks, !options.quiet);
+        process.exitCode = success ? 0 : 1;
+      }
+    },
+    info: {
+      description: "Detailed info about an assetpack",
+      arguments: [{ name: "<assetpack>", description: "Asset pack to show info for" }],
+      async main({ args: { assetpack } }) {
+        const bundles = await getBundles([assetpack]);
+        for (const bundle of bundles) {
+          console.log(bundle.outputtag);
+          console.log(" Status: " + getBundleStatusString(bundle));
+          console.log(" Compiler: " + (bundle.iscompiling ? "\x1b[1;33mcompiling\x1b[0m" : bundle.requirecompile ? "scheduled" : "idle"));
+          if (bundle.lastcompile)
+            console.log(" Last compile: " + bundle.lastcompile.toISOString());
+          await printBundleMessages(bundle.outputtag);
+          console.log();
+        }
+      }
+    },
+    wait: {
+      description: "Wait for the assetpacks to be compiled. Omit or use '*' to wait for all",
+      arguments: [{ name: "[assetpacks...]", description: "Asset packs to wait for" }],
+      async main({ args: { assetpacks }, opts: options }) {
+        const success = await waitForCompilation(assetpacks, !options.quiet);
+        process.exitCode = success ? 0 : 1;
+      }
+    },
+    autocompile: {
+      description: "Configure autocompilation of production packages",
+      arguments: [{ name: "[state]", description: "on/off" }],
+      async main({ args: { state } }) {
+        if (!state) {
+          const config = await loadAssetPacksConfig();
+          console.log(`Assetpack autocompilation is ${config.suspendAutoCompile ? "off" : "on"}`);
+          return;
+        }
+
+        if (state !== "on" && state !== "off")
+          throw new Error("Allowed autocompilation values: on/off");
+
+        await runInWork(() => writeRegistryKey<boolean>("publisher.bundledassets.suspendautocompile", state === "off"));
+        await (await getControlClient()).reload();
+      }
+    },
+    restart: {
+      description: "Restart assetpack control",
+      async main({ opts: options }) {
+        const nodeservices = await openBackendService("platform:nodeservices");
+        await nodeservices.restart("platform:assetpacks");
+
+        if (!options.quiet)
+          console.log("Assetpack service restarted");
+      }
+    },
+  }
+}, { argv });
 
 function waitForEvent(eventmask: string) {
   const defer = Promise.withResolvers<void>();
@@ -181,11 +190,10 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
 }
 
 async function listBundles(masks: string[], withwatchcounts: boolean) {
-  const bundles = await getBundles(masks);
-  if (program.opts().quiet) {
-    bundles.filter(bundle => bundle.haserrors);
+  let bundles = await getBundles(masks);
+  if (runData.globalOpts.quiet) {
+    bundles = bundles.filter(bundle => bundle.haserrors);
   }
-
   const blen = Math.max(...bundles.map(bundle => bundle.outputtag.length));
   for (const bundle of bundles) {
     const bundlestatus = getBundleStatusString(bundle);
