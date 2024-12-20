@@ -1447,3 +1447,5 @@ class TestSuite {
 
 
 new TestSuite;
+
+export type { TestFramework };

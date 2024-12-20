@@ -7,7 +7,7 @@ Template for tests:
 ```javascript
 import * as test from "@mod-system/js/wh/testframework";
 
-test.registerTests(
+test.runTests(
   [ "My test name"
   , async function()
     {

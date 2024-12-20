@@ -10,7 +10,8 @@ import * as keyboard from 'dompack/testframework/keyboard';
 import { Annotation } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
-import type { TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
+import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
+import { throwError } from '@webhare/std';
 
 export {
   eq,
@@ -51,8 +52,11 @@ export { invoke };
 export type { TestWaitItem };
 
 //basic test functions
-const testfw = (window.parent ? window.parent.__testframework : null)!;
-whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } });
+let testfw: TestFramework | undefined;;
+if (typeof window !== 'undefined') {
+  testfw = (window.parent ? window.parent.__testframework : null)!;
+  whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw!.log(...args); } });
+}
 
 export type TestFrameWorkCallbacks = {
   executeWait: (item: TestWaitItem) => Promise<unknown>;
@@ -68,7 +72,7 @@ function setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
 }
 
 function initialize_tests(steps: TestStep[]) {
-  testfw.runTestSteps(steps, setTestSuiteCallbacks);
+  testfw?.runTestSteps(steps, setTestSuiteCallbacks);
 }
 
 function rewriteNodeAttributes(node: HTMLElement) {
@@ -84,7 +88,7 @@ function rewriteNodeAttributes(node: HTMLElement) {
 export type RegisteredTestStep = TestStep | string | NonNullable<TestStep["test"]>;
 export type RegisteredTestSteps = RegisteredTestStep[];
 
-export function registerTests(steps: RegisteredTestSteps) {
+export function runTests(steps: RegisteredTestSteps) {
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
@@ -112,7 +116,7 @@ export function registerTests(steps: RegisteredTestSteps) {
   dompack.onDomReady(() => initialize_tests(finalsteps));
 }
 export function getTestArgument(idx: number) {
-  if (!testfw.args)
+  if (!testfw?.args)
     throw new Error(`No test started yet`);
   if (idx > testfw.args.length)
     throw new Error("No argument #" + idx);
@@ -122,7 +126,7 @@ function logExplanation(explanation: Annotation) {
   if (typeof explanation === "function")
     explanation = explanation();
   console.error(explanation);
-  testfw.log("* " + explanation + "\n");
+  testfw?.log("* " + explanation + "\n");
 }
 
 export function eqHTML(expected: string, actual: string, explanation?: Annotation) {
@@ -170,14 +174,14 @@ export function eqFloat(expected: number, actual: number, delta: number, explana
     logExplanation(explanation);
 
   console.log("testEq fails: expected", expected_str);
-  testfw.log("testEq fails: expected " + (typeof expected_str === "string" ? "'" + expected_str + "'" : expected_str));
+  testfw?.log("testEq fails: expected " + (typeof expected_str === "string" ? "'" + expected_str + "'" : expected_str));
 
   console.log("testEq fails: actual  ", actual_str);
-  testfw.log("testEq fails: actual " + (typeof actual_str === "string" ? "'" + actual_str + "'" : actual_str));
+  testfw?.log("testEq fails: actual " + (typeof actual_str === "string" ? "'" + actual_str + "'" : actual_str));
 
   if (typeof expected === "string" && typeof actual === "string") {
-    testfw.log("E: " + encodeURIComponent(expected));
-    testfw.log("A: " + encodeURIComponent(actual));
+    testfw?.log("E: " + encodeURIComponent(expected));
+    testfw?.log("A: " + encodeURIComponent(actual));
   }
 
   whtest.eq(expected, actual);
@@ -192,7 +196,7 @@ export function dragTransition(pos: number) {
 }
 
 export async function pressKey(key: string | string[], options?: keyboard.KeyboardModifierOptions) {
-  if (!testfw.haveDevtoolsUplink())
+  if (!testfw?.haveDevtoolsUplink())
     return await keyboard.pressKey(key, options);
 
   return await testfw.sendDevtoolsRequest({ type: "pressKeys", keys: keyboard.normalizeKeys(key, options), options });
@@ -211,10 +215,10 @@ export function getOpenMenuItem(containstext: string) {
   return item[0] || null;
 }
 export function getWin(): WindowProxy {
-  return testfw.getFrameRecord().win!;
+  return testfw?.getFrameRecord().win || throwError("Not running in a test page");
 }
 export function getDoc(): Document {
-  return testfw.getFrameRecord().doc!;
+  return testfw?.getFrameRecord().doc || throwError("Not running in a test page");
 }
 /** Focus and fill an element, triggering any input/change handlers */
 export function fill(element: pointer.ValidElementTarget, newvalue: string | number | boolean): void {
@@ -486,3 +490,6 @@ export async function waitUI() { //eases transition to the less-flexible @webhar
 export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
   return await callbacks!.executeWait('load');
 }
+
+// TODO @deprecated We're renaming run to runTests to avoid a conflict with \@webhare/cli's run() - once everyone is WH5.7+
+export const registerTests = runTests;
