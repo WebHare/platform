@@ -1,5 +1,5 @@
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
-import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpWebpOptions } from "@webhare/deps";
+import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection } from "@webhare/services";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
@@ -37,6 +37,7 @@ interface HSImgCacheRequest {
 
 export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod) {
   // https://sharp.pixelplumbing.com/api-resize
+  let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
   let extend: SharpExtendOptions | null = null;
   const bgColor: SharpColor | undefined = method.bgColor !== undefined && method.bgColor !== "transparent" ? {
@@ -50,6 +51,16 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
   const lossless = infile.mediaType !== "image/jpeg";
 
   if (method.method === "fill") {
+    if (infile.width && infile.height && (explain.renderWidth > explain.outWidth || explain.renderHeight > explain.outHeight)) { //there will be cropping
+      const scaleX = infile.width / explain.renderWidth;
+      const scaleY = infile.height / explain.renderHeight;
+      const left = Math.max(0, Math.floor(-explain.renderX * scaleX));
+      const top = Math.max(0, Math.floor(-explain.renderY * scaleY));
+      const width = Math.floor((explain.outWidth) * scaleX);
+      const height = Math.floor((explain.outHeight) * scaleY);
+      extract = { left, top, width, height };
+      //console.log({ extract }, { explain });
+    }
     resize = { width: explain.outWidth, height: explain.outHeight, fit: 'cover' };
   } else if (method.method === "fitcanvas" && explain.renderWidth === infile.width && explain.renderHeight === infile.height) {
     // fitcanvas without any renderchange should not resize
@@ -66,17 +77,16 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
     throw new Error("Unsupported resize method for avif/webp: " + method.method);
 
   const outputformat = method.format || suggestImageFormat(infile.mediaType);
-
   if (outputformat === "image/webp")
-    return { extend, resize, format: "webp" as const, formatOptions: { lossless } };
+    return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless } };
   if (outputformat === "image/avif")
-    return { extend, resize, format: "avif" as const, formatOptions: { lossless } };
+    return { extract, extend, resize, format: "avif" as const, formatOptions: { lossless } };
   if (outputformat === "image/gif")
-    return { extend, resize, format: "gif" as const, formatOptions: null };
+    return { extract, extend, resize, format: "gif" as const, formatOptions: null };
   if (outputformat === "image/jpeg")
-    return { extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
+    return { extract, extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
   if (outputformat === "image/png")
-    return { extend, resize, format: "png" as const, formatOptions: null };
+    return { extract, extend, resize, format: "png" as const, formatOptions: null };
 
   throw new Error("Unsupported output format: " + outputformat);
 }
@@ -101,7 +111,11 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   };
 
   const sourceimage = __getBlobDiskFilePath(request.pgblobid);
+  const img = await resizeImage(resource, sourceimage, method);
+  return await img.toBuffer();
+}
 
+export async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: ResizeMethod) {
   // Read first two bytes of sourceimage
   const header = new Uint8Array(2);
   const fd = await open(sourceimage, 'r');
@@ -115,11 +129,13 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   } else {
     img = await createSharpImage(sourceimage);
   }
-  const { extend, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
+  const { extract, extend, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
 
   img.rotate(); //Fix rotation/mirroring
 
-  //Resize before we extract, so we can cut off edges and prevent black lines
+  //Extract before we resize, resize before we extend, so we can cut off edges and prevent black lines
+  if (extract)
+    img.extract(extract);
   if (resize)
     img.resize(resize);
   if (extend)
@@ -131,7 +147,7 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
     img.grayscale();
 
   img.toFormat(format, formatOptions as SharpJpegOptions | SharpPngOptions | SharpWebpOptions | SharpAvifOptions | SharpGifOptions || undefined);
-  return await img.toBuffer();
+  return img;
 }
 
 //used for images.shtml testpage
