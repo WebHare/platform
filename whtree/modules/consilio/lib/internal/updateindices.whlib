@@ -173,8 +173,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
   RECORD ARRAY wantcatalogs := SELECT *
                                     , catalog := DEFAULT OBJECT
-                                 FROM GetRequiredCatalogs(FALSE)
-                                WHERE ToUppercase(tag) LIKE ToUppercase(options.catalogmask);
+                                 FROM GetRequiredCatalogs(FALSE, options.catalogmask);
 
   BOOLEAN havedefaultindexmanager := Length(indexmanagers) >= 1 AND indexmanagers[0].isdefault;
   trans->BeginWork();

@@ -780,7 +780,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                                              ]);
 
     //TODO shouldn't we lock other properties like fieldgroups in case a catalogconfig is available, to prevent battles with consilio:update ? or explicitly only set some props at creation?
-    RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE) WHERE tag = this->tag;
+    RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE, "*") WHERE tag = this->tag;
 
     // If the catalog language changes, the catalog has to be rebuilt
     IF(RecordExists(catalogconfig) AND "lang" NOT IN catalogconfig.dynamicproperties)
@@ -1439,7 +1439,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   STRING lang;
   STRING ARRAY fieldgroups;
 
-  RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE) WHERE COLUMN tag = VAR tag;
+  RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE, "*") WHERE COLUMN tag = VAR tag;
   IF(RecordExists(catalogconfig))
   {
     IF("fieldgroups" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
