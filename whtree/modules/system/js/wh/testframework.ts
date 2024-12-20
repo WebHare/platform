@@ -90,7 +90,7 @@ function isequal(a, b) {
   }
 }
 
-export function registerTests(steps) {
+export function runTests(steps) {
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
@@ -591,3 +591,6 @@ export async function waitUI() { //eases transition to the less-flexible @webhar
 export async function waitNavigation() { //eases transition to the less-flexible @webhare/test wait()
   return await callbacks.executeWait('load');
 }
+
+// TODO @deprecated We're renaming run to runTests to avoid a conflict with \@webhare/cli's run() - once everyone is WH5.7+
+export const registerTests = runTests;
