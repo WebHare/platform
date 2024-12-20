@@ -827,6 +827,10 @@ export class ResourceDescriptor implements ResourceMetaData {
   get refPoint() {
     return this.metadata.refPoint ?? null;
   }
+  set refPoint(refPoint: { x: number; y: number } | null) {
+    //set a copy
+    this.metadata.refPoint = refPoint ? { x: refPoint.x, y: refPoint.y } : null;
+  }
   get dominantColor() {
     return this.metadata.dominantColor ?? null;
   }
