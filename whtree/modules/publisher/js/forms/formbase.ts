@@ -45,6 +45,7 @@ declare global {
 
   interface GlobalEventHandlersEventMap {
     "wh:form-enable": CustomEvent<{ enabled: boolean }>;
+    "wh:form-require": CustomEvent<{ required: boolean }>;
     "wh:form-getvalue": CustomEvent<{ deferred: PromiseWithResolvers<unknown> }>;
     "wh:form-setfielderror": CustomEvent<SetFieldErrorData>; //TODO can we phase this out? it's a too deep integration
     "wh:form-pagechange": CustomEvent<{
