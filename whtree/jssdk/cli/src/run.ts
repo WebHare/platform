@@ -524,6 +524,12 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
   }
 }
 
+/** Run a command line application
+ *
+ * @param data - Command confiiguration
+ * @param options - Options for the run
+ *    - argv: Override arguments. (defaults to process.argv.slice(2))
+ */
 export function run<
   const E extends object,
   const S extends object
