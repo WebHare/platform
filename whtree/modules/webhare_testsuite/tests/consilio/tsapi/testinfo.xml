@@ -1,4 +1,5 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testhelpers.ts">
   <test script="test_ts_consilio.ts" />
+  <test script="test_ts_multiattach.ts" />
   <test script="test_pxllog.ts" />
 </group>
