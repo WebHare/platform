@@ -10,7 +10,7 @@ LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 
-PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consilio:update needs to show errors, catalog.whlib parsers don't
+PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING catalogmask) //consilio:update needs to show errors, catalog.whlib parsers don't
 {
   //Figure out which catalogs to create..
   RECORD ARRAY wantcatalogs;
@@ -27,6 +27,9 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consili
                           , lang := catalognode.node->GetAttribute("lang")
                           , dynamicproperties := ParseXSList(catalognode.node->GetAttribute("dynamicproperties"))
                           ];
+
+    IF(catalog.tag NOT LIKE catalogmask)
+      CONTINUE;
 
     STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
     IF(ongetsources != "")
@@ -76,6 +79,8 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consili
                           , lang := ""
                           , dynamicproperties := STRING[]
                           ];
+    IF(catalog.tag NOT LIKE catalogmask)
+      CONTINUE;
 
     INSERT catalog INTO wantcatalogs AT END;
   }
@@ -83,6 +88,9 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consili
   RECORD siteprofs := GetCachedSiteProfiles();
   FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
   {
+    IF(addtocatalog.catalog NOT LIKE catalogmask)
+      CONTINUE; //out of scope
+
     INTEGER matchcatalog := (SELECT AS INTEGER #wantcatalogs + 1 FROM wantcatalogs WHERE wantcatalogs.tag = addtocatalog.catalog)-1;
     IF(matchcatalog = -1)
     {
@@ -116,4 +124,3 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consili
 
   RETURN wantcatalogs;
 }
-

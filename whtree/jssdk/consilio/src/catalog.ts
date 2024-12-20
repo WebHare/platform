@@ -387,7 +387,7 @@ export async function createCatalog<DocType extends object = object>(tag: string
     throw new Error("A managed index can't be set to suffixed");
 
   /* FIXME look up moduledefined catalog info */
-  const catalogconfig = (await loadlib("mod::consilio/lib/internal/catalogdefparser.whlib").getRequiredCatalogs(true)).find((catalog: { tag: string }) => catalog.tag === tag);
+  const catalogconfig = (await loadlib("mod::consilio/lib/internal/catalogdefparser.whlib").getRequiredCatalogs(true, "*")).find((catalog: { tag: string }) => catalog.tag === tag);
   if (catalogconfig) {
     if (!catalogconfig.dynamicproperties.includes("fieldgroups") && options?.fieldgroups)
       throw new Error(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
