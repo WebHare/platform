@@ -57,7 +57,7 @@ async function main() {
       if (program.opts().fields)
         console.log(JSON.stringify(pickFields(parsed)));
 
-      const suffix = `${parsed['@timestamp'].getUTCFullYear()}-${String(parsed["@timestamp"].getUTCMonth()).padStart(2, '0')}`;
+      const suffix = `${parsed['@timestamp'].getUTCFullYear()}-${String(parsed["@timestamp"].getUTCMonth() + 1).padStart(2, '0')}`;
       if (!suffix.match(/^\d{4}-\d{2}$/))
         throw new Error(`Internal error, calculated invalid suffix ${suffix}`);
       await inserter.index(parsed, { suffix });
