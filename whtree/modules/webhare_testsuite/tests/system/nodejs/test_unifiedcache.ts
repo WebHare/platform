@@ -38,6 +38,7 @@ async function testResizeMethods() {
 
   //Test sharp resize methods
   test.eq({
+    extract: null,
     resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
     extend: null,
     format: "jpeg",
@@ -46,6 +47,7 @@ async function testResizeMethods() {
 
   //Scale === fit when shrinking
   test.eq({
+    extract: null,
     resize: { width: 21, height: 25, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
     extend: null,
     format: "jpeg",
@@ -54,6 +56,7 @@ async function testResizeMethods() {
 
   //Scale to bigger size
   test.eq({
+    extract: null,
     resize: { width: 244, height: 296, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
     extend: null,
     format: "jpeg",
@@ -62,6 +65,7 @@ async function testResizeMethods() {
 
   //Fix rounding error
   test.eq({
+    extract: null,
     resize: { width: 754, height: 500, fit: "cover" }, //scaling/stretching requires cover to prevent lines at the edges
     extend: null,
     format: "jpeg",
@@ -70,6 +74,7 @@ async function testResizeMethods() {
 
   //Fit to bigger size - should be ignored!
   test.eq({
+    extract: null,
     resize: null,
     extend: null,
     format: "jpeg",
@@ -77,6 +82,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 244, height: 400 }));
 
   test.eq({
+    extract: null,
     resize: null,
     extend: { top: 108, bottom: 108, left: 36, right: 36, background: { r: 255, g: 0, b: 0, alpha: 1 } },
     format: "avif",
@@ -84,6 +90,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fitcanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
+    extract: null,
     resize: { width: 100, height: 100, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
     extend: null,
     format: "avif",
@@ -91,6 +98,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 100, width: 100, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
+    extract: null,
     resize: { width: 500, height: 500, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
     extend: null,
     format: "avif",
@@ -98,6 +106,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
+    extract: null,
     resize: null,
     extend: null,
     format: "avif",
@@ -105,6 +114,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(examplePng, { method: "none", format: "image/avif" }));
 
   test.eq({
+    extract: { height: 284, left: 73, top: 0, width: 283 },
     resize: { width: 100, height: 100, fit: 'cover' },
     extend: null,
     format: "avif",
@@ -290,6 +300,32 @@ async function testResizeMethods() {
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: -23, renderY: 0, renderWidth: 160, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 67, y: 90 }
   }, explainImageProcessing(examplerefPoint, { method: "fill", width: 120, height: 120 }));
+
+  test.eq({
+    extract: { height: 240, left: 46, top: 0, width: 240 },
+    resize: { fit: "cover", height: 120, width: 120 },
+    extend: null,
+    format: "png",
+    formatOptions: null
+  }, getSharpResizeOptions(examplerefPoint, { method: "fill", width: 120, height: 120 }));
+
+  //test refpoints in corners
+  test.eq({
+    extract: { height: 240, left: 0, top: 0, width: 240 },
+    resize: { fit: "cover", height: 120, width: 120 },
+    extend: null,
+    format: "png",
+    formatOptions: null
+  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 0, y: 0 } }, { method: "fill", width: 120, height: 120 }));
+
+
+  test.eq({
+    extract: { height: 240, left: 80, top: 0, width: 240 },
+    resize: { fit: "cover", height: 120, width: 120 },
+    extend: null,
+    format: "png",
+    formatOptions: null
+  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 319, y: 239 } }, { method: "fill", width: 120, height: 120 }));
 }
 
 async function testImgMethodPacking() {
@@ -354,7 +390,10 @@ async function fetchUCLink(url: string, expectType: string) {
   return { resource: fetchData, finalurl, fetchBuffer };
 }
 
-async function compareSharpImages(expect: Sharp, actual: Sharp, maxMSE = 0) {
+async function compareSharpImages(expect: Sharp | string, actual: Sharp, maxMSE = 0) {
+  if (typeof expect === "string")
+    expect = await createSharpImage(expect);
+
   const rawExpect = await expect.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
   const rawActual = await actual.raw({ depth: 'uchar' }).toBuffer({ resolveWithObject: true });
   test.eq(rawExpect.info, rawActual.info);
