@@ -7,7 +7,7 @@ import * as dompack from "@webhare/dompack";
 
 //To enable gettid debugging, enable 'gtd' in the debug flags
 
-test.registerTests([
+test.runTests([
   // Test language
   "Tid language",
   function () {

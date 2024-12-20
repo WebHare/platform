@@ -150,7 +150,7 @@ async function testExecuteEnrichment() {
   >, typeof presentFieldTest>>();
 }
 
-test.run([
+test.runTests([
   testPick,
   testOmit,
   testFreezeRecursive,

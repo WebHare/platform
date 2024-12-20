@@ -1,7 +1,7 @@
 import * as test from '@webhare/test-frontend';
 import * as tt from "@mod-tollium/js/tolliumtest";
 
-test.run(
+test.runTests(
   [
     "test column resizing",
     async function () {

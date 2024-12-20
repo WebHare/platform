@@ -128,7 +128,7 @@ async function testContextHSVM() {
   await context2.close();
 }
 
-test.run([
+test.runTests([
   testContextSetup,
   testContextStorage,
   testContextHSVM

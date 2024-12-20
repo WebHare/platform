@@ -5,7 +5,7 @@ function getResult() {
   return JSON.parse(tt.comp("result", { allowMissing: true })?.getTextValue() || "null");
 }
 
-test.run([
+test.runTests([
   "Upload and drag files",
   async function () {
     await test.load(test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:uploadtest');

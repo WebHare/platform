@@ -9,7 +9,7 @@ let totpsecret = '';
 let totpdata;
 let totpbackupcodes = '';
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });

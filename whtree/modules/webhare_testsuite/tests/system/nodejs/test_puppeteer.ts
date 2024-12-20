@@ -12,4 +12,4 @@ async function testPuppeteer() {
   await puppet.close();
 }
 
-test.run([testPuppeteer]);
+test.runTests([testPuppeteer]);

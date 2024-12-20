@@ -55,7 +55,7 @@ function InitLocatorsId(locators) {
 
 const useblockfill = true;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'

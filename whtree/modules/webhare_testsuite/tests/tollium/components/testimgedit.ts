@@ -174,7 +174,7 @@ const TestImageEditor =
     }
   ] satisfies test.RegisteredTestSteps;
 
-test.registerTests(
+test.runTests(
   [
     {
       name: "load component test page",

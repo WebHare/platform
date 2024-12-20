@@ -22,7 +22,7 @@ declare global {
   }
 }
 
-test.registerTests(
+test.runTests(
   [
     "Verify dompack identity",
     async function () {

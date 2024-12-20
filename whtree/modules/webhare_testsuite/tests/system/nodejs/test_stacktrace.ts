@@ -15,4 +15,4 @@ function testStackTrace() {
   test.eq("testStackTrace", getCallerLocation(0).func);
 }
 
-test.run([testStackTrace]);
+test.runTests([testStackTrace]);

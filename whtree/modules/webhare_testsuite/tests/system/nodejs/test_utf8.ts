@@ -82,7 +82,7 @@ function testWorksOn3ByteChars() {
   test.eq("\uffff\uffff\uffff", limitUTF8Length("\uffff\uffff\uffff\uffff", 9));
 }
 
-test.run([
+test.runTests([
   testWorksOnAscii,
   testWorksOn2ByteChars,
   testWorksOn3ByteChars

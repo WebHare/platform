@@ -5,7 +5,7 @@ import * as test from "@mod-tollium/js/testframework";
 import * as dompack from 'dompack';
 
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getCompTestPage('textarea'),

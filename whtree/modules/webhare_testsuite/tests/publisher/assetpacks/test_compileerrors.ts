@@ -392,7 +392,7 @@ async function testPlugins() {
 }
 
 
-test.run([
+test.runTests([
   testConfigParser,
   testCompileerrors,
   testPlugins,

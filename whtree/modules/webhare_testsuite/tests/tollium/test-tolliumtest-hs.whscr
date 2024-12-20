@@ -11,4 +11,4 @@ ASYNC MACRO TestTTApi()
   AWAIT tt.escape();
 }
 
-test.run(VARIANT[ "Basic tests", PTR TestTTApi ]);
+test.runTests(VARIANT[ "Basic tests", PTR TestTTApi ]);

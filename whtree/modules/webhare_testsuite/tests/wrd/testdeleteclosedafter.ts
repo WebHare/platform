@@ -71,7 +71,7 @@ async function testDeleteClosedAfter() {
   test.eq([], await schema.query("wrdPerson").select("wrdId").where("wrdFirstName", "=", "first").historyMode("all").execute());
 }
 
-test.run([
+test.runTests([
   async () => { await createWRDTestSchema({ deleteClosedAfter }); },
   testDeleteClosedAfter
 ]);

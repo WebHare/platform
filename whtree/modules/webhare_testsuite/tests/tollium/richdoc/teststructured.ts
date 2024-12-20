@@ -17,7 +17,7 @@ async function setRawHTML(code) {
   await test.wait("ui");
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/richdoc.main'),

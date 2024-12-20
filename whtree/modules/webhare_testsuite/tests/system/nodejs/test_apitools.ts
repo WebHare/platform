@@ -62,7 +62,7 @@ async function testDidYouMean() {
   test.eq("", apitools.addBestMatch("123", ["123456"]));
 }
 
-test.run([
+test.runTests([
   testDidYouMean,
   testApiTools
 ]);

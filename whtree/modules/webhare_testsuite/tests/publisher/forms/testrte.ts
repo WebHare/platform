@@ -28,7 +28,7 @@ async function verifyImage() {
   test.eq(450, Math.round(imgobj.getBoundingClientRect().width));
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

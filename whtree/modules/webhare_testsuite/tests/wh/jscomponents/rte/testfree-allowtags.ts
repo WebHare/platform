@@ -4,7 +4,7 @@
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free&allowtags=b,img'

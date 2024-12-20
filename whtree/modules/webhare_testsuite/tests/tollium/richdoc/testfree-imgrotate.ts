@@ -4,7 +4,7 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import { prepareUpload } from '@webhare/test-frontend';
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/richdoc.main'),

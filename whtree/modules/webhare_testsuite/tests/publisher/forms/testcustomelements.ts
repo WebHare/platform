@@ -51,7 +51,7 @@ async function testAttributeSyncingSimple() {
   // test.eq(false, test.qR("my-simple-field").matches(":required"));
 }
 
-test.run([
+test.runTests([
   testSimpleElement,
   testAttributeSyncingSimple,
 ]);

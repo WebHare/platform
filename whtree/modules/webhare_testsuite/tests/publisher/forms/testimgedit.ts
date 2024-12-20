@@ -11,7 +11,7 @@ interface RTDForm {
   imgs: FormFileValue[];
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

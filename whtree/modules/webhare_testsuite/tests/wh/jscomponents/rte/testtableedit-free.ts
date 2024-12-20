@@ -28,7 +28,7 @@ function getRoundedCoordinates(node) {
   };
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free&fill=tables'

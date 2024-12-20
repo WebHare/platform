@@ -22,7 +22,7 @@ function iframeAddEventOnce(node, eventname, callback) {
 
 let lasttextareavalue = '';
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/basecomponents.iframetest'),

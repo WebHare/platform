@@ -144,7 +144,7 @@ async function testUploadHSCompat() {
   test.assert(!existsSync(getStorageFolderForSession(howToUpload.sessionId)));
 }
 
-test.run(
+test.runTests(
   [
     testSessionStorage,
     testUpload,

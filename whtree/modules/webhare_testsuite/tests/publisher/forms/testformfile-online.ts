@@ -4,7 +4,7 @@ import { getPxlLogLines } from '@webhare/test-frontend';
 const testemail = Math.floor(100000000 * Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
 let setupdata: any;
 
-test.run(
+test.runTests(
   [
     async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpulldown: true, addgtmdatalayer: "muhdata" });

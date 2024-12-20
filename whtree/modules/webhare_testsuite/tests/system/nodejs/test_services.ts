@@ -468,7 +468,7 @@ async function testLogs() {
   ], mynotices);
 }
 
-test.run(
+test.runTests(
   [
     testServices,
     testServiceState,

@@ -452,7 +452,7 @@ async function testGeneratedClient() {
   }
 }
 
-test.run([
+test.runTests([
   testService,
   testAuthorization,
   testCORS,

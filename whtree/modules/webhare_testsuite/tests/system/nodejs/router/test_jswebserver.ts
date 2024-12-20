@@ -116,4 +116,4 @@ async function testOurWebserver() {
   ws.close();
 }
 
-test.run([testOurWebserver]);
+test.runTests([testOurWebserver]);

@@ -3,7 +3,7 @@ import { importExposed } from "@webhare/test-frontend";
 import type { DompackApi } from "@mod-webhare_testsuite/web/tests/pages/dompack/dompackexample";
 import * as dompack from "@webhare/dompack";
 
-test.registerTests(
+test.runTests(
   [
     "Tests dialog api",
     async function () {

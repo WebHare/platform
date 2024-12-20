@@ -18,7 +18,7 @@ async function testTTAPI() {
   test.eq("opt1", tt.comp("pulldown").getValue());
 }
 
-test.run(
+test.runTests(
   [
     "Basic tests",
     testTTAPI

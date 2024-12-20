@@ -14,7 +14,7 @@ async function resetAll() {
   test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
-test.registerTests(
+test.runTests(
   [
     "setup",
     async function () {

@@ -751,7 +751,7 @@ function testUUIDFallback() {
 }
 
 
-test.run([
+test.runTests([
   "@webhare/env",
   testEnv,
   "Money",

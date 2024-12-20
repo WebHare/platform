@@ -169,7 +169,7 @@ async function testPxlTrueEvents() {
   ], result.hits.hits);
 }
 
-test.run([
+test.runTests([
   testBasicAPIs,
   testPxlConfig,
   async function prepTestGeoip() {

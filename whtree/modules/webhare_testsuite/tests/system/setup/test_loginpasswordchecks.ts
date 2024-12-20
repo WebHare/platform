@@ -8,7 +8,7 @@ let totpsecret;
 let totpdata;
 
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });

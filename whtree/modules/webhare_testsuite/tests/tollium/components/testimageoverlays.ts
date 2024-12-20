@@ -1,6 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
 
-test.registerTests(
+test.runTests(
   [
     {
       name: "An empty canvas...",

@@ -5,7 +5,7 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 const testblock = test.getTestArgument(0) === 'block';
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/richdoc.main'),

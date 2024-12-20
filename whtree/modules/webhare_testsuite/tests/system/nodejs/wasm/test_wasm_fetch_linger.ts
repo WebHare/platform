@@ -7,4 +7,4 @@ async function testHSFetch() {
   test.eqPartial({ method: "GET" }, await resp.json());
 }
 
-test.run([testHSFetch]);
+test.runTests([testHSFetch]);

@@ -2,7 +2,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 // let testdata;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.updateFrame("main", { width: 400 });

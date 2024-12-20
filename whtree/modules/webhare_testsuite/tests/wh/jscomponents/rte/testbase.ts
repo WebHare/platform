@@ -9,7 +9,7 @@ import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range'
 
 const useblockfill = true;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/'

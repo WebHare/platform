@@ -6,7 +6,7 @@ function forceResetConsent() {
   test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
-test.registerTests(
+test.runTests(
   [
     "Test v1 video",
     async function () {

@@ -302,7 +302,7 @@ async function testSlowPasswordHash() {
     console.error(`testSlowPasswordHash took only ${timespent} ms!!!`); //TODO retune when we decrypt natively
 }
 
-test.run([
+test.runTests([
   testAuthSettings,
   testLowLevelAuthAPIs,
   setupOpenID,

@@ -27,7 +27,7 @@ function runSharedTests() {
   test.eq({ m: new Money("32.32"), d: new Date("2022-02-01") }, testApi.getSession("complexKey"));
 }
 
-test.run(
+test.runTests(
   [
     "Test plain storage",
     async function () {

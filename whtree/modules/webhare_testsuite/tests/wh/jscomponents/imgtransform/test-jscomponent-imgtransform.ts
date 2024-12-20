@@ -51,7 +51,7 @@ async function testActions() {
   test.eqPartial({ imgSize: { height: 450, width: 600 } }, JSON.parse(statusbar.textContent || 'null'));
 }
 
-test.run([
+test.runTests([
   testBasicEditor,
   testActions
 ]);

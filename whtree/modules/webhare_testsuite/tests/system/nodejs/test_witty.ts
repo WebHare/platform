@@ -480,7 +480,7 @@ async function callWithScope() {
   test.eq("local-testsuite", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("embed-wittyvar", ctx), { invokewittyvar: () => script.callWithScope((ctx: WittyCallContext) => ctx.embed("local")) }));
 }
 
-test.run([
+test.runTests([
   simpleTest,
   foreveryMembers,
   encodingSensitivity,

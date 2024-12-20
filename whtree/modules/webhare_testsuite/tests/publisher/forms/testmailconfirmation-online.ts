@@ -8,7 +8,7 @@ const testemail = rand + "-testformfile-online+jstest@beta.webhare.net";
 let confirmlink;
 let testemail_guid;
 
-test.registerTests(
+test.runTests(
   [
     "Load and submit form",
     async function () {

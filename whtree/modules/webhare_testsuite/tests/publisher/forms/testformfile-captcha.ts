@@ -4,7 +4,7 @@ let setupdata;
 const rand = Math.floor(100000000 * Math.random());
 const testemail = rand + "-testformfile-online+jstest@beta.webhare.net";
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha" });

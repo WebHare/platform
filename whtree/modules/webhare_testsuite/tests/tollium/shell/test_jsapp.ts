@@ -1,6 +1,6 @@
 import * as test from '@mod-tollium/js/testframework';
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTolliumHost() + '?app=__jsapp_hack__', //tollium_todd.res/webhare_testsuite/tollium/jsapp.js

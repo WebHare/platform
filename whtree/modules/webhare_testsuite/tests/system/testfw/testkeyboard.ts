@@ -4,7 +4,7 @@ import * as test from "@mod-system/js/wh/testframework";
 
 function getPressedKeys() { return JSON.parse(test.qS('#keyspressed').value || "[]"); }
 
-test.registerTests(
+test.runTests(
   [
     { loadpage: '/.webhare_testsuite/tests/pages/keyboard/' },
     'simple press',

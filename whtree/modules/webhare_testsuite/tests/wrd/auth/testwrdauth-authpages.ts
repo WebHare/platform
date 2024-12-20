@@ -1,7 +1,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as testwrd from "@mod-wrd/js/testframework";
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth

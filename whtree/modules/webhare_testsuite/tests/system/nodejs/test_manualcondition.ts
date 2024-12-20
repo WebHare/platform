@@ -73,4 +73,4 @@ async function testGoingFromSignalledToNotSignalled() {
   }
 }
 
-test.run([testInitialState, testGoingFromNotSignalledToSignalled, testGoingFromSignalledToNotSignalled]);
+test.runTests([testInitialState, testGoingFromNotSignalledToSignalled, testGoingFromSignalledToNotSignalled]);

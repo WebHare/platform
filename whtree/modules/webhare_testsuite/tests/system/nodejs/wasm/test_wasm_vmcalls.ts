@@ -192,7 +192,7 @@ async function testLingeringContext() {
   test.eq([17, 42, 999], await lingering.run(async () => await loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999])));
 }
 
-test.run([
+test.runTests([
   testTypeAPIs,
   testVarMemory,
   testCalls,

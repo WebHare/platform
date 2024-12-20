@@ -5,7 +5,7 @@ import type WebSocketTransport from "@mod-tollium/web/ui/js/comm/websocket";
 import type IndyShell from "@mod-tollium/web/ui/js/shell";
 const transport = test.getTestArgument(0);
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&transport=' + transport);

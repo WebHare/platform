@@ -22,7 +22,7 @@ function getListRowCells(list, findtext) {
   return rowcells;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/lists.basetest'),

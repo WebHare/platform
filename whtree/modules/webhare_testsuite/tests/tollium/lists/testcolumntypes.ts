@@ -7,7 +7,7 @@ function getListRowCells(list: HTMLElement, findtext: string) {
   return rowcells;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/lists.columntypes'),

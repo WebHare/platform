@@ -21,7 +21,7 @@ function getContentsHTMLRaw(win) {
   return test.qS("div.wh-rtd-editor-bodynode").innerHTML;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'

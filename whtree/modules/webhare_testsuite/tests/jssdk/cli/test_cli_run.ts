@@ -410,7 +410,7 @@ async function testCLIOptionTypes() {
   test.eq(/off/, enumOption(["on", "off"]).parseValue("off", { argName: "a" })); // want a did you mean?
 }
 
-test.run([
+test.runTests([
   testCLIMainParse,
   testCLISubCommandParse,
   testCLITypes,

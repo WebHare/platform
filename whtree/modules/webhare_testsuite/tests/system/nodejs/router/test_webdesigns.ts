@@ -152,7 +152,7 @@ async function testRouter_JSWebDesign() {
   await verifyMarkdownResponse(markdowndoc, result);
 }
 
-test.run([
+test.runTests([
   testSiteResponse,
   testSiteResponseApplies,
   testPublishedJSSite,

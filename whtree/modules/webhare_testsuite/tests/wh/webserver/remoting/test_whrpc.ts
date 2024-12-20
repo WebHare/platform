@@ -5,7 +5,7 @@ import RPCClient from '@mod-system/js/wh/rpc';
 import * as testnoauthservice from "./testnoauthservice.rpc.json";
 import { createClient } from "@webhare/jsonrpc-client";
 
-test.registerTests(
+test.runTests(
   [
     "Basic rpc",
     async function () {

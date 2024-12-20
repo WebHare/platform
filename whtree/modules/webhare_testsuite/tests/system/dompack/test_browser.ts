@@ -2,7 +2,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import { browser } from '@webhare/dompack';
 import { parseUserAgent } from '@webhare/dompack/impl/browser';
 
-test.registerTests(
+test.runTests(
   [
     "Browser detection",
     async function () {

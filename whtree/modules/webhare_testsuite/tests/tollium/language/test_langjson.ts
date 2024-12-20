@@ -72,4 +72,4 @@ async function testLangJsonParser() {
   }
 }
 
-test.run([testLangJsonParser]);
+test.runTests([testLangJsonParser]);

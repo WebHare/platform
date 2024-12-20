@@ -24,7 +24,7 @@ export function hasAnalyticsHit(regex: RegExp) {
   return getAnalyticsHits(regex).length > 0;
 }
 
-test.registerTests(
+test.runTests(
   [
     "Test integration=inpage (raw <script> tags)",
     async function () {

@@ -22,7 +22,7 @@ function getToddFocusedComponent() {
   return null;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/basecomponents.focustest'),

@@ -29,7 +29,7 @@ async function tryProtectedURL(gotourl: string) {
   await test.wait(() => receivedmessage && receivedmessage.type === "webhare_testsuite:requirewhaccount");
 }
 
-test.registerTests(
+test.runTests(
   [
     "Test with protected subdir",
     async function () {

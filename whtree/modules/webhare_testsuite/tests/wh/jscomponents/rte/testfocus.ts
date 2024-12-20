@@ -11,7 +11,7 @@ function waitForReparentedRTE() {
   return Boolean(test.qS(".wh-rtd-editor"));
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'

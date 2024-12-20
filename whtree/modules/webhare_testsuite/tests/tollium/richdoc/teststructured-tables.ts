@@ -18,7 +18,7 @@ async function openPropsOnFirstTable({ toclick } = { toclick: "td p" }) {
   await test.wait('ui');
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/richdoc.main'),

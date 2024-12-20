@@ -19,7 +19,7 @@ async function moveTheKnob(percentage) {
   await test.wait('ui');
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getCompTestPage('slider'),

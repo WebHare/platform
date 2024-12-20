@@ -25,7 +25,7 @@ function getComparableRTEText(rtenode) {
   return tempdiv.innerHTML;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured'

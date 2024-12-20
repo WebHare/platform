@@ -7,7 +7,7 @@ async function prepareReset() {
   await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest/");
 }
 
-test.run([
+test.runTests([
   prepareReset,
   "login",
   async function () {

@@ -2,7 +2,7 @@
 
 import * as test from '@mod-system/js/wh/testframework';
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.load(test.getTestSiteRoot() + 'photoalbum/');

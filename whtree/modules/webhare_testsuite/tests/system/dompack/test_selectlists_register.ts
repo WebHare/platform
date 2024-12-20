@@ -3,7 +3,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as testhelpers from './testhelpers';
 
-test.registerTests(
+test.runTests(
   [
     "Pulldown seqnr/registerMissed test",
     async function () {

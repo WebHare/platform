@@ -63,7 +63,7 @@ async function testFail() {
   test.assert(true);
 }
 
-test.run([testFail]);
+test.runTests([testFail]);
 `));
 
   RECORD ARRAY issues := CheckModule("webhare_testsuite_temp", [ printissues := testfw->debug

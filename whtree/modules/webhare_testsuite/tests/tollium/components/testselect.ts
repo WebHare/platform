@@ -6,7 +6,7 @@ import * as browser from "dompack/extra/browser";
 
 let savefirstwidth;
 
-test.registerTests(
+test.runTests(
   [ // ---------------------------------------------------------------------------
     //
     // Pulldown

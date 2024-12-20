@@ -118,7 +118,7 @@ async function workerPoolTest() {
 
 // Only run the tests in the main thread
 if (isMainThread) {
-  test.run([
+  test.runTests([
     runWorkerTest,
     runCleanupTest,
     workerPoolTest,

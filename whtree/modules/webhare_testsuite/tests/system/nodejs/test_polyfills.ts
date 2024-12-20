@@ -137,7 +137,7 @@ function testIterators() {
   }
 }
 
-test.run([
+test.runTests([
   // test the polyfill
   testIterators
 ]);

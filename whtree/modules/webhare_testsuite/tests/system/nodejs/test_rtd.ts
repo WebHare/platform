@@ -11,7 +11,7 @@ async function testRTDCreation() {
   test.eq(`<html><body><h2 class="heading2">Intro</h2><p class="normal">Hello, World!</p></body></html>`, await richdoc.__getRawHTML());
 }
 
-test.run(
+test.runTests(
   [ // internal RTD creation APIs
     testRTDCreation
   ]);

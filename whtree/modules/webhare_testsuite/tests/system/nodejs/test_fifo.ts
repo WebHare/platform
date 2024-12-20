@@ -92,4 +92,4 @@ async function testGoingFromSignalledToNotSignalled() {
   }
 }
 
-test.run([testInitialState, testBasicManipulation, testGoingFromNotSignalledToSignalledWhenAnElementIsPushed, testGoingFromSignalledToNotSignalled]);
+test.runTests([testInitialState, testBasicManipulation, testGoingFromNotSignalledToSignalledWhenAnElementIsPushed, testGoingFromSignalledToNotSignalled]);

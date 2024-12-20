@@ -5,7 +5,7 @@ import * as test from '@mod-system/js/wh/testframework';
 const replacedcomponents = test.getTestArgument(0) === 'replacedcomponents';
 const urlappend = replacedcomponents ? '?dompackpulldown=1' : '';
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

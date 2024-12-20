@@ -95,7 +95,7 @@ async function testTSConfig() {
   test.eq(`${backendConfig.installationroot}tsconfig.json`, resolve(baseurl, whdata_tsconfig.extends), "whdata/tsconfig.json should extend whtree/tsconfig.json");
 }
 
-test.run([
+test.runTests([
   testDevBridge,
   testTSConfig
 ]);

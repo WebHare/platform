@@ -7,7 +7,7 @@ function getTabs(startnode) {
   return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => node.closest('t-tabs') === startnode);
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.load(test.getTestScreen('tests/layout.layouttest,tabs'));

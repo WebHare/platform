@@ -4,4 +4,4 @@ async function testFail() {
   test.assert(Math.random() === 42);
 }
 
-test.run([testFail]);
+test.runTests([testFail]);

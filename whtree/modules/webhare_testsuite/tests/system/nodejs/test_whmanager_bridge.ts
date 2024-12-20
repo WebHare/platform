@@ -110,4 +110,4 @@ async function testBridge() {
   bridge.log("system:debug", { text: "js bridge final message" });
 }
 
-test.run([testBridge]);
+test.runTests([testBridge]);

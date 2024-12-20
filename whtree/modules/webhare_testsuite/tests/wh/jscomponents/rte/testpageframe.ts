@@ -4,7 +4,7 @@ import * as test from "@mod-tollium/js/testframework";
 
 //TODO I'm not sure this test makes any sense since we've long stopped using iframes.... but at least it's not about page-mode
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'

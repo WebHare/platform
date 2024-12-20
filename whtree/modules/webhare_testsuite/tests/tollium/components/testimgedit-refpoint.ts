@@ -5,7 +5,7 @@ import * as test from '@mod-tollium/js/testframework';
 import { prepareUpload } from '@webhare/test-frontend';
 import { getRelativeBounds } from '@webhare/dompack';
 
-test.registerTests(
+test.runTests(
   [
     "load component test page",
     async function () {

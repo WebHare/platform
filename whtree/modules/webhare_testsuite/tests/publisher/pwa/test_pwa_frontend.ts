@@ -2,7 +2,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import * as pwatests from '@mod-publisher/js/pwa/tests';
 import { throwError } from "@webhare/std/std";
 
-test.registerTests(
+test.runTests(
   [
     "cleanup",
     async function () {

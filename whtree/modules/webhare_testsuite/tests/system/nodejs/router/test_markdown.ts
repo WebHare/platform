@@ -15,4 +15,4 @@ async function testMarkdown() {
   //<ul class="unordered"><li>a</li><li>b<ul><li>c</li><li>d</li></ul></li></ul>
 }
 
-test.run([testMarkdown]);
+test.runTests([testMarkdown]);

@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import * as test from "@webhare/test-frontend";
 
-test.run(
+test.runTests(
   [
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/statictestpage.html');

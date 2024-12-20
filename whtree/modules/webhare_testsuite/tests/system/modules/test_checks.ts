@@ -190,7 +190,7 @@ async function testTheChecks() {
   test.eq([], await listTestSuiteIntervalIssues());
 }
 
-test.run([
+test.runTests([
   testCheckAPI,
   testTheChecks
 ]);

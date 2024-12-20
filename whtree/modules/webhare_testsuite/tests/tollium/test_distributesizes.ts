@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { distributeSizes } from '@mod-tollium/web/ui/js/componentbase';
 
-test.registerTests(
+test.runTests(
   [
     { loadpage: 'about:blank' },
 

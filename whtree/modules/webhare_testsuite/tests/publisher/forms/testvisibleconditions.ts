@@ -4,7 +4,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 /* More advanced visible conditions */
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

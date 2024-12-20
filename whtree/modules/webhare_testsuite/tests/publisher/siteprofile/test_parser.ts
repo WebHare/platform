@@ -483,7 +483,7 @@ apply:
 `));
 }
 
-test.run([
+test.runTests([
   testSPYaml,
   testComplexTo
 ]);

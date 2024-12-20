@@ -5,7 +5,7 @@ import { __setUnderlyingValue } from '@mod-publisher/js/forms/fields/datetime';
 let datechangeevents = 0;
 let timechangeevents = 0;
 
-test.registerTests([
+test.runTests([
   "Run unreplaced for compatibility test",
 
   async function () {

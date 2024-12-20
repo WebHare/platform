@@ -207,7 +207,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));
 }
 
-test.run([
+test.runTests([
   testBasics,
   testWebHareConfig,
   testModule,

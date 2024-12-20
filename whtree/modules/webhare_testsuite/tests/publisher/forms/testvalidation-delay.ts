@@ -4,7 +4,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 // import * as dompack from 'dompack';
 
-test.registerTests(
+test.runTests(
   [
     'Test validation running too fast when a radio is focused',
     async function () {

@@ -3,7 +3,7 @@
 import * as test from '@mod-tollium/js/testframework';
 
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/layout.layouttest,tabsspace'),

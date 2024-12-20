@@ -254,7 +254,7 @@ async function testInstanceData() {
   await commitWork();
 }
 
-test.run([
+test.runTests([
   test.reset,
   testCodecs,
   testMockedTypes,
