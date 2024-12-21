@@ -134,7 +134,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
       continue;
 
     //FIXME Jump straight to the right position, combine with rewriting to input streaming (but I'm not sure the common 'readline.createInterface' solution allow us to accurately record offsets)
-    const continueAfterOffset: number = options?.continueAfter ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
+    const continueAfterOffset: number = options?.continueAfter?.split(':')[0] === `A${datetok}` ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
 
     //Okay, this one is in range. Start parsing
     const content = options?.content ?? readFileSync(basedir + "/" + name, "utf8");
