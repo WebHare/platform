@@ -455,7 +455,7 @@ async function testLogs() {
   await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241205.log",
     `{ "@timestamp": "2024-12-05T12:00:00.000Z", "line": 3 }\n{ "@timestamp": "2024-12-05T13:00:00.000Z", "line": 4 }\n`, { overwrite: true });
 
-  //Try to read more lines, its's there now
+  //Try to read more lines, it's there now
   const logreader_1204c = services.readLogLines<{ line: number }>("webhare_testsuite:test", { continueAfter: logreader_1204_line2.value["@id"], limit: new Date("2024-12-06") });
   test.eq(3, (await logreader_1204c.next()).value.line);
 
