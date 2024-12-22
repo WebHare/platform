@@ -9,6 +9,7 @@ import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { storeDiskFile } from "@webhare/system-tools";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -435,6 +436,28 @@ async function testLogs() {
 
   const logreader2 = services.readLogLines("webhare_testsuite:test", { start: test.startTime, continueAfter: hardlogline.value["@id"] });
   test.eq(hsline.value["@id"], (await logreader2.next()).value["@id"], "ContinueAfter should have started after 'hardlogline'");
+
+  // Historic files reading. First write two lines:
+  await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241204.log",
+    `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });;
+
+  const logreader_1204 = services.readLogLines<{ line: number }>("webhare_testsuite:test", { start: new Date("2024-12-04"), limit: new Date("2024-12-06") });
+  test.eq(1, (await logreader_1204.next()).value.line);
+  const logreader_1204_line2 = await logreader_1204.next();
+  test.eq(2, logreader_1204_line2.value.line);
+  test.eq(true, (await logreader_1204.next()).done);
+
+  //Try to read more lines, none there yet
+  const logreader_1204b = services.readLogLines<{ line: number }>("webhare_testsuite:test", { continueAfter: logreader_1204_line2.value["@id"], limit: new Date("2024-12-06") });
+  test.eq(true, (await logreader_1204b.next()).done); //shouldn't find anything yet
+
+  //Add line on the next day
+  await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241205.log",
+    `{ "@timestamp": "2024-12-05T12:00:00.000Z", "line": 3 }\n{ "@timestamp": "2024-12-05T13:00:00.000Z", "line": 4 }\n`, { overwrite: true });
+
+  //Try to read more lines, it's there now
+  const logreader_1204c = services.readLogLines<{ line: number }>("webhare_testsuite:test", { continueAfter: logreader_1204_line2.value["@id"], limit: new Date("2024-12-06") });
+  test.eq(3, (await logreader_1204c.next()).value.line);
 
   test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
   services.logDebug("webhare_testsuite:services_test", { test: 42 });
