@@ -114,3 +114,11 @@ export function getFrontendData<Type extends keyof FrontendDataTypes>(dataObject
 
   return retval;
 }
+
+/** Get the current site root
+ *
+ * @returns The site root URL (ending with a slash)
+*/
+export function getSiteRoot() { //now an API to improve treeshaking
+  return frontendConfig.siteRoot;
+}

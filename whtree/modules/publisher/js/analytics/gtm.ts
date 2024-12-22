@@ -1,6 +1,7 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
-import { pushToDataLayer, setupGTM, type DataLayerEntry } from "@webhare/frontend/src/gtm";
+import { pushToDataLayer, setupGTM } from "@webhare/frontend/src/gtm";
+import { type DataLayerEntry } from "@webhare/frontend/src/gtm-types";
 import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';

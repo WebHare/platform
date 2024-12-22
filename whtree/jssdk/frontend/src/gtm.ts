@@ -1,13 +1,7 @@
 import { qSA } from "@webhare/dompack";
 import { debugFlags } from "@webhare/env";
 import type { FormAnalyticsEvent } from "@webhare/forms";
-
-export type DataLayerVar = boolean | string | number | { [key: string]: DataLayerVar };
-//FIXME only eventCallback should be a ()=>void ..
-export type DataLayerEntry = Record<string, DataLayerVar | (() => void)> & {
-  event?: string;
-  eventCallback?: () => void;
-};
+import type { DataLayerEntry } from "./gtm-types";
 
 declare global {
   interface Window {
