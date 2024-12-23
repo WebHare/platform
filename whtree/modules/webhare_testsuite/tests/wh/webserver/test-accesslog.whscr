@@ -49,7 +49,7 @@ MACRO RunQueries()
   testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost2", [ headers := [ [ field := "Host", value := "example\r.com" ] ] ]);
   testfw->browser->GotoWebPage(testvport.baseurl || ".__test/illegalhost3", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
   testfw->browser->GotoWebPage(testvport.baseurl || ".px/pixelhit?__test", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
-  testfw->browser->GotoWebPage(testvport.baseurl || ".wh/ea/px/pixelhit2?__test", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
+  testfw->browser->GotoWebPage(testvport.baseurl || ".wh/ea/pxl/pixelhit2?__test", [ headers := [ [ field := "Host", value := "example\n.com" ] ] ]);
 
   RECORD ARRAY data := GetAccessLogEntries("access", teststart, 7);
   TestEQMembers(
@@ -76,7 +76,7 @@ MACRO RunQueries()
         , url :=        "/.px/pixelhit?__test"
         ]
       , [ host :=       "example"
-        , url :=        "/.wh/ea/px/pixelhit2?__test"
+        , url :=        "/.wh/ea/pxl/pixelhit2?__test"
         ]
       ], data, "*");
 
@@ -89,7 +89,7 @@ MACRO RunQueries()
         ]
       , [ host :=       "example"
         , method :=     "GET"
-        , url :=        "/.wh/ea/px/pixelhit2?__test"
+        , url :=        "/.wh/ea/pxl/pixelhit2?__test"
         , useragent :=  'HareScript/2 (HareScript HTTP library)'
         ]
       ], data, "*");

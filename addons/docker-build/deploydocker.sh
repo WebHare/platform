@@ -53,7 +53,7 @@ if [ -n "$PUBLIC_IMAGES" ]; then
     exit 1
   fi
 
-  if [ -n "$FALLBACK_REGISTRY_IMAGE" ]; then
+  if [ -n "$FALLBACK_REGISTRY_IMAGE" ] && [ -n "$FALLBACK_REGISTRY_PASSWORD" ]; then
     if ! echo $FALLBACK_REGISTRY_PASSWORD | docker login -u $FALLBACK_REGISTRY_USER --password-stdin $FALLBACK_REGISTRY_IMAGE ; then
       echo "Failed to log in to the fallback registry"
       exit 1
