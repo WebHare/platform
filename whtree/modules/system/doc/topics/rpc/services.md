@@ -1,5 +1,5 @@
 # Setting up webservices
-For HareScript services, a module shuold declare
+For HareScript services, a module should declare
 
 ```xml
   <services>
