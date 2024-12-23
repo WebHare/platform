@@ -44,3 +44,5 @@ export async function run(tests: TestList, options?: { onDone?: () => void }) {
     options?.onDone?.();
   }
 }
+
+export const runTests = run;
