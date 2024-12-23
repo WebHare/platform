@@ -526,7 +526,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
 
 /** Run a command line application
  *
- * @param data - Command confiiguration
+ * @param data - Command configuration
  * @param options - Options for the run
  *    - argv: Override arguments. (defaults to process.argv.slice(2))
  */
