@@ -10,7 +10,7 @@ const testemail2 = rand + '-testformfile2-online+jstest@beta.webhare.net';
 let editlink;
 let testemail_guid;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom2", addtscustomcomp: true, formid: "custom form 2" });

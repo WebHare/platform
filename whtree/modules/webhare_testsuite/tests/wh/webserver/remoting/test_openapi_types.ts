@@ -308,4 +308,4 @@ function testOpenAPITypes() {
   }
 }
 
-test.run([testOpenAPITypes]);
+test.runTests([testOpenAPITypes]);

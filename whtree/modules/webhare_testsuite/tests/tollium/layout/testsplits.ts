@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 const splithgap = 1; //split gap to expect, in pixels
 const splitvgap = 1;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/layout.layouttest'),

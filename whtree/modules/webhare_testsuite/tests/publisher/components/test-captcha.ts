@@ -2,7 +2,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 //TODO test with google's recaptcha in testmode - but we need a cross iframe test.click for that
 
-test.registerTests(
+test.runTests(
   [
     "Test google specific recaptcha",
 

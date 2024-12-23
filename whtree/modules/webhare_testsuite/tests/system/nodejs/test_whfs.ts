@@ -310,7 +310,7 @@ async function testGenerateUniqueName() {
 
 }
 
-test.run([
+test.runTests([
   test.reset,
   testWHFS,
   testGenerateUniqueName

@@ -47,7 +47,7 @@ async function runForumTests(withrecaptcha) {
   test.eq(2, dompack.qSA(messages[1], "br").length, "There should be two <br>s");
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       const result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib#setupTestForum');

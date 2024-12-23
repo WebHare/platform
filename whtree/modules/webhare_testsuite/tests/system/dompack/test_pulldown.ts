@@ -5,7 +5,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import * as dompack from "dompack";
 import * as testhelpers from './testhelpers';
 
-test.registerTests(
+test.runTests(
   [
     "Pulldown test",
     async function () {

@@ -19,7 +19,7 @@ async function myTest() {
   await test.throws(/Cannot read properties of/, async () => { return globalThis.nonexisting.object });
 }
 
-test.run([ // Specify a list of tests to run
+test.runTests([ // Specify a list of tests to run
   myTest
 ]);
 ```

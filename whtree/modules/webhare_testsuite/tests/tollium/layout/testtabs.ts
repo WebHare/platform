@@ -13,7 +13,7 @@ function getTabSheetLabel(tab) {
   return Array.from(tab.childNodes).filter(node => node.matches('.label'))[0];
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/layout.layouttest,tabs'),

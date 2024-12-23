@@ -567,7 +567,7 @@ function testOmitHareScriptDefaultValues() {
   test.eq([], omitHareScriptDefaultValues([] as Array<{ a?: 0 }>, ["a"]));
 }
 
-test.run([
+test.runTests([
   testStrings,
   testCompare,
   testRecordLowerBound,

@@ -151,7 +151,7 @@ async function testSuffixes() {
   test.eq("keyword", myMapping.properties?.nosuchfieldyet_extra.type);
 }
 
-test.run([
+test.runTests([
   testBasicAPIs,
   prepConsilioTests,
   testCatalogAPI,

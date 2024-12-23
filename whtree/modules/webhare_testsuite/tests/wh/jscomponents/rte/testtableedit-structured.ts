@@ -6,7 +6,7 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 const gesture_time = 25;
 let rte = null, table = null;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables'

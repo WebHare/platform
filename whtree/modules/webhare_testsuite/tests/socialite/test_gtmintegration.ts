@@ -15,7 +15,7 @@ function checkForGTM(opts: { selfhosted?: 1; remote?: 1; snippet?: 1 }) {
   test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
 
-test.registerTests(
+test.runTests(
   [
     "Test basic integration",
     async function () {

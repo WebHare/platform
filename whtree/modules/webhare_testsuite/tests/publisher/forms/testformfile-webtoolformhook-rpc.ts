@@ -6,7 +6,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 let setupdata;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm',

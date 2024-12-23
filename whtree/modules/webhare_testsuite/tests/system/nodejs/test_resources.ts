@@ -330,7 +330,7 @@ async function testGIFs() {
   }, brokenparsedgif.getMetaData());
 }
 
-test.run(
+test.runTests(
   [
     testResolve,
     testPaths,

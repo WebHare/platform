@@ -223,4 +223,4 @@ async function testRPCs() {
   ref.release();
 }
 
-test.run([testRPCs]);
+test.runTests([testRPCs]);

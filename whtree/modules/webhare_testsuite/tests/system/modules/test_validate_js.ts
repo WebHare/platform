@@ -109,4 +109,4 @@ types:
   }
 }
 
-test.run([testYAMLVAlidations]);
+test.runTests([testYAMLVAlidations]);

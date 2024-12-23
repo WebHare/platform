@@ -3,7 +3,7 @@ import * as test from '@webhare/test-frontend';
 let testinfo;
 const testemail = Math.floor(100000000 * Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
 
-test.run(
+test.runTests(
   [
     async function () {
       testinfo = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupABTest');

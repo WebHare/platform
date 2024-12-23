@@ -675,7 +675,7 @@ async function testChanges() { //  tests
 
 //TODO ? ASYNC MACRO TestHistoryDialogs() - but we need an API to run and test HS Tollium apps first
 
-test.run([
+test.runTests([
   async () => { await createWRDTestSchema({ keepHistoryDays }); }, //TODO ? forcereload := TRUE, withrichdoc := TRUE
   testChanges,
 ]);

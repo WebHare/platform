@@ -12,7 +12,7 @@ function hasFocus(node) {
   return node === active || node.contains(active);
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/tables.selectiontest'),

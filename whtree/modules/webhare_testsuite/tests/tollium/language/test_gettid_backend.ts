@@ -156,7 +156,7 @@ async function getTidHMRTest() {
   test.eq("v1", getTid("webhare_testsuite_temp:testhmrregister"));
 }
 
-test.run([
+test.runTests([
   tidCompilerTest,
   setupTestModule_LanguageFiles,
   getTidTest,

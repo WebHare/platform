@@ -7,7 +7,7 @@ function getAnalyticsRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/publisher/rpc/"));
 }
 
-test.registerTests(
+test.runTests(
   [
     "Basic GEOIP",
     async function () {

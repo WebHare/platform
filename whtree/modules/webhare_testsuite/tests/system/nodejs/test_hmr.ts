@@ -199,7 +199,7 @@ export function func3() { return Number(file.trim()); }
   await deleteTestModule("webhare_testsuite_hmrtest2");
 }
 
-test.run([
+test.runTests([
   testFileEdits,
   testModuleReplacement
 ]);

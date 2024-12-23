@@ -26,7 +26,7 @@ async function testMailAPI() {
   test.eq("ik ben een attachment", (new TextDecoder).decode(themail[0].attachments[0].data));
 }
 
-test.run([
+test.runTests([
   "Basics mail APIs",
   testMailAPI
 ]);

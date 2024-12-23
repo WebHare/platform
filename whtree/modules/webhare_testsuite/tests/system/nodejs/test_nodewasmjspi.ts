@@ -155,7 +155,7 @@ async function testAsyncContextLoss() {
     throw new Error(`Lost the AsyncLocalStorage context, got ${retval}`);
 }
 
-test.run([
+test.runTests([
   testWasmSpawn,
   testAsyncContextLoss
 ]);

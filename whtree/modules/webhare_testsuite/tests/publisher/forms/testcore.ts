@@ -30,7 +30,7 @@ interface CoreFormShape {
   checkboxes: Array<1 | 2 | 3>;
 }
 
-test.registerTests(
+test.runTests(
   [
     'Study page fields',
     {

@@ -12,7 +12,7 @@ function jsdom(code) {
 
 // Synchronize with test_html.whscr
 
-test.registerTests(
+test.runTests(
   [
     function () {
       const dom = jsdom("<html><body> \r\n\ra\r\n\r\n\r\nb\r\n\r\n\r\n\r\nc \r\nd");

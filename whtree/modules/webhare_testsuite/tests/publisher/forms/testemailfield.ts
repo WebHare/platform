@@ -4,7 +4,7 @@ function getFormRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupEmailFieldtest'); //creates a simple blacklist

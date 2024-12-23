@@ -42,4 +42,4 @@ async function setup() {
   */
 }
 
-test.run([setup]);
+test.runTests([setup]);

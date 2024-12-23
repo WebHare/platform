@@ -12,7 +12,7 @@ function quickFillDefaultRequiredFields() {
   test.fill("#coretest-address\\.zip", "7521AM");
 }
 
-test.run(
+test.runTests(
   [
     "Initialization",
     async function () {

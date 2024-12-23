@@ -7,7 +7,7 @@ import * as test from "@mod-tollium/js/testframework";
 let htmlnode;
 let savescrollpos;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/richdoc.main,bigstructure'),

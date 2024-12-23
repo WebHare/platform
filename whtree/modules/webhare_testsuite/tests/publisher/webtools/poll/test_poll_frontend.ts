@@ -9,7 +9,7 @@ function getVoteCounts(counts) {
 let pollurl = '';
 let testdata;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       //remove all webtool vote blockers locally

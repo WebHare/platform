@@ -78,7 +78,7 @@ async function testFS() {
   test.assert(!existsSync(path.join(tempdir)));
 }
 
-test.run([
+test.runTests([
   //Filesystem basics
   testFS
 ]);

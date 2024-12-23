@@ -142,7 +142,7 @@ async function testJSBackedURLs() {
   test.eq(400, fetchresult.status);
 }
 
-test.run([
+test.runTests([
   testRouterAPIs,
   testWebRequest,
   testHSWebserver,

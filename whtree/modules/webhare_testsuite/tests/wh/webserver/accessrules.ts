@@ -4,7 +4,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 const webroot = test.getTestSiteRoot();
 
-test.registerTests(
+test.runTests(
   [
     {
       test: async function () {

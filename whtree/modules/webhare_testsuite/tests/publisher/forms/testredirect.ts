@@ -1,6 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 
-test.registerTests(
+test.runTests(
   [
     async () => {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

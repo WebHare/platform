@@ -15,7 +15,7 @@ function myCustomAction(info) {
   info.screen.sendFrameMessage({ msg: "removecustomaction" }, true);
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/basecomponents.menutest'),

@@ -16,7 +16,7 @@ function setRequiredFields() { //fill them with a value so we can submit
   test.fill('#coretest-number', '1');
 }
 
-test.registerTests([
+test.runTests([
   'Test the new native validator',
   async function () {
     if (debugFlags.fdv)

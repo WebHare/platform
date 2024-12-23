@@ -4,7 +4,7 @@ import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
-test.registerTests(
+test.runTests(
   [
     "Basic table checks",
     async function () {

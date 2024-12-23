@@ -33,7 +33,7 @@ function escapeHTML(html) {
   return escapeEl.innerHTML;
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none'

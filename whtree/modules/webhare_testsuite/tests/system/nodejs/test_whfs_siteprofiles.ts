@@ -97,7 +97,7 @@ async function testSiteUpdates() {
 }
 
 
-test.run([
+test.runTests([
   test.reset,
   testSiteProfiles,
   testSiteUpdates,

@@ -57,4 +57,4 @@ async function testWasmEventIntegration() {
   test.eq(expected.trim(), output.split("\n").sort().join("\n").trim());
 }
 
-test.run([testWasmEventIntegration]);
+test.runTests([testWasmEventIntegration]);

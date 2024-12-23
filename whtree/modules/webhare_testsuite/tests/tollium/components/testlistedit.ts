@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 const gesture_time = 200;
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen("tests/basecomponents.listedittest"),

@@ -34,7 +34,7 @@ async function testTagManger() {
   await whdb.commitWork();
 }
 
-test.run([
+test.runTests([
   prepareTests,
   testTagManger
 ]);

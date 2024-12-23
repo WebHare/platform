@@ -53,13 +53,14 @@ function localWaitForGestures(callback) {
     mousestate.waitcallbacks.push(callback);
 }
 
-if (window.waitForGestures) {
-  console.error("waitForGestures already exists, multiple dompack versions loaded!!");
-  const oldWaitForGestures = window.waitForGestures;
-  window.waitForGestures = callback => localWaitForGestures(() => oldWaitForGestures(callback));
-} else
-  window.waitForGestures = localWaitForGestures;
-
+if (typeof window !== "undefined") {
+  if (window.waitForGestures) {
+    console.error("waitForGestures already exists, multiple dompack versions loaded!!");
+    const oldWaitForGestures = window.waitForGestures;
+    window.waitForGestures = callback => localWaitForGestures(() => oldWaitForGestures(callback));
+  } else
+    window.waitForGestures = localWaitForGestures;
+}
 
 export class SimulatedDragDataStore {
   items = new Array<RawDragItem>;

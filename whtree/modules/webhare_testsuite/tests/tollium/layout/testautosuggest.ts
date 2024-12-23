@@ -8,7 +8,7 @@ function getTags(node) {
   return dompack.qSA(node, '.wh-tagedit-tag').map(node => node.textContent);
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/layout.layouttest,autosuggest'),

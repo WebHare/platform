@@ -7,7 +7,7 @@ const webroot = test.getTestSiteRoot();
 
 let overridetoken = "";
 
-test.registerTests(
+test.runTests(
   [
     {
       name: "Test setup",

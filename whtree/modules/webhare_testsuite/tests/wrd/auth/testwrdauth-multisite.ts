@@ -2,7 +2,7 @@ import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelper
 import type { FrontendAuthApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/pages/wrdauthtest";
 import * as test from "@webhare/test-frontend";
 
-test.run(
+test.runTests(
   [
     "Test login APIs",
     async function () {

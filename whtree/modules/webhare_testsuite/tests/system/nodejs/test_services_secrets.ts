@@ -77,5 +77,5 @@ async function testCryptForServer() {
   }
 }
 
-test.run(
+test.runTests(
   [testCryptForServer]);

@@ -3,7 +3,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 import { getPxlLogLines } from '@webhare/test-frontend';
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

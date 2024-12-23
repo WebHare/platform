@@ -32,7 +32,7 @@ function getTestString(len) {
   return s.substr(0, len);
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       name: 'init',

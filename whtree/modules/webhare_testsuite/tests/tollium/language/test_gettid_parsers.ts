@@ -38,4 +38,4 @@ function testClientParesers() {
   test.eq("", resolveTid("webhare_testsuite:", { title: null, name: "def", tid: "" }));
 }
 
-test.run([testClientParesers]);
+test.runTests([testClientParesers]);

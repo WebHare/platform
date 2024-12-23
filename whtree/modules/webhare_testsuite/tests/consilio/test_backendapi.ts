@@ -5,7 +5,7 @@ import ConsilioBackend from '@mod-consilio/js/backend';
 
 // let testdata;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       /*testdata =*/ await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupConsilioTest');

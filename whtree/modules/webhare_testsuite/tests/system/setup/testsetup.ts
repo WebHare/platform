@@ -16,7 +16,7 @@ function addTransportToLink(link: string) {
   return link + (link.indexOf("?") === -1 ? "?" : "&") + "transport=" + test.getTestArgument(0);
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       test: async function () {

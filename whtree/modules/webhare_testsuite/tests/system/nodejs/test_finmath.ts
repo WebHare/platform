@@ -159,7 +159,7 @@ function testDivision() {
   test.eq(finmath.divide("1.19299", "0.0867"), "13.75998");
 }
 
-test.run([
+test.runTests([
   testPresentation,
   testAddition,
   testMultiplicationAndPercentages,

@@ -529,7 +529,7 @@ async function testWRDImgCache() {
 }
 
 
-test.run([
+test.runTests([
   test.reset,
   clearUnifiedCache,
   testResizeMethods,

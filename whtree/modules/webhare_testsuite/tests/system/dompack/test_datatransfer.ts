@@ -3,7 +3,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as pointer from "dompack/testframework/pointer";
 
-test.registerTests(
+test.runTests(
   [
     "Datatransfer object",
     async function () {

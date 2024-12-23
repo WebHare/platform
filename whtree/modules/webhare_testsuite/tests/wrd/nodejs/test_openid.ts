@@ -239,7 +239,7 @@ async function verifyAsOpenIDSP() {
   test.eqPartial([{ type: "wrd:loginbyid:ok", ip: /^.*$/ }], await getAuditLog(wrdId));
 }
 
-test.run([
+test.runTests([
   setupOIDC, //implies test.reset
   verifyRoutes,
   verifyOpenIDClient,

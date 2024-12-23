@@ -2,7 +2,7 @@ import * as dompack from 'dompack';
 import * as test from '@mod-tollium/js/testframework';
 
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/lists.basetest,prepjump'),

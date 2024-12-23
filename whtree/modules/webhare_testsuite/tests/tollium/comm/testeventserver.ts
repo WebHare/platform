@@ -7,7 +7,7 @@ function getTowlNotifications() {
   return test.qSA('t-towlnotification').filter(node => !node.textContent?.includes("gonativetitle")); //filter native notification notification
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });

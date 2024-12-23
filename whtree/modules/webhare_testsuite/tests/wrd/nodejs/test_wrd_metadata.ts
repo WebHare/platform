@@ -12,4 +12,4 @@ async function testFileGeneration() {
   test.eq(/whuserDisableType/, result, "HS type WHUSER_DISABLE_TYPE should appear as whuserDisableType in the output");
 }
 
-test.run([testFileGeneration]);
+test.runTests([testFileGeneration]);

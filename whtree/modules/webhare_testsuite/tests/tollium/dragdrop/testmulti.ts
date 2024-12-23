@@ -27,7 +27,7 @@ function logAllDragEvents() {
   //test.getWin().addEventListener("mousemove", logDragEvent, { capture: true });
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/dragdrop.multitest'),

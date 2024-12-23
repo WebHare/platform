@@ -2,7 +2,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import { createClient } from "@webhare/jsonrpc-client";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 
-test.registerTests(
+test.runTests(
   [
     "Use new JSONRPCClient in TS context",
     async function () {

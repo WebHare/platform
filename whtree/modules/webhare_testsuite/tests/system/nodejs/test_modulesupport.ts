@@ -84,7 +84,7 @@ function testApplicabilityXML() {
   test.eq(null, getApplicabilityError(baseApplicability, readMockXML({ unlessenvironset: `TESTDUMMY=x` })));
 }
 
-test.run([
+test.runTests([
   testApplicability,
   testApplicabilityXML
 ]);

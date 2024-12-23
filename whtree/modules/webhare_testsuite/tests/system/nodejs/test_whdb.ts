@@ -621,7 +621,7 @@ async function testClosedConnectionHandling() {
   await worker2.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
 }
 
-test.run([
+test.runTests([
   cleanup,
   testWork,
   testQueries,

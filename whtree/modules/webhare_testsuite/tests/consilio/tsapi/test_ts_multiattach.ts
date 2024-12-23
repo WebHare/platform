@@ -49,7 +49,7 @@ async function testMultiAttach() {
 }
 
 
-test.run([
+test.runTests([
   prepConsilioTests,
   testMultiAttach
 ]);

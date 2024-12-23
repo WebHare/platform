@@ -12,7 +12,7 @@ async function clearState() {
   test.eq(false, apptab.classList.contains("t-apptab--dirty"));
 }
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.load(test.getTestScreen('tests/dirty.dirtytest'));

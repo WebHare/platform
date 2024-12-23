@@ -27,7 +27,7 @@ interface AddressFormShape {
   visiblegroup: boolean;
 }
 
-test.registerTests(
+test.runTests(
   [
     'Prepare',
     async function () {

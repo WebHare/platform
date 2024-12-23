@@ -6,7 +6,7 @@ import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsu
 let setupdata: TestSetupData | null = null;
 let setup2data: TestSetupData | null = null;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       const setup1 = invokeSetupForTestSetup({ createsysop: true });

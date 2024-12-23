@@ -3,7 +3,7 @@ import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsu
 
 let setupdata: TestSetupData | null = null;
 
-test.registerTests(
+test.runTests(
   [
     "Prepare",
     async function () {

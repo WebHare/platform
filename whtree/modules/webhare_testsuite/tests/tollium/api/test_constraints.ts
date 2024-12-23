@@ -57,7 +57,7 @@ function testTolliumMapping() {
   test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "imageDescriptor" }));
 }
 
-test.run([
+test.runTests([
   testValueConstraints,
   testTolliumMapping
 ]);

@@ -1,7 +1,7 @@
 import * as test from '@mod-tollium/js/testframework';
 import * as tt from "@mod-tollium/js/tolliumtest";
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.load(test.getTestScreen("tests/lists.columnselection"));

@@ -433,8 +433,8 @@ async function testReferences() {
 
 }
 
-test.run([
-  async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
+test.runTests([
+  async () => { await createWRDTestSchema(); }, //test.runTests doesn't like tests returning values
   testWRDUntypedApi,
   testRequired,
   testUnique,

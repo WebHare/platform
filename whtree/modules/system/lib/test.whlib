@@ -63,6 +63,7 @@ ASYNC MACRO TT_Escape()
 PUBLIC RECORD test :=
   [ assert := PTR TestAssert
   , run := PTR TT_Run
+  , runTests := PTR TT_Run
   ];
 
 /** @private  don't appear in symbol searches, don't conflict with the other tt

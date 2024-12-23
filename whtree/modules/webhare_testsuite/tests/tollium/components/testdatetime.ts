@@ -23,7 +23,7 @@ function setTime(node: HTMLElement, hms: string) {
   }
 }
 
-test.registerTests(
+test.runTests(
   [
     'test height no title',
 

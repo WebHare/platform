@@ -209,7 +209,7 @@ async function testAllTypes() {
   test.eq(["aRecord", "aTypedRecord", "anArray", "anInstance", "strArray"], missingSuggestions.map(_ => _.name).sort());
 }
 
-test.run([
+test.runTests([
   prep,
   testIgnoreMetatabsForOldContent,
   testMetadataReader,

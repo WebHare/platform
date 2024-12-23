@@ -108,7 +108,7 @@ service = runBackendService(port, () => new Client);`
   test.eq(undefined, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:simpleservice"));
 }
 
-test.run([
+test.runTests([
   prepTests,
   testBasicAPI
 ]);

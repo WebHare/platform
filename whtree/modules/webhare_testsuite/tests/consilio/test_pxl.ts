@@ -18,7 +18,7 @@ declare module "@webhare/frontend" {
 
 let startTime = new Date;
 
-test.run([
+test.runTests([
   "Test pxl urls",
   function () {
     let baseurl = "https://example.org", url, vars;

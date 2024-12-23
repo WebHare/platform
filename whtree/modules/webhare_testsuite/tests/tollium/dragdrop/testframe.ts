@@ -61,7 +61,7 @@ function generateResizeTests(name, opts) {
   ];
 }
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/dragdrop.frametest'),

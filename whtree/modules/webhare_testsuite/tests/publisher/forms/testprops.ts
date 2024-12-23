@@ -4,7 +4,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 //FIXME: Test that parlsey backend plus plain POST (not RPC!) works
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');

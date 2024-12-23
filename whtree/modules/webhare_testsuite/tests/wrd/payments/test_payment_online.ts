@@ -6,7 +6,7 @@ import * as test from '@mod-system/js/wh/testframework';
 // let testemail = Math.floor(100000000*Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
 let setupdata;
 
-test.registerTests(
+test.runTests(
   [
     async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, withpayment: ["withissuer"], filename: "paymenthandlerform" });

@@ -3,7 +3,7 @@ import * as tt from "@mod-tollium/js/tolliumtest";
 const gesture_time = 200;
 
 
-test.registerTests(
+test.runTests(
   [
     {
       loadpage: test.getTestScreen('tests/dragdrop.listtest'),

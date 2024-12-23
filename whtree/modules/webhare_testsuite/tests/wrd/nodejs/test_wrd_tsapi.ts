@@ -1265,9 +1265,9 @@ async function testImportMode() {
 
 
 
-test.run([
+test.runTests([
   testSupportAPI,
-  async () => { await createWRDTestSchema(); }, //test.run doesn't like tests returning values
+  async () => { await createWRDTestSchema(); }, //test.runTests doesn't like tests returning values
   testTSTypes,
   testNewAPI,
   testBaseTypes,

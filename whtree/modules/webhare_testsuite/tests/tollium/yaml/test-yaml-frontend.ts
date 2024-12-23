@@ -16,4 +16,4 @@ async function testConditions() {
   test.eq("showtime-init, color-init, showtime-set, showtime-set", tt.comp(":Events").getTextValue());
 }
 
-test.run([testConditions]);
+test.runTests([testConditions]);

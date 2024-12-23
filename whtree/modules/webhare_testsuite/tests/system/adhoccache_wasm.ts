@@ -80,7 +80,7 @@ RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := params.value ]; 
   }
 }
 
-test.run([
+test.runTests([
   testCacheBasics,
   testInvalidationByLibraryUpdate
 ]);

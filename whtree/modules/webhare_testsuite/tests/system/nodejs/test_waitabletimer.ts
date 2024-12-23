@@ -85,4 +85,4 @@ async function testBasicManipulation() {
   }
 }
 
-test.run([testInitialState, testBasicManipulation]);
+test.runTests([testInitialState, testBasicManipulation]);

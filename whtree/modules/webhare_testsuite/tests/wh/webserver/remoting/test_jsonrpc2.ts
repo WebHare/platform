@@ -98,7 +98,7 @@ async function testTypedClient() {
   await noAuthJSService.lockWork();
 }
 
-test.run([
+test.runTests([
   testRPCCaller,
   testTypedClient
 ]);

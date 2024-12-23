@@ -49,6 +49,6 @@ async function testBasicUpload() {
   test.eqPartial({ message: "Aborted" }, await uploader);
 }
 
-test.run([ //
+test.runTests([ //
   testBasicUpload
 ]);
