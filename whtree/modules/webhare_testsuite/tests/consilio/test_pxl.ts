@@ -220,7 +220,7 @@ test.runTests([
     //To get rid of any type checking
     void await new Promise<void>(resolve => sendPxl<PxlData>("webhare_testsuite:unregistered", {}, { onComplete: resolve }));
 
-    lines = await test.getPxlLogLines({ start: startTime });
+    lines = (await test.getPxlLogLines({ start: startTime })).sort((a, b) => a.counter - b.counter);
 
     console.table(lines);
 
