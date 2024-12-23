@@ -220,7 +220,7 @@ void WebHareServer::AccessLogFunction(WebServer::Connection &conn, unsigned resp
         accesslog.RawLog(builder.data.begin(), builder.data.end(), now);
 
         // Pxl hits get logged separately for faster scanning
-        if(reqparser.GetReceivedUrl().compare(0, 5, "/.px/") == 0 || reqparser.GetReceivedUrl().compare(0, 11, "/.wh/ea/px/") == 0)
+        if(reqparser.GetReceivedUrl().compare(0, 5, "/.px/") == 0 || reqparser.GetReceivedUrl().compare(0, 12, "/.wh/ea/pxl/") == 0)
             pxllog.RawLog(builder.data.begin(), builder.data.end(), now);
 }
 void WebHareServer::ErrorLogFunction(Blex::SocketAddress const &remoteaddr, std::string const&error)
