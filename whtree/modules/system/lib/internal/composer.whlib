@@ -3,9 +3,6 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
-LOADLIB "wh::formatter/html.whlib";
-LOADLIB "wh::parser/msword.whlib";
-LOADLIB "wh::parser/objects.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::regex.whlib";
@@ -314,10 +311,6 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
     {
       htmlversion := this->contents_original;
     }
-    ELSE IF(this->contents_type=2)
-    {
-      htmlversion := this->WordToHtml(this->contents_original);
-    }
     ELSE IF(this->contents_type=3)
     {
       htmlversion := this->LoadEML(this->contents_original);
@@ -355,32 +348,6 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
     RETURN [ htmlversion := htmlversion
            , embedded := this->embedded_files
            ];
-  }
-
-  BLOB FUNCTION WordToHtml(BLOB worddoc)
-  {
-    INTEGER docid := OpenMSWordDocument(worddoc);
-    IF (docid <= 0)
-      THROW NEW ComposeException("Cannot open Word document");
-
-    RECORD parser := ScanMSWordDocument(docid, TRUE, DEFAULT RECORD ARRAY);
-
-    INTEGER output := CreateStream();
-    INTEGER htmldoc := CreateHTMLDoc("XHTML1.0", TRUE /* strict */, FALSE /* stylesheets */);
-
-    SetHTMLDocEmbeddingCallback(htmldoc, PTR this->EmbedCallback);
-    SetHTMLDocHyperlinkCallback(htmldoc, PTR this->HyperlinkCallback(#1, GetHTMLDocHyperlinkCallback(htmldoc)));
-
-    INTEGER pageid := CreateHTMLPage(htmldoc, output);
-
-    FOREVERY (RECORD obj FROM parser.parserobjects)
-      PrintParserObject(htmldoc, obj.id);
-
-    CloseHTMLPage(pageid);
-    CloseHTMLDoc(htmldoc);
-    CloseMSWordDocument(docid);
-
-    RETURN MakeBlobFromStream(output);
   }
 
   BLOB FUNCTION LoadEML(BLOB inputdoc)
@@ -470,13 +437,6 @@ PUBLIC STATIC OBJECTTYPE ComposerBase
     ELSE IF(type = "text/plain")
     {
       this->contents_type := 4;
-    }
-    ELSE IF(type IN ["application/msword"
-                    ,"application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                    ,"application/vnd.ms-word.document.macroenabled.12"
-                    ])
-    {
-      this->contents_type := 2;
     }
     ELSE IF(type = "message/rfc822")
     {
