@@ -101,16 +101,26 @@ async function main() {
   //let's patch the packages for distribution outside the WebHare tree
   for (const pkgname of axioms.publishPackages) {
     const pkgroot = join(jssdkPath, pkgname);
-    const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8"));
+    const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8")) as {
+      version?: string;
+      main?: string;
+      private?: boolean;
+      files?: string[];
+      keywords?: string[];
+      dependencies?: Record<string, string>;
+    };
     packagejson.private = false;
     //for eg @webhare/eslint-config we also need to include the manually written .d.ts file
     packagejson.files = [...(packagejson.files || []), "dist/", "bin/"];
+    //All embedded packages get the webhare keyword
+    packagejson.keywords = [...(packagejson.keywords ?? []), "webhare"];
     Object.assign(packagejson, fixedsettings);
 
     if (verbose)
       console.log(`--- Processing ${pkgname}`);
 
     packagejson.version = versionfinal;
+    packagejson.dependencies ||= {};
 
     //Update README.md
     const sourcelink = `https://gitlab.com/webhare/platform/-/tree/master/whtree/jssdk/${pkgname}`;
