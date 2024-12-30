@@ -2078,8 +2078,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     //use this to update CSS etc after a selection change
   }
 
-  stateHasChanged() //ADDME check all code for superfluous calls (eg, invoking stateHasChange after invoking SetSelection which also did a stateHasChanged)
-  {
+  stateHasChanged() { //ADDME check all code for superfluous calls (eg, invoking stateHasChange after invoking SetSelection which also did a stateHasChanged)
     //save state before firing the event. save on processing with multiple getSelectionState calls, and make sure we have a selection state after display:none on firefox
     this.lastselectionstate = this.getFormattingStateForRange(this.getSelectionRange());
 
@@ -2240,6 +2239,14 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
           break;
         case 'OL':
           formatting.numberedlist = true;
+          break;
+        case 'DIV':
+          if (node.classList.contains("wh-rtd-embeddedobject"))
+            formatting.isblockwidget = true;
+          break;
+        case 'SPAN':
+          if (node.classList.contains("wh-rtd-embeddedobject"))
+            formatting.isinlinewidget = true;
           break;
       }
 
@@ -3162,6 +3169,8 @@ export class TextFormattingState {
   alignright = false;
   alignjustified = false;
   haveselection = false;
+  isblockwidget = false;
+  isinlinewidget = false;
 
   textstyles = [];
   propstarget = null;

@@ -1208,7 +1208,7 @@ export default class StructuredEditor extends EditorBase {
     // Also apply the selections to the actionstates
     for (let i = 0; i < this.textstyletags.length; ++i) {
       const styletag = this.textstyletags[i];
-      if (!state.limited.textstyles.includes(styletag) && state.actionstate[styletag])
+      if (state.actionstate[styletag] && (!state.limited.textstyles.includes(styletag) || state.isblockwidget))
         state.actionstate[styletag].available = false;
     }
 
@@ -1216,11 +1216,11 @@ export default class StructuredEditor extends EditorBase {
     const stylelisttypes = [];
     this.structure.blockstyles.forEach(item => { stylelisttypes.push(item.listtype); });
 
-    if (!stylelisttypes.includes('unordered'))
+    if (!stylelisttypes.includes('unordered') || state.isblockwidget)
       state.actionstate.ul.available = false;
-    if (!stylelisttypes.includes('ordered'))
+    if (!stylelisttypes.includes('ordered') || state.isblockwidget)
       state.actionstate.ol.available = false;
-    if (!state.limited.textstyles.includes("img"))
+    if (!state.limited.textstyles.includes("img") || state.isblockwidget)
       state.actionstate.img.available = false;
 
     return state;
