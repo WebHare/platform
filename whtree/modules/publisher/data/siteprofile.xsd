@@ -391,7 +391,7 @@
 
   <xs:complexType name="TagSource">
     <xs:attribute name="contenttype" type="xs:anyURI" use="required" />
-    <xs:attribute name="member" type="Name" use="required" />
+    <xs:attribute name="member" type="sc:Name" use="required" />
     <xs:attribute name="tagfolder" type="xs:string" use="required" />
     <xs:attribute name="repository" type="xs:string" />
     <xs:attribute name="allowcreate" type="xs:boolean" />
@@ -622,7 +622,7 @@
   </xs:complexType>
 
   <xs:attributeGroup name="MemberAttributes">
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attribute name="comment" type="xs:string">
       <xs:annotation>
         <xs:documentation>A developer's comment on this type. Not shown to non-prviileged WebHare users. Allows easier porting to YAML</xs:documentation>
@@ -1991,12 +1991,6 @@
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
-
-  <xs:simpleType name="Name">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*" />
-    </xs:restriction>
-  </xs:simpleType>
 
   <xs:element name="searchpage">
     <xs:complexType>

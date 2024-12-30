@@ -22,19 +22,13 @@
   </xs:annotation>
 
   <!-- Standard types -->
-  <xs:simpleType name="Name">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-
   <xs:simpleType name="NameList">
-    <xs:list itemType="Name" />
+    <xs:list itemType="sc:Name" />
   </xs:simpleType>
 
   <xs:simpleType name="ScopedName">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*:)?[\p{L}_][\p{L}\p{N}_]*"/>
+      <xs:pattern value="([\p{L}_$][\p{L}\p{N}_$]*:)?[\p{L}_$][\p{L}\p{N}_$]*"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -277,7 +271,7 @@
           </xs:annotation>
           <xs:complexType>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
             <xs:attribute name="descriptiontid" type="SimpleTid" />
@@ -294,7 +288,7 @@
           </xs:annotation>
           <xs:complexType>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="rightsgroup" type="sc:OptionallyQualifiedName" />
             <xs:attribute name="table" type="TableName" use="required" />
             <xs:attribute name="tid" type="SimpleTid" />
@@ -324,7 +318,7 @@
               </xs:element>
             </xs:sequence>
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="rightsgroup" type="sc:OptionallyQualifiedName" use="optional" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
@@ -412,7 +406,7 @@
   </xs:complexType>
 
   <xs:attributeGroup name="DownloadModuleAttributes">
-    <xs:attribute name="module" type="Name" use="required">
+    <xs:attribute name="module" type="sc:Name" use="required">
       <xs:annotation>
         <xs:documentation>Name of required module (without paths)</xs:documentation>
       </xs:annotation>
@@ -534,7 +528,7 @@
             <xs:element name="arg" type="xs:string" minOccurs="0" maxOccurs="unbounded" />
           </xs:sequence>
           <xs:attribute name="script" type="xs:string" use="required" />
-          <xs:attribute name="tag" type="Name" use="required" />
+          <xs:attribute name="tag" type="sc:Name" use="required" />
           <xs:attribute name="runatstartup" type="xs:boolean" />
 
           <xs:attribute name="runat">
@@ -583,7 +577,7 @@
           <xs:documentation>A script specified in this tag is run only once (even it fails). The script is uniquely identified by the combination of the module and the tag. </xs:documentation>
         </xs:annotation>
         <xs:complexType>
-          <xs:attribute name="tag" type="Name" use="required">
+          <xs:attribute name="tag" type="sc:Name" use="required">
             <xs:annotation>
               <xs:documentation>Tag of the script, this identifies this script, so that is run only once.</xs:documentation>
             </xs:annotation>
@@ -620,7 +614,7 @@
           <xs:documentation>A separate cluster of task workers. Task types are allocated using the cluster= attribute</xs:documentation>
         </xs:annotation>
         <xs:complexType>
-          <xs:attribute name="tag" type="Name" use="required">
+          <xs:attribute name="tag" type="sc:Name" use="required">
             <xs:annotation>
               <xs:documentation>Tag of the cluster</xs:documentation>
             </xs:annotation>
@@ -668,7 +662,7 @@
   </xs:complexType>
 
   <xs:attributeGroup name="ManagedTaskAttrs">
-    <xs:attribute name="type" type="Name" use="required">
+    <xs:attribute name="type" type="sc:Name" use="required">
       <xs:annotation>
         <xs:documentation>Tag for this task type. Is combined with the module name (eg `mymodule:mytag)`</xs:documentation>
       </xs:annotation>
@@ -757,7 +751,7 @@
   </xs:complexType>
 
   <xs:attributeGroup name="AppAttributes">
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attribute name="screen" type="xs:string" />
     <xs:attribute name="startmacro" type="xs:string" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
@@ -874,7 +868,7 @@
             <xs:sequence>
               <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
             </xs:sequence>
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
@@ -921,7 +915,7 @@
             <xs:sequence>
               <xs:element name="accesscheck" type="AccessCheck" minOccurs="1" />
             </xs:sequence>
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="gid" type="SimpleGid" use="optional" />
             <xs:attribute name="tid" type="SimpleTid" />
             <xs:attribute name="title" type="xs:string" />
@@ -1018,7 +1012,7 @@
       <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" maxOccurs="1" />
     </xs:sequence>
     <xs:attribute name="group" type="xs:string" />
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="screen" type="xs:string" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
@@ -1031,7 +1025,7 @@
         Add a group for dashboard panels
       </xs:documentation>
     </xs:annotation>
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="orderafter" type="sc:OptionallyQualifiedWildcardedNameList">
       <xs:annotation>
@@ -1465,7 +1459,7 @@
   </xs:complexType>
 
   <xs:complexType name="UserEditPolicy">
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="usereditedmanagedtask" type="sc:OptionallyQualifiedName" />
   </xs:complexType>
@@ -1476,7 +1470,7 @@
         <xs:element name="node" type="ToplevelNode" />
         <xs:element name="obsoletenode">
           <xs:complexType>
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
           </xs:complexType>
         </xs:element>
       </xs:choice>
@@ -1491,7 +1485,7 @@
         <xs:complexType>
           <xs:complexContent>
             <xs:extension base="RegistryNode">
-              <xs:attribute name="name" type="Name" use="required" />
+              <xs:attribute name="name" type="sc:Name" use="required" />
               <xs:attribute name="view" type="xs:string" />
             </xs:extension>
           </xs:complexContent>
@@ -1499,28 +1493,28 @@
       </xs:element>
       <xs:element name="string">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <xs:attribute name="initialval" type="xs:string" />
         </xs:complexType>
       </xs:element>
       <xs:element name="boolean">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <xs:attribute name="initialval" type="xs:boolean" />
         </xs:complexType>
       </xs:element>
       <xs:element name="integer">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <xs:attribute name="initialval" type="xs:integer" />
         </xs:complexType>
       </xs:element>
       <xs:element name="money">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <xs:attribute name="initialval">
             <xs:simpleType>
@@ -1533,26 +1527,26 @@
       </xs:element>
       <xs:element name="datetime">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <xs:attribute name="initialval" type="DateOrNow" />
         </xs:complexType>
       </xs:element>
       <xs:element name="record">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="description" type="xs:string" />
           <!-- No initial value for records -->
         </xs:complexType>
       </xs:element>
       <xs:element name="obsoletenode">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
         </xs:complexType>
       </xs:element>
       <xs:element name="obsoletekey">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
         </xs:complexType>
       </xs:element>
     </xs:choice>
@@ -1561,7 +1555,7 @@
   <xs:complexType name="SublevelNode">
     <xs:complexContent>
       <xs:extension base="RegistryNode">
-        <xs:attribute name="name" type="Name" use="required" />
+        <xs:attribute name="name" type="sc:Name" use="required" />
         <xs:attribute name="view" type="xs:string" />
       </xs:extension>
     </xs:complexContent>
@@ -1598,7 +1592,7 @@
         <xs:element name="searchfilter" type="SearchFilter" />
         <xs:element name="worklisttype">
           <xs:complexType>
-            <xs:attribute name="name" use="required" type="Name" />
+            <xs:attribute name="name" use="required" type="sc:Name" />
             <xs:attribute name="filterscreen" />
           </xs:complexType>
         </xs:element>
@@ -1609,7 +1603,7 @@
         </xs:element>
         <xs:element name="embedvideoprovider">
           <xs:complexType>
-            <xs:attribute name="name" type="Name" use="required" />
+            <xs:attribute name="name" type="sc:Name" use="required" />
             <xs:attribute name="tid" />
             <xs:attribute name="title" />
             <xs:attribute name="objectname" use="required" />
@@ -1763,7 +1757,7 @@
   </xs:complexType>
 
   <xs:attributeGroup name="PublisherIndexFieldBase">
-    <xs:attribute name="name" type="Name">
+    <xs:attribute name="name" type="sc:Name">
       <xs:annotation>
         <xs:documentation>
           The name of this index field. This name is combined with the module
@@ -1771,7 +1765,7 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="member" type="Name">
+    <xs:attribute name="member" type="sc:Name">
       <xs:annotation>
         <xs:documentation>
           For static indexfields, the name of the contenttype member that holds
@@ -1827,7 +1821,7 @@
     <xs:sequence>
       <xs:element name="accesscheck" type="AccessCheck" minOccurs="0" />
     </xs:sequence>
-    <xs:attribute name="name" type="Name" use="required">
+    <xs:attribute name="name" type="sc:Name" use="required">
       <xs:annotation>
         <xs:documentation>
         </xs:documentation>
@@ -2113,7 +2107,7 @@
   </xs:complexType>
 
   <xs:complexType name="ContentProvider">
-    <xs:attribute name="name" type="Name" use="required" />
+    <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attribute name="tid" type="SimpleTid" />
     <xs:attribute name="icon" type="sc:ImageSrc" />
     <xs:attribute name="contentproviderobject" type="xs:string" use="required" />
@@ -2144,7 +2138,7 @@
       </xs:element>
     </xs:sequence>
 
-    <xs:attribute name="tag" type="Name" use="required">
+    <xs:attribute name="tag" type="sc:Name" use="required">
       <xs:annotation>
         <xs:documentation>Catalog tag (or name). Automatically prefixed with the module name, used with RunConsiliosearch and OpenConsilioCatalog</xs:documentation>
       </xs:annotation>
@@ -2213,7 +2207,7 @@
       <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
 
-    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="tag" type="sc:Name" use="required" />
     <xs:attribute name="priority" type="xs:integer" />
   </xs:complexType>
 
@@ -2235,7 +2229,7 @@
     <xs:sequence>
       <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
     </xs:sequence>
-    <xs:attribute name="tag" type="Name" />
+    <xs:attribute name="tag" type="sc:Name" />
   </xs:complexType>
 
   <xs:group name="IndexField">
@@ -2483,7 +2477,7 @@
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="target" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="integratedonly"  />
         </xs:complexType>
       </xs:element>
@@ -2507,7 +2501,7 @@
     <xs:choice minOccurs="0" maxOccurs="unbounded">
       <xs:element name="backendservice">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="controllerfactory" type="xs:string">
             <xs:annotation>
               <xs:documentation>Async JS function to create the service controller</xs:documentation>
@@ -2523,7 +2517,7 @@
 
       <xs:element name="openapiservice">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required">
+          <xs:attribute name="name" type="sc:Name" use="required">
             <xs:annotation>
               <xs:documentation>Name for this service</xs:documentation>
             </xs:annotation>
@@ -2613,7 +2607,7 @@
 
       <xs:element name="openapiclient">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required">
+          <xs:attribute name="name" type="sc:Name" use="required">
             <xs:annotation>
               <xs:documentation>Name for this client</xs:documentation>
             </xs:annotation>
@@ -2639,10 +2633,10 @@
             </xs:element>
           </xs:sequence>
 
-          <xs:attribute name="name" type="Name" use="required" />
+          <xs:attribute name="name" type="sc:Name" use="required" />
           <xs:attribute name="transports" type="RPCTransports" use="required" />
           <xs:attribute name="library" type="xs:string" />
-          <xs:attribute name="prefix" type="Name">
+          <xs:attribute name="prefix" type="sc:Name">
             <xs:annotation>
               <xs:documentation>Export only PUBLIC APIs whose name starts with this prefix. The prefix is removed in the exported name. Usually `RPC_`</xs:documentation>
             </xs:annotation>
@@ -2733,7 +2727,7 @@
     <xs:sequence minOccurs="0" maxOccurs="unbounded">
       <xs:element name="log">
         <xs:complexType>
-          <xs:attribute name="name" type="Name" use="required">
+          <xs:attribute name="name" type="sc:Name" use="required">
             <xs:annotation>
               <xs:documentation>
                 Name of this log (use 'modulename:name' for logging)

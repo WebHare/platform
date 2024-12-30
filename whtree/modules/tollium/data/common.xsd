@@ -11,13 +11,13 @@
 
   <xs:simpleType name="OptionalName">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*)?"/>
+      <xs:pattern value="([\p{L}_$][\p{L}\p{N}_$]*)?"/>
     </xs:restriction>
   </xs:simpleType>
 
   <xs:simpleType name="ComponentRef">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*->)*([\p{L}_][\p{L}\p{N}_]*\.)?[\p{L}_][\p{L}\p{N}_]*"/>
+      <xs:pattern value="([\p{L}_$][\p{L}\p{N}_$]*->)*([\p{L}_$][\p{L}\p{N}_$]*\.)?[\p{L}_$][\p{L}\p{N}_$]*"/>
       <!-- match: (identifier->)* (identifier.)? identifier -->
     </xs:restriction>
   </xs:simpleType>
@@ -29,9 +29,9 @@
   <xs:simpleType name="Handler">
     <xs:restriction base="xs:string">
       <!-- match: ((Name)->)*Name -->
-      <xs:pattern value="([\p{L}_][\p{L}\p{N}_]*->)*[\p{L}_][\p{L}\p{N}_]*" />
+      <xs:pattern value="([\p{L}_$][\p{L}\p{N}_$]*->)*[\p{L}_$][\p{L}\p{N}_$]*" />
       <!-- match: Library#Name  (strictly a resourceref could be '#Name' but let's not build hybrid xml/whlib/witty files (again) -->
-      <xs:pattern value=".+#[\p{L}_][\p{L}\p{N}_]*" />
+      <xs:pattern value=".+#[\p{L}_$][\p{L}\p{N}_$]*" />
     </xs:restriction>
   </xs:simpleType>
 

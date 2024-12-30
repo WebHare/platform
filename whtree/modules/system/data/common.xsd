@@ -152,7 +152,7 @@
 
   <xs:simpleType name="Name">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
+      <xs:pattern value="[\p{L}_$][\p{L}\p{N}_$]*"/>
     </xs:restriction>
   </xs:simpleType>
 

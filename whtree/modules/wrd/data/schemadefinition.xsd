@@ -20,12 +20,6 @@
   <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/xml.xsd" />
   <xs:import namespace="http://www.webhare.net/xmlns/system/common" schemaLocation="mod::system/data/common.xsd" />
 
-  <xs:simpleType name="Name">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[\p{L}_][\p{L}\p{N}_]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-
   <xs:element name="schemadefinition" type="SchemaDefinition" >
     <xs:unique name="Types">
       <xs:selector xpath="./wrds:object|./wrds:link|./wrds:classification|./wrds:attachment|./wrds:domain" />
@@ -98,10 +92,10 @@
 
     </xs:sequence>
     <xs:attribute ref="xml:lang" />
-    <xs:attribute name="accounttype" type="Name" />
-    <xs:attribute name="accountloginfield" type="Name" />
-    <xs:attribute name="accountpasswordfield" type="Name" />
-    <xs:attribute name="accountemailfield" type="Name" />
+    <xs:attribute name="accounttype" type="sc:Name" />
+    <xs:attribute name="accountloginfield" type="sc:Name" />
+    <xs:attribute name="accountpasswordfield" type="sc:Name" />
+    <xs:attribute name="accountemailfield" type="sc:Name" />
   </xs:complexType>
 
   <xs:complexType name="TypeDefinition">
@@ -115,10 +109,10 @@
         </xs:element>
       </xs:choice>
     </xs:sequence>
-    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="tag" type="sc:Name" use="required" />
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="description" type="xs:string" />
-    <xs:attribute name="parent" type="Name" />
+    <xs:attribute name="parent" type="sc:Name" />
     <xs:attribute name="deleteclosedafter" type="xs:integer" />
     <xs:attribute name="keephistorydays" type="xs:integer" />
     <xs:attribute name="haspersonaldata" type="xs:boolean" />
@@ -149,9 +143,9 @@
   <xs:complexType name="LinkDefinition">
     <xs:complexContent>
       <xs:extension base="TypeDefinition">
-        <xs:attribute name="linkfrom" type="Name">
+        <xs:attribute name="linkfrom" type="sc:Name">
         </xs:attribute>
-        <xs:attribute name="linkto" type="Name">
+        <xs:attribute name="linkto" type="sc:Name">
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>
@@ -163,7 +157,7 @@
         <xs:sequence>
           <xs:element name="values" type="Values" minOccurs="0" maxOccurs="1" />
         </xs:sequence>
-        <xs:attribute name="linkfrom" type="Name">
+        <xs:attribute name="linkfrom" type="sc:Name">
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>
@@ -234,7 +228,7 @@
     <xs:sequence>
       <xs:element name="documentation" minOccurs="0" />
     </xs:sequence>
-    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="tag" type="sc:Name" use="required" />
     <xs:attribute name="title" type="xs:string"  />
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="unique" type="xs:boolean" />
@@ -248,7 +242,7 @@
     <xs:sequence>
       <xs:element name="documentation" minOccurs="0" />
     </xs:sequence>
-    <xs:attribute name="tag" type="Name" use="required" />
+    <xs:attribute name="tag" type="sc:Name" use="required" />
     <xs:attribute name="title" type="xs:string"  />
   </xs:complexType>
 
@@ -265,7 +259,7 @@
   <xs:complexType name="DomainAttribute">
     <xs:complexContent>
       <xs:extension base="PlainAttribute">
-        <xs:attribute name="domain" type="Name" use="required">
+        <xs:attribute name="domain" type="sc:Name" use="required">
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>
@@ -345,10 +339,10 @@
         </xs:unique>
       </xs:element>
     </xs:sequence>
-    <xs:attribute name="matchattribute" use="required" type="Name" />
+    <xs:attribute name="matchattribute" use="required" type="sc:Name" />
     <xs:attribute name="overwriteattributes">
       <xs:simpleType>
-        <xs:list itemType="Name" />
+        <xs:list itemType="sc:Name" />
       </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
@@ -362,10 +356,10 @@
         </xs:unique>
       </xs:element>
     </xs:sequence>
-    <xs:attribute name="matchattribute" use="required" type="Name" />
+    <xs:attribute name="matchattribute" use="required" type="sc:Name" />
     <xs:attribute name="overwriteattributes">
       <xs:simpleType>
-        <xs:list itemType="Name" />
+        <xs:list itemType="sc:Name" />
       </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
@@ -394,7 +388,7 @@
   <xs:complexType name="Field">
     <xs:simpleContent>
       <xs:extension base="xs:string">
-        <xs:attribute name="tag" type="Name" use="required" />
+        <xs:attribute name="tag" type="sc:Name" use="required" />
       </xs:extension>
     </xs:simpleContent>
   </xs:complexType>
@@ -414,7 +408,7 @@
         </xs:unique>
       </xs:element>
     </xs:sequence>
-    <xs:attribute name="tag" type="Name" />
+    <xs:attribute name="tag" type="sc:Name" />
   </xs:complexType>
 
 </xs:schema>
