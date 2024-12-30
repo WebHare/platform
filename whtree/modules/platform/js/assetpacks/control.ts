@@ -21,7 +21,8 @@ import type { AssetPackBundleStatus, AssetPackMiniStatus } from "../devsupport/d
 class LoadedBundle {
   dirtyReason = '';
   forceCompile = false;
-  recompiling: Promise<AssetPackState> | null = null;
+  /** Set if we're compiling - also functions as a lock to prevent parallel compilations of the same assetpack */
+  recompiling: Promise<void> | null = null;
   fileDeps = new Set<string>();
   missingDeps = new Set<string>();
   state: AssetPackState | null = null;
@@ -99,7 +100,10 @@ class LoadedBundle {
   }
 
   private async checkDepList(deps: Set<string>, recompileIfMissing: boolean) {
-    const lastCompileStart = this.state!.start.getTime();
+    if (!this.state)
+      return; //no config loaded yet, this may happen if the package was *never* compiled, autocompile is off, but loadAssetPacks (eg wh apply assetpacks) triggered a reload
+
+    const lastCompileStart = this.state.start.getTime();
     for (let file of deps) {
       if (this.dirtyReason)
         return;
@@ -163,6 +167,7 @@ class LoadedBundle {
     if (this.recompiling || !this.shouldRecompile())
       return;
 
+    let compilePromise;
     try {
       if (debugFlags.assetpacks)
         console.log("Starting recompile for", this.name, this.settings, "because", this.dirtyReason);
@@ -171,22 +176,29 @@ class LoadedBundle {
       this.dirtyReason = '';
       this.forceCompile = false;
       this.broadcastUpdated();
-      this.recompiling = recompile(buildRecompileSettings(this.config, this.settings));
+      compilePromise = recompile(buildRecompileSettings(this.config, this.settings));
     } catch (e) {
       console.error('Recompile exception', e); //TODO what to do to prevent a stuck assetpack? what kind of exceptions can happen?
       return;
     }
-    this.recompiling.then(async result => {
-      this.recompiling = null;
-      this.updateState(result);
 
+    //We need to set recompiling to a promise that resolves *AFTER* updateState has been set/recompiling is null.
+    this.recompiling = compilePromise.then(async result => {
       if (debugFlags.assetpacks)
         console.log("recompiled", this.name);
 
-      if (this.config.afterCompileTask)
-        await runInWork(() => scheduleTask(this.config.afterCompileTask, { assetpack: this.name }));
+      // Schedule aftercompileTasks before marking the compile as done so compile waiters can wait for the aftercompiletask next.
+      if (this.config.afterCompileTask) //this lock is to prevent *ourselves* from running ANY concurrent works. TODO a codecontext-level lock for *that* would be enough
+        await runInWork(() => scheduleTask(this.config.afterCompileTask, { assetpack: this.name }), { mutex: "platform:assetpacks-scheduletask" });
 
-      this.startCompile(); //recompile of dirty again
+      //Update the state
+      this.updateState(result);
+
+      //And only *then* will we allow a new compile to start
+      this.recompiling = null;
+
+      //Check if a compile was scheduled, or if we're already dirty again
+      this.startCompile();
     }).catch(e => {
       this.recompiling = null;
       console.log("Recompile Failed", this.name, e);
@@ -215,6 +227,7 @@ class LoadedBundle {
 
     if (this.recompiling) //wait for compilation to compile or throw:
       await this.recompiling.then(() => void undefined, () => void undefined);
+
     return this.getStatus();
   }
 }
