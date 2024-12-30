@@ -167,7 +167,7 @@ export default class Frame extends ToddCompBase {
   private set innerFocus(node: HTMLElement | null) {
     this.innerFocusNode = node;
     if (debugFlags["tollium-focus"]) {
-      this.node.querySelector(".frame--innerfocus")?.classList.remove("frame--innerfocus");
+      (this.node.querySelector(".frame--innerfocus") || this.node).classList.remove("frame--innerfocus");
       this.innerFocusNode?.classList.add("frame--innerfocus");
     }
     this.innerFocusName = node ? getToddOwner(node) : null;
