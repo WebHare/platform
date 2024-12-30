@@ -80,8 +80,8 @@ done
 
 # Now recompile all modules that we updated
 if [ -z "$NOCOMPILE" ]; then
-  for MODULENAME in ${MODULESLIST[@]}; do
-    $DRYRUNPREFIX wh assetpack --quiet compile "$MODULENAME:*"
+  for MODULENAME in "${MODULESLIST[@]}"; do
+    $DRYRUNPREFIX wh assetpack --quiet --allow-missing compile "$MODULENAME:*"
     RETVAL=$?
     if [ "$RETVAL" != "0" ]; then
       echo "wh assetpack compile for module '$MODULENAME' failed with errorcode $RETVAL"
