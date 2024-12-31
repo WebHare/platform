@@ -27,6 +27,7 @@ const runData = run({
   description: "Manage asset packs",
   options: {
     quiet: { default: false, description: "Don't report anything that's not an error" },
+    "allow-missing": { default: false, description: "Do not fail if the masks don't match any package" },
   },
   subCommands: {
     list: {
@@ -183,7 +184,7 @@ async function getBundles(masks: string[], { onlyfailed = false } = {}) {
   const bundles = status.bundles
     .filter(bundle => maskRegExp ? maskRegExp.test(bundle.outputtag) : true)
     .toSorted((lhs, rhs) => lhs.outputtag.localeCompare(rhs.outputtag));
-  if (!bundles.length)
+  if (!bundles.length && !runData.globalOpts.allowMissing)
     throw new Error(`No assetpacks match masks: ${masks.join(",")}`);
 
   return bundles.filter(bundle => !onlyfailed || bundle.haserrors);
