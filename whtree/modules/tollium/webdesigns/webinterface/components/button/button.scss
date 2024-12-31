@@ -124,21 +124,23 @@ button.todd--disabled img
 {
   opacity: .45;
 }
-:not(t-textedit) > button.default:not(.todd--disabled)
-{
-  @include tollium-defaultbutton;
-}
 
-:not(t-toolbar-buttongroup):not(buttongroup):not(t-textedit) > button.default:not(.todd--disabled):hover
+:not(t-toolbar-buttongroup):not(buttongroup):not(.t-textedit__field) > button.default:not(.todd--disabled):hover
 {
   background-color: #007dc3;
   background-image: linear-gradient(to top, #0098EE 0%, #0285CF 100%);
 }
 
-:not(t-textedit) > button.default:not(.todd--disabled).button--active
+// Set a blue color on default buttons, but not if they're inside a textedit field
+:not(.t-textedit__field) > button.default:not(.todd--disabled)
 {
-  background-image: none;
-  background-color: #007ec4;
+  @include tollium-defaultbutton;
+
+  &.button--active
+  {
+    background-image: none;
+    background-color: #007ec4;
+  }
 }
 
 button:focus

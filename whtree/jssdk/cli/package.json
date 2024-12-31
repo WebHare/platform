@@ -1,7 +1,14 @@
 {
   "name": "@webhare/cli",
   "version": "",
-  "description": "",
+  "description": "Tools for command line applications. TypeScript-safe command line parser and ANSI codes",
+  "keywords": [
+    "cli",
+    "option",
+    "parser",
+    "argv",
+    "typescript"
+  ],
   "main": "src/cli.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
