@@ -23,6 +23,7 @@ abstract class ToolbarButtonBase extends GenericToolbarButton {
     super(options);
   }
 
+  ///Whether this button is allowed given the current tagset. Only used by free editors and depends on setting the tagfilter property
   isAllowed(allowtagset: string[]) {
     return true;
   }
