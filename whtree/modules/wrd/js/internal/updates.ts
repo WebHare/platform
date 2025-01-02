@@ -348,10 +348,12 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
       throw new Error(`Attempting to insert ${rec.rawdata.length} bytes of data into rawdata`);
   }
 
-  if (newsets.length) {
+  //Kysely's InsertQueryBuilder builds a huge parametered insert statement, btu there's a 32767 variable limit in PG. We're updating 8 fields, plus 1 for ID, but let's just keep it a approx 4K vars which is about 400 records per insert block
+  const updateBlockSize = 400;
+  for (let pos = 0; pos < newsets.length; pos += updateBlockSize) {
     await db<PlatformDB>()
       .insertInto("wrd.entity_settings")
-      .values(newsets)
+      .values(newsets.slice(pos, pos + updateBlockSize))
       .onConflict((oc) => oc
         .column("id")
         .doUpdateSet({
@@ -629,8 +631,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     //await validateSettings(type, typeRec, entityData, entityId, null, "");
 
     //const allSettingIds = new Array<number>;
-    const deletedSettingIds = new Array<number>;
-
     let isNew = entityId === 0;
     //let setGuid: Buffer;
     if (entityData.wrdId !== undefined) {
@@ -905,7 +905,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     const reusedIds = new Array<number>(); //will receive actually reused IDs
     const reusedAttributes = new Set<number>(); //will receive attributes from which we reused IDs
     const newSets = await generateNewSettingList(result.entityId, splitData.settings, cursettings, new Map(cursettings.map(setting => [setting.id, setting])), reusedIds, reusedAttributes);
-    deletedSettingIds.push(...reusedIds);
 
     // FIXME: when is_temp_coming_alive is TRUE, ensure that all required root settings have a value
 
@@ -930,7 +929,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
     //    checklinks_settingids:= updateres.linkchecksettings;
     //    allsettingids:= allsettingids CONCAT updateres.updatedsettings;
-    deletedSettingIds.push(...updateres.deletedSettings);
+    const deletedSettingIds = [...reusedIds, ...updateres.deletedSettings];
 
     const changed_attrs = new Set<string>;
     for (const attrId of [...updateres.updatedAttrs, ...reusedAttributes]) {

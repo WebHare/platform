@@ -609,6 +609,16 @@ async function testNewAPI() {
     await await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").UpdateWRDEntity(testSchemaTag, "WRD_PERSON", newperson, { test_address: { street: "street", city: "city", nr_detail: "15", zip: "zip", country: "NL", state: "state" } });
     test.eq({ street: "street", city: "city", houseNumber: "15", zip: "zip", country: "NL", state: "state" }, await schema.getFields("wrdPerson", newperson, "testAddress"));
   }
+
+  // STORY: test huge arrays. these exceeded both parameter size (32K) and push(...) argument size limits
+  {
+    const bigArray = [];
+    for (let i = 0; i < 99_999; ++i)
+      bigArray.push({ testInt: i });
+    await schema.update("wrdPerson", newperson, { testArray: bigArray });
+    test.eqPartial(bigArray, (await schema.getFields("wrdPerson", newperson, ["testArray"])).testArray);
+  }
+
   await whdb.commitWork();
 }
 
