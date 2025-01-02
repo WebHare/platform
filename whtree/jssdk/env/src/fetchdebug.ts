@@ -1,4 +1,4 @@
-import { debugFlags } from "./envbackend";
+import { debugFlags, registerDebugConfigChangedCallback } from "./envbackend";
 import { generateRandomId } from "@webhare/std";
 
 let hookedfetch = false;
@@ -82,4 +82,17 @@ export function hookFetch() {
 
   globalThis.fetch = debuggableFetch.bind(null, globalThis.fetch);
   hookedfetch = true;
+}
+
+export function enableFetchDebugging() {
+  // Hook global fetch if requested
+  if (globalThis["fetch"]) {
+    if (debugFlags.wrq)
+      hookFetch();
+
+    registerDebugConfigChangedCallback(() => {
+      if (debugFlags.wrq)
+        hookFetch();
+    });
+  }
 }
