@@ -2,11 +2,7 @@
   box-sizing: border-box;
 }
 
-:host(wh-form-imgedit) {
-  display:inline-block;
-}
-
-:host(wh-form-imgedit)::before {  /* this block fixes top alignmenton of the label for an imgedit */
+:host(wh-imgedit)::before {  /* this block fixes top alignmenton of the label for an imgedit */
   content: "\a0";
   visibility: hidden;
   display: block;
@@ -62,23 +58,6 @@
   }
 }
 
-:host(wh-form-imgedit:disabled) .image
-{
-  border-color: var(--wh-field-border-color--disabled, #999);
-  box-shadow: var(--wh-field-border-box-shadow--disabled, var(--wh-field-border-box-shadow, none));
-  background-color: var(--wh-field-background-color--disabled, var(--wh-field-background-color, #fff));
-  color: var(--wh-field-color--disabled, var(--wh-field-color, inherit));
-  pointer-events: none;
-}
-
-:host(wh-form-imgedit.wh-form__field--error) .image
-{
-  border-color: var(--wh-field-border-color--error, var(--wh-field-color--error, #f00));
-  box-shadow: var(--wh-field-border-box-shadow--error, var(--wh-field-border-box-shadow, none));
-  background-color: var(--wh-field-background-color--error, var(--wh-field-background-color, #fff));
-  color: var(--wh-field-color--error, #f00);
-}
-
 .image__uploadicon {
   display:inline-block;
   width: var(--wh-imgedit-uploadicon-width, 50px);
@@ -88,7 +67,7 @@
   background-image: var(--wh-imgedit-uploadicon-background-image, url(upload.svg) );
   background-size: contain;
 }
-:host(wh-form-imgedit:disabled) .image__uploadicon {
+:host(wh-imgedit:disabled) .image__uploadicon {
   opacity: 0.3;
 }
 
