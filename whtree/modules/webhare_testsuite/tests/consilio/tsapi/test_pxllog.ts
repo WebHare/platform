@@ -29,29 +29,29 @@ async function testPxlConfig() {
     pxlEvents:
       yin:
         fields:
-          s: string
+          s: keyword
       yang:
         fields:
-          s: number
+          s: integer
     `)));
 
   const config = getYMLPxlConfigs(await parseAndValidateModuleDefYMLText(`
     pxlEvents:
       an_event:
         fields:
-          x: string
+          x: keyword
           y: boolean
       another_event: {}
       third_event:
         includeFields: an_event
         fields:
-          z: number
+          z: integer
     `));
 
   test.eqPartial({
-    "webhare_testsuite:an_event": { fields: { x: "string", y: "boolean" } },
+    "webhare_testsuite:an_event": { fields: { x: "keyword", y: "boolean" } },
     "webhare_testsuite:another_event": { fields: {} },
-    "webhare_testsuite:third_event": { fields: { x: "string", y: "boolean", z: "number" } }
+    "webhare_testsuite:third_event": { fields: { x: "keyword", y: "boolean", z: "integer" } }
   }, config);
 }
 

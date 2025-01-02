@@ -337,8 +337,8 @@ $defs:
                 type: string
                 enum:
                   - boolean
-                  - number
-                  - string
+                  - keyword
+                  - integer
           includeFields:
             type: "string"
             description: "Include fields from another event"

@@ -87,8 +87,8 @@ moduleFileTypes:
 pxlEvents:
   aa:
     fields:
-      s: string
-      n: number
+      s: keyword
+      n: integer
       b: boolean
   event: {}
   testevent:
