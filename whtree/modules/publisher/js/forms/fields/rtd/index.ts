@@ -159,12 +159,12 @@ export default class RTDField {
     if (hidebuttons.length)
       node.setAttribute("hidebuttons", hidebuttons.join(" "));
 
-    customElements.whenDefined("wh-form-rtd").then(() => {
+    customElements.whenDefined("wh-rtdedit").then(() => {
       if (options?.onInsertVideo) //TODO cleaner, use event handlers? RTD already has some action-eventhandler stuff though..
         (node as RTDFormElement).onInsertVideo = options.onInsertVideo;
     });
 
-    if (!customElements.get("wh-form-rtd"))
-      customElements.define("wh-form-rtd", RTDFormElement);
+    if (!customElements.get("wh-rtdedit"))
+      customElements.define("wh-rtdedit", RTDFormElement);
   }
 }

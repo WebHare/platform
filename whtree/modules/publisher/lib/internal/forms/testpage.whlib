@@ -5,7 +5,7 @@ PUBLIC OBJECTTYPE TestPageForm EXTEND FormBase
 <
   MACRO NEW()
   {
-    //Disable components not enabled by user in the formtest, eg showing a wh-form-rtd that's missing in the JS code will break
+    //Disable components not enabled by user in the formtest, eg showing a wh-rtdedit that's missing in the JS code will break
     RECORD ARRAY checkcomps :=
        [[ allow := TRUE, qname := "http://www.webhare.net/xmlns/publisher/forms#rtd", comps := OBJECT[^rtd]]
        ,[ allow := TRUE, qname := "http://www.webhare.net/xmlns/publisher/forms#upload", comps := OBJECT[^upload,^multiupload]]

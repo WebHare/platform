@@ -761,12 +761,12 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
       }
       CASE "rtd"
       {
-        Print(`<wh-form-rtd${idstr} class="wh-form__rtd" name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
+        Print(`<wh-rtdedit${idstr} class="wh-form__rtd" name="${EncodeValue(fielddescription.name)}" data-wh-rtdoptions="${EncodeValue(EncodeJSON(fielddescription.rtdoptions))}"`);
         IF(NOT fielddescription.enabled)
           Print(` disabled`);
         Print(`>`);
         Print(fielddescription.value);
-        Print(`</wh-form-rtd>`);
+        Print(`</wh-rtdedit>`);
       }
       CASE "text"
       {

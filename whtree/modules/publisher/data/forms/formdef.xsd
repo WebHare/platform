@@ -170,7 +170,8 @@
 
   <xs:group name="BlockComponents">
     <xs:choice>
-      <xs:element ref="rtd" />
+      <xs:element ref="rtdedit" />
+      <xs:element ref="rtd" /> <!-- legacy name -->
       <xs:element ref="imgedit" />
       <xs:element ref="upload" />
       <xs:element ref="richtext" />
@@ -664,28 +665,29 @@
     </xs:complexType>
   </xs:element>
 
-  <xs:element name="rtd">
-    <xs:complexType>
-      <xs:annotation>
-        <xs:documentation>
-          @topic forms/standardcomponents
-        </xs:documentation>
-        <xs:appinfo>
-          <fai:formcomponent descriptiontid="formcomponents.rtd.description"
-                             editdefaults="name title hidetitle required groupclasses"
-                             editextension="/screens/formcomponents.xml#formrtd"
-                             fieldobject="/lib/webtools/formcomponents/rtd.whlib#RTDField"
-                             icon="tollium:forms/rtd"
-                             linecomponent="false"
-                             parserfunc="/lib/webtools/formcomponents/rtd.whlib#parseformrtd"
-                             supportedvalues="rtd"
-                             tid="formcomponents.rtd.name" />
-        </xs:appinfo>
-      </xs:annotation>
-      <xs:attributeGroup ref="BaseAttributes" />
-      <xs:attribute name="rtdtype" type="xs:anyURI" />
-    </xs:complexType>
-  </xs:element>
+  <xs:complexType name="RtdEdit">
+    <xs:annotation>
+      <xs:documentation>
+        @topic forms/standardcomponents
+      </xs:documentation>
+      <xs:appinfo>
+        <fai:formcomponent descriptiontid="formcomponents.rtd.description"
+                            editdefaults="name title hidetitle required groupclasses"
+                            editextension="/screens/formcomponents.xml#formrtd"
+                            fieldobject="/lib/webtools/formcomponents/rtd.whlib#RTDField"
+                            icon="tollium:forms/rtd"
+                            linecomponent="false"
+                            parserfunc="/lib/webtools/formcomponents/rtd.whlib#parseformrtd"
+                            supportedvalues="rtd"
+                            tid="formcomponents.rtd.name" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="BaseAttributes" />
+    <xs:attribute name="rtdtype" type="xs:anyURI" />
+  </xs:complexType>
+
+  <xs:element name="rtdedit" type="forms:RtdEdit" />
+  <xs:element name="rtd" type="forms:RtdEdit" /> <!-- deprecated since WH5.7 -->
 
   <xs:element name="imgedit">
     <xs:complexType>
