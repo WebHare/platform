@@ -66,31 +66,31 @@ pxlEvents:
   # Form events need to correspond with FormAnalyticsEventData in @webhare/forms/src/types.ts
   form_started: # 'started' is currently the most minimal event, so we'll use it as the base for others
     fields:
-      formmeta_id: string
-      formmeta_session: string
-      formmeta_pagenum: number
-      formmeta_pagetitle: string
-      formmeta_time: number
-      formmeta_waittime: number
+      formmeta_id: keyword
+      formmeta_session: keyword
+      formmeta_pagenum: integer
+      formmeta_pagetitle: keyword
+      formmeta_time: integer
+      formmeta_waittime: integer
   form_failed:
     includeFields: form_started
     fields:
-      formmeta_errorfields: string
-      formmeta_errorsource: string
+      formmeta_errorfields: keyword
+      formmeta_errorsource: keyword
   form_exception:
     includeFields: form_started
     fields:
-      formmeta_exception: string
-      formmeta_errorsource: string
+      formmeta_exception: keyword
+      formmeta_errorsource: keyword
   form_slow:
     includeFields: form_started
     fields:
-      formmeta_waitfor: string
+      formmeta_waitfor: keyword
   form_nextpage:
     includeFields: form_started
     fields:
-      formmeta_targetpagenum: number
-      formmeta_targetpagetitle: string
+      formmeta_targetpagenum: integer
+      formmeta_targetpagetitle: keyword
   form_previouspage:
     includeFields: form_nextpage
   form_submitted:

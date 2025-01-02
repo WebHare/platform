@@ -41,11 +41,11 @@ export type PxlDocType = {
 } & PxlModuleFields;
 
 type PxlEventConfig = Record<string, {
-  fields: Record<string, "string" | "number" | "boolean">;
+  fields: Record<string, "keyword" | "integer" | "boolean">;
 }>;
 type FieldTypes = Map<string, string>;
 
-function getFields(modYml: ModDefYML, event: string, includePath: string[], fieldTypes: FieldTypes): Record<string, "string" | "number" | "boolean"> {
+function getFields(modYml: ModDefYML, event: string, includePath: string[], fieldTypes: FieldTypes): Record<string, "keyword" | "integer" | "boolean"> {
   const eventInfo = modYml.pxlEvents?.[event];
   if (!eventInfo)
     throw new Error(`Unknown event '${eventInfo}'`);
@@ -106,7 +106,7 @@ class PxlParser {
     const fields: PxlModuleFieldset = {};
     for (const [key, type] of Object.entries(eventDef.fields)) {
       switch (type) {
-        case "string":
+        case "keyword":
           if (params.has("ds_" + key))
             fields[key] = params.get(`ds_${key}`)!;
           break;
@@ -114,9 +114,12 @@ class PxlParser {
           if (params.has("db_" + key))
             fields[key] = params.get(`db_${key}`) === "true";
           break;
-        case "number":
-          if (params.has("dn_" + key))
-            fields[key] = parseInt(params.get(`dn_${key}`)!) || 0;
+        case "integer":
+          if (params.has("dn_" + key)) {
+            const asInt = parseInt(params.get(`dn_${key}`)!);
+            if (asInt >= -2147483648 && asInt <= 2147483647) //ensure its in signed 32bit range
+              fields[key] = asInt;
+          }
           break;
       }
     }
@@ -209,12 +212,11 @@ function getFieldMappingForModule(modYml: ModDefYML) {
         seen.add(name);
 
         properties.push({
-          settings: type === "string" ? { ignore_above: 1024 } : null,
+          settings: type === "keyword" ? { ignore_above: 1024 } : null,
           name,
           suggested: false,
           properties: [],
-          //TODO number has a bigger range than integer, should we limit dn_ to +- 31 bits?
-          type: type === "boolean" ? "boolean" : type === "number" ? "integer" : "keyword",
+          type,
           defaultvalue: null,
           definedby: modYml.baseResourcePath
         });
