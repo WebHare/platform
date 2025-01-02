@@ -1217,6 +1217,26 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
                                           , publish := options.publish AND NOT options.iswidget
                                           ]);
   FillTestFormFile(formfile, options);
+
+  OBJECT formholder := formfile;
+  IF(options.iswidget)
+  {
+    OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
+    formholder := webtoolsfolder->OpenByName("formholder");
+    IF(ObjectExists(formholder))
+      formholder->RecycleSelf();
+
+    formholder := webtoolsfolder->CreateFile([ name := "formholder", type := richdoctype->id, publish := TRUE ]);
+    sharedblockstype->SetInstanceData(formholder->id,
+      [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                  , overridetype := 2
+                  , blocks := [[ block := formfile->id ]
+                                ]
+                  ]
+      ]);
+  }
+
   GetPrimary()->PopWork();
 
   RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
@@ -1226,7 +1246,7 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
-  RETURN [ url := formfile->indexurl
+  RETURN [ url := formholder->link
          , id := formfile->id
          ];
 }
