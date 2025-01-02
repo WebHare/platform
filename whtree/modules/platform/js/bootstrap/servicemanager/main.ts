@@ -212,7 +212,7 @@ class ProcessManager {
       this.log(`Exited with error code ${exitCode} `, { exitCode: exitCode });
 
     const exitreason = signal ?? exitCode ?? "unknown";
-    if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
+    if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Active) {
       this.log(`Exit is considered fatal, shutting down service manager`);
       void this.servicemgr.shutdown(); // no need to await
     }
