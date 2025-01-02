@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/forms-rtdedit",
+  "version": "",
+  "description": "",
+  "main": "src/forms-rtdedit.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/forms.ts"
+    ]
+  },
+  "private": true
+}

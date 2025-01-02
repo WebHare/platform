@@ -1,0 +1,28 @@
+/* Required form rules */
+
+/* Hide explicitly hidden pages and groups
+   Initially hide second and further pages, unless explicitly marked as visible (better for initial rendering
+   fhn debugflag should show eveything but we shouldn't increase specificity over what it once was */
+
+   :is(html:not(.dompack--debug-fnh)) .wh-form__page ~ .wh-form__page:not(.wh-form__page--visible)
+   , :is(html:not(.dompack--debug-fnh)) .wh-form__page--hidden
+   , :is(html:not(.dompack--debug-fnh)) .wh-form__fieldgroup--hidden
+   , :is(html:not(.dompack--debug-fnh)) .wh-form__fieldline--hidden
+   {
+     display:none;
+   }
+
+     :is(html.dompack--debug-fnh) .wh-form__page ~ .wh-form__page:not(.wh-form__page--visible)
+   , :is(html.dompack--debug-fnh) .wh-form__page--hidden
+   , :is(html.dompack--debug-fnh) .wh-form__fieldgroup--hidden
+   , :is(html.dompack--debug-fnh) .wh-form__fieldline--hidden
+   {
+     opacity: 0.5;
+   }
+
+   .wh-form:not(.wh-form--allowprevious) .wh-form__button--previous
+   , .wh-form:not(.wh-form--allownext) .wh-form__button--next
+   , .wh-form:not(.wh-form--allowsubmit) .wh-form__button--submit
+   {
+     display:none;
+   }

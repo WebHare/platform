@@ -7,7 +7,6 @@ import * as whintegration from "@mod-system/js/wh/integration";
 import { getTid } from "@mod-tollium/js/gettid";
 import { isLive } from "@webhare/env";
 import { isValidDate } from '@webhare/std';
-import "../internal/form.lang.json";
 
 import "./splitdatetime.scss";
 

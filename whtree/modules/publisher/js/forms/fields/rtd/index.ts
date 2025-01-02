@@ -3,7 +3,7 @@
 /** Generic support for .wh-form .wh-rtd--forminput */
 import * as dompack from 'dompack';
 
-//we delay load the RTE, but we still need its styling - we don't have a delayed load for SCSS yet
+//we delay load the RTE, but we still need its styling - we don't have a delayed load for SCSS yet.
 import '@mod-tollium/web/ui/components/richeditor/styling';
 
 import type * as RichEditor from '@mod-tollium/web/ui/components/richeditor';
@@ -24,7 +24,7 @@ export interface RTDFieldOptions {
   rtdoptions?: EditorBaseOptions;
 }
 
-export class RTDFormElement extends JSFormElement<string> {
+export class RTDEditElement extends JSFormElement<string> {
   rte: FreeEditor | StructuredEditor | null = null;
   // options: RTDFieldOptions;
   // _fieldgroup: HTMLElement | null;
@@ -161,10 +161,10 @@ export default class RTDField {
 
     customElements.whenDefined("wh-rtdedit").then(() => {
       if (options?.onInsertVideo) //TODO cleaner, use event handlers? RTD already has some action-eventhandler stuff though..
-        (node as RTDFormElement).onInsertVideo = options.onInsertVideo;
+        (node as RTDEditElement).onInsertVideo = options.onInsertVideo;
     });
 
     if (!customElements.get("wh-rtdedit"))
-      customElements.define("wh-rtdedit", RTDFormElement);
+      customElements.define("wh-rtdedit", RTDEditElement);
   }
 }

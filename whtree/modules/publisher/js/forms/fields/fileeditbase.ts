@@ -3,9 +3,8 @@
 import * as dompack from 'dompack';
 import { SingleFileUploader, requestFile } from "@webhare/upload";
 
-import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
-import { setFieldError } from '@mod-publisher/js/forms';
+import { setFieldError } from '@mod-publisher/js/forms/internal/customvalidation';
 import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
 import { JSFormElement } from '@webhare/forms/src/jsformelement';
 import type { FormFileValue } from '@webhare/forms/src/types';

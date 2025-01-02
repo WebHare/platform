@@ -17,9 +17,9 @@ function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
 }
 
-interface FormSubmitDetails {
+interface FormSubmitDetails<DataShape extends object = Record<string, unknown>> {
   form: HTMLElement;
-  rpchandler: RPCFormBase;
+  rpchandler: RPCFormBase<DataShape>;
   extrasubmitdata?: unknown;
   submitted: FormResultValue;
   result: unknown;
@@ -93,7 +93,7 @@ export async function submitForm(target: string, formvalue: FormResultValue, opt
   return await getFormService().formSubmit(submitparameters);
 }
 
-export default class RPCFormBase extends FormBase {
+export default class RPCFormBase<DataShape extends object = Record<string, unknown>> extends FormBase<DataShape> {
   __formhandler = {
     errors: [],
     warnings: [],
@@ -229,7 +229,7 @@ export default class RPCFormBase extends FormBase {
     let insubmitrpc = false;
     this.onRPC(waiter.promise);
 
-    const eventdetail: FormSubmitDetails = {
+    const eventdetail: FormSubmitDetails<DataShape> = {
       form: this.node,
       rpchandler: this,
       submitted: {},
