@@ -1,28 +1,88 @@
 //Form styling
-@import '~@mod-publisher/js/forms/styles';
+@use '~@webhare/forms/styling/forms';
 
+/* Default variables
+https://www.webhare.dev/reference-next/forms/form-setup-styling/
+*/
+
+:root {
+  --wh-field-textinput-height: 44px; // Height of text input
+  --wh-field-textarea-height: 140px; // Height of textarea
+  --wh-field-radiocheckbox-size: 24px; // Width (is also height) of radio and checkbox
+
+  --wh-label-font-size: 15px;
+  --wh-label-width: 195px;
+
+  // butlton basic styling
+  --wh-button-background-color: #D00057;
+  --wh-button-border: 0 none;
+  --wh-button-color: #fff;
+  --wh-button-padding: 12px 15px;
+  --wh-button-border-radius: 3px;
+  --wh-button-height: 48px;
+
+  // General field styling (input text / select / textarea / ...)
+  --wh-field-font-size: 16px;
+  --wh-field-padding: 12px 15px;
+  --wh-field-border-radius: 3px;
+
+  --wh-field-color: #979797;
+  --wh-field-color--hover: inherit;
+  --wh-field-color--focus: inherit;
+  --wh-field-color--error: #D50000;
+  --wh-field-color--disabled: #C5C5C5;
+
+  --wh-field-border-color: #979797;
+  --wh-field-border-color--hover: #D00057;
+  --wh-field-border-color--focus: #D00057;
+  --wh-field-border-color--error: #D50000;
+  --wh-field-border-color--disabled: #F2F2F2;
+
+  --wh-field-background-color: #fff;
+  --wh-field-background-color--hover: #fff;
+  --wh-field-background-color--focus: #fff;
+  --wh-field-background-color--error: #fff;
+  --wh-field-background-color--disabled: #ddd;
+
+  --wh-field-border-box-shadow: none;
+  --wh-field-border-box-shadow--hover: none;
+  --wh-field-border-box-shadow--focus: 0 0 0 3px rgba(208,0,87,0.15);
+  --wh-field-border-box-shadow--error: none;
+  --wh-field-border-box-shadow--disabled: none;
+
+  // imgedit styling
+  --wh-imgedit-padding: 4px;    //padding from image to the edge
+  --wh-imgedit-margin: 2px 3px; //margin between images (in a multi-image field)
+  --wh-imgedit-width: 150px;    //width for image (place)holder
+  --wh-imgedit-height: 200px;   //height for image (place)holder
+  --wh-imgedit-explain-padding: 5px; //padding around the explain text
+  --wh-imgedit-uploadicon-width: 50px;
+  --wh-imgedit-uploadicon-height: 50px;
+  --wh-imgedit-uploadicon-margin: 0 0 20px;
+  //--wh-imgedit-uploadicon-background-image: url(upload.svg)
+
+  // fileedit styling
+  --wh-fileedit-name-margin-right: 5px; // Margin between name field and add/remove button
+  --wh-fileedit-margin-top: 10px; // Margin between (multiple) file fields
+}
+
+/* Basic setup:
+*/
 
 @at-root
 {
-  @include wh-form-flex; //Use flex layout
+  @include forms.flex; //Use flex layout
 }
 
 .wh-form__label
 {
   min-width:240px; //Set a minimum width for form labels
 }
-.wh-form__imgedit //imgedits aren't visible unless it has a width/height
-{
-  width:250px;
-  height:250px;
-}
 
 @media (max-width: 550px) //Below 550px labels won't fix next to their fields
 {
   .wh-form__fieldgroup //order the vertical inputs below their labels
   {
-    -ms-flex-direction: column;
-    -webkit-flex-direction: column;
     flex-direction: column;
   }
   .wh-form__fields //and give fields the full width
