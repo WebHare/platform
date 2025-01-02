@@ -6,7 +6,6 @@ import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
 import { setupValidator } from './customvalidation';
 
 import { getTid } from "@mod-tollium/js/gettid";
-import "./form.lang.json";
 import { formatDate, parseISODate } from './datehelpers';
 import { isValidDate } from '@webhare/std';
 

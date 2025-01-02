@@ -6,7 +6,6 @@ import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
 import './internal/requiredstyles.css';
-import "./internal/form.lang.json";
 import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
@@ -135,6 +134,7 @@ const submitselector = 'input[type=submit],input[type=image],button[type=submit]
 type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
+let didGlobalHandlers: true | undefined;
 
 function getPageIdx(state: PageState, page: number | HTMLElement) {
   if (typeof page === 'number') {
@@ -253,6 +253,13 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     if (this.node.propWhFormhandler)
       throw new Error("Specified node already has an attached form handler");
     this.node.propWhFormhandler = this;
+
+    //TODO Can we scope these handlers to the form ? Or register only once needed?
+    if (!didGlobalHandlers) {
+      didGlobalHandlers = true;
+      window.addEventListener("mouseup", releasePendingValidations, true);
+      window.addEventListener("focusin", handleFocusInEvent, true);
+    }
 
     //Implement webhare fields extensions, eg 'now' for date fields or 'enablecomponents'
     webharefields.setup(this.node);
@@ -1592,6 +1599,3 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     this.node.reset();
   }
 }
-
-window.addEventListener("mouseup", releasePendingValidations, true);
-window.addEventListener("focusin", handleFocusInEvent, true);

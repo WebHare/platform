@@ -10,7 +10,7 @@ We also assume your form is backed by a RPC handler (see [forms/rpc]). Without t
 
 - Add a field of type RTD to your form definition, eg
 ```
-<rtd name="rtd" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" title="RTD" />
+<rtdedit name="rtd" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" title="RTD" />
 ```
 
 - Load and register the RTD Field editor

@@ -1,1 +1,1 @@
-import './neutral.scss';
+import '.././../../../../../jssdk/forms/styling/neutral.scss';

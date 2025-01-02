@@ -5,7 +5,8 @@
    verify the MJS and CSS files
 */
 import "@webhare/dompack";
-// import "@webhare/forms"; //TODO include!
+import "@webhare/forms";
+// import "@webhare/forms-rtdedit"; //TODO include.. but it comes with a lot of core CSS/JS overhead currently
 import "@webhare/frontend";
 import "@webhare/gettid";
 // import "@webhare/image-edit"; //TODO include!

@@ -2,13 +2,13 @@
 
 import * as dompack from '@webhare/dompack';
 import * as dialogapi from 'dompack/api/dialog';
-import { type RTDFormElement } from './index';
+import { type RTDEditElement } from './index';
 import RPCFormBase from '../../rpc';
 import { getFormService } from "@webhare/forms/src/formservice";
 import type { FormSubmitEmbeddedResult } from '../../formbase';
 
 class EmbedVideoForm extends RPCFormBase {
-  constructor(node: HTMLFormElement, private dialog: dialogapi.DialogBase, private rtd: RTDFormElement) {
+  constructor(node: HTMLFormElement, private dialog: dialogapi.DialogBase, private rtd: RTDEditElement) {
     super(node);
   }
 
@@ -37,7 +37,7 @@ export async function insertVideo(rtd: HTMLElement) {
   const dialog = dialogapi.createDialog();
   dialog.contentnode!.innerHTML = formdata.html;
 
-  new EmbedVideoForm(dompack.qR(dialog.contentnode!, 'form'), dialog, rtd as RTDFormElement);
+  new EmbedVideoForm(dompack.qR(dialog.contentnode!, 'form'), dialog, rtd as RTDEditElement);
   formloadlock.release();
 
   await dialog.runModal();

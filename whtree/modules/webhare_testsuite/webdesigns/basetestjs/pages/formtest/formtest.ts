@@ -1,14 +1,14 @@
 import './formtest.scss';
 import '@mod-publisher/js/forms/themes/neutral';
 import { create, onDomReady, qR, qS, qSA, register } from '@webhare/dompack';
-import { RPCFormBase, registerHandler, setupValidator } from '@mod-publisher/js/forms';
 
 import { fetchAsFile } from '@webhare/test-frontend';
 import "./simplefield";
 import { MySimpleField } from './simplefield';
 import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
+import { FormBase, registerHandler, setupValidator } from '@webhare/forms';
 
-class CoreForm extends RPCFormBase {
+class CoreForm extends FormBase {
   constructor(node: HTMLFormElement) {
     super(node);
     qR('#coreform .prefillbutton').addEventListener('click', () => void this.doPrefill());
@@ -31,13 +31,13 @@ class CoreForm extends RPCFormBase {
   }
 }
 
-class GlobalForm extends RPCFormBase {
+class GlobalForm extends FormBase {
   onSubmitSuccess(result: unknown) {
     qR('#globalformsubmitresponse').textContent = JSON.stringify(result);
   }
 }
 
-class AnyFormHandler extends RPCFormBase {
+class AnyFormHandler extends FormBase {
   onSubmitSuccess(result: unknown) {
     qR('#dynamicformsubmitresponse').textContent = JSON.stringify(result);
   }
@@ -60,7 +60,7 @@ class MultiPageForm extends AnyFormHandler {
   }
 }
 
-class RTDForm extends RPCFormBase {
+class RTDForm extends FormBase {
   filename;
 
   constructor(node: HTMLFormElement) {
@@ -84,7 +84,7 @@ class RTDForm extends RPCFormBase {
   }
 }
 
-class ArrayForm extends RPCFormBase {
+class ArrayForm extends FormBase {
   onSubmitSuccess(result: unknown) {
     qR('#dynamicformsubmitresponse').textContent = JSON.stringify(result);
   }

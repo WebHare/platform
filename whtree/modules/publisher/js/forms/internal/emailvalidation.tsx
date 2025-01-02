@@ -21,14 +21,14 @@ function mayValidateField(field: HTMLInputElement) {
   return true;
 }
 
-function acceptEmailSuggestion(evt: Event, form: FormBase, field: HTMLInputElement, suggestion: string) {
+function acceptEmailSuggestion<DataShape extends object = Record<string, unknown>>(evt: Event, form: FormBase<DataShape>, field: HTMLInputElement, suggestion: string) {
   dompack.stop(evt);
   field.value = suggestion;
   field.propWhValidationSuggestion = null;
   form._reportFieldValidity(field);
 }
 
-export async function validateField(form: FormBase | RPCFormBase, field: HTMLInputElement) {
+export async function validateField<DataShape extends object = Record<string, unknown>>(form: FormBase<DataShape> | RPCFormBase<DataShape>, field: HTMLInputElement) {
   if (field.dataset.whFormEmailBlocked) {
     delete field.dataset.whFormEmailBlocked;
     setFieldError(field, ""); //explicitly clear our earlier setFieldError, but only if we set it. FIXME To really cleanly solve this we need better integration with rpc.ts - we want to be in the setupValidation chain and simply return errors instead of being explictly invoked

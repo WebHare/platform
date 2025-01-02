@@ -96,7 +96,7 @@ PUBLIC OBJECTTYPE RTDField EXTEND FormFieldBase
   : FormFieldBase(form, parent, field)
   {
     IF(field.rtdtype="")
-      THROW NEW Exception("Form <rtd> types currently require a rtdtype=");
+      THROW NEW Exception("Form <rtdedit> types currently require a rtdtype=");
 
     this->rtdeditor := NEW RichDocumentEditor("");
     IF(ObjectExists(form->formcontext))

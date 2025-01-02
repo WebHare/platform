@@ -72,7 +72,7 @@
           <textedit name="checkboxaddendum2" placeholder="Type a text" title="if other" />
         </option>
       </select>
-      <rtd name="rtd" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" title="RTD" />
+      <rtdedit name="rtd" rtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" title="RTD" />
       <imgedit name="imgedit" title="Image edit" />
       <checkbox name="agree1" label="I agree with any terms or conditions" title="With title" />
       <checkbox name="agree2" label="I agree with any terms or conditions (no title)" title="" />
