@@ -68,7 +68,7 @@ MACRO WebHareStartup(STRING ARRAY limitmodules, BOOLEAN debug)
   modlist := SELECT * FROM modlist WHERE name IN limitmodules;
 
   IF(debug)
-    Print("Initializing: " || Detokenize((SELECT AS STRING ARRAY name FROM modlist),','));
+    Print("Initializing: " || Detokenize((SELECT AS STRING ARRAY name FROM modlist),',') || '\n');
   StartupModules(modlist, FALSE); //FIXME when do we ever run with TRUE? what did this break ?
 }
 

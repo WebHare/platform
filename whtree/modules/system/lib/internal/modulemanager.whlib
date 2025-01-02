@@ -616,7 +616,7 @@ PUBLIC RECORD FUNCTION RunRunOnceScripts(RECORD module, STRING phase, BOOLEAN sh
       Print(`>> ${module.name}: ${phase}: ${rec.script}\n`);
 
     // Go and run.
-    RECORD res := LaunchScript(rec.script, DEFAULT STRING ARRAY);
+    RECORD res := LaunchScript(rec.script, DEFAULT STRING ARRAY, showinfo);
     INTEGER runtime_ms := GetMsecsDifference(start, GetCurrentDateTime());
 
     retval.error := retval.error OR res.error;
