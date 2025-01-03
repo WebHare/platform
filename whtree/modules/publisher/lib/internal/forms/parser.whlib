@@ -230,6 +230,7 @@ OBJECTTYPE FormParser
 PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING resourcename, STRING lookupname, OBJECT formdefinitions, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ webtoolformid := 0
+                             , objref := ""
                              , validatexmlonly := FALSE
                              , accepterrors := FALSE
                              ], options);
@@ -245,6 +246,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
                     , name := formname
                     , formid := formnode->GetAttribute("formid") ?? formnode->GetAttribute("name")
                     , webtoolformid := options.webtoolformid
+                    , objref := options.objref
                     , objectname := ""
                     , idprefix := formnode->GetAttribute("idprefix") ?? (lookupname ?? formname) || "-"
                     , defs := formdefinitions

@@ -665,13 +665,13 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
 
   if (!dbrecord) {
     if (!allowmissing)
-      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
+      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""}`);
     return null;
   }
 
   if (isHistoricWHFSSpace(dbrecord.whfspath) && !allowHistoric) {
     if (!allowmissing)
-      throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""} - it is a recycled or historic object`);
+      throw new Error(`No such ${findfile === true ? "file" : findfile === false ? "folder" : "object"} ${formatPathOrId(path)}${failcontext ? " " + failcontext : ""} - it is a recycled or historic object`);
     return null;
   }
 

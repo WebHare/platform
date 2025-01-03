@@ -1,3 +1,6 @@
+import type { WHFSObject } from "./objects";
+import * as crypto from "node:crypto";
+
 function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
   return !excludes.includes(t as unknown as K);
 }
@@ -107,4 +110,15 @@ export function convertToWillPublish(published: number, firsttime: boolean, enab
     published -= PublishedFlag_OncePublished;
 
   return published;
+}
+
+/** Calculates an objects whfsref: its id plus its creationdate in 32bits so we can somewhat guarantee its the same original file/folder */
+export function getWHFSObjRef(fsobj: WHFSObject) {
+  const hash = crypto
+    .createHash("sha1")
+    .update(String(fsobj.creationDate.getTime()))
+    .digest("base64url")
+    .slice(-6);
+
+  return fsobj.id + "." + hash;
 }

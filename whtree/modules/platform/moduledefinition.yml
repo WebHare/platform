@@ -71,6 +71,7 @@ pxlEvents:
       formmeta_pagenum: integer
       formmeta_pagetitle: keyword
       formmeta_time: integer
+      formmeta_objref: keyword
       formmeta_waittime: integer
   form_failed:
     includeFields: form_started

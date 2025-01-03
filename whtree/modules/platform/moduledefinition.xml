@@ -113,6 +113,7 @@
       <keyword name="userid" comment="User identifier, the value of the `pi` query variable" ignore_above="256" />
       <keyword name="sessionid" comment="User session id, the value of the `ps` query variable" ignore_above="256" />
       <keyword name="pageid" comment="Page session id, the value of the `pp` query variable" ignore_above="256" />
+      <keyword name="objref" comment="WHFS object reference" ignore_above="256" />
       <integer64 name="counter" comment="Event counter for this page session, the value of the `pc` query variable" />
       <keyword name="location"
                comment="The current url (location) of the page, the value of the `bl` query variable"

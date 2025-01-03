@@ -125,6 +125,8 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
     url.searchParams.set("bd", dompack.browser.device);
 
   if (typeof document !== "undefined") {
+    if (document.documentElement.dataset.whOb)
+      url.searchParams.set("ob", document.documentElement.dataset.whOb.substring(0, 20));
     if (document.location)
       url.searchParams.set("bl", document.location.href.substring(0, 1000));
     if (document.referrer)

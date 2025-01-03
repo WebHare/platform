@@ -35,6 +35,7 @@
   <test script="testaddressfield.whscr" tags="forms address" />
   <jstest file="testrte.ts" tags="forms rte" />
   <jstest file="testformfile-online.ts" />
+  <jstest file="testformfile-online-widget.ts" />
   <jstest file="testformfile-custom-online.ts" />
   <jstest file="testformfile-conditions.ts" />
   <jstest file="testformfile-captcha.ts" />
@@ -54,5 +55,6 @@
       <arg value="replacedcomponents" />
     </jstest>
     <jstest file="testcustomelements.ts" />
+    <jstest file="testformfile-online-widget.ts" />
   </group>
 </group>

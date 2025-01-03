@@ -30,6 +30,8 @@ export type FormAnalyticsEventData = { //Note that this set needs to correspond 
   event: FormAnalyticsSubEvents["event"];
   /** Form identifier */
   id: string;
+  /** Form WHFS object ref (like pxl 'ob') */
+  objref: string;
   /** Unique instance id for this form filling session (different per form on a page, always unique per page load) */
   session: string;
   /** Number of the current form page (1 based) s*/

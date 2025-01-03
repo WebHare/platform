@@ -22,6 +22,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::system/lib/internal/webserver/errorhandler.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -507,7 +508,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
       {
         header := header || ' data-' || EncodeValue(ToLowercase(toset.name)) || '="' || EncodeValue(''||toset.value) || '"';
       }
-      header := header || '>\n<head>\n';
+      //Note: GetWHFSObjRef result is URL-safe encoded, so no need for further escapes
+      header := header || ` data-wh-ob="${GetWHFSObjRef(this->targetobject)}">\n<head>\n`;
       header := header || '  <meta charset="utf-8">\n';
       header := header || '  <title>' || EncodeValue(data.pagetitle) || '</title>\n';
       IF(data.pagedescription!="")

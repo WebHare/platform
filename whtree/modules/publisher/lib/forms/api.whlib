@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -94,12 +95,15 @@ PUBLIC OBJECT FUNCTION __DoOpenWebtoolForm(OBJECT formobject, STRING formname, O
     RETURN DEFAULT OBJECT;
 
   INTEGER webtoolformid := formobject->id;
+  STRING objref := GetWHFSObjRef(formobject);
   OBJECT openasdraft := OpenWHFSDraft(webtoolformid);
   IF(ObjectExists(openasdraft))
+  {
     webtoolformid := openasdraft->source;
+    objref := GetWHFSObjRef(OpenWHFSObject(openasdraft->source));
+  }
 
-  RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, [ webtoolformid := webtoolformid
-                                                                                      ]);
+  RECORD parseresult := ParseFormDef(mainform->node, "webtoolform", "", "", formdefs, CELL[ webtoolformid, objref ]);
   IF(parseresult.objectname = "")
     parseresult.objectname := "mod::publisher/lib/internal/forms/webtool.whlib#WebtoolFormBase";
 
