@@ -353,6 +353,8 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
           // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
         } else {
           setval = codecs[member.type].decoder(settings, cc);
+          if (isPromise(setval))
+            setval = await setval;
         }
       } catch (e) {
         if (e instanceof Error)

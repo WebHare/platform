@@ -9,6 +9,7 @@ import * as witty from '@webhare/witty';
 import { backendConfig } from "./config";
 import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
+import { RichTextDocument } from "./richdocument";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
@@ -31,7 +32,7 @@ export { applyConfiguration, createAppliedPromise } from "./applyconfig";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 
-export type { RichDocument } from "./richdocument";
+export { buildRTD, RichTextDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
 
@@ -103,3 +104,6 @@ function readWittyResource(resource: string): Promise<string> {
     });
   });
 }
+
+/** @deprecated From WH5.7+, we'll rename RichDocument to RichTextDocument to strictly match the RTD initials */
+export type RichDocument = RichTextDocument;

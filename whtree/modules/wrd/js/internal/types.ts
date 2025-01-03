@@ -233,7 +233,7 @@ export type WRDTypeBaseSettings = {
 };
 
 /** Extracts the select result type for an attribute type */
-export type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>;
+export type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = Awaited<ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>>;
 
 /** Extracts the default value type for an attribute type */
 type GetDefaultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getDefaultValue"]>;

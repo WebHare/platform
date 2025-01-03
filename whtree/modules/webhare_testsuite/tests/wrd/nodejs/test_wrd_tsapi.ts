@@ -7,7 +7,7 @@ import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { JsonWebKey } from "node:crypto";
 import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-platform/generated/wrd/webhare";
-import { ResourceDescriptor, toResourcePath } from "@webhare/services";
+import { buildRTD, ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
@@ -18,7 +18,8 @@ import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
-import { createRichDocumentFromHSRichDoc, createRichDocumentFromHTML, HSRichDoc } from "@webhare/services/src/rtdbuilder";
+import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
+import type { HareScriptRTD } from "@webhare/services/src/richdocument";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -491,17 +492,17 @@ async function testNewAPI() {
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldBlobAsImage?.hash);
 
   // Set the 'richie' rich document document through HareScript
-  let testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+  let testHTML = `<html><body><p class="normal">blabla</p></body></html>`;
   await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
   // Read the rich document in TypeScript
   let richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
   test.eq(testHTML, await richdoc!.__getRawHTML());
 
   // Set the 'richie' rich document document through TypeScript
-  testHTML = `<html><head></head><body>\n<p class="normal">test</p>\n</body></html>`;
-  await schema.update("wrdPerson", newperson, { richie: await createRichDocumentFromHTML(testHTML) });
+  testHTML = `<html><body><p class="normal">test</p></body></html>`;
+  await schema.update("wrdPerson", newperson, { richie: await buildRTD([{ p: "test" }]) });
   // Read the rich document in HareScript
-  richdoc = await createRichDocumentFromHSRichDoc(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HSRichDoc);
+  richdoc = await buildRTDFromHSStructure(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
   test.eq(testHTML, await richdoc!.__getRawHTML());
   // Read the rich document in TypeScript
   richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;

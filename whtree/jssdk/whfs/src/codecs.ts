@@ -4,8 +4,8 @@ import { Money } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import { RichDocument, WebHareBlob } from "@webhare/services";
-import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
+import { WebHareBlob, type RichTextDocument } from "@webhare/services";
+import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -293,15 +293,15 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "richDocument": {
-    encoder: (value: RichDocument | null) => {
-      if (typeof value !== "object") //TODO test for an actual RichDocument
-        throw new Error(`Incorrect type. Wanted a RichDocument, got '${typeof value}'`);
+    encoder: (value: RichTextDocument | null) => {
+      if (typeof value !== "object") //TODO test for an actual RichTextDocument
+        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${typeof value}'`);
       if (!value)
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const v = value as RichDocument;
+        const v = value as RichTextDocument;
         const settings: Array<Partial<FSSettingsRow>> = [];
         const text = WebHareBlob.from(await v.__getRawHTML());
         await uploadBlob(text);
@@ -319,7 +319,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      return new __RichDocumentInternal(settings[0].blobdata);
+      return buildRTDFromHSStructure({ htmltext: settings[0].blobdata, instances: [], embedded: [], links: [] });
     }
   }
 };
