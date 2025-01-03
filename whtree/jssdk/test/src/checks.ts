@@ -11,21 +11,20 @@ export type Annotation = string | (() => string) | undefined;
 
 type LoggingCallback = (...args: unknown[]) => void;
 
-// Disallows type inferences when a parameter type is wrapped with this type. From: https://github.com/Microsoft/TypeScript/issues/14829#issuecomment-504042546
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type NoInfer<T> = [T][T extends any ? 0 : never];
-
 type PrimitiveType = Money | Date | RegExp;
 
-/** Recursively apply `Partial<>` on records in a type but also allow Regexps to match strings. Also allow the string values for string enums.
+/** Custom callback to test a value */
+type TestFunction<T> = (value: T) => boolean;
+
+/** Recursively apply `Partial<>` on records in a type but also allow Regexps and Functions to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-export type RecursivePartialOrRegExp<T> = T extends Array<infer U> ? Array<RecursivePartialOrRegExp<U>> : T extends string ? T | `${T}` | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]?: RecursivePartialOrRegExp<T[K]> } : T;
+type RecursivePartialTestable<T> = T extends Array<infer U> ? Array<RecursivePartialTestable<U>> : T extends string ? T | `${T}` | RegExp | TestFunction<T> : T extends PrimitiveType ? T | TestFunction<T> : T extends object ? { [K in keyof T]?: RecursivePartialTestable<T[K]> } : T | TestFunction<T>;
 
 /** Recursively allow Regexps to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-export type RecursiveOrRegExp<T> = T extends Array<infer U> ? Array<RecursiveOrRegExp<U>> : T extends string ? T | `${T}` | RegExp : T extends PrimitiveType ? T : T extends object ? { [K in keyof T]: RecursiveOrRegExp<T[K]> } : T;
+type RecursiveTestable<T> = T extends Array<infer U> ? Array<RecursiveTestable<U>> : T extends string ? T | `${T}` | RegExp | TestFunction<T> : T extends PrimitiveType ? T | TestFunction<T> : T extends object ? { [K in keyof T]: RecursiveTestable<T[K]> } : T | TestFunction<T>;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
@@ -107,6 +106,21 @@ function testMoney(expect: Money, actual: unknown, path: string, annotation: Ann
   }
 }
 
+function testTestFunction(expect: TestFunction<unknown>, actual: unknown, path: string, annotation: Annotation) {
+  const result = expect(actual);
+  if (typeof result !== "boolean") {
+    onLog("test function fails type: want boolean but got ", typeof result);
+    onLog("test function fails type: actual  ", actual);
+    throw new TestError("test function did not return a boolean: " + typeof actual + (path !== "" ? " at " + path : ""), annotation);
+  }
+
+  if (!result) {
+    onLog("test function evaluated to false");
+    onLog("test function actual value: ", actual);
+    throw new TestError("test function failed" + (path !== "" ? " at " + path : ""), annotation);
+  }
+}
+
 function testRegExp(expect: RegExp, actual: unknown, path: string, annotation: Annotation) {
   if (typeof actual !== "string") {
     onLog("regExp fails type: expected", expect);
@@ -138,6 +152,8 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
 
   if (expected instanceof RegExp)
     return testRegExp(expected, actual, path, annotation);
+  if (typeof expected === "function")
+    return testTestFunction(expected as TestFunction<unknown>, actual, path, annotation);
   if (Money.isMoney(expected))
     return testMoney(expected, actual, path, annotation);
 
@@ -260,7 +276,7 @@ function testStringify(val: unknown): string {
  * @param actual - The actual value
  * @throws If the values are not equal
  */
-export function eq<T>(expected: NoInfer<RecursiveOrRegExp<T>>, actual: T, annotation?: Annotation): void {
+export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, annotation?: Annotation): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
@@ -379,18 +395,18 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
  *  @param expected - Expected value
  *  @param actual - Actual value
  *  @param annotation - Message to display when the test fails */
-export function eqPartial<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, annotation?: Annotation) {
+export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", [], annotation);
   return actual;
 }
 
 /** @deprecated use test.eqPartial instead */
-export function eqProps<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
+export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
   switch (typeof expect) {
     case "undefined": {
       if (expect !== actual) {
@@ -399,6 +415,8 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialOrRegExp<T>>, actual:
       }
       return;
     }
+    case "function":
+      return testTestFunction(expect as TestFunction<unknown>, actual, path, annotation);
     case "object":
       {
         if (isDate(expect) || isDate(actual) || Money.isMoney(expect) || Money.isMoney(actual)) {
