@@ -2,7 +2,7 @@ import { toFSPath } from "@webhare/services";
 import type { CompiledLanguageFile, IfParam, LanguagePart, LanguageText } from "../../../../jssdk/gettid/src/types";
 import { existsSync, readFileSync } from "node:fs";
 import { registerLoadedResourceWithCallback } from "@mod-system/js/internal/hmrinternal";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, type Node, type Element } from "@xmldom/xmldom";
 import type { CodeContextTidStorage, GetTidHooks } from "@webhare/gettid/src/types";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { tidLanguage } from "@webhare/services/src/symbols";
@@ -119,7 +119,14 @@ function readLanguageTexts(element: Element, pathsofar: string, texts: Map<strin
 }
 
 function compileLanguageFile(input: string, texts: Map<string, LanguageText>) {
+  //Remove BOM, current XMLDOC no longer ignores it
+  if (input.startsWith("\uFEFF"))
+    input = input.substring(1);
+
   const doc = new DOMParser().parseFromString(input, 'text/xml');
+  if (!doc.documentElement)
+    throw new Error("No document element found in language file");
+
   const fallbackLanguage = doc.documentElement.getAttribute("fallbacklanguage")?.toLowerCase() ?? "";
   const langCode = doc.documentElement.getAttribute("xml:lang")?.toLowerCase() ?? "";
   readLanguageTexts(doc.documentElement, "", texts);

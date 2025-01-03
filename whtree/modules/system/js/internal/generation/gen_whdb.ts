@@ -3,6 +3,7 @@ import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
 import { getGeneratedFilePath } from "./generator";
+import { type Element } from "@xmldom/xmldom";
 
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))
@@ -132,7 +133,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
           const colinfo: typeof tableinfo["columns"][number] = {
             documentation: "",
             tstype: "",
-            type: col.localName
+            type: col.localName || '<unnamed>'
           };
 
           let documentation: Element | undefined;

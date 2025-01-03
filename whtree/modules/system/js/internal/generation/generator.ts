@@ -28,7 +28,7 @@ import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { DOMParser } from '@xmldom/xmldom';
+import { DOMParser, type Document } from '@xmldom/xmldom';
 import { ModuleData } from "@webhare/services/src/config";
 import { listAllExtracts } from "./gen_extracts";
 import { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { toFSPath } from "./resources";
-import { DOMParser } from '@xmldom/xmldom';
+import { DOMParser, Element } from '@xmldom/xmldom';
 import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
 
 export interface ParseError {

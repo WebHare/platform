@@ -3,8 +3,9 @@
 
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services";
 import { isTruthy } from "@webhare/std";
+import { type Node, type Element, type LiveNodeList } from "@xmldom/xmldom";
 
-export function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
+export function elements<T extends Element>(collection: LiveNodeList<T>): T[] {
   const items: T[] = [];
   for (let i = 0; i < collection.length; ++i)
     items.push(collection[i]);
