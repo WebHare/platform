@@ -43,16 +43,8 @@ async function testSupportAPI() {
     test.eq(hs, wrdsupport.tagToHS(js));
   }
 
-  function testFields(hs: Record<string, unknown>, js: Record<string, unknown>) {
-    test.eq(js, wrdsupport.fieldsToJS(hs));
-    test.eq(hs, wrdsupport.fieldsToHS(js, []));
-  }
-
   testTag("WRD_PERSON", "wrdPerson");
   testTag("TEST_DOMAIN_1", "testDomain_1"); //cannot safely convert _<nonalpha> so keep the snake
-  testFields({ WRD_TITLE: "Root unit", WRD_TAG: "TAG" }, { wrdTitle: "Root unit", wrdTag: "TAG" });
-  test.eq({ fn: "WRD_FIRSTNAME" }, wrdsupport.outputmapToHS({ fn: "wrdFirstName" }));
-  test.eq([{ wrdFirstName: "first", ln: "last" }], wrdsupport.repairResultSet([{ wrdfirstname: "first", ln: "last" }], { wrdFirstName: "wrdFirstName", ln: "wrdLastName" }));
   test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
   test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
 
