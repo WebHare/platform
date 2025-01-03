@@ -203,7 +203,11 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
           RETURN DEFAULT RECORD;
 
         // intextlink (from contenttype members of type "intextlink" or value from the Publisher's <intextlink> component)
-        IF (this->gathermetadata AND CellExists(value, "externallink") AND CellExists(value, "internallink"))
+        IF (this->gathermetadata
+            AND CellExists(value, "externallink")
+            AND CellExists(value, "internallink")
+            AND TypeID(value.externallink) = TypeID(STRING)
+            AND TypeID(value.internallink) = TypeID(INTEGER))
           RETURN this->GetIntExtLinkDescription(value);
 
         RETURN this->GetRecordDescription(value, level + 1);
