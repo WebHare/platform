@@ -144,12 +144,3 @@ export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
 }
 
-//TODO obsolete once all are WH5.5+
-export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
-  return Map.groupBy(items, callbackfn);
-}
-
-//TODO obsolete once all are WH5.5+
-export function objectGroupBy<Item, Key extends string | number | symbol>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Partial<Record<Key, Item[]>> {
-  return Object.groupBy(items, callbackfn);
-}
