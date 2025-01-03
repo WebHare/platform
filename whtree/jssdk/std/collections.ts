@@ -144,3 +144,15 @@ export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
 }
 
+/** Append to array, without overflowing the stack (eg V8 overflows at more than 32K entries)
+ * @param array - Array to append to
+ * @param values - Values to append
+*/
+export function appendToArray<T extends unknown[]>(array: T, values: readonly unknown[]): void {
+  if (values.length < 1000)
+    array.push(...values); //push should be safe enough
+  else for (const value of values) //performance wise this appears just as fast as tricks with pushing blocks of slices
+    array.push(value);
+
+  //not returning the original array to make it clear we're not creating a new one
+}
