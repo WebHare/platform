@@ -235,7 +235,7 @@ class RecursiveSetter {
     for (const row of (isArray ? value as object[] : [value])) {
       const rowsettingid = await nextVal("system.fs_settings.id");
       this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: rownum++ });
-      await this.recurseSetData(matchmember.children!, row, matchmember, rowsettingid);
+      await this.recurseSetData(matchmember.children!, row, rowsettingid);
     }
   }
 
@@ -243,9 +243,8 @@ class RecursiveSetter {
    * @param instanceId - The database instance we're updating
    * @param members - The set of members at his level
    * @param data - Data to apply at this level
-   * @param arrayMember - The current array member being updated
    * @param elementSettingId - The current element being updated  */
-  async recurseSetData(members: WHFSTypeMember[], data: object, arrayMember: WHFSTypeMember | null, elementSettingId: number | null) {
+  async recurseSetData(members: WHFSTypeMember[], data: object, elementSettingId: number | null) {
     for (const [key, value] of Object.entries(data as object)) {
       if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
         continue;
@@ -335,7 +334,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
-  async recurseGet(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], arrayMember: WHFSTypeMember | null, elementSettingId: number | null, cc: number) {
+  async recurseGet(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
     const retval: { [key: string]: unknown } = {};
 
     for (const member of members) {
@@ -346,9 +345,9 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
         if (member.type === "array") {
           setval = [];
           for (const row of settings)
-            setval.push(await this.recurseGet(cursettings, member.children!, member, row.id, cc));
+            setval.push(await this.recurseGet(cursettings, member.children!, row.id, cc));
         } else if (member.type === "record") {
-          setval = settings.length ? await this.recurseGet(cursettings, member.children!, member, settings[0].id, cc) : null;
+          setval = settings.length ? await this.recurseGet(cursettings, member.children!, settings[0].id, cc) : null;
         } else if (!codecs[member.type]) {
           setval = { FIXME: member.type }; //FIXME just throw }
           // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
@@ -387,7 +386,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       const cc = mapping ? getUnifiedCC(mapping.creationdate) : 0;
       const settings = groupedSettings.get(mapping?.id || 0) || [];
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance
-      const result = await this.recurseGet(settings, getMembers, null, null, cc);
+      const result = await this.recurseGet(settings, getMembers, null, cc);
       retval.set(id, result);
     }
 
@@ -433,7 +432,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
-    await setter.recurseSetData(descr.members, data, null, null);
+    await setter.recurseSetData(descr.members, data, null);
 
     if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
       instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
