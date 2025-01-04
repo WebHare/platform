@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
 import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
-import { db, isSameUploadedBlob, nextVal, nextVals, sql } from "@webhare/whdb";
+import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/ } from "./db";
@@ -20,6 +20,7 @@ import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
 import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
 import { hashStream } from "@webhare/services/src/descriptor";
+import { SettingsStorer } from "./settings";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
@@ -185,20 +186,6 @@ function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<Ent
   }
 }
 
-function flattenSettings(encodedSettings: EncodedSetting[], parent: EncodedSetting | null, parentMap: Map<EncodedSetting, EncodedSetting>): EncodedSetting[] {
-  const retval = new Array<EncodedSetting>;
-  for (const item of encodedSettings) {
-    if (parent)
-      parentMap.set(item, parent);
-
-    retval.push(item);
-    if (item.sub?.length)
-      retval.push(...flattenSettings(item.sub, item, parentMap));
-
-  }
-  return retval;
-}
-
 function isSameSetting(cur: EntitySettingsRec, item: Partial<EntitySettingsRec>): boolean | Promise<boolean> {
   for (const directCompare of ["rawdata", "setting", "ordering", "attribute", "parentsetting"] as const) { //TODO link & linktype?
     if (!cur[directCompare]) {
@@ -251,14 +238,13 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
   tryReusePassedSettings(encodedSettings, current, currentIdMap, null);
   reuseFreeSettings(encodedSettings, current, currentIdMap, null);
 
-  const parentMap = new Map<Omit<EncodedSetting, "sub">, Omit<EncodedSetting, "sub">>;
-  const flattened = flattenSettings(encodedSettings, null, parentMap);
+  const storer = new SettingsStorer(encodedSettings);
 
-  const finallist: typeof flattened = [];
+  const finallist: typeof storer.flattened = [];
 
   // Eliminate all unchanged attributes from the update set (ie keep them in the database, unchanged)
   // We need to process already assigned items first, to make sure we don't 'steal' them from the current list
-  for (const item of flattened) { //TODO merge us with reuseFreeSettings
+  for (const item of storer.flattened) { //TODO merge us with reuseFreeSettings
     if (item.id) {
       const match = current.find(_ => _.id === item.id)!;
       const compareRes = isSameSetting(match, item);
@@ -269,7 +255,7 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     }
   }
 
-  for (const item of flattened)
+  for (const item of storer.flattened)
     if (!item.id) {
       const matchcur = await findSameSetting(current, item);
       if (matchcur) {
@@ -296,25 +282,11 @@ async function generateNewSettingList(entityId: number, encodedSettings: Encoded
     }
   }
 
-  let noIdCount = 0;
-  for (const item of finallist) {
-    //check against potential internal issues
+  for (const item of finallist)
     if (!item.attribute)
       throw new Error(`Generated a setting without attribute: ${JSON.stringify(item)}`);
 
-    if (!item.id)
-      ++noIdCount;
-  }
-
-  const newIds = await nextVals("wrd.entity_settings.id", noIdCount);
-  let ipos = 0;
-  for (const item of finallist) {
-    if (!item.id)
-      item.id = newIds[ipos++];
-  }
-  for (const [child, parent] of parentMap) {
-    child.parentsetting = parent.id;
-  }
+  const newIds = await storer.allocateIdsAndParents(finallist, "wrd.entity_settings.id");
 
   const newSettings = new Map(finallist.map(item => (
     [

@@ -20,6 +20,7 @@ import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import type { HareScriptRTD } from "@webhare/services/src/richdocument";
+import { SettingsStorer } from "@mod-wrd/js/internal/settings";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -120,6 +121,66 @@ async function testSupportAPI() {
 
   //address types should match not considering transitional nrDetail field (TODO which we can remove once all are WH5.6)
   test.typeAssert<test.Equals<AddressValue, Omit<PSPAddressFormat, "nrDetail">>>();
+}
+
+let nextId = 1;
+async function generateIds(count: number) {
+  const retval: number[] = [];
+  while (count--)
+    retval.push(nextId++);
+  return retval;
+}
+
+async function testSettingsHelpers() {
+  type MyTreeType = {
+    title: string;
+    sub?: MyTreeType[];
+    id?: number;
+    parentsetting?: number | null;
+  };
+  const initialTree: MyTreeType[] = [
+    {
+      title: "Root",
+      sub: [
+        {
+          title: "Sub1",
+          sub: [
+            {
+              title: "Sub1.1",
+              sub: []
+            }
+          ]
+        }, {
+          title: "Sub2",
+        }
+      ]
+    }
+  ];
+
+  {
+    const storer = new SettingsStorer(initialTree);
+    test.eqPartial([
+      { title: "Root" },
+      { title: "Sub1" },
+      { title: "Sub1.1" },
+      { title: "Sub2" }
+    ], storer.flattened);
+
+    test.assert(storer.parentMap.get(storer.flattened[1]) === storer.flattened[0]);
+    test.assert(storer.parentMap.get(storer.flattened[2]) === storer.flattened[1]);
+    test.assert(storer.parentMap.get(storer.flattened[3]) === storer.flattened[0]);
+    test.eq(3, storer.parentMap.size);
+
+    //Add ids and parents
+    const alllocated = await storer.__addIdsAndParents(storer.flattened, generateIds);
+    test.eq(4, alllocated.length);
+    test.eqPartial([
+      { id: 1, title: "Root" },
+      { id: 2, title: "Sub1", parentsetting: 1 },
+      { id: 3, title: "Sub1.1", parentsetting: 2 },
+      { id: 4, title: "Sub2", parentsetting: 1 }
+    ], storer.flattened);
+  }
 }
 
 interface TestRecordDataInterface {
@@ -1270,6 +1331,7 @@ async function testImportMode() {
 
 test.runTests([
   testSupportAPI,
+  testSettingsHelpers,
   async () => { await createWRDTestSchema(); }, //test.runTests doesn't like tests returning values
   testTSTypes,
   testNewAPI,
