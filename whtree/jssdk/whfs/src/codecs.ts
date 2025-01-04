@@ -1,11 +1,11 @@
-import { Selectable, uploadBlob } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import { uploadBlob } from "@webhare/whdb";
 import { Money } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 import { WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
+import type { FSSettingsRow, EncodedFSSetting } from "./contenttypes";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -30,9 +30,7 @@ export type MemberType = "string" // 2
   | "date" //25
   ;
 
-type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
-
-export type EncoderBaseReturnValue = Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | null;
+export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
 export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
 export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 

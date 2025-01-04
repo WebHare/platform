@@ -41,7 +41,7 @@ export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentset
   }
 
   /** Reuse earlier setting ids by matching the member/attribute & parent field */
-  reuseExistingSettings<ParentField extends keyof SettingType, MemberField extends keyof SettingType>(parentField: ParentField, memberField: MemberField, existingItems: SettingType[]): number[] {
+  reuseExistingSettings<ParentField extends keyof SettingType, MemberField extends keyof SettingType>(parentField: ParentField, memberField: MemberField, existingItems: readonly SettingType[]): number[] {
     const reused: number[] = [];
     const usedIds = new Set<number>(this.flattened.map(item => item.id).filter(isTruthy));
     for (const row of this.flattened) {

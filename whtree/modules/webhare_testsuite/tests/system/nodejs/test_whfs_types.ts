@@ -181,7 +181,6 @@ async function testInstanceData() {
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 19);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
-  console.log(returnedRichdoc);
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
 
   // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");

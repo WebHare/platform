@@ -1,4 +1,5 @@
-import { Selectable, db, nextVal } from "@webhare/whdb";
+import * as kysely from "kysely";
+import { Selectable, db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType } from "./siteprofiles";
@@ -6,7 +7,8 @@ import { isReadonlyWHFSSpace } from "./support";
 import { EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
-import { isPromise } from "@webhare/std";
+import { appendToArray, isPromise, omit } from "@webhare/std";
+import { SettingsStorer } from "@mod-wrd/js/internal/settings";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -16,7 +18,7 @@ export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfo
 const membertypenames: Array<MemberType | null> =
   [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", "formCondition", "record", "image", "date"];
 
-type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
+export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -213,9 +215,78 @@ interface InstanceSetOptions {
   ifReadOnly?: "fail" | "skip" | "update";
 }
 
+export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"]> & {
+  id?: number;
+  fs_member?: number;
+  sub?: EncodedFSSetting[];
+};
+
+export async function setArrayRecord(matchmember: WHFSTypeMember, value: object[] | object, isArray: boolean): Promise<EncodedFSSetting[]> {
+  if (Array.isArray(value) !== isArray)
+    if (isArray)
+      throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+    else
+      throw new Error(`Incorrect type. Wanted an object, got an array`);
+
+  //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
+  let rownum = 1;
+  const toInsert = new Array<EncodedFSSetting>;
+  for (const row of (isArray ? value as object[] : [value])) {
+    const sub = await recurseSetData(matchmember.children!, row);
+    toInsert.push({ fs_member: matchmember.id, ordering: rownum++, sub });
+  }
+  return toInsert;
+}
+
+/** Recursively set the data
+ * @param instanceId - The database instance we're updating
+ * @param members - The set of members at his level
+ * @param data - Data to apply at this level
+ * @param elementSettingId - The current element being updated  */
+async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
+  const toInsert = new Array<EncodedFSSetting>;
+  for (const [key, value] of Object.entries(data as object)) {
+    if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
+      continue;
+
+    const matchmember = members.find(_ => _.name === key);
+    if (!matchmember)  //TODO orphan check, parent path, DidYouMean
+      throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
+
+    try {
+      if (matchmember.type === "array" || matchmember.type === "record") { //Array/records are too complex for the current encoder setup
+        appendToArray(toInsert, await setArrayRecord(matchmember, value, matchmember.type === "array"));
+        continue;
+      }
+
+      const mynewsettings = new Array<Partial<FSSettingsRow>>;
+      if (!codecs[matchmember.type])
+        throw new Error(`Unsupported type ${matchmember.type}`);
+
+      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
+      const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
+
+      if (Array.isArray(finalsettings))
+        appendToArray(mynewsettings, finalsettings);
+      else if (finalsettings)
+        mynewsettings.push(finalsettings);
+
+      for (let i = 0; i < mynewsettings.length; ++i) {
+        toInsert.push({ fs_member: matchmember.id, ...mynewsettings[i] });
+      }
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while setting '${matchmember.name}')`;
+      throw e;
+    }
+  }
+  return toInsert;
+}
+
+
 class RecursiveSetter {
   linkchecked_settingids: number[] = [];
-  toinsert = new Array<Partial<FSSettingsRow>>;
+  toinsert: EncodedFSSetting[] = [];
   //The complete list of settings being updated
   cursettings;
 
@@ -223,84 +294,38 @@ class RecursiveSetter {
     this.cursettings = cursettings;
   }
 
-  private async setArrayRecord(matchmember: WHFSTypeMember, value: object[] | object, elementSettingId: number | null, isArray: boolean) {
-    if (Array.isArray(value) !== isArray)
-      if (isArray)
-        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
-      else
-        throw new Error(`Incorrect type. Wanted an object, got an array`);
-
-    //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
-    let rownum = 1;
-    for (const row of (isArray ? value as object[] : [value])) {
-      const rowsettingid = await nextVal("system.fs_settings.id");
-      this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: rownum++ });
-      await this.recurseSetData(matchmember.children!, row, rowsettingid);
-    }
-  }
-
-  /** Recursively set the data
-   * @param instanceId - The database instance we're updating
-   * @param members - The set of members at his level
-   * @param data - Data to apply at this level
-   * @param elementSettingId - The current element being updated  */
-  async recurseSetData(members: WHFSTypeMember[], data: object, elementSettingId: number | null) {
-    for (const [key, value] of Object.entries(data as object)) {
-      if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
-        continue;
-
-      const matchmember = members.find(_ => _.name === key);
-      if (!matchmember)  //TODO orphan check, parent path, DidYouMean
-        throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
-
-      const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
-      try {
-        if (matchmember.type === "array" || matchmember.type === "record") { //Array/records are too complex for the current encoder setup
-          await this.setArrayRecord(matchmember, value, elementSettingId, matchmember.type === "array");
-          continue;
-        }
-
-        const mynewsettings = new Array<Partial<FSSettingsRow>>;
-        if (!codecs[matchmember.type])
-          throw new Error(`Unsupported type ${matchmember.type}`);
-
-        const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
-        const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
-
-        if (Array.isArray(finalsettings))
-          mynewsettings.push(...finalsettings);
-        else if (finalsettings)
-          mynewsettings.push(finalsettings);
-
-        for (let i = 0; i < mynewsettings.length; ++i) {
-          if (i < thismembersettings.length)
-            mynewsettings[i].id = thismembersettings[i].id;
-
-          this.toinsert.push({ ...mynewsettings[i], fs_member: matchmember.id, parent: elementSettingId });
-        }
-      } catch (e) {
-        if (e instanceof Error)
-          e.message += ` (while setting '${matchmember.name}')`;
-        throw e;
-      }
-    }
-  }
-
   async apply(instanceId: number) {
-    const setrows = this.toinsert.map(row => ({ setting: "", ordering: 0, ...row }));
-    const insertrows = [];
-    const currentSettings = new Set<number>([...this.cursettings.map(_ => _.id)]);
-    const reusedSettings = new Set<number>;
+    const storer = new SettingsStorer(this.toinsert);
 
-    for (const row of setrows)
-      if (row.id && currentSettings.has(row.id)) { //FIXME avoid updating unchanged settings
-        await db<PlatformDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
-        reusedSettings.add(row.id);
-      } else
-        insertrows.push({ ...row, fs_instance: instanceId }); //flush any insertable rows en block
+    //TODO learn/share more with WRD about matching/reusing settings
+    const reusedSettings = new Set(storer.reuseExistingSettings("parent", "fs_member", this.cursettings));
+    await storer.allocateIdsAndParents(storer.flattened, "system.fs_settings.id");
 
-    if (insertrows.length)
-      await db<PlatformDB>().insertInto("system.fs_settings").values(insertrows).execute();
+    //Kysely's InsertQueryBuilder builds a huge parametered insert statement, but there's a 32767 variable limit in PG. We're updating 8 fields, plus 1 for ID, but let's just keep it a approx 4K vars which is about 400 records per insert block
+    const updateBlockSize = 400;
+    for (let pos = 0; pos < storer.flattened.length; pos += updateBlockSize) {
+      await db<PlatformDB>()
+        .insertInto("system.fs_settings")
+        .values(storer.flattened.slice(pos, pos + updateBlockSize).map(row => ({
+          ordering: 0,
+          ...omit(row, ["sub", "parentsetting"]),
+          setting: row.setting || '',
+          parent: row.parentsetting,
+          fs_instance: instanceId
+        })))
+        .onConflict((oc) => oc
+          .column("id")
+          .doUpdateSet({
+            setting: kysely.sql`excluded.setting`,
+            fs_object: kysely.sql`excluded.fs_object`,
+            instancetype: kysely.sql`excluded.instancetype`,
+            blobdata: kysely.sql`excluded.blobdata`,
+            ordering: kysely.sql`excluded.ordering`,
+            parent: kysely.sql`excluded.parent`,
+          })
+        )
+        .execute();
+    }
 
     //Basically we discard all settingIds we didn't reuse
     const todiscard = this.cursettings.filter(row => !reusedSettings.has(row.id)).map(row => row.id);
@@ -434,7 +459,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
-    await setter.recurseSetData(descr.members, data, null);
+    appendToArray(setter.toinsert, await recurseSetData(descr.members, data));
 
     if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
       instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
