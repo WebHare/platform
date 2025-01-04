@@ -134,6 +134,7 @@ async function generateIds(count: number) {
 async function testSettingsHelpers() {
   type MyTreeType = {
     title: string;
+    attr: number;
     sub?: MyTreeType[];
     id?: number;
     parentsetting?: number | null;
@@ -141,29 +142,37 @@ async function testSettingsHelpers() {
   const initialTree: MyTreeType[] = [
     {
       title: "Root",
+      attr: 5,
       sub: [
         {
           title: "Sub1",
+          attr: 8,
           sub: [
             {
               title: "Sub1.1",
+              attr: 12,
               sub: []
             }
           ]
         }, {
           title: "Sub2",
+          attr: 8,
         }
       ]
+    }, {
+      title: "Other",
+      attr: 10
     }
   ];
 
   {
-    const storer = new SettingsStorer(initialTree);
+    const storer = new SettingsStorer(structuredClone(initialTree));
     test.eqPartial([
       { title: "Root" },
       { title: "Sub1" },
       { title: "Sub1.1" },
-      { title: "Sub2" }
+      { title: "Sub2" },
+      { title: "Other" }
     ], storer.flattened);
 
     test.assert(storer.parentMap.get(storer.flattened[1]) === storer.flattened[0]);
@@ -173,12 +182,42 @@ async function testSettingsHelpers() {
 
     //Add ids and parents
     const alllocated = await storer.__addIdsAndParents(storer.flattened, generateIds);
-    test.eq(4, alllocated.length);
+    test.eq(5, alllocated.length);
     test.eqPartial([
-      { id: 1, title: "Root" },
+      { id: 1, title: "Root", parentsetting: undefined },
       { id: 2, title: "Sub1", parentsetting: 1 },
       { id: 3, title: "Sub1.1", parentsetting: 2 },
-      { id: 4, title: "Sub2", parentsetting: 1 }
+      { id: 4, title: "Sub2", parentsetting: 1 },
+      { id: 5, title: "Other", parentsetting: undefined }
+    ], storer.flattened);
+  }
+
+  {
+    const storer = new SettingsStorer(structuredClone(initialTree));
+
+    //'Merge' with an earlier stored
+    const earlierRows = [
+      { id: 51, title: "Root", parentsetting: null, attr: 5 },
+      { id: 55, title: "Else", parentsetting: null, attr: 10 },
+    ];
+
+    //Add ids and parents, reuse earlier IDs
+    test.eq([51, 55], storer.reuseExistingSettings("parentsetting", "attr", earlierRows));
+    test.eqPartial([
+      { id: 51, title: "Root" },
+      { id: undefined, title: "Sub1", parentsetting: undefined },
+      { id: undefined, title: "Sub1.1", parentsetting: undefined },
+      { id: undefined, title: "Sub2", parentsetting: undefined },
+      { id: 55, title: "Other" },
+    ], storer.flattened);
+
+    test.eq([6, 7, 8], (await storer.__addIdsAndParents(storer.flattened, generateIds)));
+    test.eqPartial([
+      { id: 51, title: "Root" },
+      { id: 6, title: "Sub1", parentsetting: 51 },
+      { id: 7, title: "Sub1.1", parentsetting: 6 },
+      { id: 8, title: "Sub2", parentsetting: 51 },
+      { id: 55, title: "Other" },
     ], storer.flattened);
   }
 }
