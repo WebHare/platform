@@ -221,29 +221,10 @@ export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"
   sub?: EncodedFSSetting[];
 };
 
-export async function setArrayRecord(matchmember: WHFSTypeMember, value: object[] | object, isArray: boolean): Promise<EncodedFSSetting[]> {
-  if (Array.isArray(value) !== isArray)
-    if (isArray)
-      throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
-    else
-      throw new Error(`Incorrect type. Wanted an object, got an array`);
-
-  //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
-  let rownum = 1;
-  const toInsert = new Array<EncodedFSSetting>;
-  for (const row of (isArray ? value as object[] : [value])) {
-    const sub = await recurseSetData(matchmember.children!, row);
-    toInsert.push({ fs_member: matchmember.id, ordering: rownum++, sub });
-  }
-  return toInsert;
-}
-
 /** Recursively set the data
- * @param instanceId - The database instance we're updating
  * @param members - The set of members at his level
- * @param data - Data to apply at this level
- * @param elementSettingId - The current element being updated  */
-async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
+ * @param data - Data to apply at this level */
+export async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
   const toInsert = new Array<EncodedFSSetting>;
   for (const [key, value] of Object.entries(data as object)) {
     if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
@@ -254,16 +235,11 @@ async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<
       throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
 
     try {
-      if (matchmember.type === "array" || matchmember.type === "record") { //Array/records are too complex for the current encoder setup
-        appendToArray(toInsert, await setArrayRecord(matchmember, value, matchmember.type === "array"));
-        continue;
-      }
-
       const mynewsettings = new Array<Partial<FSSettingsRow>>;
       if (!codecs[matchmember.type])
         throw new Error(`Unsupported type ${matchmember.type}`);
 
-      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
+      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value, matchmember);
       const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
 
       if (Array.isArray(finalsettings))
@@ -281,6 +257,31 @@ async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<
     }
   }
   return toInsert;
+}
+
+export async function recurseGetData(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
+  const retval: { [key: string]: unknown } = {};
+
+  for (const member of members) {
+    const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
+    let setval;
+
+    try {
+      if (!codecs[member.type])
+        throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+
+      setval = codecs[member.type].decoder(settings, cc, member, cursettings);
+      if (isPromise(setval))
+        setval = await setval;
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while getting '${member.name}')`;
+      throw e;
+    }
+    retval[member.name] = setval;
+  }
+
+  return retval;
 }
 
 
@@ -359,39 +360,6 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
-  async recurseGet(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
-    const retval: { [key: string]: unknown } = {};
-
-    for (const member of members) {
-      const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
-      let setval;
-
-      try {
-        if (member.type === "array") {
-          setval = [];
-          for (const row of settings)
-            setval.push(await this.recurseGet(cursettings, member.children!, row.id, cc));
-        } else if (member.type === "record") {
-          setval = settings.length ? await this.recurseGet(cursettings, member.children!, settings[0].id, cc) : null;
-        } else if (!codecs[member.type]) {
-          setval = { FIXME: member.type }; //FIXME just throw }
-          // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
-        } else {
-          setval = codecs[member.type].decoder(settings, cc);
-          if (isPromise(setval))
-            setval = await setval;
-        }
-      } catch (e) {
-        if (e instanceof Error)
-          e.message += ` (while getting '${member.name}')`;
-        throw e;
-      }
-      retval[member.name] = setval;
-    }
-
-    return retval;
-  }
-
   private async getBulk(fsObjIds: number[], properties?: string[]): Promise<Map<number, unknown>> {
     const descr = await describeWHFSType(this.ns);
     const instanceIdMapping = await db<PlatformDB>()
@@ -413,7 +381,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       const cc = mapping ? getUnifiedCC(mapping.creationdate) : 0;
       const settings = groupedSettings.get(mapping?.id || 0) || [];
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance
-      const result = await this.recurseGet(settings, getMembers, null, cc);
+      const result = await recurseGetData(settings, getMembers, null, cc);
       retval.set(id, result);
     }
 

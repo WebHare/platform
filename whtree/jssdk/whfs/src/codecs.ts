@@ -5,7 +5,7 @@ import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshal
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 import { WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
-import type { FSSettingsRow, EncodedFSSetting } from "./contenttypes";
+import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -35,8 +35,8 @@ export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
 export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 
 interface TypeCodec {
-  encoder(value: unknown): EncoderReturnValue;
-  decoder(settings: FSSettingsRow[], cc: number): unknown;
+  encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
+  decoder(settings: readonly FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]): unknown;
 }
 
 function assertValidString(value: unknown) {
@@ -290,6 +290,34 @@ export const codecs: { [key: string]: TypeCodec } = {
       return new ResourceDescriptor(settings[0].blobdata, meta);
     }
   },
+  "record": {
+    encoder: (value: object, member: WHFSTypeMember) => {
+      return (async (): EncoderAsyncReturnValue => {
+        const toInsert = new Array<EncodedFSSetting>();
+        toInsert.push({ ordering: 1, sub: await recurseSetData(member.children!, value) });
+        return toInsert;
+      })();
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return settings.length ? recurseGetData(allsettings, member.children || [], settings[0].id, cc) : null;
+    }
+  },
+  "array": {
+    encoder: (value: object[], member: WHFSTypeMember) => {
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+
+      return (async (): EncoderAsyncReturnValue => {
+        const toInsert = new Array<EncodedFSSetting>();
+        for (const row of value)
+          toInsert.push({ ordering: toInsert.length + 1, sub: await recurseSetData(member.children!, row) });
+        return toInsert;
+      })();
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return Promise.all(settings.map(s => recurseGetData(allsettings, member.children || [], s.id, cc)));
+    }
+  },
   "richDocument": {
     encoder: (value: RichTextDocument | null) => {
       if (typeof value !== "object") //TODO test for an actual RichTextDocument
@@ -318,6 +346,22 @@ export const codecs: { [key: string]: TypeCodec } = {
         return null;
 
       return buildRTDFromHSStructure({ htmltext: settings[0].blobdata, instances: [], embedded: [], links: [] });
+    }
+  },
+  "instance": {
+    encoder: (value: object) => {
+      throw new Error(`Instance type not yet implemented`);
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return null;
+    }
+  },
+  "intExtLink": {
+    encoder: (value: object) => {
+      throw new Error(`intExtLink type not yet implemented`);
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return null;
     }
   }
 };
