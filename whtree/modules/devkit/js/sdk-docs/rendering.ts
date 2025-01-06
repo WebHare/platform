@@ -1,11 +1,10 @@
 import * as TypeDoc from "typedoc";
 
-import { program } from 'commander';
 import { mkdir, rename } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { deleteRecursive } from "@webhare/system-tools/src/fs";
 
-export async function renderDocsProject(docsDir: string, app: TypeDoc.Application, project: TypeDoc.Models.ProjectReflection) {
+export async function renderDocsProject(docsDir: string, app: TypeDoc.Application, project: TypeDoc.Models.ProjectReflection, json: boolean) {
   const buildDocsDir = join(docsDir, "..", basename(docsDir) + ".new");
   const backupDir = join(docsDir, "..", basename(docsDir) + ".bak");
   await mkdir(buildDocsDir, { recursive: true });
@@ -26,7 +25,7 @@ export async function renderDocsProject(docsDir: string, app: TypeDoc.Applicatio
   // Rendered docs
   await app.generateDocs(project, buildDocsDir);
   // Alternatively generate JSON output. Doesn't seem that useful yet, we're not intending to rebuild the docs from scratch?
-  if (program.opts().json)
+  if (json)
     await app.generateJson(project, buildDocsDir + "/documentation.json");
 
   try {
