@@ -3,5 +3,5 @@ declare module "@webhare/consilio" {
 }
 
 export { type CatalogListEntry } from "./types";
-export { openCatalog, createCatalog, listCatalogs, type Catalog } from "./catalog";
+export { openCatalog, createCatalog, listCatalogs, type Catalog, type BulkUploadError } from "./catalog";
 export { isValidIndexName, isValidIndexSuffix } from "./support";
