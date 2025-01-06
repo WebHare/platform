@@ -112,8 +112,11 @@ async function generateFiles(files: FileToUpdate[], context: GenerateContext, op
 
     try {
       const currentdata = await readFile(file.path, 'utf8');
-      if (currentdata === content)
+      if (currentdata === content) {
+        if (options?.verbose)
+          console.log(`Keeping file ${file.path}`);
         continue;
+      }
     } catch (ignore) {
     }
 
