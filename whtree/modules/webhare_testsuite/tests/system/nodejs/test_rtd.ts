@@ -1,12 +1,43 @@
 import { buildRTD, RichTextDocument } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { type HareScriptRTD } from "@webhare/services/src/richdocument";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
+import { beginWork, rollbackWork } from "@webhare/whdb";
+import { openType } from "@webhare/whfs";
+import { loadlib } from "@webhare/harescript";
 
-async function verifyRoundTrip(doc: RichTextDocument) {
+async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const hs = await doc.exportAsHareScriptRTD();
   const doc2 = await buildRTDFromHSStructure(hs);
   test.eq(doc.blocks, doc2.blocks);
+  return hs;
+}
+
+async function verifyRoundTrip(doc: RichTextDocument) {
+  const hs = await verifySimpleRoundTrip(doc);
+
+  //Test roundtrip through WHFS
+  await beginWork();
+  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
+  const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
+  // console.dir(doc3.blocks, { depth: 10 });
+  test.eq(doc.blocks, doc3.blocks);
+
+  //Test roundtrip through HareScript WHFS SetInstanceData
+  //FIXME this should also set whfsSettingId and whfsFileId again on instances?
+  const hsWHFSType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+  await hsWHFSType.setInstanceData(tempfile.id, { data: hs });
+  const doc4 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
+  test.eq(doc.blocks, doc4.blocks);
+
+  //Test roundtrip through HareScript WHFS GetInstanceData
+  const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
+  // console.dir(hsInstance, { depth: 4 });
+  const doc5 = await buildRTDFromHSStructure(hsInstance.data);
+  test.eq(doc.blocks, doc5.blocks);
+
+  await rollbackWork();
 }
 
 async function testBuilder() {
@@ -14,7 +45,8 @@ async function testBuilder() {
     const emptydoc = new RichTextDocument;
     test.eq(emptydoc.blocks, (await buildRTD([])).blocks);
     test.eq('', await emptydoc.__getRawHTML());
-    await verifyRoundTrip(emptydoc);
+    test.assert(emptydoc.isEmpty());
+    await verifySimpleRoundTrip(emptydoc); //verifyRoundTrip doesn't support 'null' documents
   }
 
   {
@@ -22,6 +54,7 @@ async function testBuilder() {
       { h1: ["Heading 1"] },
       { "p.normal": [{ text: "Hi <> everybody!" }] }
     ]);
+    test.assert(!doc.isEmpty());
 
     test.eq([
       { "h1.heading1": [{ text: "Heading 1" }] },

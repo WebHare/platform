@@ -1,11 +1,13 @@
 import { uploadBlob } from "@webhare/whdb";
-import { Money } from "@webhare/std";
+import { Money, omit } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import { WebHareBlob, type RichTextDocument } from "@webhare/services";
+import { type RichTextDocument } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
+import { describeWHFSType } from "./contenttypes";
+import type { HareScriptRTD } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -322,30 +324,61 @@ export const codecs: { [key: string]: TypeCodec } = {
     encoder: (value: RichTextDocument | null) => {
       if (typeof value !== "object") //TODO test for an actual RichTextDocument
         throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${typeof value}'`);
-      if (!value)
+      if (!value || value.isEmpty())
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const v = value as RichTextDocument;
-        const settings: Array<Partial<FSSettingsRow>> = [];
-        const text = WebHareBlob.from(await v.__getRawHTML());
-        await uploadBlob(text);
+        const toSerialize = await value.exportAsHareScriptRTD();
+        const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
+        const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
 
+        const settings: EncodedFSSetting[] = [];
         settings.push({
-          setting: "RD1",
+          setting: versionindicator,
           ordering: 0,
-          blobdata: text,
+          blobdata: await uploadBlob(storetext),
         });
 
+        for (const instance of toSerialize.instances) {
+          /* Generate settings for the instance:
+            - It needs a toplevel setting with:
+                - ordering = 3
+                - instancetype pointing to the actual WHFS Type Id
+                - setting will contain the instanceid
+            - Then we write the actual data as a settings (instancetype->__RecurseSetInstanceData(instanceid, 0, elementid ?? newelementid, newval, cursettings, remapper, orphansvisible))
+              - parent = the toplevel setting id we just generated
+            */
+          const typeinfo = await describeWHFSType(instance.data.whfstype);
+
+          settings.push({
+            instancetype: typeinfo.id,
+            setting: instance.instanceid,
+            ordering: 3,
+            sub: await recurseSetData(typeinfo.members, omit(instance.data, ["whfstype"]))
+          });
+        }
         return settings;
       })();
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      return buildRTDFromHSStructure({ htmltext: settings[0].blobdata, instances: [], embedded: [], links: [] });
+      return (async () => {
+        const instances: HareScriptRTD["instances"] = [];
+        for (const settingInstance of settings.filter(s => s.ordering === 3)) {
+          const typeinfo = await describeWHFSType(settingInstance.instancetype!);
+          const widgetdata = await recurseGetData(allsettings, typeinfo.members, settingInstance.id, cc);
+
+          instances.push({
+            instanceid: settingInstance.setting,
+            data: { whfstype: typeinfo.namespace, ...widgetdata }
+          });
+        }
+
+        return buildRTDFromHSStructure({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
+      })();
     }
   },
   "instance": {

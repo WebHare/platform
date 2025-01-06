@@ -86,6 +86,10 @@ export class RichTextDocument {
   constructor() {
   }
 
+  isEmpty(): boolean {
+    return this.#blocks.length === 0;
+  }
+
   //TODO if this becomes public, add proper option arg. and remember that textasblob only affects subrichdocs, not ourselves
   async #buildWidget(source: RTDBuildWidget): Promise<RTDWidget> {
     const typeinfo = await describeWHFSType(source.whfsType);
@@ -98,7 +102,7 @@ export class RichTextDocument {
     };
 
     for (const [key, value] of Object.entries(source)) {
-      if (key === "whfsType" || key === "whfsInstanceId")
+      if (key.startsWith('whfs'))
         continue;
 
       const matchMember = typeinfo.members.find((m) => m.name === key);
