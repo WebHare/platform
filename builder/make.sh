@@ -106,14 +106,18 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
     # Only (re)install homebrew if webhare-deps.rb changed
     DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
 
-    # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
+    # Since we regenerate the depsfile every time we run, we don't need a separate checfile anymore (removed in WH5.7)
+    rm "$WEBHARE_BUILDDIR/last-brew-install" 2>/dev/null || true
+
     # Also reinstall if important apps are missing which may point to a partial/failed brew installation
-    CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
-    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$CHECKFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$CHECKFILE" ] || ! hash gmake 2>/dev/null; then
+    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$DEPSFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$DEPSFILE" ] || ! hash gmake 2>/dev/null; then
       generateFormula > "$DEPSFILE"
-      echo -n "Brew: "
-      if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
-      echo "$TODAY" > "$CHECKFILE"
+      echo -n "Brew: $DEPSFILE"
+      brew reinstall --formula "$DEPSFILE"; retval="$?"
+      if [ "$retval" != "0" ]; then
+        echo "*** brew failed with errorcode $retval"
+        exit 1
+      fi
     fi
   fi
 
