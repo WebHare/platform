@@ -42,7 +42,7 @@ PUBLIC RECORD FUNCTION LaunchScriptJS(STRING scriptname, STRING ARRAY args)
   }
 }
 
-PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args)
+PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args, BOOLEAN showinfo)
 {
   IF(GetExtensionFromPath(scriptname) IN whconstant_javascript_extensions)
     RETURN LaunchScriptJS(scriptname, args);
@@ -68,9 +68,11 @@ PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args)
   {
     INTEGER res := WaitForMultipleUntil([outputpipe, jobdata.job->handle], DEFAULT INTEGER ARRAY, MAX_DATETIME);
 
-    STRING outputdata := ReadFrom(outputpipe,-16384);
+    STRING outputdata := ReadLineFrom(outputpipe,-16384, TRUE);
+    IF(showinfo)
+      Print(`>> ${scriptname}: ${outputdata}\n`);;
     IF(outputdata!="")
-      output := output || outputdata;
+      output := output || outputdata || "\r\n";
     ELSE IF(jobdata.job->IsSignalled()) //it's over?
       BREAK;
   }

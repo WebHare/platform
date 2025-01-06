@@ -18,8 +18,8 @@ export interface ServiceDefinition {
   stopSignal?: NodeJS.Signals;
   ///override the stopTimeout. we used to do this for the WH database server
   stopTimeout?: number;
-  ///when ciriticalForStartup is true and the service crashes during stage Bootup or StartupScript, WebHare will terminate
-  ciriticalForStartup?: boolean;
+  ///when criticalForStartup is true and the service crashes during stage Bootup or StartupScript, WebHare will terminate
+  criticalForStartup?: boolean;
   /** Run type:
    * always: always run the service in the requested stages
    * once: run this script once the stage advances to startIn, and wait for this script to complete before moving to the next stage

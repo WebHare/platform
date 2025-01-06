@@ -4,8 +4,6 @@ import { ServiceDefinition, Stage } from './smtypes';
 import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
 
-const earlywebserver = process.env.WEBHARE_WEBSERVER === "node";
-
 const defaultServices: Record<string, ServiceDefinition> = {
   /* Bootup stage. Here we bring up all passive services that WebHare scripts will need
   */
@@ -13,14 +11,14 @@ const defaultServices: Record<string, ServiceDefinition> = {
     cmd: ["whmanager"],
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown,
-    ciriticalForStartup: true,
+    criticalForStartup: true,
     run: "always"
   },
   "platform:database": {
     cmd: ["postgres.sh"],
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown,
-    ciriticalForStartup: true,
+    criticalForStartup: true,
     /* To terminate the postgres server normally, the signals SIGTERM, SIGINT, or SIGQUIT can be used. The first will wait for all clients to terminate before
        quitting, the second will forcefully disconnect all clients, and the third will quit immediately without proper shutdown, resulting in a recovery run during restart.
     */
@@ -31,7 +29,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
     cmd: ["whcompile", "--listen"],
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown, //it's passive and early termination only creates noise, so keep it a bit longer
-    ciriticalForStartup: true,
+    criticalForStartup: true,
     run: "always"
   },
   /** The startup stage is executed as soon as the HareScript compiler is responsive
@@ -40,8 +38,8 @@ const defaultServices: Record<string, ServiceDefinition> = {
    */
   "platform:webserver": {
     cmd: ["webserver.sh"],
-    //The node webserver doesn't need to wait for the compileserver so launch it right away
-    startIn: earlywebserver ? Stage.Bootup : Stage.StartupScript,
+    //The HS webserver needs *some* harescript code but that code shouldn't depend on external modules and thus be precompiled. we can launch without a ready whcompile!
+    startIn: Stage.Bootup,
     run: "always"
   },
   "platform:webhareservice-startup": {

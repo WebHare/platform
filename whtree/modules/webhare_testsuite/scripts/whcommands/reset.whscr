@@ -40,10 +40,15 @@ OBJECT backendsite := OpenSite(whconstant_whfsid_webharebackend);
 OBJECT testsite_hs := EnsureTestSite("webhare_testsuite.testsite", [ recyclecontents := TRUE
                                                                    , webdesign := "webhare_testsuite:basetest"
                                                                    ]);
+IF(IsDebugTagEnabled("startup"))
+  Print("Created HS site\n");
+
 OBJECT testsite_js := EnsureTestSite("webhare_testsuite.testsitejs", [ recyclecontents := TRUE
                                                                      , webdesign := "webhare_testsuite:basetestjs"
                                                                      , webfeatures := ["platform:identityprovider"]
                                                                      ]);
+IF(IsDebugTagEnabled("startup"))
+  Print("Created JS site\n");
 
 MACRO SetupTestSite(OBJECT testsite)
 {
@@ -318,7 +323,12 @@ Test http://example.net/linkify.`
 }
 
 SetupTestSite(testsite_hs);
+IF(IsDebugTagEnabled("startup"))
+  Print("Setup HS testsite\n");
+
 SetupTestSite(testsite_js);
+IF(IsDebugTagEnabled("startup"))
+  Print("Setup JS testsite\n");
 
 STRING alttestsitehost := ReadRegistryKey("webhare_testsuite.tests.alttestsitehost");
 OBJECT alttestsite;
@@ -379,18 +389,25 @@ IF(alttestsitehost != "")
                                  ]
                   ]
         ]);
+
+  IF(IsDebugTagEnabled("startup"))
+    Print("Setup alt test site host\n");
 }
 
 //recreate catalogs for our testsite subfolders
 ScheduleTimedTask("consilio:update");
 
 trans->CommitWork();
+IF(IsDebugTagEnabled("startup"))
+  Print("Completed initial creations\n");
 
 IF(ObjectExists(alttestsite))
 {
   LogDebug("webhare_testsuite:reset", "Refreshing webserver configuration");
   RECORD reloadstatus := RefreshGlobalWebserverConfig();
-  Print("Updated webserver settings\n");
+  IF(IsDebugTagEnabled("startup"))
+    Print("Updated webserver settings for alt test site\n");
+
   IF(Length(reloadstatus.broken_listeners)>0)
   {
     Print("Issues opening some ports!\n");
@@ -405,8 +422,17 @@ WaitForPublishCompletion(testsite_js->id);
 IF(ObjectExists(alttestsite))
   WaitForPublishCompletion(alttestsite->id);
 
+IF(IsDebugTagEnabled("startup"))
+  Print("Publication of the test sites completed\n");
+
 //clear state left by old check.ts
 UpdateCheckStatus("webhare_testsuite:checks", RECORD[]);
+IF(IsDebugTagEnabled("startup"))
+  Print("Updated check states\n");
 
 IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
+{
   Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
+  IF(IsDebugTagEnabled("startup"))
+    Print("Cleaned testframework state\n");
+}
