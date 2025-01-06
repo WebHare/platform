@@ -7,6 +7,7 @@ import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/c
 import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
+import { getWHFSObjRef } from "@webhare/whfs/src/support";
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -103,7 +104,7 @@ export class SiteResponse<T extends object = object> {
     if (Object.entries(this.settings.htmlprefixes).length)
       page += ` prefix="${encodeAttr(Object.entries(this.settings.htmlprefixes).map(([prefix, namespace]) => `${prefix}: ${namespace}`).join(" "))}"`;
     //FIXME add html dataset, camelcase it
-    page += "><head>";
+    page += ` data-wh-ob="${getWHFSObjRef(this.siteRequest.targetObject)}"><head>`;
     page += "<meta charset=\"utf-8\">";
     page += `<title>${encodeAttr(this.settings.pagetitle)}</title>`;
     if (this.settings.pagedescription)

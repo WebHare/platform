@@ -4,8 +4,8 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
-
 LOADLIB "mod::consilio/lib/api.whlib";
+
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/formdef.whlib";
@@ -24,6 +24,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -39,7 +40,8 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
-RECORD testformfileoptions := [ addpaymentmethod := FALSE
+RECORD testformfileoptions := [ js := FALSE
+                              , addpaymentmethod := FALSE
                               , addpaymentmethodnoise := FALSE
                               , addcustompaymenthandler := FALSE
                               , addpaymenthandler := FALSE
@@ -1202,7 +1204,7 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   options := ValidateOptions(testformfileoptions, options);
 
   //Create a form in the webtools site
-  OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath(options.infolder);
+  OBJECT webtoolsfolder := (options.js ? OpenTestsuiteJSSite() : OpenTestsuiteSite())->OpenByPath(options.infolder);
   TestEq(TRUE, ObjectExists(webtoolsfolder), `'${options.infolder}' folder missing in testsite, run resettestsite.whscr?`);
 
   GetPrimary()->PushWork();
@@ -1217,6 +1219,26 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
                                           , publish := options.publish AND NOT options.iswidget
                                           ]);
   FillTestFormFile(formfile, options);
+
+  OBJECT formholder := formfile;
+  IF(options.iswidget)
+  {
+    OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+    OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
+    formholder := webtoolsfolder->OpenByName("formholder");
+    IF(ObjectExists(formholder))
+      formholder->RecycleSelf();
+
+    formholder := webtoolsfolder->CreateFile([ name := "formholder", type := richdoctype->id, publish := TRUE ]);
+    sharedblockstype->SetInstanceData(formholder->id,
+      [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
+                  , overridetype := 2
+                  , blocks := [[ block := formfile->id ]
+                                ]
+                  ]
+      ]);
+  }
+
   GetPrimary()->PopWork();
 
   RECORD rendertree := OpenWebtoolForm(formfile->id)->GetRenderTree();
@@ -1226,8 +1248,10 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
   IF(options.publish AND NOT GetPrimary()->IsWorkOpen())
     testfw->WaitForPublishCompletion(webtoolsfolder->id);
 
-  RETURN [ url := formfile->indexurl
+  RETURN [ url := formholder->link
          , id := formfile->id
+         , formholder_objref := GetWHFSObjRef(formholder)
+         , formfile_objref := GetWHFSObjRef(formfile)
          ];
 }
 

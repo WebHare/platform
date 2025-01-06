@@ -16,27 +16,9 @@ STRING emailfieldname;
 PUBLIC MACRO BuildForm()
 {
   RECORD form := BuildWebtoolForm( [ iswidget := TRUE, checkboxes := TRUE, addintegerfield := TRUE, addcheckboxfield := TRUE, addaddressfield := TRUE, addtimefield := TRUE, checkboxsubs := TRUE ]);
+  TestEq(TRUE, testfw->browser->GotoWebPage(form.url));
 
-  testfw->BeginWork();
-
-  OBJECT testloc := GetTestsuiteTempFolder()->EnsureFolder([ name := "rtdtype" ]);
-  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  OBJECT sharedblockstype := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/sharedblockstest");
-  OBJECT sharedblocksobj := testloc->CreateFile([ name := "sharedblocks", type := richdoctype->id, publish := TRUE ]);
-  sharedblockstype->SetInstanceData(sharedblocksobj->id,
-     [ blocks := [ whfstype := "http://www.webhare.net/xmlns/publisher/sharedblocks"
-                 , overridetype := 2
-                 , blocks := [[ block := form.id ]
-                              ]
-                 ]
-     ]);
-
-  testfw->CommitWork();
-  testfw->WaitForPublishCompletion(GetTestsuiteTempFolder()->id);
-
-  TestEq(TRUE, testfw->browser->GotoWebPage(sharedblocksobj->indexurl));
-
-  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  OBJECT formfile := OpenWHFSObject(form.id);
   OBJECT webtoolform := OpenFormFileDefinition(formfile);
   OBJECT webtoolresults := OpenFormFileResults(formfile);
   RECORD ARRAY fields := webtoolform->ListFields();

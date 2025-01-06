@@ -14,6 +14,7 @@ export type PxlDocType = {
   userid: string;
   sessionid: string;
   pageid: string;
+  objref: string;
   counter: number;
   location: string;
   referrer: string;
@@ -131,6 +132,7 @@ class PxlParser {
       userid: params.get("pi") || "",
       sessionid: params.get("ps") || "",
       pageid: params.get("pp") || "",
+      objref: params.get("ob") || "",
       counter: Number(params.get("pc")) || 0,
       location: params.get("bl") || "",
       referrer: params.get("br") || "",

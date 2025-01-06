@@ -328,6 +328,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       pagetitle: this._getPageTitle(pagestate.curpage),
       pagenum: pagestate.curpage + 1,
       time: now - this._firstinteraction,
+      objref: this.node.dataset.whFormObjref || ''
     };
 
     if (this._submitstart) //is set during a pending submission

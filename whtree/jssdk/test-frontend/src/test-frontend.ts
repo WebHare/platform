@@ -153,6 +153,11 @@ export async function getPxlLogLines({ start = startTime, session = "" } = {}) {
   return await getFrontendRPCService().readPxlLog(start.toISOString(), session);
 }
 
+/** Describe an objref */
+export async function describeObjRef(objref: string) {
+  return await getFrontendRPCService().describeObjRef(objref);
+}
+
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
 
