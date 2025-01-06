@@ -84,40 +84,9 @@ PUBLIC RECORD FUNCTION CheckMultisafepayMerchant(STRING mode, STRING apikey)
          ];
 }
 
-PUBLIC RECORD FUNCTION GetCacheableIssuers(RECORD cachekey)
-{
-  STRING apibase := GetApiBase(cachekey.mode);
-
-  RECORD result;
-  IF(cachekey.apikey = "dummy-key") //mock methods
-  {
-    result := [ success := TRUE
-              , data := [[ code := "3151", description := "Test bank" ]
-                        ]
-              ];
-  }
-  ELSE
-  {
-    OBJECT browser := GetBrowser();
-    IF(NOT browser->GotoWebPage(`${apibase}issuers/${cachekey.id}`, [ headers := GetHeaders(cachekey.apikey) ]))
-      THROW NEW Exception("Unable to retrieve issuers");
-
-    result := DecodeJSONBlob(browser->content);
-    IF(NOT result.success)
-      RETURN DEFAULT RECORD;
-  }
-
-  RECORD ARRAY issuers := SELECT rowkey := code, title := description
-                            FROM RECORD ARRAY(result.data);
-
-  RETURN [ value := CELL[ issuers ]
-         ];
-}
-
 RECORD defaultpaymentdata :=
     [ description := ""
     , language := ""
-    , issuer := ""
     , rawstatus := ""
     , customer := DEFAULT RECORD
     ];
@@ -185,13 +154,6 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
     FOREVERY(RECORD method FROM this->settings.methods)
     {
       RECORD ARRAY issuers;
-      IF(method.rowkey = "IDEAL" AND options.getissuers)
-      {
-        issuers := this->GetIssuers(method.rowkey);
-        IF(Length(issuers) = 0)
-          CONTINUE;
-      }
-
       INSERT [[ paymentoptiontag := method.rowkey
               , title := method.title
               , issuers := issuers
@@ -199,20 +161,6 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
              ]] INTO methods AT END;
     }
     RETURN methods;
-  }
-
-  RECORD ARRAY FUNCTION GetIssuers(STRING id)
-  {
-    TRY
-    {
-      RECORD cachekey := CELL[ mode := this->settings.testmode, apikey := this->settings.apikey, id ];
-      RETURN WaitForPromise(GetPrecalculatedData(cachekey, Resolve("#GetCacheableIssuers"))).issuers;
-    }
-    CATCH(OBJECT e)
-    {
-      LogHarescriptException(e);
-      RETURN RECORD[];
-    }
   }
 
   UPDATE PUBLIC MACRO __SetupNewTransaction(MONEY amount_payable, RECORD paymentmethod)
@@ -257,8 +205,6 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
   {
     WRDPaymentProviderBase::__SetupExistingTransaction(payment);
     this->msporderdata := EnforceStructure(defaultpaymentdata, payment.__paymentdata.m);
-    IF(this->msporderdata.issuer != "")//legacy
-      this->__issuer := this->msporderdata.issuer;
     IF(this->msporderdata.description != "")//legacy
       this->__orderid := this->msporderdata.description;
   }
@@ -294,13 +240,6 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
                        , shopping_cart := this->msporderdata.shopping_cart
                        , checkout_options := this->msporderdata.checkout_options
                        ];
-
-
-    IF(this->issuer != "")
-    {
-      INSERT CELL gateway_info := [ issuer_id := this->issuer ] INTO orderrec;
-      orderrec.type := "direct"; //tell MSP to bypass the gateway screen
-    }
 
     OBJECT browser := GetBrowser();
     IF(NOT browser->PostWebPageBlob(`${apibase}orders`,
