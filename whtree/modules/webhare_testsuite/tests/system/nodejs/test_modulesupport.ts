@@ -2,6 +2,7 @@ import { gatherManagedServicesFromModDef } from "@mod-platform/js/bootstrap/serv
 import { getApplicabilityError, getMyApplicabilityInfo, readApplicableToWebHareNode } from "@mod-system/js/internal/generation/shared";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
 import * as test from "@webhare/test";
+import { type Element } from "@xmldom/xmldom";
 
 async function testApplicability() {
   const baseApplicability = getMyApplicabilityInfo();

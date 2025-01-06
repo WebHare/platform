@@ -9,6 +9,7 @@ import { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { generateWebDesigns } from "./webdesigns";
 import * as crypto from "node:crypto";
 import { stringify } from "@webhare/std";
+import { type Document } from "@xmldom/xmldom";
 
 export interface AssetPack {
   name: string; //full name

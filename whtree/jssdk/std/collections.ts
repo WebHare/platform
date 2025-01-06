@@ -144,12 +144,15 @@ export function isTruthy<T>(a: T): a is (T & {}) {
   return Boolean(a);
 }
 
-//TODO obsolete once all are WH5.5+
-export function mapGroupBy<Item, Key>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Map<Key, Item[]> {
-  return Map.groupBy(items, callbackfn);
-}
+/** Append to array, without overflowing the stack (eg V8 overflows at more than 32K entries)
+ * @param array - Array to append to
+ * @param values - Values to append
+*/
+export function appendToArray<T extends unknown[]>(array: T, values: readonly unknown[]): void {
+  if (values.length < 1000)
+    array.push(...values); //push should be safe enough
+  else for (const value of values) //performance wise this appears just as fast as tricks with pushing blocks of slices
+    array.push(value);
 
-//TODO obsolete once all are WH5.5+
-export function objectGroupBy<Item, Key extends string | number | symbol>(items: Iterable<Item>, callbackfn: (item: Item, idx: number) => Key): Partial<Record<Key, Item[]>> {
-  return Object.groupBy(items, callbackfn);
+  //not returning the original array to make it clear we're not creating a new one
 }

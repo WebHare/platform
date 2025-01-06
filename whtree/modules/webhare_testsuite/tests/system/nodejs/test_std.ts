@@ -643,6 +643,19 @@ async function testCollections() {
   myarray.filter(_ => _) satisfies Date[];
   myarray.filter(std.isTruthy) satisfies Date[];
   test.eq([myarray[0] as Date], myarray.filter(std.isTruthy));
+
+  const bigArray: number[] = Array.from(Array(100000).keys());
+  const biggerArray: number[] = [], hugeArray: number[] = [];
+  //insert 10 times the bigArray into biggerArray, and then 10 times into hugeArray. a naive push() will stack overflow!
+  for (let i = 0; i < 10; ++i)
+    std.appendToArray(biggerArray, bigArray);
+  for (let i = 0; i < 10; ++i)
+    std.appendToArray(hugeArray, biggerArray);
+  test.eq(100000, bigArray.length);
+  test.eq(1000000, biggerArray.length);
+  test.eq(10000000, hugeArray.length);
+  test.eq(5, hugeArray[100000 + 5]);
+  test.eq(99999, hugeArray.at(-1));
 }
 
 

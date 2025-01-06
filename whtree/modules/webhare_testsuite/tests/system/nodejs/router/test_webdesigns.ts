@@ -3,7 +3,7 @@ import * as whfs from "@webhare/whfs";
 import { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
-import { DOMParser } from "@xmldom/xmldom";
+import { DOMParser, Document } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
@@ -11,10 +11,7 @@ import { getTidLanguage } from "@webhare/gettid";
 
 function parseHTMLDoc(html: string): Document {
   return new DOMParser({
-    errorHandler: {
-      warning: w => { //just ignore
-      }
-    }
+    onError: w => { } //just ignore
   }).parseFromString(html, "text/html");
 }
 
@@ -71,7 +68,7 @@ async function testSiteResponse() {
   const responsetext = await response.text();
   const doc = parseHTMLDoc(responsetext);
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
-  test.eq("en", doc.documentElement.getAttribute("lang"));
+  test.eq("en", doc.documentElement?.getAttribute("lang"));
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
@@ -95,7 +92,7 @@ async function getAsDoc(whfspath: string) {
 async function testSiteResponseApplies() {
   //test various <apply>s and that they affect the webdesign
   const langPsAFDoc = await getAsDoc("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af");
-  test.eq("ps-AF", langPsAFDoc.documentElement.getAttribute("lang"));
+  test.eq("ps-AF", langPsAFDoc.documentElement?.getAttribute("lang"));
 }
 
 async function testPublishedJSSite() {
@@ -103,7 +100,7 @@ async function testPublishedJSSite() {
   const jsrenderedfetch = await fetch(jsrendereddoc.link);
   test.assert(jsrenderedfetch.ok);
   const jsresultdoc = parseHTMLDoc(await jsrenderedfetch.text());
-  test.eq("nl", jsresultdoc.documentElement.getAttribute("lang"));
+  test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
   test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
   test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
 }
@@ -130,7 +127,7 @@ async function testCaptureJSRendered() {
   const jsrendereddoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/staticpage-nl-jsrendered.html");
   const jsresultpage = await captureJSPage(jsrendereddoc.id);
   const jsresultdoc = parseHTMLDoc(await jsresultpage.body.text());
-  test.eq("nl", jsresultdoc.documentElement.getAttribute("lang"));
+  test.eq("nl", jsresultdoc.documentElement?.getAttribute("lang"));
   test.eq("Basetest title (from NL language file)", jsresultdoc.getElementById("basetitle")?.textContent);
   test.eq("dutch a&b<c", jsresultdoc.getElementById("gettidtest")?.textContent);
 
