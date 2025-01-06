@@ -13,6 +13,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -144,7 +145,14 @@ MACRO TestInitialAttachment()
 
 MACRO TestMappingUpdates()
 {
-  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  //Setup the index we'll be testing against, give it an intial config
+  testfw->BeginWork();
+  OBJECT catalog := CreateConsilioCatalog("webhare_testsuite:tmpindex", [ fieldgroups := ["webhare_testsuite:testindexfields"], managed := FALSE , lang := "nl"]);
+  catalog->AttachIndex(0);
+  testfw->CommitWork();
+
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+  testindex := catalog->ListAttachedIndices()[0];
 
   //Test fieldgroup updates
   testfw->BeginWork();
@@ -158,6 +166,7 @@ MACRO TestMappingUpdates()
   TestEq("added nosuchfieldyet", catalog->title);
   TestEq(2, catalog->priority);
 
+  //Note that as we didn't commit the changes from the last UpdateCatalog yet, we'll be comparing against the initial situation
   RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["missing"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra","nosuchfieldyet_extra2"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "missing"));
@@ -259,6 +268,7 @@ MACRO TestMappingUpdates()
 MACRO TestESCreationAPIs()
 {
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  testindex := catalog->ListAttachedIndices()[0];
 
   testfw->BeginWork();
   TestThrowsLike("No such indexmanager*", PTR catalog->AttachIndex(9999999));
@@ -318,7 +328,11 @@ MACRO TestESCreationAPIs()
   TestEq(RECORD[], SELECT * FROM indices WHERE indexid = catalog->id);
 
   // Create a subindex
-  catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
+  testfw->BeginWork();
+  catalog := CreateConsilioCatalog("consilio:testfw_testindex_suffixed", [ managed := FALSE, suffixed := TRUE]);
+  testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+
   TestEq(RECORD[], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
   testfw->BeginWork();
   catalog->AttachIndex(0);
@@ -373,12 +387,16 @@ MACRO TestESCreationAPIs()
 
 MACRO TestESBulkInsertion()
 {
-  // Ensure index doesn't exist in ES ... we'll do a raw action
-  SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "DELETE", `/${testindex_suffixed.indexname}*`, DEFAULT RECORD);
+  //Setup the index we'll be testing against, give it an intial config
+  testfw->BeginWork();
+  OBJECT catalog := CreateConsilioCatalog("webhare_testsuite:tmpindex_suffixed2", [ fieldgroups := ["webhare_testsuite:testindexfields"], managed := FALSE, suffixed := TRUE ]);
+  TestEq(RECORD[], catalog->ListAttachedIndices(), "A fresh suffixed unmanaged index should not be attached yet");
+  catalog->AttachIndex(0);
+  testfw->CommitWork();
+
+  testindex_suffixed := catalog->ListAttachedIndices()[0];
 
   // Make sure it's indeed nonexistent
-  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
-  TestEq(TRUE, ObjectExists(catalog));
   TestEq(TRUE, catalog->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
   Print(catalog->GetStorageInfo()||"\n");
 
@@ -402,20 +420,20 @@ MACRO TestESBulkInsertion()
                     ]],[ suffix := "sub1", synchronous := TRUE ]);
 
   // Test searching for nothing (some queries optimize to CQNothing - this shouldn't crash)
-  RECORD res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQNothing(),
+  RECORD res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQNothing(),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEqMembers([ totalcount := 0, results := RECORD[]], res, "*");
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAll(),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQAll(),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(1, res.totalcount);
   TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQNot(CQNothing()),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQNot(CQNothing()),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
@@ -423,34 +441,34 @@ MACRO TestESBulkInsertion()
   TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
 
   // Test record mapping
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(1, res.totalcount);
   TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAnd([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQAnd([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(0, res.totalcount);
 
   //Empty CQOr should not return anything - this regressed and triggers a 'fail open' if a list of clauses is empty (eg publisher search with no access at all)
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQOr(RECORD[]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQOr(RECORD[]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(0, res.totalcount);
 
   //CQAnd with an empty CQOr should not return anything - this regressed and triggers a 'fail open' if a list of clauses is empty (eg publisher search with no access at all)
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAnd([CQMatch("no.such.field.yet", "=", 42), CQOr(RECORD[])]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQAnd([CQMatch("no.such.field.yet", "=", 42), CQOr(RECORD[])]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(0, res.totalcount);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQOr([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQOr([CQNothing(), CQMatch("no.such.field.yet", "=", 42)]),
       [ mapping := [ no := [ such := [ field := [ yet := 0 ] ] ] ]
       , summaryfield := ""
       ]);
@@ -480,7 +498,7 @@ MACRO TestESBulkInsertion()
       ], [ suffix := "sub1", synchronous := TRUE ]);
 
   // Test record array mapping
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       ]);
@@ -519,7 +537,7 @@ MACRO TestESBulkInsertion()
         ]
       ],[ suffix := "sub1", synchronous := TRUE ]);
   // Sort results by 'no.such.field.yet' ascending, checks for minimum 'yet' value
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       , orderby := "no.such.field.yet"
@@ -541,7 +559,7 @@ MACRO TestESBulkInsertion()
         ]
       ], res.results);
   // Sort results by 'no.such.field.yet' descending, checks for maximum 'yet' value
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       , orderby := "no.such.field.yet"
@@ -564,7 +582,7 @@ MACRO TestESBulkInsertion()
         ]
       ], res.results);
   // Sort results by 'no.such.field.yet' descending using the average 'yet' value
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "IN", [ 42, 100 ]),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       , ordering := [ [ orderby := "no.such.field.yet", ordermode := "avg" ] ]
@@ -587,7 +605,7 @@ MACRO TestESBulkInsertion()
       ], res.results);
 
   // Test raw query ability
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQAnd( [ CQMatch("no.such.field.yet", "IN", [ 42, 100 ])
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQAnd( [ CQMatch("no.such.field.yet", "IN", [ 42, 100 ])
                                                                           , CQOpenSearch( [ match := [ nosuchfieldyet_extra := "Test3" ]])
                                                                           ]),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
@@ -610,14 +628,14 @@ MACRO TestESBulkInsertion()
 
   // Delete the object
   catalog->DeleteObjects([ "test1", "test2", "test3" ], [ suffix := "sub1", foreground := TRUE ]);
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       ]);
   TestEq(1, res.totalcount); // test2 isn't deleted as it doesn't have a generated _id
 
   catalog->DeleteObjects([ "test2" ], [ suffix := "sub1", foreground := TRUE, raw_ids := TRUE ]);
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       ]);
@@ -635,7 +653,7 @@ MACRO TestESBulkInsertion()
                     ]],[ suffix := "sub1", synchronous := TRUE ]);
 
   // 'indexed:test' can be found, the 'stored' field returned
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("indexed", "=", "test"),
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("indexed", "=", "test"),
       [ mapping := [ indexed := "", stored := "" ]
       , summaryfield := ""
       ]);
@@ -643,7 +661,7 @@ MACRO TestESBulkInsertion()
   TestEq([ indexed := "test", stored := "test" ], res.results[0]);
 
   // The 'stored' field cannot be searched on
-  TestThrowsLike("*Cannot search*stored*not indexed*", PTR RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("stored", "=", "test")));
+  TestThrowsLike("*Cannot search*stored*not indexed*", PTR RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("stored", "=", "test")));
 
   //Can't offer xyz yet to our unspecified_record
   TestThrowsLike("*(strict_dynamic_mapping_exception)", PTR catalog->AddObjects(
@@ -722,11 +740,11 @@ MACRO TestESBulkInsertion()
   checkindex := SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub2/_mapping`, DEFAULT RECORD);
   TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-sub2").mappings.properties.keyword.type);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);
 
-  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQParseUserQuery('"My lovely doc for 2018-02-28T23:00:00Z hit #2"'));
+  res := RunConsilioSearch("webhare_testsuite:tmpindex_suffixed2", CQParseUserQuery('"My lovely doc for 2018-02-28T23:00:00Z hit #2"'));
   TestEq(1, res.totalcount);
   TestEq(docs[END-1].documentfields.title, res.results[0].title);
 
@@ -736,8 +754,10 @@ MACRO TestESBulkInsertion()
   TestEqMembers([[ docs := -1, tag := "webhare_testsuite:emptycatalog" ] //we never had anything attach here
                 ,[ docs := 0, tag := "webhare_testsuite:module_reference" ]  //this one was connected in an earlier test
                 ,[ docs := 0, tag := "webhare_testsuite:testindex" ] //all were deleted
-                ,[ docs := 4032+2, tag := "webhare_testsuite:testindex_suffixed" ]
+                ,[ docs := -1, tag := "webhare_testsuite:testindex_suffixed" ]
                 ,[ tag := "webhare_testsuite:testsitecatalog" ]
+                ,[ docs := 0, tag := "webhare_testsuite:tmpindex" ]
+                ,[ docs := 4032+2, tag := "webhare_testsuite:tmpindex_suffixed2" ]
                 ,[ tag := "webhare_testsuite:toolslog" ]
                 ], testcatalogs, "*");
 }
@@ -745,8 +765,9 @@ MACRO TestESBulkInsertion()
 MACRO TestESLangFeatures()
 {
   // Recreate the index
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:tmpindex");
+  testindex := catalog->ListAttachedIndices()[0];
   SendRawJSONToOpenSearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
-  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   catalog->ApplyConfiguration();
 
   // As defined in the module definition
@@ -760,10 +781,10 @@ MACRO TestESLangFeatures()
   catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
 
   // Find the document using Dutch stemming (both 'boekjes' and 'geboekt' will be stemmed down to 'boek')
-  RECORD res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("geboekt"));
+  RECORD res := RunConsilioSearch(catalog->tag, CQParseUserQuery("geboekt"));
   TestEq(1, res.totalcount);
   // It cannot be found using English stemming, because the document is indexed using Dutch stemming
-  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("booked"));
+  res := RunConsilioSearch(catalog->tag, CQParseUserQuery("booked"));
   TestEq(0, res.totalcount);
 
   // Change the language
@@ -780,10 +801,10 @@ MACRO TestESLangFeatures()
   catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
 
   // The document can no longer be found using Dutch stemming
-  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("geboekt"));
+  res := RunConsilioSearch(catalog->tag, CQParseUserQuery("geboekt"));
   TestEq(0, res.totalcount);
   // But it can be found using English stemming (both 'booking' and 'booked' are stemmed down to 'book')
-  res := RunConsilioSearch("webhare_testsuite:testindex", CQParseUserQuery("booked"));
+  res := RunConsilioSearch(catalog->tag, CQParseUserQuery("booked"));
   TestEq(1, res.totalcount);
 
   // Reset the language
@@ -802,8 +823,8 @@ MACRO TestESDeletion()
 {
   // Delete the catalog itself - FIXME dont touch our main testing catalog, it will unlink it from the ES instance, annoying testers
   testfw->BeginWork();
-  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
-  //catalog->DeleteSelf();
+  OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:tmpindex");
+  catalog->DeleteSelf();
   testfw->CommitWork();
 
   // We cannot check if the index is deleted from the index manager, because that happens in a separate task, which we cannot wait upon

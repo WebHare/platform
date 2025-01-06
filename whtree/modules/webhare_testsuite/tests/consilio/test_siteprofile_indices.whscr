@@ -24,7 +24,7 @@ PUBLIC MACRO TestModernSiteProfileIndices()
   OBJECT maincatalog := OpenConsilioCatalog("webhare_testsuite:testsitecatalog");
   Testeq(TRUE, ObjectExists(maincatalog));
   Testeq(TRUE, ObjectExists(maincatalog->OpenContentSource("webhare_testsuite:dbindex")));
-  TestThrowsLike('*has not been configured with dynamicproperties=fieldgroups*', PTR maincatalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...maincatalog->fieldgroups ]]));
+  TestThrowsLike('*cannot update*fieldgroups*', PTR maincatalog->UpdateCatalog([ fieldgroups := [ "webhare_testsuite:nosuchfieldyet", ...maincatalog->fieldgroups ]]));
 
   RECORD ARRAY testsitecatalog_mapping := maincatalog->GetExpectedMapping();
   TestEqMembers([[ name := "myfield1", type := "text" ]], (SELECT * FROM testsitecatalog_mapping WHERE name = "myfield1"),"*");

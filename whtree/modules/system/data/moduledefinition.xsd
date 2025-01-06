@@ -2162,22 +2162,6 @@
       </xs:annotation>
     </xs:attribute>
 
-    <xs:attribute name="dynamicproperties">
-      <xs:annotation>
-        <xs:documentation>Set properties which can be managed by UpdateCatalog after initial catalog creation</xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:list>
-          <xs:simpleType>
-            <xs:restriction base="xs:string">
-              <xs:enumeration value="fieldgroups"/>
-              <xs:enumeration value="lang"/>
-            </xs:restriction>
-          </xs:simpleType>
-        </xs:list>
-      </xs:simpleType>
-    </xs:attribute>
-
     <xs:attribute name="lang" type="sc:Locale">
       <xs:annotation>
         <xs:documentation>The base language for this catalog, used for stemming and other language-specific features</xs:documentation>

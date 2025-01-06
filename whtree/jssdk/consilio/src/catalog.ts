@@ -389,10 +389,10 @@ export async function createCatalog<DocType extends object = object>(tag: string
   /* FIXME look up moduledefined catalog info */
   const catalogconfig = (await loadlib("mod::consilio/lib/internal/catalogdefparser.whlib").getRequiredCatalogs(true, "*")).find((catalog: { tag: string }) => catalog.tag === tag);
   if (catalogconfig) {
-    if (!catalogconfig.dynamicproperties.includes("fieldgroups") && options?.fieldgroups)
-      throw new Error(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
-    if (!catalogconfig.dynamicproperties.includes("lang") && options?.lang)
-      throw new Error(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
+    if (options?.fieldgroups)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
+    if (options?.lang)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its language`);
   }
 
   const lang = options?.lang || catalogconfig?.lang || "en";
