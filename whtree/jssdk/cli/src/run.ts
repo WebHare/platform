@@ -40,13 +40,20 @@ export interface CLIArgumentType<ValueType> {
  * without type.
  */
 type OptionsTemplate = {
-  default: unknown;
+  default?: unknown;
   description?: string;
   type: CLIArgumentType<unknown>;
+  multiple?: boolean;
 } | {
-  default: string | boolean | number;
+  default?: string;
   description?: string;
   type?: never;
+  multiple?: boolean;
+};
+
+type FlagTemplate = {
+  default?: boolean;
+  description?: string;
 };
 
 /** An arguments, with an optional type */
@@ -60,36 +67,42 @@ type SubCommandTemplate = {
   shortDescription?: string;
   description?: string;
   options?: Record<string, OptionsTemplate>;
+  flags?: Record<string, FlagTemplate>;
   arguments?: [...Array<Argument<unknown>>];
   main?: unknown;
 };
 
-type ParseData = {
+export type ParseData = {
   name?: string;
   description?: string;
   options?: object; // validated by sanitization
-  arguments?: Array<Argument<unknown>>; // validated by sanitization
+  flags?: object; // validated by sanitization
+  arguments?: ReadonlyArray<Argument<unknown>>; // validated by sanitization
   subCommands?: never;
   main?: unknown;
 } | {
   name?: string;
   description?: string;
   options?: object; // validated by santization
-  arguments?: Array<Argument<unknown>>;
+  flags?: object; // validated by sanitization
+  arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
 type OptArgBase = {
   options?: Record<string, OptionsTemplate>;
+  flags?: Record<string, FlagTemplate>;
   arguments?: Array<Argument<unknown>>;
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
-/// Widens default literals to their base type. Needed because we infer the types of options 'as const' and we return the wider type (for options without type).
-type WidenDefaultLiteral<T> = T extends boolean ? boolean : T extends string ? string : T extends number ? number : T;
-
 // Ensures the defaults of options with type are compatible with the return type of the type.
-type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: Simplify<Omit<Options[Key], "default"> & { default: GetParsedType<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> }> };
+type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: "default" extends keyof Options[Key] ?
+  Simplify<Omit<Options[Key], "default"> & { default: GetParsedType<Options[Key], string, false> }> :
+  Options[Key];
+};
+
+type SanitizeFlags<ThisArgument extends FlagTemplate> = ThisArgument;
 
 /// Sanitizes the options and arguments of subcommands
 type SanitizeSubCommandOptArgs<SubCommands extends Record<string, SubCommandTemplate>> = { [Key in keyof SubCommands]: SanitizeOptArgs<SubCommands[Key]> & SubCommandTemplate };
@@ -103,6 +116,9 @@ type SanitizeOptArgs<O extends OptArgBase> =
   (O extends { options: {} } ? {
     options: SanitizeOptions<O["options"]>;
   } : {}) &
+  (O extends { flags: {} } ? {
+    flags: SanitizeFlags<O["flags"]>;
+  } : {}) &
   (O extends { arguments: {} } ? {
     arguments: SanitizeArguments<O["arguments"]>;
   } : {}) &
@@ -114,13 +130,15 @@ type SanitizeOptArgs<O extends OptArgBase> =
 type GetArgumentTypeType<O extends { type: CLIArgumentType<any> }> = ReturnType<O["type"]["parseValue"]>;
 
 /// Determine the type of an argument (taking the type into account)
-type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? Array<GetParsedType<A, string>> : GetParsedType<A, string>;
+type TypeOfArgument<A extends Argument<unknown>> = A["name"] extends `<${string}...>` | `[${string}...]` ? GetParsedType<A, string, true> : GetParsedType<A, string, false>;
 
 /// Determine the name of an argument (stripping `...`, `[]` and `<>`)
 type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `[${infer S}...]` ? S : A["name"] extends `<${infer S2}...>` ? S2 : A["name"] extends `[${infer S}]` ? S : A["name"] extends `<${infer S}>` ? S : never;
 
+type GetMultiple<Type, Multiple extends boolean | undefined> = Multiple extends true ? Type[] : Type;
+
 /// Get the parsed type for an option or an argument. Simplify<> is needed to work around some weird stuff in the TS compiler. `O extends object` doesn't seem to work here?
-type GetParsedType<O extends object, Default> = Simplify<O> extends { readonly type: CLIArgumentType<any> } ? GetArgumentTypeType<Simplify<O>> : Default;
+type GetParsedType<O extends object, Default, Multiple extends boolean | undefined> = GetMultiple<Simplify<O> extends { readonly type: CLIArgumentType<any> } ? GetArgumentTypeType<Simplify<O>> : Default, Multiple>;
 
 /// CamelCases a string separated by '-' or '_'
 type CamelCase<S extends string> = S extends `${infer P1}${"_" | "-"}${infer P2}${infer P3}`
@@ -138,7 +156,11 @@ type GetOptionListStoreName<K extends string> = K extends `${string},${infer E}`
 type Simplify<A extends object> = A extends object ? { [K in keyof A]: A[K] } : never;
 
 /// Calculate the resulting values record for options
-type OptionsResult<Options extends Record<string, OptionsTemplate>> = Simplify<{ -readonly [Key in keyof Options & string as GetOptionListStoreName<Key>]: GetParsedType<Options[Key], WidenDefaultLiteral<Options[Key]["default"]>> } & object>;
+type OptionsResult<Options extends Record<string, OptionsTemplate>, Flags extends Record<string, FlagTemplate>> = Simplify<
+  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? GetOptionListStoreName<Key> : never)]-?: GetParsedType<Options[Key], string, Options[Key]["multiple"]> } &
+  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? never : GetOptionListStoreName<Key>)]?: GetParsedType<Options[Key], string, Options[Key]["multiple"]> } &
+  { -readonly [Key in keyof Flags & string as GetOptionListStoreName<Key>]: boolean } &
+  object>;
 
 /// Calculate the resulting values record for arguments
 type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Arguments] extends [never[]] ? object : Simplify<
@@ -149,14 +171,14 @@ type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Argu
 /// Calculate the resulting values record for main functions
 type MainData<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> = Simplify<{
   args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & OptArgBase["arguments"] & {}>>;
-  opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
-  specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object> : object)>>;
+  opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
+  specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
 } & (Cmd extends string ? { cmd: Cmd } : { cmd?: undefined })>;
 
 /// Calculates the data for run() functions
 type GlobalData<Rec extends OptArgBase> = {
-  globalOpts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}>>>;
-  specifiedGlobalOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}>>>;
+  globalOpts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}>>>;
+  specifiedGlobalOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}>>>;
 };
 
 /// Build the declarations for the main functions
@@ -168,7 +190,7 @@ type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, 
   });
 
 /// Infers the type of the options and arguments of a record
-type GetRootOptionsArguments<T> = { [K in keyof T & ("options" | "arguments")]: T[K] };
+type GetRootOptionsArguments<T> = { [K in keyof T & ("options" | "flags" | "arguments")]: T[K] };
 
 /// Infers the type of the options and arguments of the subcommands of a record
 type GetSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: GetRootOptionsArguments<T[K][C]> } };
@@ -219,6 +241,45 @@ function checkArgumentsOrder(args: Array<Argument<unknown>>, cmd?: string): { tr
   return { trailingRequired };
 }
 
+type OptMap = Map<string,
+  { storeName: string; isFlag: true; isGlobal: boolean; rec: FlagTemplate } |
+  { storeName: string; isFlag: false; isGlobal: boolean; rec: OptionsTemplate }
+>;
+
+type OptData = {
+  flags?: Record<string, FlagTemplate> | undefined;
+  options?: Record<string, OptionsTemplate> | undefined;
+};
+
+function registerOptsAndFlags(optMap: OptMap, parsedOpts: Record<string, unknown> | null, parsedGlobalOpts: Record<string, unknown> | null, isGlobal: boolean, data: OptData) {
+  if (data.flags) {
+    for (const [keys, flagRec] of Object.entries(data.flags)) {
+      const storeName = nameToCamelCase(keys.split(",").at(-1)!);
+      for (const key of keys.split(",")) {
+        optMap.set(key, { storeName, isFlag: true, isGlobal, rec: flagRec });
+      }
+      if (parsedOpts)
+        parsedOpts[storeName] = flagRec.default ?? false;
+      if (isGlobal && parsedGlobalOpts)
+        parsedGlobalOpts[storeName] = flagRec.default ?? false;
+    }
+  }
+  if (data.options) {
+    for (const [keys, optionRec] of Object.entries(data.options)) {
+      const storeName = nameToCamelCase(keys.split(",").at(-1)!);
+      for (const key of keys.split(",")) {
+        optMap.set(key, { storeName, isFlag: false, isGlobal, rec: optionRec });
+      }
+      if ("default" in optionRec) {
+        if (parsedOpts)
+          parsedOpts[storeName] = optionRec.default;
+        if (isGlobal && parsedGlobalOpts)
+          parsedGlobalOpts[storeName] = optionRec.default;
+      }
+    }
+  }
+}
+
 export function parse<
   const E extends object,
   const S extends object
@@ -230,21 +291,9 @@ export function parse<
   const parsedGlobalOpts: Record<string, unknown> = {};
   const parsedArgs: Record<string, unknown> = {};
 
-  const optMap = new Map<string, { storeName: string; isGlobal: boolean; optionRec: OptionsTemplate }>();
+  const optMap = new Map<string, { storeName: string; isFlag: true; isGlobal: boolean; rec: FlagTemplate } | { storeName: string; isFlag: false; isGlobal: boolean; rec: OptionsTemplate }>();
 
-  function registerOptions(opts: Record<string, OptionsTemplate>, isGlobal: boolean) {
-    for (const [keys, optionRec] of Object.entries(opts)) {
-      const storeName = nameToCamelCase(keys.split(",").at(-1)!);
-      for (const key of keys.split(",")) {
-        optMap.set(key, { storeName, isGlobal, optionRec });
-      }
-      parsedOpts[storeName] = optionRec.default;
-      if (isGlobal)
-        parsedGlobalOpts[storeName] = optionRec.default;
-    }
-  }
-  if (data.options)
-    registerOptions(data.options as Record<string, OptionsTemplate>, true);
+  registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, true, data as OptData);
 
   let command: [string, SubCommandTemplate] | undefined;
   const specifiedOpts: string[] = [];
@@ -283,17 +332,19 @@ export function parse<
           throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
         }
 
-        const { storeName, isGlobal, optionRec } = optionRef;
+        const { storeName, isFlag, isGlobal, rec } = optionRef;
         specifiedOpts.push(storeName);
         if (isGlobal)
           specifiedGlobalOpts.push(storeName);
 
-        let strValue = parts[1];
-        if (typeof optionRec.default === "boolean" && !optionRec.type) {
+        if (isFlag) {
+          if (parts.length > 1)
+            throw new CLISyntaxError(`Flag ${JSON.stringify(key)} does not take a value`, command?.[0]);
           parsedOpts[storeName] = true;
           if (isGlobal)
             parsedGlobalOpts[storeName] = true;
         } else {
+          let strValue = parts[1];
           if (strValue === undefined) {
             if (i + 1 >= argv.length)
               throw new CLISyntaxError(`Option ${JSON.stringify(key)} requires a value`, command?.[0]);
@@ -301,28 +352,13 @@ export function parse<
             strValue = argv[i];
           }
 
-          if (!optionRec.type) {
-            if (typeof optionRec.default === "string") {
-              parsedOpts[storeName] = strValue;
-              if (isGlobal)
-                parsedGlobalOpts[storeName] = strValue;
-            } else if (typeof optionRec.default === "number")
-              if (typeof optionRec.default === "number") {
-                const parsedNumber = parseFloat(strValue);
-                if (isNaN(parsedNumber))
-                  throw new CLISyntaxError(`Illegal number ${JSON.stringify(strValue)} specified for option ${JSON.stringify(key)}`, command?.[0]);
-                parsedOpts[storeName] = parsedNumber;
-                if (isGlobal)
-                  parsedGlobalOpts[storeName] = parsedNumber;
-              } else
-                throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default
-                  }, and needs a explicit type to generate that kind of value`, command?.[0]);
-          } else {
-            const parsedValue = optionRec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
-            parsedOpts[storeName] = parsedValue;
-            if (isGlobal)
-              parsedGlobalOpts[storeName] = parsedValue;
-          }
+          const storeValue = rec.type ?
+            rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
+            strValue;
+
+          parsedOpts[storeName] = storeValue;
+          if (isGlobal)
+            parsedGlobalOpts[storeName] = storeValue;
         }
       } else {
         for (let j = 1; j < arg.length; j++) {
@@ -340,12 +376,12 @@ export function parse<
             throw new CLISyntaxError(`Unknown option: ${JSON.stringify(key)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`, command?.[0]);
           }
 
-          const { storeName, isGlobal, optionRec } = optionRef;
+          const { storeName, isFlag, isGlobal, rec } = optionRef;
           specifiedOpts.push(storeName);
           if (isGlobal)
             specifiedGlobalOpts.push(storeName);
 
-          if (typeof optionRec.default === "boolean" && !optionRec.type) {
+          if (isFlag) {
             parsedOpts[storeName] = true;
             if (isGlobal)
               parsedGlobalOpts[storeName] = true;
@@ -360,27 +396,13 @@ export function parse<
               strValue = argv[++i];
             }
 
-            if (!optionRec.type) {
-              if (typeof optionRec.default === "string") {
-                parsedOpts[storeName] = strValue;
-                if (isGlobal)
-                  parsedGlobalOpts[storeName] = strValue;
-              } else if (typeof optionRec.default === "number")
-                if (typeof optionRec.default === "number") {
-                  const parsedNumber = parseFloat(strValue);
-                  if (isNaN(parsedNumber))
-                    throw new CLISyntaxError(`Illegal number ${JSON.stringify(strValue)} specified for option ${JSON.stringify(key)}`, command?.[0]);
-                  parsedOpts[storeName] = parsedNumber;
-                  if (isGlobal)
-                    parsedGlobalOpts[storeName] = parsedNumber;
-                } else
-                  throw new CLIConfigError(`Option ${JSON.stringify(key)} has a default value of type ${typeof optionRec.default}, and needs a type to generate that kind of value`, command?.[0]);
-            } else {
-              const parsedValue = optionRec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
-              parsedOpts[storeName] = parsedValue;
-              if (isGlobal)
-                parsedGlobalOpts[storeName] = parsedValue;
-            }
+            const storeValue = rec.type ?
+              rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
+              strValue;
+
+            parsedOpts[storeName] = storeValue;
+            if (isGlobal)
+              parsedGlobalOpts[storeName] = storeValue;
           }
         }
       }
@@ -394,14 +416,16 @@ export function parse<
             throw new CLISyntaxError(`Unknown subcommand: ${JSON.stringify(arg)}${bestMatch ? `, did you mean ${JSON.stringify(bestMatch)}?` : ``}`);
           }
           command = [arg, cmdObj];
-          if (cmdObj.options)
-            registerOptions(cmdObj.options, false);
+          registerOptsAndFlags(optMap, parsedOpts, parsedGlobalOpts, false, cmdObj as OptData);
+
           // No need to process further if we have got a request for help
           if (showHelp)
             break;
           continue;
         }
       }
+
+      // Can't process the arguments inline, because required arguments at the end are supported
       argList.push(arg);
     }
   }
@@ -486,7 +510,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
   const secondColumnPadAt = 24;
   const maxDescriptionLen = 80;
 
-  const optionEntries = Object.entries(data.options || {}).sort(([a], [b]) => a.localeCompare(b));
+  const optionEntries = Object.entries({ ...data.options, ...data.flags }).sort(([a], [b]) => a.localeCompare(b)) as Array<[string, OptionsTemplate | FlagTemplate]>;
   if (optionEntries.length) {
     print(`Options:`);
     for (const [name, option] of optionEntries) {
@@ -499,7 +523,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
       print(`Subcommand: ${command}`);
       const commandRec = data.subCommands[command];
 
-      const cmdOptionEntries = Object.entries(commandRec?.options || {}).sort(([a], [b]) => a.localeCompare(b));
+      const cmdOptionEntries = Object.entries({ ...commandRec?.options, ...commandRec?.flags }).sort(([a], [b]) => a.localeCompare(b));
       if (cmdOptionEntries.length) {
         print(`  Options:`);
         for (const [name, option] of cmdOptionEntries) {
