@@ -614,12 +614,24 @@ HERE
   "__autocomplete_wh")
     autocomplete_init_compwords
 
+    NEEDFILTER=
     if [ "$COMP_CWORD" == "1" ]; then
       # Return list of commands (line separated)
       IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$(wh __listcommands)"
+      for key in "${!COMPREPLY[@]}"; do
+        COMPREPLY[key]="${COMPREPLY[key]} "
+      done;
+      NEEDFILTER=filter
+    else
+      if [ -S "$WEBHARE_DATAROOT/cli-autocomplete.sock" ] && RESPONSE=$(echo -n "$COMP_SLICED_LINE" | curl --fail -X POST --data-binary @- --unix-socket "$WEBHARE_DATAROOT/cli-autocomplete.sock" http://example.com/autocomplete 2> /dev/null); then
+        IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$RESPONSE"
+      else
+        IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$(wh_runjs "$WEBHARE_DIR/modules/platform/js/cli/autocomplete-service.ts" "--try-start-service")"
+      fi
+      NEEDFILTER=no-filter
     fi
 
-    autocomplete_print_compreply
+    autocomplete_print_compreply $NEEDFILTER
     ;;
 
   "__autocomplete_whcd")
@@ -645,7 +657,7 @@ HERE
       fi
     fi
 
-    autocomplete_print_compreply
+    autocomplete_print_compreply filter
     ;;
 
   *)

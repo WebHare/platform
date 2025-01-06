@@ -1,6 +1,9 @@
 
-import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError } from "@webhare/cli/src/run";
+import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
+import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
+import { backendConfig } from "@webhare/services";
 import * as test from "@webhare/test-backend";
+import * as child_process from "node:child_process";
 
 async function testCLIMainParse() {
   test.eq({
@@ -425,10 +428,184 @@ async function testCLIOptionTypes() {
   test.eq(/off/, enumOption(["on", "off"]).parseValue("off", { argName: "a" })); // want a did you mean?
 }
 
+async function testCLIAutoCompletion() {
+  // STORY: test auto completion
+
+  const mockData = {
+    name: "testcli",
+    description: "Test CLI",
+    options: {
+      "verbose,v": {
+        description: "Enable verbose mode",
+        default: false,
+      },
+      "output,o": {
+        description: "Output file",
+        type: {
+          parseValue: (arg: string) => arg,
+          autoComplete: (arg: string) => ["file1.txt\n", "file2.txt\n"],
+        },
+      },
+    },
+    subCommands: {
+      "convert": {
+        description: "Convert files",
+        options: {
+          "format,f": {
+            description: "Output format",
+            type: {
+              parseValue: (arg: string) => arg,
+              autoComplete: (arg: string) => ["json\n", "xml\n"],
+            },
+          },
+        },
+        arguments: [
+          {
+            name: "<source>",
+            description: "Source file",
+            type: {
+              parseValue: (arg: string) => arg,
+              autoComplete: (arg: string) => ["source1.txt\n", "source2.txt\n"],
+            },
+          },
+          {
+            name: "[destination]",
+            description: "Destination file",
+            type: {
+              parseValue: (arg: string) => arg,
+              autoComplete: (arg: string) => ["dest1.txt\n", "dest2.txt\n"],
+            },
+          },
+        ],
+      },
+    },
+  } as const satisfies ParseData;
+
+  // Autocomplete options
+  test.eq(["--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"]));
+  test.eq(["--output\n"], runAutoComplete(mockData, ["--o"]));
+  test.eq(["-o\n"], runAutoComplete(mockData, ["-o"]));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output="]));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=f"]));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"]));
+
+  // Autocomplete subcommands
+  test.eq(["convert\n"], runAutoComplete(mockData, [""]));
+  test.eq(["convert\n"], runAutoComplete(mockData, ["con"]));
+  test.eq(["convert\n"], runAutoComplete(mockData, ["convert"]));
+
+  // Autocomplete subcommand options
+  test.eq(["--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["convert", "-"]));
+  test.eq(["--format\n", "--output\n", "--verbose\n"], runAutoComplete(mockData, ["convert", "--"]));
+  test.eq(["--format\n"], runAutoComplete(mockData, ["convert", "--f"]));
+  test.eq(["-f\n"], runAutoComplete(mockData, ["convert", "-f"]));
+  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));
+  test.eq(["--format=json\n"], runAutoComplete(mockData, ["convert", "--format=j"]));
+
+  // Autocomplete arguments
+  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["convert", "source"]));
+  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", "dest"]));
+
+  // Handle unknown options
+  test.eq([] as string[], runAutoComplete(mockData, ["--unknown"]));
+  test.eq([], runAutoComplete(mockData, ["convert", "--unknown"]));
+
+  // Handle empty input
+  test.eq([], runAutoComplete(mockData, []));
+
+  // Handle option terminator
+  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["--", "convert", ""]));
+  test.eq([], runAutoComplete(mockData, ["--", "convert", "-"]));
+
+  // Edge cases
+  test.eq(["file1.txt\n", "file2.txt\n"], runAutoComplete(mockData, ["--output", ""]));
+  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));
+  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", ""]));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"]));
+  test.eq(["json\n"], runAutoComplete(mockData, ["convert", "--format", "j"]));
+}
+
+function testAutoCompleteCommandLineParsing() {
+  // Basic cases
+  test.eq(["a"], parseCommandLine(`a`));
+  test.eq(["a", "b"], parseCommandLine(`a b`));
+  test.eq(["a", "b", "c"], parseCommandLine(`a b c`));
+
+  // Quoted strings
+  test.eq(["a", "b c"], parseCommandLine(`a "b c"`));
+  test.eq(["a", "b c"], parseCommandLine(`a 'b c'`));
+  test.eq(["a", "b", "c d"], parseCommandLine(`a b "c d"`));
+  test.eq(["a", "b", "c d"], parseCommandLine(`a b 'c d'`));
+
+  // Escaped characters
+  test.eq(["a", "b c"], parseCommandLine(`a b\\ c`));
+  test.eq(["a", "b\"c"], parseCommandLine(`a b\\"c`));
+  test.eq(["a", "b'c"], parseCommandLine(`a b\\'c`));
+
+  // Mixed quotes and escapes
+  test.eq(["a", "b c", "d"], parseCommandLine(`a "b c" d`));
+  test.eq(["a", "b c", "d"], parseCommandLine(`a 'b c' d`));
+  test.eq(["a", "b\"c", "d"], parseCommandLine(`a "b\\"c" d`));
+  test.eq(["a", "b\\c d"], parseCommandLine(`a 'b\\'c' d`));
+
+  // Nested quotes
+  test.eq(["a", "b'c"], parseCommandLine(`a "b'c"`));
+  test.eq(["a", 'b"c'], parseCommandLine(`a 'b"c'`));
+
+  // Escaped quotes within quotes
+  test.eq(["a", "b\"c"], parseCommandLine(`a "b\\"c"`));
+  test.eq(["a", "b\\c"], parseCommandLine(`a 'b\\'c'`));
+
+  // Empty strings
+  test.eq(["a", ""], parseCommandLine(`a ""`));
+  test.eq(["a", ""], parseCommandLine(`a ''`));
+
+  // Complex cases
+  test.eq(["a", "b c", "d e f"], parseCommandLine(`a "b c" "d e f"`));
+  test.eq(["a", "b c", "d e f"], parseCommandLine(`a 'b c' 'd e f'`));
+  test.eq(["a", "b c", "d e f"], parseCommandLine(`a "b c" 'd e f'`));
+  test.eq(["a", "b c", "d e f"], parseCommandLine(`a 'b c' "d e f"`));
+}
+
+
+
+async function runWHAutoComplete(line: string, point?: number) {
+  const env: Record<string, string> = { ...process.env, COMP_LINE: line };
+  if (point !== undefined) {
+    env.COMP_POINT = point.toString();
+  }
+  const subProcess = child_process.spawn(backendConfig.installationroot + "/bin/wh", ["__autocomplete_wh"], {
+    stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
+    detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
+    env,
+  });
+
+  let output = "";
+
+  const result = Promise.withResolvers<{ code: number | null; output: string }>();
+
+  subProcess.stdout!.on('data', data => output += data);
+  subProcess.on("exit", (code, signal) => result.resolve({ code, output }));
+  subProcess.on("error", err => result.reject(err));
+
+  return await result.promise;
+}
+
+async function testWHAutoComplete() {
+  test.eq({ code: 0, output: "assetpack \n" }, await runWHAutoComplete(`wh assetpack`));
+  test.eq({ code: 0, output: "autocompile \n" }, await runWHAutoComplete(`wh assetpack au`));
+  // ':' is a word seperator when autocompleting, so only content after that should be returned
+  test.eq({ code: 0, output: "system/scripts/whcommands/assetpack.ts \n" }, await runWHAutoComplete(`wh run mod::system/scripts/whcommands/asset`));
+  test.eq({ code: 0, output: "autocompile \n" }, await runWHAutoComplete(`wh run mod::system/scripts/whcommands/assetpack.ts au`));
+}
+
 test.runTests([
   testCLIMainParse,
   testCLISubCommandParse,
   testCLITypes,
   testCLIRun,
   testCLIOptionTypes,
+  testCLIAutoCompletion,
+  testAutoCompleteCommandLineParsing,
+  testWHAutoComplete,
 ]);

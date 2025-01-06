@@ -1,4 +1,5 @@
 import { getBestMatch } from "@webhare/js-api-tools";
+import { registerRun } from "./run-autocomplete";
 
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -569,6 +570,10 @@ export function run<
     specifiedGlobalOpts: []
   } as any;
 
+  const registerData = registerRun((argv: string[]) => runAutoComplete(data, argv));
+  if (registerData.mode === "autocomplete")
+    return runReturn;
+
   const parsed: Record<string, unknown> & { cmd?: string } = {};
   try {
     // The return type of parse is not very useful in this (generic) context, so we cast it to a useful type
@@ -690,4 +695,161 @@ export function enumOption<const T extends string>(allowedValues: T[]): CLIArgum
     },
     description: `one of ${allowedValues.map(s => JSON.stringify(s)).join(", ")}`,
   };
+}
+
+/** Autocompletes the last argv argument (assumes the cmdline which must be autocompleted is split at the cursor).
+ * When an new argument must be autocompleted, pass a "".
+ */
+export function runAutoComplete(data: ParseData, argv: string[]): string[] {
+  const optMap = new Map<string, { storeName: string; isFlag: true; isGlobal: boolean; rec: FlagTemplate } | { storeName: string; isFlag: false; isGlobal: boolean; rec: OptionsTemplate }>();
+  let command: [string, SubCommandTemplate] | undefined;
+
+  registerOptsAndFlags(optMap, null, null, true, data as OptData);
+
+  let gotOptionTerminator = false;
+  let argIdx = 0;
+  argvloop:
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    const isLast = i === argv.length - 1;
+
+    if (arg.startsWith("-") && !gotOptionTerminator) {
+      // got an option
+      if (arg.startsWith("--")) {
+        if (arg === "--" && !isLast) {
+          // This is an option terminator only when it's not the last argument, skip it
+          gotOptionTerminator = true;
+          continue;
+        }
+
+        const parts = arg.slice(2).split("=");
+        const key = parts[0];
+
+        const optionRef = optMap.get(key);
+
+        if (!isLast) {
+          if (!optionRef || optionRef.isFlag)
+            continue;
+
+          ++i;
+          if (i === argv.length - 1) {
+            // autocompleting the argument of this option
+            if (optionRef.rec.type?.autoComplete) {
+              const completes = optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+              return completes.filter(c => c.startsWith(argv[i]));
+            }
+            return [];
+          }
+        } else {
+          // --long-opt=value, autocompleting the value
+          if (parts.length > 1) {
+            // Unknown options or flags can't take arguments
+            if (optionRef?.isFlag || !optionRef?.rec.type || !optionRef.rec.type.autoComplete)
+              return [];
+
+            const completes = optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+            return completes.map(c => `--${key}=${c}`).filter(c => c.startsWith(arg));
+          }
+
+          // autocomplete the option
+          return [...optMap.keys()].filter(k => k.length >= 2 && k.startsWith(key)).map(k => `--${k}\n`).sort();
+        }
+      }
+
+      // INV: !arg.startsWith("--")
+
+      if (isLast && arg.length === 1) { // just a '-'
+        // give back all options
+        return [...optMap.keys()].map(k => k.length === 1 ? `-${k}\n` : `--${k}\n`).sort();
+      }
+
+      for (let j = 1; j < arg.length; j++) {
+        const key = arg[j];
+        const optionRef = optMap.get(key);
+        // Ignore unknown options
+        if (!optionRef)
+          continue;
+
+        // No need to autocomplete flags
+        if (optionRef.isFlag)
+          continue;
+
+        if (j + 1 < arg.length) {
+          // option followed by immediate value
+          if (isLast) {
+            if (optionRef.rec.type?.autoComplete) {
+              const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+              return completes.map(c => `${arg.slice(0, j + 1)}${c}`).filter(c => c.startsWith(arg));
+            }
+            return [];
+          }
+          continue argvloop;
+        }
+
+        // Known option, immediate value follows
+
+        if (isLast) {
+          // Single-letter option found, add a space so the value can be autofilled
+          return [`${arg}\n`];
+        }
+
+        ++i;
+        if (i === argv.length - 1) {
+          if (optionRef.rec.type?.autoComplete) {
+            const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
+            return completes.filter(c => c.startsWith(arg));
+          }
+          return [];
+        }
+      }
+
+      if (isLast)
+        return [`${arg}\n`];
+      continue;
+    }
+
+    // This is the command (if subCommands are specified) or an argument
+    if (data.subCommands && !command) {
+      if (isLast) {
+        return Object.keys(data.subCommands).filter(k => k.startsWith(arg)).sort().map(k => `${k}\n`);
+      }
+
+      const cmdObj = data.subCommands[arg];
+      if (!cmdObj)
+        return [];
+
+      command = [arg, cmdObj];
+      registerOptsAndFlags(optMap, null, null, false, cmdObj as OptData);
+      continue;
+    }
+
+    const args: ReadonlyArray<Argument<unknown>> = (command ? command[1].arguments : data.arguments) || [];
+
+    if (argIdx >= args.length)
+      return [];
+
+    // FIXME: if required arguments follow the optional arguments, maybe merge autocompletes?
+
+    const curArg = args[argIdx];
+    if (curArg.name.endsWith("...>") || curArg.name.endsWith("...]")) {
+      if (isLast) {
+        if (curArg.type?.autoComplete) {
+          const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0] });
+          return completes.filter(c => c.startsWith(arg));
+        }
+        return [];
+      }
+      continue;
+    }
+
+    ++argIdx;
+    if (isLast) {
+      if (curArg.type?.autoComplete) {
+        const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0] });
+        return completes.filter(c => c.startsWith(arg));
+      }
+      return [];
+    }
+  }
+  return [];
 }
