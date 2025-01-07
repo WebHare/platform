@@ -82,7 +82,6 @@ export class RichTextDocument {
   }
 
   //TODO should we still accept a string constructor now that a WebHareBlob is so easy to build?
-  /** @param doc - Doc blocks to add. Note that we simply adopt it so it better be unreferenced elsewhere */
   constructor() {
   }
 
@@ -148,7 +147,7 @@ export class RichTextDocument {
     for (const block of blocks) {
       const entries = Object.entries(block);
       if (entries.length === 0)
-        throw new Error(`Block i sempty`);
+        throw new Error(`Block is empty`);
       if (entries.length > 1)
         throw new Error(`Only one key per block allowed, got: ${entries.map(_ => _[0]).join(', ')}`);
 

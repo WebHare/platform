@@ -35,7 +35,7 @@ export class SettingsStorer<SettingType extends { sub?: SettingType[]; parentset
     return newIds;
   }
 
-  //TODO shouldn't have to pass the items to us, but wrd currently modifies the flattend list (seems sdangerous though..)
+  //TODO shouldn't have to pass the items to us, but wrd currently modifies the flattened list (seems dangerous though..)
   async allocateIdsAndParents(items: SettingType[], table: string) {
     return await this.__addIdsAndParents(items, count => nextVals(table, count));
   }
