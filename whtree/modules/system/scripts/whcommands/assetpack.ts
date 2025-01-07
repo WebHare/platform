@@ -12,6 +12,7 @@ import { run } from '@webhare/cli';
 
 let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 
+// @webhare/cli: allowautocomplete
 
 const argv = process.argv.slice(2).map(arg => {
   if (arg === "recompile") {
@@ -25,7 +26,7 @@ const argv = process.argv.slice(2).map(arg => {
 const runData = run({
   name: "wh assetpack",
   description: "Manage asset packs",
-  options: {
+  flags: {
     quiet: { default: false, description: "Don't report anything that's not an error" },
     "allow-missing": { default: false, description: "Do not fail if the masks don't match any package" },
   },
@@ -33,7 +34,7 @@ const runData = run({
     list: {
       description: "List asset packs",
       arguments: [{ name: "[assetpacks...]", description: "Asset packs to list" }],
-      options: {
+      flags: {
         withwatchcounts: { default: false, description: "Show watch counts" },
         watch: { default: false, description: "Watch asset packs" },
       },
@@ -64,7 +65,7 @@ const runData = run({
     compile: {
       description: "Compile an asset pack. Use '*' to compile all",
       arguments: [{ name: "<assetpacks...>", description: "Asset packs to recompile" }],
-      options: {
+      flags: {
         verbose: { default: false, description: "verbose log level" },
         foreground: { default: false, description: "Recompile in foreground, don't use any assetpack service" },
         production: { default: false, description: "force production compile" },

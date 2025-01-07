@@ -498,9 +498,11 @@ if (argv.at(-1)?.match(/^ +$/))  // To allow us to rewrite our name in the proce
   argv.pop(); //strip the spaces argument from the parsed list
 
 run({
+  flags: {
+    "s,secondary": { description: "Mark us as a secondary service manager" },
+    "v,verbose": { description: "Verbose output" },
+  },
   options: {
-    "s,secondary": { default: false, description: "Mark us as a secondary service manager" },
-    "v,verbose": { default: false, description: "Verbose output" },
     "name": { default: "platform:servicemanager", description: "Name for the backend service to manage us" },
     "include": { default: "", description: "Only manage services that match this mask" },
     "exclude": { default: "", description: "Do not manage services that match this mask" },

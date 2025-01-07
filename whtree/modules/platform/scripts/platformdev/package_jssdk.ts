@@ -153,6 +153,7 @@ async function main() {
           lib: ["es2024", "dom", "dom.iterable"],
           noEmit: false,
           declaration: true,
+          strict: true,
           module: "commonjs",
           types: [join(backendConfig.installationroot, "node_modules/@types/node")],
           paths: { ["@webhare/" + pkgname]: ["."] }

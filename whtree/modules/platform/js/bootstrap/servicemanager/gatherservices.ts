@@ -61,6 +61,13 @@ const defaultServices: Record<string, ServiceDefinition> = {
     stopIn: Stage.ShuttingDown,
     run: "always"
   },
+  /// CLI autocompletion service
+  "platform:autocompleteservice": {
+    cmd: getRawCommand("mod::platform/js/cli/autocomplete-service.ts", undefined, ["--server"]),
+    startIn: Stage.StartupScript,
+    stopIn: Stage.ShuttingDown,
+    run: "on-demand"
+  },
 };
 
 export function getSpawnSettings(serviceManagerId: string, service: ServiceDefinition) {

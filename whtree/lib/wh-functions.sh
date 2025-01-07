@@ -469,12 +469,16 @@ autocomplete_init_compwords()
   # Parse COMP_LINE, split on whitespace only. Append a char to make sure trailing whitespace isn't lost
   if [ -n "$COMP_POINT" ]; then
     read -r -a COMP_WORDS <<< "${COMP_LINE:0:$COMP_POINT}z"
+    COMP_SLICED_LINE="${COMP_LINE:0:$COMP_POINT}"
   else
     read -r -a COMP_WORDS <<< "${COMP_LINE}z"
+    COMP_SLICED_LINE="${COMP_LINE}"
   fi
   # Find last word and remove the added char from it
   COMP_CWORD=$(( ${#COMP_WORDS[@]} - 1))
-  COMP_WORDS[$COMP_CWORD]=${COMP_WORDS[$COMP_CWORD]:0:${#COMP_WORDS[$COMP_CWORD]}-1}
+  COMP_WORDS[COMP_CWORD]=${COMP_WORDS[$COMP_CWORD]:0:${#COMP_WORDS[$COMP_CWORD]}-1}
+  export COMP_SLICED_LINE;
+
   # Make sure COMPREPLY is initialized
   COMPREPLY=()
 }
@@ -492,11 +496,18 @@ autocomplete_print_compreply()
   # Make sure we only let suggestions through that append (not those that change stuff left to the cursor)
   TESTLEN=${#COMP_WORDS[$COMP_CWORD]}
   PREFIX="${COMP_WORDS[$COMP_CWORD]:0:TESTLEN}"
-  for i in "${COMPREPLY[@]}"; do
-    if [ "${i:0:$TESTLEN}" == "$PREFIX" ]; then
+
+  if [ "$1" == "filter" ]; then
+    for i in "${COMPREPLY[@]}"; do
+      if [ "${i:0:$TESTLEN}" == "$PREFIX" ]; then
+        echo "${i:$STRIP_CHARS}"
+      fi
+    done
+  else
+    for i in "${COMPREPLY[@]}"; do
       echo "${i:$STRIP_CHARS}"
-    fi
-  done
+    done
+  fi
 }
 
 verify_webhare_version()
