@@ -106,7 +106,7 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
     # Only (re)install homebrew if webhare-deps.rb changed
     DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
 
-    # Since we regenerate the depsfile every time we run, we don't need a separate checfile anymore (removed in WH5.7)
+    # Since we regenerate the depsfile every time we run, we don't need a separate checkfile anymore (removed in WH5.7)
     rm "$WEBHARE_BUILDDIR/last-brew-install" 2>/dev/null || true
 
     # Also reinstall if important apps are missing which may point to a partial/failed brew installation
