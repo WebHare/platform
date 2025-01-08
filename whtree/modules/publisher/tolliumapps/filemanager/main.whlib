@@ -1760,6 +1760,13 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     targetfolder := targetfolder ?? ^foldertree->value;
 
+    //TODO this check should have been in DoFilemanagerUpload but that may break existing applications
+    IF(NOT this->contexts->user->HasRightOn("system:fs_fullaccess", targetfolder))
+    {
+      this->RunSimpleScreen("error", GetTid("publisher:filemgrdialogs.upload.no_access"));
+      RETURN;
+    }
+
     INTEGER ARRAY uploadedfiles := DoFilemanagerUpload(this, targetfolder, files);
     this->tolliumcontroller->CloseUploadFor(files[0]);
     IF(Length(uploadedfiles)=0)
