@@ -8,6 +8,7 @@ import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
+import { isPromise } from "@webhare/std";
 
 
 export type ReturnMap<T> = Array<{
@@ -290,7 +291,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       const lb = recordLowerBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
       const ub = recordUpperBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
       const value = acc.accessor.getValue(entityattrs, lb.position, ub, entity, links, cc);
-      accvalues.push(value);
+      accvalues.push(isPromise(value) ? await value : value);
     }
 
     // Apply the output mapping, push the value to the results

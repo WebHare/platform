@@ -9,14 +9,14 @@ import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { RichDocument, __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb/src/whdb";
-import { WebHareBlob } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 import type { ValueQueryChecker } from "./checker";
+import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -138,7 +138,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param links - Entity settings whfs links, sorted on id
    * @param cc - Creationdate unified cache validator
    */
-  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): Out;
+  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): Out | Promise<Out>;
 
   /** Given a list of entity settings, extract the return value for a field
    * @param entity_settings - List of entity settings
@@ -149,7 +149,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param cc - Creationdate unified cache validator
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Out {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Out | Promise<Out> {
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as Out; // Cast is needed because for required fields, Out may not extend Default.
     else
@@ -1982,44 +1982,47 @@ class WRDDBFileValue extends WHDBResourceAttributeBase { }
 
 class WRDDBImageValue extends WHDBResourceAttributeBase { }
 
-class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichDocument | null, RichDocument | null, RichDocument | null> {
-  getDefaultValue(): RichDocument | null {
+class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null> {
+  getDefaultValue(): RichTextDocument | null {
     return null;
   }
 
-  isSet(value: RichDocument | null) { return Boolean(value); }
+  isSet(value: RichTextDocument | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): RichDocument | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): null | Promise<RichTextDocument> {
     const val = entity_settings[settings_start];
     if (!val.blobdata)
       return null;
 
-    return new __RichDocumentInternal(val.blobdata);
+    return buildRTDFromHSStructure({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
   }
 
-  validateInput(value: RichDocument | null | { data: Buffer }, checker: ValueQueryChecker, attrPath: string): void {
+  validateInput(value: RichTextDocument | null | { data: Buffer }, checker: ValueQueryChecker, attrPath: string): void {
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
-  encodeValue(value: RichDocument | null): AwaitableEncodedValue {
-    if (!value)
+  encodeValue(value: RichTextDocument | null): AwaitableEncodedValue {
+    if (!value || !value?.blocks.length)
       return {};
 
     return {
       settings: (async (): Promise<EncodedSetting[]> => {
         //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
+        //FIXME Reuse existing documents/settings
 
-        const htmlBlob = value.__getHTMLBlob();
-        const htmlValue = await ResourceDescriptor.from(htmlBlob);
-        const rawdata = (htmlValue.sourceFile ? "WHFS:" : "") + await addMissingScanData(htmlValue);
-        if (htmlBlob.size)
-          await uploadBlob(htmlBlob);
-        const setting: EncodedSetting = { rawdata, blobdata: htmlBlob.size ? htmlBlob : null, attribute: this.attr.id, id: htmlValue.dbLoc?.id };
-        if (htmlValue.sourceFile) {
-          setting.linktype = 2;
-          setting.link = htmlValue.sourceFile;
+        const hsRTD = await value.exportAsHareScriptRTD();
+        //do we need to use WHFS to store this document ?
+        const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0;
+        if (inWHFS) {
+          throw new Error(`TODO: StoreRTDInWHFS(this->wrdschema->id, val, whfsmapper)`);
+          const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id };
+          return [setting];
         }
+
+        const rawdata = await addMissingScanData(await ResourceDescriptor.from(hsRTD.htmltext, { fileName: "rd1.html", getHash: true, mediaType: "text/html" }));
+        await uploadBlob(hsRTD.htmltext);
+        const setting: EncodedSetting = { rawdata, blobdata: hsRTD.htmltext, attribute: this.attr.id };
         return [setting];
       })()
     };

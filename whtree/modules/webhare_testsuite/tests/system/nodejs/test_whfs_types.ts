@@ -5,9 +5,9 @@ import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, RichDocument, WebHareBlob } from "@webhare/services";
-import { createRichDocument } from "@webhare/services/src/rtdbuilder";
+import { ResourceDescriptor, buildRTD, WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { codecs } from "@webhare/whfs/src/codecs";
+import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -25,20 +25,20 @@ async function testCodecs() {
   };
 
   //directly testing the codecs also allows us to check against data format/migration issues
-  test.eq({ setting: "2023-09-28" }, codecs["date"].encoder(new Date("2023-09-28T21:04:35Z")));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(-9999, 0, 1))));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
-  test.throws(/Invalid date/i, () => codecs["date"].encoder(new Date("Pieter Konijn")));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(999, 11, 31))));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(10000, 0, 1))));
+  test.eq({ setting: "2023-09-28" }, codecs["date"].encoder(new Date("2023-09-28T21:04:35Z"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(-9999, 0, 1)), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Invalid date/i, () => codecs["date"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(999, 11, 31)), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(10000, 0, 1)), {} as WHFSTypeMember));
 
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
 
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], 0));
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], 0)); //sanity check: ensure time part is dropped
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], 0, {} as WHFSTypeMember, []));
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], 0, {} as WHFSTypeMember, [])); //sanity check: ensure time part is dropped
 
-  test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z")));
-  test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn")));
+  test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
 }
 
 async function testMockedTypes() {
@@ -173,7 +173,7 @@ async function testInstanceData() {
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
 
   //Test rich documents
-  const inRichdoc = await createRichDocument([{ blockType: "p", contents: "Hello, World!" }]);
+  const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);
   const inRichdocHTML = await inRichdoc.__getRawHTML();
   await testtype.set(testfile.id, {
     rich: inRichdoc
@@ -181,7 +181,7 @@ async function testInstanceData() {
 
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 19);
 
-  const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
+  const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
 
   // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");

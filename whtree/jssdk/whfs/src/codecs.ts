@@ -1,11 +1,13 @@
-import { Selectable, uploadBlob } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
-import { Money } from "@webhare/std";
+import { uploadBlob } from "@webhare/whdb";
+import { Money, omit } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import { RichDocument, WebHareBlob } from "@webhare/services";
-import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
+import { type RichTextDocument } from "@webhare/services";
+import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
+import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
+import { describeWHFSType } from "./contenttypes";
+import type { HareScriptRTD } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -30,15 +32,13 @@ export type MemberType = "string" // 2
   | "date" //25
   ;
 
-type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
-
-export type EncoderBaseReturnValue = Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | null;
+export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
 export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
 export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 
 interface TypeCodec {
-  encoder(value: unknown): EncoderReturnValue;
-  decoder(settings: FSSettingsRow[], cc: number): unknown;
+  encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
+  decoder(settings: readonly FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]): unknown;
 }
 
 function assertValidString(value: unknown) {
@@ -292,34 +292,109 @@ export const codecs: { [key: string]: TypeCodec } = {
       return new ResourceDescriptor(settings[0].blobdata, meta);
     }
   },
+  "record": {
+    encoder: (value: object, member: WHFSTypeMember) => {
+      return (async (): EncoderAsyncReturnValue => {
+        const toInsert = new Array<EncodedFSSetting>();
+        toInsert.push({ ordering: 1, sub: await recurseSetData(member.children!, value) });
+        return toInsert;
+      })();
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return settings.length ? recurseGetData(allsettings, member.children || [], settings[0].id, cc) : null;
+    }
+  },
+  "array": {
+    encoder: (value: object[], member: WHFSTypeMember) => {
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+
+      return (async (): EncoderAsyncReturnValue => {
+        const toInsert = new Array<EncodedFSSetting>();
+        for (const row of value)
+          toInsert.push({ ordering: toInsert.length + 1, sub: await recurseSetData(member.children!, row) });
+        return toInsert;
+      })();
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return Promise.all(settings.map(s => recurseGetData(allsettings, member.children || [], s.id, cc)));
+    }
+  },
   "richDocument": {
-    encoder: (value: RichDocument | null) => {
-      if (typeof value !== "object") //TODO test for an actual RichDocument
-        throw new Error(`Incorrect type. Wanted a RichDocument, got '${typeof value}'`);
-      if (!value)
+    encoder: (value: RichTextDocument | null) => {
+      if (typeof value !== "object") //TODO test for an actual RichTextDocument
+        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${typeof value}'`);
+      if (!value || value.isEmpty())
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const v = value as RichDocument;
-        const settings: Array<Partial<FSSettingsRow>> = [];
-        const text = WebHareBlob.from(await v.__getRawHTML());
-        await uploadBlob(text);
+        const toSerialize = await value.exportAsHareScriptRTD();
+        const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
+        const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
 
+        const settings: EncodedFSSetting[] = [];
         settings.push({
-          setting: "RD1",
+          setting: versionindicator,
           ordering: 0,
-          blobdata: text,
+          blobdata: await uploadBlob(storetext),
         });
 
+        for (const instance of toSerialize.instances) {
+          /* Generate settings for the instance:
+            - It needs a toplevel setting with:
+                - ordering = 3
+                - instancetype pointing to the actual WHFS Type Id
+                - setting will contain the instanceid
+            - Then we write the actual data as a settings (instancetype->__RecurseSetInstanceData(instanceid, 0, elementid ?? newelementid, newval, cursettings, remapper, orphansvisible))
+              - parent = the toplevel setting id we just generated
+            */
+          const typeinfo = await describeWHFSType(instance.data.whfstype);
+
+          settings.push({
+            instancetype: typeinfo.id,
+            setting: instance.instanceid,
+            ordering: 3,
+            sub: await recurseSetData(typeinfo.members, omit(instance.data, ["whfstype"]))
+          });
+        }
         return settings;
       })();
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
-      return new __RichDocumentInternal(settings[0].blobdata);
+      return (async () => {
+        const instances: HareScriptRTD["instances"] = [];
+        for (const settingInstance of settings.filter(s => s.ordering === 3)) {
+          const typeinfo = await describeWHFSType(settingInstance.instancetype!);
+          const widgetdata = await recurseGetData(allsettings, typeinfo.members, settingInstance.id, cc);
+
+          instances.push({
+            instanceid: settingInstance.setting,
+            data: { whfstype: typeinfo.namespace, ...widgetdata }
+          });
+        }
+
+        return buildRTDFromHSStructure({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
+      })();
+    }
+  },
+  "instance": {
+    encoder: (value: object) => {
+      throw new Error(`Instance type not yet implemented`);
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return null;
+    }
+  },
+  "intExtLink": {
+    encoder: (value: object) => {
+      throw new Error(`intExtLink type not yet implemented`);
+    },
+    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+      return null;
     }
   }
 };
