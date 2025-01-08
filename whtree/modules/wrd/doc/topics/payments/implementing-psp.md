@@ -20,7 +20,7 @@ Some general guidelines when implementing a new payment method
   designed to survive multiple status posts (it will invoke the payment
   completion handler only once). So you can generally point all the success,
   failure, notification etc URLs to the same return page.
-  - Be careful with notification/push URLs - eg. Sisow will try to notify you
+  - Be careful with notification/push URLs - eg. Sisow would try to notify you
     synchronously during the payment process, which breaks if you're testing
     on an unreachable machine (eg locally) because the gateway can't reach you
 

@@ -543,8 +543,6 @@
       <text tid="name">Prefill logged in user</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="gotoid" limitlanguages="en nl">   <!-- gotoid -->
-  </textgroup>
   <textgroup gid="links" limitlanguages="en nl">   <!-- links -->
     <textgroup gid="update">   <!-- links.update -->
       <text tid="extraproperties">Extra properties</text>
@@ -956,15 +954,8 @@
         <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
           <text tid="agreeterms">I agree to the <html:a data-href-param="1">AfterPay terms &amp; conditions</html:a></text>
         </textgroup>
-        <textgroup gid="spraypay">   <!-- site.forms.payments.spraypay -->
-          <text tid="amountoutofrange">SprayPay is only available for payments between <param p="1"/> and <param p="2"/></text>
-          <text tid="denied">SprayPay has denied your request</text>
-        </textgroup>
       </textgroup>
     </textgroup>
-  </textgroup>
-  <textgroup gid="siteprofiles" limitlanguages="en nl">   <!-- siteprofiles -->
-    <text tid="loginpage">Default login page</text>
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
     <textgroup gid="auth">   <!-- tolliumapps.auth -->
@@ -989,7 +980,6 @@
       <text tid="wrd">WRD</text>
     </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->
-      <text tid="selectcertificate">Select certificate</text>
       <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
         <text tid="afterpaytype">Type</text>
         <text tid="merchantid">Merchant ID</text>
@@ -1059,14 +1049,6 @@
       <textgroup gid="external">   <!-- tolliumapps.payments.external -->
         <text tid="methodtitle">External</text>
       </textgroup>
-      <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
-        <text tid="acquirer">Acquirer</text>
-        <text tid="keypair">Keypair</text>
-        <text tid="merchantid">Merchant id</text>
-        <text tid="merchantsubid">Merchant sub id</text>
-        <text tid="privatekeypassword">Private key password</text>
-        <text tid="transactionid">Transaction id</text>
-      </textgroup>
       <textgroup gid="ingenico">   <!-- tolliumapps.payments.ingenico -->
         <text tid="apipassword">API Password</text>
         <text tid="apiuser">API User</text>
@@ -1099,13 +1081,11 @@
       </textgroup>
       <textgroup gid="mollie">   <!-- tolliumapps.payments.mollie -->
         <text tid="apikey">API Key</text>
-        <text tid="connect">Test</text>
         <text tid="paymentid">Payment ID</text>
         <text tid="status">Status</text>
       </textgroup>
       <textgroup gid="multisafepay">   <!-- tolliumapps.payments.multisafepay -->
         <text tid="apikey">API Key</text>
-        <text tid="connect">Request payment methods</text>
         <text tid="rawstatus">Raw MSP status</text>
         <text tid="testmode">Testmode</text>
         <text tid="testmode-live">Live</text>
@@ -1117,20 +1097,6 @@
         <text tid="paymentid">Transaction ID</text>
         <text tid="saleslocation">Sales location</text>
         <text tid="status">Status</text>
-      </textgroup>
-      <textgroup gid="sisow">   <!-- tolliumapps.payments.sisow -->
-        <text tid="connect">Test</text>
-        <text tid="merchantid">Merchant ID</text>
-        <text tid="merchantsecret">Merchant secret</text>
-        <text tid="transactionid">Transaction id</text>
-      </textgroup>
-      <textgroup gid="spraypay">   <!-- tolliumapps.payments.spraypay -->
-        <text tid="webshopid">Webshop ID</text>
-      </textgroup>
-      <textgroup gid="stripe">   <!-- tolliumapps.payments.stripe -->
-        <text tid="connect">Test</text>
-        <text tid="publickey">Public key</text>
-        <text tid="secretkey">Secret key</text>
       </textgroup>
       <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
         <text tid="methodtitle">Unavailable</text>

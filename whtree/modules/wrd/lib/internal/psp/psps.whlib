@@ -41,18 +41,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , expiry_minutes := 7*1440  //expiry of incomplete payments in minutes
                                ]
           ]
-         ,[ tag := "wrd:ideal"
-          , title := ":iDEAL"
-          , objectname := "mod::wrd/lib/internal/psp/ideal.whlib#IdealPaymentProvider"
-          , configextensions := "mod::wrd/tolliumapps/payments/ideal.xml#configideal"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/ideal.xml#payinfo"
-          , metadataoptions := [ acquirer := ""
-                               , merchantid := 0
-                               , merchantsubid := 0
-                               , testmode := TRUE
-                               , privatekeypassword := ""
-                               ]
-          ]
          ,[ tag := "wrd:mollie"
           , title := ":Mollie"
           , objectname := "mod::wrd/lib/internal/psp/mollie.whlib#MolliePaymentProvider"
@@ -61,17 +49,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
           , metadataoptions := [ apikey := ""
                                , methods := RECORD[]
                                , webhooks := TRUE
-                               ]
-          ]
-         ,[ tag := "wrd:sisow"
-          , title := ":sisow"
-          , objectname := "mod::wrd/lib/internal/psp/sisow.whlib#SisowPaymentProvider"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/sisow.xml#payinfo"
-          , configextensions := "mod::wrd/tolliumapps/payments/sisow.xml#configsisow"
-          , metadataoptions := [ merchantid := ""
-                               , merchantsecret := ""
-                               , methods := DEFAULT STRING ARRAY
-                               , testmode := FALSE
                                ]
           ]
          ,[ tag := "wrd:multisafepay"
