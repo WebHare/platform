@@ -117,9 +117,19 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   */
   PUBLIC RECORD FUNCTION GetUserDataForLogging()
   {
-    RETURN CELL[ ...this->GetAuthObject()->GetUserDataForLogging()
-               , wrd_guid := ObjectExists(this->entity) ? this->entity->guid : "" //FIXME actually log something about override users, but this level knows nothing about overrides
-               ];
+    OBJECT authobject := this->GetAuthObject();
+    IF(ObjectExists(authobject))
+    {
+      RETURN CELL[ ...authobject->GetUserDataForLogging()
+                , wrd_guid := ObjectExists(this->entity) ? this->entity->guid : "" //FIXME actually log something about override users, but this level knows nothing about overrides
+                ];
+    }
+    ELSE
+    {
+      RETURN CELL[ when := GetCurrentDatetime()
+                 , wrd_guid := ""
+                 ];
+    }
   }
 
   MACRO InitAuthObject(INTEGER authid)
