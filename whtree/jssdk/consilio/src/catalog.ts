@@ -8,7 +8,7 @@
 import { broadcastOnCommit, db, nextVal, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
-import { convertWaitPeriodToDate, omit, pick, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, isTruthy, omit, pick, type WaitPeriod } from "@webhare/std";
 import { whconstant_consilio_catalogtype_managed, whconstant_consilio_catalogtype_unmanaged, whconstant_consilio_default_suffix_mask, whconstant_consilio_osportoffset } from "@mod-system/js/internal/webhareconstants";
 import "@webhare/env";
 import { type API as OpenSearchAPI, type Client as OpenSearchClient } from "@opensearch-project/opensearch";
@@ -70,15 +70,17 @@ export type SearchResult<TDocument> = OpenSearchAPI.Search_ResponseBody & {
   };
 };
 
-class BulkUploadError extends Error {
-  constructor(public errors: Array<ErrorCause & { _id: string }>) {
+type OpenSearchError<TDocument extends OpenSearchDocument = OpenSearchDocument> = ErrorCause & { doc: TDocument };
+
+class BulkUploadError<TDocument extends OpenSearchDocument = OpenSearchDocument> extends Error {
+  constructor(public errors: Array<OpenSearchError<TDocument>>) {
     super(`${errors.length} errors during bulk action`);
   }
 }
 
 class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
   private queue: Array<{ doc: OpenSearchDocument; suffix: string }> = [];
-  private errors: Array<ErrorCause & { _id: string }> = [];
+  private errors = new Array<OpenSearchError<TDocument>>;
   private updatedSuffixes: Set<string> = new Set();
   private ensuredSuffixes: Set<string> = new Set();
   queuesize = 0;
@@ -122,8 +124,10 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     //Create any necessary suffixes
     const toAdd = [...this.updatedSuffixes].filter(suffix => suffix && !this.ensuredSuffixes.has(suffix));
     if (toAdd.length) {
+      // Trigger creation of the suffixes
       await this.catalog.applyConfiguration({ suffixes: toAdd });
-      this.ensuredSuffixes.forEach(suffix => this.updatedSuffixes.delete(suffix));
+      // Record in this.ensuredSuffixes that they've been created so we know not to retry
+      toAdd.forEach(suffix => this.ensuredSuffixes.delete(suffix));
     }
 
     //NOTE do *not* use client.helpers.bulk - it doesn't report errors!
@@ -138,7 +142,12 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
 
     //TODO what if we get errors not associated with an id..
     if (bulkres.body.errors && bulkres.body.items.length) {
-      const errors = bulkres.body.items?.filter(_ => _.update?.error && _.update._id).map(_ => ({ ..._.update.error!, _id: _.update._id! }));
+      const errors: Array<OpenSearchError<TDocument>> = bulkres.body.items?.map((item, idx) => {
+        const err = item.create?.error || item.update?.error;
+        if (err)
+          return { ...err, _id: queued[idx].doc._id, doc: queued[idx].doc as TDocument };
+        return null;
+      }).filter(isTruthy);
       if (errors) {
         if (this.debug)
           console.error(`There were ${errors.length} errors during bulk upload to ${indexName}, first:`, errors[0]);
@@ -389,10 +398,10 @@ export async function createCatalog<DocType extends object = object>(tag: string
   /* FIXME look up moduledefined catalog info */
   const catalogconfig = (await loadlib("mod::consilio/lib/internal/catalogdefparser.whlib").getRequiredCatalogs(true, "*")).find((catalog: { tag: string }) => catalog.tag === tag);
   if (catalogconfig) {
-    if (!catalogconfig.dynamicproperties.includes("fieldgroups") && options?.fieldgroups)
-      throw new Error(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
-    if (!catalogconfig.dynamicproperties.includes("lang") && options?.lang)
-      throw new Error(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
+    if (options?.fieldgroups)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
+    if (options?.lang)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its language`);
   }
 
   const lang = options?.lang || catalogconfig?.lang || "en";

@@ -745,7 +745,8 @@ STATIC OBJECTTYPE ConsilioCatalog
                ] INTO consilio.catalog_indexmanagers;
 
     //This will ensure the index is setup after Commit (it's unsafe to create it right away, cleanupindices might 'disagree' - and this *does* happen during eg. CI)
-    IF(NOT options.readonly)
+    //Note that a suffixed index creates indices on demand so we don't need to update anything
+    IF(NOT options.readonly AND NOT this->suffixed)
       GetConsilioFinishHandler()->ScheduleUpdate();
 
     RETURN newid;
@@ -783,10 +784,10 @@ STATIC OBJECTTYPE ConsilioCatalog
     RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE, "*") WHERE tag = this->tag;
 
     // If the catalog language changes, the catalog has to be rebuilt
-    IF(RecordExists(catalogconfig) AND "lang" NOT IN catalogconfig.dynamicproperties)
+    IF(RecordExists(catalogconfig))
     {
       IF(CellExists(settings, 'lang'))
-        THROW NEW Exception(`Catalog ${this->tag} has not been configured with dynamicproperties=lang so you cannot update it`);
+        THROW NEW Exception(`Catalog ${this->tag} is configured in the moduledefinition, you cannot update its language`);
       INSERT CELL lang := catalogconfig.lang INTO settings; //enforce this setting
     }
 
@@ -818,10 +819,10 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     // Determine final fieldgroups
     STRING ARRAY applyfieldgroups;
-    IF(RecordExists(catalogconfig) AND "fieldgroups" NOT IN catalogconfig.dynamicproperties)
+    IF(RecordExists(catalogconfig))
     {
       IF(CellExists(settings, 'fieldgroups'))
-        THROW NEW Exception(`Catalog ${this->tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
+        THROW NEW Exception(`Catalog ${this->tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
       INSERT CELL fieldgroups := catalogconfig.fieldgroups INTO settings; //enforce this setting
     }
 
@@ -1426,7 +1427,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , title := ""
                               , definedby := "CreateConsilioCatalog from " || GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func)
                               , fieldgroups := STRING[]
-                              , managed := TRUE
+                              , managed := TRUE // FIXME should have been FALSE - correct that in the JS API
                               , suffixed := FALSE
                               , lang := ""
                               ], options, [ optional := [ "fieldgroups", "lang" ]]);
@@ -1442,10 +1443,10 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
   RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE, "*") WHERE COLUMN tag = VAR tag;
   IF(RecordExists(catalogconfig))
   {
-    IF("fieldgroups" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
-      THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
-    IF("lang" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'lang'))
-      THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=lang so you cannot update it`);
+    IF(CellExists(options, 'fieldgroups'))
+      THROW NEW Exception(`Catalog ${tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
+    IF(CellExists(options, 'lang'))
+      THROW NEW Exception(`Catalog ${tag} is configured in the moduledefinition, you cannot update its language`);
   }
 
   IF(CellExists(options,'fieldgroups'))
@@ -1476,7 +1477,9 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , internalmetadata := EncodeHSONBlob(internalmetadata)
              ] INTO consilio.catalogs;
 
-  GetConsilioFinishHandler()->ScheduleUpdate();
+  IF(options.managed) //creating a managed catalog will require us to attach and configure it:
+    GetConsilioFinishHandler()->ScheduleUpdate();
+
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   OBJECT catalog := OpenConsilioCatalogById(indexid);

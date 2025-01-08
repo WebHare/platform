@@ -1,4 +1,4 @@
-import { createCatalog, openCatalog, isValidIndexName, isValidIndexSuffix } from "@webhare/consilio";
+import { createCatalog, openCatalog, isValidIndexName, isValidIndexSuffix, type BulkUploadError } from "@webhare/consilio";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { prepConsilioTests, type TestIndexDocType, type TestSuffixedTestType } from "./testhelpers";
@@ -29,14 +29,28 @@ async function testBasicAPIs() {
 
 async function testCatalogAPI() {
   const cat = await openCatalog<TestIndexDocType>("webhare_testsuite:testindex");
-  test.assert((await cat.listAttachedIndices()).length === 0); //as we just reset everythingm, there should be no attachments
+  test.assert((await cat.listAttachedIndices()).length === 0); //as we just reset everything, there should be no attachments
   await beginWork();
   await cat.attachIndex();
   await commitWork();
 
-  const bulk = cat.startBulkAction();
-  await bulk.index({ title: "Doc 1", "@timestamp": new Date().toISOString() });
-  await bulk.finish({ refresh: true });
+  //FIXME We need this wait to fix a race between background consilio update creating the index but not establishing the mapping yet. can create+map be done atomically in OS ?
+  await cat.waitReady(Infinity, { forStorage: true, forConfiguration: true });
+
+  //Test bulk error handling (we weren't checking for 'create' errors earlier)
+  {
+    const bulk = cat.startBulkAction();
+    await bulk.index({ title: "Doc 1", invalidField: 1, "@timestamp": new Date().toISOString() });
+
+    const exc = await test.throws(/errors during/, bulk.finish({ refresh: true })) as BulkUploadError;
+    test.eqPartial([{ reason: /mapping set to strict/, doc: { title: "Doc 1" } }], exc.errors);
+  }
+
+  {
+    const bulk = cat.startBulkAction();
+    await bulk.index({ title: "Doc 1", "@timestamp": new Date().toISOString() });
+    await bulk.finish({ refresh: true });
+  }
 
   //Find doc1
   const docs1 = await cat.search({
@@ -81,6 +95,15 @@ async function testCatalogAPI() {
       ]
     }
   }, docs2);
+
+  //Test we can't incorrectly update it
+  {
+    const bulk = cat.startBulkAction();
+    await bulk.index({ title: "Doc 1", invalidField: 1, "@timestamp": new Date().toISOString(), _id: docs1.hits.hits[0]._id });
+
+    const exc = await test.throws(/errors during/, bulk.finish({ refresh: true })) as BulkUploadError;
+    test.eqPartial([{ reason: /mapping set to strict/, doc: { title: "Doc 1" }, _id: docs1.hits.hits[0]._id }], exc.errors);
+  }
 }
 
 async function testSuffixes() {

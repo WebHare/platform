@@ -25,7 +25,6 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING ca
                           , suffixed := ParseXSBoolean(catalognode.node->GetAttribute("suffixed"))
                           , fieldgroups := ParseAndQualifyXMLList(catalognode.module, catalognode.node->GetAttribute("fieldgroups"))
                           , lang := catalognode.node->GetAttribute("lang")
-                          , dynamicproperties := ParseXSList(catalognode.node->GetAttribute("dynamicproperties"))
                           ];
 
     IF(catalog.tag NOT LIKE catalogmask)
@@ -77,7 +76,6 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING ca
                           , suffixed := TRUE
                           , fieldgroups := [ `<index>${indexnode.module}:${indexnode.node->GetAttribute("tag")}` ]
                           , lang := ""
-                          , dynamicproperties := STRING[]
                           ];
     IF(catalog.tag NOT LIKE catalogmask)
       CONTINUE;
