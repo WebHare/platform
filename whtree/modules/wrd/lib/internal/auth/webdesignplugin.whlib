@@ -1673,9 +1673,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       STRING sessionid := CreateWebSession(
           "wrd:authlogin",
-          [ exists := TRUE ],
-          this->__GetWRDAuthIntegration()->maxidle_minutes,
-          /*limit to server: */ FALSE);
+          [ exists := TRUE ]);
 
       STRING cookiedata := sessionid;
       OBJECT user;
@@ -1773,9 +1771,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       sessionid := CreateWebSession(
           "wrd:authlogin",
-          [ exists := TRUE ],
-          this->__GetWRDAuthIntegration()->maxidle_minutes,
-          /*limit to server: */ FALSE);
+          [ exists := TRUE ]);
 
       UpdateWebCookie(
           cookiename,

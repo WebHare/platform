@@ -223,7 +223,7 @@ PUBLIC STATIC OBJECTTYPE Oauth2Connection
   {
     RECORD authcontext := this->GetAuthorizeContext(options);
     INSERT CELL finalreturnurl := finalreturnurl INTO authcontext.__oauth2_authflow.state;
-    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, 90, FALSE);
+    STRING oauth2session := CreateWebSession("system:oauth2", authcontext.__oauth2_authflow.state, [ maxidle_minutes := 90]);
     RETURN [ type := "redirect"
            , url := UpdateURLVariables(authcontext.__oauth2_authflow.url, [ state := oauth2session ])
            ];
