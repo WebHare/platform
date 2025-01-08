@@ -174,28 +174,6 @@ test.runTests(
         test.click('input[type=submit]');
       },
       waits: ["ui"]
-    },
-    {
-      name: "access rule portal login - ok",
-      test: function (doc, win) {
-        const elts = test.qSA("#loginresult.loginfailed");
-        test.eq(1, elts.length);
-
-        test.fill(test.qS("#login"), "external");
-        test.fill(test.qS("#password"), "secret");
-        test.click('input[type=submit]');
-      },
-      waits: ["pageload"]
-    },
-    // redirect to import is done directly in JS, no redirect page
-    //, testFollowWRDAuthRedirect('redirect to protected page')
-    {
-      name: 'protected page location test',
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/staticprotected2/));
-        test.assert(/THE PROTECTED CONTENT/.exec(doc.body.textContent));
-      }
     }
-
   ]
 );

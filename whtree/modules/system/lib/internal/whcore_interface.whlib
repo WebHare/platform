@@ -31,7 +31,6 @@ PUBLIC CONSTANT RECORD __whs_baserulerecord  :=
          , matchmethods :=              DEFAULT STRING ARRAY
          , checkandvm :=                DEFAULT RECORD
          , source :=                    ""
-         , accounts :=                  DEFAULT RECORD ARRAY
          , data :=                      DEFAULT RECORD
          , vars :=                      DEFAULT RECORD
          , apispec :=                   ""

@@ -1004,7 +1004,6 @@ OBJECTTYPE WebConfigBuilder
                                   , authtype :=           CellExists(rules, "AUTHTYPE") ? authtype : 0
                                   , authlist :=           CellExists(rules, "AUTHLIST") ? authlist : FALSE
                                   , apispec :=            CellExists(rules, "APISPEC") ? apispec : ""
-                                  , accounts
                                   , datastorage
                                   , ruledata
                                   ]
