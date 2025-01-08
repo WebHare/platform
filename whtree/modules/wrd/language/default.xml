@@ -1025,6 +1025,7 @@
       <textgroup gid="commondialogs">   <!-- tolliumapps.payments.commondialogs -->
         <text tid="amountpayable">Amount payable</text>
         <text tid="cancelpayment">Cancel payment</text>
+        <text tid="changetype">Change type</text>
         <text tid="deletepaymentprovider">Are you sure you want to delete this payment provider ?</text>
         <text tid="generic">Generic options</text>
         <text tid="methods">Payment method</text>
@@ -1046,6 +1047,7 @@
         <text tid="surecancelpayment">Are you sure you want to cancel this payment ?</text>
         <text tid="tag">Tag</text>
         <text tid="type">Type</text>
+        <text tid="verifychangetype">Changing the type of an existing payment provider may break pending payments, refunds or accessing transaction information of historic payments<br/><br/>Are you sure you want tho change the PSP type ?</text>
       </textgroup>
       <textgroup gid="dashboard">   <!-- tolliumapps.payments.dashboard -->
         <text tid="error">Error message</text>
