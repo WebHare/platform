@@ -75,6 +75,29 @@ async function testBuilder() {
     await verifyRoundTrip(doc);
   }
 
+  { //test the inline tags
+    const doc = await buildRTD([
+      {
+        "p": [
+          { text: "b", bold: true },
+          { text: "i", italic: true },
+          { text: "u", underline: true },
+          { text: "sup", superScript: true },
+          { text: "sub", subScript: true },
+          { text: "strikeThrough", strikeThrough: true },
+        ],
+      }, {
+        "p": [
+          "we have... ",
+          { text: "all of them", bold: true, italic: true, underline: true, superScript: true, subScript: true, strikeThrough: true }
+        ]
+      }
+    ]);
+
+    test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p></body></html>`, await doc.__getRawHTML());
+    await verifyRoundTrip(doc);
+  }
+
   {
     const doc = await buildRTD([
       {

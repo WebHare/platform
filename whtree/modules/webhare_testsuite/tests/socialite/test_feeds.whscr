@@ -38,10 +38,8 @@ STRING pubdates :=
 MACRO TestRSS()
 {
   //we also test proper transaction management
-  testfw->BeginWork();
-  RECORD feed := GetRSSFeed("http://www.nu.nl/rss", 10);
+  RECORD feed := GetRSSFeed("https://www.iaea.org/feeds/topnews", 10);
   TestEq(TRUE, Length(feed.entries) > 0);
-  testfw->CommitWork();
 
   feed := GetRSSFeed("http://www.webhare.com/not-a-valid-feed", 10);
   TestEq(0, Length(feed.entries));

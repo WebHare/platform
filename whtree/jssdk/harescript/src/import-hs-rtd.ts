@@ -1,4 +1,4 @@
-import { rtdParagraphTypes, type HareScriptRTD, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, type RTDBuildWidget } from "@webhare/services/src/richdocument";
+import { rtdParagraphTypes, type HareScriptRTD, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, type RTDBuildWidget, rtdTextStyles } from "@webhare/services/src/richdocument";
 import { omit } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -57,25 +57,14 @@ class HSRTDImporter {
   async processBlockItems(node: Node, state: BlockItemStack, outlist: RTDBuildBlockItems) {
     for (let child = node.firstChild; child; child = child!.nextSibling) {
       if (isElement(child)) {
-        switch (child.tagName.toLowerCase()) {
-          case "b":
-            await this.processBlockItems(child, { ...state, bold: true }, outlist);
-            break;
-          case "i":
-            await this.processBlockItems(child, { ...state, italic: true }, outlist);
-            break;
-          case "u":
-            await this.processBlockItems(child, { ...state, underline: true }, outlist);
-            break;
-          case "strike":
-            await this.processBlockItems(child, state, outlist);
-            break;
-          case "span":
-            if (child.hasAttribute("data-instanceid"))
-              await this.processInlineWidget(child, state, outlist);
-            break;
-          default:
-            await this.processBlockItems(child, state, outlist);
+        const tag = child.tagName.toLowerCase();
+        if (tag in rtdTextStyles) {
+          await this.processBlockItems(child, { ...state, [(rtdTextStyles as Record<string, string>)[tag]]: true }, outlist);
+        } else if (tag === 'span') {
+          if (child.hasAttribute("data-instanceid"))
+            await this.processInlineWidget(child, state, outlist);
+        } else {
+          await this.processBlockItems(child, state, outlist);
         }
       } else if (child.nodeType === Node.TEXT_NODE) {
         outlist.push({ text: child.textContent || '', ...state });

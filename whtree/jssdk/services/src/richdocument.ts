@@ -6,6 +6,16 @@ import { describeWHFSType } from "@webhare/whfs";
 export const rtdParagraphTypes: string[] = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
 /** Maps h1 etc to a default class if we're building RTDs wthout an explicit RTDType (needed for consistent output) */
 export const RTDParagraphDefaults: Record<RTDParagraphType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal" } as const;
+/** Simple text styles and their order */
+export const rtdTextStyles = { //Note that a-href is higher than all these styles. See also this.textstyletags in structurededitor
+  "i": "italic",
+  "b": "bold",
+  "u": "underline",
+  "strike": "strikeThrough",
+  "sub": "subScript",
+  "sup": "superScript",
+} as const;
+
 
 export type RTDParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
@@ -27,10 +37,7 @@ type RTDBaseWidget<Build extends boolean> = {
 type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem<Build> | (Build extends true ? string : never)>;;
 
 type RTDBaseBlockItem<Build extends boolean> = ({ text: string } | { widget: RTDBaseWidget<Build> }) & {
-  bold?: boolean;
-  italic?: boolean;
-  underline?: boolean;
-  strikeThrough?: boolean;
+  [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
 };
 
 export type RTDBlock = RTDBaseBlock<false>;
@@ -212,12 +219,10 @@ export class RichTextDocument {
       for (const item of items) {
         let part: string = 'widget' in item ? await buildWidget(item.widget, false) : encodeString(item.text, 'html');
         //FIXME put in standard RTD render ordering
-        if (item.underline)
-          part = `<u>${part}</u>`;
-        if (item.italic)
-          part = `<i>${part}</i>`;
-        if (item.bold)
-          part = `<b>${part}</b>`;
+        for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
+          if (item[tag])
+            part = `<${style}>${part}</${style}>`;
+        }
         output += part;
       }
       return output;
