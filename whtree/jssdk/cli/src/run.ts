@@ -531,9 +531,10 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
           print(`    ${formatOptionNames(name).padEnd(secondColumnPadAt - 5, " ")} ${option.description || ""}${describeData(option)}`);
         }
       }
-      print(`  Arguments:`);
-      for (const arg of commandRec.arguments || []) {
-        print(`    ${arg.name.padEnd(secondColumnPadAt - 5, " ")} ${arg.description || ""}${describeData(arg)}`);
+      if (commandRec.arguments?.length) {
+        print(`  Arguments:`);
+        for (const arg of commandRec.arguments || [])
+          print(`    ${arg.name.padEnd(secondColumnPadAt - 5, " ")} ${arg.description || ""}${describeData(arg)}`);
       }
     } else {
       print(`Subcommands:`);
@@ -541,7 +542,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
         print(`  ${name.padEnd(secondColumnPadAt - 3, " ")} ${cmd.shortDescription || (cmd.description ? (cmd.description.length > maxDescriptionLen ? cmd.description.slice(0, maxDescriptionLen - 1) + /*ellipsis*/"\u2026" : cmd.description) : "")}`);
       }
     }
-  } else {
+  } else if (data.arguments?.length) {
     print(`Arguments:`);
     for (const arg of data.arguments || []) {
       print(`  ${arg.name.padEnd(secondColumnPadAt - 3, " ")} ${arg.description || ""}`);
