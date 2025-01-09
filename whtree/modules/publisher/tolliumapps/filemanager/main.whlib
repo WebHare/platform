@@ -1763,6 +1763,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     //TODO this check should have been in DoFilemanagerUpload but that may break existing applications
     IF(NOT this->contexts->user->HasRightOn("system:fs_fullaccess", targetfolder))
     {
+      this->tolliumcontroller->CloseUploadFor(files[0]);
       this->RunSimpleScreen("error", GetTid("publisher:filemgrdialogs.upload.no_access"));
       RETURN;
     }
