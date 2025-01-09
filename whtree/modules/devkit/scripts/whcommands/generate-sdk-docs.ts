@@ -24,7 +24,7 @@ async function renderProject(app: TypeDoc.Application, project: TypeDoc.Models.P
 run({
   flags: {
     "w,watch": { description: "Watch docs" },
-    "json": { description: " AddJSON data" },
+    "json": { description: " Add JSON data" },
     "upload": { description: "Upload after generating" },
     "ci": { description: "Run in CI mode" },
   },
