@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 MACRO PrepIt()
 {
   testfw->BeginWork();
+  testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_browse", OpenTestsuiteSite()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   testfw->GetUserObject("lisa")->UpdateGrant("grant", "system:fs_fullaccess", GetTestsuiteTempFolder()->id, testfw->GetUserObject("lisa"), [ allowselfassignment := TRUE ]);
   FOREVERy(RECORD tokill FROM SELECT id FROM system.fs_objects WHERE parent=0 AND name like "filemanager?root?uploadtest*.dat")
     OpenWHFSObject(tokill.id)->RecycleSelf();
@@ -42,6 +43,18 @@ OBJECT ASYNC FUNCTION UploadRoot()
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
   RETURN TRUE;
+}
+
+ASYNC MACRO TestIllegalDrop()
+{
+  testfw->SettestUser("lisa");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := STRING[ OpenTestsuiteSite()->rootobject->whfspath ], target := DEFAULT RECORD ]));
+
+  AWAIT ExpectAndAnswerMessageBox("ok",  PTR ExecuteListDragDrop(DEFAULT OBJECT, VARIANT[], TT("filelist->mylist"), [ files :=
+        [[ filename := "mydata1.txt", data := StringToBlob("Mydata1")  ]
+        ]]), [ messagemask := "*are not allowed*"]);
+
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel());
 }
 
 OBJECT ASYNC FUNCTION DropStuff()
@@ -109,6 +122,7 @@ OBJECT ASYNC FUNCTION DropStuff()
 
 RunTestframework([ PTR PrepIt
                  , PTR UploadRoot
+                 , PTR TestIllegalDrop
                  , PTR DropStuff
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "lisa" ]
