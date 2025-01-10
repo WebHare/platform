@@ -18,7 +18,7 @@ export async function ensureWHFSFolderForWRDSchema(schemaId: number) {
   return folder;
 }
 
-//TODO should we support importmapper and then writing to oprhans?
+//TODO should we support importmapper and then writing to orphans?
 export async function storeRTDinWHFS(schemaId: number, rtd: RichTextDocument): Promise<number> {
   //folder, to avoid duplicate insertion/creation
   const schemafolder = await ensureWHFSFolderForWRDSchema(schemaId);
