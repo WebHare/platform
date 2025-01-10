@@ -154,7 +154,9 @@ async function testWHFS() {
   test.eq(openNewFile_state2.modificationDate, openNewFile_state2.contentModificationDate);
   test.eq(true, openNewFile_state2.publish);
 
-  const goldFish = await tmpfolder.createFile("goldfish.png", { data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true });
+  const goldFishId = await whfs.nextWHFSObjectId();
+  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true });
+  test.eq(goldFishId, goldFish.id);
   test.eq("image/png", goldFish.data.mediaType);
   test.eq(385, goldFish.data.width);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldFish.data.hash);

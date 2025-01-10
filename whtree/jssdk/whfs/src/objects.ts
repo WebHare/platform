@@ -1,4 +1,4 @@
-import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob } from "@webhare/whdb";
+import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./contenttypes";
@@ -89,6 +89,7 @@ interface ListableFsObjectRow {
 }
 
 export interface CreateFSObjectMetadata {
+  id?: number;
   type?: string;
   title?: string;
   description?: string;
@@ -106,10 +107,12 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
 export type CreateFolderMetadata = CreateFSObjectMetadata;
 
 export interface UpdateFileMetadata extends CreateFileMetadata {
+  id?: never;
   name?: string;
 }
 
 export interface UpdateFolderMetadata extends CreateFolderMetadata {
+  id?: never;
   name?: string;
 }
 
@@ -349,6 +352,7 @@ export class WHFSFolder extends WHFSObject {
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
+        id: metadata?.id || undefined,
         creationdate: creationdate,
         modificationdate: creationdate,
         parent: this.id,
@@ -705,4 +709,9 @@ export async function openFileOrFolder(path: number | string, options?: OpenWHFS
 /** Open a file or folder - used when you're unsure what an ID points to */
 export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions) {
   return openWHFSObject(0, path, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+}
+
+/** Get a new WHFS object id */
+export async function nextWHFSObjectId(): Promise<number> {
+  return nextVal("system.fs_objects.id");
 }
