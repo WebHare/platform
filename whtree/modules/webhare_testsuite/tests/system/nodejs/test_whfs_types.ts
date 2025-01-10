@@ -123,6 +123,10 @@ async function testInstanceData() {
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
+    anInstance: {
+      whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1",
+      str1: "str1"
+    },
     aDay: new Date("2023-09-29T23:59:59Z"),
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
@@ -131,12 +135,14 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
+  let expectNumSettings = 15;
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 16);
+  expectNumSettings += 3; //adding 3 array members
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
   test.eqPartial({
     int: 20,
@@ -150,7 +156,11 @@ async function testInstanceData() {
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
-    myWhfsRefArray: fileids
+    myWhfsRefArray: fileids,
+    anInstance: {
+      whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1",
+      str1: "str1"
+    },
   }, await testtype.get(testfile.id));
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
@@ -165,7 +175,8 @@ async function testInstanceData() {
     blub: goldfish,
     blubImg: goldfish
   });
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 18);
+  expectNumSettings += 2; //adding blub and blubImg
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
@@ -179,7 +190,8 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 19);
+  ++expectNumSettings; //adding a simple RTD with no instances/embeds/links
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());

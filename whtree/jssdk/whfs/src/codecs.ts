@@ -382,11 +382,31 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "instance": {
-    encoder: (value: object) => {
-      throw new Error(`Instance type not yet implemented`);
+    encoder: (value: Record<string, unknown> & { whfsType: string }) => {
+      if (!value)
+        return null;
+      if (!value.whfsType)
+        throw new Error(`Missing whfsType in instance`);
+
+      //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
+      return (async (): EncoderAsyncReturnValue => {
+        const typeinfo = await describeWHFSType(value.whfsType);
+        return {
+          instancetype: typeinfo.id,
+          sub: await recurseSetData(typeinfo.members, omit(value, ["whfsType"]))
+        };
+      })();
     },
     decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
-      return null;
+      if (!settings.length)
+        return null;
+
+      return (async () => {
+        const typeinfo = await describeWHFSType(settings[0].instancetype!);
+        const widgetdata = await recurseGetData(allsettings, typeinfo.members, settings[0].id, cc);
+
+        return { whfsType: typeinfo.namespace, ...widgetdata };
+      })();
     }
   },
   "intExtLink": {
