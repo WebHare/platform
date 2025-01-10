@@ -9,6 +9,12 @@ managedServices:
   nodeservices: # Implements JS-based <backendservice>s
     script: js/nodeservices/nodeservices.ts
     run: always
+  unifiedcache: # Temporarily split off due to memory usage
+    script: js/nodeservices/imgcache.ts
+    run: always
+    # When stress-testing/debugging, lower restartInterval to 1sec in imgcache.ts and enable these below:
+    # minRunTime: 1
+    # maxThrottleMsecs: 5
 
 
 backendServices:
@@ -20,8 +26,6 @@ backendServices:
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:
     clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
-  unifiedcache:
-    clientFactory: js/cache/imgcache.ts#getUnifiedCacheServer
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
     coreService: true
