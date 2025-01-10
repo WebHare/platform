@@ -48,6 +48,8 @@ async function testChecks() {
   test.eq([val => val === "konijntje"], ["konijntje"]);
   test.eq({ x: val => val === "konijntje" }, { x: "konijntje" });
   test.eqPartial({ x: val => val === "konijntje" }, { x: "konijntje" });
+  test.eq({ x: val => val.y === "konijntje" }, { x: { y: "konijntje" } });
+  test.eqPartial({ x: val => val.y === "konijntje" }, { x: { y: "konijntje" } });
 
   test.throws(/test function failed/, () => test.eq(val => val === "konijntje", "aapje"));
   test.throws(/test function failed/, () => test.eq([val => val === "konijntje"], ["aapje"]));
