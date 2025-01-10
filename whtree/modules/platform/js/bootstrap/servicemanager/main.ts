@@ -152,6 +152,8 @@ class ProcessManager {
     this.startDelayTimer = null;
     if (verbose)
       this.log(`Starting service with command: ${spawnsettings.cmd} ${spawnsettings.args.join(" ")}`, spawnsettings);
+    else if (this.startDelay) //because we logged 'Throttling' we should log when we start it again
+      this.log(`Restarting service after throttling for ${this.startDelay / 1000} seconds`);
 
     this.process = child_process.spawn(spawnsettings.cmd, spawnsettings.args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
@@ -225,12 +227,12 @@ class ProcessManager {
 
     const servicesettings = expectedServices.get(this.name);
     if (!this.servicemgr.shuttingDown && servicesettings?.run === "always" && !this.toldToStop) {
-      if (!this.started || Date.now() < this.started + MinimumRunTime) {
-        this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
+      if (!this.started || Date.now() < this.started + (servicesettings?.minRunTime ?? MinimumRunTime)) {
+        this.startDelay = Math.min(this.startDelay * 2 || 1000, servicesettings?.maxThrottleMsecs ?? MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
       } else {
         this.startDelay = 0;
-        this.log(`Restarting`);
+        this.log(`Restarting service imediately`);
       }
       new ProcessManager(this.servicemgr, this.name, servicesettings, this.startDelay);
     }

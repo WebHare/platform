@@ -20,6 +20,10 @@ export interface ServiceDefinition {
   stopTimeout?: number;
   ///when criticalForStartup is true and the service crashes during stage Bootup or StartupScript, WebHare will terminate
   criticalForStartup?: boolean;
+  ///Minimum amount of time the service must have been running before being considered stable and not require a throttle during restart. Defaults to 60_000 (1 minute)
+  minRunTime?: number;
+  ///Maximum amount of time to throttle the service if it exits too fast and has to be restarted. Defaults to 60_000 (1 minute)
+  maxThrottleMsecs?: number;
   /** Run type:
    * always: always run the service in the requested stages
    * once: run this script once the stage advances to startIn, and wait for this script to complete before moving to the next stage

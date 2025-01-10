@@ -3,6 +3,7 @@ import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefpar
 import { ServiceDefinition, Stage } from './smtypes';
 import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
+import { pick } from "@webhare/std";
 
 const defaultServices: Record<string, ServiceDefinition> = {
   /* Bootup stage. Here we bring up all passive services that WebHare scripts will need
@@ -111,7 +112,8 @@ export function gatherManagedServicesFromModDef(mod: ModDefYML): Record<string, 
         services[`${mod.module}:${name}`] = {
           cmd: getServiceCommand(mod, servicedef),
           startIn: Stage.Active,
-          run: servicedef.run
+          run: servicedef.run,
+          ...pick(servicedef, ["minRunTime", "maxThrottleMsecs"])
         };
       }
     }
