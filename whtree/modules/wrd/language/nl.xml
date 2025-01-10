@@ -1047,7 +1047,7 @@
         <text tid="surecancelpayment">Weet je zeker dat je deze betaling wil annuleren?</text>
         <text tid="tag">Tag</text>
         <text tid="type">Type</text>
-        <text tid="verifychangetype">Het wijzigen van het type van een bestaande betaalprovider kan lopende betalingen of terugstoringen verstoren of historische transactieinformatie onbereikbaar maken<br/><br/>Weet je zeker dat je het PSP type wil wijzigen ?</text>
+        <text tid="verifychangetype">Het wijzigen van het type van een bestaande betaalprovider kan lopende betalingen of terugstortingen verstoren of historische transactieinformatie onbereikbaar maken<br/><br/>Weet je zeker dat je het PSP type wil wijzigen ?</text>
       </textgroup>
       <textgroup gid="dashboard">   <!-- tolliumapps.payments.dashboard -->
         <text tid="error">Foutmelding</text>
