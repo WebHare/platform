@@ -2,9 +2,10 @@ import { buildRTD, RichTextDocument } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { type HareScriptRTD } from "@webhare/services/src/richdocument";
 import * as test from "@webhare/test-backend";
-import { beginWork, rollbackWork } from "@webhare/whdb";
+import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
+import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const hs = await doc.exportAsHareScriptRTD();
@@ -13,8 +14,14 @@ async function verifySimpleRoundTrip(doc: RichTextDocument) {
   return hs;
 }
 
+const roundTripTests = new Array<{
+  hs: HareScriptRTD;
+  doc: RichTextDocument;
+}>;
+
 async function verifyRoundTrip(doc: RichTextDocument) {
   const hs = await verifySimpleRoundTrip(doc);
+  roundTripTests.push({ hs, doc });
 
   //Test roundtrip through WHFS
   await beginWork();
@@ -216,8 +223,47 @@ async function testRTDCreation() {
   // test.eq(`<html><body><h2 class="heading2">Intro</h2><p class="normal">Hello, World!</p></body></html>`, await richdoc.__getRawHTML());
 }
 
+async function testWRDRoundTrips() {
+  console.log("now testing wrd roundtrips.."); //we delayed it so other tests can fail faster as createWRDTestSchema is (still?) slow
+  await createWRDTestSchema();
+  await beginWork();
+
+  const wrdschema = await getWRDSchema();
+  const testuser = await wrdschema.insert("wrdPerson", { wrdContactEmail: "test_rtd@beta.webhare.net" });
+
+  const hsWRDSchema = await loadlib("mod::wrd/lib/api.whlib").openWRDSchema(wrdschema.tag);
+  const hsWRDPersonType = await hsWRDSchema.getType("WRD_PERSON");
+  await commitWork();
+
+  for (const { hs, doc } of roundTripTests) {
+    //run in works to ensure constraint validation
+    await runInWork(async () => {
+      await wrdschema.update("wrdPerson", testuser, { richie: doc });
+      const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
+      test.eq(doc.blocks, richie.blocks);
+    });
+
+    await runInWork(async () => {
+      //Test roundtrip through HareScript WRD UpdateEntity
+      await hsWRDPersonType.UpdateEntity(testuser, { richie: hs });
+      const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
+      test.eq(doc.blocks, richie.blocks);
+    });
+
+    await runInWork(async () => {
+      //Test roundtrip through HareScript WRD GetEntityFields
+      //FIXME this should also set whfsSettingId and whfsFileId again on instances?
+      await wrdschema.update("wrdPerson", testuser, { richie: doc });
+      const { richie } = await hsWRDPersonType.getEntityFields(testuser, ["richie"]);
+      const richieDoc = await buildRTDFromHSStructure(richie);
+      test.eq(doc.blocks, richieDoc.blocks);
+    });
+  }
+}
+
 test.runTests(
   [
     testBuilder,
-    testRTDCreation
+    testRTDCreation,
+    testWRDRoundTrips
   ]);
