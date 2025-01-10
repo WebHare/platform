@@ -805,6 +805,9 @@
       <text tid="title">Type</text>
       <text tid="type">Type id</text>
     </textgroup>
+    <textgroup gid="upload">   <!-- filemgrdialogs.upload -->
+      <text tid="no_access">U mag hier geen bestanden uploaden</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="filetypes">   <!-- filetypes -->
     <text tid="archive">Archief</text>
