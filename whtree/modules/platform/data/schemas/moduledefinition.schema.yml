@@ -110,6 +110,14 @@ $defs:
           ifWebHare:
             description: "Restrict service to specific installations or versions"
             $ref: "#/$defs/IfWebHare"
+          minRunTime:
+            description: "Minimum amount of time the service must have been running before being considered stable and not require a throttle during restart. Defaults to 60_000 (1 minute)"
+            type: integer
+            minimum: 0
+          maxThrottleMsecs:
+            description: "Maximum time to throttle the service restart if it exits unexpectedly. Defaults to 60_000 (1 minute)"
+            type: integer
+            minimum: 0
         required:
           - script
           - run

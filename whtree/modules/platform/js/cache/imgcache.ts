@@ -1,7 +1,9 @@
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
-import { BackendServiceConnection } from "@webhare/services";
+import { BackendServiceConnection, runBackendService } from "@webhare/services";
+import type { WebHareService } from "@webhare/services/src/backendservicerunner";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
 import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -163,20 +165,41 @@ export async function __generateImageForCacheInternal(request: HSImgCacheRequest
   await storeDiskFile(request.path, result, { overwrite: true });
 }
 
+let scheduledShutdown = false, service: WebHareService | undefined;
+const restartInterval = 15 * 60 * 1000; //restart every 15 minutes. when lowering this during tests, wait at least a second as it's important that we're alive long enough that unifiedcachehost.whlib's Connect - Sleep - Connect can't wind up in a second already shutting down imgcache
+
 class UnifiedCacheServer extends BackendServiceConnection {
   async generateImageForCache(request: HSImgCacheRequest): Promise<void> {
-    if (!debugFlags["imgcache-noworkers"]) {
-      return workerPool.runInWorker((worker) => {
-        return worker.callRemote(`@mod-platform/js/cache/imgcache.ts#__generateImageForCacheInternal`, request);
-      });
-    } else {
-      return __generateImageForCacheInternal(request);
+    await ((async () => {
+      if (!debugFlags["imgcache-noworkers"]) {
+        return workerPool.runInWorker((worker) => {
+          return worker.callRemote(`@mod-platform/js/cache/imgcache.ts#__generateImageForCacheInternal`, request);
+        });
+      } else {
+        return __generateImageForCacheInternal(request);
+      }
+    })());
+
+    if (!scheduledShutdown && service) {
+      setTimeout(() => {
+        service!.close(); //close is sync, but the actual IPC to whmanager cannot be, so wait manually:
+        void bridge.ensureDataSent().then(() => {
+          console.log("Restarting imgcache");
+          process.exit(0);
+        });
+      }, restartInterval);
+      scheduledShutdown = true;
     }
+    return;
   }
 }
 
 export async function getUnifiedCacheServer(): Promise<UnifiedCacheServer> {
   return new UnifiedCacheServer;
+}
+
+export async function runUnifiedCacheService(): Promise<void> {
+  service = await runBackendService("platform:unifiedcache", getUnifiedCacheServer);
 }
 
 export type { UnifiedCacheServer };

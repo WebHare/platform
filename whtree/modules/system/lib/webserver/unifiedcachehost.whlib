@@ -119,12 +119,22 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
       //If we get here, the url was validated and the item was not rejected
       IF(data.datatype = 1 AND data.item.resizemethod.format IN ["image/webp","image/avif"])
       {
-        __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(
-          CELL[ ...dbdata
+        RECORD req := CELL[ ...dbdata
               , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
               , data.item
               , path
-              ]);
+              ];
+        TRY {
+          __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
+        } CATCH(OBJECT e) {
+          TRY {
+            __OpenSynchronousWebHareService("platform:unifiedcache")->generateImageForCache(req);
+            LogDebug("system:unifiedcache", [ retrysuccess := TRUE, exc1 := e->what ]);
+          } CATCH(OBJECT f) {
+            LogDebug("system:unifiedcache", [ retrysuccess := FALSE, exc1 := e->what, exc2 := f->what ]);
+            THROW f;
+          }
+        }
       }
       ELSE
       {
