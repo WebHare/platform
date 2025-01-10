@@ -1,6 +1,8 @@
-import { encodeString, generateRandomId, omit, throwError } from "@webhare/std";
+import { encodeString, generateRandomId, throwError } from "@webhare/std";
 import { WebHareBlob } from "./webhareblob";
 import { describeWHFSType } from "@webhare/whfs";
+import type { WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 
 /** Paragraph types supported by us */
 export const rtdParagraphTypes: string[] = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
@@ -24,32 +26,23 @@ export type RTDParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 type RTDBaseBlock<Build extends boolean> = {
   [key in (Build extends true ? RTDBuildParagraphType : RTDParagraphType)]?: RTDBaseBlockItems<Build> | (Build extends true ? string : never);
-} | { widget: RTDBaseWidget<Build> };
-
-/** A rtd widget is a WHFS Instance with additional type and instanceid field. These are 'whfs' prefixed as that prefix is reserved */
-type RTDBaseWidget<Build extends boolean> = {
-  whfsType: string;
-  whfsInstanceId?: string;
-  [key: string]: unknown;
-} & (Build extends true ? object : { whfsInstanceId: string });
+} | { widget: Readonly<WidgetInterface> };
 
 /** The contents of text blocks */
-type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem<Build> | (Build extends true ? string : never)>;;
+type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)>;;
 
-type RTDBaseBlockItem<Build extends boolean> = ({ text: string } | { widget: RTDBaseWidget<Build> }) & {
+type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> }) & {
   [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
 };
 
 export type RTDBlock = RTDBaseBlock<false>;
-export type RTDBlockItem = RTDBaseBlockItem<false>;
+export type RTDBlockItem = RTDBaseBlockItem;
 export type RTDBlockItems = RTDBlockItem[];
-export type RTDWidget = RTDBaseWidget<false>;
 
 export type RTDBuildParagraphType = "h1.heading1" | "h2.heading2" | "h3.heading3" | "h4.heading4" | "h5.heading5" | "h6.heading6" | "p.normal" | typeof rtdParagraphTypes[number] | RTDParagraphType;
 export type RTDBuildBlock = RTDBaseBlock<true>;
-export type RTDBuildBlockItem = RTDBaseBlockItem<true>;
+export type RTDBuildBlockItem = RTDBaseBlockItem;
 export type RTDBuildBlockItems = RTDBuildBlockItem[];
-export type RTDBuildWidget = RTDBaseWidget<true>;
 
 
 export type HareScriptRTD = {
@@ -79,12 +72,32 @@ export type HareScriptRTD = {
   }>;
 };
 
+class Widget {
+  #typeInfo: WHFSTypeInfo;
+  #data: Record<string, unknown>;
+
+  constructor(typeinfo: WHFSTypeInfo, data: Record<string, unknown>) {
+    this.#typeInfo = typeinfo;
+    this.#data = data;
+  }
+
+  get whfsType() {
+    return this.#typeInfo.namespace;
+  }
+
+  get data() {
+    return this.#data;
+  }
+}
+
+///build separate type as Widget isn't currently constructable. The 'export type' trick won't work with private members
+type WidgetInterface = Pick<Widget, "whfsType" | "data">;
 
 export class RichTextDocument {
   #blocks = new Array<RTDBlock>;
-  #instances = new Map<string, RTDWidget>;
+  #instanceIds = new WeakMap<Readonly<Widget>, string>;
 
-  get blocks() {
+  get blocks(): RecursiveReadonly<RTDBlock[]> {
     return this.#blocks;
   }
 
@@ -96,38 +109,38 @@ export class RichTextDocument {
     return this.#blocks.length === 0;
   }
 
-  //TODO if this becomes public, add proper option arg. and remember that textasblob only affects subrichdocs, not ourselves
-  async #buildWidget(source: RTDBuildWidget): Promise<RTDWidget> {
-    const typeinfo = await describeWHFSType(source.whfsType);
-    if (typeinfo.metaType !== "widgetType") //TODO have describeWHFSType learn about widgetType - it can already enforce fileType/folderType selection
-      throw new Error(`Type ${source.whfsType} is not a widget type`); //without this check we'd just be buildWHFSInstance - and maybe we should be?
+  // //TODO if this becomes public, add proper option arg. and remember that textasblob only affects subrichdocs, not ourselves
+  // async #buildWidget(source: RTDBuildWidget): Promise<RTDWidget> {
+  //   const typeinfo = await describeWHFSType(source.whfsType);
+  //   if (typeinfo.metaType !== "widgetType") //TODO have describeWHFSType learn about widgetType - it can already enforce fileType/folderType selection
+  //     throw new Error(`Type ${source.whfsType} is not a widget type`); //without this check we'd just be buildWHFSInstance - and maybe we should be?
 
-    const widgetvalue: RTDWidget = {
-      whfsType: typeinfo.namespace,
-      whfsInstanceId: source.whfsInstanceId || generateRandomId()
-    };
+  //   const widgetvalue: RTDWidget = {
+  //     whfsType: typeinfo.namespace,
+  //     whfsInstanceId: source.whfsInstanceId || generateRandomId()
+  //   };
 
-    for (const [key, value] of Object.entries(source)) {
-      if (key.startsWith('whfs'))
-        continue;
+  //   for (const [key, value] of Object.entries(source)) {
+  //     if (key.startsWith('whfs'))
+  //       continue;
 
-      const matchMember = typeinfo.members.find((m) => m.name === key);
-      if (!matchMember)
-        throw new Error(`Member '${key}' not found in ${source.whfsType}`);
+  //     const matchMember = typeinfo.members.find((m) => m.name === key);
+  //     if (!matchMember)
+  //       throw new Error(`Member '${key}' not found in ${source.whfsType}`);
 
-      //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-      // if (matchMember.type === 'richDocument')
-      //   widgetvalue[key] = await buildRTD(value as RTDBlock[]);
-      // else
-      widgetvalue[key] = value;
-    }
+  //     //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
+  //     // if (matchMember.type === 'richDocument')
+  //     //   widgetvalue[key] = await buildRTD(value as RTDBlock[]);
+  //     // else
+  //     widgetvalue[key] = value;
+  //   }
 
-    if (this.#instances.get(widgetvalue.whfsInstanceId))
-      throw new Error(`Duplicate whfsInstanceId ${widgetvalue.inswhfsInstanceIdtanceId}`);
+  //   if (this.#instances.get(widgetvalue.whfsInstanceId))
+  //     throw new Error(`Duplicate whfsInstanceId ${widgetvalue.inswhfsInstanceIdtanceId}`);
 
-    this.#instances.set(widgetvalue.whfsInstanceId, widgetvalue);
-    return widgetvalue;
-  }
+  //   this.#instances.set(widgetvalue.whfsInstanceId, widgetvalue);
+  //   return widgetvalue;
+  // }
 
   async #buildBlockItems(blockitems: RTDBuildBlockItems | string): Promise<RTDBlockItems> {
     if (typeof blockitems === 'string')
@@ -140,11 +153,11 @@ export class RichTextDocument {
         continue;
       }
 
-      if ('widget' in item) {
-        outitems.push({ ...item, widget: await this.#buildWidget(item.widget) });
-      } else {
-        outitems.push(item);
-      }
+      // if ('widget' in item) {
+      //   outitems.push({ ...item, widget: await this.#buildWidget(item.widget) });
+      // } else {
+      outitems.push(item);
+      // }
     }
     return outitems;
   }
@@ -161,8 +174,8 @@ export class RichTextDocument {
       const key: string = entries[0][0];
       const data = entries[0][1];
       if (key === 'widget') {
-        const subdoc = await this.#buildWidget(data as RTDBuildWidget);
-        this.blocks.push({ widget: subdoc });
+        // const subdoc = await this.#buildWidget(data as RTDBuildWidget);
+        this.#blocks.push({ widget: data });
         // rdoc.htmltext += subdoc.htmltext;
         // rdoc.instances.push(...subdoc.instances);
         continue;
@@ -179,7 +192,7 @@ export class RichTextDocument {
       if (!useclass.match(/^[a-z0-9]+$/))
         throw new Error(`Invalid class name '${className}'`);
 
-      this.blocks.push(({ [`${tag}.${useclass}`]: await this.#buildBlockItems(data!) }));
+      this.#blocks.push(({ [`${tag}.${useclass}`]: await this.#buildBlockItems(data!) }));
     }
     //   rdoc.htmltext += `<${tag} class="${encodeString(className || defaultClass[tag], 'attribute')}">`;
     //   addToDoc(rdoc, await encodeContent(data, textasblob));
@@ -194,30 +207,35 @@ export class RichTextDocument {
     const instances: HareScriptRTD["instances"] = [];
     const embedded: HareScriptRTD["embedded"] = [];
     const links: HareScriptRTD["links"] = [];
+    const instancemapping = this.#instanceIds;
 
-    async function buildWidget(widget: RTDWidget, block: boolean) {
+    async function exportWidgetForHS(widget: Readonly<Widget>, block: boolean) {
       const tag = block ? 'div' : 'span';
       const data: Record<string, unknown> & { whfstype: string } = {
         whfstype: widget.whfsType,
-        ...omit(widget, ["whfsType", "whfsInstanceId"])
+        ...widget.data
       };
+
       //Encode embedded RTDs
       for (const [key, value] of Object.entries(data)) {
         if (value instanceof RichTextDocument)
           data[key] = await value.exportAsHareScriptRTD();
       }
 
-      instances.push({
-        data,
-        instanceid: widget.whfsInstanceId
-      });
-      return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(widget.whfsInstanceId, 'attribute')}"></${tag}>`;
+      // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
+      const instanceid = instancemapping.get(widget) || generateRandomId();
+
+      if (instances.find((i) => i.instanceid === instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
+        throw new Error(`internal erro0- duplicate instanceid ${instanceid}`);
+
+      instances.push({ data, instanceid });
+      return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
     }
 
-    async function buildBlockItems(items: RTDBlockItems) {
+    async function buildBlockItems(items: Readonly<RTDBlockItems>) {
       let output = '';
       for (const item of items) {
-        let part: string = 'widget' in item ? await buildWidget(item.widget, false) : encodeString(item.text, 'html');
+        let part: string = 'widget' in item ? await exportWidgetForHS(item.widget, false) : encodeString(item.text, 'html');
         //FIXME put in standard RTD render ordering
         for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
           if (item[tag])
@@ -231,7 +249,7 @@ export class RichTextDocument {
     let htmltext = '<html><body>';
     for (const block of this.blocks) {
       if ('widget' in block) {
-        htmltext += await buildWidget(block.widget, true);
+        htmltext += await exportWidgetForHS(block.widget, true);
         continue;
       }
 
@@ -250,6 +268,11 @@ export class RichTextDocument {
       return '';
     return await (await this.exportAsHareScriptRTD()).htmltext.text();
   }
+
+  __hintInstanceId(widget: WidgetInterface, instanceId: string) {
+    if (this.#instanceIds.get(widget))
+      this.#instanceIds.set(widget, instanceId);
+  }
 }
 
 export async function buildRTD(source: RTDBuildBlock[]): Promise<RichTextDocument> {
@@ -258,3 +281,25 @@ export async function buildRTD(source: RTDBuildBlock[]): Promise<RichTextDocumen
   await outdoc.addBlocks(source);
   return outdoc;
 }
+
+export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
+  const typeinfo = await describeWHFSType(ns);
+  if (typeinfo.metaType !== "widgetType") //TODO have describeWHFSType learn about widgetType - it can already enforce fileType/folderType selection
+    throw new Error(`Type ${ns} is not a widget type`); //without this check we'd just be buildWHFSInstance - and maybe we should be?
+
+  const widgetValue: Record<string, unknown> = {};
+  if (data)
+    for (const [key, value] of Object.entries(data)) {
+      const matchMember = typeinfo.members.find((m) => m.name === key);
+      if (!matchMember)
+        throw new Error(`Member '${key}' not found in ${ns}`);
+
+      //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
+      widgetValue[key] = value;
+    }
+
+
+  return new Widget(typeinfo, widgetValue);
+}
+
+export type { WidgetInterface as Widget };

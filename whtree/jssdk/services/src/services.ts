@@ -32,7 +32,7 @@ export { applyConfiguration, createAppliedPromise } from "./applyconfig";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 
-export { buildRTD, RichTextDocument } from "./richdocument";
+export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
 

@@ -1,4 +1,4 @@
-import { buildRTD, RichTextDocument } from "@webhare/services";
+import { buildRTD, buildWidget, RichTextDocument, type Widget } from "@webhare/services";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { type HareScriptRTD } from "@webhare/services/src/richdocument";
 import * as test from "@webhare/test-backend";
@@ -18,6 +18,15 @@ const roundTripTests = new Array<{
   hs: HareScriptRTD;
   doc: RichTextDocument;
 }>;
+
+//buid a Widget tester
+function expectWidget(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}): (widget: Pick<Widget, "whfsType" | "data">) => boolean {
+  return ((widget: Widget) => {
+    test.eq(expectType, widget.whfsType);
+    test[partial ? 'eqPartial' : 'eq'](expectData || {}, widget.data);
+    return true;
+  }) as ReturnType<typeof expectWidget>;
+}
 
 async function verifyRoundTrip(doc: RichTextDocument) {
   const hs = await verifySimpleRoundTrip(doc);
@@ -115,13 +124,10 @@ async function testBuilder() {
           ", ",
           { text: "Underline", underline: true },
           ", ",
-          { widget: { whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", fieldname: "bu_field" }, bold: true, underline: true }
+          { widget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        "widget": {
-          whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
-          html: "<b>BOLD</b> HTML"
-        }
+        "widget": await buildWidget("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
       }
     ]);
 
@@ -134,31 +140,22 @@ async function testBuilder() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { widget: { whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", fieldname: "bu_field", whfsInstanceId: /^.+$/ }, bold: true, underline: true }
+          { widget: expectWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        "widget": {
-          whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
-          whfsInstanceId: /^.+$/,
-          html: "<b>BOLD</b> HTML",
-        }
+        widget: expectWidget("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
       }
     ], doc.blocks);
 
     //this assert is mostly here to comfort typescript
     test.assert(doc.blocks[0] && "p.normal" in doc.blocks[0] && 'widget' in doc.blocks[1]);
-
-    const firstpara = doc.blocks[0]["p.normal"];
-    const secondwidget = doc.blocks[1].widget;
-    test.assert(firstpara && 'widget' in firstpara[6]);
-
-    test.eq(`<html><body><p class="normal"><b>Bold</b>, <i>Italic</i>, <u>Underline</u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid="${firstpara[6].widget.whfsInstanceId}"></span></u></b></p><div class="wh-rtd-embeddedobject" data-instanceid="${secondwidget.whfsInstanceId}"></div></body></html>`, await doc.__getRawHTML());
+    test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
 
   //Verify that we catch broken whfs types
-  await test.throws(/No such type/, () => buildRTD([{ "widget": { whfsType: "http://www.webhare.net/nosuchtype" } }]));
-  await test.throws(/Member 'blah' not found/, () => buildRTD([{ "widget": { whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", blah: "bu_field" } }]));
+  await test.throws(/No such type/, () => buildWidget("http://www.webhare.net/nosuchtype"));
+  await test.throws(/Member 'blah' not found/, () => buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { blah: "bu_field" }));
 
 
   {  //Build a RTD containing a RTD
@@ -166,25 +163,22 @@ async function testBuilder() {
     function verifyWidget(d: RichTextDocument) {
       test.eqPartial([
         {
-          "widget": {
-            whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-          }
+          "widget": expectWidget("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {}, { partial: true })
         }
       ], d.blocks);
 
       test.assert('widget' in d.blocks[0]);
-      const widget = d.blocks[0].widget as unknown as { rtdleft: RichTextDocument | null; rtdright: RichTextDocument | null };
+      const widget = d.blocks[0].widget.data as { rtdleft: RichTextDocument | null; rtdright: RichTextDocument | null };
       test.eq([{ "p.normal": [{ text: "Left column" }] }], widget.rtdleft?.blocks);
       test.eq(null, widget.rtdright);
     }
 
     const doc = await buildRTD([
       {
-        "widget": {
-          whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+        "widget": await buildWidget("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {
           rtdleft: await buildRTD([{ "p": ["Left column"] }]),
           rtdright: null
-        }
+        })
       }
     ]);
 
