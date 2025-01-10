@@ -122,7 +122,13 @@ class HTMLFormFieldHandler implements FormField {
 class RadioFormFieldHandler implements FormField {
   valuetype?: ValueType;
   constructor(private form: FormParent, private readonly name: string, private readonly rnodes: HTMLInputElement[]) {
-    this.valuetype = (rnodes[0].closest<HTMLElement>(".wh-form__fieldgroup") ?? throwError("RadioFormFieldHandler: Missing group")).dataset.whFormValueType as undefined | ValueType;
+    const group = rnodes[0].closest<HTMLElement>(".wh-form__fieldgroup");
+    if (!group) { //value metadata is stored at the fieldgroup level, so reject these
+      console.error("Missing group for radiofield ", group);
+      console.error('if a radio field does not want to participate in the form, it should set attribute form=""');
+    } else {
+      this.valuetype = group.dataset.whFormValueType as undefined | ValueType;
+    }
   }
   getValue(): unknown {
     const node = this.rnodes.find(_ => _.checked);

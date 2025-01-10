@@ -41,7 +41,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->loggedinexpires := DEFAULT DATETIME;
     this->authenticatewebsession := TRUE;
 
-    this->maxidle_minutes := 15;
     this->cookiename := "webharelogin"; //ADDME Make webhare webserver optimize access checking for other cookie names
     this->samesitecookie := "lax";
   }
@@ -780,9 +779,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   INTEGER loggedinentity;
   DATETIME loggedinexpires;
 
-  /// Maximum idle time used for our session. Note that people will simply reestablish a session if they still have a login cookie.
-  PUBLIC INTEGER maxidle_minutes;
-
   /// Cache current cookie values. Used specially to implement logout-relogin properly
   RECORD cookiecache;
 
@@ -1122,9 +1118,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     {
       this->sessionid := CreateWebSession("wrd:authsession"
                                          , this->sessiondata
-                                         , this->maxidle_minutes
-                                         , /*limit to server: */ FALSE
-                                         , sessionid);
+                                         , CELL[ sessionid ]);
 
       this->SetLoginCookie(this->sessionid || " " || trylogin.logincookie, trylogin.logincookielifetime);
 

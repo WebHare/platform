@@ -64,14 +64,30 @@ PUBLIC OBJECTTYPE PaymentProviders EXTEND TolliumScreenBase
     IF(newmethod!=0)
       this->providers->SetValueIfValid(newmethod);
   }
+  MACRO DoChangeType()
+  {
+    IF(this->RunSimpleScreen("verify", this->GetTid(".verifychangetype")) != "yes")
+      RETURN;
+
+    STRING curtype := this->providers->selection.psptype;
+    STRING psptype := this->Runscreen("#selectpaymentprovider", CELL[ type := curtype ]);
+    IF(psptype != "" AND psptype != curtype)
+    {
+      this->RunScreen("#paymentprovider", [ paymentapi := this->paymentapi
+                                          , id := this->providers->value
+                                          , type := psptype
+                                          , options := this->options
+                                          ]);
+
+    }
+  }
   MACRO DoEdit()
   {
-    OBJECT scr := this->LoadScreen("#paymentprovider", [ paymentapi := this->paymentapi
-                                                       , id := this->providers->value
-                                                       , type := this->providers->selection.psptype
-                                                       , options := this->options
-                                                       ]);
-    scr->RunModal();
+    this->RunScreen("#paymentprovider", [ paymentapi := this->paymentapi
+                                        , id := this->providers->value
+                                        , type := this->providers->selection.psptype
+                                        , options := this->options
+                                        ]);
   }
   MACRO DoDelete()
   {
@@ -93,6 +109,8 @@ PUBLIC OBJECTTYPE SelectPaymentprovider EXTEND TolliumScreenBase
                                    , title := GetTid(title)
                                 FROM GetAvailablePSPs()
                             ORDER BY ToUppercase(title);
+    IF(CellExists(data,'type'))
+      ^methods->SetValueIfValid(data.type);
   }
 
   PUBLIC STRING FUNCTION Submit()
@@ -141,7 +159,8 @@ PUBLIC OBJECTTYPE PaymentProvider EXTEND TolliumScreenBase
     IF(data.id!=0 AND ObjectExists(this->paymentextension))
     {
       RECORD paymentprovider := this->provider->wrdentity->GetField(this->paymentapi->providerattribute);
-      paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
+      IF(RecordExists(paymentprovider))
+        paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
       DELETE CELL __discard FROM paymentprovider;
       this->paymentextension->SetPaymentProviderValue(paymentprovider);
     }
