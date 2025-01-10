@@ -45,13 +45,7 @@ LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)
 {
   RECORD ARRAY accounts;
-  IF(uselist < 0)
-  {
-    RECORD rule := SELECT * FROM DownloadWebserverConfig().rules WHERE id = uselist;
-    IF(RecordExists(rule))
-      accounts := rule.data.accounts;
-  }
-  ELSE
+  IF(uselist > 0)
   {
     accounts := SELECT username, password := userpassword
                   FROM system_internal.access_externalusers

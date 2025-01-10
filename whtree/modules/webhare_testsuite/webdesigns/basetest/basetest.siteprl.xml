@@ -1006,10 +1006,6 @@
       <webrule path="/tmp/subsub2/" match="initial">
         <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
       </webrule>
-      <webrule path="/tmp/secret/" match="initial" requirehttpauth="true">
-        <account password="protected" username="service" />
-        <tryfolder path="siteoutput::webhare_testsuite.testsite/tmp/sub2" />
-      </webrule>
 
       <!-- accessrule tests (authenticating against a different primary wrdauth) -->
       <webrule path="/portal2/"
@@ -1027,7 +1023,6 @@
                authmode="ipandaccess"
                authscript="lib/webhare-auth-staticlogin.whscr"
                requirewhaccount="true">
-        <account password="secret" username="external" />
       </webrule>
       <webrule path="/testpages/wrdauthtest-router-protected/accessruleprotected"
                match="initial"

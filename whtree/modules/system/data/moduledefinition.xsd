@@ -1092,12 +1092,6 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-      <xs:element name="account" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="username" />
-          <xs:attribute name="password" />
-        </xs:complexType>
-      </xs:element>
       <xs:sequence minOccurs="0" maxOccurs="unbounded">
         <xs:choice>
           <xs:element name="tryfolder">
@@ -1183,13 +1177,6 @@
     <xs:attribute name="allowips">
       <xs:annotation>
         <xs:documentation>List of IP masks to allow even if they are on the deny list. Specify 'consilio:fetcher' to specifically whitelist consilio</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="requirehttpauth" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          Require HTTP authentication for this URL. The specific accounts can be configured in &lt;account&gt; nodes.
-        </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="requirewhaccount" type="xs:boolean" />

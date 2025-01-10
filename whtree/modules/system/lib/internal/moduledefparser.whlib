@@ -193,8 +193,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   rule.fixcase := ParseXSBoolean(rulenode->GetAttribute("searchallcases"));
   rule.wrdschema := rulenode->GetAttribute("wrdschema");
   rule.checkandvm := ParseChecks("", rulenode, FALSE);
-  IF(ParseXSBoolean(rulenode->GetAttribute("requirehttpauth")))
-    rule.extauthscript := "mod::system/scripts/internal/auth/requirehttpauth.whscr";
   IF(rulenode->GetAttribute("authmode") = "iporaccess")
     rule.authrequired := FALSE;
 
@@ -331,14 +329,6 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   IF(requirevarycookie)//ADDME don't add if already manually added above
   {
     INSERT [ name := "Vary", value := "Cookie" ] INTO rule.addheaders AT END;
-  }
-
-  OBJECT ARRAY accounts := rulenode->ListChildren(whconstant_xmlns_moduledef, "account");
-  IF(Length(accounts) > 0)
-  {
-    INSERT CELL authlist := TRUE INTO rule; //pre 4.32 we didn't set this, but webhare-auth.whscr won't do anything then
-    FOREVERY(OBJECT node FROM accounts)
-      INSERT [ username := node->GetAttribute("username"), password := node->GetAttribute("password") ] INTO rule.accounts AT END;
   }
 
   rule.cachecontrol := rulenode->GetAttribute("cachecontrol");
