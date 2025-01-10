@@ -11,12 +11,13 @@ import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/h
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
-import { uploadBlob } from "@webhare/whdb/src/whdb";
+import { uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 import type { ValueQueryChecker } from "./checker";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
+import { getRTDFromWHFS, storeRTDinWHFS } from "@webhare/wrd/src/wrd-whfs";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -29,13 +30,16 @@ type AddToQueryResponse<O> = {
 /// Returns `null` if Required might be false
 type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
 
+/** Allowed values for wrd.entity_settings_whfslink.linktype */
+export const LinkTypes = { RTD: 0, Instance: 1, FSObject: 2 } as const;
+
 /// Single settings record
 export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
   id?: number;
   attribute: number;
   sub?: EncodedSetting[];
   ///If we also need to encode a link in the WHFS/WRD link table
-  linktype?: number;
+  linktype?: typeof LinkTypes[keyof typeof LinkTypes];
   link?: number;
 };
 
@@ -1989,10 +1993,12 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
 
   isSet(value: RichTextDocument | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): null | Promise<RichTextDocument> {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): null | Promise<RichTextDocument | null> {
     const val = entity_settings[settings_start];
-    if (!val.blobdata)
-      return null;
+    if (!val.blobdata) {
+      const matchlink = links.find(_ => _.id === val.id);
+      return matchlink ? getRTDFromWHFS(matchlink.fsobject) : null;
+    }
 
     return buildRTDFromHSStructure({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
   }
@@ -2013,10 +2019,11 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
 
         const hsRTD = await value.exportAsHareScriptRTD();
         //do we need to use WHFS to store this document ?
-        const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0;
+        const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0; //TODO what about embedded images ? can they have a source object?
         if (inWHFS) {
-          throw new Error(`TODO: StoreRTDInWHFS(this->wrdschema->id, val, whfsmapper)`);
-          const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id };
+          //TODO avoid exportAsHareScriptRTD - we need a requiresWHFS or refersWHFS() in a RichDocument
+          const whfsId = await storeRTDinWHFS(this.attr.schemaId, value);
+          const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id, linktype: LinkTypes.RTD, link: whfsId };
           return [setting];
         }
 

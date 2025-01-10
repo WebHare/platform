@@ -22,8 +22,9 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
   whfsLinkAttrs: Set<number>;
   uniqueAttrs: Set<number>;
   emailAttrs: Set<number>;
+  schemaId: number;
 };
-export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeTypeId | WRDAttributeTypeId; fullTag: string };
+export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeTypeId | WRDAttributeTypeId; fullTag: string; schemaId: number };
 export type EntitySettingsRec = Pick<Selectable<PlatformDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
 export type EntityRec = Selectable<PlatformDB, "wrd.entities">;
 export type EntityPartialRec = Partial<EntityRec>;
@@ -47,6 +48,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     required: false,
     ordered: false,
     type: type.id,
+    schemaId: type.schemaId,
     allowedvalues: "",
     checklinks: false,
     id: 0,
@@ -99,13 +101,14 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
     throw new Error(`No such schema ${JSON.stringify(tag)}`);
 
   //Get types, prepare their objects (TODO proper classes for these typeobjects containing attrRootAttrMap etc)
-  const types = (await db<PlatformDB>()
+  const types: TypeRec[] = (await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(selectTypeColumns)
     .where("wrd_schema", "=", schema.id)
     .orderBy("id")
     .execute()).map(type => ({
       ...type,
+      schemaId: schema.id,
       tag: tagToJS(type.tag),
       parentTypeIds: [type.id],
       childTypeIds: [type.id],
@@ -121,7 +124,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
   const typeids: number[] = types.map(t => t.id);
 
   //Gathers *all* attributes for all types
-  const attrs = (await db<PlatformDB>()
+  const attrs: AttrRec[] = (await db<PlatformDB>()
     .selectFrom("wrd.attrs")
     .select(selectAttrColumns)
     .where("type", "in", typeids)
@@ -130,6 +133,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       ...attr,
       isreadonly: false,
       tag: tagToJS(attr.tag),
+      schemaId: schema.id,
     })).map(attr => ({ ...attr, fullTag: attr.tag }));
 
   const typeTagMap = new Map(types.map(type => [type.tag, type]));
@@ -183,7 +187,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       }
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
-      if ([WRDAttributeTypeId.RichDocument, WRDAttributeTypeId.WHFSInstance, WRDAttributeTypeId.URL].includes(attr.attributetype) || attr.checklinks)
+      if ([WRDAttributeTypeId.RichDocument, WRDAttributeTypeId.WHFSInstance, WRDAttributeTypeId.URL].includes(attr.attributetype as number) || attr.checklinks)
         type.consilioLinkCheckAttrs.add(attr.id);
       if (attr.attributetype === WRDAttributeTypeId.WHFSRef)
         type.whfsLinkAttrs.add(attr.id);

@@ -1,5 +1,4 @@
-import { rtdParagraphTypes, type HareScriptRTD, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, type RTDBuildWidget, rtdTextStyles } from "@webhare/services/src/richdocument";
-import { omit } from "@webhare/std";
+import { rtdParagraphTypes, type HareScriptRTD, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget } from "@webhare/services/src/richdocument";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { DOMParser, Node, type Element } from "@xmldom/xmldom";
@@ -11,12 +10,13 @@ function isElement(node: Node): node is Element {
 }
 
 async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], data: Record<string, unknown>) {
-  const outdata = { ...data };
+  const outdata: Record<string, unknown> = {};
   for (const member of members) {
-    if (member.name in outdata) {
-      if (member.type === "richDocument" && outdata[member.name]) {
-        const hs = outdata[member.name] as HareScriptRTD;
-        outdata[member.name] = await buildRTDFromHSStructure(hs);
+    if (member.name in data) {
+      if (member.type === "richDocument" && data[member.name]) {
+        outdata[member.name] = await buildRTDFromHSStructure(data[member.name] as HareScriptRTD);
+      } else {
+        outdata[member.name] = data[member.name];
       }
     }
   }
@@ -30,7 +30,7 @@ class HSRTDImporter {
 
   }
 
-  async reconstructWidget(node: Element): Promise<RTDBuildWidget | null> {
+  async reconstructWidget(node: Element): Promise<Widget | null> {
     const matchinginstance = this.inrtd.instances.find(i => i.instanceid === node.getAttribute("data-instanceid"));
     if (!matchinginstance)
       return null;
@@ -39,13 +39,10 @@ class HSRTDImporter {
     if (!typeinfo)
       return null; //it must have existed, how can we otherwise have imported it ?
 
-    const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, omit(matchinginstance.data, ["whfstype"]));
-
-    return {
-      whfsType: matchinginstance.data.whfstype,
-      whfsInstanceId: matchinginstance.instanceid,
-      ...setdata
-    };
+    const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, matchinginstance.data);
+    const widget = await buildWidget(matchinginstance.data.whfstype, setdata);
+    this.outdoc.__hintInstanceId(widget, matchinginstance.instanceid);
+    return widget;
   }
 
   async processInlineWidget(node: Element, state: BlockItemStack, outlist: RTDBuildBlockItems) {

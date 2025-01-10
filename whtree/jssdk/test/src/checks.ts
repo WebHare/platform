@@ -19,12 +19,22 @@ type TestFunction<T> = (value: T) => boolean;
 /** Recursively apply `Partial<>` on records in a type but also allow Regexps and Functions to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-type RecursivePartialTestable<T> = T extends Array<infer U> ? Array<RecursivePartialTestable<U>> : T extends string ? T | `${T}` | RegExp | TestFunction<T> : T extends PrimitiveType ? T | TestFunction<T> : T extends object ? { [K in keyof T]?: RecursivePartialTestable<T[K]> } : T | TestFunction<T>;
+type RecursivePartialTestable<T> =
+  (T extends Array<infer U> ? Array<RecursivePartialTestable<U>> :
+    T extends string ? T | `${T}` | RegExp :
+    T extends PrimitiveType ? T :
+    T extends object ? { [K in keyof T]?: RecursivePartialTestable<T[K]> } :
+    T) | TestFunction<T>;
 
 /** Recursively allow Regexps to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-type RecursiveTestable<T> = T extends Array<infer U> ? Array<RecursiveTestable<U>> : T extends string ? T | `${T}` | RegExp | TestFunction<T> : T extends PrimitiveType ? T | TestFunction<T> : T extends object ? { [K in keyof T]: RecursiveTestable<T[K]> } : T | TestFunction<T>;
+type RecursiveTestable<T> =
+  (T extends Array<infer U> ? Array<RecursiveTestable<U>> :
+    T extends string ? T | `${T}` | RegExp :
+    T extends PrimitiveType ? T :
+    T extends object ? { [K in keyof T]: RecursiveTestable<T[K]> } :
+    T) | TestFunction<T>;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
