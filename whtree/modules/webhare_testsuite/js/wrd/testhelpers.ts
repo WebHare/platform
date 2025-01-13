@@ -19,9 +19,9 @@ export type CustomExtensions = {
     testPhone: WRDAttributeTypeId.Telephone;//", { title: "Phone attribute" });
     testDate: WRDAttributeTypeId.Date;//", { title: "Date attribute" });
     testPassword: WRDAttributeTypeId.Password;//", { title: "Password attribute" });
-    testMultiple_domain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultiple_domain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    testMultiple_domain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain2: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultipleDomain3: WRDAttributeTypeId.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
     testImage: WRDAttributeTypeId.Image;//", { title: "Image attribute" });
     testFile: WRDAttributeTypeId.File;//", { title: "File attribute" });
     testTime: WRDAttributeTypeId.Time;//", { title: "Time attribute" });
@@ -140,9 +140,9 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   /*const domain2_obj = */await schemaobj.createType("testDomain_2", { metaType: "domain", title: "Domain 2" });
   //TestEq(TRUE, ObjectExists(domain2_obj));
 
-  //domain2value1:= domain2_obj -> CreateEntity([wrdTag := "TEST_DOMAINVALUE_2_1", wrdTitle := "Domain value 2.1", wrd_guid := "wrd:00000000002010000002010000002010"]);
-  //domain2value2:= domain2_obj -> CreateEntity([wrdTag := "TEST_DOMAINVALUE_2_2", wrdTitle := "Domain value 2.2", wrd_guid := "wrd:00000000002020000002020000002020"]);
-  //domain2value3:= domain2_obj -> CreateEntity([wrdTag := "TEST_DOMAINVALUE_2_3", wrdTitle := "Domain value 2.3", wrd_guid := "wrd:00000000002030000002030000002030"]);
+  /*domain2value1:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1", wrdTitle: "Domain value 2.1", wrdGuid: "00000000-0020-1000-0002-010000002010" });
+  /*domain2value2:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2", wrdTitle: "Domain value 2.2", wrdGuid: "00000000-0020-2000-0002-020000002020" });
+  /*domain2value3:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_3", wrdTitle: "Domain value 2.3", wrdGuid: "00000000-0020-3000-0002-030000002030" });
 
   // Add attributes of every type to the Person type
   await persontype.createAttribute("testSingleDomain", { attributeType: "domain", title: "Single attribute", domain: "testDomain_1" });
