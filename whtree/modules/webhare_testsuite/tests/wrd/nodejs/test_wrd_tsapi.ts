@@ -613,7 +613,7 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, {
       testArray: [
         {
-          testArray2: [{ testInt2: 2 }]
+          testArray2: [{ testInt2: 2 }],
         }
       ]
     });
@@ -637,6 +637,7 @@ async function testNewAPI() {
         testMultiple: [],
         testSingle: null,
         testSingleOther: null,
+        testRTD: null
       }
     ];
 
@@ -650,6 +651,33 @@ async function testNewAPI() {
         c: expectArray
       }
     ], arrayselectres);
+
+    await schema.update("wrdPerson", newperson, {
+      testArray: [
+        {
+          testArray2: [{ testInt2: 2 }],
+          testRTD: await buildRTD([{ p: "test 2" }]),
+        },
+        {
+          testImage: goldfishImg,
+        }
+      ]
+    });
+
+    const fields = await schema.getFields("wrdPerson", newperson, ["testArray"]);
+    test.eqPartial({
+      testArray: [
+        {
+          testArray2: [{ testInt2: 2 }],
+          testRTD: (rtd: any) => rtd.blocks[0]["p.normal"][0].text === "test 2",
+          testImage: null,
+        },
+        {
+          testImage: (img: any) => img.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+          testRTD: null
+        }
+      ]
+    }, fields);
   }
 
   //test other attribute types

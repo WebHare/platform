@@ -40,6 +40,7 @@ export type CustomExtensions = {
         testSingleOther: WRDAttributeTypeId.Domain;
         testMultiple: WRDAttributeTypeId.DomainArray;
         testEmail: WRDAttributeTypeId.Email;
+        testRTD: WRDAttributeTypeId.RichDocument;
       };
     }>;
     testMoney: WRDAttributeTypeId.Money;//", { title: "Money attribute" });
@@ -210,6 +211,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testArray.testSingleOther", { attributeType: "domain", title: "Array domain aibute", domain: "testDomain_1" });
   await persontype.createAttribute("testArray.testMultiple", { attributeType: "domainArray", title: "Array multiple domain attribute", domain: "testDomain_1" });
   await persontype.createAttribute("testArray.testEmail", { attributeType: "email", title: "Array email attribute" });
+  await persontype.createAttribute("testArray.testRTD", { attributeType: "richDocument", title: "Array RTD attribute" });
 
   /*
   BLOB testimage_blob:= GetWebHareResource("mod::system/web/tests/goudvis.png");
