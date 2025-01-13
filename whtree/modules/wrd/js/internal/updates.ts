@@ -346,6 +346,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
   const updatedSettings = newsets.map(item => item.id);
   const linkCheckSettings = newsets.filter(item => linkCheckAttrs.has(item.attribute)).map(item => item.id);
   const deletedSettings = current.filter(rec => !rec.used).map(rec => rec.id);
+  const deletedAttrs = new Set(current.filter(rec => !rec.used).map(rec => rec.attribute));
   if (deletedSettings.length) {
     await db<PlatformDB>()
       .deleteFrom("wrd.entity_settings")
@@ -411,6 +412,7 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
     updatedSettings,
     deletedSettings,
     updatedAttrs,
+    deletedAttrs,
     linkCheckSettings,
   };
 }
@@ -898,8 +900,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
 
     const setsWithoutSub = omit(newSets.newSets, ['sub']);
     const updateres = await handleSettingsUpdates(cursettings, setsWithoutSub, typeRec.consilioLinkCheckAttrs, typeRec.whfsLinkAttrs, newSets.newLinks, options.whfsmapper);
-    if (isTemp)
-      return result; //Updates are done, no history for temporaries
 
     //        RECORD updateres:= HandleSettingsUpdates(this -> pvt_wrdschema -> id, cursettings, newSets.newSets, this -> __consiliolinkcheckattrs, this -> __whfslinkattrs, options.whfsmapper);
     //    checklinks_settingids:= updateres.linkchecksettings;
@@ -907,7 +907,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     appendToArray(deletedSettingIds, updateres.deletedSettings);
 
     const changed_attrs = new Set<string>;
-    for (const attrId of [...updateres.updatedAttrs, ...reusedAttributes]) {
+    for (const attrId of [...updateres.updatedAttrs, ...updateres.deletedAttrs, ...reusedAttributes]) {
       const rootAttr = typeRec.attrRootAttrMap.get(attrId);
       if (rootAttr)
         changed_attrs.add(rootAttr.tag);
@@ -921,8 +921,18 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     }
 
     if (!changed_attrs.size && !("modificationdate" in splitData.entity)) { // No changes - not even 'just' to modificationdate
-      return result; // Nothing to do, no history to generate
+      return result; // Nothing to do, no history to generate and no events to fire
     }
+
+    // schedule events and linkchecks
+    if (isNew)
+      wrdFinishHandler().entityCreated(schemadata.schema.id, typeRec.id, entityId);
+    else
+      wrdFinishHandler().entityUpdated(schemadata.schema.id, typeRec.id, entityId);
+    wrdFinishHandler().addLinkCheckedSettings(updateres.linkCheckSettings);
+
+    if (isTemp)
+      return result; //Updates are done, no history for temporaries
 
     if (!isNew && allow_unique_rawdata && "limitdate" in splitData.entity) {
       // recheck and materialize existing unique data
@@ -1049,12 +1059,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       }
     }
 
-    if (isNew)
-      wrdFinishHandler().entityCreated(schemadata.schema.id, typeRec.id, entityId);
-    else
-      wrdFinishHandler().entityUpdated(schemadata.schema.id, typeRec.id, entityId);
-
-    wrdFinishHandler().addLinkCheckedSettings(updateres.linkCheckSettings);
     //this -> domainvalues_cached := FALSE;
     return result;
   } finally {
