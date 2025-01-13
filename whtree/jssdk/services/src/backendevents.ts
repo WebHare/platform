@@ -48,9 +48,17 @@ class EventSubscription {
       this.callback([evt], this);
     }
   }
+
+  [Symbol.dispose]() {
+    if (this.listenerid) {
+      whbridge.off(this.listenerid);
+      this.listenerid = 0;
+      this.mask = null; //This also stops processing of any events that are still in the queue
+    }
+  }
 }
 
-export type BackendEventSubscription = Pick<EventSubscription, "setMasks">;
+export type BackendEventSubscription = Pick<EventSubscription, "setMasks" | typeof Symbol.dispose>;
 
 export async function subscribe(masks: BackendEventMasks, callback: BackendEventCallback): Promise<BackendEventSubscription> {
   const subscr = new EventSubscription(callback);

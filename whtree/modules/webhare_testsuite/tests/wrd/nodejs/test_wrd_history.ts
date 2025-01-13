@@ -41,7 +41,8 @@ async function testChanges() { //  tests
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
     testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
-    testImage: goldfishImg
+    testImage: goldfishImg,
+    testEnumarray: ["enumarray1" as const],
   };
 
   const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
@@ -259,8 +260,48 @@ async function testChanges() { //  tests
       }
     ], change3);
 
-    // const hsWRDScheam =
-    // */
+    // STORY: detect changes for deleted settings
+    {
+      await whdb.beginWork();
+      await wrdschema.update("wrdPerson", testPersonId, { testEnumarray: [] });
+      await whdb.commitWork();
+
+      test.eqPartial([
+        {
+          summaries: ['testEnumarray']
+        }
+      ], (await hsPersontype.ListChangesets(testPersonId)).slice(4));
+    }
+
+    // STORY: detect changes with setting reuse
+    {
+      const domain2value1 = await wrdschema.search("testDomain_2", "wrdTag", "TEST_DOMAINVALUE_2_1");
+      const domain2value2 = await wrdschema.search("testDomain_2", "wrdTag", "TEST_DOMAINVALUE_2_2");
+      if (!domain2value1 || !domain2value2) {
+        throw new Error("Domain values not found");
+      }
+
+      await whdb.beginWork();
+      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1, domain2value2], testMultipleDomain2: [domain2value1] });
+      await whdb.commitWork();
+      test.eqPartial([
+        {
+          summaries: ['testMultipleDomain,testMultipleDomain2']
+        }
+      ], (await hsPersontype.ListChangesets(testPersonId)).slice(5));
+
+      await whdb.beginWork();
+      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1], testMultipleDomain2: [domain2value1, domain2value2] });
+      await whdb.commitWork();
+      test.eqPartial([
+        {
+          summaries: ['testMultipleDomain,testMultipleDomain2']
+        },
+        {
+          summaries: ['testMultipleDomain,testMultipleDomain2']
+        }
+      ], (await hsPersontype.ListChangesets(testPersonId)).slice(5));
+    }
   }
 
   /*
