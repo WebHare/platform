@@ -169,6 +169,26 @@ create_container()
   CONTAINERS+=("$CONTAINERID")
 }
 
+print_syntax()
+{
+  # Note that we only document the options most likely to stay in the future
+  # A lot of undocumented options eg --twohares are only intended for specific platform CI tests
+  cat << HERE
+wh testdocker [options]
+
+Options:
+-m <module>             - Test the specified module
+--containername <name>  - Force this name for the CI container
+--nopull                - Do not pull the image (implicit with --webhareimage local)
+--webhareimage <image>  - Use this image. Image tags 'main/beta/stable' correspond to their release channels.
+                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh builddocker'
+--nocheckmodule         - Do not run checkmodule before the actual tests
+--sh                    - Open a shell inside the container after running the tests
+--podman                - Use podman instead of docker
+HERE
+}
+
+
 while true; do
   # Add option to the proper array for command line reconstruction
   if [[ $1 =~ ^- ]]; then
@@ -177,15 +197,11 @@ while true; do
     ORIGINALPARAMS+=("$1")
   fi
 
-  if [ "$1" == "--cpuset-cpus" ]; then
-    DOCKERARGS="$DOCKERARGS $1=$2"
-    shift
-    shift
-  elif [ "$1" == "--cpu" ]; then
-    DOCKERARGS="$DOCKERARGS --cpu-quota=${2}000"
-    shift
-    shift
-  elif [ "$1" == "--containername" ]; then
+  if [ "$1" == "-h" ] || [ "$1" == "--help" ]; then
+    print_syntax
+    exit 0
+  fi
+  if [ "$1" == "--containername" ]; then
     FIXEDCONTAINERNAME="$2"
     DOCKERARGS="$DOCKERARGS --name=${FIXEDCONTAINERNAME}"
     shift
@@ -234,7 +250,7 @@ while true; do
     SKIPS="$SKIPS $1"
     ORIGINALOPTIONS+=("$1")
     shift
-  elif [ "$1" == "--addmodule" -o "$1" == "-a" ]; then
+  elif [ "$1" == "--addmodule" ] || [ "$1" == "-a" ]; then
     shift
     ADDMODULES="$ADDMODULES $1"
     ORIGINALOPTIONS+=("$1")
@@ -242,13 +258,13 @@ while true; do
   elif [ "$1" == "--podman" ]; then
     USEPODMAN="1"
     shift
-  elif [ "$1" == "--webhareimage" -o "$1" == "-w" ]; then
+  elif [ "$1" == "--webhareimage" ] || [ "$1" == "-w" ]; then
     shift
     WEBHAREIMAGE="$1"
     EXPLICITWEBHAREIMAGE=1
     ORIGINALOPTIONS+=("$1")
     shift
-  elif [ "$1" == "--output" -o "$1" == "-o" ]; then
+  elif [ "$1" == "--output" ] || [ "$1" == "-o" ]; then
     shift
     ARTIFACTS=$(get_absolute_path "$1")
     ORIGINALOPTIONS+=("$1")
@@ -268,12 +284,13 @@ while true; do
     LOCALDEPS=1
     shift
   elif [[ $1 =~ ^- ]]; then
-    echo "Illegal option '$1'"
+    echo "Illegal option '$1'. Use 'wh testdocker --help' for help"
     exit 1
   else
     break
   fi
 done
+
 
 IMPLICITARGS=()
 if [ -n "$ISMODULETEST" ]; then
@@ -334,7 +351,7 @@ if [ -n "$TESTSECRET_SECRETSURL" ]; then
   unset TESTSECRET_SECRETSURL
 fi
 
-if [ -n "$ISMODULETEST" -a -z "$WEBHAREIMAGE" ]; then
+if [ -n "$ISMODULETEST" ] && [ -z "$WEBHAREIMAGE" ]; then
   WEBHAREIMAGE=main
 fi
 
@@ -342,11 +359,11 @@ fi
 [ "$WEBHAREIMAGE" == "head" ] && WEBHAREIMAGE=main
 
 if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
-  WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#'`
+  WEBHAREIMAGE="$(curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#')"
   if [ -z "$WEBHAREIMAGE" ]; then
     exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi
-elif [ "$WEBHAREIMAGE" == "local" ]; then
+elif [ "$WEBHAREIMAGE" == "localbuild" ]; then
   WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
   NOPULL=1
 fi
