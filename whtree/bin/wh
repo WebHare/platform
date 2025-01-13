@@ -85,10 +85,6 @@ case $INSTR in
     exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/deploydocker.sh" "$@"
     ;;
 
-  "testmodule")
-    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh" -m "$@"
-    ;;
-
   "make")
     if [[ "${OPTIONS[*]}" =~ install ]]; then
       check_webhare_not_running

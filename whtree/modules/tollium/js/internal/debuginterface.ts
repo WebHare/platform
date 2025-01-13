@@ -1,9 +1,9 @@
 /* @mod-tollium/js/internal/debuginterface exposes an API for the debug module. It allows us to offer
    a slight bit of stability and type checking */
 
-import { BackendApplication, registerJSApp } from "@mod-tollium/web/ui/js/application";
-import { componentsToMessages, getActiveApplication } from "@mod-tollium/web/ui/js/support";
-import { ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
+import type { BackendApplication, registerJSApp } from "@mod-tollium/web/ui/js/application";
+import type { componentsToMessages, getActiveApplication } from "@mod-tollium/web/ui/js/support";
+import type { ToddCompBase } from "@mod-tollium/web/ui/js/componentbase";
 
 class TolliumHooks {
   onMagicMenu?: (comp: ToddCompBase, submenu: HTMLUListElement) => void;

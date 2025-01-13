@@ -543,8 +543,6 @@
       <text tid="name">Vul ingelogde gebruiker in</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="gotoid">   <!-- gotoid -->
-  </textgroup>
   <textgroup gid="links">   <!-- links -->
     <textgroup gid="update">   <!-- links.update -->
       <text tid="extraproperties">Extra eigenschappen</text>
@@ -956,15 +954,8 @@
         <textgroup gid="afterpay">   <!-- site.forms.payments.afterpay -->
           <text tid="agreeterms">Ik ga akkoord met de <html:a data-href-param="1">AfterPay betalingsvoorwaarden</html:a></text>
         </textgroup>
-        <textgroup gid="spraypay">   <!-- site.forms.payments.spraypay -->
-          <text tid="amountoutofrange">SprayPay is alleen beschikbaar voor betalingen tussen <param p="1"/> en <param p="2"/></text>
-          <text tid="denied">SprayPay heeft uw aanvraag afgekeurd</text>
-        </textgroup>
       </textgroup>
     </textgroup>
-  </textgroup>
-  <textgroup gid="siteprofiles">   <!-- siteprofiles -->
-    <text tid="loginpage">Standaard inlogpagina</text>
   </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="auth">   <!-- tolliumapps.auth -->
@@ -989,7 +980,6 @@
       <text tid="wrd">WRD</text>
     </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->
-      <text tid="selectcertificate">Kies certificaat</text>
       <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
         <text tid="afterpaytype">Type</text>
         <text tid="merchantid">Merchant ID</text>
@@ -1059,14 +1049,6 @@
       <textgroup gid="external">   <!-- tolliumapps.payments.external -->
         <text tid="methodtitle">Extern</text>
       </textgroup>
-      <textgroup gid="ideal">   <!-- tolliumapps.payments.ideal -->
-        <text tid="acquirer">Verwerker</text>
-        <text tid="keypair">Sleutelpaar</text>
-        <text tid="merchantid">Merchant id</text>
-        <text tid="merchantsubid">Merchant sub id</text>
-        <text tid="privatekeypassword">Wachtwoord private key</text>
-        <text tid="transactionid">Transactie id</text>
-      </textgroup>
       <textgroup gid="ingenico">   <!-- tolliumapps.payments.ingenico -->
         <text tid="apipassword">API Wachtwoord</text>
         <text tid="apiuser">API User</text>
@@ -1099,13 +1081,11 @@
       </textgroup>
       <textgroup gid="mollie">   <!-- tolliumapps.payments.mollie -->
         <text tid="apikey">API Key</text>
-        <text tid="connect">Test</text>
         <text tid="paymentid">Betalings ID</text>
         <text tid="status">Status</text>
       </textgroup>
       <textgroup gid="multisafepay">   <!-- tolliumapps.payments.multisafepay -->
         <text tid="apikey">API Key</text>
-        <text tid="connect">Betaalmethodes ophalen</text>
         <text tid="rawstatus">Ruwe MSP status</text>
         <text tid="testmode">Testmode</text>
         <text tid="testmode-live">Live</text>
@@ -1117,20 +1097,6 @@
         <text tid="paymentid">Transactie ID</text>
         <text tid="saleslocation">Verkooplocatie</text>
         <text tid="status">Status</text>
-      </textgroup>
-      <textgroup gid="sisow">   <!-- tolliumapps.payments.sisow -->
-        <text tid="connect">Test</text>
-        <text tid="merchantid">Merchant ID</text>
-        <text tid="merchantsecret">Merchant secret</text>
-        <text tid="transactionid">Transactie id</text>
-      </textgroup>
-      <textgroup gid="spraypay">   <!-- tolliumapps.payments.spraypay -->
-        <text tid="webshopid">Webshop ID</text>
-      </textgroup>
-      <textgroup gid="stripe">   <!-- tolliumapps.payments.stripe -->
-        <text tid="connect">Test</text>
-        <text tid="publickey">Publieke sleutel</text>
-        <text tid="secretkey">Geheime sleutel</text>
       </textgroup>
       <textgroup gid="unavailable">   <!-- tolliumapps.payments.unavailable -->
         <text tid="methodtitle">Niet beschikbaar</text>

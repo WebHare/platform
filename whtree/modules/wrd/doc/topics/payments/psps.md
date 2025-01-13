@@ -15,12 +15,6 @@ More information: [Afterpay homepage](https://www.afterpay.nl/)
 ## External
 The external PSP is used to set up payments that are resolved outside of WebHare.
 
-## iDEAL
-The iDEAL provider directly links to iDEAL checkouts. If you're offering other
-payment methods than iDEAL, you would probably use a more generic payment provider
-
-https://www.ideal-checkout.nl/
-
 ## Ingenico
 Formerly known as Ogone
 
@@ -59,9 +53,6 @@ prevent Mollie from trying to contact your server
 
 ## Multisafepay
 
-## Sisow
-Sisow support is limited to payment only (ie, no Afterpay or Klarna, which seem to require a deeper API integration here)
-
 ## Test
 The test payment provider allows you to use a safe 'loopback' payment method when developing new integrations with the
 payment API. You should always ensure this provider works before connecting different providers to your application.
@@ -73,4 +64,3 @@ Useful test scenarios:
 - Place an order with 'fraud' somewhere in your email address to trigger an error in StartPayment.
 - Place an order with 'throw' somewhere in your email address to trigger a THROW in StartPayment.
 - Place an order with 'fraud' somewhere in the last name to fail a payment - it will go through the payment pages but still be rejected and provide a 'htmlstatusforuser' to show on the payment page
-

@@ -112,7 +112,7 @@ PUBLIC RECORD FUNCTION GetProcessInfo()
 
 /** @short Get the installation directory
     @long Retrieve the WebHare installation directory
-    @return The WebHare installation directory (eg "/opt/webhare or "C:/b-lex/program files/webhare") */
+    @return The WebHare installation directory (always ending in a slash, eg "/opt/webhare/") */
 PUBLIC STRING FUNCTION GetInstallationRoot()
 {
   RETURN GetWebHareConfiguration().installationroot;
