@@ -678,15 +678,21 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       link = bridge.connect(var_portname.getString(), { global: false });
     }
     const hslink = new HSIPCLink(vm, link);
-    // Wait 100 ms for activation, so we can error out on not-existing local ports
     const activationPromise = hslink.activate();
-    if (await Promise.race([sleep(100), activationPromise]) === false) {
-      id_set.setInteger(0);
-      hslink.close();
-    } else {
-      ipcContext(vm).links.set(hslink.id, hslink);
-      id_set.setInteger(hslink.id);
+
+    // can't activate connects to the same process, that will deadlock because the ->Accept() call won't be executed
+    const isLocalPort = ipcContext(vm).ports.values().some(port => port.port.name === var_portname.getString());
+    if (!isLocalPort && link) {
+      // wait for the link accept, so we know the link has been established
+      if (!await activationPromise) {
+        id_set.setInteger(0);
+        hslink.close();
+        return;
+      }
     }
+
+    ipcContext(vm).links.set(hslink.id, hslink);
+    id_set.setInteger(hslink.id);
   });
 
   wasmmodule.registerAsyncExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", async (vm, id_set, var_linkid, var_data, var_replyto) => {
@@ -714,12 +720,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
           const msgid = ++link.whmanagerMsgIdCounter;
 
           const newLink = bridge.connect(data.port, { global: true });
-          /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
-             ref to keep the link from stopping node from closing */
-          newLink.dropReference();
           link.setLink(newLink);
           // TypeScript doesn't known that setLink updated the link property
           const connected = await link.activate();
+          /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
+             ref to keep the link from stopping node from closing */
+          newLink.dropReference();
           const res = {
             msgid,
             replyto,
@@ -775,11 +781,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!bridgelink)
       id_set.setInteger(0);
     else {
+      const hslink = new HSIPCLink(vm, bridgelink);
+      await hslink.activate();
       /* the WASM eventloop will does not depend on the objects it waits on to keep the script running, so drop the
          ref to keep the link from stopping node from closing */
       bridgelink.dropReference();
-      const hslink = new HSIPCLink(vm, bridgelink);
-      await hslink.activate();
       ipcContext(vm).links.set(hslink.id, hslink);
       id_set.setInteger(hslink.id);
     }

@@ -11,11 +11,13 @@ You can use the command-line parser for simple scripts like:
 import { run } from "@webhare/cli";
 
 run({
+  flags: {
+    // Flags are stored with the last name of their list of names, in this case "verbose"
+    "v,verbose": { description: "Show extra info" },
+  },
   options: {
-    // Option are stored with the last name of their list of names, in this case "verbose"
-    "v,verbose": { default: false, description: "Show extra info" },
-    // Also, the names are camelcased, this one is stored as "withData".
-    "with-data": { default: "", description: "string option" },
+    // Options have associated values. Also, the names are camelcased, this one is stored as "withData".
+    "with-data": { description: "string option" },
   },
   arguments: [
     { name: "<file>", description: "File to load" }
@@ -24,7 +26,7 @@ run({
     // Type types of args and opts
     console.log(`Load file ${args.file}`);
     console.log(`Verbose: ${opts.verbose ? "yes" : "no"}`);
-    console.log(`WithData: ${opts.withData}`);
+    console.log(`WithData: ${opts.withData ?? "<not specified>"}`);
     console.log(`List of specified options: ${specifiedOpts.join(", ")}`); // prints the full names
   }
 });
@@ -38,9 +40,11 @@ import { run } from "@webhare/cli";
 // runData is filled with data, containing the global options
 const runData = run({
   /// Global options
-  options: {
+  flags: {
     // Option are stored with the last name of their list of names, in this case "verbose"
     "v,verbose": { default: false, description: "Show extra info" },
+  },
+  options: {
     // Also, the names are camelcased, this one is stored as "withData".
     "with-data": { default: "", description: "string option" },
   },
@@ -48,8 +52,8 @@ const runData = run({
     command1: {
       shortDescription: "Executes command1",
       description: "This command executes the stuff a command1 command should execute",
-      options: {
-        "fast": { default: false, description: "Do it fast" }
+      flags: {
+        "fast": { description: "Do it fast" }
       },
       arguments: [
         { name: "<file>", description: "The file to operate on" },
@@ -59,6 +63,7 @@ const runData = run({
       main({ opts, args }) {
         // The global and per-command options are passed in opts
         console.log(`Verbose: ${opts.verbose}, fast: ${opts.fast}`);
+        console.log(`WithData: ${opts.withData ?? "<not specified>"}`);
         console.log(`File: ${args.file}`);
         console.log(`Output: ${args.output ?? "N/A"}`);
         console.log(`More: ${args.more.join(", ")}`);
@@ -72,21 +77,43 @@ const runData = run({
 });
 ```
 
-### Options
-Simple options can have three types, determined by the type of the `default`
-property.
-- boolean. These are switches, the value is set to `true` when the switch is
-  provided (even when the default is set to `true`!).
-- string. A string option. The argument is required (cannot be made optional).
-  Possible forms: `-svalue`, `-s value`, `--str=value` and `--str value`.
-- number. A number option. The argument is required (cannot be made optional).
-  Possible forms: `-n55.4`, `-n 10`, `--number=21.2` and `--number 66.6`.
+### Flags
+Flags are simple switches (of type boolean) that can be `true` or `false`.
+The value is set to true when the switch is provided in the command line (even
+when the default is set to `true`!)
 
-If there are rules for the form of the argument, or it needs a specific parser,
-an argument type can be specified with a `type: CLIArgumentType<Type>` property.
-If that property is provided, the `default` can be any value that is valid for
-type `Type`. In the future, autocomplete may also be provided through an option
-type.
+### Options
+Options have a required associated value (there is no mechanism to make it
+optional).
+
+The default type of an options is `string`. If there are rules for the
+form of the argument, or it needs a specific parser, an argument type can be
+specified with a `type: CLIArgumentType<Type>` property. The type of the option
+then becomes `Type`.
+
+If no default is provided, the property passed to the main function will
+be optional (eg: `{ args: { file?: string } }`). If a default is passed (which
+must be of same type as the option, it is not added to the type), the property
+will become required (eg: `{ args: { file: string } }`).
+
+Example:
+```typescript
+import { intOption, run } from "@webhare/cli";
+
+run({
+  options: {
+    "withoutDefault": { description: "Option without default" },
+    "withDefault": { default: "", description: "Option with default" },
+    "intWithDefault": { default: -1, description: "Option with default", type: intOption },
+  },
+  main({ opts }) {
+    // opts has type { withoutDefault?: string; withDefault: string; intWithDefault: number }
+    console.log(`withoutDefault: ${opts.withoutDefault}`);
+    console.log(`withDefault: ${opts.withDefault ?? "<not specified>"}`);
+    console.log(`intWithDefault: ${opts.intWithDefault}`);
+  }
+});
+```
 
 To see if an option was provided on the command-line, use specifiedOpts (or
 specifiedGlobalOpts for global options in the return value of `run()`).
@@ -140,3 +167,49 @@ The following types have been predefined:
 - intOption: Accepts integers (optional with minimum and maximum value)
 - floatOption: Accepts numbers (optional with minimum and maximum value)
 - enumOption: Accepts a specific set of strings
+
+### Autocompletion
+The API for bash autocompletion support is still under development, and should
+be considered experimental (and subject to change in the future).
+
+For now, completion is handled by getting the command line (usually in COMP_LINE)
+and slicing it at the cursor position (COMP_POINT). Then the command line
+is parsed with `parseCommandLine`. The last string in the array returned by
+that function is the one that will be completed. If the cursor is set at the end
+of the line, after whitespace (eg `bla bla <here>`), an empty string is returned
+at the end of the list.
+
+Example for completion:
+
+``` typescript
+import { autoCompleteCLIRunScript, enableAutoCompleteMode, parseCommandLine } from "@webhare/cli/src/run-autocomplete";
+
+/// Split the command line in words using bash word splitting rules
+const words = parseCommandLine(commandline);
+/// Run autocomplete
+const completes = await runAutoComplete(words);
+```
+
+To run autocomplete for a file using `run()`, the cli library must be placed in
+a mode that `run()` calls aren't executed, but their configuration is stored
+for autocompletion instead.
+
+Example:
+```typescript
+import { enableAutoCompleteMode } from "@webhare/cli/src/run-autocomplete";
+
+/** registerAsDynamicLoader is called with the node module of the autocompletion
+ * library, this can be used to register that library as one that does
+ * `require()` calls, and should not be reloaded when a loaded library changes
+ */
+enableAutoCompleteMode({ registerAsDynamicLoader: (module) => { /* ... */ } });
+
+const autocompletes = autoCompleteCLIRunScript("/tmp/file.ts", [ "param1" ]);
+```
+
+This returns a list of autocompletion options. It must be postfixed with `\n`
+when it is not a partial autocompletion, and a space should be added after
+the argument when accepted.
+
+TODO: describe how to register an autocomplete handler, process the
+result with COMP_WORDBREAKS, example to call it with `curl`.

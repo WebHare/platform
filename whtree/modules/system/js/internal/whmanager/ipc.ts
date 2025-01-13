@@ -245,11 +245,14 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   async activate(): Promise<void> {
+    const startedActivation = this.activationStarted;
     this.activationStarted = true;
     // send back a message that the link has been accepted (and messages will be received)
-    if (this.mode === "accepting")
-      this.sendPortMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });
-    else if (this.mode === "connecting") {
+    if (this.mode === "accepting") {
+      // only send connectresult on first activate() call
+      if (!startedActivation)
+        this.sendPortMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });
+    } else if (this.mode === "connecting") {
       try {
         await this.defer?.promise;
       } catch (e) {
