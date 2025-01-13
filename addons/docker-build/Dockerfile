@@ -28,7 +28,7 @@ ENV LC_ALL=C \
 RUN --mount=type=bind,source=addons/docker-build/setup-base-shared.sh,target=/setup-base-shared.sh \
     --mount=type=bind,source=addons/docker-build/setup-imagebase.sh,target=/setup-imagebase.sh \
     --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
-    WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-10-31
+    WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2025-01-27
 
 ################# STAGE 1 - builder image
 FROM       base AS builder
