@@ -114,8 +114,8 @@ create_container()
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
   set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
 
-  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
+  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!. (Also some CI tests are bash scripts and currently require this, but that could otherwise be fixed)
+  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --tmpfs /tmp/ --tmpfs /opt/whdata:exec --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
 
   if [ -z "$CONTAINERID" ]; then
     echo Container creating failed
@@ -653,7 +653,10 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
 
   # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
-  RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
+  # cp doesn't work for tmpfs - https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases
+  # RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
+  RunDocker exec -i "$CONTAINERID" mkdir /opt/whdata/installedmodules
+  tar --no-xattrs -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
 
   if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
     RunDocker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
@@ -798,8 +801,8 @@ if [ -z "$FATALERROR" ]; then
 fi
 
 if [ -z "$ISMODULETEST" ] && [ -z "$TESTFW_SKIP_FINALIZE_CI" ]; then
-  RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/finalize-webhare-ci.sh" "$TESTENV_CONTAINER1:/tmp/"
-  if ! RunDocker exec "$TESTENV_CONTAINER1" /tmp/finalize-webhare-ci.sh ; then
+  RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/finalize-webhare-ci.sh" "$TESTENV_CONTAINER1:/"
+  if ! RunDocker exec "$TESTENV_CONTAINER1" /finalize-webhare-ci.sh ; then
     testfail "finalize-webhare-ci.sh reported errors"
   fi
 fi
