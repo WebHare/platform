@@ -110,14 +110,14 @@ ASYNC MACRO TestPaymentBuckaroo_Ideal()
   RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
   RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) = "IDEAL";
   TestAssert(RecordExists(idealmethod));
-  TestEq(TRUE, Length(idealmethod.issuers) > 0);
+  // TestEq(TRUE, Length(idealmethod.issuers) > 0);
 
   OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
   testfw->CommitWork();
 
   RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
                           , paymentoptiontag := idealmethod.paymentoptiontag
-                          , issuer := idealmethod.issuers[0].rowkey
+                          // , issuer := idealmethod.issuers[0].rowkey
                           , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
                           ];
   IF(testfw->debug)
@@ -149,7 +149,7 @@ ASYNC MACRO TestPaymentBuckaroo_Emandate()
   // https://docs.buckaroo.io/docs/e-mandate-requests
   RECORD properrequest := [ paymentprovider := emandatemethod.paymentprovider
                           , paymentoptiontag := emandatemethod.paymentoptiontag
-                          , issuer := emandatemethod.issuers[0].rowkey
+                          // , issuer := emandatemethod.issuers[0].rowkey
                           , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
                           , isrecurring := TRUE
                           , customerid := "C123"

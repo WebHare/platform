@@ -18,6 +18,7 @@ import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 import type { ValueQueryChecker } from "./checker";
 import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { getRTDFromWHFS, storeRTDinWHFS } from "@webhare/wrd/src/wrd-whfs";
+import { isPromise } from "node:util/types";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -1789,24 +1790,44 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Array<ArraySelectable<Members>> {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Array<ArraySelectable<Members>> | Promise<Array<ArraySelectable<Members>>> {
+    type RowType = ArraySelectable<Members>;
+
     if (settings_limit <= settings_start)
-      return this.getDefaultValue() as Array<ArraySelectable<Members>>; // Cast is needed because for required fields, Out may not extend Default.
-    else {
-      const retval = new Array<ArraySelectable<Members>>;
-      for (let idx = settings_start; idx < settings_limit; ++idx) {
-        const settingid = entity_settings[idx].id;
-        const rec = {} as ArraySelectable<Members> & { [wrdSettingId]: number };
-        for (const field of this.fields) {
-          const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
-          const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
-          rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links, cc);
+      return this.getDefaultValue() as RowType[]; // Cast is needed because for required fields, Out may not extend Default.
+
+    const retval: RowType[] = [];
+    const promises: Array<{ //We try to return promises only if really needed. Track which ones we want to resolve..
+      row: RowType;
+      member: keyof Members;
+    }> = [];
+
+    for (let idx = settings_start; idx < settings_limit; ++idx) {
+      const settingid = entity_settings[idx].id;
+      const rec = {} as ArraySelectable<Members> & { [wrdSettingId]: number };
+      for (const field of this.fields) {
+        const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
+        const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
+        rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links, cc);
+
+        if (isPromise(rec[field.name])) {
+          promises.push({ row: rec, member: field.name });
         }
-        rec[wrdSettingId] = settingid;
-        retval.push(rec);
+      }
+      rec[wrdSettingId] = settingid;
+      retval.push(rec);
+    }
+
+    if (!promises.length)
+      return retval;
+
+    return (async function () {
+      const results = await Promise.all(promises.map(rec => rec.row[rec.member]));
+      for (const [idx, promise] of promises.entries()) {
+        promise.row[promise.member] = results[idx];
       }
       return retval;
-    }
+    })();
   }
 
   /** Check the contents of a value used to insert or update a value

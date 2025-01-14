@@ -23,12 +23,10 @@ PUBLIC CONSTANT RECORD ARRAY buckaroo_paymentmethods :=
   [[ rowkey := "ideal"
    , title := "iDEAL"
    , type := "payment"
-   , hasissuers := TRUE
    ]
   ,[ rowkey := "emandate"
    , title := "E-mandate"
    , type := "mandate"
-   , hasissuers := TRUE
   ]];
 
 CONSTANT STRING apiroot_prod := "https://checkout.buckaroo.nl/json/";
@@ -68,7 +66,7 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
   STRING finalurl := ResolveToAbsoluteURL(settings.testmode ? apiroot_test : apiroot_prod, suburl);
   INTEGER requesttimestamp := GetUnixTimestamp(GetCurrentDatetime());
   STRING nonce := GenerateUFS128BitId();
-  STRING bodytext := EncodeJSON(body, CELL["AmountDebit","Currency","Description","PushURL","ReturnURL","Services","StartRecurrent","ServiceList","Parameters","Name","Action","Value"]);
+  STRING bodytext := EncodeJSON(body, CELL["AmountDebit","Currency","Description","PushURL","ReturnURL","Services","StartRecurrent","ServiceList","Parameters","Name","Action","Value","ContinueOnIncomplete"]);
 
   // Signature algorithms: https://dev.buckaroo.nl/Apis/Description/json#authentication
   //                       read the C# example code! the spec is ambiguous (eg requestContentBase64String should be empty if no body, secretkey should not be concatenated, Channel is not optional)
@@ -129,24 +127,11 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
       IF(method.rowkey NOT IN this->settings.methods)
         CONTINUE;
 
-      RECORD ARRAY issuers;
-      IF(options.getissuers AND method.hasissuers)
-      {
-        TRY
-        {
-          RECORD cachekey := CELL[...connectinfo, which := method.rowkey];
-          issuers := WaitForPromise(GetPrecalculatedData(cachekey, Resolve("#GetCacheableIssuers"))).issuers;
-        }
-        CATCH(OBJECT e)
-        {
-          LogHarescriptException(e);
-        }
-      }
 
       INSERT [CELL[ paymentoptiontag := method.rowkey
                   , method.title
                   , method.type
-                  , issuers
+                  , issuers := RECORD[]
                   , islive := NOT this->settings.testmode
                  ]] INTO methods AT END;
     }
@@ -210,6 +195,7 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     RECORD paymentrequest :=
       CELL[ currency := "EUR"
           , description := this->orderid
+          , continueonincomplete := "1"
           , returnurl := GetInternalReturnURL(paymenttok)
           , services := [ servicelist := [[ name := this->paymentoptiontag
                                           , action := "Pay"
@@ -223,8 +209,8 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     IF(this->paymentoptiontag = "emandate" AND this->paymentdata.usemandateid = "") //not using an existing mandate
     {
       paymentrequest.services.servicelist[0].parameters := paymentrequest.services.servicelist[0].parameters CONCAT
-              [[ name := "debtorbankid", value := this->issuer ]
-              ,[ name := "debtorreference", value := this->paymentdata.customerid ]
+              [//[ name := "debtorbankid", value := this->issuer ]
+              [ name := "debtorreference", value := this->paymentdata.customerid ]
               // Indicates type of eMandate: one-off or recurring direct debit. 0 = recurring, 1 = one off.
               ,[ name := "sequencetype", value := this->paymentdata.isrecurring ? "0" : "1" ]
               ,[ name := "purchaseid", value := this->paymentref ]
@@ -253,8 +239,8 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
       }
       ELSE
       {
-        IF(this->issuer != "")
-          INSERT [[ name := "issuer", value := this->issuer ]] INTO paymentrequest.services.servicelist[0].parameters AT END;
+        // IF(this->issuer != "")
+        //   INSERT [[ name := "issuer", value := this->issuer ]] INTO paymentrequest.services.servicelist[0].parameters AT END;
       }
 
       INSERT CELL amountdebit := this->amountpayable //Yes, transmitted as float :=(
@@ -339,106 +325,4 @@ PUBLIC BOOLEAN FUNCTION CheckBuckarooMerchant(RECORD methodsettings)
 
   RECORD result := DoBuckarooRequest(methodsettings, "/json/Transaction/Specification/ideal?serviceVersion=1.0", DEFAULT RECORD, "nl-NL","Web");
   RETURN result.status = 200 AND result.response.name = "ideal";
-}
-
-PUBLIC RECORD FUNCTION GetCacheableIssuers(RECORD cachekey)
-{
-  RECORD ARRAY issuers;
-  IF(cachekey.which = "ideal")
-  {
-    /*
-  {
-    "Actions": [
-      {
-        "Name": "Pay",
-        "Type": 0,
-        "Default": true,
-        "Description": "Pay",
-        "RequestParameters": [
-          {
-            "ListItemDescriptions": [
-              {
-                "Value": "ABNANL2A",
-                "Description": "ABN AMRO",
-                "GroupName": "Nederland"
-              },
-            "Name": "issuer"
-  */
-    RECORD result := DoBuckarooRequest(cachekey, `/json/Transaction/Specification/${cachekey.which}?serviceVersion=1.0`, DEFAULT RECORD, "nl-NL","Web");
-    //dumpvalue(result,'tree');
-    RECORD payaction := SELECT * FROM result.response.Actions WHERE Name = "Pay";
-    RECORD issuerparameter := SELECT * FROM payaction.RequestParameters  WHERE Name = "issuer";
-    issuers := SELECT rowkey := Value, title := description FROM issuerparameter.ListItemDescriptions;
-  }
-  ELSE IF(cachekey.which = "emandate")
-  {
-    RECORD paymentrequest :=
-      CELL[ currency := "EUR"
-          , services := [ servicelist := [[ name := "emandate"
-                                          , action := "GetIssuerList"
-                                         ]]
-                        ]
-          ];
-
-    RECORD callresult := DoBuckarooRequest(cachekey, "DataRequest", paymentrequest, "nl-NL", "Web");
-    /*
- +STATUS: 200
- +RESPONSE: RECORD
-  +ISTEST: TRUE
-  +KEY: '214FB3542F2E433A8D7657E8CF1919DC'
-  +SERVICECODE: 'emandate'
-  +ADDITIONALPARAMETERS: DEFAULT RECORD
-  +CONSUMERMESSAGE: DEFAULT RECORD
-  +CUSTOMPARAMETERS: DEFAULT RECORD
-  +REQUESTERRORS: DEFAULT RECORD
-  +REQUIREDACTION: DEFAULT RECORD
-  +SERVICES: RECORD ARRAY
-   +RECORD
-    +NAME: 'emandate'
-    +ACTION: DEFAULT RECORD
-    +PARAMETERS: RECORD ARRAY
-     +RECORD
-      +NAME: 'issuer1_DebtorBankId'
-      +VALUE: 'ABNANL2A'
-     +RECORD
-      +NAME: 'issuer1_DebtorBankName'
-      +VALUE: 'ABN AMRO'
-     +RECORD
-      +NAME: 'issuer1_DebtorBankCountry'
-      +VALUE: 'Nederland'
-     +RECORD
-      +NAME: 'issuer2_DebtorBankId'
-      +VALUE: 'ASNBNL21'
-     +RECORD
-      +NAME: 'issuer2_DebtorBankName'
-      +VALUE: 'ASN Bank'
-     +RECORD
-      +NAME: 'issuer2_DebtorBankCountry'
-      +VALUE: 'Nederland'
-     +RECORD
-
-
-    */
-    RECORD emandateservice := SELECT * FROM callresult.response.services WHERE name = "emandate";
-    IF(RecordExists(emandateservice))
-    {
-      STRING ARRAY unique_issuer_prefixes := SELECT AS STRING ARRAY DISTINCT Tokenize(name,'_')[0] FROM emandateservice.parameters WHERE ToUppercase(name) LIKE "ISSUER*_*";
-      FOREVERY(STRING prefix FROM unique_issuer_prefixes)
-      {
-        STRING bankid := SELECT AS STRING value FROM emandateservice.parameters WHERE ToUppercase(name) = ToUppercase(prefix || "_DebtorBankId");
-        STRING bankname := SELECT AS STRING value FROM emandateservice.parameters WHERE ToUppercase(name) = ToUppercase(prefix || "_DebtorBankName");
-        IF(bankid != '' AND bankname != '')
-          INSERT CELl[ rowkey := bankid, title :=bankname ] INTO issuers AT END;
-      }
-    }
-  }
-  ELSE
-  {
-    THROW NEW Exception(`Unknown type '${cachekey.which}'`);
-  }
-
-  IF(Length(issuers) = 0)
-    THROW NEW Exception(`Failed to retrieve issuers fort type '${cachekey.which}'`);
-
-  RETURN CELL[ value := CELL[ issuers ] ];
 }
