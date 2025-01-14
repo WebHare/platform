@@ -1,13 +1,11 @@
 import { uploadBlob } from "@webhare/whdb";
 import { Money, omit } from "@webhare/std";
-import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
+import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts, exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 import { type RichTextDocument } from "@webhare/services";
-import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
 import { describeWHFSType } from "./contenttypes";
-import type { HareScriptRTD } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -329,7 +327,7 @@ export const codecs: { [key: string]: TypeCodec } = {
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const toSerialize = await value.exportAsHareScriptRTD();
+        const toSerialize = await exportAsHareScriptRTD(value);
         const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
         const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
 
@@ -377,7 +375,7 @@ export const codecs: { [key: string]: TypeCodec } = {
           });
         }
 
-        return buildRTDFromHSStructure({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
+        return buildRTDFromHareScriptRTD({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
       })();
     }
   },

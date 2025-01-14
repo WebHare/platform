@@ -1,6 +1,5 @@
 import { buildRTD, buildWidget, RichTextDocument, type Widget } from "@webhare/services";
-import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
-import { type HareScriptRTD } from "@webhare/services/src/richdocument";
+import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
@@ -8,8 +7,8 @@ import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
-  const hs = await doc.exportAsHareScriptRTD();
-  const doc2 = await buildRTDFromHSStructure(hs);
+  const hs = await exportAsHareScriptRTD(doc);
+  const doc2 = await buildRTDFromHareScriptRTD(hs);
   test.eq(doc.blocks, doc2.blocks);
   return hs;
 }
@@ -50,7 +49,7 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
   // console.dir(hsInstance, { depth: 4 });
-  const doc5 = await buildRTDFromHSStructure(hsInstance.data);
+  const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
   test.eq(doc.blocks, doc5.blocks);
 
   await rollbackWork();
@@ -184,7 +183,7 @@ async function testBuilder() {
 
     verifyWidget(doc);
 
-    const toHS = await doc.exportAsHareScriptRTD();
+    const toHS = await exportAsHareScriptRTD(doc);
     test.eqPartial([
       {
         instanceid: /.+/,
@@ -202,7 +201,7 @@ async function testBuilder() {
     const rawwidget = toHS.instances[0].data as unknown as { rtdleft: HareScriptRTD | null; rtdright: HareScriptRTD | null };
     test.eq('<html><body><p class="normal">Left column</p></body></html>', await rawwidget.rtdleft?.htmltext.text());
 
-    const doc2 = await buildRTDFromHSStructure(toHS);
+    const doc2 = await buildRTDFromHareScriptRTD(toHS);
     verifyWidget(doc2); //can't directly test.eq compare them due to embedded objects
   }
 }
@@ -249,7 +248,7 @@ async function testWRDRoundTrips() {
       //FIXME this should also set whfsSettingId and whfsFileId again on instances?
       await wrdschema.update("wrdPerson", testuser, { richie: doc });
       const { richie } = await hsWRDPersonType.getEntityFields(testuser, ["richie"]);
-      const richieDoc = await buildRTDFromHSStructure(richie);
+      const richieDoc = await buildRTDFromHareScriptRTD(richie);
       test.eq(doc.blocks, richieDoc.blocks);
     });
   }

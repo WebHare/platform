@@ -9,6 +9,7 @@ export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID } from "./strings";
 export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound } from "./algorithms";
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
+export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "./richdocument";
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
 export function decodeHSONorJSONRecord(input: string | null): object | null {
