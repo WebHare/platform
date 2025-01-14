@@ -244,6 +244,12 @@ type LocalBridgeInitData = {
   consoleLogData: Uint32Array;
 };
 
+/** Get the current script name */
+export function getScriptName() {
+  //require.main is not set until the main code runs and the bridge may connect before it does.
+  return globalThis.process?.argv?.[1] ?? require.main ?? "<unknown JavaScript script>";
+}
+
 /** Check if all messages types have been handled in a switch. Put this function in the
  * default handler. Warning: only works for union types, because non-union types aren't
  * narrowed
@@ -460,7 +466,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   private encodeJavaScriptException(e: Error | string, options: LogErrorOptions) {
     const data = {
       ...(typeof e === "string" ? { message: e } : this.encodeJavaScriptExceptionData(e)),
-      script: options.script ?? require.main?.filename ?? "",
+      script: options.script ?? getScriptName(),
       browser: { name: "nodejs" },
       ...(options.info ? { info: options.info } : {}),
       ...(options.contextinfo ? { contextinfo: options.contextinfo } : {}),
@@ -768,7 +774,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       processcode: 0,
       pid: process.pid,
       type: WHMProcessType.TypeScript,
-      name: require.main?.filename ?? "<unknown javascript script>",
+      name: getScriptName(),
       parameters: {
         interpreter: process.argv[0] || '',
         script: process.argv[1] || ''

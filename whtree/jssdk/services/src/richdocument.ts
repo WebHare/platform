@@ -1,8 +1,8 @@
-import { encodeString, generateRandomId, throwError } from "@webhare/std";
-import { WebHareBlob } from "./webhareblob";
+import { throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
+import { exportRTDToRawHTML } from "@webhare/hscompat";
 
 /** Paragraph types supported by us */
 export const rtdParagraphTypes: string[] = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
@@ -45,33 +45,6 @@ export type RTDBuildBlockItem = RTDBaseBlockItem;
 export type RTDBuildBlockItems = RTDBuildBlockItem[];
 
 
-export type HareScriptRTD = {
-  htmltext: WebHareBlob;
-  instances: Array<{
-    data: { whfstype: string;[key: string]: unknown };
-    instanceid: string;
-  }>;
-  embedded: Array<{
-    contentid: string;
-    mimetype: string;
-    data: WebHareBlob;
-    width: number;
-    height: number;
-    hash: string;
-    filename: string;
-    extension: string;
-    rotation: number;
-    mirrored: boolean;
-    refpoint: { x: number; y: number } | null;
-    source_fsobject: number;
-    dominantcolor: string;
-  }>;
-  links: Array<{
-    tag: string;
-    linkref: number;
-  }>;
-};
-
 class Widget {
   #typeInfo: WHFSTypeInfo;
   #data: Record<string, unknown>;
@@ -95,7 +68,8 @@ type WidgetInterface = Pick<Widget, "whfsType" | "data">;
 
 export class RichTextDocument {
   #blocks = new Array<RTDBlock>;
-  #instanceIds = new WeakMap<Readonly<Widget>, string>;
+  //need to expose this for hscompat APIs
+  private __instanceIds = new WeakMap<Readonly<Widget>, string>;
 
   get blocks(): RecursiveReadonly<RTDBlock[]> {
     return this.#blocks;
@@ -203,75 +177,14 @@ export class RichTextDocument {
     //   rdoc.htmltext = WebHareBlob.from(rdoc.htmltext as string);
   }
 
-  async exportAsHareScriptRTD(): Promise<HareScriptRTD> {
-    const instances: HareScriptRTD["instances"] = [];
-    const embedded: HareScriptRTD["embedded"] = [];
-    const links: HareScriptRTD["links"] = [];
-    const instancemapping = this.#instanceIds;
-
-    async function exportWidgetForHS(widget: Readonly<Widget>, block: boolean) {
-      const tag = block ? 'div' : 'span';
-      const data: Record<string, unknown> & { whfstype: string } = {
-        whfstype: widget.whfsType,
-        ...widget.data
-      };
-
-      //Encode embedded RTDs
-      for (const [key, value] of Object.entries(data)) {
-        if (value instanceof RichTextDocument)
-          data[key] = await value.exportAsHareScriptRTD();
-      }
-
-      // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
-      const instanceid = instancemapping.get(widget) || generateRandomId();
-
-      if (instances.find((i) => i.instanceid === instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
-        throw new Error(`internal erro0- duplicate instanceid ${instanceid}`);
-
-      instances.push({ data, instanceid });
-      return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
-    }
-
-    async function buildBlockItems(items: Readonly<RTDBlockItems>) {
-      let output = '';
-      for (const item of items) {
-        let part: string = 'widget' in item ? await exportWidgetForHS(item.widget, false) : encodeString(item.text, 'html');
-        //FIXME put in standard RTD render ordering
-        for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
-          if (item[tag])
-            part = `<${style}>${part}</${style}>`;
-        }
-        output += part;
-      }
-      return output;
-    }
-
-    let htmltext = '<html><body>';
-    for (const block of this.blocks) {
-      if ('widget' in block) {
-        htmltext += await exportWidgetForHS(block.widget, true);
-        continue;
-      }
-
-      const key = Object.keys(block)[0] as `${string}.${string}`;
-      const [tag, className] = key.split('.');
-      htmltext += `<${tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block[key]!)}</${tag}>`;
-    }
-
-    return {
-      htmltext: WebHareBlob.from(htmltext + '</body></html>'), instances, embedded, links
-    };
-  }
-
+  /** @deprecated Use exportRTDToRawHTML in hscompat */
   async __getRawHTML(): Promise<string> {
-    if (!this.blocks.length)
-      return '';
-    return await (await this.exportAsHareScriptRTD()).htmltext.text();
+    return (await exportRTDToRawHTML(this)) || '';
   }
 
   __hintInstanceId(widget: WidgetInterface, instanceId: string) {
-    if (this.#instanceIds.get(widget))
-      this.#instanceIds.set(widget, instanceId);
+    if (this.__instanceIds.get(widget))
+      this.__instanceIds.set(widget, instanceId);
   }
 }
 

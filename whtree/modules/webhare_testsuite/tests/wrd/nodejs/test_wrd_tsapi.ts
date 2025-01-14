@@ -18,9 +18,8 @@ import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
-import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
-import type { HareScriptRTD } from "@webhare/services/src/richdocument";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
+import { buildRTDFromHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -602,7 +601,7 @@ async function testNewAPI() {
   testHTML = `<html><body><p class="normal">test</p></body></html>`;
   await schema.update("wrdPerson", newperson, { richie: await buildRTD([{ p: "test" }]) });
   // Read the rich document in HareScript
-  richdoc = await buildRTDFromHSStructure(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
+  richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
   test.eq(testHTML, await richdoc!.__getRawHTML());
   // Read the rich document in TypeScript
   richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;

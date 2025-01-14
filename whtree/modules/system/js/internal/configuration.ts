@@ -6,6 +6,7 @@ import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
+import { getScriptName } from "./whmanager/bridge";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -23,7 +24,7 @@ function readConfigFile() {
     return freezeRecursive(JSON.parse(fs.readFileSync(file).toString()) as ConfigFile);
   } catch (e) {
     if (!loggederror) {
-      console.error(`Missing configuration json when running ${require.main?.filename}`);
+      console.error(`Missing configuration json when running ${getScriptName()}`);
       loggederror = true;
     }
     return freezeRecursive(updateWebHareConfigWithoutDB({}));

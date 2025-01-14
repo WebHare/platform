@@ -6,7 +6,7 @@ import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@we
 import { isLike } from "@webhare/hscompat/strings";
 import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
-import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import * as kysely from "kysely";
@@ -16,7 +16,6 @@ import { WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 import type { ValueQueryChecker } from "./checker";
-import { buildRTDFromHSStructure } from "@webhare/harescript/src/import-hs-rtd";
 import { getRTDFromWHFS, storeRTDinWHFS } from "@webhare/wrd/src/wrd-whfs";
 import { isPromise } from "node:util/types";
 
@@ -2021,7 +2020,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       return matchlink ? getRTDFromWHFS(matchlink.fsobject) : null;
     }
 
-    return buildRTDFromHSStructure({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
+    return buildRTDFromHareScriptRTD({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
   }
 
   validateInput(value: RichTextDocument | null | { data: Buffer }, checker: ValueQueryChecker, attrPath: string): void {
@@ -2038,11 +2037,11 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
         //FIXME: Encode links and instances (which are currently not yet supported by RichDocument anyway)
         //FIXME Reuse existing documents/settings
 
-        const hsRTD = await value.exportAsHareScriptRTD();
+        const hsRTD = await exportAsHareScriptRTD(value);
         //do we need to use WHFS to store this document ?
         const inWHFS = hsRTD.links.length > 0 || hsRTD.instances.length > 0; //TODO what about embedded images ? can they have a source object?
         if (inWHFS) {
-          //TODO avoid exportAsHareScriptRTD - we need a requiresWHFS or refersWHFS() in a RichDocument
+          //TODO avoid a full exportAsHareScriptRTD when just exporting to WHFS - we need a requiresWHFS or refersWHFS() in a RichDocument
           const whfsId = await storeRTDinWHFS(this.attr.schemaId, value);
           const setting: EncodedSetting = { rawdata: "WHFS", blobdata: null, attribute: this.attr.id, linktype: LinkTypes.RTD, link: whfsId };
           return [setting];

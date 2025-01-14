@@ -2,11 +2,12 @@ import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
 import { backendConfig, toFSPath } from "@webhare/services";
+import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
 import { convertWaitPeriodToDate } from "@webhare/std";
 import { deleteRecursive } from "@webhare/system-tools";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import { listSchemas } from "@webhare/wrd";
-import { unlink, readdir } from "fs/promises";
+import { unlink, readdir, rm } from "fs/promises";
 
 async function expireOldUsers() {
   let schemastofix = await listSchemas();
@@ -55,11 +56,17 @@ async function rotateLogs() {
   }
 }
 
+async function cleanupFetchResourceCacheCleanups() {
+  await getFetchResourceCacheCleanups(7 * 86400_000, rm);
+}
+
 async function runMaintenance() {
   //Things that may free up space always go first in case someone runs these maintenance scripts hoping to free up space fast
   await cleanupOldSessions();
   await cleanupOldUploads();
+  await cleanupFetchResourceCacheCleanups();
   await removeObsoleteCacheFolders();
+
   await expireOldUsers();
   await rotateLogs();
 }
