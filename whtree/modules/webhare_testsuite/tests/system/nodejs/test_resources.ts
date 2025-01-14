@@ -1,9 +1,12 @@
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as services from "@webhare/services";
 import { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
 import { Rotation } from "@webhare/services/src/descriptor";
 import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
+import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
+import { storeDiskFile } from "@webhare/system-tools";
+import { rm } from "node:fs/promises";
 
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
@@ -128,7 +131,6 @@ async function testWebHareBlobs() {
 
   //test TSC Blob compatibility issues
   const msgs = await checkUsingTSC("webhare_testsuite", { files: [__dirname + "/data/blob-types.ts"] });
-  console.log(msgs);
   test.eq([], msgs);
 }
 
@@ -330,11 +332,59 @@ async function testGIFs() {
   }, brokenparsedgif.getMetaData());
 }
 
+async function testFetchResource() {
+  const testsitejs = await test.getTestSiteJS();
+  const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
+  const fetched = await services.fetchResource(snowbeagle.link);
+  test.eq(17191, fetched.resource.size);
+
+  const locinfo = await getCachePaths(snowbeagle.link);
+  const meta = await readCacheMetadata(locinfo.metaloc);
+
+  //Verify the cleanup will also eliminate stray files later
+  const straypath = locinfo.cachedir + ".stray";
+  await storeDiskFile(straypath, Buffer.from("stray"), { overwrite: true });
+
+  //wait a tick and refetch, verify whether it looks like we got the same resource back from the cache (no metadata update)
+  await test.sleep(2); //wait a tick! can't image us beating the cloc kthoug
+  const fetched2 = await services.fetchResource(snowbeagle.link);
+  const meta2 = await readCacheMetadata(locinfo.metaloc);
+  test.eq(17191, fetched2.resource.size);
+  test.eq(meta.lastDownload, meta2.lastDownload);
+
+
+  { //Test cleanup. shouldn't be seen by normal 7 days cleanup{
+    const toClean = new Set<string>;
+    await getFetchResourceCacheCleanups(7 * 86400_0000, name => void toClean.add(name));
+    test.assert(!toClean.has(locinfo.diskloc));
+    test.assert(!toClean.has(locinfo.metaloc));
+    test.assert(toClean.has(straypath)); //a stray file is deleted on sight
+  }
+
+
+  { //Should be seen if we cleanup time to 1 msec{
+    const toClean = new Set<string>;
+    await getFetchResourceCacheCleanups(1, name => void toClean.add(name));
+    test.assert(toClean.has(locinfo.diskloc));
+    test.assert(toClean.has(locinfo.metaloc));
+    test.assert(toClean.has(straypath));
+  }
+
+  { //Remove the meta file, this should also allow the data file to be offered for deletion
+    await rm(locinfo.metaloc);
+
+    const toClean = new Set<string>;
+    await getFetchResourceCacheCleanups(1, name => void toClean.add(name));
+    test.assert(toClean.has(locinfo.diskloc));
+  }
+}
+
 test.runTests(
   [
     testResolve,
     testPaths,
     testWebHareBlobs,
     testResourceDescriptors,
-    testGIFs
+    testGIFs,
+    testFetchResource,
   ]);
