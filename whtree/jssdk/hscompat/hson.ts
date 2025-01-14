@@ -159,7 +159,7 @@ export function determineType(value: unknown): HareScriptType {
   }
   switch (typeof value) {
     case "object": {
-      if (WebHareBlob.isWebHareBlob(value))
+      if (WebHareBlob.isWebHareBlob(value)) //TODO we can only take sync-readable blobs so we can't support 'Blob'
         return HareScriptType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
         return HareScriptType.String;
