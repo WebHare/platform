@@ -1,6 +1,7 @@
 import * as test from "@webhare/test";
 import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
 import { readMarshalData, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getScriptName } from "@mod-system/js/internal/whmanager/bridge";
 
 
 async function testRPCs() {
@@ -40,7 +41,7 @@ async function testRPCs() {
       processcode,
       pid: process.pid,
       type: WHMProcessType.TypeScript,
-      name: require.main?.filename ?? "unknown",
+      name: getScriptName(),
       parameters: {}
     });
 
@@ -92,7 +93,7 @@ async function testRPCs() {
     conn2.getRef(); // leak the reference, see if conn2.close kills it
     await new Promise(resolve => conn2.on("online", resolve));
 
-    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: 0, pid: process.pid, type: WHMProcessType.TypeScript, name: (require.main?.filename ?? "unknown") + " bouncer test", parameters: { a: "a" } });
+    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: 0, pid: process.pid, type: WHMProcessType.TypeScript, name: getScriptName() + " bouncer test", parameters: { a: "a" } });
     await test.wait(() => gotdata, "Expected some data to arrive at conn2");
 
     conn.send({
