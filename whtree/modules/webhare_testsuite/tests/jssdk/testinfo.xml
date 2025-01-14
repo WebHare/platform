@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="webhare_testsuite.testsite">
   <test name="cli"        path="cli/" />
+  <test name="office-formats"        path="office-formats/" />
 </group>
