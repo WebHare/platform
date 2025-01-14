@@ -61,7 +61,7 @@ class BLEXLIB_PUBLIC ManagerConnection
         */
         void WaitForDebugInit();
 
-        uint64_t GetProcessCode() const;
+        int32_t GetProcessCode() const;
 
         bool ConfigureLogs(std::vector< LogConfig > const &config, std::vector< bool > *result);
         bool FlushLog(std::string const &name);
@@ -112,11 +112,17 @@ class BLEXLIB_PUBLIC ManagerConnection
                 std::string name;
                 std::map< std::string, std::string > parameters;
         };
+        struct PortListEntry
+        {
+                std::string name;
+                int32_t pid;
+        };
 
         void SendRegisterPortResponseMessage(ControlLinkData &linkdata, uint64_t replyto, std::string const &port, bool success);
         void SendUnregisterPortResponseMessage(ControlLinkData &linkdata, uint64_t replyto, std::string const &port);
         void SendSimpleResponseMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::string const &status);
-        void SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< uint64_t, ProcessListEntry > const &processes);
+        void SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< int32_t, ProcessListEntry > const &processes);
+        void SendPortListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::vector< PortListEntry > const &processes);
         void SendRegisterPortRPC(ControlLinkData &linkdata, uint64_t msgid, std::string const &port, bool isregister, bool need_unregister_response);
 
         void SetJobMgr(HareScript::JobManager *jobmgr);
@@ -147,6 +153,7 @@ class BLEXLIB_PUBLIC ManagerConnection
                 std::shared_ptr< HareScript::IPCLinkEndPoint > link;
                 uint32_t connid;
                 std::list< uint64_t > requested_processlists_replyids;
+                std::list< uint64_t > requested_portlists_replyids;
         };
 
         struct ExtLinkData
@@ -186,7 +193,6 @@ class BLEXLIB_PUBLIC ManagerConnection
                 bool connectfailed;
                 bool release_jobmgr;
                 Blex::DateTime aborttimeout;
-                uint64_t processcode;
                 bool have_debugger;
                 bool wait_debuginit;
                 uint32_t conncounter;
@@ -360,7 +366,7 @@ class BLEXLIB_PUBLIC Connection
                 mgrconn.SetSystemConfig(data, datalen);
         }
 
-        uint64_t GetProcessCode() const
+        int32_t GetProcessCode() const
         {
                 return mgrconn.GetProcessCode();
         }

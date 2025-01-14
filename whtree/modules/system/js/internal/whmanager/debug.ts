@@ -5,11 +5,15 @@ import type { StackTraceItem } from "../util/stacktrace";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 
 export type ProcessList = Array<{
-  processcode: number;
   pid: number;
   type: WHMProcessType;
   name: string;
   parameters: Record<string, string>;
+}>;
+
+export type PortList = Array<{
+  pid: number;
+  name: string;
 }>;
 
 export enum DebugRequestType {
