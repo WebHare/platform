@@ -171,7 +171,7 @@ export async function getServiceInstance(servicename: string) {
   const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   // Create and initialize the API handler
   const restapi = new RestAPI();
-  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["inputValidation", "outputValidation", "crossdomainOrigins"]) });
+  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook"]) });
 
   const service = new RestService(servicename, restapi);
   if (!cache[servicename])

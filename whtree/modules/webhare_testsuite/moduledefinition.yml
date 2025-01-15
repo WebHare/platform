@@ -40,6 +40,10 @@ backendServices:
 openApiServices:
   testservice:
     spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+  extendedservice:
+    spec: tests/wh/webserver/remoting/openapi/testservice.yaml
+    # TODO throw in a merge too
+    initHook: tests/wh/webserver/remoting/openapi/hooks.ts#extendTheService
   authtests:
     spec: tests/wh/webserver/remoting/openapi/authtests.yaml
     crossDomainOrigins:

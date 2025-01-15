@@ -194,6 +194,9 @@ $defs:
           spec:
             description: "Path to the OpenAPI V3 specification"
             type: string
+          initHook:
+            description: "Callback to do runtime modifications to the OpenAPI configuration"
+            type: string
           merge:
             type: array
             description: "Optional overrides for the specification"

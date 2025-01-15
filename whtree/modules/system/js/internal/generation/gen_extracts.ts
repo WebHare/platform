@@ -40,6 +40,7 @@ export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "dev
 export interface OpenAPIDescriptor {
   name: string;
   spec: string;
+  initHook?: string;
   merge?: string;
   inputValidation?: OpenAPIValidationMode;
   outputValidation?: OpenAPIValidationMode;
@@ -214,6 +215,7 @@ export function generateServices(context: GenerateContext): string {
       retval.openAPIServices.push({
         name: `${mod.name}:${servicename}`,
         spec: resolveResource(mod.resourceBase, servicedef.spec),
+        ...(servicedef.initHook ? { initHook: resolveResource(mod.resourceBase, servicedef.initHook) } : {}),
         merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
         crossdomainOrigins: servicedef.crossDomainOrigins || [],
       });

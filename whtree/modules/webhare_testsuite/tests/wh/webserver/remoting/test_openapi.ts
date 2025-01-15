@@ -301,9 +301,10 @@ async function verifyPublicParts() {
   const useropenapi = await (await fetch(userapiroot + "openapi.json", { redirect: "manual" })).json();
   test.eq("3.1.0", useropenapi.openapi);
   test.assert(!JSON.stringify(useropenapi).includes("x-webhare"));
-  test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in the source file)");
+  test.eq(userapiroot, useropenapi.servers?.[0].url, "Verify full URL (it was '.' in the source file)");
   test.assert(enumRefs(useropenapi).length > 0, "$refs should still exists (only cross-file refs should be removed)");
   test.eq([], enumRefs(useropenapi).filter(r => !r.startsWith("#")), "Only internal refs should remain");
+  test.assert(!("/extension" in useropenapi.paths), "Extended paths should not be in the 'testservice' API");
 
   const unkownapi = await fetch(userapiroot + "unknownapi");
   test.eq(HTTPErrorCode.NotFound, unkownapi.status);
@@ -343,6 +344,11 @@ async function verifyPublicParts() {
   const validatepathcall = await fetch(userapiroot + "validateoutput/with%2F");
   test.eq(HTTPErrorCode.BadRequest, validatepathcall.status);
   test.eq(`Illegal path type: "with/"`, (await validatepathcall.json()).error);
+
+  const extendedapiroot = services.backendConfig.backendURL + ".webhare_testsuite/openapi/extendedservice/";
+  const extendedopenapi = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
+  test.assert("/extension" in extendedopenapi.paths, "Extended paths should be visible in the extendedservice API");
+  test.eq({ "message": "I have been extended" }, (await (await fetch(extendedapiroot + "extension")).json()));
 }
 
 function testInternalTypes() {
