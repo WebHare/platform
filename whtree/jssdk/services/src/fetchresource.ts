@@ -82,7 +82,14 @@ export async function getFetchResourceCacheCleanups(cleanupAfterMs: number, onDe
   //tracks .json files
   const seenJsons = new Set<string>();
 
-  for (const file of await readdir(`${backendConfig.dataroot}caches/platform/fetch/`, { withFileTypes: true })) {
+  let items;
+  try {
+    items = await readdir(`${backendConfig.dataroot}caches/platform/fetch/`, { withFileTypes: true });
+  } catch {
+    return; //nothing to cleanup
+  }
+
+  for (const file of items) {
     const fullpath = file.parentPath + file.name;
     if (file.name.endsWith('.dat')) {
       seenDats.add(fullpath);
