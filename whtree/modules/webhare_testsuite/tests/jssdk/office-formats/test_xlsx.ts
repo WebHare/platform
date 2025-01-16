@@ -67,10 +67,11 @@ export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
   const incopmpleteColums: SpreadsheetColumn[] = [{ name: "date", type: "dateTime" }];
   await test.throws(/storeUTC/, generateXLSX({ rows: reftrestrows, columns: incopmpleteColums }));
-  await test.throws(/no timezone/, generateXLSX({ rows: reftrestrows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
-  await test.throws(/no timezone/, generateXLSX({ rows: reftrestrows, columns: columns }));
+  await test.throws(/no timeZone/, generateXLSX({ rows: reftrestrows, columns: columns.filter(_ => _.type === "dateTime").map(_ => ({ ..._, storeUTC: true })) }));
+  await test.throws(/no timeZone/, generateXLSX({ rows: reftrestrows, columns: columns }));
 
-  const output2 = await generateXLSX({ rows: reftrestrows, columns, timezone: "CET" });
+  //FIXME don't allow 'old' timezone names, actually apply timezones to the export format
+  const output2 = await generateXLSX({ rows: reftrestrows, columns, timeZone: "CET" });
   test.eq(/\.xlsx$/, output2.name);
 
   await storeDiskFile("/tmp/test_xlsx_columnfiles.xlsx", output2, { overwrite: true });

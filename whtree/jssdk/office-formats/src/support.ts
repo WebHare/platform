@@ -31,12 +31,13 @@ export type GenerateSpreadsheetOptions = {
   rows: SpreadsheetRow[];
   columns: SpreadsheetColumn[];
   title?: string;
-  timezone?: string;
+  timeZone?: string;
 };
 
 export type GenerateWorkbookProperties = {
   sheets: GenerateSpreadsheetOptions[];
-  timezone?: string;
+  title?: string;
+  timeZone?: string;
 };
 
 export function validateRowsColumns(options: GenerateSpreadsheetOptions) {
@@ -48,8 +49,8 @@ export function validateRowsColumns(options: GenerateSpreadsheetOptions) {
     if (column.type === "dateTime") {
       if (typeof column.storeUTC !== "boolean")
         throw new Error(`Column ${column.name} is of type dateTime but storeUTC is not a boolean`);
-      if (column.storeUTC && !options.timezone)
-        throw new Error(`Column ${column.name} is of type dateTime and storeUTC is true but no timezone is set`);
+      if (column.storeUTC && !options.timeZone)
+        throw new Error(`Column ${column.name} is of type dateTime and storeUTC is true but no timeZone is set`);
     } else if (!(column.type in ColumnTypes)) {
       throw new Error(`Column ${column.name} has an invalid type: ${column.type}`);
     }
