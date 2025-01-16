@@ -58,7 +58,6 @@
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.10",
     "typeface-roboto": "^1.1.13",
-    "typeface-roboto-mono": "^1.1.13",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0",
     "typescript-formatter": "^7.2.2",

@@ -16,7 +16,6 @@
   border: 1px solid $default-border-color;
   border-radius: $default-border-radius;
   background: $control-background-color;
-  font-family: 'Roboto Mono';
 
   &:focus-within
   {
@@ -53,8 +52,11 @@ input[type="tel"].tollium__datetime__part
   min-width: 0;
   height: auto;
 
-  text-align: right;
-  width: calc(2ch + 2px);
+  width: calc(4ch);
+
+  &:first-of-type(input), &:last-of-type(input) {
+    width:calc(3ch);
+  }
 }
 input[type="tel"].tollium__datetime__msec
 {
