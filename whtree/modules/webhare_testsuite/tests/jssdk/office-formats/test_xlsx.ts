@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
 import { generateXLSX, type SpreadsheetColumn } from "@webhare/office-formats";
-import { Money } from "@webhare/std";
+import { Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -126,4 +126,49 @@ export async function testXLSXColumnFiles() {
   //The rest of testXLSXColumnFiles was testing various parse modes (eg alltostring TRUE, floatmode 'money' not the generator )
 }
 
-test.runTests([testXLSXColumnFiles]);
+async function testXLSXMultipleSheets() {
+  const sheet1 = {
+    rows: reftrestrows.map(_ => pick(_, ["title", "date"])),
+    columns: columns.filter(_ => ['title', 'date'].includes(_.name)),
+    title: "First Sheet"
+  };
+
+  const sheet2 = {
+    rows: [reftrestrows[1]],
+    columns: columns.filter(_ => ['title', 'bool'].includes(_.name)),
+  };
+
+  const sheet3 = {
+    rows: [],
+    columns: columns,
+    title: "Empty Sheet"
+  };
+
+  const output = await generateXLSX({
+    title: "Cool document",
+    timeZone: "Europe/Amsterdam",
+    sheets: [sheet1, sheet2, sheet3]
+  });
+  await storeDiskFile("/tmp/test_xlsx_multiple_sheets.xlsx", output, { overwrite: true });
+
+  test.eq(/\.xlsx$/, output.name);
+  test.eq('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', output.type);
+
+  const xlsxin = await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").OpenOOXMLSpreadSheetFile(await WebHareBlob.fromBlob(output));
+  // console.log(await )
+  test.eqPartial([
+    { sheetnr: 0, name: 'First Sheet', sheetid: '1' },
+    { sheetnr: 1, name: 'Sheet2', sheetid: '2' },
+    { sheetnr: 2, name: 'Empty Sheet', sheetid: '3' }
+  ], await xlsxin.getSheets());
+
+  const xlssheet = await xlsxin.OpenSheet(1);
+  const outrows = await xlssheet.GetAllRows();
+  test.eq([['Col 1:title', 'Col 2:bool'], ['Tit&le 2\nnext line!', false]], outrows);
+
+}
+
+test.runTests([
+  testXLSXColumnFiles,
+  testXLSXMultipleSheets
+]);

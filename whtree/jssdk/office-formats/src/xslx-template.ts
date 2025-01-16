@@ -1,11 +1,20 @@
-export function getXLSXBaseTemplate() {
+import { encodeString } from "@webhare/std";
+
+export type SheetInfo = {
+  name: string;
+  title: string;
+};
+
+export function getXLSXBaseTemplate(sheets: SheetInfo[]) {
+  //Note that we number sheet1.xml as rId1 but the next sheets as rId4...
+  const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx === 0 ? 1 : idx + 3}` }));
   return {
     '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  ${addSheets.map(sheet => `<Override PartName="/xl/worksheets/${encodeString(sheet.name, 'attribute')}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("\n")}
   <Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
@@ -35,8 +44,8 @@ export function getXLSXBaseTemplate() {
     </vt:vector>
   </HeadingPairs>
   <TitlesOfParts>
-    <vt:vector size="1" baseType="lpstr">
-      <vt:lpstr>Sheet1</vt:lpstr>
+    <vt:vector size="${sheets.length}" baseType="lpstr">
+      ${sheets.map(sheet => `<vt:lpstr>${encodeString(sheet.title, 'attribute')}</vt:lpstr>`).join('\n')}
     </vt:vector>
   </TitlesOfParts>
   <Manager/>
@@ -53,7 +62,7 @@ export function getXLSXBaseTemplate() {
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
   <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  ${addSheets.map(sheet => `<Relationship Id="${sheet.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/${encodeString(sheet.name, 'attribute')}"/>`).join('\n')}
 </Relationships>
 `,
     'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:x16r2="http://schemas.microsoft.com/office/spreadsheetml/2015/02/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" mc:Ignorable="x14ac x16r2 xr">
@@ -125,7 +134,7 @@ export function getXLSXBaseTemplate() {
     <workbookView xWindow="480" yWindow="480" windowWidth="24160" windowHeight="18540" tabRatio="500" xr2:uid="{00000000-000D-0000-FFFF-FFFF00000000}"/>
   </bookViews>
   <sheets>
-    <sheet name="Sheet1" sheetId="1" r:id="rId1"/>
+    ${addSheets.map((sheet, idx) => `<sheet name="${encodeString(sheet.title, 'attribute')}" sheetId="${idx + 1}" r:id="${sheet.rId}"/>`).join('\n')}
   </sheets>
   <calcPr calcId="191029" calcCompleted="0" forceFullCalc="1" fullCalcOnLoad="1"/>
   <extLst>

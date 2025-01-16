@@ -2,7 +2,7 @@ import { ColumnTypes, validateRowsColumns, type GenerateSpreadsheetOptions, type
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { encodeString, stdTypeOf, type Money } from "@webhare/std";
-import { getXLSXBaseTemplate } from "./xslx-template";
+import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
@@ -119,14 +119,14 @@ class WorksheetBuilder {
   }
 }
 
-function createSheet(sheetSettings: GenerateSpreadsheetOptions) {
+function createSheet(sheetSettings: GenerateSpreadsheetOptions, tabSelected: boolean) {
   const builder = new WorksheetBuilder;
   const rows = builder.createRows(sheetSettings);
   const dimensions = getNameForColumn(sheetSettings.columns.length) + rows.length;
   let result = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n`;
   result += `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}">`;
   result += `<dimension ref="A1:${dimensions}"/>`;
-  result += `<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews><sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/><sheetData>`;
+  result += `<sheetViews><sheetView ${tabSelected ? `tabSelected="1"` : ""} workbookViewId="0"/></sheetViews><sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/><sheetData>`;
   result += rows.join('');
   result += `</sheetData>`;
   result += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
@@ -138,20 +138,24 @@ function createSheet(sheetSettings: GenerateSpreadsheetOptions) {
     @returns Blob blob containing the XLSX file
 */
 export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> {
-  if ("sheets" in options) {
-    throw new Error("generateXLSX does not support multiple sheets yet");
-  }
-  validateRowsColumns(options);
+  const sheets = "sheets" in options ? options.sheets : [options];
+  for (const sheet of sheets)
+    validateRowsColumns({ timeZone: options.timeZone, ...sheet });
 
-  //Create the worksheet
-  const sheet = createSheet(options);
+  //Create the worksheets
+  const sheetnames: SheetInfo[] = [];
+  const output = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("zip");
+  for (const [idx, sheet] of sheets.entries()) {
+    const sheetname = `sheet${idx + 1}.xml`;
+    const outputSheet = createSheet(sheet, idx === 0);
+    await output.AddFile(`xl/worksheets/${sheetname}`, WebHareBlob.from(outputSheet), new Date);
+    sheetnames.push({ name: sheetname, title: sheet.title ?? `Sheet${idx + 1}` });
+  }
 
   //Create the workbook
-  const output = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("zip");
-  for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate())) {
+  for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(sheetnames))) {
     await output.AddFile(fullpath, WebHareBlob.from(data), new Date);
   }
-  await output.AddFile('xl/worksheets/sheet1.xml', WebHareBlob.from(sheet), new Date);
 
   const outblob = await output.MakeBlob() as WebHareBlob;
   return new File([await outblob.arrayBuffer()], `${options?.title || "export"}.xlsx`, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
