@@ -8,23 +8,20 @@ import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
 import { createSharpImage, Sharp } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
+import { listDirectory } from "@webhare/system-tools";
 
 async function clearUnifiedCache() {
   const ucCacheDir = backendConfig.dataroot + "caches/platform/uc/";
 
-  // Skip deletion
-  if (!await fs.access(ucCacheDir).then(() => true, () => false))
-    return;
-
-  for (const elt of await fs.readdir(ucCacheDir)) {
+  for (const elt of await listDirectory(ucCacheDir, { allowMissing: true })) {
     // Only delete dirs with 3 hex digits
-    if (elt.match(/^[0-9a-f]{3}$/)) {
-      await fs.rm(ucCacheDir + elt, { recursive: true });
+    if (elt.name.match(/^[0-9a-f]{3}$/)) {
+      await fs.rm(elt.fullPath, { recursive: true });
     }
   }
 
   // Ensure the directory is now empty (or maybe a CACHEDIR.TAG file)
-  test.eq([], (await fs.readdir(ucCacheDir)).filter(name => name !== "CACHEDIR.TAG"));
+  test.eq([], (await listDirectory(ucCacheDir, { allowMissing: true })).filter(_ => _.name !== "CACHEDIR.TAG"));
 }
 
 async function testResizeMethods() {

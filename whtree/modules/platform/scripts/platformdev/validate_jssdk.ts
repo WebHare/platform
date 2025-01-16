@@ -9,10 +9,11 @@
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { backendConfig } from "@webhare/services";
-import { readFile, readdir, writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
+import { listDirectory } from '@webhare/system-tools';
 
 program.name("validate_jssdk")
   .option("-v, --verbose", "verbose log level")
@@ -26,7 +27,7 @@ async function main() {
   const axioms = await readAxioms();
   let anyIssues = false;
 
-  for (const pkg of await readdir(backendConfig.installationroot + "/jssdk", { withFileTypes: true })) {
+  for (const pkg of await listDirectory(backendConfig.installationroot + "/jssdk")) {
     const issues: Array<{
       message: string;
       toFix?: () => void;
@@ -38,8 +39,7 @@ async function main() {
     if (verbose)
       console.log(`Checking ${pkg.name}`);
 
-    const pkgroot = join(backendConfig.installationroot, 'jssdk', pkg.name);
-    const pkgjson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8"));
+    const pkgjson = JSON.parse(await readFile(join(pkg.fullPath, "package.json"), "utf8"));
     if (pkgjson.version !== "") //you can't remove it, npm will put it back
       issues.push({ message: "Version should be empty", toFix: () => pkgjson.version = "" });
     if (pkgjson.private !== true)
@@ -55,7 +55,7 @@ async function main() {
         issues.push({ message: `Field '${forbiddenfield}' is maintained centrally, not per package`, toFix: () => delete pkgjson[forbiddenfield] });
 
     if (axioms.publishPackages.includes(pkg.name)) { //this package will be published
-      if (!existsSync(join(pkgroot, "README.md")))
+      if (!existsSync(join(pkg.fullPath, "README.md")))
         issues.push({ message: `Package has no README.md` });
       if (!pkgjson.description)
         issues.push({ message: `Package has no description in package.json` });
@@ -63,10 +63,10 @@ async function main() {
 
     if (pkgjson.main?.endsWith(".ts")) {
       //Verify @declare module fragment presence. It's still far from perfect but helps TypeScript language server to hint to better imports
-      const tsfile = await readFile(join(pkgroot, pkgjson.main), "utf8");
+      const tsfile = await readFile(join(pkg.fullPath, pkgjson.main), "utf8");
       const expfragment = `declare module "@webhare/${pkg.name}"`;
       if (!tsfile.includes(expfragment))
-        issues.push({ message: `Missing the '${expfragment}' declaration in ${join(pkgroot, pkgjson.main)}` });
+        issues.push({ message: `Missing the '${expfragment}' declaration in ${join(pkg.fullPath, pkgjson.main)}` });
     }
 
     if (issues.length) {
@@ -79,7 +79,7 @@ async function main() {
           console.log(`- @webhare/${pkg.name}: ${issue.message} (fixing)`);
           issue.toFix!();
         }
-        await writeFile(join(pkgroot, "package.json"), JSON.stringify(pkgjson, null, 2) + "\n");
+        await writeFile(join(pkg.fullPath, "package.json"), JSON.stringify(pkgjson, null, 2) + "\n");
       }
     }
   }

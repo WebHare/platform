@@ -5,6 +5,8 @@ import { join, parse } from "node:path";
 import type { Stream } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 
+export type ListDirectoryEntry = Dirent & { fullPath: string };
+
 export interface StoreDiskFileOptions {
   /** Overwrite if the file already exists? (other we would throw) */
   overwrite?: boolean;
@@ -51,10 +53,13 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
   }
 }
 
-async function readDirRecursiveDeeper(basepath: string, subpath: string, allowMissing?: boolean): Promise<Dirent[]> {
-  const direntries = [];
+async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean): Promise<ListDirectoryEntry[]> {
+  const direntries: ListDirectoryEntry[] = [];
   try {
-    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
+    for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
+      (entry as ListDirectoryEntry).fullPath = join(basepath, subpath, entry.name);
+      direntries.push(entry as ListDirectoryEntry);
+    }
   } catch (err) {
     if (allowMissing && (err as { code: string })?.code === "ENOENT")
       return [];
@@ -62,19 +67,20 @@ async function readDirRecursiveDeeper(basepath: string, subpath: string, allowMi
     throw err;
   }
 
-  for (const item of direntries.filter(_ => _.isDirectory()))
-    direntries.push(...await readDirRecursiveDeeper(basepath, join(subpath, item.name), allowMissing));
+  if (recursive)
+    for (const item of direntries.filter(_ => _.isDirectory()))
+      direntries.push(...await doReadDir(basepath, join(subpath, item.name), false, true));
   return direntries;
 }
 
-/** Read a directory, recursive */
-export async function readDirRecursive(basepath: string, { allowMissing }: { allowMissing?: boolean } = {}): Promise<Dirent[]> {
-  return await readDirRecursiveDeeper(basepath, "", allowMissing);
+/** List a directory, recursive */
+export async function listDirectory(basepath: string, { allowMissing, recursive }: { allowMissing?: boolean; recursive?: boolean } = {}): Promise<ListDirectoryEntry[]> {
+  return await doReadDir(basepath, "", allowMissing || false, recursive || false);
 }
 
 interface DeleteRecursiveOptions {
   /** A function that returns true if the file should be kept */
-  keep?: (file: Dirent) => boolean;
+  keep?: (file: ListDirectoryEntry) => boolean;
   /** If true, the basepath itself will be deleted if it is empty */
   deleteSelf?: boolean;
   /** Log what would be deleted or kept */
@@ -86,22 +92,14 @@ interface DeleteRecursiveOptions {
 }
 
 async function deleteRecursiveDeeper(basepath: string, subpath: string, options?: DeleteRecursiveOptions): Promise<boolean> {
-  const direntries = [];
-  try {
-    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
-  } catch (err) {
-    if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
-      return true;
-
-    throw err;
-  }
+  const direntries = await listDirectory(join(basepath, subpath), { allowMissing: options?.allowMissing });
 
   let allgone = true;
   for (const item of direntries) {
     const isdir = item.isDirectory();
     const keepit = options?.keep?.(item) || (isdir && !await deleteRecursiveDeeper(basepath, join(subpath, item.name), options));
     if (options?.verbose)
-      console.log(`${keepit ? "Keeping" : "Deleting"} ${isdir ? "directory" : "file"} ${join(basepath, subpath, item.name)}`);
+      console.log(`${keepit ? "Keeping" : "Deleting"} ${isdir ? "directory" : "file"} ${item.fullPath}`);
     if (keepit) {
       allgone = false;
       continue;
@@ -109,7 +107,7 @@ async function deleteRecursiveDeeper(basepath: string, subpath: string, options?
 
     if (!options?.dryRun) {
       try {
-        await (isdir ? rmdir : unlink)(join(basepath, subpath, item.name));
+        await (isdir ? rmdir : unlink)(item.fullPath);
       } catch (err) {
         if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
           continue;

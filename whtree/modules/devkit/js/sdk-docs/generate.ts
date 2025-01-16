@@ -1,6 +1,7 @@
 import { backendConfig } from "@webhare/services";
 import * as TypeDoc from "typedoc";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { listDirectory } from "@webhare/system-tools";
 
 /* TODO: we're currently stuck at typedoc 0.26 as 0.27 switch to ESM and we can't actually load that using tsrun
          we also had to override the dependency in our package.json to get 'npm install' to not complain about the incompatible version */
@@ -14,14 +15,13 @@ const blacklistModules = [
 
 export async function setupDocGenerator() {
   const entryPoints = [];
-  for (const pkg of await readdir(backendConfig.installationroot + "jssdk")) {
-    if (blacklistModules.includes(pkg))
+  for (const pkg of await listDirectory(backendConfig.installationroot + "jssdk")) {
+    if (blacklistModules.includes(pkg.name))
       continue;
 
-    const pkgPath = backendConfig.installationroot + "jssdk/" + pkg;
     let packageinfo;
     try {
-      packageinfo = JSON.parse(await readFile(pkgPath + "/package.json", 'utf8'));
+      packageinfo = JSON.parse(await readFile(pkg.fullPath + "/package.json", 'utf8'));
     } catch {
       continue;
     }
@@ -29,7 +29,7 @@ export async function setupDocGenerator() {
     if (!packageinfo.main?.endsWith('.ts'))
       continue; //not an interesting package (eg. eslint, tsrun)
 
-    entryPoints.push(pkgPath + '/' + packageinfo.main);
+    entryPoints.push(pkg.fullPath + '/' + packageinfo.main);
   }
 
   // Application.bootstrap also exists, which will not load plugins

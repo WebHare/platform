@@ -4,10 +4,10 @@ import { runAccountExpiration } from "@mod-system/js/internal/userrights/account
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
 import { convertWaitPeriodToDate } from "@webhare/std";
-import { deleteRecursive } from "@webhare/system-tools";
+import { deleteRecursive, listDirectory } from "@webhare/system-tools";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import { listSchemas } from "@webhare/wrd";
-import { unlink, readdir, rm } from "fs/promises";
+import { unlink, rm } from "fs/promises";
 
 async function expireOldUsers() {
   let schemastofix = await listSchemas();
@@ -26,14 +26,14 @@ async function cleanupOldSessions() {
 
 async function cleanupOldUploads() {
   const basedir = toFSPath("storage::platform/uploads");
-  const currentuploads = (await readdir(basedir)).filter(_ => _ !== "CACHEDIR.TAG");
+  const currentuploads = (await listDirectory(basedir, { allowMissing: true })).filter(_ => _.name !== "CACHEDIR.TAG");
   if (currentuploads.length === 0)
     return; //nothing to do
 
   const uploadsessionids = await db<PlatformDB>().selectFrom("system.sessions").select(["sessionid"]).where("scope", "=", "platform:uploadsession").execute();
   const uploadsessions = new Set(uploadsessionids.map(_ => _.sessionid));
   for (const session of currentuploads)
-    if (!uploadsessions.has(session))
+    if (!uploadsessions.has(session.name))
       await deleteRecursive(`${basedir}/${session}`, { deleteSelf: true });
 }
 
@@ -42,11 +42,11 @@ async function rotateLogs() {
   //TODO manage all log files, take over from whmanager ?
   const logdir = backendConfig.dataroot + "log";
   const cutoff = convertWaitPeriodToDate("-P30D");
-  for (const log of await readdir(logdir)) {
-    if (!log.startsWith("servicemanager."))
+  for (const log of await listDirectory(logdir, { allowMissing: true })) {
+    if (!log.name.startsWith("servicemanager."))
       continue;
 
-    const datenum = parseInt(log.split(".")[1]);
+    const datenum = parseInt(log.name.split(".")[1]);
     if (!datenum || datenum < 20230000)
       continue; //invalid date?
 

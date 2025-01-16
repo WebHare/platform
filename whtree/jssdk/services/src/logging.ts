@@ -1,12 +1,12 @@
 import bridge, { LogErrorOptions, LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
 import { LoggableRecord } from "./logmessages";
 import { backendConfig, type LogFormats } from "./services";
-import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";
 import { readFileSync } from "fs";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
+import { listDirectory } from "@webhare/system-tools";
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = {
@@ -115,10 +115,10 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
   const basedir = backendConfig.dataroot + "log";
   const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
-  const logfilenames = (await fs.readdir(basedir)).filter(_ => _.match(filter)).sort();
+  const logfiles = (await listDirectory(basedir, { allowMissing: true })).filter(_ => _.name.match(filter)).sort();
 
-  for (const name of logfilenames) {
-    const datetok = name.split('.').at(-2)!; //... as we've already ensured the file ends in .YYYYMMDD.log
+  for (const file of logfiles) {
+    const datetok = file.name.split('.').at(-2)!; //... as we've already ensured the file ends in .YYYYMMDD.log
     const textdate = datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8);
     const logfiledate = new Date(textdate);
 
@@ -137,7 +137,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     const continueAfterOffset: number = options?.continueAfter?.split(':')[0] === `A${datetok}` ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
 
     //Okay, this one is in range. Start parsing
-    const content = options?.content ?? readFileSync(basedir + "/" + name, "utf8");
+    const content = options?.content ?? readFileSync(basedir + "/" + file.name, "utf8");
     const loglines = content.split("\n");
     let curOffset = 0;
     for (const line of loglines) {

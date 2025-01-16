@@ -11,7 +11,7 @@ import * as compileutils from './compileutils';
 import { promisify } from 'util';
 import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
-import { storeDiskFile } from '@webhare/system-tools';
+import { listDirectory, storeDiskFile } from '@webhare/system-tools';
 import { makeAssetPack, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
@@ -396,26 +396,26 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   //Move them in place. Also fix the casing in this final step
   const removefiles = new Set<string>();
-  for (const file of await fs.readdir(bundle.outputpath))
-    if (file.toLowerCase() !== file)
-      await fs.unlink(path.join(bundle.outputpath, file)); //delete mixed case files immediately - it's not safe to wait until the end if the FS is case insensitive
+  for (const file of await listDirectory(bundle.outputpath))
+    if (file.name.toLowerCase() !== file.name)
+      await fs.unlink(file.fullPath); //delete mixed case files immediately - it's not safe to wait until the end if the FS is case insensitive
     else
-      removefiles.add(file); //add to the cleanup list
+      removefiles.add(file.fullPath); //add to the cleanup list
 
   for (const [name] of finalpack.entries()) {
     const outputname = name.toLowerCase();
     await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
-    removefiles.delete(outputname);
+    removefiles.delete(path.join(bundle.outputpath, outputname));
   }
 
   const cutoff = Date.now() - 86400 * 1000; //delete files older than one day. but gz files should go away immediately *iff* we're building for dev mode
-  for (const name of removefiles) {
-    const props = await fs.lstat(path.join(bundle.outputpath, name)).catch(_ => null);
-    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && (name.endsWith('.gz') || name.endsWith('.br'))))) {
+  for (const removeFile of removefiles) {
+    const props = await fs.lstat(removeFile).catch(_ => null);
+    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && (removeFile.endsWith('.gz') || removeFile.endsWith('.br'))))) {
       if (props?.isDirectory())
-        await fs.rm(path.join(bundle.outputpath, name), { recursive: true });
+        await fs.rm(removeFile, { recursive: true });
       else
-        await fs.unlink(path.join(bundle.outputpath, name));
+        await fs.unlink(removeFile);
     }
   }
 
