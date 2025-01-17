@@ -2,8 +2,8 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { dtapStage } from "@webhare/env";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { parseTyped, stringify } from "@webhare/std";
-import { storeDiskFile } from "@webhare/system-tools";
-import { readdir, rmdir, stat, readFile, mkdir } from "node:fs/promises";
+import { listDirectory, storeDiskFile } from "@webhare/system-tools";
+import { rmdir, stat, readFile, mkdir } from "node:fs/promises";
 import type { AssetPackState } from "./types";
 
 export type BundleSettings = Awaited<ReturnType<typeof readBundleSettings>>;
@@ -68,14 +68,13 @@ export async function removeObsoleteCacheFolders() {
   ]);
 
   for (const subfolder of ["ap", "ap.metadata"])
-    for (const entry of await readdir(getBasePath(false) + subfolder, { withFileTypes: true })) {
-      const fullpath = `${entry.parentPath}/${entry.name}`;
+    for (const entry of await listDirectory(getBasePath(false) + subfolder, { allowMissing: true })) {
       if (entry.name.startsWith("adhoc-") && !entry.name.includes(".")) {
-        if ((await stat(fullpath)).mtimeMs > Date.now() - 3_600_000) //less than an hour old
+        if ((await stat(entry.fullPath)).mtimeMs > Date.now() - 3_600_000) //less than an hour old
           continue; //a grace period for adhoc- packages
       }
-      if (!expectPaths.has(`${fullpath}/`))
-        await rmdir(fullpath, { recursive: true });
+      if (!expectPaths.has(`${entry.fullPath}/`))
+        await rmdir(entry.fullPath, { recursive: true });
 
     }
 }

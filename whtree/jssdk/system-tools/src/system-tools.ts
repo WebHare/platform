@@ -2,4 +2,4 @@
 declare module "@webhare/system-tools" {
 }
 
-export { readDirRecursive, storeDiskFile, deleteRecursive } from "./fs";
+export { listDirectory, storeDiskFile, deleteRecursive, type ListDirectoryEntry } from "./fs";

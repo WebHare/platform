@@ -1,7 +1,7 @@
-import { storeDiskFile } from "@webhare/system-tools";
+import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { parseTyped, stringify } from "@webhare/std";
 import * as crypto from "node:crypto";
-import { mkdir, readFile, open, readdir, stat } from "node:fs/promises";
+import { mkdir, readFile, open, stat } from "node:fs/promises";
 import { backendConfig, ResourceDescriptor } from "@webhare/services";
 
 function hashUrl(url: string) {
@@ -82,13 +82,7 @@ export async function getFetchResourceCacheCleanups(cleanupAfterMs: number, onDe
   //tracks .json files
   const seenJsons = new Set<string>();
 
-  let items;
-  try {
-    items = await readdir(`${backendConfig.dataroot}caches/platform/fetch/`, { withFileTypes: true });
-  } catch {
-    return; //nothing to cleanup
-  }
-
+  const items = await listDirectory(`${backendConfig.dataroot}caches/platform/fetch/`, { allowMissing: true });
   for (const file of items) {
     const fullpath = file.parentPath + file.name;
     if (file.name.endsWith('.dat')) {
