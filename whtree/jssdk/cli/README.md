@@ -104,7 +104,7 @@ run({
   options: {
     "withoutDefault": { description: "Option without default" },
     "withDefault": { default: "", description: "Option with default" },
-    "intWithDefault": { default: -1, description: "Option with default", type: intOption },
+    "intWithDefault": { default: -1, description: "Option with default", type: intOption() },
   },
   main({ opts }) {
     // opts has type { withoutDefault?: string; withDefault: string; intWithDefault: number }
@@ -213,3 +213,31 @@ the argument when accepted.
 
 TODO: describe how to register an autocomplete handler, process the
 result with COMP_WORDBREAKS, example to call it with `curl`.
+
+
+## commander -> run conversion guide
+```typescript
+const parsedArgs = program
+  .option("--days <days>", "Number of days to sync (default 7)", "7")
+  .option("--debug", "Debug")
+  .parse();
+
+const days = parseInt(parsedArgs.opts().days) || 7;
+const debug = Boolean(parsedArgs.opts().debug);
+
+async function main() { ... }
+```
+
+becomes:
+
+```typescript
+run({
+  flags: {
+    "debug": { description: "Debug" },
+  },
+  options: {
+    "days": { default: 7, description: "Number of days to sync (default 7)", type: intOption({ start: 1 }) },
+  },
+  main: async function ({ opts }) { ... }
+});
+```

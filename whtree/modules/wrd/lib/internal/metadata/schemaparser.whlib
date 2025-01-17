@@ -57,9 +57,9 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent, STRING currentfile)
       INSERT CELL allowedvalues := ParseXSList(attrnode->GetAttribute("allowedvalues")) INTO attr;
 
       STRING typedeclaration := attrnode->GetAttribute("typedeclaration");
-      IF (typedeclaration != "")
+      IF (typedeclaration LIKE "./*" OR  typedeclaration LIKE "../*")
         typedeclaration := MakeAbsoluteResourcePath(currentfile, typedeclaration);
-      INSERT CELL typedeclaration := attrnode->GetAttribute("typedeclaration") INTO attr;
+      INSERT CELL typedeclaration := typedeclaration INTO attr;
 
       IF(attrnode->HasAttribute("checklinks"))
         INSERT CELL checklinks := ParseXSBoolean(attrnode->GetAttribute("checklinks")) INTO attr;
