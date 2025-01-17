@@ -123,17 +123,12 @@
   </tollium>
 
   <services>
-    <openapiservice name="testservice" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
     <openapiservice name="testservice_novalidation"
                     inputvalidation="never"
                     outputvalidation="never"
                     spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
 
     <openapiclient name="testclient" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
-
-    <openapiservice name="authtests"
-                    crossdomainorigins="example.* https://webhare.dev:1234"
-                    spec="tests/wh/webserver/remoting/openapi/authtests.yaml" />
 
     <webservice name="test"
                 library="lib/webservicetest.whlib"
@@ -240,6 +235,7 @@
     </webruleset>
     <restapi apispec="tests/wh/webserver/remoting/restapi/restapi.xml" path="root:/.webhare_testsuite/restapi/" />
     <openapi path="root:/.webhare_testsuite/openapi/testservice/" service="testservice" />
+    <openapi path="root:/.webhare_testsuite/openapi/extendedservice/" service="extendedservice" />
     <openapi path="root:/.webhare_testsuite/openapi/authtests/" service="webhare_testsuite:authtests" />
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
       <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />

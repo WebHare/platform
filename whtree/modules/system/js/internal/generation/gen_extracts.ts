@@ -8,7 +8,7 @@ import { addModule } from "@webhare/services/src/naming";
 import { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { generateWebDesigns } from "./webdesigns";
 import * as crypto from "node:crypto";
-import { stringify } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { type Document } from "@xmldom/xmldom";
 
 export interface AssetPack {
@@ -40,6 +40,7 @@ export type OpenAPIValidationMode = ["never"] | ["always"] | Array<"test" | "dev
 export interface OpenAPIDescriptor {
   name: string;
   spec: string;
+  initHook?: string;
   merge?: string;
   inputValidation?: OpenAPIValidationMode;
   outputValidation?: OpenAPIValidationMode;
@@ -207,6 +208,16 @@ export function generateServices(context: GenerateContext): string {
         coreService: servicedef.coreService || false,
         clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
         controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
+      });
+    }
+
+    for (const [servicename, servicedef] of Object.entries(mod.modYml?.openApiServices ?? [])) {
+      retval.openAPIServices.push({
+        name: `${mod.name}:${servicename}`,
+        spec: resolveResource(mod.resourceBase, servicedef.spec),
+        ...(servicedef.initHook ? { initHook: resolveResource(mod.resourceBase, servicedef.initHook) } : {}),
+        merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
+        crossdomainOrigins: servicedef.crossDomainOrigins || [],
       });
     }
 

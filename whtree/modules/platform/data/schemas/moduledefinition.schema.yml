@@ -18,6 +18,9 @@ properties:
   backendServices:
     description: Additional services
     $ref: "#/$defs/BackendServices"
+  openApiServices:
+    description: OpenAPI services
+    $ref: "#/$defs/OpenApiServices"
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/$defs/AssetPacks"
@@ -176,6 +179,37 @@ $defs:
           coreService:
             description: "Core services start up during WebHare bootup (and may find database and other configuration to still be incomplete!)"
             type: boolean
+
+  OpenApiServices:
+    description: Specifies an OpenAPI service
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Service name
+        type: object
+        additionalProperties: false
+        required:
+          - spec
+        properties:
+          spec:
+            description: "Path to the OpenAPI V3 specification"
+            type: string
+          initHook:
+            description: "Callback to do runtime modifications to the OpenAPI configuration"
+            type: string
+          merge:
+            type: array
+            description: "Optional overrides for the specification"
+            items:
+              type: string
+              description: "Path to an override file"
+          # TODO inputValidation & outputValidation? or should that be server configuration ?
+          crossDomainOrigins:
+            description: "Allow sites on these domains direct access"
+            type: array
+            items:
+              type: string
+              description: "Host to permit ('*' is supported as a wildcard)"
 
   Connect:
     type: object

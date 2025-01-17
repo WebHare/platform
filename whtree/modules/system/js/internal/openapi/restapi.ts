@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument } from "@webhare/router";
 import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
@@ -14,9 +14,18 @@ import { type WebResponseForTransfer, createWebResponseFromTransferData } from "
 import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
 import { RestAPIWorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
+import type { WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
 
+
+export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void> | void;
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
+
+function resolveJSResource(base: string, relativepath: string) {
+  //Needed to understand @mod- paths. See https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1069#note_225871
+  return relativepath.startsWith("@mod-") ? relativepath : resolveResource(base, relativepath);
+}
+
 
 interface Operation {
   // The function to call
@@ -45,20 +54,6 @@ interface Route {
 }
 
 type Match = { route: Route; params: Record<string, string> };
-
-interface WHOperationAddition {
-  "x-webhare-implementation"?: string;
-  "x-webhare-authorization"?: string;
-}
-
-interface WHOpenAPIPathItem extends OpenAPIV3.PathItemObject<WHOperationAddition> {
-  "x-webhare-authorization"?: string;
-}
-
-interface WHOpenAPIDocument extends OpenAPIV3.Document<WHOperationAddition> {
-  "x-webhare-authorization"?: string;
-  "x-webhare-default-error-mapper"?: string;
-}
 
 function filterXWebHare(def: unknown): unknown {
   if (!def || typeof def !== "object")
@@ -152,8 +147,8 @@ type Handler = ConvertLocalServiceInterfaceToClientInterface<WorkerRestAPIHandle
 
 // An OpenAPI handler
 export class RestAPI {
-  bundled: WHOpenAPIDocument | null = null;
-  def: WHOpenAPIDocument | null = null;
+  bundled: WebHareOpenAPIDocument | null = null;
+  def: WebHareOpenAPIDocument | null = null;
   private routes: Route[] = [];
   private workerPool = new RestAPIWorkerPool("restapi", maxOpenAPIWorkers, maxCallsPerWorker);
   handlers = new WeakMap<AsyncWorker, Handler>();
@@ -161,17 +156,23 @@ export class RestAPI {
   outputValidation: OpenAPIValidationMode | null = null;
   crossdomainOrigins: string[] = [];
 
-  async init(def: object, specresourcepath: string, { merge, inputValidation, outputValidation, crossdomainOrigins }: { merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[] } = {}) {
+  async init(def: object, specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string }) {
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
     if (crossdomainOrigins)
       this.crossdomainOrigins = crossdomainOrigins;
 
     // Bundle all external files into one document
-    const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WHOpenAPIDocument, {});
+    const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WebHareOpenAPIDocument, {}) as WebHareOpenAPIDocument;
 
     if (merge)
       mergeIntoBundled(bundled, merge || {}, "");
+
+    // Activate hooks (FIXME how to flush them?)
+    if (initHook) {
+      const tocall = await loadJSFunction<OpenAPIInitHookFunction>(initHook);
+      await tocall({ name: name, spec: bundled });
+    }
 
     // Parse the OpenAPI definition. Make a structured clone of bundled, because validate modifies the incoming data
     const parsed = await SwaggerParser.validate(structuredClone(bundled));
@@ -179,14 +180,14 @@ export class RestAPI {
       throw new Error(`Unsupported OpenAPI version ${parsed.info.version}`);
 
     // Save the bundled document for openapi.json output
-    this.bundled = bundled as WHOpenAPIDocument;
+    this.bundled = bundled as WebHareOpenAPIDocument;
 
     /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
        "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
        we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript doesn't know this
        so we need a few cast below to build the routes ...*/
-    this.def = parsed as WHOpenAPIDocument;
-    const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
+    this.def = parsed as WebHareOpenAPIDocument;
+    const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveJSResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
 
     // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-implementation)
     // Read the API paths
@@ -194,9 +195,9 @@ export class RestAPI {
       // path is a string, e.g. "/users/{userid}/tokens"
       for (const path of Object.keys(this.def.paths)) {
         // comp is an object with keys for each supported method
-        const comp = this.def.paths[path]! as WHOpenAPIPathItem;
+        const comp = this.def.paths[path]! as WebHareOpenApiPathItem;
         const routepath = path.split('/');
-        const path_authorization = comp["x-webhare-authorization"] ? resolveResource(specresourcepath, comp["x-webhare-authorization"]) : toplevel_authorization;
+        const path_authorization = comp["x-webhare-authorization"] ? resolveJSResource(specresourcepath, comp["x-webhare-authorization"]) : toplevel_authorization;
 
         const route: Route = {
           path: routepath,
@@ -207,8 +208,8 @@ export class RestAPI {
         for (const method of SupportedMethods) {
           const operation = comp[method.toLowerCase() as OpenAPIV3.HttpMethods];
           if (operation) {
-            const handler = operation["x-webhare-implementation"] ? resolveResource(specresourcepath, operation["x-webhare-implementation"]) : null;
-            const operation_authorization = operation["x-webhare-authorization"] ? resolveResource(specresourcepath, operation["x-webhare-authorization"]) : path_authorization;
+            const handler = operation["x-webhare-implementation"] ? resolveJSResource(specresourcepath, operation["x-webhare-implementation"]) : null;
+            const operation_authorization = operation["x-webhare-authorization"] ? resolveJSResource(specresourcepath, operation["x-webhare-authorization"]) : path_authorization;
             const params = [];
             if (comp.parameters)
               params.push(...comp.parameters as OpenAPIV3.ParameterObject[]);
