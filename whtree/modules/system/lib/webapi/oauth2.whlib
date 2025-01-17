@@ -538,18 +538,19 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
   IF(sessid LIKE "ipc:*")
   {
     connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
-    IF(NOT ObjectExists(connection))
-      THROW NEW Exception(`Your session has expired`); //you already did this probably
-
-    RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
-    sessdata := msg.msg.__oauth2_authflow.state;
+    IF(ObjectExists(connection))
+    {
+      RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
+      sessdata := msg.msg.__oauth2_authflow.state;
+    }
   }
   ELSE
   {
     sessdata := GetWebSessionData(sessid, "system:oauth2");
-    IF(NOT RecordExists(sessdata))
-      THROW NEW Exception(`Your session has expired`); //TODO do 'something' nice here, although our options are limited especially on the generic landing page!
   }
+
+  IF(NOT RecordExists(sessdata)) //We've seen mostly bots do this though, following really old URLs
+    AbortWithHTTPError(400, "Session expired", [ htmlbody := `<html><head><title>Session expired</title><body>Your login attempt has expired, please try again.</body></html>` ]);
 
   OBJECT oauthconnection := NEW Oauth2Connection(sessdata.oauthconfig);
   RECORD tokeninfo;
