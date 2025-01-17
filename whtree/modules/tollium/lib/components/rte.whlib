@@ -1068,7 +1068,6 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 <
   PUBLIC BOOLEAN __this_is_tolliumrichdocument; //our widget editor currently needs this
   PUBLIC RECORD ARRAY allowwidgettypes;
-  STRING linkhandlerselement;
   RECORD __appliedsettings;
 
   //The current RTD settings as specified by the applytester. Only set if we're currently getting our settings from a `<rtddoc>`
@@ -1186,40 +1185,18 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
     IF(Length(this->rtdtypelinkhandlers) > 0)
     {
       FOREVERY(OBJECT handler FROM this->rtdtypelinkhandlers)
-      {
         handler->DeleteComponent();
-      }
-      this->owner->tolliumscreenmanager->GetComponent(this->linkhandlerselement)->DeleteComponent();
+
       this->rtdtypelinkhandlers := OBJECT[];
     }
 
     IF(RecordExists(this->rtdtypeinfo.linkhandlers))
     {
-      //NOTE: based on loadtolliumbodyfragment but skipping any steps we can get away with
-      //FIXME: load into an isolated scope
-      RECORD fragment := this->rtdtypeinfo.linkhandlers;
-
-      STRING fragprefix := this->name;
-      STRING savefragprefix := this->owner->tolliumscreenmanager->current_fragment_prefix;
-      this->owner->tolliumscreenmanager->current_fragment_prefix := fragprefix;
-
-      //All components will still have names like 'FRAGMENT!' something. Rename them to their unique scoeps
-      //FIXME dupe between screenbase.whlib and rte.whlib
-      FOREVERY(RECORD obj FROM fragment.formobjects)
+      FOREVERY(RECORD handler FROM this->rtdtypeinfo.linkhandlers)
       {
-        obj.data.name := fragprefix || Substring(obj.fullname,8);
-        obj.fullname := fragprefix || Substring(obj.fullname,8);
-        obj.data.tolliumscope.scope := this->toddname || SubString(obj.data.tolliumscope.scope, SearchSubString(obj.data.tolliumscope.scope || "!", "!"));
-        fragment.formobjects[#obj] := obj;
+        OBJECT obj := this->owner->CreateCustomComponent(handler.namespaceuri, handler.localname);
+        INSERT obj INTO this->rtdtypelinkhandlers AT END;
       }
-
-      RECORD ARRAY components := this->owner->DoLoadComponents(fragment.formobjects, this->owner->tolliumscreenbuilder);
-      this->linkhandlerselement := components[0].name;
-      this->owner->tolliumscreenmanager->DoInitComponents(components, this->owner->tolliumscreenbuilder);
-
-      RECORD rootnode := this->owner->tolliumscreenbuilder->ReprocessData(DEFAULT OBJECT, fragment.rootnode, fragment.rootnode.__xml_fields, fragment.rootnode.tolliumscope);
-      this->rtdtypelinkhandlers := rootnode.linkhandlers;
-      this->owner->tolliumscreenmanager->current_fragment_prefix := savefragprefix;
     }
   }
 

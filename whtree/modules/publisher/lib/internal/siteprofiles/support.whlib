@@ -154,7 +154,7 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , allownewwindowlinks := FALSE
          , ignoresiteprofilewidgets := FALSE
          , applytester := DEFAULT OBJECT
-         , linkhandlers := DEFAULT RECORD
+         , linkhandlers := RECORD[]
          , margins := ""
          , tag_b := "b"
          , tag_i := "i"
