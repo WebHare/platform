@@ -2,7 +2,6 @@ import { frontendConfig } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
 import './css/webinterface.scss';
 import 'typeface-roboto';
-import 'typeface-roboto-mono';
 import './pages/harescripterror';
 import './pages/manual';
 
