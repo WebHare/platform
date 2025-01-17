@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/office-formats",
+  "version": "",
+  "description": "",
+  "main": "src/office-formats.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/office-formats.ts"
+    ]
+  },
+  "private": true
+}
