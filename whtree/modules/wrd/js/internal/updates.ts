@@ -636,7 +636,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .executeTakeFirst();
 
       if (otherEntity)
-        throw new Error(`The new WRD_GUID value '${entityData.wrdGuid}' is not unique in this schema, it conflicts with entity #${otherEntity}`);
+        throw new Error(`The new WRD_GUID value '${entityData.wrdGuid}' is not unique in this schema, it conflicts with entity #${otherEntity.id}`);
     }
 
     if (entityData.wrdLimitDate && type.tag === "wrdSettings") {
