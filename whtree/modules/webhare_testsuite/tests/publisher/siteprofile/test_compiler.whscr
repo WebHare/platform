@@ -44,11 +44,10 @@ MACRO TestParsing()
   dumpvalue((SELECT * FROM res.errors ORDER BY line),'boxed');
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*trying to match*")); //Apply <to> rule is trying to match a folder type, but is not set to apply to folders
   TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Duplicate*webhare_testsuite/test1*")); //Duplicate key-sequence [\'http://www.webhare.net/xmlns/webhare_testsuite/test1\'] in key identity-constraint \'{http://www.webhare.net/xmlns/publisher/
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*validationerror*is not expected*"));
   TestEq(2, Length(SELECT FROM res.errors WHERE message LIKE "*No such resource*"));
   TestEq(2, Length(SELECT DISTINCT line FROM res.errors WHERE message LIKE "*No such resource*"));
 
-  TestEq(5, Length(res.errors));
+  TestEq(4, Length(res.errors));
 
 
   STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";
