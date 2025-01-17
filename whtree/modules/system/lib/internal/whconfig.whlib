@@ -239,14 +239,24 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
 {
   options := ValidateOptions([prefix := ""], options);
 
-  RETURN [ webhareversion :=     xmlnode->GetAttribute(options.prefix || "webhareversion")
-         , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
-         , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
-         , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
-         , ifenvironset :=       ParseXSList(xmlnode->GetAttribute(options.prefix || "ifenvironset"))
-         , unlessenvironset :=   ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessenvironset"))
-         , ifmodules :=          xmlnode->GetAttribute(options.prefix || "ifmodules")
-         ];
+  RECORD appl := CELL[ webhareversion :=     xmlnode->GetAttribute(options.prefix || "webhareversion")
+                     , minservertype :=      xmlnode->GetAttribute(options.prefix || "minservertype")
+                     , maxservertype :=      xmlnode->GetAttribute(options.prefix || "maxservertype")
+                     , restrictservers :=    ParseXSList(ToUppercase(xmlnode->GetAttribute(options.prefix || "restrictservers")))
+                     , ifenvironset :=       ParseXSList(xmlnode->GetAttribute(options.prefix || "ifenvironset"))
+                     , unlessenvironset :=   ParseXSList(xmlnode->GetAttribute(options.prefix || "unlessenvironset"))
+                     , ifmodules :=          xmlnode->GetAttribute(options.prefix || "ifmodules")
+                     ];
+  INSERT CELL anycheck := appl.webhareversion != ""
+                          OR appl.minservertype != ""
+                          OR appl.maxservertype != ""
+                          OR Length(appl.restrictservers) > 0
+                          OR Length(appl.ifenvironset) > 0
+                          OR Length(appl.unlessenvironset) > 0
+                          OR appl.ifmodules != ""
+          INTO appl;
+  RETURN appl;
+
 }
 
 /** Returns whether a node with version/servertype/installationtype restrictions is applicable to this WebHare installation
@@ -259,7 +269,10 @@ PUBLIC RECORD FUNCTION ReadApplicableToWebHareNode(OBJECT xmlnode, RECORD option
 */
 PUBLIC BOOLEAN FUNCTION IsNodeApplicableToThisWebHare(OBJECT xmlnode, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(xmlnode,options)) = "";
+  RECORD check := ReadApplicableToWebHareNode(xmlnode,options);
+  IF(NOT check.anycheck)
+    RETURN TRUE; //it applies, no actual checks
+  RETURN GetApplicabilityError(GetMyApplicabilityInfo(), check) = "";
 }
 
 ////////////////////////////////////////////////////////////////////////////////
