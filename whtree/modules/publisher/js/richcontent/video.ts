@@ -24,22 +24,22 @@ function initYouTube(node, video, playback) {
   // List of embed parameters YouTube supports:
   // https://developers.google.com/youtube/player_parameters
 
-  const args = [];
+  const youtubeUrl = new URL(`//${youtubedomain}/embed/${video.id}`, location.href);
 
   if (playback.autoplay)
-    args.push("autoplay=1");
+    youtubeUrl.searchParams.set("autoplay", "1");
 
   if (video.mute || playback.mute)
-    args.push("mute=1");
+    youtubeUrl.searchParams.set("mute", "1");
 
   if (video.starttime)
-    args.push("start=" + Math.floor(video.starttime)); // seconds, whole integer (YouTube also uses t= in the shorturl??)
+    youtubeUrl.searchParams.set("start", String(Math.floor(video.starttime))); // seconds, whole integer (YouTube also uses t= in the shorturl??)
 
   if (video.endtime)
-    args.push("end=" + Math.floor(video.endtime));
+    youtubeUrl.searchParams.set("end", String(Math.floor(video.endtime)));
 
   if (typeof playback.controls !== "undefined" && !playback.controls)
-    args.push("controls=0");
+    youtubeUrl.searchParams.set("controls", "0");
 
   if (video.loop || playback.loop) {
     /* from the documentation: https://developers.google.com/youtube/player_parameters
@@ -48,32 +48,32 @@ function initYouTube(node, video, playback) {
        same video ID already specified in the Player API URL:
        https://www.youtube.com/embed/VIDEO_ID?playlist=VIDEO_ID&loop=1
     */
-    args.push("loop=1", "playlist=" + video.id);//To enable loop, set same video as playlist
+    youtubeUrl.searchParams.set("loop", "1");
+    youtubeUrl.searchParams.set("playlist", video.id);//To enable loop, set same video as playlist
   }
 
-  args.push("rel=0", "enablejsapi=1", "origin=" + location.origin); // disable 'related video's'
+  youtubeUrl.searchParams.set("rel", "0"); // disable 'related video's'
+  youtubeUrl.searchParams.set("enablejsapi", "1");
+  youtubeUrl.searchParams.set("origin", location.origin);
 
-  let youtube_url = `//${youtubedomain}/embed/${video.id}`;
-  if (args.length > 0)
-    youtube_url += "?" + args.join("&");
-
-  ifrm.src = youtube_url;
+  ifrm.src = youtubeUrl.toString();
   ifrm.title = video.title ? "YouTube video: " + video.title : "YouTube video";
   node.appendChild(ifrm);
 }
 
 function initVimeo(node, video, playback) {
   const ifrm = createMyFrame();
-  const args = [];
 
   // List of embed parameters Vimeo supports:
   // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
 
+  const vimeoUrl = new URL("//player.vimeo.com/video/" + video.id, location.href);
+
   if (playback.autoplay)
-    args.push("autoplay=1");
+    vimeoUrl.searchParams.set("autoplay", "1");
 
   if (video.mute || playback.mute)
-    args.push("muted=1");
+    vimeoUrl.searchParams.set("muted", "1");
 
   if (video.endtime)
     console.warn("setting an endtime doesn't work for Vimeo video's");
@@ -83,33 +83,29 @@ function initVimeo(node, video, playback) {
     console.warn("disabling video controls not possible for Vimeo video's");
 
   if (video.loop || playback.loop)
-    args.push("loop=1");
+    vimeoUrl.searchParams.set("loop", "1");
 
   if (playback.background)
-    args.push("background=1");
+    vimeoUrl.searchParams.set("background", "1");
 
   if (playback.api) {
-    args.push("api=" + playback.api);
+    vimeoUrl.searchParams.set("api", playback.api);
 
     // we need a player_id to distinguish from which iframe a message came.
     // (in cross domain situations we cannot lookup/compare the event source with iframe.contentWindow)
     if (playback.player_id)
-      args.push("player_id=" + playback.player_id);
+      vimeoUrl.searchParams.set("player_id", playback.player_id);
   }
-
-  let vimeo_url = "//player.vimeo.com/video/" + video.id;
-  if (args.length > 0)
-    vimeo_url += "?" + args.join("&");
 
   if (video.starttime) {
     // #t=3m28s
     const t = video.starttime;
     const minutes = Math.floor(t / 60);
     const seconds = t % 60;
-    vimeo_url += "#t=" + minutes + "m" + seconds + "s";
+    vimeoUrl.hash = "#t=" + minutes + "m" + seconds + "s";
   }
 
-  ifrm.src = vimeo_url;
+  ifrm.src = vimeoUrl.toString();
   ifrm.title = video.title ? "Vimeo video: " + video.title : "Vimeo video";
   node.appendChild(ifrm);
 }
