@@ -139,8 +139,10 @@ PUBLIC MACRO SetupWasmEventLoop()
   PromiseReceiver("",RECORD[]); //handle already queued events
 }
 
-/** Are we running in a WASM (__EMSCRIPTEN__) environment? */
-PUBLIC BOOLEAN FUNCTION IsWASM()//TODO make this a public api, javascript.whlib or even system.whlib?
+/** Are we running in a WASM (__EMSCRIPTEN__) environment?
+    @loadlib wh::javascript.whlib
+    */
+PUBLIC BOOLEAN FUNCTION IsWASM()
 {
   RETURN emstate.iswasm;
 }
