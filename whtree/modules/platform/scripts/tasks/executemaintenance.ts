@@ -52,7 +52,7 @@ async function rotateLogs() {
 
     const date = new Date(Math.floor(datenum / 10000), Math.floor((datenum % 10000) / 100) - 1, datenum % 100);
     if (date.getTime() < cutoff.getTime())
-      await unlink(`${logdir}/${log}`);
+      await unlink(log.fullPath);
   }
 }
 
