@@ -2,7 +2,7 @@ import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { WRDAttributeTypeId, SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
-import { WRDSchema, describeEntity, listSchemas, openWRDSchemaById } from "@webhare/wrd";
+import { WRDSchema, describeEntity, listSchemas, openWRDSchemaById, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { JsonWebKey } from "node:crypto";
@@ -255,6 +255,18 @@ async function testNewAPI() {
   test.eq([], await schemaById.query("wrdPerson").select("wrdId").execute());
 
   await schema.getType("wrdPerson").createAttribute("testJsonRequired", { attributeType: "json", title: "JSON attribute", isRequired: true });
+
+  //Verify WRD type helpers
+  ({ wrdTitle: "Root unit", wrdTag: "TAG" }) satisfies WRDInsertable<WRD_TestschemaSchemaType["whuserUnit"]>;
+  ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDInsertable<WRD_TestschemaSchemaType["whuserUnit"]>;
+  ({ wrdTitle: "Root unit", wrdTag: "TAG" }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["whuserUnit"]>;
+
+  //Verify there's a route from a schema object back to its type
+  ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["wrdPerson"]>;
+  ({ wrdContactEmail: "pietje@beta.webhare.net" }) satisfies WRDUpdatable<WRDSchemaTypeOf<typeof schema>["wrdPerson"]>;
+
+  //@ts-expect-error Cannot update a wrdId
+  ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["whuserUnit"]>;
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 

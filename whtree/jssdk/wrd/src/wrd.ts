@@ -2,19 +2,19 @@
 declare module "@webhare/wrd" {
 }
 
-import { WRDSchema } from "@mod-wrd/js/internal/schema";
+import { WRDSchema, type WRDSchemaTypeOf } from "@mod-wrd/js/internal/schema";
 export { AuthenticationSettings } from "./auth";
 export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, Insertable as WRDInsertable, Updatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { tagToJS } from "./wrdsupport";
 
 export { WRDSchema, WRDAttributeType, WRDMetaType };
-export type { WRDInsertable, WRDUpdatable };
+export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 
 export interface DescribedEntity {
   /** Entity's tag */

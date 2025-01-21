@@ -1,6 +1,6 @@
 import { addDuration } from "@webhare/std/datetime";
 import { WRDType } from "./schema";
-import { Insertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
+import { WRDInsertable, SchemaTypeDefinition, WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
 import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
 import * as kysely from "kysely";
 import { PlatformDB } from "@mod-platform/generated/whdb/platform";
@@ -71,7 +71,7 @@ async function doSplitEntityData<
   type: WRDType<S, T>,
   schemadata: SchemaData,
   typeRec: TypeRec,
-  fieldsData: Insertable<S[T]> & Insertable<WRDTypeBaseSettings>,
+  fieldsData: WRDInsertable<S[T]> & WRDInsertable<WRDTypeBaseSettings>,
   checker: ValueQueryChecker,
   runningPromises: Array<Promise<unknown>>
 ): Promise<SplitData> {
@@ -567,7 +567,7 @@ function serializeChangeEntity<T>(entity: T & { guid?: Buffer }): Omit<T, "guid"
 
 export async function __internalUpdEntity<S extends SchemaTypeDefinition, T extends keyof S & string>(
   type: WRDType<S, T>,
-  entityData: Insertable<S[T]> & Insertable<WRDTypeBaseSettings>,
+  entityData: WRDInsertable<S[T]> & WRDInsertable<WRDTypeBaseSettings>,
   entityId: number,
   options: __InternalUpdEntityOptions) {
 

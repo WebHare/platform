@@ -411,7 +411,7 @@ export function combineRecordOutputMaps<T extends TypeDefinition, B extends Reco
 export type MatchObjectQueryable<T extends TypeDefinition> = { [K in keyof T]?: (GetCVPairs<T[K]> & { condition: "=" })["value"] };
 
 /** Object with all values allowed for an match query within an upsert query */
-export type UpsertMatchQueryable<T extends TypeDefinition> = Pick<Updatable<T>, keyof MatchObjectQueryable<T> & keyof Updatable<T>> & MatchObjectQueryable<T>;
+export type UpsertMatchQueryable<T extends TypeDefinition> = Pick<WRDUpdatable<T>, keyof MatchObjectQueryable<T> & keyof WRDUpdatable<T>> & MatchObjectQueryable<T>;
 
 /** Given an inferred object type O and a contract type Contract, ensure that the resulting type conforms to the contract, and doesn't contain
  * any extra properties. Can be used for inference of an object type parameter in a function call.
@@ -457,7 +457,7 @@ export type WhereValueOptions<T extends TypeDefinition, Field extends WhereField
 type InsertableAndRequired<T extends WRDAttrBase> = T["__required"] extends true ? T["__insertable"] extends true ? true : false : false;
 
 /** Returns the type for date for WRD entity creation */
-export type Insertable<T extends TypeDefinition> = {
+export type WRDInsertable<T extends TypeDefinition> = {
   // Exclude all non-insertable keys by remapping the key value to 'never'
   [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? K : never]?: GetInputType<T[K]>
 } & {
@@ -466,7 +466,7 @@ export type Insertable<T extends TypeDefinition> = {
 };
 
 /** Returns the type for updating a WRD entity */
-export type Updatable<T extends TypeDefinition> = {
+export type WRDUpdatable<T extends TypeDefinition> = {
   // Exclude all non-updatable keys by remapping the key value to 'never'
   [K in keyof T as ToWRDAttr<T[K]>["__updatable"] extends true ? K : never]?: GetInputType<T[K]>
 };

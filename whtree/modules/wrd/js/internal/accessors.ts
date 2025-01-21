@@ -1,4 +1,4 @@
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, AllowedFilterConditions, WRDAttrBase, WRDGender, WRDInsertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, /*ComparisonOperatorExpression, */Expression, SqlBool/*, ReferenceExpression, OperandValueExpressionOrList*/ } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
@@ -1722,7 +1722,7 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
 }
 
 class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
-  Array<Insertable<Members>>,
+  Array<WRDInsertable<Members>>,
   Array<ArraySelectable<Members>>,
   Array<ArraySelectable<Members>>,
   never> {
@@ -1832,7 +1832,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
-  validateInput(value: Array<Insertable<Members>>, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: Array<WRDInsertable<Members>>, checker: ValueQueryChecker, attrPath: string) {
     const eltBasePath = attrPath + this.attr.tag + "[";
     for (const [idx, row] of value.entries()) {
       const eltPath = eltBasePath + idx + '].';
@@ -1857,7 +1857,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     return retval;
   }
 
-  encodeValue(value: Array<Insertable<Members> & { [wrdSettingId]?: number }>): AwaitableEncodedValue {
+  encodeValue(value: Array<WRDInsertable<Members> & { [wrdSettingId]?: number }>): AwaitableEncodedValue {
     return {
       settings: value.map((row, idx): AwaitableEncodedSetting => {
         // if a setting id is present in an element (stored with wrdSettingId symbol), include it for re-use

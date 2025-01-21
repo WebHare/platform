@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db } from "@webhare/whdb";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, WRDInsertable, WRDUpdatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
@@ -218,10 +218,13 @@ let schemaUpdateListener: SchemaUpdateListener | null = null;
 type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
 type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
+export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T["__schematype"];
+
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
   private schemaData: Promise<SchemaData> | undefined;
+  declare __schematype: S; //this member does not actually exist! but helps us retrieve 'S'
 
   /** Open a WRD schema by tag */
   constructor(tag: string) {
@@ -428,11 +431,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return new WRDModificationBuilder(wrdtype, [], null);
   }
 
-  insert<T extends keyof S & string>(type: T, value: Partial<Insertable<S[T]>>, options: { temp: true; importMode?: boolean }): Promise<number>;
-  insert<T extends keyof S & string>(type: T, value: Partial<Insertable<S[T]>>, options?: { temp?: boolean; importMode?: true }): Promise<number>;
-  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options: { temp: true; importMode?: boolean }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options?: { temp?: boolean; importMode?: true }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number>;
 
-  insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
+  insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
     return checkPromiseErrorsHandled(this.getType(type).createEntity(value, options));
   }
 
@@ -446,11 +449,17 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * const result = await schema.search("wrdPerson", "wrdFirstName", "John");
    * ```
    */
-  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
+  update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value, options));
   }
 
-  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
+  /** Insert an entity, or update if it exists */
+  upsert<T extends keyof S & string, Q extends object, U extends object>(type: T, query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, WRDUpdatable<S[T]>>, ...options: UpsertOptions<Omit<WRDInsertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
+    /* The '...options' construction is used to make ifNew only optional if you've set all required keys. Haven't found a way to it with options?
+       Unfortunately this does give confusing errors if you forget a required paramteer:
+       Expected 4 arguments, but got 3.ts(2554)
+       Arguments for the rest parameter 'options' were not provided.
+    */
     return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
   }
 
@@ -576,12 +585,12 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
-  async createEntity(value: Insertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
+  async createEntity(value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
     const res = await __internalUpdEntity(this, value, 0, options || {});
     return res.entityId;
   }
 
-  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: Updatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
+  async updateEntity(entity: number | MatchObjectQueryable<S[T]>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
     if (typeof entity === "object") {
       const matches = await this.schema.query(this.tag).select("wrdId").match(entity).execute();
       if (matches.length !== 1)
@@ -592,10 +601,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     //Updatable and Insertable only differ in practice on wrdId, so check for wrdId and then cast
     if ("wrdId" in value)
       throw new Error(`An entity update may not set wrdId`);
-    await __internalUpdEntity(this, value as Insertable<S[T]>, entity, options || {});
+    await __internalUpdEntity(this, value as WRDInsertable<S[T]>, entity, options || {});
   }
 
-  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, Updatable<S[T]>>, ...options: UpsertOptions<Omit<Insertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
+  async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, WRDUpdatable<S[T]>>, ...options: UpsertOptions<Omit<WRDInsertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
     if (!this.attrs)
       await this.ensureAttributes();
     if (Array.isArray(query)) {
@@ -619,7 +628,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     const newValue = typeof options[0]?.ifNew === "function" ? await options[0].ifNew() : options[0]?.ifNew;
 
     /* TODO: verify if all updatable / queryable values can be converted to insertable values */
-    const newId = await this.createEntity({ ...query, ...value, ...newValue } as unknown as Insertable<S[T]>);
+    const newId = await this.createEntity({ ...query, ...value, ...newValue } as unknown as WRDInsertable<S[T]>);
     return [newId, true];
   }
 
@@ -967,7 +976,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     }
   }
 
-  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<Insertable<S[T]>>, options?: SyncOptions) {
+  async sync<F extends AttrRef<S[T]>>(joinAttribute: F, inrows: Array<WRDInsertable<S[T]>>, options?: SyncOptions) {
     const retval = {
       created: new Array<number>,
       updated: new Array<number>,
