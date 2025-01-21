@@ -8,7 +8,7 @@ import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, throwError } from "@webhare/std";
 import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
 
 
@@ -28,6 +28,10 @@ async function testChanges() { //  tests
   // TODO testframework should manage the beta test unit
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 
+  const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value not found");
+  const domain1value2 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }) ?? throwError("Domain value not found");
+  const domain1value3 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3" }) ?? throwError("Domain value not found");
+
   // Create a person with some testdata
   const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
   const nextWrdId = await wrdschema.getNextId("wrdPerson");
@@ -38,8 +42,8 @@ async function testChanges() { //  tests
     wrdLastName: "Doe",
     wrdContactEmail: "other@example.com",
     whuserUnit: testunit,
-    // test_single_domain := domain1value1->id
-    // test_multiple_domain := [ INTEGER(domain2value3->id) ]
+    testSingleDomain: domain1value1,
+    testMultipleDomain: [domain1value3, domain1value2],
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
@@ -103,7 +107,7 @@ async function testChanges() { //  tests
 
   await wrdschema.update("wrdPerson", testPersonId, initialPersonData);
   const afterUpdateSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
-  test.eq([...initialSettingIds], [...afterUpdateSettingIds]);
+  test.eq([...initialSettingIds].toSorted(), [...afterUpdateSettingIds].toSorted());
   test.eq(prefields.wrdModificationDate, (await wrdschema.getFields("wrdPerson", testPersonId, ["wrdModificationDate"])).wrdModificationDate);
 
   await whdb.commitWork();
@@ -268,12 +272,12 @@ async function testChanges() { //  tests
     // STORY: detect changes for deleted settings
     {
       await whdb.beginWork();
-      await wrdschema.update("wrdPerson", testPersonId, { testEnumarray: [] });
+      await wrdschema.update("wrdPerson", testPersonId, { testEnumarray: [], testSingleDomain: null, testMultipleDomain: [] });
       await whdb.commitWork();
 
       test.eqPartial([
         {
-          summaries: ['testEnumarray']
+          summaries: ['testEnumarray,testMultipleDomain,testSingleDomain']
         }
       ], (await hsPersontype.ListChangesets(testPersonId)).slice(4));
     }
