@@ -52,7 +52,7 @@ export type CustomExtensions = {
     testEmptyenumarray: WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: never }>;//", { title: "Enum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
     testInteger64: WRDAttributeTypeId.Integer64;//", { title: "Integer64 attribute" });
     testRecord: WRDAttributeTypeId.HSON;//", { title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
-    testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string> } }>;//", { title: "Json attribute" });
+    testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
     testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeTypeId.RichDocument;//", { title: "Rich document" });

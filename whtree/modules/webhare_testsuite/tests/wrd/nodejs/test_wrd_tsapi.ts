@@ -320,7 +320,7 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
@@ -347,7 +347,7 @@ async function testNewAPI() {
     .where("wrdFirstName", "=", "first")
     .execute();
 
-  test.typeAssert<test.Equals<{ mixedCase: Array<number | string> } | null, typeof selectres[number]["testJson"]>>();
+  test.typeAssert<test.Equals<{ mixedCase: Array<number | string>; date?: Date; big?: bigint } | null, typeof selectres[number]["testJson"]>>();
   test.typeAssert<test.Equals<{ mixedCase: Array<number | string> }, typeof selectres[number]["testJsonRequired"]>>();
 
   test.eq([
@@ -356,7 +356,7 @@ async function testNewAPI() {
       wrdFirstName: "first",
       lastname: "lastname",
       id: firstperson,
-      testJson: { mixedCase: [1, "yes!"] },
+      testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") },
       testJsonRequired: { mixedCase: [1, "yes!"] },
       name: { first: "first", last: "lastname" },
       guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/

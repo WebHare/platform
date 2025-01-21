@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, /*ComparisonOpe
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -1924,7 +1924,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): JSONType | NullIfNotRequired<Required> {
     const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
-    return data ? JSON.parse(data) : null;
+    return data ? parseTyped(data) : null;
   }
 
   validateInput(value: JSONType | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
@@ -1933,7 +1933,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
   }
 
   encodeValue(value: JSONType | NullIfNotRequired<Required>): AwaitableEncodedValue {
-    return this.encodeAsStringWithOverlow(value ? JSON.stringify(value) : '');
+    return this.encodeAsStringWithOverlow(value ? stringify(value, { typed: true }) : '');
   }
 }
 
