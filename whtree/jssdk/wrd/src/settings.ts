@@ -1,4 +1,4 @@
-import { MapRecordOutputMap, OutputMap, RecordizeOutputMap, SchemaTypeDefinition, Updatable } from "@mod-wrd/js/internal/types";
+import { MapRecordOutputMap, OutputMap, RecordizeOutputMap, SchemaTypeDefinition, WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "./wrd";
 
 export const wrdSettingsGuid = "07004000-0000-4000-a000-00bea61ef00d";
@@ -15,7 +15,7 @@ export async function getSchemaSettings<SchemaType extends SchemaTypeDefinition,
   return retval[0];
 }
 
-export async function updateSchemaSettings<SchemaType extends SchemaTypeDefinition>(schema: WRDSchema<SchemaType>, value: Updatable<SchemaType["wrdSettings"]>) {
+export async function updateSchemaSettings<SchemaType extends SchemaTypeDefinition>(schema: WRDSchema<SchemaType>, value: WRDUpdatable<SchemaType["wrdSettings"]>) {
   //@ts-ignore FIXME the guid is not recognized as valid by TS
   const id = await schema.search("wrdSettings", "wrdGuid", wrdSettingsGuid);
   if (!id)

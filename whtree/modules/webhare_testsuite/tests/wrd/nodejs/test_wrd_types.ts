@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { IsGenerated, IsNonUpdatable, IsRequired, WRDBaseAttributeTypeId, WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, Insertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
+import { IsGenerated, IsNonUpdatable, IsRequired, WRDBaseAttributeTypeId, WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, WRDInsertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
 
@@ -124,7 +124,7 @@ function testTypes() {
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;
     wrdTitles?: string | undefined;
-  }, Insertable<System_Usermgmt_WRDPerson>>>();
+  }, WRDInsertable<System_Usermgmt_WRDPerson>>>();
 }
 
 test.runTests([testTypes]);

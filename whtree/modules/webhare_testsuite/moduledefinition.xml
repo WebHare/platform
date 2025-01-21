@@ -592,4 +592,8 @@
     <embedded rooturlkey="webhare_testsuite.tests.docroot" subpath="docsubpath" />
   </documentation>
 
+  <wrdschemas>
+    <schema tag="testschema" definitionfile="mod::webhare_testsuite/tests/wrd/data/testschemadef.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
+  </wrdschemas>
+
 </module>
