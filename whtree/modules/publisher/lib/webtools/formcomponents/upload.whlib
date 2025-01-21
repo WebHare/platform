@@ -216,7 +216,15 @@ PUBLIC STATIC OBJECTTYPE FileEditFieldBase EXTEND FormFieldBase
   UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
   {
     RECORD ARRAY setfiles;
-    FOREVERY(RECORD file FROM RECORD ARRAY(jsdata))
+    RECORD ARRAY infiles;
+    IF(TYPEID(jsdata) = TYPEID(RECORD))
+      infiles := RECORD[ jsdata ]; //legacy direct submitters
+    ELSE IF(TYPEID(jsdata) = TYPEID(RECORD ARRAY))
+      infiles := jsdata;
+    ELSE IF(TYPEID(jsdata) != TYPEID(VARIANT ARRAY) OR Length(jsdata) > 0)
+      THROW NEW Exception(`Invalid type for upload field '${this->name}'`);
+
+    FOREVERY(RECORD file FROM infiles)
     {
       IF(CellExists(file,'link') AND TYPEID(file.link) = TYPEID(STRING))
       {
