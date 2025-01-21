@@ -141,7 +141,7 @@ PUBLIC MACRO SetupWasmEventLoop()
 
 /** Are we running in a WASM (__EMSCRIPTEN__) environment?
     @loadlib wh::javascript.whlib
-    */
+*/
 PUBLIC BOOLEAN FUNCTION IsWASM()
 {
   RETURN emstate.iswasm;
