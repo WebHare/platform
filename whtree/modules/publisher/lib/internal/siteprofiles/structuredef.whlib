@@ -1575,7 +1575,10 @@ PUBLIC RECORD FUNCTION ParseSiteprofXMLStructure(OBJECT siteprofcontext, OBJECT 
 
   OBJECT linkhandlers := startnode->GetChildElementsByTagnameNS("http://www.webhare.net/xmlns/tollium/screens", "linkhandlers")->Item(0);
   IF(ObjectExists(linkhandlers)) //prefix with "fragment!" so we can introduce them into a unique scope
-    retval.linkhandlers := ParseXMLPageNode(siteprofcontext->siteprofile->name, "fragment", linkhandlers);
+  {
+    FOREVERY(OBJECT child FROM linkhandlers->ListElements("*","*"))
+      INSERT [ namespaceuri := child->namespaceuri, localname := child->localname ] INTO retval.linkhandlers AT END;
+  }
 
   RETURN retval;
 }

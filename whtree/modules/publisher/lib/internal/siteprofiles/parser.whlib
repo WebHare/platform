@@ -55,7 +55,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   OBJECT parameters;
   PUBLIC STRING toplevelgid;
   STRING module;
-  RECORD ARRAY assetpacks;
   PUBLIC RECORD ARRAY contenttypes;
 
   PUBLIC PROPERTY siteprofile(siteprof, -);
@@ -68,7 +67,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     //__GetModuleBaseFromResourceName fallback is needed to support texts in site-based siteprofiles
     this->module := GetModuleNameFromResourcePath(filename);
     this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "", "gid");
-    this->assetpacks := __GetExtractedConfig("assetpacks");
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetErrors()
@@ -580,7 +578,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     webdesign.assetpack := QualifyName(this->module,node->GetAttribute("assetpack"));
     IF(webdesign.assetpack != "" AND webdesign.assetpack != "publisher:__dummy__") //publisher:__dummy__ is how we separate 'publisher:nodesign' from 'forgot to set asset pack'
     {
-      RECORD assetpackinfo := SELECT * FROM this->assetpacks WHERE ToUppercase(name) = ToUppercase(webdesign.assetpack);
+      RECORD assetpackinfo := SELECT * FROM this->parameters->assetpacks WHERE ToUppercase(name) = ToUppercase(webdesign.assetpack);
       IF(RecordExists(assetpackinfo))
       {
         //Cache important settings which would be too slow to look up separately from <webdeisgn>
@@ -1438,7 +1436,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
   OBJECT siteprof;
   OBJECT siteprofcontext;
   IF(NOT ObjectExists(parametersingleton))
-    parametersingleton := PrepareCompile();
+    parametersingleton := NEW RecompileParameters;
 
   TRY
   {
@@ -1447,13 +1445,12 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     OBJECT realdoc := siteprof->xmldoc;
 
     IF(Length(realdoc->GetParseErrors()) > 0)
-      errors := errors CONCAT SELECT resourcename := filename, line, col := 0, message FROM realdoc->GetParseErrors();
-
-    IF(ObjectExists(parametersingleton->siteprofile_schemadef)) //no parse errors, schema available, validate!
     {
-      RECORD ARRAY validateerrors := parametersingleton->siteprofile_schemadef->ValidateDocument(realdoc);
-      IF(Length(validateerrors)>0)
-        errors := errors CONCAT SELECT resourcename := filename, line, col := 0, message FROM validateerrors;
+      siteprofdata.errors := SELECT resourcename := filename, line, col := 0, message FROM realdoc->GetParseErrors();
+      RETURN [ value := siteprofdata
+            , ttl := 60*60*1000
+            , eventmasks := GetResourceEventMasks([filename])
+            ];
     }
 
     OBJECT siteprofroot := siteprof->xmldoc->documentelement;
@@ -1502,27 +1499,20 @@ PUBLIC RECORD FUNCTION GetParsedSiteProfile(STRING resourcename)
 
 OBJECTTYPE RecompileParameters
 <
-  PUBLIC OBJECT siteprofile_schemadef;
   PUBLIC RECORD ARRAY webdesignplugins;
   PUBLIC RECORD ARRAY customnodes;
   PUBLIC STRING ARRAY basesiteprofiles;
+  PUBLIC RECORD ARRAY assetpacks;
 
   MACRO NEW()
   {
-    RECORD sdef := __RetrieveCachedXMLSchema("mod::publisher/data/siteprofile.xsd");
-    this->siteprofile_schemadef := sdef.doc;
+    this->assetpacks := __GetExtractedConfig("assetpacks");
+
+    FOREVERY(RECORD mod FROM GetWebHareModules())
+    {
+      this->webdesignplugins := this->webdesignplugins CONCAT mod.webdesignplugins;
+      this->customnodes := this->customnodes CONCAT mod.customnodes;
+      this->basesiteprofiles := this->basesiteprofiles CONCAT mod.basesiteprofiles;
+    }
   }
 >;
-PUBLIC OBJECT FUNCTION PrepareCompile()
-{
-  OBJECT parameters := NEW RecompileParameters;
-
-  //Figure out what we need to look out for
-  FOREVERY(RECORD mod FROM GetWebHareModules())
-  {
-    parameters->webdesignplugins := parameters->webdesignplugins CONCAT mod.webdesignplugins;
-    parameters->customnodes := parameters->customnodes CONCAT mod.customnodes;
-    parameters->basesiteprofiles := parameters->basesiteprofiles CONCAT mod.basesiteprofiles;
-  }
-  RETURN parameters;
-}
