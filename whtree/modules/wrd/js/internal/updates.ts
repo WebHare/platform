@@ -8,7 +8,7 @@ import { SchemaData, TypeRec, selectEntitySettingColumns/*, selectEntitySettingW
 import { EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import type { EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { appendToArray, generateRandomId, omit, } from "@webhare/std";
+import { appendToArray, generateRandomId, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { compare, isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -21,6 +21,7 @@ import { runSimpleWRDQuery } from "./queries";
 import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
 import { hashStream } from "@webhare/services/src/descriptor";
 import { SettingsStorer } from "./settings";
+import { isDate } from "node:util/types";
 
 type __InternalUpdEntityOptions = {
   temp?: boolean;
@@ -417,6 +418,16 @@ async function handleSettingsUpdates(current: Array<EntitySettingsRec & { used: 
   };
 }
 
+function isSame(lhs: unknown, rhs: unknown) {
+  if (lhs === rhs)
+    return true;
+  if (isDate(lhs))
+    return lhs.getTime() === (rhs as Date | null)?.getTime();
+  if (Buffer.isBuffer(lhs))
+    return Buffer.compare(lhs, rhs as Buffer) === 0;
+  return false;
+}
+
 async function createChangeSet(wrdSchemaId: number, now: Date): Promise<number> {
   //OBJECT user := GetEffectiveUser();
   const retval = await db<PlatformDB>()
@@ -775,8 +786,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     if (isNew) {
       if (!entityId) {
         entityId = await nextVal("wrd.entities.id");
-        result.entityId = entityId;
       }
+      result.entityId = entityId;
     }
 
     let cursettings = new Array<EntitySettingsRec & { used: false }>;
@@ -865,7 +876,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       if (orgentityrec) {
         // Eliminate unchanged values from splitData
         for (const key of Object.keys(splitData.entity))
-          if ((splitData.entity as Record<string, unknown>)[key] === (orgentityrec as Record<string, unknown>)[key])
+          if (isSame((splitData.entity as Record<string, unknown>)[key], (orgentityrec as Record<string, unknown>)[key]))
             delete (splitData.entity as Record<string, unknown>)[key];
       }
 

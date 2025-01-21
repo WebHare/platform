@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db } from "@webhare/whdb";
+import { db, nextVal } from "@webhare/whdb";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, WRDInsertable, WRDUpdatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -8,7 +8,7 @@ import { ensureScopedResource, setScopedResource } from "@webhare/services/src/c
 import { tagToHS, tagToJS, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
-import { isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
+import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
@@ -429,6 +429,16 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   modify<T extends keyof S & string>(type: T): WRDModificationBuilder<S, T> {
     const wrdtype = this.getType(type);
     return new WRDModificationBuilder(wrdtype, [], null);
+  }
+
+  /** Reserve a wrdId */
+  getNextId<T extends keyof S & string>(type: T): Promise<number> {
+    return checkPromiseErrorsHandled(nextVal("wrd.entities.id"));
+  }
+
+  /** Reserve a wrdGuid */
+  getNextGuid<T extends keyof S & string>(type: T): string {
+    return generateRandomId("uuidv4");
   }
 
   insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options: { temp: true; importMode?: boolean }): Promise<number>;

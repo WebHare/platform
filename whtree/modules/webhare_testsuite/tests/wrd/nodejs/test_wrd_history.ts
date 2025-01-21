@@ -30,7 +30,10 @@ async function testChanges() { //  tests
 
   // Create a person with some testdata
   const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
+  const nextWrdId = await wrdschema.getNextId("wrdPerson");
+  const nextWrdGuid = wrdschema.getNextGuid("wrdPerson");
   const initialPersonData = {
+    wrdGuid: nextWrdGuid,
     wrdFirstName: "John",
     wrdLastName: "Doe",
     wrdContactEmail: "other@example.com",
@@ -47,7 +50,9 @@ async function testChanges() { //  tests
 
   const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
 
-  const testPersonId = await wrdschema.insert("wrdPerson", initialPersonData);
+  const testPersonId = await wrdschema.insert("wrdPerson", { ...initialPersonData, wrdId: nextWrdId });
+  test.eq(nextWrdId, testPersonId);
+  test.eq(nextWrdGuid, await wrdschema.getFields("wrdPerson", testPersonId, "wrdGuid"));
 
   /* TODO also set richdoc and all these fields
     RECORD newdata := [ test_single_domain := domain1value1->id
