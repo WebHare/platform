@@ -52,7 +52,7 @@ input[type="tel"].tollium__datetime__part
   min-width: 0;
   height: auto;
 
-  width: calc(4ch);
+  width: calc(3ch);
 
   &:first-of-type(input), &:last-of-type(input) {
     width:calc(3ch);
