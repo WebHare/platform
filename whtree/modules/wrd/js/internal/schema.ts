@@ -218,13 +218,12 @@ let schemaUpdateListener: SchemaUpdateListener | null = null;
 type CallbackValue<T> = T | (() => T) | (() => Promise<T>);
 type UpsertOptions<T extends object, Other extends object> = object extends T ? [{ ifNew?: CallbackValue<T> } & Other] | [] : [{ ifNew: CallbackValue<T> } & Other];
 
-export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T["__schematype"];
+export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T extends WRDSchema<infer S> ? S : never;
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
   private schemaData: Promise<SchemaData> | undefined;
-  declare __schematype: S; //this member does not actually exist! but helps us retrieve 'S'
 
   /** Open a WRD schema by tag */
   constructor(tag: string) {
