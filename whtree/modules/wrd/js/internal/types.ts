@@ -151,7 +151,7 @@ export const baseAttrCells = {
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties
  * @typeParam T - WRDAttributeType for this attribute
- * @typeParam O - Options for the type. For enum/enum array use `{ allowedvalues: "a" | "b" }`, for arrays
+ * @typeParam O - Options for the type. For enum/enum array use `{ allowedValues: "a" | "b" }`, for arrays
  * use `{ members: { a: WRDAttributeType.Integer } }`
 */
 export type WRDAttr<T extends WRDAttributeTypeId | WRDBaseAttributeTypeId, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
@@ -180,10 +180,10 @@ export type WRDAttrBaseGen<T extends (WRDAttributeTypeId | WRDBaseAttributeTypeI
 */
 export type WRDAttrBase =
   WRDAttrBaseGen<SimpleWRDAttributeType, never> |
-  WRDAttrBaseGen<WRDAttributeTypeId.Enum | WRDAttributeTypeId.EnumArray, { allowedvalues: string }> |
+  WRDAttrBaseGen<WRDAttributeTypeId.Enum | WRDAttributeTypeId.EnumArray, { allowedValues: string }> |
   WRDAttrBaseGen<WRDAttributeTypeId.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }> |
   WRDAttrBaseGen<WRDAttributeTypeId.JSON, { type: object }> |
-  WRDAttrBaseGen<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedvalues: string; type: object }>;
+  WRDAttrBaseGen<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: string; type: object }>;
 
 /** Converts a SimpleWRDAttributeType (enum) to a WRDAttrBase */
 export type ToWRDAttr<T extends SimpleWRDAttributeType | WRDAttrBase> = T extends WRDAttrBase ? T : T extends SimpleWRDAttributeType ? WRDAttr<T> : never;

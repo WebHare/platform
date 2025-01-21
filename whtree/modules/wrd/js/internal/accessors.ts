@@ -4,7 +4,7 @@ import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, /*ComparisonOpe
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -1096,9 +1096,20 @@ type WRDDBEnumConditions = {
 };
 
 // FIXME: add wildcard support
-type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : null);
+type GetEnumAllowedValues<Options extends { allowedValues: string }, Required extends boolean> = (Options extends { allowedValues: infer V } ? V : never) | (Required extends true ? never : null);
 
-abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+type AllowedValues = Array<string | RegExp>;
+
+function prepAllowedValues(allowedValues: string): AllowedValues {
+  return allowedValues?.split("\t").map(_ => _.includes("*") || _.includes('?') ? regExpFromWildcards(_) : _);
+}
+
+function isAllowed(allowed: AllowedValues, value: string) {
+  return value.match(/^[-a-zA-Z0-9_:]+$/) && allowed.some(_ => _ === value || (_ instanceof RegExp && _.test(value)));
+}
+
+
+abstract class WRDDBEnumValueBase<Options extends { allowedValues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
   getDefaultValue(): GetEnumAllowedValues<Options, Required> | null { return null; }
   isSet(value: string | null) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
@@ -1164,19 +1175,19 @@ abstract class WRDDBEnumValueBase<Options extends { allowedvalues: string }, Req
     if (value) {
       if (this.attr.isunique)
         checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
-      if (!this.attr.allowedvalues || !this.attr.allowedvalues.split("\t").includes(value) && !checker.importMode)
+      if (!checker.importMode && !(this.attr.allowedvalues.length && isAllowed(prepAllowedValues(this.attr.allowedvalues), value)))
         throw new Error(`Invalid value ${JSON.stringify(value)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
   }
 }
 
-class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDDBEnumValueBase<Options, Required> {
+class WRDDBEnumValue<Options extends { allowedValues: string }, Required extends boolean> extends WRDDBEnumValueBase<Options, Required> {
   encodeValue(value: GetEnumAllowedValues<Options, Required> | null) {
     return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
   }
 }
 
-class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender }, false> {
+class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedValues: WRDGender }, false> {
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
     if (this.attr.tag !== 'wrdGender')
       throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
@@ -1209,7 +1220,7 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedvalues: WRDGender
     return getAttrBaseCells(this.attr.tag, ["wrdGender"]);
   }
 
-  validateInput(value: GetEnumAllowedValues<{ allowedvalues: WRDGender }, false> | null, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: GetEnumAllowedValues<{ allowedValues: WRDGender }, false> | null, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && (!value || !value.length) && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value) {
@@ -1236,7 +1247,7 @@ type WRDDBEnumArrayConditions = {
   condition: "contains"; value: string;
 };
 
-class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRDAttributeValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, WRDDBEnumArrayConditions> {
+class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRDAttributeValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, WRDDBEnumArrayConditions> {
   getDefaultValue(): Array<GetEnumArrayAllowedValues<Options>> { return []; }
   isSet(value: string[]) { return Boolean(value?.length); }
   checkFilter(cv: WRDDBEnumArrayConditions) {
@@ -1264,12 +1275,16 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
   validateInput(value: Array<GetEnumArrayAllowedValues<Options>>, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value.length && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    const allowed = this.attr.allowedvalues ? this.attr.allowedvalues.split("\t") : [];
-    for (const v of value) {
+
+    for (const v of value)
       if (!v)
         throw new Error(`Provided default enum value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-      if (!allowed.includes(v) && !checker.importMode)
-        throw new Error(`Invalid value ${JSON.stringify(v)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+
+    if (!checker.importMode) {
+      const allowed = prepAllowedValues(this.attr.allowedvalues);
+      for (const v of value)
+        if (!isAllowed(allowed, v))
+          throw new Error(`Invalid value ${JSON.stringify(v)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
     if (Buffer.byteLength(value.join("\t")) > 4096)
       throw new Error(`EnumArray value too long for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
@@ -1283,9 +1298,9 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
 }
 
 // FIXME: add wildcard support
-type GetStatusRecordValues<Options extends { allowedvalues: string; type: object }, Required extends boolean> = (Options extends { allowedvalues: infer V; type: infer T extends object } ? { status: V } & T : never) | (Required extends true ? never : null);
+type GetStatusRecordValues<Options extends { allowedValues: string; type: object }, Required extends boolean> = (Options extends { allowedValues: infer V; type: infer T extends object } ? { status: V } & T : never) | (Required extends true ? never : null);
 
-class WRDDBStatusRecordValue<Options extends { allowedvalues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions> {
+class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions> {
   getDefaultValue(): GetStatusRecordValues<Options, Required> | null { return null; }
   isSet(value: object | null) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
@@ -2321,8 +2336,7 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
   }
 }
 
-// FIXME: add wildcard support
-type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
+type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Options extends { allowedValues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
@@ -2435,11 +2449,11 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.WHFSRef: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
 
-    case WRDAttributeTypeId.Enum: return new WRDDBEnumValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.EnumArray: return new WRDDBEnumArrayValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Enum: return new WRDDBEnumValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.EnumArray: return new WRDDBEnumArrayValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }>(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
     case WRDAttributeTypeId.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedvalues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedValues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
   }
   throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeTypeId[attrinfo.attributetype] : WRDAttributeTypeId[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
 }

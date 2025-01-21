@@ -1,0 +1,11 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="test_type">
+    <!-- Domain for configuration apps. Used to attach rights -->
+    <attributes>
+      <enum tag="enum1" allowedvalues="a b c" />
+      <enum tag="enum2" allowedvalues="a ?:? c:*" />
+    </attributes>
+  </object>
+
+</schemadefinition>

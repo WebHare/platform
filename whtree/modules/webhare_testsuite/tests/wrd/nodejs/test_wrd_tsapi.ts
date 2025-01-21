@@ -6,12 +6,12 @@ import { WRDSchema, describeEntity, listSchemas, openWRDSchemaById, type WRDInse
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import { JsonWebKey } from "node:crypto";
-import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-platform/generated/wrd/webhare";
+import { WRD_TestschemaSchemaType, System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { buildRTD, ResourceDescriptor, toResourcePath, subscribeToEventStream, type BackendEvent } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
-import type { Platform_BasewrdschemaSchemaType, WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
+import type { Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { isChange, type WRDTypeMetadata } from "@mod-wrd/js/internal/schema";
 import * as util from "node:util";
@@ -20,6 +20,7 @@ import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
 import { buildRTDFromHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
+import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -267,6 +268,18 @@ async function testNewAPI() {
 
   //@ts-expect-error Cannot update a wrdId
   ({ wrdTitle: "Root unit", wrdId: 15 }) satisfies WRDUpdatable<WRD_TestschemaSchemaType["whuserUnit"]>;
+
+  //Use WRD type helpers to verify enum generation
+  ({ wrdTag: "TAG", enum1: "a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+  ({ wrdTag: "TAG", enum2: "a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+  ({ wrdTag: "TAG", enum2: "a:a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+  ({ wrdTag: "TAG", enum2: "c:aaaaa" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+
+  //@ts-expect-error -- invalid value
+  ({ wrdTag: "TAG", enum1: "d" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+  //@ts-expect-error -- invalid value
+  ({ wrdTag: "TAG", enum1: "a:a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
+
 
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 
@@ -705,20 +718,53 @@ async function testNewAPI() {
     await schema.insert("personorglink", { wrdLeftEntity: null, wrdRightEntity: null });
   }
 
+  // STORY: test enum
+  {
+    await schema.update("wrdPerson", newperson, { testEnum: null, testEnumarray: [] });
+    test.eq(null, await schema.getFields("wrdPerson", newperson, "testEnum"));
+    test.eq([], await schema.getFields("wrdPerson", newperson, "testEnumarray"));
+
+    await schema.update("wrdPerson", newperson, { testEnum: "enum1", testEnumarray: ["enumarray1", "enumarray2"] });
+    test.eq("enum1", await schema.getFields("wrdPerson", newperson, "testEnum"));
+    test.eq(["enumarray1", "enumarray2"], await schema.getFields("wrdPerson", newperson, "testEnumarray"));
+
+    // @ts-expect-error -- TS detects the wrong value too
+    await test.throws(/Invalid value.*wrong-enum-value/, () => schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value" }));
+    // @ts-expect-error -- TS detects the wrong value too
+    await test.throws(/Invalid value.*wrong-enum-value/, () => schema.update("wrdPerson", newperson, { testEnumarray: ["enumarray1", "wrong-enum-value"] }));
+
+    //update allowedvalues
+    await (schema.getType("wrdPerson")).updateAttribute("testEnum", { allowedValues: ["enum1", "enum2", '*-????-?????'] });
+    await (schema.getType("wrdPerson")).updateAttribute("testEnumarray", { allowedValues: ["enumarray1", "enumarray2", '*-????-?????'] });
+
+    // @ts-expect-error -- TS cannot know about the type change (TODO this would be a good place to give an example on how to rebuild the schema type to match the new reality - we'd need a helper to build the Enum allowedValues?)
+    await schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value", testEnumarray: ["enumarray2", "wrong-enum-value"] });
+
+    const anyschema: WRDSchema = schema as unknown as WRDSchema; //Wonder why can't we cast directly anyway ?
+    test.eq("wrong-enum-value", await anyschema.getFields("wrdPerson", newperson, "testEnum"));
+    test.eq(["enumarray2", "wrong-enum-value"], await anyschema.getFields("wrdPerson", newperson, "testEnumarray"));
+
+    await test.throws(/Invalid value.*wrong-enumX-value/, () => anyschema.update("wrdPerson", newperson, { testEnum: "wrong-enumX-value" }));
+    await test.throws(/Invalid value.*wrong-enum-value!/, () => anyschema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value!" }));
+    await test.throws(/Invalid value.*wrong-enum-value!/, () => anyschema.update("wrdPerson", newperson, { testEnumarray: ["wrong-enum-value!"] }));
+    await test.throws(/Invalid value.*wrong-\\tnum-value/, () => anyschema.update("wrdPerson", newperson, { testEnum: "wrong-\tnum-value" }), "No \ts even though a regex stricly allows it");
+    await test.throws(/Invalid value.*"wrong-enum-valu "/, () => anyschema.update("wrdPerson", newperson, { testEnum: "wrong-enum-valu " }), "No spaces even though a regex stricly allows it");
+  }
+
   // STORY: test statusrecord
   {
     await schema.update("wrdPerson", newperson, { testStatusrecord: null });
     test.eq(null, await schema.getFields("wrdPerson", newperson, "testStatusrecord"));
     await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", message: "message" } });
     test.eq({ status: "ok", message: "message" }, await schema.getFields("wrdPerson", newperson, "testStatusrecord"));
-    if (nottrue) {
-      // @ts-expect-error -- status must be in the list of allowed values
-      await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "wrong-enum-value" } });
-      // @ts-expect-error -- type must conform to the specified type
-      await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", misspelledMessage: "message" } });
 
-      test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "misspelled").executeRequireAtMostOne());
-    }
+    //FIXME TS WRD should detect this error OR we should just deprecate and start to remove statusrecords
+    // @ts-expect-error -- status must be in the list of allowed values
+    await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "wrong-enum-value" } });
+    // @ts-expect-error -- type must conform to the specified type
+    await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", misspelledMessage: "message" } });
+
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "misspelled").executeRequireAtMostOne());
     test.eq(newperson, await schema.search("wrdPerson", "testStatusrecord", "ok"));
     test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "in", ["ok", "warning"]).executeRequireAtMostOne());
     test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "error").executeRequireAtMostOne());
@@ -1297,9 +1343,9 @@ async function testImportMode() {
     testImportModeLink: {
       wrdLeftEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
       wrdRightEntity: IsRequired<WRDBaseAttributeTypeId.Base_Domain>;
-      enum: IsRequired<WRDAttr<WRDAttributeTypeId.Enum, { allowedvalues: "a" | "b" }>>;
-      enumArray: IsRequired<WRDAttr<WRDAttributeTypeId.EnumArray, { allowedvalues: "a" | "b" }>>;
-      statusRecord: IsRequired<WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedvalues: "a" | "b"; type: object }>>;
+      enum: IsRequired<WRDAttr<WRDAttributeTypeId.Enum, { allowedValues: "a" | "b" }>>;
+      enumArray: IsRequired<WRDAttr<WRDAttributeTypeId.EnumArray, { allowedValues: "a" | "b" }>>;
+      statusRecord: IsRequired<WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "a" | "b"; type: object }>>;
       string: IsRequired<WRDAttributeTypeId.String>;
       email: IsRequired<WRDAttributeTypeId.Email>;
       url: IsRequired<WRDAttributeTypeId.URL>;

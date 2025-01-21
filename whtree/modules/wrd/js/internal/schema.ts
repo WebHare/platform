@@ -847,12 +847,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
+    await this.schema.__ensureSchemaData({ refresh: true });
   }
 
   async deleteAttribute(tag: string) {
     const typeobj = await this._getType();
     await typeobj.DeleteAttribute(tagToHS(tag));
-
+    await this.schema.__ensureSchemaData({ refresh: true });
   }
 
   async getEventMasks(): Promise<string[]> {

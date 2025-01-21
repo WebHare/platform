@@ -306,10 +306,18 @@ function getEnumName(type: WRDAttributeType): string {
   return WRDAttributeTypeId[toId + 1];
 }
 
+function hasWildcard(val: string) {
+  return val.includes("*") || val.includes("?");
+}
+
 function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (decl: string) => string): string {
   let typedef = "";
   if (attr.attributeType === "enum" || attr.attributeType === "enumArray") {
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedvalues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")} }>`;
+    let allowedValues = attr.allowedValues?.filter(v => !hasWildcard(v)).map(v => JSON.stringify(v)).join(" | ");
+    if (attr.allowedValues?.some(hasWildcard)) //any wildcard?
+      allowedValues = allowedValues ? allowedValues + " | string" : "string";
+
+    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${allowedValues} }>`;
   } else if (attr.attributeType === "array") {
     typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, {\n${indent}  members: {\n`;
     if (attr.childAttributes) {
@@ -325,7 +333,7 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
     typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { type: ${typedeclname} }>`;
   } else if (attr.attributeType === "deprecatedStatusRecord") {
     const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedvalues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")}; type: ${typedeclname} }>`;
+    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")}; type: ${typedeclname} }>`;
   } else {
     typedef = `WRDAttributeTypeId.${getEnumName(attr.attributeType)}`;
   }
