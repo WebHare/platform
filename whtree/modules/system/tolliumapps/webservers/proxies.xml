@@ -82,7 +82,7 @@
       <textedit composition="row" cellname="description" width="1pr" tid="~description" />
       <heading tid=".lasterror" />
       <line layout="left">
-        <textarea composition="row" cellname="lasterror" height="6x" enabled="false" title="" />
+        <textarea composition="row" cellname="lasterror" height="1pr" enabled="false" title="" minheight="4gr" />
       </line>
     </body>
 
