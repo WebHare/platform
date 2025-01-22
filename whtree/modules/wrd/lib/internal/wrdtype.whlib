@@ -2363,13 +2363,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           {
             IF(NOT (val EXTENDSFROM JSONObject))
               THROW NEW Exception(`Value for JSON field must extend from JSONObject`);
-            data := EncodeJSON(val);
+            data := EncodeJSON(val, DEFAULT RECORD, [ typed := TRUE ]);
           }
         }
         ELSE IF (TypeId(val) = TYPEID(RECORD))
         {
           IF(RecordExists(val))
-            data := EncodeJSON(val);
+            data := EncodeJSON(val, DEFAULT RECORD, [ typed := TRUE ]);
         }
         ELSE IF(jsmode AND TypeId(val) = TYPEID(STRING)) //already encoded
         {
