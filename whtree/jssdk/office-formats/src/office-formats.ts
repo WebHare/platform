@@ -2,5 +2,5 @@
 declare module "@webhare/office-formats" {
 }
 
-export { type SpreadsheetColumn, type SpreadsheetRow } from "./support";
+export { isValidSheetName, type SpreadsheetColumn, type SpreadsheetRow } from "./support";
 export { generateXLSX } from "./xlsx-output";

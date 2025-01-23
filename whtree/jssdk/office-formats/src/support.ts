@@ -40,6 +40,23 @@ export type GenerateWorkbookProperties = {
   timeZone?: string;
 };
 
+export function isValidSheetName(sheetname: string): boolean {
+  /*  https://support.microsoft.com/en-us/office/rename-a-worksheet-3f1f7148-ee83-404d-8ef0-9ff99fbad1f9
+      Important:  Worksheet names cannot:
+      - Be blank .
+      - Contain more than 31 characters.
+      - Contain any of the following characters: / \ ? * : [ ]
+      - Begin or end with an apostrophe ('), but they can be used in between text or numbers in a name.
+      - Be named "History". This is a reserved word Excel uses internally.
+
+    WE'll also reject
+    - anything starting or ending with a space
+    - anything outside the printable range
+*/
+  // eslint-disable-next-line no-control-regex
+  return /^[^:/\\?\\*\\[\]\x00-\x1F]{1,31}$/.test(sheetname) && sheetname.toLowerCase() !== "history" && !/^[' ]|[ ']$/.test(sheetname);
+}
+
 export function validateRowsColumns(options: GenerateSpreadsheetOptions) {
   if (options.columns.length === 0) {
     throw new Error("No columns defined");

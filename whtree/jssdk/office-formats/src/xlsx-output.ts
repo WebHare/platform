@@ -1,4 +1,4 @@
-import { ColumnTypes, validateRowsColumns, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { ColumnTypes, isValidSheetName, validateRowsColumns, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { encodeString, stdTypeOf, type Money } from "@webhare/std";
@@ -145,11 +145,22 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
   //Create the worksheets
   const sheetnames: SheetInfo[] = [];
   const output = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("zip");
+  const names = new Set<string>;
+
   for (const [idx, sheet] of sheets.entries()) {
+    const useTitle = sheet.title ?? `Sheet${idx + 1}`;
+    if (!isValidSheetName(useTitle)) //TOOD merge into validateRowsColumns ? but it would also need to take over assigning titles then
+      throw new Error(`Invalid sheet name: ${useTitle}`);
+
+    if (names.has(useTitle.toLowerCase()))
+      throw new Error(`Duplicate sheet name: ${useTitle}`);
+
+    names.add(useTitle.toLowerCase());
+
     const sheetname = `sheet${idx + 1}.xml`;
     const outputSheet = createSheet(sheet, idx === 0);
     await output.AddFile(`xl/worksheets/${sheetname}`, WebHareBlob.from(outputSheet), new Date);
-    sheetnames.push({ name: sheetname, title: sheet.title ?? `Sheet${idx + 1}` });
+    sheetnames.push({ name: sheetname, title: useTitle });
   }
 
   //Create the workbook
