@@ -468,8 +468,8 @@ MACRO TestJSONAttr()
   /* We only accept records. Arrays will have to be wrapped, scalars should just use the right type. This fixes ambiguity about not storing default values (as they would lose type) and we can always relax this.. */
   TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity([ jsondata := 45 ])); //only records!
 
-  testperson->UpdateEntity([ jsondata := [ x := 42 ]]);
-  TestEq([ jsondata := [ x := 42 ] ], testperson->GetFields(["jsondata"]));
+  testperson->UpdateEntity([ jsondata := [ x := 42, y := MakeDate(2000,1,1) ]]);
+  TestEq([ jsondata := [ x := 42,y := MakeDate(2000,1,1) ] ], testperson->GetFields(["jsondata"]));
   testperson->UpdateEntity([ jsondata := [ myarray := integer[] ]]);
   TestEq([ jsondata := [ myarray := variant[] ] ], testperson->GetFields(["jsondata"]));
 

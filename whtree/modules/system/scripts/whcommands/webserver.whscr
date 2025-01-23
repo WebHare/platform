@@ -204,7 +204,7 @@ MACRO ListPorts(STRING ARRAY params)
   dumpvalue(ports, [ format := 'boxed', name := "" ]);
 }
 
-MACRO Reset(STRING ARRAY params)
+MACRO Reset(STRING ARRAY params) //FIXME this suggests resetting the entire webhare config? it doesn't kill virtualhosted webservers though, just proxies and explicit ports
 {
   RECORD subargs := ParseArguments(params,
       [ [ name := "force", type := "switch"  ]
