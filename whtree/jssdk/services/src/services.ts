@@ -11,7 +11,7 @@ import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
 import { RichTextDocument } from "./richdocument";
 
-export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
+export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource, registerLoadedResourceWithCallback } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
