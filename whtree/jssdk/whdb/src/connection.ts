@@ -121,7 +121,7 @@ export class WHDBPgClient {
       throw new Error("WEBHARE_BASEPORT not set in environment");
 
     this.pgclient = new Connection({
-      host: process.env.PGHOST + "/.s.PGSQL." + process.env.PGPORT, //apparently it needs to be spelled out..
+      host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST) + "/.s.PGSQL." + process.env.PGPORT, //apparently it needs to be spelled out..
       database: process.env.WEBHARE_DBASENAME,
       rollbackOnError: false
     });
