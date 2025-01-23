@@ -69,6 +69,7 @@ class Connection : public Database::RPCConnection
         Database::RPCResponse::Type RemoteDisconnect(Database::IOBuffer *iobuf);
         Database::RPCResponse::Type RemoteFlushLog(Database::IOBuffer *iobuf);
         Database::RPCResponse::Type RemoteSetSystemConfig(Database::IOBuffer *iobuf);
+        Database::RPCResponse::Type RemoteGetPortList(Database::IOBuffer *iobuf);
 
         std::string GetRequestOpcodeName(uint8_t code);
         std::string GetResponseOpcodeName(uint8_t code);
@@ -76,7 +77,7 @@ class Connection : public Database::RPCConnection
         std::map< std::string, std::shared_ptr< NamedPort > > ports;
         std::map< uint32_t, uint64_t > remotetolocalid;
         uint32_t linkcounter; // protected by whmanager LockedData lock!
-        uint64_t processcode;
+        int32_t pid;
 
     public:
         void DumpRemoteToLocalId(std::string const &comment);
@@ -198,7 +199,6 @@ class WHManager
 
         struct RegisteredProcess
         {
-                uint64_t code;
                 int32_t pid;
                 ProcessType type;
                 std::string name;
@@ -215,10 +215,9 @@ class WHManager
         class Data
         {
             public:
-                Data() : linkidcounter(0), processcodecounter(0) { }
+                Data() : linkidcounter(0) { }
 
                 uint64_t linkidcounter;
-                uint64_t processcodecounter;
 
                 std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig;
 

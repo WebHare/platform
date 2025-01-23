@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { DefaultErrorType, GetBodyType, GetOperation, GetParametersType, IsMediaTypeJSON, JSONResponseTypes, JSONResponseTypesFromResponses, MergeParameters, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest, OperationIds, SquashObjectType } from "@mod-system/js/internal/openapi/types";
-import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
+import { HTTPErrorCode, HTTPSuccessCode, type RestRequest } from "@webhare/router";
 import * as test from "@webhare/test";
 
 type ErrorResponseContent = {
@@ -305,6 +305,12 @@ function testOpenAPITypes() {
 
     const path_opparams_get: OpenApiTypedRestRequest<number, paths, components_defaulterror, "get /path/{bla}/paramtest"> = any_value;
     test.typeAssert<test.Equals<{ bla: string; bla2?: string }, SimplifyIntersections<typeof path_opparams_get.params>>>();
+
+    const default_restRequest: RestRequest = any_value;
+    const allSuccessCodes: HTTPSuccessCode = any_value;
+    default_restRequest.createJSONResponse(HTTPSuccessCode.Ok, { status: "ok", value: 13 });
+    default_restRequest.createJSONResponse(allSuccessCodes, { status: "ok", value: 13 });
+    default_restRequest.createErrorResponse(HTTPErrorCode.Conflict, { error: "blabla" });
   }
 }
 

@@ -10,7 +10,7 @@ import { RefTracker } from "./refs";
 import { generateRandomId } from "@webhare/std";
 import * as stacktrace_parser from "stacktrace-parser";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
-import { DebugIPCLinkType, DebugRequestType, DebugResponseType, type ProcessList } from "./debug";
+import { DebugIPCLinkType, DebugRequestType, DebugResponseType, type PortList, type ProcessList } from "./debug";
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
@@ -127,6 +127,9 @@ interface Bridge extends EventSource<BridgeEvents> {
   /** Returns a list of all currently running processes */
   getProcessList(): Promise<ProcessList>;
 
+  /** Returns a list of all currently open ports and the pid of the process that owns them */
+  getPortList(): Promise<PortList>;
+
   /** Return bridge initialization data for the local bridge in a worker */
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData;
 
@@ -145,6 +148,7 @@ enum ToLocalBridgeMessageType {
   GetProcessListResult,
   ConfigureLogsResult,
   ConnectToLocalServiceResult,
+  GetPortListResult,
 }
 
 type ToLocalBridgeMessage = {
@@ -168,6 +172,10 @@ type ToLocalBridgeMessage = {
   requestid: number;
   processes: ProcessList;
 } | {
+  type: ToLocalBridgeMessageType.GetPortListResult;
+  requestid: number;
+  ports: PortList;
+} | {
   type: ToLocalBridgeMessageType.ConfigureLogsResult;
   requestid: number;
   results: boolean[];
@@ -185,6 +193,7 @@ enum ToMainBridgeMessageType {
   FlushLog,
   EnsureDataSent,
   GetProcessList,
+  GetPortList,
   RegisterLocalBridge,
   ConfigureLogs,
   ConnectToLocalService,
@@ -219,6 +228,9 @@ type ToMainBridgeMessage = {
   requestid: number;
 } | {
   type: ToMainBridgeMessageType.GetProcessList;
+  requestid: number;
+} | {
+  type: ToMainBridgeMessageType.GetPortList;
   requestid: number;
 } | {
   type: ToMainBridgeMessageType.RegisterLocalBridge;
@@ -294,6 +306,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
   pendingreconfigurelogs = new Map<number, (results: boolean[]) => void>();
   pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
+  pendinggetportlists = new Map<number, (portlist: PortList) => void>();
   pendingconnectlocalservice = new Map<number, (error: string) => void>();
 
   static getLocalBridgeInitData(localBridge: LocalBridge): LocalBridgeInitData {
@@ -383,6 +396,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.processes);
+        }
+      } break;
+      case ToLocalBridgeMessageType.GetPortListResult: {
+        const reg = this.pendinggetportlists.get(message.requestid);
+        if (envbackend.debugFlags.ipc)
+          console.log(`localbridge ${this.workerid}: pendinggetportlists result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendinggetportlists.delete(message.requestid);
+          reg(message.ports);
         }
       } break;
       case ToLocalBridgeMessageType.ConfigureLogsResult: {
@@ -573,6 +595,22 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }
   }
 
+  async getPortList(): Promise<PortList> {
+    const requestid = ++this.requestcounter;
+    const lock = this.reftracker.getLock();
+    try {
+      return await new Promise<PortList>((resolve) => {
+        this.pendinggetportlists.set(requestid, resolve);
+        this.postMainBridgeMessage({
+          type: ToMainBridgeMessageType.GetPortList,
+          requestid,
+        });
+      });
+    } finally {
+      lock.release();
+    }
+  }
+
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
     const workernr = ++nextWorkerNr;
@@ -745,6 +783,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   requestcounter = 34000; // start here to aid debugging
   flushlogrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   getprocesslistrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
+  getportlistrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
   configurelogrequests = new Map<number, { localBridge: LocalBridgeData; requestid: number }>;
 
   systemconfig: Record<string, unknown>;
@@ -771,7 +810,6 @@ class MainBridge extends EventSource<BridgeEvents> {
   register() {
     this.sendData({
       opcode: WHMRequestOpcode.RegisterProcess,
-      processcode: 0,
       pid: process.pid,
       type: WHMProcessType.TypeScript,
       name: getScriptName(),
@@ -999,6 +1037,17 @@ class MainBridge extends EventSource<BridgeEvents> {
           });
         }
       } break;
+      case WHMResponseOpcode.GetPortListResult: {
+        const reg = this.getportlistrequests.get(data.requestid);
+        if (reg) {
+          this.getportlistrequests.delete(data.requestid);
+          this.postLocalBridgeMessage(reg.localBridge, {
+            type: ToLocalBridgeMessageType.GetPortListResult,
+            requestid: reg.requestid,
+            ports: data.ports
+          });
+        }
+      } break;
       case WHMResponseOpcode.ConfigureLogsResult: {
         const reg = this.configurelogrequests.get(data.requestid);
         if (reg) {
@@ -1212,6 +1261,27 @@ class MainBridge extends EventSource<BridgeEvents> {
               type: ToLocalBridgeMessageType.GetProcessListResult,
               requestid: message.requestid,
               processes: []
+            });
+          }
+        } finally {
+          ref.release();
+        }
+      } break;
+      case ToMainBridgeMessageType.GetPortList: {
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            const requestid = this.allocateRequestId();
+            this.getportlistrequests.set(requestid, { localBridge, requestid: message.requestid });
+            this.sendData({
+              opcode: WHMRequestOpcode.GetPortList,
+              requestid
+            });
+          } else {
+            this.postLocalBridgeMessage(localBridge, {
+              type: ToLocalBridgeMessageType.GetPortListResult,
+              requestid: message.requestid,
+              ports: []
             });
           }
         } finally {

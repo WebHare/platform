@@ -68,7 +68,7 @@ Connection::Connection(WHManager *_manager, void*data)
 , manager(_manager)
 {
         linkcounter = 0x80000000;
-        processcode = 0;
+        pid = 0;
 }
 
 Connection::~Connection()
@@ -93,6 +93,7 @@ std::string Connection::GetRequestOpcodeName(uint8_t code)
         case WHMRequestOpcode::Log:                     return "Log";
         case WHMRequestOpcode::Disconnect:              return "Disconnect";
         case WHMRequestOpcode::SetSystemConfig:         return "SetSystemConfig";
+        case WHMRequestOpcode::GetPortList:             return "GetPortList";
         default:
             return "Unknown request opcode";
         }
@@ -114,6 +115,7 @@ std::string Connection::GetResponseOpcodeName(uint8_t code)
         case WHMResponseOpcode::ConfigureLogsResult:    return "ConfigureLogsResult";
         case WHMResponseOpcode::FlushLogResult:         return "FlushLogResult";
         case WHMResponseOpcode::SystemConfig:           return "SystemConfig";
+        case WHMResponseOpcode::GetPortListResult:      return "GetPortListResult";
         default:
             return "Unknown response opcode";
         }
@@ -132,7 +134,7 @@ void Connection::CleanUpConnection()
         {
                 WHManager::LockedData::WriteRef lock(manager->data);
 
-                lock->processes.erase(processcode);
+                lock->processes.erase(pid);
 
                 for (std::map< std::string, std::shared_ptr< NamedPort > >::iterator it = ports.begin(); it != ports.end(); ++it)
                 {
@@ -195,7 +197,7 @@ void Connection::CleanUpConnection()
         ports.clear();
 
         // Clear the process code
-        processcode = 0;
+        pid = 0;
 
         // If changed, broadcast new debugger status to other connections
         if (removed_debugger)
@@ -291,6 +293,7 @@ Database::RPCResponse::Type Connection::HookHandleMessage(Database::IOBuffer *io
                 case WHMRequestOpcode::Disconnect:      responsetype = RemoteDisconnect(iobuf); break;
                 case WHMRequestOpcode::FlushLog:        responsetype = RemoteFlushLog(iobuf); break;
                 case WHMRequestOpcode::SetSystemConfig: responsetype = RemoteSetSystemConfig(iobuf); break;
+                case WHMRequestOpcode::GetPortList:     responsetype = RemoteGetPortList(iobuf); break;
                 default:
                     throw Database::Exception(Database::ErrorProtocol, "Unknown RPC opcode");
                 }
@@ -664,7 +667,6 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
 {
         WHManager::RegisteredProcess proc;
 
-        proc.code = iobuf->Read< uint64_t >(); // Ignored
         proc.pid = iobuf->Read< int32_t >();
         proc.type = static_cast< WHManager::ProcessType >(iobuf->Read< uint8_t >());
         proc.name = iobuf->Read< std::string >();
@@ -676,7 +678,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
                 proc.parameters[name] = value;
         }
 
-        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, processcode: " << processcode << ", pid: " << proc.pid << ", name: '" << proc.name << "'");
+        DEBUGPRINT("Conn " << this << " Incoming RPC RegisterProcess, pid: " << proc.pid << ", name: '" << proc.name << "'");
 
         bool have_hs_debugger = false, have_ts_debugger = false;
         std::shared_ptr< Blex::PodVector< uint8_t > > systemconfig;
@@ -684,7 +686,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
         {
                 WHManager::LockedData::WriteRef lock(manager->data);
 
-                processcode = ++lock->processcodecounter;
+                pid = proc.pid;
 
                 std::map< std::string, NamedPort * >::const_iterator hs_it = lock->ports.find(debugmgr_hs_internalport);
                 if (hs_it != lock->ports.end())
@@ -694,8 +696,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
                 if (ts_it != lock->ports.end())
                     have_ts_debugger = ts_it->second->conn != this;
 
-                proc.code = processcode;
-                lock->processes[processcode] = proc;
+                lock->processes[proc.pid] = proc;
 
                 systemconfig = lock->systemconfig;
         }
@@ -704,7 +705,6 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
 
         uint8_t dummy = 0;
 
-        iobuf->Write(processcode);
         iobuf->Write(have_hs_debugger);
         iobuf->Write(have_ts_debugger);
         if (systemconfig.get())
@@ -714,7 +714,7 @@ Database::RPCResponse::Type Connection::RemoteRegisterProcess(Database::IOBuffer
 
         iobuf->FinishForRequesting(WHMResponseOpcode::RegisterProcessResult);
 
-        DEBUGPRINT("Conn " << this << " Sending RPC RegisterProcessResult, processcode: " << processcode << ", have_hs_debugger: " << have_hs_debugger << ", have_ts_debugger: " << have_ts_debugger << ", config: " << (systemconfig.get() ? "yes" : "no"));
+        DEBUGPRINT("Conn " << this << " Sending RPC RegisterProcessResult, have_hs_debugger: " << have_hs_debugger << ", have_ts_debugger: " << have_ts_debugger << ", config: " << (systemconfig.get() ? "yes" : "no"));
         return Database::RPCResponse::Respond;
 }
 
@@ -734,7 +734,6 @@ Database::RPCResponse::Type Connection::RemoteGetProcessList(Database::IOBuffer 
 
                 for (std::map< uint64_t, WHManager::RegisteredProcess >::iterator it = lock->processes.begin(); it != lock->processes.end(); ++it)
                 {
-                        iobuf->Write< uint64_t >(it->second.code);
                         iobuf->Write< int32_t >(it->second.pid);
                         iobuf->Write< uint8_t >(static_cast< uint8_t >(it->second.type));
                         iobuf->Write< std::string >(it->second.name);
@@ -888,6 +887,33 @@ Database::RPCResponse::Type Connection::RemoteSetSystemConfig(Database::IOBuffer
 
         BroadcastSystemConfig();
         return Database::RPCResponse::DontRespond;
+}
+
+Database::RPCResponse::Type Connection::RemoteGetPortList(Database::IOBuffer *iobuf)
+{
+        DEBUGPRINT("Conn " << this << " Incoming RPC RemoteGetPortList");
+
+        uint32_t id = iobuf->Read< uint32_t >();
+
+        iobuf->ResetForSending();
+
+        {
+                WHManager::LockedData::WriteRef lock(manager->data);
+
+                iobuf->Write< uint32_t >(id);
+                iobuf->Write< uint32_t >(lock->ports.size());
+
+                for (auto &itr: lock->ports)
+                {
+                        iobuf->Write< std::string >(itr.second->name);
+                        iobuf->Write< int32_t >(itr.second->conn->pid);
+                }
+        }
+
+        iobuf->FinishForRequesting(WHMResponseOpcode::GetPortListResult);
+
+        DEBUGPRINT("Conn " << this << " Sending RPC GetPortListResult");
+        return Database::RPCResponse::Respond;
 }
 
 void Connection::DumpRemoteToLocalId(std::string const &RTOLMAPPING_ONLY(comment))

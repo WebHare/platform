@@ -85,7 +85,6 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       const count = iobuf.readU32();
       const processes = [];
       for (let i = 0; i < count; ++i) {
-        const processcode = iobuf.readBigNumber();
         const pid = iobuf.readS32();
         const type = iobuf.readU8() as defs.WHMProcessType;
         const name = iobuf.readString();
@@ -95,7 +94,7 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
           const prop = iobuf.readString();
           parameters[prop] = iobuf.readString();
         }
-        processes.push({ processcode, pid, type, name, parameters });
+        processes.push({ pid, type, name, parameters });
       }
       return { opcode, requestid, processes };
     }
@@ -119,11 +118,21 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       return { opcode, have_hs_debugger, have_ts_debugger, systemconfigdata };
     }
     case defs.WHMResponseOpcode.RegisterProcessResult: {
-      const processcode = iobuf.readBigNumber();
       const have_hs_debugger = iobuf.readBoolean();
       const have_ts_debugger = iobuf.readBoolean();
       const systemconfigdata = iobuf.readBinary();
-      return { opcode, processcode, have_hs_debugger, have_ts_debugger, systemconfigdata };
+      return { opcode, have_hs_debugger, have_ts_debugger, systemconfigdata };
+    }
+    case defs.WHMResponseOpcode.GetPortListResult: {
+      const requestid = iobuf.readU32();
+      const count = iobuf.readU32();
+      const ports = [];
+      for (let i = 0; i < count; ++i) {
+        const name = iobuf.readString();
+        const pid = iobuf.readS32();
+        ports.push({ name, pid });
+      }
+      return { opcode, requestid, ports };
     }
     default: {
       throw new Error(`Cannot decode opcode #${opcode}`);
@@ -170,7 +179,6 @@ export function createRPC(message: defs.WHMRequest): Buffer {
       iobuf.writeBinary(message.messagedata);
     } break;
     case defs.WHMRequestOpcode.RegisterProcess: {
-      iobuf.writeBigNumber(message.processcode);
       iobuf.writeS32(message.pid);
       iobuf.writeU8(message.type);
       iobuf.writeString(message.name);
@@ -182,6 +190,9 @@ export function createRPC(message: defs.WHMRequest): Buffer {
       }
     } break;
     case defs.WHMRequestOpcode.GetProcessList: {
+      iobuf.writeU32(message.requestid);
+    } break;
+    case defs.WHMRequestOpcode.GetPortList: {
       iobuf.writeU32(message.requestid);
     } break;
     case defs.WHMRequestOpcode.ConfigureLogs: {
@@ -209,6 +220,9 @@ export function createRPC(message: defs.WHMRequest): Buffer {
     case defs.WHMRequestOpcode.SetSystemConfig: {
       iobuf.writeBinary(message.systemconfigdata);
     } break;
+    default: {
+      throw new Error(`Cannot encode opcode #${(message as defs.WHMRequest).opcode}`);
+    }
   }
   return iobuf.finishForRequesting(message.opcode);
 }

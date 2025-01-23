@@ -33,12 +33,9 @@ async function testRPCs() {
   const testdata = { testdate: new Date, int: 0, float: 1.5, str: "str", intarr: [1, 2] };
 
   // STORY: process registration & system config data update
-  let processcode: number;
   {
-    processcode = 0;
     conn.send({
       opcode: WHMRequestOpcode.RegisterProcess,
-      processcode,
       pid: process.pid,
       type: WHMProcessType.TypeScript,
       name: getScriptName(),
@@ -47,8 +44,6 @@ async function testRPCs() {
 
     const registerresults = await extractResponses(WHMResponseOpcode.RegisterProcessResult);
     test.eq(1, registerresults.length);
-
-    processcode = registerresults[0].processcode;
 
     conn.send({
       opcode: WHMRequestOpcode.SetSystemConfig,
@@ -93,7 +88,7 @@ async function testRPCs() {
     conn2.getRef(); // leak the reference, see if conn2.close kills it
     await new Promise(resolve => conn2.on("online", resolve));
 
-    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, processcode: 0, pid: process.pid, type: WHMProcessType.TypeScript, name: getScriptName() + " bouncer test", parameters: { a: "a" } });
+    conn2.send({ opcode: WHMRequestOpcode.RegisterProcess, pid: process.pid, type: WHMProcessType.TypeScript, name: getScriptName() + " bouncer test", parameters: { a: "a" } });
     await test.wait(() => gotdata, "Expected some data to arrive at conn2");
 
     conn.send({

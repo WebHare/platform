@@ -329,7 +329,6 @@ ManagerConnection::MgrData::MgrData()
 , connected(false)
 , release_jobmgr(false)
 , aborttimeout(Blex::DateTime::Max())
-, processcode(0)
 , have_debugger(0)
 , wait_debuginit(false)
 , conncounter(0)
@@ -804,6 +803,20 @@ std::pair< bool, bool > ManagerConnection::HandleControlLinkMessage(ControlLinkD
 
                 return std::make_pair(true, true);
         }
+        if (type == "getportlist")
+        {
+                IOBufferPtr iobuf;
+                iobuf = GetIOBuffer();
+                iobuf->ResetForSending();
+                iobuf->Write< uint32_t >(0);
+                iobuf->FinishForRequesting(WHMRequestOpcode::GetPortList);
+                RPCCOMM_PRINT("Scheduling RPC GetPortList");
+                transmitqueue.push(std::make_pair(0, iobuf));
+
+                linkdata.requested_portlists_replyids.push_back(msg.msgid);
+
+                return std::make_pair(true, true);
+        }
 
 
         // unknown message
@@ -1003,7 +1016,7 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
 
                                             std::string hosttype(clientname.begin(), hosttypeend);
 
-                                            lock->jobmgr->SetDebugLink(pending_debugger_link, hosttype, lock->processcode, clientname);
+                                            lock->jobmgr->SetDebugLink(pending_debugger_link, hosttype, getpid(), clientname);
                                     }
                                     else
                                         success = false;
@@ -1109,14 +1122,12 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
 
         case WHMResponseOpcode::GetProcessListResult:
             {
-                    std::map< uint64_t, ProcessListEntry > processes;
+                    std::map< int32_t, ProcessListEntry > processes;
 
                     iobuf->Read< uint32_t >(); // request id, not used in HareScript
                     uint32_t count = iobuf->Read< uint32_t >();
                     for (unsigned i = 0; i < count; ++i)
                     {
-                            uint64_t processcode = iobuf->Read< uint64_t >();
-
                             ProcessListEntry entry;
                             entry.pid = iobuf->Read< int32_t >();
                             entry.type = iobuf->Read< uint8_t >();
@@ -1128,7 +1139,7 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
                                     std::string value = iobuf->Read< std::string >();
                                     entry.parameters[name] = value;
                             }
-                            processes.insert(std::make_pair(processcode, entry));
+                            processes.insert(std::make_pair(entry.pid, entry));
                     }
 
                     for (std::map< uint32_t, ControlLinkData >::iterator it = controllinks.begin(); it != controllinks.end(); ++it)
@@ -1188,6 +1199,33 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
 
                     SendUpdatedSystemConfigEvent();
             } break;
+
+        case WHMResponseOpcode::GetPortListResult:
+            {
+                    std::vector< PortListEntry > ports;
+
+                    iobuf->Read< uint32_t >(); // request id, not used in HareScript
+                    uint32_t count = iobuf->Read< uint32_t >();
+                    for (unsigned i = 0; i < count; ++i)
+                    {
+                            PortListEntry entry;
+                            entry.name = iobuf->Read< std::string >();
+                            entry.pid = iobuf->Read< int32_t >();
+                            ports.push_back(entry);
+                    }
+
+                    for (std::map< uint32_t, ControlLinkData >::iterator it = controllinks.begin(); it != controllinks.end(); ++it)
+                    {
+                            if (!it->second.requested_portlists_replyids.empty())
+                            {
+                                    uint64_t replyto = it->second.requested_portlists_replyids.front();
+                                    it->second.requested_portlists_replyids.pop_front();
+
+                                    SendPortListMessage(it->second.link, replyto, ports);
+                            }
+                    }
+            } break;
+
 
         default:
             RPCCOMM_PRINT("Unrecognized ManagerConnection opcode " << (unsigned)iobuf->GetOpcode());
@@ -1274,7 +1312,7 @@ void ManagerConnection::SendSimpleResponseMessage(std::shared_ptr< HareScript::I
             link->SendMessage(&msg, false);
 }
 
-void ManagerConnection::SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< uint64_t, ProcessListEntry > const &processes)
+void ManagerConnection::SendProcessListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::map< int32_t, ProcessListEntry > const &processes)
 {
             using namespace HareScript;
             stackm.RecordInitializeEmpty(composevar);
@@ -1311,6 +1349,41 @@ void ManagerConnection::SendProcessListMessage(std::shared_ptr< HareScript::IPCL
                                 VarId var_dyn = stackm.RecordCellCreate(var_parameters, col_dyn);
                                 stackm.SetSTLString(var_dyn, itr.second);
                     }
+            }
+
+            std::shared_ptr< HareScript::IPCMessage2 > msg;
+            {
+                    LockedMgrData::WriteRef lock(mgrdata);
+                    if (!lock->jobmgr)
+                        return;
+                    lock->jobmgr->AllocateMessage(&msg);
+            }
+
+            msg->replyto = replyto;
+            msg->data.reset(marshaller.WriteToNewPacket(composevar));
+            link->SendMessage(&msg, false);
+}
+
+void ManagerConnection::SendPortListMessage(std::shared_ptr< HareScript::IPCLinkEndPoint > const &link, uint64_t replyto, std::vector< PortListEntry > const &ports)
+{
+            using namespace HareScript;
+            stackm.RecordInitializeEmpty(composevar);
+
+            ColumnNameId col_ports = localmapper.GetMapping("PORTS");
+            ColumnNameId col_pid = localmapper.GetMapping("PID");
+            ColumnNameId col_name = localmapper.GetMapping("NAME");
+            VarId var_ports = stackm.RecordCellCreate(composevar, col_ports);
+            stackm.InitVariable(var_ports, HareScript::VariableTypes::RecordArray);
+
+            for (auto &itr: ports)
+            {
+                    VarId var_port = stackm.ArrayElementAppend(var_ports);
+                    stackm.InitVariable(var_port, HareScript::VariableTypes::Record);
+
+                    VarId var_pid = stackm.RecordCellCreate(var_port, col_pid);
+                    stackm.SetInteger(var_pid, itr.pid);
+                    VarId var_name = stackm.RecordCellCreate(var_port, col_name);
+                    stackm.SetSTLString(var_name, itr.name);
             }
 
             std::shared_ptr< HareScript::IPCMessage2 > msg;
@@ -1373,28 +1446,24 @@ void ManagerConnection::SendRegisterPortRPC(ControlLinkData &linkdata, uint64_t 
 
 void ManagerConnection::RegisterSelf(Database::TCPConnection &tcpconn)
 {
-        uint64_t processcode = LockedMgrData::ReadRef(mgrdata)->processcode;
-
         IOBufferPtr iobuf;
         iobuf = GetIOBuffer();
         iobuf->ResetForSending();
-        iobuf->Write(processcode);
         iobuf->Write< int32_t >(getpid());
         iobuf->Write< uint8_t >(1); // Type: HareScript
         iobuf->Write< std::string >(conn.GetClientName());
         iobuf->Write< uint32_t >(0); // number of parameters
         iobuf->FinishForRequesting(uint8_t(WHMRequestOpcode::RegisterProcess));
 
-        RPCCOMM_PRINT("Sending RPC RegisterProcess, processcode: " << processcode << ", name: " << conn.GetClientName());
+        RPCCOMM_PRINT("Sending RPC RegisterProcess, pid: " << getpid() << ", name: " << conn.GetClientName());
         tcpconn.SendPacket(*iobuf);
 
         tcpconn.ReceivePacket(&*iobuf, Blex::DateTime::Now() + Blex::DateTime::Seconds(10));
         if (iobuf->GetOpcode() != WHMResponseOpcode::RegisterProcessResult)
             throw std::runtime_error("Did not get wanted RegisterProcessResult");
 
-        RPCCOMM_PRINT("Received RPC RegisterProcessResult, processcode: " << processcode);
+        RPCCOMM_PRINT("Received RPC RegisterProcessResult");
 
-        processcode = iobuf->Read< uint64_t >();
         bool have_debugger = iobuf->Read< bool >();
         iobuf->Read< bool >(); // have_ts_debugger, ignored in HareScript
         std::pair< uint8_t const*,uint8_t const * > systemconfigdata = iobuf->ReadBinary();
@@ -1404,7 +1473,6 @@ void ManagerConnection::RegisterSelf(Database::TCPConnection &tcpconn)
 
         {
                 LockedMgrData::WriteRef lock(mgrdata);
-                lock->processcode = processcode;
                 lock->have_debugger = have_debugger;
                 lock->systemconfig = systemconfig;
         }
@@ -1569,9 +1637,9 @@ void ManagerConnection::WaitForDebugInit()
         }
 }
 
-uint64_t ManagerConnection::GetProcessCode() const
+int32_t ManagerConnection::GetProcessCode() const
 {
-        return LockedMgrData::ReadRef(mgrdata)->processcode;
+        return getpid();
 }
 
 void ManagerConnection::DistributeNotificationEvent(std::shared_ptr< Blex::NotificationEvent > const &event)

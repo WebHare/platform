@@ -56,7 +56,8 @@ export type JSONResponseForCode<
   DefaultErrorFormat extends RestDefaultErrorBody,
   C extends JSONResponseCodes<Responses>
 > = C extends Responses["status"]
-  ? (Responses extends { status: C; response: infer R } ? R : never) // This allowes numberic status codes. To disallow them, use `? (Responses & { status: C; response: any })["response"]` instead
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for type inference
+  ? (Responses extends { response: any } ? C extends Responses["status"] ? Responses["response"] : never : never) // This allowes numberic status codes. To disallow them, use `? (Responses & { status: C; response: any })["response"]` instead
   : (C extends HTTPErrorCode ? DefaultErrorFormat : never); // for non-specified error codes, falls back to DefaultErrorFormat
 
 export class RestRequest<

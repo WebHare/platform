@@ -13,6 +13,7 @@ export enum WHMRequestOpcode {
   Disconnect = 112,
   FlushLog = 113,
   SetSystemConfig = 114,
+  GetPortList = 115,
 }
 
 export enum WHMResponseOpcode {
@@ -30,7 +31,8 @@ export enum WHMResponseOpcode {
   UnregisterPortResult = 109,
   ConfigureLogsResult = 110,
   FlushLogResult = 111,
-  SystemConfig = 112
+  SystemConfig = 112,
+  GetPortListResult = 113,
 }
 
 export enum WHMProcessType {
@@ -82,7 +84,6 @@ export type WHMRequest_SendMessageOverLink = {
 };
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;
-  processcode: number;
   pid: number;
   type: WHMProcessType;
   name: string;
@@ -90,6 +91,10 @@ export type WHMRequest_RegisterProcess = {
 };
 export type WHMRequest_GetProcessList = {
   opcode: WHMRequestOpcode.GetProcessList;
+  requestid: number;
+};
+export type WHMRequest_GetPortList = {
+  opcode: WHMRequestOpcode.GetPortList;
   requestid: number;
 };
 export type LogFileConfiguration = {
@@ -137,7 +142,8 @@ export type WHMRequest = WHMRequest_SendEvent |
   WHMRequest_GetProcessList |
   WHMRequest_SendMessageOverLink |
   WHMRequest_SetSystemConfig |
-  WHMRequest_UnregisterPort;
+  WHMRequest_UnregisterPort |
+  WHMRequest_GetPortList;
 
 export type WHMResponse_AnswerException = {
   opcode: WHMResponseOpcode.AnswerException;
@@ -193,7 +199,6 @@ export type WHMResponse_GetProcessListResult = {
   opcode: WHMResponseOpcode.GetProcessListResult;
   requestid: number;
   processes: Array<{
-    processcode: number;
     pid: number;
     type: WHMProcessType;
     name: string;
@@ -218,10 +223,17 @@ export type WHMResponse_SystemConfig = {
 };
 export type WHMResponse_RegisterProcessResult = {
   opcode: WHMResponseOpcode.RegisterProcessResult;
-  processcode: number;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
   systemconfigdata: Buffer;
+};
+export type WHMResponse_GetPortListResult = {
+  opcode: WHMResponseOpcode.GetPortListResult;
+  requestid: number;
+  ports: Array<{
+    name: string;
+    pid: number;
+  }>;
 };
 
 export type WHMResponse =
@@ -237,4 +249,5 @@ export type WHMResponse =
   WHMResponse_ConfigureLogsResult |
   WHMResponse_FlushLogResult |
   WHMResponse_SystemConfig |
-  WHMResponse_RegisterProcessResult;
+  WHMResponse_RegisterProcessResult |
+  WHMResponse_GetPortListResult;

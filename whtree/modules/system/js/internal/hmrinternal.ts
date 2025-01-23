@@ -316,5 +316,15 @@ export function getState(): State {
   };
 }
 
+export function listLoadedResources(): string[] {
+  const resources: string[] = [];
+  for (const lib of Object.values(libdata)) {
+    if (lib?.resources)
+      for (const item of lib.resources)
+        resources.push(item);
+  }
+  return resources;
+}
+
 // Can never reload hmr itself
 registerAsNonReloadableLibrary(module);

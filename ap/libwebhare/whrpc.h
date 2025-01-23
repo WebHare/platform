@@ -34,7 +34,8 @@ enum Type
         Disconnect =            112,
         FlushLog =              113,
         SetSystemConfig =       114,
-        _max =                  114
+        GetPortList =           115,
+        _max =                  115
 };
 
 std::string GetName(uint8_t code);
@@ -60,7 +61,8 @@ enum Type
         UnregisterPortResult =  109,
         ConfigureLogsResult =   110,
         FlushLogResult =        111,
-        SystemConfig =          112
+        SystemConfig =          112,
+        GetPortListResult =     113
 };
 
 std::string GetName(uint8_t code);
