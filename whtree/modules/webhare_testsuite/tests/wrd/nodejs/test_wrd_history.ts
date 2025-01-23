@@ -49,7 +49,7 @@ async function testChanges() { //  tests
     testEmail: "email@example.com",
     testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
     testImage: goldfishImg,
-    testEnumarray: ["enumarray1" as const],
+    testEnumarray: ["enumarray1" as const, "enumarray2" as const],
   };
 
   const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
@@ -106,6 +106,11 @@ async function testChanges() { //  tests
   await whdb.beginWork(); //unstored change - dummy update
 
   await wrdschema.update("wrdPerson", testPersonId, initialPersonData);
+  //the ordering of an array *should* not matter..
+  initialPersonData.testEnumarray.reverse();
+  initialPersonData.testMultipleDomain.reverse();
+  await wrdschema.update("wrdPerson", testPersonId, initialPersonData);
+
   const afterUpdateSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
   test.eq([...initialSettingIds].toSorted(), [...afterUpdateSettingIds].toSorted());
   test.eq(prefields.wrdModificationDate, (await wrdschema.getFields("wrdPerson", testPersonId, ["wrdModificationDate"])).wrdModificationDate);
@@ -114,6 +119,9 @@ async function testChanges() { //  tests
 
   {
     const changesets = await hsPersontype.ListChangesets(testPersonId);
+    if (changesets.length > 1) //it'll fail in the next test.eq but it helps us to have the summaries
+      console.dir(changesets, { depth: null });
+
     test.eqPartial([
       {
         entity: 0, //entity is about the user making the change, not the affected entities
