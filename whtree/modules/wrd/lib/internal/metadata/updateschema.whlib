@@ -138,7 +138,13 @@ RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tag
   {
     rec := InsertDefaultFields(rec, wrdtype_default, wrdtype_allowed);
     IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) = "EXTEND") //obtain the metatype from existing info
+    {
       rec.metatype := SELECT AS INTEGER metatype fROM tagidmapping WHERE tagidmapping.tag = rec.tag;
+      IF(rec.metatype = 0)
+      {
+        THROW NEW Exception("Unknown base type '" || rec.tag || "' for extenson");
+      }
+    }
     IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) != "EXTEND")
     {
       rec.metatype := SearchElement([ "", "OBJECT", "LINK", "ATTACHMENT", "DOMAIN" ], ToUppercase(rec.type));
