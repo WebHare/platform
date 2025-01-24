@@ -415,7 +415,6 @@ PUBLIC OBJECTTYPE TolliumDateTime EXTEND TolliumComponentBase
                          , maxlength := 16
                          , value := sendvalue
                          , dateformat := GetDateFormatString(this->owner->tolliumuser->shortdateformat, TRUE, TRUE)
-                         , placeholder := this->owner->tolliumuser->shortdateplaceholder
                          , hint := this->hint
                          , fieldtype := this->type
                          , precision := this->precision
