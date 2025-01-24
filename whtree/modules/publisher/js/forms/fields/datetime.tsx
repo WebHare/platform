@@ -1,7 +1,6 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from "dompack";
-import * as whintegration from "@mod-system/js/wh/integration";
 import * as datehelpers from "../internal/datehelpers";
 import Keyboard from 'dompack/extra/keyboard';
 import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
@@ -19,10 +18,16 @@ nice to have:
  - Field ordering by localization
 */
 
+interface MultiInputSubstitionOptions {
+  baseclass: string;
+};
+
 abstract class MultiInputSubstition {
   protected _replacednode: HTMLInputElement;
+  protected placeholders: Record<string, string> = {};
+  options: MultiInputSubstitionOptions;
 
-  constructor(inpnode, options) {
+  constructor(inpnode: HTMLInputElement, options: Partial<MultiInputSubstitionOptions>) {
     this.options = {
       baseclass: 'datetime',
       ...options
@@ -95,6 +100,10 @@ abstract class MultiInputSubstition {
     }
     return false;
   }
+  protected getLanguageCode() {
+    return this._replacednode.closest('[lang]')?.lang || document.documentElement.lang || null;
+  }
+
   _finalize() {
     this._refreshAttributes();
     this._refreshReplacingFields();
@@ -125,7 +134,7 @@ abstract class MultiInputSubstition {
       pattern: "[0-9]*",
       inputmode: "numeric",
       autocomplete: "off",
-      placeholder: this._placeholder[partname],
+      placeholder: this.placeholders[partname],
       type: "tel", //we need 'tel' for fine selection control, we can't control selectionStart/End of a type=number
       ...options
     });
@@ -228,11 +237,29 @@ abstract class MultiInputSubstition {
   }
 }
 
+export interface DateFieldOptions extends MultiInputSubstitionOptions {
+  placeholders: {
+    year: string;
+    month: string;
+    day: string;
+  };
+  datepicker: boolean;
+  resetcontrol: boolean;
+  weeknumbers: boolean;
+}
+
 export class DateField extends MultiInputSubstition {
-  constructor(inpnode, options?) {
+  declare options: DateFieldOptions;
+
+  constructor(inpnode: HTMLInputElement, options?: Partial<DateFieldOptions>);
+  /** @deprecated You should ensure the inputnode is a HTMLInputElement */
+  constructor(inpnode: HTMLElement, options?: Partial<DateFieldOptions>);
+
+  constructor(inpnode: HTMLInputElement, options?: Partial<DateFieldOptions>) {
     options = {
       datepicker: true,
       resetcontrol: true,
+      weeknumbers: false,
       ...options
     };
 
@@ -240,12 +267,8 @@ export class DateField extends MultiInputSubstition {
     if (!this._replacednode)
       return;
 
+    this.placeholders = this.options.placeholders ?? (this.getLanguageCode()?.startsWith('nl') ? { year: "jjjj", month: "mm", day: "dd" } : { year: "yyyy", month: "mm", day: "dd" });
     this.previous = { value: '' };
-
-    this._placeholder = { year: "yyyy", month: "mm", day: "dd" };
-
-    if (whintegration.config.locale.indexOf("nl") > -1)
-      this._placeholder = { year: "jjjj", month: "mm", day: "dd" };
 
     const dateformat = inpnode.dataset.format || "d-m-y";
     const parseddate = dateformat.match(/^([dmy])([^dmy]*)([dmy])([^dmy]*)([dmy])$/);
@@ -509,8 +532,23 @@ export class DateField extends MultiInputSubstition {
   }
 }
 
+export interface TimeFieldOptions extends MultiInputSubstitionOptions {
+  placeholders: {
+    hour: string;
+    minute: string;
+    second: string;
+    msec: string;
+  };
+  resetcontrol: boolean;
+}
+
 export class TimeField extends MultiInputSubstition {
-  constructor(inpnode, options?) {
+
+  constructor(inpnode: HTMLInputElement, options?: Partial<TimeFieldOptions>);
+  /** @deprecated You should ensure the inputnode is a HTMLInputElement */
+  constructor(inpnode: HTMLElement, options?: Partial<TimeFieldOptions>);
+
+  constructor(inpnode: HTMLInputElement, options?: Partial<TimeFieldOptions>) {
     options = {
       resetcontrol: true,
       ...options
@@ -520,15 +558,11 @@ export class TimeField extends MultiInputSubstition {
     if (!this._replacednode)
       return;
 
+    this.placeholders = this.options.placeholders ?? (this.getLanguageCode()?.startsWith('nl') ? { hour: "hh", minute: "mm", second: "ss", msec: "mmm" } : { hour: "uu", minute: "mm", second: "ss", msec: "mmm" });
     const step = parseFloat(this._replacednode.getAttribute("step") || '0');
     this.previous = { value: '' };
     this._showmsec = step !== Math.floor(step); //fraction
     this._showsecond = this._showmsec || (step % 60 !== 0); //unable to round to minute... so seconds
-
-    this._placeholder = { hour: "hh", minute: "mm", second: "ss", msec: "mmm" };
-
-    if (whintegration.config.locale.indexOf("nl") > -1)
-      this._placeholder = { hour: "uu", minute: "mm", second: "ss", msec: "mmm" };
 
     this._inputgroup = <span class={`${this._baseclass} ${this._baseclass}__time`}>
       {this._constructTimePart("hour")}

@@ -18,6 +18,11 @@ import './datetime.scss';
  *                                                                                                                          *
  ****************************************************************************************************************************/
 export default class ObjDateTime extends ComponentBase {
+  datefield: HTMLInputElement | null = null;
+  timefield: HTMLInputElement | null = null;
+
+  datehandler?: DateField;
+  timehandler?: TimeField;
 
   /****************************************************************************************************************************
   * Initialization
@@ -26,8 +31,6 @@ export default class ObjDateTime extends ComponentBase {
   constructor(parentcomp, data) {
     super(parentcomp, data);
     this.componenttype = "datetime";
-    this.datefield = null;
-    this.timefield = null;
     this.lasterportedvalue = null;
     this.type = data.type;
     this.precision = data.precision;
@@ -35,7 +38,6 @@ export default class ObjDateTime extends ComponentBase {
 
     // Build our DOM
     this.fieldtype = data.fieldtype;
-    this.placeholder = data.placeholder;
     this.dateformat = data.dateformat;
     this.cutoffyear = data.cutoffyear;
     this.buildNode(data);
@@ -121,8 +123,7 @@ export default class ObjDateTime extends ComponentBase {
   getValue() {
     let retval;
     let defaultdate = true;
-    if (this.datefield) //FIXME support dateformat, validate
-    {
+    if (this.datefield) { //FIXME support dateformat, validate
       const datevalue = this.datefield.value;
       retval = '0000-00-00';
       const parts = datevalue.replace(/\//g, '-').split('-');
@@ -216,7 +217,6 @@ export default class ObjDateTime extends ComponentBase {
 
       this.datefield =
         <input type="date"
-          placeholder={this.placeholder}
           data-format={this.dateformat}
           data-suggestion={suggestion_isodate}
         />;
@@ -228,7 +228,11 @@ export default class ObjDateTime extends ComponentBase {
 
       this.datefield.dataset.format = this.dateformat.replace(/%/g, '').toLowerCase();
       this.datefield.dataset.shortyearcutoff = this.cutoffyear >= 0 ? this.cutoffyear : "";
-      this.datehandler = new DateField(this.datefield, { baseclass: "tollium__datetime", weeknumbers: true });
+      this.datehandler = new DateField(this.datefield!, {
+        baseclass: "tollium__datetime",
+        weeknumbers: true,
+        placeholders: this.owner.hostapp.lang?.startsWith('nl') ? { year: "jjjj", month: "m", day: "d" } : { year: "yyyy", month: "m", day: "d" }
+      });
 
       // this.datefield.fireEvent("wh-refresh");
     }
@@ -247,12 +251,15 @@ export default class ObjDateTime extends ComponentBase {
         step = ".001"; // milliseconds
       }
 
-      this.timefield = <input type="time" placeholder={placeholder} step={step} />;
+      this.timefield = <input type="time" step={step} />;
       this.node.appendChild(this.timefield);
       this.timefield.required = data.required;
       this.timefield.disabled = !this.enabled;
 
-      new TimeField(this.timefield, { baseclass: "tollium__datetime" });
+      this.timehandler = new TimeField(this.timefield!, {
+        baseclass: "tollium__datetime",
+        placeholders: this.owner.hostapp.lang?.startsWith('nl') ? { hour: "h", minute: "m", second: "s", msec: "ms" } : { hour: "u", minute: "m", second: "s", msec: "ms" }
+      });
     }
   }
 
