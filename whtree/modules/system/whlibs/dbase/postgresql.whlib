@@ -1834,6 +1834,9 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
       INSERT [ name := "webhare:logstacktraces", value := ToString(config.logstacktraces) ] INTO params AT END;
   }
 
+  IF (GetEnvironmentVariable("WEBHARE_PGHOST") != "")
+    INSERT [ name := "host", value := GetEnvironmentVariable("WEBHARE_PGHOST") ] INTO params AT END;
+
   RECORD transresult;
   TRY
   {
