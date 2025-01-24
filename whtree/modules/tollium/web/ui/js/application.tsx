@@ -80,6 +80,10 @@ export class ApplicationBase {
   /// Application id
   whsid = '';
 
+
+  /// Application language
+  lang = 'en';
+
   //Is the app closing?
   private appIsClosing = false;
 
@@ -109,7 +113,6 @@ export class ApplicationBase {
     /// User config
     /// @{
 
-    this.lang = '';
     this.dateformat = '';
     this.timeformat = '';
 
@@ -151,7 +154,7 @@ export class ApplicationBase {
     this.appnodes.appmodalitylayer = <div class="appcanvas__appmodalitylayer">{this.appnodes.loader}</div>;
     this.appnodes.docpanel = <div class="appcanvas__docpanel" />;
     this.appnodes.screens = <div class="appcanvas__screens">{this.appnodes.appmodalitylayer}</div>;
-    this.appnodes.root = <div class="appcanvas">{this.appnodes.screens}{this.appnodes.docpanel}</div>;
+    this.appnodes.root = <div class="appcanvas" lang={this.lang}>{this.appnodes.screens}{this.appnodes.docpanel}</div>;
 
     this.container.appendChild(this.appnodes.root);
 
@@ -1053,6 +1056,7 @@ export class BackendApplication extends ApplicationBase {
       case 'language':
         if (node.lang) {
           this.lang = node.lang;
+          this.appnodes.root.lang = node.lang;
         }
         if (node.dateformat) {
           this.dateformat = node.dateformat;
