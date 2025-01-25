@@ -84,22 +84,21 @@ export async function getFetchResourceCacheCleanups(cleanupAfterMs: number, onDe
 
   const items = await listDirectory(`${backendConfig.dataroot}caches/platform/fetch/`, { allowMissing: true });
   for (const file of items) {
-    const fullpath = file.parentPath + file.name;
     if (file.name.endsWith('.dat')) {
-      seenDats.add(fullpath);
+      seenDats.add(file.fullPath);
       continue;
     }
     if (!file.name.endsWith('.json')) {
-      await onDelete(fullpath);
+      await onDelete(file.fullPath);
       continue;
     }
 
-    seenJsons.add(fullpath);
-    const stats = await stat(fullpath);
+    seenJsons.add(file.fullPath);
+    const stats = await stat(file.fullPath);
     if (stats.mtimeMs < cutoff) {
-      await onDelete(fullpath);
+      await onDelete(file.fullPath);
       try {
-        await onDelete(fullpath.replace(/\.json$/, '.dat'));
+        await onDelete(file.fullPath.replace(/\.json$/, '.dat'));
       } catch {
         //ignore not being able to delete the dat file, it might have been deleted already? or we'll deal with it on the next iteration
       }

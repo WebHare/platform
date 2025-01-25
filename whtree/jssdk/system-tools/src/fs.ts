@@ -5,7 +5,27 @@ import { join, parse } from "node:path";
 import type { Stream } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 
-export type ListDirectoryEntry = Dirent & { fullPath: string };
+class ListDirectoryEntry {
+  readonly type: "file" | "directory" | "symboliclink" | "socket" | null;
+  readonly name;
+  readonly fullPath;
+
+  constructor(d: Dirent) {
+    if (d.isDirectory())
+      this.type = "directory";
+    else if (d.isFile())
+      this.type = "file";
+    else if (d.isSymbolicLink())
+      this.type = "symboliclink";
+    else if (d.isSocket())
+      this.type = "socket";
+    else
+      this.type = null;
+
+    this.name = d.name;
+    this.fullPath = join(d.parentPath, d.name);
+  }
+}
 
 export interface StoreDiskFileOptions {
   /** Overwrite if the file already exists? (other we would throw) */
@@ -57,8 +77,7 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
   const direntries: ListDirectoryEntry[] = [];
   try {
     for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
-      (entry as ListDirectoryEntry).fullPath = join(basepath, subpath, entry.name);
-      direntries.push(entry as ListDirectoryEntry);
+      direntries.push(new ListDirectoryEntry(entry));
     }
   } catch (err) {
     if (allowMissing && (err as { code: string })?.code === "ENOENT")
@@ -68,7 +87,7 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
   }
 
   if (recursive)
-    for (const item of direntries.filter(_ => _.isDirectory()))
+    for (const item of direntries.filter(_ => _.type === "directory"))
       direntries.push(...await doReadDir(basepath, join(subpath, item.name), false, true));
   return direntries;
 }
@@ -96,7 +115,7 @@ async function deleteRecursiveDeeper(basepath: string, subpath: string, options?
 
   let allgone = true;
   for (const item of direntries) {
-    const isdir = item.isDirectory();
+    const isdir = item.type === "directory";
     const keepit = options?.keep?.(item) || (isdir && !await deleteRecursiveDeeper(basepath, join(subpath, item.name), options));
     if (options?.verbose)
       console.log(`${keepit ? "Keeping" : "Deleting"} ${isdir ? "directory" : "file"} ${item.fullPath}`);
@@ -139,3 +158,5 @@ export async function deleteRecursive(basepath: string, options?: DeleteRecursiv
 
   return allgone;
 }
+
+export type { ListDirectoryEntry };

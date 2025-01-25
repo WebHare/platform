@@ -180,7 +180,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   if (targets.includes('all')) {
     for (const root of [installedBaseDir, builtinBaseDir])
       for (const subdir of ["schema", "whdb", "wrd", "openapi"])
-        await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(join(_.parentPath, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+        await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(_.fullPath), dryRun: options.dryRun, verbose: options.verbose });
   }
   return;
 }
