@@ -479,9 +479,8 @@ async function testTypes() {
   test.eq("object", std.stdTypeOf({}));
   test.eq("object", std.stdTypeOf({ a: 42 }));
   test.eq("object", std.stdTypeOf(JSON.parse(`{"a":43}`)));
-  test.eq("instance", std.stdTypeOf(/regexp/));
   test.eq("Date", std.stdTypeOf(new Date));
-  test.eq("instance", std.stdTypeOf(new Error));
+  test.eq("object", std.stdTypeOf(new Error));
   test.eq({ "$stdType": "NotARealObject" }, JSON.parse(std.stringify({ "$stdType": "NotARealObject" })));
   test.throws(/Unrecognized type/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" })));
   test.throws(/already embedded '\$stdType'/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" }, { typed: true })));
@@ -752,9 +751,9 @@ function testCaseChanging() {
   test.typeAssert<test.Equals<{ aB: { cD: string } }, std.ToCamelCase<{ a_b: { c_d: string } }>>>();
 
   test.eq({ message_text: "test" }, std.toSnakeCase({ messageText: "test" }));
-  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test" }] }));
+  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }));
   test.eq({ messageText: "test" }, std.toCamelCase({ message_text: "test" }));
-  test.eq({ deepArray: [{}, { messageText: "test" }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test" }] }));
+  test.eq({ deepArray: [{}, { messageText: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }));
 }
 
 function testUUIDFallback() {
