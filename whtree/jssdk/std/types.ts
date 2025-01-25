@@ -1,3 +1,6 @@
+import type { Money } from "./money";
+import { isDate, isMoney } from "./quacks";
+
 type CamelCase<S extends string> = S extends `${infer P1}_${infer P2}${infer P3}`
   ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
   : Lowercase<S>;
@@ -16,11 +19,13 @@ type KeysToSnakeCase<T> = {
 
 export type ToSnakeCase<T> =
   T extends unknown[] ? Array<ToSnakeCase<T[number]>> :
+  T extends Date | Money ? T :
   T extends object ? KeysToSnakeCase<T> :
   T;
 
 export type ToCamelCase<T> =
   T extends unknown[] ? Array<ToCamelCase<T[number]>> :
+  T extends Date | Money ? T :
   T extends object ? KeysToCamelCase<T> :
   T;
 
@@ -47,7 +52,7 @@ export function nameToSnakeCase(name: string) {
 export function toSnakeCase<T>(inp: T): ToSnakeCase<T> {
   if (Array.isArray(inp))
     return inp.map(toSnakeCase) as ToSnakeCase<T>;
-  if (inp && typeof inp === "object")
+  if (inp && typeof inp === "object" && !isDate(inp) && !isMoney(inp))
     return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToSnakeCase(key), toSnakeCase(value)])) as ToSnakeCase<T>;
   return inp as ToSnakeCase<T>;
 }
@@ -59,7 +64,7 @@ export function toSnakeCase<T>(inp: T): ToSnakeCase<T> {
 export function toCamelCase<T>(inp: T): ToCamelCase<T> {
   if (Array.isArray(inp))
     return inp.map(toCamelCase) as ToCamelCase<T>;
-  if (inp && typeof inp === "object")
+  if (inp && typeof inp === "object" && !isDate(inp) && !isMoney(inp))
     return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToCamelCase(key), toCamelCase(value)])) as ToCamelCase<T>;
   return inp as ToCamelCase<T>;
 }
