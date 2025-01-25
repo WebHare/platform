@@ -751,9 +751,9 @@ function testCaseChanging() {
   test.typeAssert<test.Equals<{ aB: { cD: string } }, std.ToCamelCase<{ a_b: { c_d: string } }>>>();
 
   test.eq({ message_text: "test" }, std.toSnakeCase({ messageText: "test" }));
-  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }));
+  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23") }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23") }] }));
   test.eq({ messageText: "test" }, std.toCamelCase({ message_text: "test" }));
-  test.eq({ deepArray: [{}, { messageText: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test", dt: new Date("2024-01-01"), m: new Money("1.23") }] }));
+  test.eq({ deepArray: [{}, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23") }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23") }] }));
 }
 
 function testUUIDFallback() {
