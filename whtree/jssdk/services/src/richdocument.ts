@@ -44,6 +44,10 @@ export type RTDBuildBlock = RTDBaseBlock<true>;
 export type RTDBuildBlockItem = RTDBaseBlockItem;
 export type RTDBuildBlockItems = RTDBuildBlockItem[];
 
+export function isValidRTDClassName(className: string): boolean {
+  return className === "" || /^[a-z0-9]+$/.test(className);
+}
+
 
 class Widget {
   #typeInfo: WHFSTypeInfo;
@@ -163,7 +167,7 @@ export class RichTextDocument {
         throw new Error(`Invalid tag name '${key}'`);
 
       const useclass = className || RTDParagraphDefaults[tag] || throwError(`No default class for tag '${tag}'`);
-      if (!useclass.match(/^[a-z0-9]+$/))
+      if (!isValidRTDClassName(useclass))
         throw new Error(`Invalid class name '${className}'`);
 
       this.#blocks.push(({ [`${tag}.${useclass}`]: await this.#buildBlockItems(data!) }));

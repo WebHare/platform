@@ -1,4 +1,4 @@
-import { buildRTD, buildWidget, RichTextDocument, type Widget } from "@webhare/services";
+import { buildRTD, buildWidget, RichTextDocument, WebHareBlob, type Widget } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
@@ -254,9 +254,21 @@ async function testWRDRoundTrips() {
   }
 }
 
+async function testRegressions() {
+  //HTML parser needs to be loose as not everything we find in the database is consistent, we've allowed too many direct writes in the past in HS:
+  const htmlWithBadClass = `<html><body><p class="MsoNormal"><span lang="EN-US">The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.<p xmlns:o=""></p></span></p></body></html>`;
+  const parseResult = await buildRTDFromHareScriptRTD({ htmltext: WebHareBlob.from(htmlWithBadClass), instances: [], embedded: [], links: [] });
+  test.eqPartial([
+    {
+      "p.normal": [{ text: 'The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.' }]
+    }
+  ], parseResult.blocks);
+}
+
 test.runTests(
   [
     testBuilder,
     testRTDCreation,
-    testWRDRoundTrips
+    testWRDRoundTrips,
+    testRegressions
   ]);

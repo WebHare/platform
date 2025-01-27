@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services";
-import { rtdParagraphTypes, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems } from "@webhare/services/src/richdocument";
+import { rtdParagraphTypes, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -87,9 +87,8 @@ class HSRTDImporter {
         const tag = child.tagName.toLowerCase();
         if (tag in rtdTextStyles) {
           await this.processBlockItems(child, { ...state, [(rtdTextStyles as Record<string, string>)[tag]]: true }, outlist);
-        } else if (tag === 'span') {
-          if (child.hasAttribute("data-instanceid"))
-            await this.processInlineWidget(child, state, outlist);
+        } else if (tag === 'span' && child.hasAttribute("data-instanceid")) {
+          await this.processInlineWidget(child, state, outlist);
         } else {
           await this.processBlockItems(child, state, outlist);
         }
@@ -113,14 +112,16 @@ class HSRTDImporter {
 
       const tag = child.tagName.toLowerCase();
 
-      if (tag === "div") {
+      if (tag === "div") { //FIXNE only enter this pasth if it's actually an object
         const widget = await this.reconstructWidget(child);
         if (widget)
           blocks.push({ widget });
         continue;
       }
 
-      const className = child.getAttribute("class") || '';
+      let className = child.getAttribute("class") || '';
+      if (!isValidRTDClassName(className))
+        className = '';
 
       if (rtdParagraphTypes.includes(tag)) {
         const outputtag = className ? `${tag}.${className}` : tag;
@@ -131,8 +132,7 @@ class HSRTDImporter {
   }
 }
 
-export async function buildRTDFromHareScriptRTD
-  (rtd: HareScriptRTD): Promise<RichTextDocument> {
+export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
   const importer = new HSRTDImporter(rtd);
   const doc = (new DOMParser).parseFromString(await rtd.htmltext.text(), 'text/html');
   const body = doc.getElementsByTagName("body")[0];
