@@ -104,9 +104,6 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
   STRING pvt_shortdateformat;
 
-  ///Placeholder for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
-  STRING pvt_shortdateplaceholder;
-
   ///User time zone (UTC or GMT)
   STRING pvt_timezone;
 
@@ -150,9 +147,6 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
   PUBLIC PROPERTY shortdateformat(GetShortDateFormat, SetShortDateFormat);
 
-  ///Date format tokens for short/editable dates. Only the characters "DBMY-./" are allowed in this string!
-  PUBLIC PROPERTY shortdateplaceholder(GetShortDatePlaceholder, -);
-
   ///User time zone (UTC or GMT)
   PUBLIC PROPERTY timezone(GetTimezone, SetTimezone);
 
@@ -188,7 +182,6 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
     this->pvt_language := "en";
     this->pvt_longdateformat :="N B Y";
     this->pvt_shortdateformat :="D-M-Y";
-    this->pvt_shortdateplaceholder := "dd-mm-yyyy";
     this->pvt_timezone := "Europe/Amsterdam";
     this->pvt_timemilitary := TRUE;
     this->pvt_decimalseparator := ",";
@@ -238,12 +231,6 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
   {
     this->RequireRegistrySettings();
     RETURN this->pvt_shortdateformat;
-  }
-
-  STRING FUNCTION GetShortDatePlaceholder()
-  {
-    this->RequireRegistrySettings();
-    RETURN this->pvt_shortdateplaceholder;
   }
 
   MACRO SetShortDateFormat(STRING newformat)
@@ -794,9 +781,6 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
           ], PTR this->GetCacheableUserSettings());
 
     this->pvt_language :=          rec.language;
-    //this->pvt_longdateformat :=    "N B Y";
-    //this->pvt_shortdateformat :=   "D-M-Y";
-    this->pvt_shortdateplaceholder := rec.language="en" ? "dd-mm-YYYY" : "dd-mm-JJJJ";
 
     this->pvt_timezone :=          rec.timezone;
     this->pvt_timemilitary :=      TRUE; //for all languages we currently care about

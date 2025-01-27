@@ -5,6 +5,7 @@ import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
 import { DOMParser, type Document } from "@xmldom/xmldom";
+import { isValidSheetName } from "@webhare/office-formats/src/support";
 
 const columns: SpreadsheetColumn[] =
   [
@@ -62,6 +63,28 @@ async function getSheet1(xlsx: Blob): Promise<Document> {
   test.assert(sheet1blob);
   return new DOMParser().parseFromString(await (sheet1blob.data as WebHareBlob).text(), 'text/xml');
 }
+
+async function testSheetsApi() {
+  test.assert(!isValidSheetName(""));
+  test.assert(!isValidSheetName("History"));
+  test.assert(!isValidSheetName("history"));
+  test.assert(!isValidSheetName(" Sheet1"));
+  test.assert(!isValidSheetName("Sheet1 "));
+  test.assert(isValidSheetName("Sheet 1"));
+  test.assert(!isValidSheetName("02/17/2016"));
+  test.assert(isValidSheetName("02-17-2016"));
+  test.assert(!isValidSheetName("'Sheet1"));
+  test.assert(!isValidSheetName("Sheet1'"));
+  test.assert(!isValidSheetName("Sheet\n"));
+  test.assert(isValidSheetName("Sheet'1"));
+  test.assert(isValidSheetName("1234567890123456789012345678901"));
+  test.assert(!isValidSheetName("12345678901234567890123456789012"));
+  for (const badchar of '/\\?*:[]'.split(""))
+    test.assert(!isValidSheetName("Sheet " + badchar), `Sheetname 'Sheet ${badchar}' should be invalid`);
+  for (const goodchar of '!@™€'.split(""))
+    test.assert(isValidSheetName("Sheet " + goodchar), `Sheetname 'Sheet ${goodchar}' should be valid`);
+}
+
 
 export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
@@ -169,6 +192,7 @@ async function testXLSXMultipleSheets() {
 }
 
 test.runTests([
+  testSheetsApi,
   testXLSXColumnFiles,
   testXLSXMultipleSheets
 ]);
