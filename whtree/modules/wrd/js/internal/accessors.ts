@@ -1078,7 +1078,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
 
   encodeValue(value: number[]): EncodedValue {
     return {
-      settings: [...new Set(value)].map(setting => ({ setting, attribute: this.attr.id }))
+      settings: [...new Set(value)].toSorted((a, b) => a - b).map((setting, idx) => ({ setting, attribute: this.attr.id, ordering: idx + 1 }))
     };
   }
 }
@@ -1292,7 +1292,7 @@ class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRD
 
   encodeValue(value: Array<GetEnumArrayAllowedValues<Options>>): EncodedValue {
     return value.length ? {
-      settings: { rawdata: value.join("\t"), attribute: this.attr.id }
+      settings: { rawdata: value.toSorted().join("\t"), attribute: this.attr.id }
     } : {};
   }
 }

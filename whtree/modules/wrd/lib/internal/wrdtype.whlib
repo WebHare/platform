@@ -2182,6 +2182,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                        FROM ToRecordArray(val, "setting")
                       WHERE setting != ""
                    GROUP BY setting;
+          newsets := SELECT *, ordering := #newsets + 1 FROM newsets;
         }
         ELSE IF(TypeId(val) = TYPEID(INTEGER ARRAY))
         {
@@ -2189,6 +2190,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                        FROM ToRecordArray(val,"setting")
                       WHERE setting != 0
                    GROUP BY setting; //eliminate dupes
+          newsets := SELECT *, ordering := #newsets + 1 FROM newsets;
         }
         ELSE
         {
