@@ -16,13 +16,13 @@ async function uploadReplace(srcdocdir: string, targetdocdir: WHFSFolder) {
       continue;
 
     const existing = currentitems.find(_ => _.name === item.name);
-    if (item.isDirectory()) {
+    if (item.type === "directory") {
       if (existing?.isFolder === false)
         throw new Error(`Cannot replace a file with a folder trying to upload ${item.fullPath}`);
 
       const folder = await targetdocdir.ensureFolder(item.name);
       await uploadReplace(srcdocdir + "/" + item.name, folder);
-    } else if (item.isFile()) {
+    } else if (item.type === "file") {
       if (existing?.isFolder === true)
         throw new Error(`Cannot replace a folder with a file  trying to upload ${item.fullPath}`);
 

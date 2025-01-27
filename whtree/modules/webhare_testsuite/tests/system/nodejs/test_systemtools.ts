@@ -50,14 +50,11 @@ async function testFS() {
   symlinkSync(path.join(tempdir, "subdir"), path.join(tempdir, "subdir", "backup"));
 
   const direntries = await listDirectory(tempdir, { recursive: true });
-  test.eq([], direntries.filter(_ => _.parentPath + '/' + _.name !== _.fullPath));
-
-  test.assert(direntries.find(_ => _.parentPath === tempdir && _.name === "1.txt")?.isFile());
-  test.assert(direntries.find(_ => _.parentPath === tempdir && _.name === "subdir")?.isDirectory());
-  test.assert(!direntries.find(_ => _.parentPath === path.join(tempdir, "subdir") && _.name === "backup")?.isDirectory());
-  test.assert(direntries.find(_ => _.parentPath === path.join(tempdir, "subdir") && _.name === "backup")?.isSymbolicLink());
-  test.assert(direntries.find(_ => _.parentPath === path.join(tempdir, "subdir") && _.name === "deeper")?.isDirectory());
-  test.assert(direntries.find(_ => _.parentPath === path.join(tempdir, "subdir", "deeper") && _.name === "deepest.txt")?.isFile());
+  test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/1.txt` && _.name === "1.txt")?.type);
+  test.eq("directory", direntries.find(_ => _.name === "subdir")?.type);
+  test.eq("symboliclink", direntries.find(_ => _.fullPath === `${tempdir}/subdir/backup` && _.name === "backup")?.type);
+  test.eq("directory", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper` && _.name === "deeper")?.type);
+  test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper/deepest.txt` && _.name === "deepest.txt")?.type);
 
   const should_disappear = [path.join(tempdir, "subdir", "deeper", "deepest.txt"), path.join(tempdir, "subdir", "backup")];
   should_disappear.forEach(p => test.assert(existsSync(p), `${p} should exist for now...`));

@@ -42,7 +42,7 @@ export function isPromise<T>(e: unknown): e is Promise<T> {
  * @param value - The value to check
  * @returns The type of the value. If the value is an object but recognized as a Money, Date or Blob, that type is returned. If a value looks to be class-constructed, "instance" is returned
  */
-export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "instance" | "undefined" | "Date" | "Money" | "Array" {
+export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" {
   const t = typeof value;
   if (t === "object") {
     if (!value)
@@ -53,8 +53,6 @@ export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "nu
       return "Money";
     if (isDate(value))
       return "Date";
-    if (value.constructor.name !== "Object")
-      return "instance";
   }
   return t;
 }

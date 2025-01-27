@@ -33,7 +33,7 @@ async function main() {
       toFix?: () => void;
     }> = [];
 
-    if (!pkg.isDirectory())
+    if (pkg.type !== "directory")
       continue;
 
     if (verbose)
