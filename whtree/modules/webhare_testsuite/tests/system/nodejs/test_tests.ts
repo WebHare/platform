@@ -106,6 +106,10 @@ async function testChecks() {
   }
 
   {
+    await test.throws(/Could not find export/, test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyPrivateInterface`));
+  }
+
+  {
     const v_ts_allow_extra = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`, { noExtraProps: false, required: false });
     v_ts_allow_extra.validateStructure({ a: 0, c: "1" });
   }
@@ -183,8 +187,13 @@ async function testChecks() {
 }
 
 // Referenced by file#symbol reference in the loadTSType call above
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface MyInterface {
+export interface MyInterface {
+  a: number;
+  b: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- not exported so should not be found
+interface MyPrivateInterface {
   a: number;
   b: string;
 }

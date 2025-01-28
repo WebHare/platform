@@ -29,6 +29,29 @@ export interface LoadTSTypeOptions {
 /** Typescript parsing is slow, so cache the program */
 const programcache: Record<string, TJS.Program> = {};
 
+export function getTypeExportsForSourceFile(sourceFile: ts.SourceFile) {
+  const allExports: string[] = [];
+
+  visitNode(sourceFile);
+
+  function visitNode(node: ts.Node) {
+    if (ts.isExportSpecifier(node)) {
+      const name = node.name.getText();
+      allExports.push(name);
+    } else if (node.kind === ts.SyntaxKind.ExportKeyword) {
+      const parent = node.parent;
+      if (ts.isTypeAliasDeclaration(parent) || ts.isInterfaceDeclaration(parent)) {
+        const name = parent.name?.getText();
+        if (name)
+          allExports.push(name);
+      }
+    }
+    ts.forEachChild(node, visitNode);
+  }
+
+  return allExports;
+}
+
 export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTypeOptions = {}): Promise<TJS.Definition> {
 
   let file = typeref.split("#")[0];
@@ -53,29 +76,30 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
     const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
     tsOptions.configFilePath = tsconfigdir + "/tsconfig.json"; //needed to make @types/... lookups independent of cwd
 
-    // Parse file with the definition
-    program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
+    const host = ts.createCompilerHost(tsOptions);
 
+    // Parse file with the definition
+    program = ts.createProgram({ options: tsOptions, host, rootNames: [file], configFileParsingDiagnostics: errors });
     let diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
 
     // We can't exclude files from validation, so like checkmodules has to, we'll just discard errors about files we don't care about
     diagnostics = diagnostics.filter(_ => !_.file?.fileName.includes("/vendor/"));
-    console.log(diagnostics);
 
     if (diagnostics.length && !options.ignoreErrors) {
-      const host = {
-        getCurrentDirectory: () => process.cwd(),
-        getCanonicalFileName: (fileName: string) => fileName,
-        getNewLine: () => "\n"
-      };
-
       const message = ts.formatDiagnostics(diagnostics, host);
-      console.error(message);
       throw new Error(`Got errors compiling file: ${JSON.stringify(fileref)}: ${message}`);
     }
 
     programcache[file] = program;
   }
+
+  const sourceFile = program.getSourceFile(file);
+  if (!sourceFile)
+    throw new Error(`Could not find source file ${JSON.stringify(fileref)}`);
+
+  const exports = getTypeExportsForSourceFile(sourceFile);
+  if (!exports.includes(typename))
+    throw new Error(`Could not find export ${JSON.stringify(typename)} in file ${JSON.stringify(fileref)}. Exports: ${JSON.stringify(exports)}`);
 
   const schema = TJS.generateSchema(program, typename, {
     required: true,
