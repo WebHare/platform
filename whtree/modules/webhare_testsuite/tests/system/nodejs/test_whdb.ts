@@ -263,6 +263,7 @@ async function testHSCommitHandlers() {
   //We set up two VMs. One using the simple loadlib (getCodeContextHSVM) and one using a manually managed VM to ensure whdb manages ALL vms in the current codecontext
   const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
   const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+  await invoketarget.setGlobal(null); //cleanup
 
   const manualvm = await createVM();
   //Manual VMs don't auto-open a transaction
@@ -600,8 +601,35 @@ async function testHSRunInSeparatePrimary() {
   const id1 = await invoketarget.InsertUsingSeparateTrans();
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id1).executeTakeFirst());
 
-  await beginWork();
+  //we want to avoid seeing committed data so we can better tell the transactions apart
+  await beginWork({ isolationLevel: "repeatable read" });
+  await invoketarget.SetGlobal({ separatetest: 1 });
+  test.eq({ separatetest: 1 }, await invoketarget.GetGlobal(), "Test SetGlobal");
+  await invoketarget.SetGobalOnCommit({ separatetest: 2 });
+
+  /* we *must* read the exporttest table to ensure repeatable read actually isolates us
+     FIXME why is this as this conflicts with the docs? */
+  await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().executeTakeFirst();
+
+  //*we* shouldn't see id2 in our work yet, and the finish handlers shouldn't have fired either
   const id2 = await invoketarget.InsertUsingSeparateTrans();
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
+  test.eq({ separatetest: 1 }, await invoketarget.GetGlobal(), "Committing a separate HS transation should not have invoked oncommit handlers on the main work");
+
+  //let's start the transction on *our* side and verify HS uses it too
+  const id3 = await runInSeparateWork(async () => {
+    const id3_ = await invoketarget.InsertImmediately();
+    //ensure *we* see id3
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id3_).executeTakeFirst());
+    //ensure *HS* see id3
+    test.assert((await invoketarget.GetExportTest()).find((_: any) => _.id === id3_));
+  });
+
+  //Now we have completed the above work, we should NOT see id3 anymore due to still being in repeatable read mode
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
+  //And neither should HS see id3
+  test.assert(!(await invoketarget.GetExportTest()).find((_: any) => _.id === id3));
+
   await commitWork();
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
 }

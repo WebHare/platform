@@ -26,10 +26,14 @@ import { WHDBPgClient } from './connection';
 import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 
+export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
+
 /** Transaction options  */
 export interface WorkOptions {
   /// Name of a mutex (or mutexes) to lock during the transaction
   mutex?: string | string[];
+  /// PG Isolation level. "read committed" is the default
+  isolationLevel?: typeof PGIsolationLevels[number];
 }
 
 // A finish handler is invoked when a transaction is committed or rolled back.
@@ -294,6 +298,12 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     // is needed for PostgresPool implementation
   }
 
+  async execute(command: string) {
+    using lock = this.reftracker.getLock("query lock");
+    void (lock);
+    return await this.pgclient!.execute(command);
+  }
+
   query<R extends object>(cursor: PostgresCursor<R>): PostgresCursor<R>;
   query<R extends object>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
@@ -345,11 +355,14 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
       if (options?.mutex)
         for (const name of Array.isArray(options.mutex) ? options.mutex : [options.mutex])
           this.openwork.addMutex(await lockMutex(name));
+      if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
+        throw new Error(`Invalid isolation level ${options.isolationLevel}`);
 
-      await sql`START TRANSACTION ISOLATION LEVEL read committed READ WRITE`.execute(this._db);
-      //      this.pgclient.query("START TRANSACTION ISOLATION LEVEL read committed READ WRITE");
+      const isolationLevel = options?.isolationLevel ?? "read committed";
+      await this.connectpromise;
+      await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} READ WRITE`);
     } catch (e) {
-      await this.openwork.__releaseMutexes();
+      this.openwork.__releaseMutexes();
       this.openwork = undefined;
       throw e;
     } finally {
