@@ -1,13 +1,15 @@
-import { TaskRequest, TaskResponse, readRegistryKey } from "@webhare/services";
+import { TaskRequest, TaskResponse, readRegistryKey, scheduleTask } from "@webhare/services";
 import { beginWork } from "@webhare/whdb";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { sleep } from "@webhare/std";
 
 interface PingTask {
   ping: number | string;
+  extraping?: number;
+  javascript?: boolean;
 }
 
-export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> {
+export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> { //implements webhare_testsuite:ping_js AND webhare_testsuite:pingretry2_js
   await beginWork();
   if (req.numFailures === 1)
     return req.resolveByTemporaryFailure("Failed once!");
@@ -17,6 +19,9 @@ export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> 
     process.exit(162);
   if (req.taskdata.ping === "THROWNOW" && await readRegistryKey("webhare_testsuite.tests.taskthrownow"))
     throw new Error("PING-TASK-Throw-Now"); //TODO also verify throwing outside beginWork
+
+  if (req.taskdata.extraping)
+    return req.resolveByCompletion({ pong: req.taskdata.ping, managedtaskid: req.taskid, extrataskid: await scheduleTask("webhare_testsuite:ping_js", { ping: req.taskdata.extraping }) });
 
   return req.resolveByCompletion({ pong: req.taskdata.ping, managedtaskid: req.taskid });
 }
