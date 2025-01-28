@@ -14,27 +14,11 @@ LOADLIB "wh::dbase/postgresql.whlib";
 MACRO __WASMPG_INSERTRECORD(RECORD query, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 MACRO __WASMPG_INSERTRECORDS(RECORD query, RECORD ARRAY newrecordarray) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 MACRO __WASMPG_UPDATERECORD(RECORD query, RECORD rowdata, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+MACRO __WASMPG_DELETERECORD(RECORD query, RECORD rowdata) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 RECORD FUNCTION __WASMPG_EXECUTEQUERY(RECORD query) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 RECORD ARRAY FUNCTION __WASMPG_EXECUTESQL(STRING query, RECORD options) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-
-VARIANT FUNCTION CallImpl(STRING name, RECORD data)
-{
-  VARIANT retval := WaitForPromise(EM_Syscall("executeInline",
-      [ func := `
-const impl = require("@mod-system/js/internal/whdb/wasm_pgsqlprovider.ts");
-const func = impl[param.name];
-if (!func)
-  throw new Error(\`No such function \${param.name}\`);
-return await func(param.data);
-`
-      , param := CELL[ name, data ]
-      ]));
-
-  IF(IsDebugTagEnabled("pgsql-debug"))
-    DumpValue(CELL[name, data, retval], 'tree');
-
-  RETURN retval;
-}
+MACRO __WASMPG_BEGINWORK() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+BOOLEAN FUNCTION __WASMPG_ISWORKOPEN() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 CONSTANT INTEGER OID_BOOL := 16;
 CONSTANT INTEGER OID_BYTEA := 17;
@@ -113,7 +97,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
   UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
   {
-    CallImpl("cbDeleteRecord", CELL[ this->query, rowdata := this->rowsdata[this->blockrowstart + row] ]);
+    __WASMPG_DELETERECORD(this->query, this->rowsdata[this->blockrowstart + row]);
   }
 
   UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
@@ -159,7 +143,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
       FOREVERY(STRING mutex FROM options.mutexes)
         INSERT this->__DoLockMutex(mutex) INTO this->pvt_worklocks AT END;
 
-      CallImpl("cbDoBeginWork", DEFAULT RECORD);
+      __WASMPG_BEGINWORK();
     }
     CATCH(OBJECT e)
     {
@@ -207,7 +191,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pushlevel) || " PopWork calls");
 
     //TODO WASM PG needs to handle readonly DBs like transbase does
-    CallImpl("cbDoCommitWork", DEFAULT RECORD);
+    WaitForPromise(EM_Syscall("finishWork", [commit := TRUE]));
     this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a commit on their side will not revoke the locks
     RETURN RECORD[];
   }
@@ -217,7 +201,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
     IF (this->pushlevel > 0)
       THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pushlevel) || " PopWork calls");
 
-    CallImpl("cbDoRollbackWork", DEFAULT RECORD);
+    WaitForPromise(EM_Syscall("finishWork", [commit := FALSE]));
     this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a rollback on their side will not revoke the locks
   }
 
@@ -561,7 +545,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
   {
-    RETURN CallImpl("cbIsWorkOpen", DEFAULT RECORD);
+    RETURN __WASMPG_ISWORKOPEN();
   }
 
   UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)

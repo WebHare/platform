@@ -521,23 +521,20 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   void (updatedtable);
 }
 
-export async function cbIsWorkOpen() {
-  return isWorkOpen();
+function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
+  id_set.setBoolean(isWorkOpen());
 }
 
-export async function cbDoBeginWork() {
+async function cbDoBeginWork(vm: HareScriptVM) {
   await beginWork();
-  return null;
 }
 
-export async function cbDoRollbackWork() {
-  await rollbackWork();
-  return null;
-}
-
-export async function cbDoCommitWork() {
-  await commitWork();
-  return getTypedArray(VariableType.RecordArray, []);
+//this needs to go through a syscall so we can WaitForPromise the commit. otherwise whdb.ts cannot invoke finish handlers in this VM
+export async function cbDoFinishWork(vm: HareScriptVM, commit: boolean): Promise<void> {
+  if (commit)
+    await commitWork();
+  else
+    await rollbackWork();
 }
 
 export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: HSVMVar, options: HSVMVar) {
@@ -686,12 +683,15 @@ export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowd
     .execute();
 }
 
-export async function cbDeleteRecord(params: { query: Query; row: number; rowdata: { ctid: Tid } }) {
+export async function cbDeleteRecord(vm: HareScriptVM, queryparam: HSVMVar, rowdataparam: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
+
   const whdb = db();
 
   await whdb
-    .deleteFrom(sql.table(params.query.tablesources[0].name.toLowerCase()).as('T'))
-    .where(sql`ctid`, '=', params.rowdata.ctid)
+    .deleteFrom(sql.table(query.tablesources[0].name.toLowerCase()).as('T'))
+    .where(sql`ctid`, '=', rowdata.ctid)
     .execute();
 }
 
@@ -699,6 +699,9 @@ export function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORDS:::RRA", cbInsertRecords);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_DELETERECORD:::RR", cbDeleteRecord);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTESQL::RA:SR", cbExecuteSQL);
+  wasmmodule.registerExternalFunction("__WASMPG_ISWORKOPEN::B:", cbIsWorkOpen);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_BEGINWORK:::", cbDoBeginWork);
 }
