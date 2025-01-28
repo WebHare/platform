@@ -107,21 +107,6 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
   }
 }
 
-export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
-  const context = new CodeContext("jsonrpc", {
-    url: req.url.toString(),
-  });
-
-  const debugSettings = (await newWebRequestFromInfo(req)).getDebugSettings();
-  context.applyDebugSettings(debugSettings);
-
-  const result = await context.run(() => runJSONAPICall(servicedef, req));
-  const responseInfo = result.asWebResponseInfo();
-  // FIXME: async delayed close of codecontext
-  setTimeout(() => void context.close(), 1); //close the context after the response has been sent.
-  return responseInfo;
-}
-
 class JSONAPICaller extends services.BackendServiceConnection {
   async runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
     const context = new CodeContext("jsonrpc", {
