@@ -18,12 +18,12 @@ export function isDate(value: unknown): value is Date {
   return value instanceof Date || (isCrossRealm(value) && value.constructor.name === "Date");
 }
 
-/** Test whether a value implements Blob */
+/** Test whether a value appears to implement the Blob interface */
 export function isBlob(value: unknown): value is Blob {
-  return value instanceof Blob || (isCrossRealm(value) && "size" in value && "type" in value && "slice" in value);
+  return value instanceof Blob || Boolean(value && typeof value === "object" && "size" in value && "type" in value && "slice" in value && typeof value.slice === "function" && "stream" in value && typeof value.stream === "function");
 }
 
-/** Test whether a value implements File */
+/** Test whether a value appears to implement the File interface */
 export function isFile(value: unknown): value is File {
   return isBlob(value) && "name" in value;
 }
