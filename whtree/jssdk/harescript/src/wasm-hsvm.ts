@@ -218,6 +218,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   inSyncSyscall = false;
   abortController = new AbortController();
   connections = new Array<WHDBConnectionImpl>;
+  exitCode?: number;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -359,6 +360,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
         this.unregisterEventCallback?.();
         this.wasmmodule._ReleaseHSVMResources(this.hsvm);
+        this.exitCode = this.wasmmodule._HSVM_GetConsoleExitCode(this.hsvm);
 
         for (const mutex of this.mutexes)
           mutex?.release();
