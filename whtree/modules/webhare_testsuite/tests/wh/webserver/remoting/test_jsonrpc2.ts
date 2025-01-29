@@ -1,5 +1,5 @@
 import * as test from '@webhare/test';
-import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
+import { getJSONApiCaller } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob, backendConfig } from '@webhare/services';
@@ -21,13 +21,13 @@ async function testRPCCaller() {
     method: HTTPMethod.POST
   };
 
-  let callres = await JSONAPICall(servicedef, request);
+  let callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(200, callres.status);
   test.eq(false, JSON.parse(await callres.body.text()).result);
   test.eq(null, JSON.parse(await callres.body.text()).error, "It must be null if there was no error.");
 
   request.body = WebHareBlob.from(JSON.stringify({ id: 42, method: "noSuchAPI", params: [] }));
-  callres = await JSONAPICall(servicedef, request);
+  callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(404, callres.status);
 
   const { debug: debugData, ...result } = JSON.parse(await callres.body.text());
@@ -35,7 +35,7 @@ async function testRPCCaller() {
   test.eq({ id: 42, error: { code: -32601, message: `Method 'noSuchAPI' not found` }, result: null }, result);
 
   request.body = WebHareBlob.from(JSON.stringify({ id: 77, method: "serverCrash", params: [] }));
-  callres = await JSONAPICall(servicedef, request);
+  callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(500, callres.status);
 
   //TODO - *with* `etr` debugflag, the error message should be revealed. But we can't set that flag yet in JS tests
@@ -47,7 +47,7 @@ async function testRPCCaller() {
   request.headers.cookie = `wh-debug=${encodeURIComponent(debugCookieData)}`;
 
   // Enable the 'etr' debug flag and see if we get a trace
-  callres = await JSONAPICall(servicedef, request);
+  callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(500, callres.status);
   let resultBody = JSON.parse(await callres.body.text());
   test.eqPartial({ id: 77, error: { code: -32000, message: `this is a server crash`, data: {} }, result: null }, resultBody);
@@ -55,7 +55,7 @@ async function testRPCCaller() {
 
   // See if console logs are also recorded with the 'etr' flag
   request.body = WebHareBlob.from(JSON.stringify({ id: 42, method: "doConsoleLog", params: [] }));
-  callres = await JSONAPICall(servicedef, request);
+  callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(200, callres.status);
   resultBody = JSON.parse(await callres.body.text());
   test.eq(true, resultBody.debug?.consoleLog?.some((item: any) => item.method === "log" && item.data === "This log statement was generated on the server by the TestNoAuthJS service\n"));

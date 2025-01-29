@@ -142,7 +142,7 @@ RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tag
       rec.metatype := SELECT AS INTEGER metatype fROM tagidmapping WHERE tagidmapping.tag = rec.tag;
       IF(rec.metatype = 0)
       {
-        THROW NEW Exception("Unknown base type '" || rec.tag || "' for extenson");
+        THROW NEW Exception("Unknown base type '" || rec.tag || "' for extension");
       }
     }
     IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) != "EXTEND")

@@ -61,15 +61,19 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime ])));
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask(taskname, [ ping := 42 ]);
+  taskid := ScheduleManagedTask(taskname, CELL[ ping := 42, extraping := 44, javascript ]);
 
   TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime ])));
   TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
   testfw->CommitWork();
 
-  TestEq([pong := 42, managedtaskid := taskid ], RetrieveManagedTaskResult(taskid, MAX_DATETIME));
+  RECORD retval := RetrieveManagedTaskResult(taskid, MAX_DATETIME);
+  TestEqMembers([pong := 42, managedtaskid := taskid ], retval, '*');
   RECORD taskinfo := DescribeManagedTask(taskid);
   TestEq(TRUE, taskinfo.finished <= GetCurrentDatetime(), 'task should be marked as finished');
+
+  RECORD retval2 := RetrieveManagedTaskResult(retval.extrataskid, MAX_DATETIME);
+  TestEq([pong := 44, managedtaskid := retval.extrataskid ], retval2);
 
   testfw->BeginWork();
   taskid := ScheduleManagedTask(taskretryname, [ ping := "CANCEL" ]);
@@ -126,7 +130,7 @@ ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
   TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
 
   TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
-  TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := FALSE ])));
+  TestEq(2, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := FALSE ])));
   testfw->BeginWork();
   taskid := ScheduleManagedTask(taskname, [ ping := 1 ], [ auxdata := [ ping := RepeatText("X",10000) ] ] );
   testfw->CommitWork();
