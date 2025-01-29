@@ -14,10 +14,12 @@ import { type WebResponseForTransfer, createWebResponseFromTransferData } from "
 import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";
 import { RestAPIWorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
-import type { WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
+import type { OpenAPIHandlerInitializationContext, WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
 
 
 export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void> | void;
+
+export type OpenAPIInitHandlerHookFunction = (context: OpenAPIHandlerInitializationContext) => Promise<void> | void;
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
@@ -147,6 +149,7 @@ type Handler = ConvertLocalServiceInterfaceToClientInterface<WorkerRestAPIHandle
 
 // An OpenAPI handler
 export class RestAPI {
+  serviceName!: string;
   bundled: WebHareOpenAPIDocument | null = null;
   def: WebHareOpenAPIDocument | null = null;
   private routes: Route[] = [];
@@ -155,10 +158,13 @@ export class RestAPI {
   inputValidation: OpenAPIValidationMode | null = null;
   outputValidation: OpenAPIValidationMode | null = null;
   crossdomainOrigins: string[] = [];
+  handlerInitHook: string | null = null;
 
-  async init(def: object, specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string }) {
+  async init(def: object, specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string }) {
+    this.serviceName = name;
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
+    this.handlerInitHook = handlerInitHook ?? null;
     if (crossdomainOrigins)
       this.crossdomainOrigins = crossdomainOrigins;
 
@@ -242,7 +248,7 @@ export class RestAPI {
       if (!workerHandler) {
         const defaultErrorMapper = this.def?.["x-webhare-default-error-mapper"] ?? "";
 
-        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.routes, this.def?.components?.schemas?.defaulterror ?? null, defaultErrorMapper));
+        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, defaultErrorMapper, this.handlerInitHook));
       }
       const encodedTransfer = req.encodeForTransfer();
       return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
@@ -282,16 +288,21 @@ function createAjvValidator(): Ajv2020 {
 }
 
 export class WorkerRestAPIHandler {
+  serviceName: string;
   ajv: Ajv2020 = createAjvValidator();
   validators = new Map<object, ValidateFunction>;
   routes: Route[];
   defaultErrorSchema: SchemaObject | null;
   defaultErrorMapper: string;
+  handlerInitHook: string | null;
+  calledHandlerInitHook: Promise<void> | null = null;
 
-  constructor(routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string) {
+  constructor(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string, handlerInitHook: string | null) {
+    this.serviceName = serviceName;
     this.routes = routes;
     this.defaultErrorSchema = defaultErrorSchema;
     this.defaultErrorMapper = defaultErrorMapper;
+    this.handlerInitHook = handlerInitHook;
   }
 
   /// Build error responses for errors other than operation result errors (method not found, validation failures, etc)
@@ -306,6 +317,16 @@ export class WorkerRestAPIHandler {
   private shouldValidate(mode: OpenAPIValidationMode | null, defaultMode: OpenAPIValidationMode) {
     const checkMode = mode ?? defaultMode;
     return checkMode[0] === "always" || checkMode.some(item => item === backendConfig.dtapstage);
+  }
+
+  private async ensureHandlerInit() {
+    const handlerInitHook = this.handlerInitHook;
+    if (handlerInitHook) {
+      await (this.calledHandlerInitHook ??= (async () => {
+        const initFunction = await loadJSFunction<OpenAPIInitHandlerHookFunction>(handlerInitHook!);
+        await initFunction({ name: this.serviceName, ajv: this.ajv });
+      })());
+    }
   }
 
   private getValidator(schema: object): ValidateFunction {
@@ -339,6 +360,8 @@ export class WorkerRestAPIHandler {
     const match = this.findRoute(relurl, req);
     if (!match)
       return await this.buildErrorResponse(HTTPErrorCode.NotFound, `No route for '${relurl}'`);
+
+    await this.ensureHandlerInit();
 
     logger.route = match.route.path.join("/");
 
@@ -545,6 +568,6 @@ export class WorkerRestAPIHandler {
   }
 }
 
-export function getWorkerRestAPIHandler(routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string) {
-  return new WorkerRestAPIHandler(routes, defaultErrorSchema, defaultErrorMapper);
+export function getWorkerRestAPIHandler(serviceName: string, routes: Route[], defaultErrorSchema: SchemaObject | null, defaultErrorMapper: string, handlerInitHook: string | null) {
+  return new WorkerRestAPIHandler(serviceName, routes, defaultErrorSchema, defaultErrorMapper, handlerInitHook);
 }
