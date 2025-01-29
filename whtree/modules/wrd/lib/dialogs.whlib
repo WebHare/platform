@@ -88,6 +88,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntitySelectDialog(OBJECT owner, OBJECT wrdtype, I
   options := ValidateOptions(
       [ entitycontext :=    DEFAULT RECORD
       , columns :=          STRING[] //we use 'columns' so 'listcolumns' stays available as a name for a record array of exact definitions
+      , enable_search :=    FALSE
       ], options);
 
   IF (NOT ObjectExists(wrdtype))
@@ -111,9 +112,7 @@ PUBLIC INTEGER FUNCTION RunWRDEntitySelectDialog(OBJECT owner, OBJECT wrdtype, I
   dialog->listcolumns := SELECT tag, width := "1pr" FROM ToRecordArray(options.columns, "TAG");
 
   OBJECT screen := dialog->__OpenDialog();
-
-  //ADDME make this configurable, but it turns out it's often unwanted
-  screen->freesearchbox->visible := FALSE;
+  screen->freesearchbox->visible := options.enable_search;
 
   IF(NOT dialog->__InvokeDialog(screen))
     RETURN 0;
