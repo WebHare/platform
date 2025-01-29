@@ -6,7 +6,7 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
+import { type StashedWork, getConnection, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
 import { setHareScriptType } from "@webhare/hscompat/hson";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 
@@ -140,10 +140,12 @@ export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: str
 
 const stashes = new Array<StashedWork | null>;
 
-export function startSeparatePrimary() {
+export function startSeparatePrimary(hsvm: HareScriptVM) {
   stashes.push(isWorkOpen() ? stashWork() : null);
+  hsvm.connections.push(getConnection());
 }
-export function stopSeparatePrimary() {
+export function stopSeparatePrimary(hsvm: HareScriptVM) {
+  hsvm.connections.pop();
   stashes.pop()?.restore();
 }
 

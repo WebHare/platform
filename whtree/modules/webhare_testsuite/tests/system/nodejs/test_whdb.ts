@@ -523,7 +523,16 @@ async function testFinishHandlers() {
   test.eq("webhare_testsuite:worktest.8", (await eventStream.next()).value.name);
 }
 
+async function verifyConnectionsInSync() {
+  const ourconn = getConnection().pgclient?.processID;
+  const vmconn = (await getCodeContextHSVM())?._getHSVM().getCurrentConnection().pgclient?.processID;
+  test.eq(ourconn, vmconn);
+}
+
 async function testSeparatePrimary() {
+  const startDbPId = getConnection().pgclient?.processID;
+  await verifyConnectionsInSync();
+
   test.throws(/if no work is open/, () => stashWork());
   await beginWork();
   const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
@@ -545,8 +554,10 @@ async function testSeparatePrimary() {
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
   await beginWork(); //let's open some work on this stash
+  const thirdDbPid = getConnection().pgclient?.processID;
 
-  const stashed3 = stashed1.restore(); //this stashes the third transaction and brings us back into the first transacrtion where 'nextid1' lives
+  const stashed3 = stashed1.restore(); //this stashes the third transaction and brings us back into the first transaction where 'nextid1' lives
+  test.eq(startDbPId, getConnection().pgclient?.processID);
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
 
@@ -558,13 +569,15 @@ async function testSeparatePrimary() {
   test.eq(false, isWorkOpen());
 
   test.eq(null, stashed2b!.restore()); //this brings us to the first transaction again
+  test.eq(startDbPId, getConnection().pgclient?.processID);
   test.eq(true, isWorkOpen());
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
   await commitWork(); //commits the first transaction. only the third transaction (living in stashed3) is still out there
 
-  test.eq(null, stashed3!.restore());
+  test.eq(null, stashed3!.restore()); //this brings us into the 3rd transaction
+  test.eq(thirdDbPid, getConnection().pgclient?.processID);
   test.eq(true, isWorkOpen());
-  await rollbackWork();
+  await rollbackWork(); //this ends the 3rd work. BUT it keeps us in the 3rd process! TODO sure about these stash APIs? this has now brought us out of sync with the HSVM stash!
   test.eq(false, isWorkOpen());
 
   test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
@@ -582,6 +595,7 @@ async function testSeparatePrimary() {
   await beginWork();
   const nextid4: number = await nextVal("webhare_testsuite.exporttest.id");
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid4, text: "Record 4" }).execute();
+
   const id5 = await runInSeparateWork(async () => {
     const nextid5: number = await nextVal("webhare_testsuite.exporttest.id");
     await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid5, text: "Record 5" }).execute();
@@ -596,6 +610,10 @@ async function testSeparatePrimary() {
 
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id5).executeTakeFirst());
+  /* TODO but we made a mess above..
+  test.eq(startDbPId, getConnection().pgclient?.processID);
+  await verifyConnectionsInSync();
+  */
 }
 
 async function testHSRunInSeparatePrimary() {
@@ -605,7 +623,13 @@ async function testHSRunInSeparatePrimary() {
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id1).executeTakeFirst());
 
   //we want to avoid seeing committed data so we can better tell the transactions apart
+  await verifyConnectionsInSync();
   await beginWork({ isolationLevel: "repeatable read" });
+
+  //insert one inside our transaction. allows us to see which connection HS is attached to
+  const idOurs = await invoketarget.InsertImmediately();
+  test.assert((await invoketarget.GetExportTest()).find((_: any) => _.id === idOurs));
+
   await invoketarget.SetGlobal({ separatetest: 1 });
   test.eq({ separatetest: 1 }, await invoketarget.GetGlobal(), "Test SetGlobal");
   await invoketarget.SetGobalOnCommit({ separatetest: 2 });
@@ -621,20 +645,27 @@ async function testHSRunInSeparatePrimary() {
 
   //let's start the transction on *our* side and verify HS uses it too
   const id3 = await runInSeparateWork(async () => {
-    const id3_ = await invoketarget.InsertImmediately();
+    const id3_ = await nextVal("webhare_testsuite.exporttest.id");
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: id3_, text: "aText" }).execute();
+
     //ensure *we* see id3
     test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id3_).executeTakeFirst());
-    //ensure *HS* see id3
-    test.assert((await invoketarget.GetExportTest()).find((_: any) => _.id === id3_));
-  });
+    //HS *cannot* see id3 as currently our stashes/runInSeparateWork are not visible to a HSVM
+    test.assert(!(await invoketarget.GetExportTest()).find((_: any) => _.id === id3_));
+  }, { isolationLevel: "repeatable read" });
 
   //Now we have completed the above work, we should NOT see id3 anymore due to still being in repeatable read mode
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
   //And neither should HS see id3
   test.assert(!(await invoketarget.GetExportTest()).find((_: any) => _.id === id3));
 
+  // Verify commithandlers didn't fire either. This was an earlier bug (when *we* opened the separate primary we didn't inform HS but still flushed their commit handlers on the next commit)
+  test.eq({ separatetest: 1 }, await invoketarget.GetGlobal(), "Committing a separate TS transation should not have invoked oncommit handlers on the main work");
   await commitWork();
+  test.eq({ separatetest: 2, iscommit: true }, await invoketarget.GetGlobal(), "NOW we should see the update");
+  //we can finally see id2 as we've exited the repeatable read transaction
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
+  await verifyConnectionsInSync();
 }
 
 async function testClosedConnectionHandling() {
@@ -660,8 +691,8 @@ test.runTests([
   testMutex,
   testFinishHandlers,
   testCodeContexts,
-  testSeparatePrimary,
   testHSRunInSeparatePrimary,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
+  testSeparatePrimary, //as the test stands, it desyncs us from the HSVM connection, so order it after testHSRunInSeparatePrimary for now
   testClosedConnectionHandling,
 ]);

@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { type IPCMarshallableData, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
-import { decodeString, isTruthy } from "@webhare/std";
+import { decodeString, isTruthy, throwError } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
@@ -18,6 +18,7 @@ import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeCon
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath } from "./wasm-support";
+import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 
 
 export interface StartupOptions {
@@ -216,6 +217,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   contexts = new Map<symbol, { close?: () => void }>;
   inSyncSyscall = false;
   abortController = new AbortController();
+  connections = new Array<WHDBConnectionImpl>;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -240,6 +242,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
   constructor(module: WASMModule, startupoptions: StartupOptions) {
     this._wasmmodule = module;
     this.objectCache = new HSVMObjectCache(this);
+    //save the current connection
+    this.connections.push(getConnection());
     module.itf = this;
     this._hsvm = module._CreateHSVM();
     module.initVM(this.hsvm);
@@ -256,7 +260,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.captureErrors(this.writeToStderr.bind(this));
 
     this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
+  }
 
+  getCurrentConnection() {
+    return this.connections.at(-1) ?? throwError("Lost last database connection in HSVM");
   }
 
   captureOutput(onOutput: (output: Buffer) => void) {
