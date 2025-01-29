@@ -34,6 +34,7 @@ import { listAllExtracts } from "./gen_extracts";
 import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
 import { listAllSchemas } from "./gen_schema";
 import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
+import { listAllRegistryDefs } from "./gen_registry";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
@@ -54,7 +55,8 @@ async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
   return fixFilePaths([
     ...await listAllModuleTableDefs(allmods),
     ...await listAllModuleWRDDefs(),
-    ...await listAllModuleOpenAPIDefs()
+    ...await listAllModuleOpenAPIDefs(),
+    ...await listAllRegistryDefs(allmods)
   ]);
 }
 
@@ -161,7 +163,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
     ...extracts.map(file => file.path)
   ]);
 
-  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('all')) {
+  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('registry') || targets.includes('all')) {
     const otherfiles = await listOtherGeneratedFiles();
     otherfiles.forEach(file => keepfiles.add(file.path));
     const togenerate = targets.includes('all') ? otherfiles : otherfiles.filter(file => targets.includes(file.type));

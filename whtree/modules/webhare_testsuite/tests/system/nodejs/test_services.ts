@@ -61,6 +61,17 @@ async function testServices() {
   const runoncekey = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);
 
+  const nope = false as boolean;
+  if (nope) {
+    const runoncekey2 = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
+    void runoncekey2;
+    test.typeAssert<test.Equals<typeof runoncekey2, string>>();
+    /// @ts-expect-error -- Verify that key string is determined by the key name
+    await services.writeRegistryKey("webhare_testsuite.tests.runoncetest", 10);
+    /// The following should just work (unknown key)
+    await services.writeRegistryKey("whatever", 10);
+  }
+
   //get WebHare configuration
   const whconfig = await loadlib("mod::system/lib/configure.whlib").GetWebHareConfiguration();
   // console.log(services.backendConfig, whconfig);
