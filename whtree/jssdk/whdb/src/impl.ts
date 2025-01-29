@@ -57,7 +57,7 @@ class HandlerList implements Disposable {
   async setup(conn: WHDBConnection, iscommit: boolean) {
     for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
       if (vm.connections.at(-1) !== conn)
-        continue; //this conenction is not matched by the HSVM, should be a separate primary..
+        continue; //this connection is not matched by the HSVM, should be a separate primary..
 
       const handlers = vm.allocateVariable();
       using commitparam = vm.allocateVariable();
@@ -110,7 +110,7 @@ class Work implements WorkObject {
     if (commit)
       await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onBeforeCommit?.()));
 
-    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary tranasction object) state which
+    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary transaction object) state which
        is why we need to copy the HS commithandler state at commit time (as commithandlers may start new work) */
     const handlerlist = new HandlerList();
     await handlerlist.setup(this.conn, commit);
