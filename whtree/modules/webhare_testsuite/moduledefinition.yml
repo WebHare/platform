@@ -44,6 +44,7 @@ openApiServices:
     spec: tests/wh/webserver/remoting/openapi/testservice.yaml
     # TODO throw in a merge too
     initHook: tests/wh/webserver/remoting/openapi/hooks.ts#extendTheService
+    handlerInitHook: tests/wh/webserver/remoting/openapi/hooks.ts#extendTheHandler
   authtests:
     spec: tests/wh/webserver/remoting/openapi/authtests.yaml
     crossDomainOrigins:

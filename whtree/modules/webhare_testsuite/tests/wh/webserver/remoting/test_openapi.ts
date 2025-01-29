@@ -349,6 +349,39 @@ async function verifyPublicParts() {
   const extendedopenapi = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
   test.assert("/extension" in extendedopenapi.paths, "Extended paths should be visible in the extendedservice API");
   test.eq({ "message": "I have been extended" }, (await (await fetch(extendedapiroot + "extension")).json()));
+
+  test.eq({
+    checkedAtInput: "testfw-ok",
+    checkedAtOutput: "testfw-ok"
+  }, await (await fetch(extendedapiroot + "extension", {
+    method: "post", body: JSON.stringify({
+      checkedAtInput: "testfw-ok",
+      checkedAtOutput: "testfw-ok"
+    }),
+    redirect: "manual",
+    headers: { "content-type": "application/json" },
+  })).json());
+
+  test.eq({
+    error: "Invalid request body: must match format \"wh-testfw-extformat\" (format=\"wh-testfw-extformat\") (at \"/checkedAtInput\")",
+    status: 400
+  }, await (await fetch(extendedapiroot + "extension", {
+    method: "post", body: JSON.stringify({
+      checkedAtInput: "nonmatch",
+      checkedAtOutput: "testfw-ok"
+    }),
+    redirect: "manual",
+    headers: { "content-type": "application/json" },
+  })).json());
+
+  test.eqPartial(500, (await fetch(extendedapiroot + "extension", {
+    method: "post", body: JSON.stringify({
+      checkedAtInput: "testfw-ok",
+      checkedAtOutput: "nonmatch"
+    }),
+    redirect: "manual",
+    headers: { "content-type": "application/json" },
+  })).status);
 }
 
 function testInternalTypes() {

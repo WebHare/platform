@@ -1,3 +1,4 @@
+import type Ajv from 'ajv';
 import type { OpenAPIV3 } from 'openapi-types';
 
 export type WebHareOpenApiAdditions = {
@@ -20,4 +21,12 @@ export interface OpenAPIServiceInitializationContext {
   name: string;
   /** Parsed YAML specification (includes any merges but before the bundling step) */
   spec: WebHareOpenAPIDocument;
+}
+
+/** Describes the currently loading OpenAPI documentation */
+export interface OpenAPIHandlerInitializationContext {
+  /** Full service name (module:openapi) */
+  name: string;
+  /** Ajv validator used for incoming and outgoing data */
+  ajv: Ajv;
 }

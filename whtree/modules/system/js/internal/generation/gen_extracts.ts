@@ -41,6 +41,7 @@ export interface OpenAPIDescriptor {
   name: string;
   spec: string;
   initHook?: string;
+  handlerInitHook?: string;
   merge?: string;
   inputValidation?: OpenAPIValidationMode;
   outputValidation?: OpenAPIValidationMode;
@@ -216,6 +217,7 @@ export function generateServices(context: GenerateContext): string {
         name: `${mod.name}:${servicename}`,
         spec: resolveResource(mod.resourceBase, servicedef.spec),
         ...(servicedef.initHook ? { initHook: resolveResource(mod.resourceBase, servicedef.initHook) } : {}),
+        ...(servicedef.handlerInitHook ? { handlerInitHook: resolveResource(mod.resourceBase, servicedef.handlerInitHook) } : {}),
         merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
         crossdomainOrigins: servicedef.crossDomainOrigins || [],
       });

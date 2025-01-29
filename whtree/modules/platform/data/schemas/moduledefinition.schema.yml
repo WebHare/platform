@@ -197,6 +197,9 @@ $defs:
           initHook:
             description: "Callback to do runtime modifications to the OpenAPI configuration"
             type: string
+          handlerInitHook:
+            description: "Callback to do runtime modifications to the OpenAPI call handler"
+            type: string
           merge:
             type: array
             description: "Optional overrides for the specification"

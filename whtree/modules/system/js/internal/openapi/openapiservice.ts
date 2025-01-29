@@ -122,11 +122,11 @@ export class RestService extends services.BackendServiceConnection {
       services.logError(e as Error);
 
       if (env.debugFlags.etr)
-        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack, status: 500 });
       else if (services.backendConfig.dtapstage === "development")
-        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing" });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing", status: 500 });
       else
-        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error" });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error", status: 500 });
     }
 
     if (env.debugFlags.openapi) {
@@ -171,7 +171,7 @@ export async function getServiceInstance(servicename: string) {
   const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
   // Create and initialize the API handler
   const restapi = new RestAPI();
-  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook"]) });
+  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]) });
 
   const service = new RestService(servicename, restapi);
   if (!cache[servicename])
