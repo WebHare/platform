@@ -424,21 +424,10 @@ PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwai
 
 MACRO ScheduleBroadcastUpdatedTaskIds(STRING tasktype, INTEGER ARRAY taskids)
 {
-  IF (LENGTH(taskids) < 5)
-  {
-    FOREVERY (INTEGER id FROM taskids)
-    {
-      GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
-      GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", DEFAULT RECORD);
-    }
-  }
-  ELSE
-  {
-    GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", DEFAULT RECORD);
-    GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", DEFAULT RECORD);
-  }
+  RECORD eventdata := LENGTH(taskids) < 5 ? CELL[taskids] : DEFAULT RECORD;
+  GetPrimary()->BroadcastOnCommit("system:managedtasks.any.new", eventdata);
+  GetPrimary()->BroadcastOnCommit("system:managedtasks." || tasktype || ".new", eventdata);
 }
-
 
 /** @short Schedule multiple managed tasks
     @long Allows you to schedule multiple managed tasks, as long as they share the same options. This allows the database
