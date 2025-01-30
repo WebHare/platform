@@ -3,7 +3,7 @@ import { dtapStage } from "@webhare/env";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { parseTyped, stringify } from "@webhare/std";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
-import { rmdir, stat, readFile, mkdir } from "node:fs/promises";
+import { stat, readFile, mkdir, rm } from "node:fs/promises";
 import type { AssetPackState } from "./types";
 
 export type BundleSettings = Awaited<ReturnType<typeof readBundleSettings>>;
@@ -74,7 +74,7 @@ export async function removeObsoleteCacheFolders() {
           continue; //a grace period for adhoc- packages
       }
       if (!expectPaths.has(`${entry.fullPath}/`))
-        await rmdir(entry.fullPath, { recursive: true });
+        await rm(entry.fullPath, { recursive: true });
 
     }
 }
