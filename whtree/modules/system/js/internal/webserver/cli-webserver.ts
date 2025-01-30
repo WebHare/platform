@@ -4,7 +4,7 @@
 */
 
 import * as webserver from "./webserver";
-import { Configuration } from "./webconfig";
+import type { Configuration } from "./webconfig";
 import { loadlib } from "@webhare/harescript";
 import { program } from 'commander';
 

@@ -4,7 +4,7 @@
 
 import type { ParsedSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { parseWHDBDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { PublicParsedWRDSchemaDef, getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
+import { type PublicParsedWRDSchemaDef, getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext, listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { loadlib } from "@webhare/harescript";

@@ -2,8 +2,8 @@
 
 import * as dompack from 'dompack';
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
-import { DocEvent, addDocEventListener } from '@webhare/dompack';
-import { SetFieldErrorData } from '../internal/customvalidation';
+import { type DocEvent, addDocEventListener } from '@webhare/dompack';
+import type { SetFieldErrorData } from '../internal/customvalidation';
 import FormBase from '../formbase';
 
 export default class CaptchaField {

@@ -1,5 +1,5 @@
 import { BackendServiceConnection, WebHareBlob } from "@webhare/services";
-import { Agent, RequestInit as undiciRequestInit } from 'undici';
+import { Agent, type RequestInit as undiciRequestInit } from 'undici';
 
 let insecureagent: Agent | undefined;
 

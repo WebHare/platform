@@ -6,7 +6,7 @@
    new KeyboardHandler(this.textarea, {}, { dontpropagate: ['Enter']});
 */
 
-import { NormalizedKeyboardEvent, normalizeKeyboardEventData } from '../src/events';
+import { type NormalizedKeyboardEvent, normalizeKeyboardEventData } from '../src/events';
 import { debugflags } from '../src/debug';
 import { getPlatform } from './browser';
 const IS_MAC_PLATFORM = getPlatform() === "mac";

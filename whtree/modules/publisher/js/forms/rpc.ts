@@ -3,7 +3,7 @@
 import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
-import FormBase, { FormResultValue, FormSubmitEmbeddedResult, FormSubmitMessage, type FormSubmitResult } from './formbase';
+import FormBase, { type FormResultValue, type FormSubmitEmbeddedResult, type FormSubmitMessage, type FormSubmitResult } from './formbase';
 import { getFormService, getTSFormService } from "@webhare/forms/src/formservice";
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';

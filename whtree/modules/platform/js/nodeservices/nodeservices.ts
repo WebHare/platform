@@ -6,7 +6,7 @@
 import { BackendServiceConnection, activateHMR, runBackendService } from '@webhare/services';
 import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
+import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
 import { program } from 'commander';
 import { launchService } from './runner';
 

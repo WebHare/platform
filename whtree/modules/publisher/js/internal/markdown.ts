@@ -1,6 +1,6 @@
 import { loadlib } from "@webhare/harescript";
-import { SiteRequest, WebResponse } from "@webhare/router";
-import { WebHareBlob } from "@webhare/services";
+import type { SiteRequest, WebResponse } from "@webhare/router";
+import type { WebHareBlob } from "@webhare/services";
 import MarkdownIt from 'markdown-it';
 
 interface RenderEnv {

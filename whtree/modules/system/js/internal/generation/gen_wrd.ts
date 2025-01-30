@@ -1,8 +1,8 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
-import { GenerateContext, FileToUpdate, generatorBanner } from "./shared";
-import { WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { type WRDBaseAttributeTypeId, WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
+import { type GenerateContext, type FileToUpdate, generatorBanner } from "./shared";
+import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std";
 import { elements } from "./xmlhelpers";

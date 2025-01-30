@@ -1,6 +1,6 @@
-import { Socket } from "net";
+import type { Socket } from "net";
 import EventSource from "../eventsource";
-import { StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
+import { type StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
 import { debugFlags } from "@webhare/env";
 import { rootstorage } from "@webhare/services/src/codecontexts";
 

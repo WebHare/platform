@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import * as dialogapi from 'dompack/api/dialog';
 import "./__captcha.css";
-import { CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
+import { type CaptchaSettings, captcharegistry } from "@mod-publisher/js/captcha/api";
 
 //recaptcha API: https://developers.google.com/recaptcha/docs/display
 let recaptchaload: PromiseWithResolvers<void> | undefined;

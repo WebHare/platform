@@ -2,7 +2,7 @@
 "use strict";
 
 import type * as esbuild from 'esbuild';
-import { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask";
+import type { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask";
 import { parseResourcePath, toResourcePath } from "@webhare/services";
 import * as fs from "node:fs";
 import { emplace } from '@webhare/std';

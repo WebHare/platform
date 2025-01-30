@@ -19,5 +19,5 @@ declare module "@webhare/services" {
 }
 
 //TypeScript issue - if we don't import it explicitly, TS looks to us for the "@webhare/services" and suddenly can't find @webhare/services anymore
-import { type BackendServices, type GetBackendServiceInterface } from "@webhare/services";
+import type { BackendServices, GetBackendServiceInterface } from "@webhare/services";
 export { type BackendServices, type GetBackendServiceInterface }; //import/export gives us 'something to do' and users 'something to import' in the TypesScript sense. this library should otherwise stay empty

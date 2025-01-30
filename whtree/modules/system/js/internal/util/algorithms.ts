@@ -1,4 +1,4 @@
-import { RecursiveReadonly } from "@webhare/js-api-tools";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 
 export { pick, omit } from "@webhare/std";
 

@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import { omit, pick } from "@webhare/std";
-import { RecursivePartial } from "@webhare/js-api-tools";
+import type { RecursivePartial } from "@webhare/js-api-tools";
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { decodeHSON } from "@webhare/hscompat";

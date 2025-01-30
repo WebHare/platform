@@ -1,10 +1,10 @@
 import { coreWebHareRouter, getHSWebserverTarget } from '@webhare/router/src/corerouter';
-import { HTTPMethod, WebRequest } from '@webhare/router';
+import type { HTTPMethod, WebRequest } from '@webhare/router';
 import * as env from "@webhare/env";
-import * as net from 'node:net';
+import type * as net from 'node:net';
 import * as http from 'node:http';
 import * as https from 'node:https';
-import { Configuration, Port, Host, initialconfig } from "./webconfig";
+import { type Configuration, type Port, type Host, initialconfig } from "./webconfig";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 
 class WebServerPort {

@@ -2,7 +2,7 @@
 
 import * as dompack from '@webhare/dompack';
 import * as dialogapi from 'dompack/api/dialog';
-import { type RTDEditElement } from './index';
+import type { RTDEditElement } from './index';
 import RPCFormBase from '../../rpc';
 import { getFormService } from "@webhare/forms/src/formservice";
 import type { FormSubmitEmbeddedResult } from '../../formbase';

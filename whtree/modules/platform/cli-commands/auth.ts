@@ -2,7 +2,7 @@
 
 import { WRDSchema } from '@mod-wrd/js/internal/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
-import { HSVMObject } from '@webhare/harescript/src/harescript';
+import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { IdentityProvider, compressUUID } from '@webhare/wrd/src/auth';

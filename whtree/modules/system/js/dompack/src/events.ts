@@ -1,4 +1,4 @@
-import { FormControlElement } from "@webhare/dompack/dompack";
+import type { FormControlElement } from "@webhare/dompack/dompack";
 
 export const CustomEvent = globalThis.CustomEvent;
 /** Wrap an event to ensure it's target is a HTMLElement

@@ -1,9 +1,9 @@
-import { WebHareWHFSRouter } from "@webhare/router";
+import type { WebHareWHFSRouter } from "@webhare/router";
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebResponseInfo } from "@mod-system/js/internal/types";
+import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { setTidLanguage } from "@webhare/gettid";

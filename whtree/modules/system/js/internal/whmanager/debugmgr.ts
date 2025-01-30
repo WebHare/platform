@@ -1,7 +1,7 @@
 import EventSource from "../eventsource";
 import { isTruthy } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
-import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, ForwardByRequestType } from "./debug";
+import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, type ForwardByRequestType } from "./debug";
 
 
 type ProcessRegistration = {

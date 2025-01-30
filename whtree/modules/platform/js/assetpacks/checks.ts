@@ -1,4 +1,4 @@
-import { CheckResult, openBackendService } from "@webhare/services";
+import { type CheckResult, openBackendService } from "@webhare/services";
 import { loadAssetPacksConfig } from "./api";
 
 export async function checkAssetPacks(): Promise<CheckResult[]> {

@@ -1,7 +1,6 @@
-import { toFSPath } from "@webhare/services";
+import { toFSPath, resolveResource } from "@webhare/services";
 import { readFile } from "fs/promises";
-import { resolveResource } from "@webhare/services";
-import { FileToUpdate, type GenerateContext } from "./shared";
+import type { FileToUpdate, GenerateContext } from "./shared";
 import { compile, type JSONSchema } from 'json-schema-to-typescript';
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 

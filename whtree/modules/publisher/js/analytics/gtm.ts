@@ -1,11 +1,11 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
 import { pushToDataLayer, setupGTM } from "@webhare/frontend/src/gtm";
-import { type DataLayerEntry } from "@webhare/frontend/src/gtm-types";
+import type { DataLayerEntry } from "@webhare/frontend/src/gtm-types";
 import * as dompack from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
-import { onConsentChange, ConsentSettings } from "./consenthandler";
+import { onConsentChange, type ConsentSettings } from "./consenthandler";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';

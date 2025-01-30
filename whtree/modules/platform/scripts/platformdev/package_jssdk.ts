@@ -14,7 +14,7 @@ wh run mod::platform/scripts/platformdev/package_jssdk.ts --publish-alpha --verb
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { backendConfig } from "@webhare/services";
-import { StdioOptions, spawnSync } from "child_process";
+import { type StdioOptions, spawnSync } from "child_process";
 import { cp, mkdir, rm, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { pick } from '@webhare/std';

@@ -1,4 +1,4 @@
-import bridge, { IPCLinkType, type IPCMessagePacket } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { type IPCLinkType, type IPCMessagePacket } from "@mod-system/js/internal/whmanager/bridge";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 import { activateHMR } from "@webhare/services/src/services";
 

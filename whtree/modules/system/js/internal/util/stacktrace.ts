@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import Module from "node:module";
-import { StackTraceItem } from "@webhare/js-api-tools";
+import type { StackTraceItem } from "@webhare/js-api-tools";
 export type { StackTraceItem };
 
 /* this api takes over source mapping of an entire stack trace, so getCallerLocation only needs to

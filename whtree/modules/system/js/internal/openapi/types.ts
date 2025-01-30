@@ -1,4 +1,4 @@
-import { RestRequest, HTTPErrorCode, HTTPSuccessCode, RestDefaultErrorBody } from "@webhare/router";
+import type { RestRequest, HTTPErrorCode, HTTPSuccessCode, RestDefaultErrorBody } from "@webhare/router";
 
 
 type NeverFallback<A, B> = [A] extends [never] ? B : A;

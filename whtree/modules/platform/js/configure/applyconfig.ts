@@ -1,5 +1,5 @@
 import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
-import { GeneratorType } from '@mod-system/js/internal/generation/shared';
+import type { GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";

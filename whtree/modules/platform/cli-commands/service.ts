@@ -1,5 +1,5 @@
 import { getAllServices, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
-import { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
+import type { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
