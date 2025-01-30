@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { db, nextVal } from "@webhare/whdb";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, WRDInsertable, WRDUpdatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
+import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
-import { getSchemaData, SchemaData } from "./db";
+import { tagToHS, tagToJS, type WRDAttributeConfiguration, type WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
+import { getSchemaData, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
-import { EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
+import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";

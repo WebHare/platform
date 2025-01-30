@@ -1,9 +1,9 @@
-import { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { db, nextVal } from "@webhare/whdb";
-import { EntityPartialRec, EntityRec, EntitySettingsRec, TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
+import { type EntityPartialRec, type EntityRec, type EntitySettingsRec, type TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { isTruthy, omit } from "@webhare/std";
 import { encodeWRDGuid } from "./accessors";
-import { setHareScriptType, IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
+import { setHareScriptType, type IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
 
 
 export type ChangesSettings<T extends string | number | null> = Array<Omit<EntitySettingsRec, "blobdata" | "entity" | "setting" | "attribute"> & { blobseqnr: number; setting: T; attribute: T }>;

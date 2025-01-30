@@ -1,15 +1,14 @@
-import { WRDBaseAttributeTypeId, WRDAttributeTypeId, AllowedFilterConditions, WRDAttrBase, WRDGender, WRDInsertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
+import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type AllowedFilterConditions, type WRDAttrBase, WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType, baseAttrCells } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
-import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, /*ComparisonOperatorExpression, */Expression, SqlBool/*, ReferenceExpression, OperandValueExpressionOrList*/ } from "kysely";
+import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
-import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
+import { compare, type ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
-import { type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
+import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import * as kysely from "kysely";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument } from "@webhare/services";
@@ -34,7 +33,7 @@ type NullIfNotRequired<Required extends boolean> = false extends Required ? null
 export const LinkTypes = { RTD: 0, Instance: 1, FSObject: 2 } as const;
 
 /// Single settings record
-export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
+export type EncodedSetting = Updateable<PlatformDB["wrd.entity_settings"]> & {
   id?: number;
   attribute: number;
   sub?: EncodedSetting[];
@@ -43,7 +42,7 @@ export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]
   link?: number;
 };
 
-export type AwaitableEncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
+export type AwaitableEncodedSetting = Updateable<PlatformDB["wrd.entity_settings"]> & {
   id?: number;
   attribute: number;
   sub?: Array<AwaitableEncodedSetting | Promise<EncodedSetting[]>>;

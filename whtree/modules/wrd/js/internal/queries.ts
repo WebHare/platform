@@ -1,8 +1,8 @@
-import { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
+import type { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
 export { type SchemaTypeDefinition } from "./types";
 import type { HistoryModeData, WRDType } from "./schema";
-import { AnyWRDAccessor, getAccessor } from "./accessors";
-import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
+import { type AnyWRDAccessor, getAccessor } from "./accessors";
+import { type AttrRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
