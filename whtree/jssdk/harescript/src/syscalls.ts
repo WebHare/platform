@@ -6,8 +6,9 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
+import { type StashedWork, getConnection, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
 import { setHareScriptType } from "@webhare/hscompat/hson";
+import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -44,6 +45,10 @@ export function webHareConfig() {
       "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is
     ]
   };
+}
+
+export function finishWork(hsvm: HareScriptVM, { commit }: { commit: boolean }): Promise<unknown> {
+  return cbDoFinishWork(hsvm, commit);
 }
 
 /** Run JavaScript code directly (no TypeScript!) */
@@ -135,10 +140,12 @@ export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: str
 
 const stashes = new Array<StashedWork | null>;
 
-export function startSeparatePrimary() {
+export function startSeparatePrimary(hsvm: HareScriptVM) {
   stashes.push(isWorkOpen() ? stashWork() : null);
+  hsvm.connections.push(getConnection());
 }
-export function stopSeparatePrimary() {
+export function stopSeparatePrimary(hsvm: HareScriptVM) {
+  hsvm.connections.pop();
   stashes.pop()?.restore();
 }
 

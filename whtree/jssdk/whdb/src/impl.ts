@@ -28,10 +28,14 @@ import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hs
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 
+export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
+
 /** Transaction options  */
 export interface WorkOptions {
   /// Name of a mutex (or mutexes) to lock during the transaction
   mutex?: string | string[];
+  /// PG Isolation level. "read committed" is the default
+  isolationLevel?: typeof PGIsolationLevels[number];
 }
 
 // A finish handler is invoked when a transaction is committed or rolled back.
@@ -50,8 +54,11 @@ class HandlerList implements Disposable {
     handlers: HSVMHeapVar;
   }>();
 
-  async setup(iscommit: boolean) {
+  async setup(conn: WHDBConnection, iscommit: boolean) {
     for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
+      if (vm.connections.at(-1) !== conn)
+        continue; //this connection is not matched by the HSVM, should be a separate primary..
+
       const handlers = vm.allocateVariable();
       using commitparam = vm.allocateVariable();
       commitparam.setBoolean(iscommit);
@@ -103,10 +110,10 @@ class Work implements WorkObject {
     if (commit)
       await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onBeforeCommit?.()));
 
-    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary tranasction object) state which
+    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary transaction object) state which
        is why we need to copy the HS commithandler state at commit time (as commithandlers may start new work) */
     const handlerlist = new HandlerList();
-    await handlerlist.setup(commit);
+    await handlerlist.setup(this.conn, commit);
     return handlerlist;
   }
 
@@ -297,6 +304,12 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     // is needed for PostgresPool implementation
   }
 
+  async execute(command: string) {
+    using lock = this.reftracker.getLock("query lock");
+    void (lock);
+    return await this.pgclient!.execute(command);
+  }
+
   query<R extends object>(cursor: PostgresCursor<R>): PostgresCursor<R>;
   query<R extends object>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
@@ -348,11 +361,14 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
       if (options?.mutex)
         for (const name of Array.isArray(options.mutex) ? options.mutex : [options.mutex])
           this.openwork.addMutex(await lockMutex(name));
+      if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
+        throw new Error(`Invalid isolation level ${options.isolationLevel}`);
 
-      await sql`START TRANSACTION ISOLATION LEVEL read committed READ WRITE`.execute(this._db);
-      //      this.pgclient.query("START TRANSACTION ISOLATION LEVEL read committed READ WRITE");
+      const isolationLevel = options?.isolationLevel ?? "read committed";
+      await this.connectpromise;
+      await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} READ WRITE`);
     } catch (e) {
-      await this.openwork.__releaseMutexes();
+      this.openwork.__releaseMutexes();
       this.openwork = undefined;
       throw e;
     } finally {
@@ -395,7 +411,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
+export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
 
@@ -656,4 +672,4 @@ db<PlatformDB>().insertInto("wrd.entities").values(values).execute();
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;
 
-export type { StashedWork };
+export type { StashedWork, WHDBConnectionImpl };
