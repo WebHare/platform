@@ -1,5 +1,5 @@
 import { createClient } from "@webhare/jsonrpc-client";
-import { NavigateInstruction, navigateTo } from "@webhare/env";
+import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import type { FrontendLoginResult, FrontendLogoutResult } from "@mod-platform/js/auth/openid";
 import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";

@@ -1,4 +1,4 @@
-import { TestList } from './test';
+import type { TestList } from './test';
 import { triggerGarbageCollection, scheduleLingeringProcessCheck } from './testsupport';
 import { runTests as runFrontendTests } from "@mod-system/js/wh/testframework";
 

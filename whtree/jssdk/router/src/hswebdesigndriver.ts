@@ -1,5 +1,5 @@
-import { WebResponse, createWebResponse } from "./response";
-import { InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { type WebResponse, createWebResponse } from "./response";
+import { type InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { SiteRequest } from "./siterequest";
 import { createVM, type HSVMWrapper, type HSVMObject } from "@webhare/harescript";
 import { generateRandomId } from "@webhare/std";

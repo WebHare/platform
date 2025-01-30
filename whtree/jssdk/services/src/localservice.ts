@@ -1,7 +1,7 @@
 import { RefTracker } from "@mod-system/js/internal/whmanager/refs";
 import { type TypedMessagePort, getSingleMessage } from "@mod-system/js/internal/whmanager/transport";
 import { describePublicInterface } from "./backendservicerunner";
-import { type WebHareServiceDescription } from "@mod-system/js/internal/types";
+import type { WebHareServiceDescription } from "@mod-system/js/internal/types";
 import { type IPCExceptionMessage, encodeIPCException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import type { TransferListItem } from "node:worker_threads";
 import type { ServiceBase } from "./backendservice";

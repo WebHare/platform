@@ -2,9 +2,9 @@
 declare module "@webhare/router" {
 }
 
-import { WebRequest } from './request';
-import { WebResponse } from './response';
-import { SiteRequest } from './siterequest';
+import type { WebRequest } from './request';
+import type { WebResponse } from './response';
+import type { SiteRequest } from './siterequest';
 
 export { HTTPMethod } from './request';
 export type { WebRequest } from './request';

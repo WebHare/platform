@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { parseTyped, stringify } from "@webhare/std";
 import { decodeHSON } from "@webhare/hscompat";
-import { ServerEncryptionScopes } from "./services";
+import type { ServerEncryptionScopes } from "./services";
 
 function getKeyForScope(scope: string): Buffer {
   const key = getFullConfigFile().secrets.gcm;

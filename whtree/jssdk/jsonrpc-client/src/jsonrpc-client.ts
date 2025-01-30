@@ -4,7 +4,7 @@ declare module "@webhare/jsonrpc-client" {
 
 import { debugFlags, backendBase } from "@webhare/env";
 import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
-import { StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
+import { type StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
 let globalseqnr = 0;

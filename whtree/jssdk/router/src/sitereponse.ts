@@ -1,5 +1,5 @@
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
-import { createWebResponse, WebResponse } from "./response";
+import { createWebResponse, type WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
 import { encodeString, stringify } from "@webhare/std";

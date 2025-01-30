@@ -11,7 +11,7 @@ import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { convertWaitPeriodToDate, isTruthy, omit, pick, type WaitPeriod } from "@webhare/std";
 import { whconstant_consilio_catalogtype_managed, whconstant_consilio_catalogtype_unmanaged, whconstant_consilio_default_suffix_mask, whconstant_consilio_osportoffset } from "@mod-system/js/internal/webhareconstants";
 import "@webhare/env";
-import { type API as OpenSearchAPI, type Client as OpenSearchClient } from "@opensearch-project/opensearch";
+import type { API as OpenSearchAPI, Client as OpenSearchClient } from "@opensearch-project/opensearch";
 import type { ErrorCause } from "@opensearch-project/opensearch/api/_types/_common";
 import { getStackTrace } from "@webhare/js-api-tools";
 import { WebHareBlob } from "@webhare/services";

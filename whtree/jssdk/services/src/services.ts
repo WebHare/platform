@@ -3,11 +3,11 @@ declare module "@webhare/services" {
 }
 
 import * as fs from "node:fs";
-import { getBridgeService, InvokeOptions } from "./bridgeservice";
+import { getBridgeService, type InvokeOptions } from "./bridgeservice";
 import { backendConfig } from "./config";
 import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
-import { RichTextDocument } from "./richdocument";
+import type { RichTextDocument } from "./richdocument";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource, registerLoadedResourceWithCallback } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";

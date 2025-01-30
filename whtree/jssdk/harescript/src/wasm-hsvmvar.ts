@@ -1,4 +1,4 @@
-import { Marshaller, IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
+import { Marshaller, type IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat/datetime.ts";

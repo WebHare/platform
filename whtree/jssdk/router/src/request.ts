@@ -1,7 +1,7 @@
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { getDebugSettings } from "./debug";
-import { TransferListItem } from "worker_threads";
+import type { TransferListItem } from "worker_threads";
 
 export enum HTTPMethod {
   GET = "GET",

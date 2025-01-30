@@ -1,6 +1,6 @@
-import { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
-import { openFolder, WHFSObject, WHFSFolder, describeWHFSType, openType } from "./whfs";
-import { db, Selectable, sql } from "@webhare/whdb";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
+import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType } from "./whfs";
+import { db, type Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";

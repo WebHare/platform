@@ -1,5 +1,5 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { type IPCMarshallableData, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
 import { decodeString, isTruthy } from "@webhare/std";
 
@@ -8,14 +8,14 @@ import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
-import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
+import { type HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { Mutex } from "@webhare/services";
+import type { Mutex } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
-import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
-import { type HSVM_HSVMSource } from "./machinewrapper";
+import type { HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath } from "./wasm-support";
 

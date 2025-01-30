@@ -1,7 +1,7 @@
 import { debugFlags } from "@webhare/env";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
-import { HareScriptVM, StartupOptions, allocateHSVM } from "./wasm-hsvm";
-import { HSVMCallsProxy, HSVMLibraryProxy, type HSVMObject } from "./wasm-proxies";
+import { type HareScriptVM, type StartupOptions, allocateHSVM } from "./wasm-hsvm";
+import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMObject } from "./wasm-proxies";
 
 const vmfinalizer = new FinalizationRegistry<HareScriptVM>(shutdownHSVM);
 

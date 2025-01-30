@@ -3,11 +3,11 @@
    but practically use https://nodejs.org/api/async_context.html#class-asynclocalstorage
 */
 
-import { StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stacktrace";
+import { type StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stacktrace";
 import { debugFlags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
-import { DebugFlags, registerDebugConfigChangedCallback, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
+import { type DebugFlags, registerDebugConfigChangedCallback, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 import * as async_hooks from "node:async_hooks";
 import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmrinternal";

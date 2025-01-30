@@ -1,6 +1,6 @@
-import { LoggableRecord } from "@webhare/services/src/logmessages";
-import { WebRequest } from "./request";
-import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, WebResponse } from "./response";
+import type { LoggableRecord } from "@webhare/services/src/logmessages";
+import type { WebRequest } from "./request";
+import { createJSONResponse, createWebResponse, type HTTPErrorCode, type HTTPSuccessCode, type WebResponse } from "./response";
 
 export type RestDefaultErrorBody = { status: HTTPErrorCode; error: string };
 

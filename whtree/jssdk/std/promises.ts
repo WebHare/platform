@@ -1,4 +1,4 @@
-import { WaitPeriod, convertWaitPeriodToDate } from "./datetime";
+import { type WaitPeriod, convertWaitPeriodToDate } from "./datetime";
 
 //TODO Deprecate once everyone is WH5.5+
 export type DeferredPromise<T> = PromiseWithResolvers<T>;

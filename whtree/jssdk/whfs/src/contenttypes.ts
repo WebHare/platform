@@ -1,10 +1,10 @@
 import * as kysely from "kysely";
-import { Selectable, db } from "@webhare/whdb";
+import { type Selectable, db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
-import { CSPContentType } from "./siteprofiles";
+import type { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
-import { EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
+import { type EncoderBaseReturnValue, type EncoderReturnValue, type MemberType, codecs } from "./codecs";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
 import { appendToArray, isPromise, omit } from "@webhare/std";

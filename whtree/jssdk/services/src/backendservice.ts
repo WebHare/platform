@@ -1,5 +1,5 @@
-import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
-import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
+import type { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
+import bridge, { type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 import { parseTyped, stringify } from "@webhare/std";
 import type { BackendServices } from "@webhare/services";

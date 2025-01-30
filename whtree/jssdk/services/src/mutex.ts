@@ -1,5 +1,5 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
+import type { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
 import * as std from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat/datetime.ts";
 import { checkModuleScopedName } from "./naming";

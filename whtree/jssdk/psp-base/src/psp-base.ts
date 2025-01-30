@@ -2,8 +2,8 @@
 declare module "@webhare/psp-base" {
 }
 
-import { type Money } from "@webhare/std";
-import { type NavigateInstruction } from "@webhare/env";
+import type { Money } from "@webhare/std";
+import type { NavigateInstruction } from "@webhare/env";
 
 ///WebHare TS address format
 export interface PSPAddressFormat {

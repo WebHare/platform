@@ -1,8 +1,8 @@
-import { debugFlags, NavigateInstruction } from "@webhare/env";
+import { debugFlags, type NavigateInstruction } from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
-import { WebResponseInfo } from "@mod-system/js/internal/types";
+import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
-import { TransferListItem } from "worker_threads";
+import type { TransferListItem } from "worker_threads";
 
 export enum HTTPErrorCode {
   BadRequest = 400,

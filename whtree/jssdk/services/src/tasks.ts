@@ -1,4 +1,4 @@
-import { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, sleep, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, isWorkOpen, onFinishWork } from "@webhare/whdb";

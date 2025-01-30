@@ -1,7 +1,7 @@
 import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
-import { HSVMCallsProxy, HSVMObject, invokeOnVM } from "./wasm-proxies";
+import { type HSVMCallsProxy, type HSVMObject, invokeOnVM } from "./wasm-proxies";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
-import { HSVMWrapper, createVM } from "./machinewrapper";
+import { type HSVMWrapper, createVM } from "./machinewrapper";
 
 const HSVMSymbol = Symbol("HSVM");
 

@@ -1,5 +1,5 @@
-import { recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
-import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { recompileHarescriptLibrary, type HareScriptVM, allocateHSVM, type MessageList } from "./wasm-hsvm";
+import { type IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { log, logError } from "@webhare/services/src/logging.ts";
@@ -14,7 +14,7 @@ import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
 import * as geoip from "@webhare/geoip";
-import { IPCEncodedException, IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { type IPCEncodedException, type IPCEndPoint, type IPCMessagePacket, type IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";

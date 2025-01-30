@@ -1,4 +1,4 @@
-import { ReadableStream } from "node:stream/web";
+import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
 import { pick, slugify } from "@webhare/std";

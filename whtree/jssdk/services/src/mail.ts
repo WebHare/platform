@@ -1,6 +1,6 @@
 import { isWorkOpen } from "@webhare/whdb";
 import { ResourceDescriptor, loadWittyResource, readRegistryKey } from "./services";
-import { WittyData, WittyTemplate } from "@webhare/witty";
+import type { WittyData, WittyTemplate } from "@webhare/witty";
 import { loadlib } from "@webhare/harescript";
 
 async function getMailRecipients(inaddresses: string[]) {
