@@ -1,7 +1,7 @@
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
+import { type HSVMObject, createVM, loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";

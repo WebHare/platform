@@ -3,8 +3,7 @@ import '@mod-publisher/js/forms/themes/neutral';
 import { create, onDomReady, qR, qS, qSA, register } from '@webhare/dompack';
 
 import { fetchAsFile } from '@webhare/test-frontend';
-import "./simplefield";
-import { MySimpleField } from './simplefield';
+import { MySimpleField } from "./simplefield";
 import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
 import { FormBase, registerHandler, setupValidator } from '@webhare/forms';
 

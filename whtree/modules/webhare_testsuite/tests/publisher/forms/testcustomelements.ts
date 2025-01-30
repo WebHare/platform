@@ -1,5 +1,5 @@
 import * as test from '@webhare/test-frontend';
-import FormBase from '@mod-publisher/js/forms/formbase';
+import type FormBase from '@mod-publisher/js/forms/formbase';
 import type { MySimpleFieldValue } from '@mod-webhare_testsuite/webdesigns/basetestjs/pages/formtest/simplefield';
 import { getFormHandler } from '@webhare/forms';
 

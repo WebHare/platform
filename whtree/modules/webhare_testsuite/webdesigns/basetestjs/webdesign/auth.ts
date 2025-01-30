@@ -1,5 +1,5 @@
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { type JWTPayload, type OpenIdRequestParameters, type ReportedUserInfo, type WRDAuthCustomizer } from "@webhare/wrd";
+import type { JWTPayload, OpenIdRequestParameters, ReportedUserInfo, WRDAuthCustomizer } from "@webhare/wrd";
 
 export class AuthCustomizer implements WRDAuthCustomizer {
   async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload): Promise<void> {

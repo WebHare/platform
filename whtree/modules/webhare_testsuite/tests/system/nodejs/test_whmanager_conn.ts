@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
+import { WHManagerConnection, WHMProcessType, WHMRequestOpcode, type WHMResponse, WHMResponseOpcode } from "@mod-system/js/internal/whmanager/whmanager_conn";
 import { readMarshalData, writeMarshalData, writeMarshalPacket } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getScriptName } from "@mod-system/js/internal/whmanager/bridge";
 

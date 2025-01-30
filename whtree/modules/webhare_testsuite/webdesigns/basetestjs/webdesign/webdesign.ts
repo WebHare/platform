@@ -1,5 +1,4 @@
-import { SiteResponseSettings } from "@webhare/router";
-import { WebDesignFunction, SiteRequest, SiteResponse } from "@webhare/router";
+import { type SiteResponseSettings, type WebDesignFunction, type SiteRequest, SiteResponse } from "@webhare/router";
 
 export interface BaseTestPageConfig {
   whfspath: string;

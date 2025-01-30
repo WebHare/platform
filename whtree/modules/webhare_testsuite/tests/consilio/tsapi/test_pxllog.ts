@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-backend";
 import { anonymizeIPAddress } from "@mod-platform/js/logging/parsersupport.ts";
 import { parseAndValidateModuleDefYMLText } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { buildPxlParser, getYMLPxlConfigs, PxlDocType } from "@mod-platform/js/logging/pxllog";
+import { buildPxlParser, getYMLPxlConfigs, type PxlDocType } from "@mod-platform/js/logging/pxllog";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, readLogLines, scheduleTimedTask } from "@webhare/services";
 import { sendPxl, setPxlOptions } from "@webhare/frontend/src/pxl"; //we may be able to use @webhare/frontend iff it stops loading CSS

@@ -1,9 +1,9 @@
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, RestSuccessfulAuthorization, WebResponse } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestRequest, type RestSuccessfulAuthorization, type WebResponse } from "@webhare/router";
 import * as services from "@webhare/services";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { TypedRestRequest } from "wh:openapi/webhare_testsuite/testservice";
+import type { TypedRestRequest } from "wh:openapi/webhare_testsuite/testservice";
 
 const persons = [
   { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },

@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
-import { ExternalStructureDef } from '@mod-tollium/web/ui/components/richeditor/internal/parsedstructure';
+import type { ExternalStructureDef } from '@mod-tollium/web/ui/components/richeditor/internal/parsedstructure';
 import StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 const richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 require('./page.css');

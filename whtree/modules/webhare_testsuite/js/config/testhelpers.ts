@@ -1,5 +1,5 @@
 import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
-import { HSVMObject, loadlib } from "@webhare/harescript";
+import { type HSVMObject, loadlib } from "@webhare/harescript";
 import { WebHareBlob, backendConfig } from "@webhare/services";
 import { parseModuleDefYMLText, type ModDefYML } from "@webhare/services/src/moduledefparser";
 import * as test from "@webhare/test";

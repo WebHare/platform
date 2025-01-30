@@ -3,7 +3,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine } from "@mod-wrd/js/internal/types";
-import { type WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
+import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";

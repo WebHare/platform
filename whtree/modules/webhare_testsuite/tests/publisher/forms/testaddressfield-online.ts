@@ -1,6 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
-import { type verifyHareScriptAddress as VerifyAddressAPI } from '@webhare/forms/src/address';
+import type { verifyHareScriptAddress as VerifyAddressAPI } from '@webhare/forms/src/address';
 import { FormBase } from '@mod-publisher/js/forms';
 import type { AddressValue } from '@webhare/std/address';
 

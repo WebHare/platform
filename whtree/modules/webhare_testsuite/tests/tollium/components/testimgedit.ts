@@ -1,6 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
-import { prepareUpload } from '@webhare/test-frontend';
-import { fetchAsFile } from "@webhare/test-frontend";
+import { prepareUpload, fetchAsFile } from '@webhare/test-frontend';
 
 const gesture_time = 25;
 

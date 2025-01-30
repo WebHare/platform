@@ -1,7 +1,6 @@
-import { getCodeContext, CodeContext, isRootCodeContext } from "@webhare/services/src/codecontexts";
+import { getCodeContext, CodeContext, isRootCodeContext, ensureScopedResource } from "@webhare/services/src/codecontexts";
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
-import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { loadlib } from "@webhare/harescript";
 import { debugFlags } from "@webhare/env";
 import { updateDebugConfig } from "@webhare/env/src/envbackend";

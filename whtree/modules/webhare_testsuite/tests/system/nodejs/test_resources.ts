@@ -1,8 +1,8 @@
 import * as test from "@webhare/test-backend";
 import * as services from "@webhare/services";
-import { ReadableStream } from "node:stream/web";
+import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
-import { Rotation } from "@webhare/services/src/descriptor";
+import type { Rotation } from "@webhare/services/src/descriptor";
 import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";

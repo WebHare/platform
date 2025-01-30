@@ -1,10 +1,10 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { GenericLogLine } from "@webhare/services/src/logging";
+import type { GenericLogLine } from "@webhare/services/src/logging";
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { runBackendService } from "@webhare/services";
-import { createVM, HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
+import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";

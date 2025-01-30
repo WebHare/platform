@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { IsGenerated, IsNonUpdatable, IsRequired, WRDBaseAttributeTypeId, WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, WRDInsertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
+import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition } from "@mod-wrd/js/internal/types";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
 

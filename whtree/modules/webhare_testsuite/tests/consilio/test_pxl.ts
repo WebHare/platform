@@ -1,4 +1,4 @@
-import { sendPxl, PxlData, getPxlUserId, getPxlSessionId } from "@webhare/frontend";
+import { sendPxl, type PxlData, getPxlUserId, getPxlSessionId } from "@webhare/frontend";
 import * as test from "@webhare/test-frontend";
 import * as pxl from "@mod-consilio/js/pxl";
 
