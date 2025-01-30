@@ -1,7 +1,7 @@
 import { db } from "./impl";
-import { PGMetaDB } from "./pgmetatables";
+import type { PGMetaDB } from "./pgmetatables";
 import { DataTypeOIDs } from './../vendor/postgresql-client/src/index';
-import { RawBuilder, sql } from "kysely";
+import { type RawBuilder, sql } from "kysely";
 
 export async function getSchemas(): Promise<Array<{ schemaName: string; isSystemSchema: boolean }>> {
   return (await db<PGMetaDB>()

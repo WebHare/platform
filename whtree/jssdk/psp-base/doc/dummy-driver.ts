@@ -1,4 +1,4 @@
-import { type PSPCheckResult, type PSPDriver, type PSPPushResult, type PSPRequest, type PSPPayResult, type PSPWebRequest, type PSPMethod } from "@webhare/psp-base";
+import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPRequest, PSPPayResult, PSPWebRequest, PSPMethod } from "@webhare/psp-base";
 
 interface DummyDriverConfig {
 }

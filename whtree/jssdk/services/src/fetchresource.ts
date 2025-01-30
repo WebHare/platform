@@ -2,7 +2,8 @@ import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { parseTyped, stringify } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { mkdir, readFile, open, stat } from "node:fs/promises";
-import { backendConfig, ResourceDescriptor } from "@webhare/services";
+import { backendConfig } from "@webhare/services/src/config";
+import { ResourceDescriptor } from "@webhare/services/src/descriptor";
 
 function hashUrl(url: string) {
   return crypto.createHash("sha1").update(url).digest("base64url");

@@ -23,31 +23,23 @@ import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { updateConfig } from "../configuration";
 import { backendConfig, toFSPath } from "@webhare/services";
-import { FileToUpdate, GenerateContext, GeneratorType, LoadedModuleDefs } from "./shared";
+import { getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { DOMParser, type Document } from '@xmldom/xmldom';
-import { ModuleData } from "@webhare/services/src/config";
+import type { ModuleData } from "@webhare/services/src/config";
 import { listAllExtracts } from "./gen_extracts";
-import { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
+import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
 import { listAllSchemas } from "./gen_schema";
-import { ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
+import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
   const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
 
   return { installedBaseDir, builtinBaseDir };
-}
-
-export function getGeneratedFilePath(module: string, type: string, path: string) {
-  if (module === "platform" && type === "schema")
-    return toFSPath(`mod::platform/generated/${path}`);
-  if (module === "platform" && type !== 'extract')
-    return backendConfig.installationroot + "modules/platform/generated/" + path;
-  return backendConfig.dataroot + "storage/system/generated/" + path;
 }
 
 function fixFilePaths(files: FileToUpdate[]) {

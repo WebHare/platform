@@ -1,4 +1,4 @@
-import { ConfigurableSubsystem, configurableSubsystems, applyConfiguration, type ApplyConfigurationOptions } from '@mod-platform/js/configure/applyconfig';
+import { type ConfigurableSubsystem, configurableSubsystems, applyConfiguration, type ApplyConfigurationOptions } from '@mod-platform/js/configure/applyconfig';
 import { program } from 'commander';
 
 async function main() {

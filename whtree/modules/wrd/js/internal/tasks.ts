@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std";
 import { beginWork, db, commitWork } from "@webhare/whdb";
 import { listSchemas } from "@webhare/wrd";
-import { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 
 export async function cleanupOutdatedEntities(options?: { forSchema?: string }) {
   await beginWork();

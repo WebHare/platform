@@ -3,7 +3,7 @@ import * as services from "@webhare/services";
 import { WebHareBlob } from "@webhare/services";
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
-import * as restrequest from "@webhare/router/src/restrequest";
+import type * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
 
 let userapiroot = '', authtestsroot = '';

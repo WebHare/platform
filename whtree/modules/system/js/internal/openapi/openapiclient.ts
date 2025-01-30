@@ -1,4 +1,4 @@
-import { HTTPErrorCode, HTTPStatusCode } from "@webhare/router";
+import type { HTTPErrorCode, HTTPStatusCode } from "@webhare/router";
 
 export type OpenAPIResponse<BodyType> = {
   status: HTTPErrorCode | HTTPStatusCode;

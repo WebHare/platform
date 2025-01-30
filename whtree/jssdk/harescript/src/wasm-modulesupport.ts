@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_VariableId, WASMModuleInterface, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { backendConfig } from "@webhare/services";
+import { backendConfig } from "@webhare/services/src/config.ts";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";

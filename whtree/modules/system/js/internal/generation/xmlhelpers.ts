@@ -1,9 +1,9 @@
 /* TODO These APIs are potential hscompat candidates? As the whole idea of XML support is HSCompat...
 */
 
-import { isAbsoluteResource, parseResourcePath } from "@webhare/services";
+import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy } from "@webhare/std";
-import { type Node, type Element, type LiveNodeList } from "@xmldom/xmldom";
+import type { Node, Element, LiveNodeList } from "@xmldom/xmldom";
 
 export function elements<T extends Element>(collection: LiveNodeList<T>): T[] {
   const items: T[] = [];

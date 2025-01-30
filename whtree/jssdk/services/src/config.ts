@@ -1,5 +1,5 @@
 //Types as stored in the backend configuratio
-import { DTAPStage } from "@webhare/env/src/concepts";
+import type { DTAPStage } from "@webhare/env/src/concepts";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 export { backendConfig } from "@mod-system/js/internal/configuration";
 

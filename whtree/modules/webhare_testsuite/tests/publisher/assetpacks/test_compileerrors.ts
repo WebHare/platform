@@ -10,7 +10,7 @@ import * as zlib from "node:zlib";
 import * as child_process from "node:child_process";
 
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
-import { AssetPackManifest, type RecompileSettings } from '@mod-platform/js/assetpacks/types';
+import type { AssetPackManifest, RecompileSettings } from '@mod-platform/js/assetpacks/types';
 import { backendConfig, toFSPath, toResourcePath } from '@webhare/services';
 import { getYMLAssetPacks, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
 import { parseAndValidateModuleDefYMLText } from '@mod-webhare_testsuite/js/config/testhelpers';

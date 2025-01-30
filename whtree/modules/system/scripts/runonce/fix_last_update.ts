@@ -1,5 +1,4 @@
-import { beginWork, commitWork } from "@webhare/whdb";
-import { db } from "@webhare/whdb";
+import { beginWork, commitWork, db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 

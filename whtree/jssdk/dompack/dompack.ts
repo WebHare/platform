@@ -18,5 +18,5 @@ export { loadImage, loadScript, loadCSS } from "./impl/preload";
 export { browser, getBrowser, isMultiSelectKey, isCopyKey, type KeyAttributeValue } from './impl/browser';
 
 /** @deprecated As 'Lock' conflicts, in WH5.4+ you can safely switch to UIBusyLock */
-import { type UIBusyLock } from './impl/busy';
+import type { UIBusyLock } from './impl/busy';
 export type Lock = UIBusyLock;

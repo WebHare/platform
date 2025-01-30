@@ -1,5 +1,5 @@
-import { SiteResponse } from "@webhare/router/src/sitereponse";
-import { ComposerHookFunction } from "@webhare/router/src/siterequest";
+import type { SiteResponse } from "@webhare/router/src/sitereponse";
+import type { ComposerHookFunction } from "@webhare/router/src/siterequest";
 import { getWRDPlugindata } from "@webhare/whfs/src/applytester";
 
 export function hookComposer(hookdata: Record<string, unknown>, composer: SiteResponse) {

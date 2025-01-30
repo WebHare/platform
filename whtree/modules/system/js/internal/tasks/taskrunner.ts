@@ -1,11 +1,11 @@
-import { TaskFunction, TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
+import { type TaskFunction, TaskRequest, type TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
-import { System_Managedtasks, PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { System_Managedtasks, PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import bridge from "../whmanager/bridge";
 import { pick } from "@webhare/std";
 import { parseTrace } from "@webhare/js-api-tools";
-import { IPCMarshallableData, encodeHSON } from "@webhare/hscompat/hson";
+import { type IPCMarshallableData, encodeHSON } from "@webhare/hscompat/hson";
 
 interface TaskInfo {
   queueid: string;

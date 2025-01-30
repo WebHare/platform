@@ -1,9 +1,9 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
+import { type FileToUpdate, type GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
-import { getGeneratedFilePath } from "./generator";
-import { type Element } from "@xmldom/xmldom";
+import { getGeneratedFilePath } from "./shared";
+import type { Element } from "@xmldom/xmldom";
 
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))

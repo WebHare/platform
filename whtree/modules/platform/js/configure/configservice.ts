@@ -1,5 +1,5 @@
-import { BackendServiceConnection, ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
-import { ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
+import { BackendServiceConnection, type ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
+import { type ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
 
 class ConfigClient extends BackendServiceConnection {
 

@@ -1,7 +1,7 @@
-import { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
-import { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
-import { JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
-import { getServiceInstance, RestService } from "@mod-system/js/internal/openapi/openapiservice";
+import type { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
+import type { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
+import type { JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
+import { getServiceInstance, type RestService } from "@mod-system/js/internal/openapi/openapiservice";
 import { WebHareBlob } from "@webhare/services";
 
 

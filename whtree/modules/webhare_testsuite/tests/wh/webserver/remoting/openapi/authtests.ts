@@ -1,4 +1,4 @@
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestAuthorizationFunction, RestAuthorizationResult, RestImplementationFunction, RestRequest } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestAuthorizationFunction, type RestAuthorizationResult, type RestImplementationFunction, type RestRequest } from "@webhare/router";
 
 export async function denyAll(req: RestRequest): Promise<RestAuthorizationResult> {
   return { authorized: false };

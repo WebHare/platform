@@ -1,10 +1,10 @@
-import { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkResponse } from "./types";
-import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
+import type { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkResponse } from "./types";
+import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { parseIPCException } from "./whmanager/ipc";
-import { Worker, TransferListItem } from "node:worker_threads";
+import { Worker, type TransferListItem } from "node:worker_threads";
 import { RefTracker } from "./whmanager/refs";
 import bridge, { initializedWorker } from "./whmanager/bridge";
-import { ConvertLocalServiceInterfaceToClientInterface, buildLocalServiceProxy } from "@webhare/services/src/localservice";
+import { type ConvertLocalServiceInterfaceToClientInterface, buildLocalServiceProxy } from "@webhare/services/src/localservice";
 import EventSource from "./eventsource";
 
 let counter = 0;

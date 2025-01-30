@@ -1,6 +1,6 @@
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { createSharpImage, SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions } from "@webhare/deps";
+import { createSharpImage, type SharpResizeOptions, type SharpAvifOptions, type SharpColor, type SharpExtendOptions, type SharpGifOptions, type SharpJpegOptions, type SharpPngOptions, type SharpRegion, type SharpWebpOptions } from "@webhare/deps";
 import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
 import type { WebHareService } from "@webhare/services/src/backendservicerunner";

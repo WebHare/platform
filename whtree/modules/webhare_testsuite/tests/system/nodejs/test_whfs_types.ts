@@ -1,11 +1,11 @@
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
-import { WHFSFile } from "@webhare/whfs";
+import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, WebHareBlob, type RichTextDocument } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument } from "@webhare/services";
 import { codecs } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 

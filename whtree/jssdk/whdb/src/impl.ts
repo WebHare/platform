@@ -5,26 +5,27 @@ import {
   sql,
   Kysely,
   PostgresDialect,
-  PostgresPool,
-  PostgresPoolClient,
-  PostgresCursor,
-  PostgresQueryResult,
-  Selectable as KSelectable,
-  Insertable as KInsertable,
-  Updateable as KUpdateable,
+  type PostgresPool,
+  type PostgresPoolClient,
+  type PostgresCursor,
+  type PostgresQueryResult,
+  type Selectable as KSelectable,
+  type Insertable as KInsertable,
+  type Updateable as KUpdateable,
 } from 'kysely';
 
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
-import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
-import { WebHareBlob } from '@webhare/services/src/webhareblob';
-import { Mutex, type BackendEvent, lockMutex } from '@webhare/services';
+import { type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
+import type { WebHareBlob } from '@webhare/services/src/webhareblob';
+import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
+import type { BackendEvent } from '@webhare/services/src/backendevents.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
-import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
-import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
+import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
+import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 
 /** Transaction options  */

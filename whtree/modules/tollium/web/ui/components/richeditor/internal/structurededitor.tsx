@@ -13,7 +13,7 @@ import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
 import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
-import EditorBase, { TextFormattingState } from './editorbase';
+import EditorBase, { type TextFormattingState } from './editorbase';
 import PasteCleanup from './pastecleanup';
 import type { RTEWidget } from "./types";
 import { parseEmbeddedObjectNode } from "./support";

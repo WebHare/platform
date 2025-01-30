@@ -1,9 +1,9 @@
-import { db, sql, Selectable, Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
+import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
-import { CSPContentType } from "./siteprofiles";
+import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
 import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PubPrio_DirectEdit } from "./support";
 import * as std from "@webhare/std";

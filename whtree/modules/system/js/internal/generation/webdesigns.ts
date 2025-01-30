@@ -1,7 +1,7 @@
 import { resolveResource } from "@webhare/services";
-import { GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
+import { type GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr, parseXMLTidPtr, determineNodeGid } from "./xmlhelpers";
-import { type Document } from "@xmldom/xmldom";
+import type { Document } from "@xmldom/xmldom";
 
 export interface WebFeature {
   name: string;

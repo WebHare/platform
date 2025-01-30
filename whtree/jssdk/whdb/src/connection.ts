@@ -2,12 +2,12 @@
    to bootstrap the WebHare configuration without relying on services' backendConfig. When
    adding imports, make sure this separate invocation still works
 */
-import {
+import type {
   PostgresCursor,
   PostgresQueryResult,
 } from 'kysely';
 
-import { Connection, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo, DataTypeMap } from './../vendor/postgresql-client/src/index';
+import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgresql-client/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";

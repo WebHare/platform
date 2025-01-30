@@ -1,5 +1,5 @@
 import * as test from '@webhare/test-frontend';
-import { type BaseTestApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/frontend/frontend";
+import type { BaseTestApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/frontend/frontend";
 
 
 test.runTests(

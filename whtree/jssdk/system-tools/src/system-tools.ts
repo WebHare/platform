@@ -3,3 +3,4 @@ declare module "@webhare/system-tools" {
 }
 
 export { listDirectory, storeDiskFile, deleteRecursive, type ListDirectoryEntry } from "./fs";
+export { getScriptName } from "./node";

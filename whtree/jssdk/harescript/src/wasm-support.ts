@@ -1,4 +1,4 @@
-import { toFSPath } from "@webhare/services";
+import { toFSPath } from "@webhare/services/src/resources.ts";
 
 export function mapHareScriptPath(uri: string | null) {
   if (!uri)

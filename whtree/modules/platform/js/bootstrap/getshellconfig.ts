@@ -2,7 +2,7 @@
 
 */
 
-import { generateNoDBConfig } from "@mod-system/js/internal/generation/gen_config";
+import { generateNoDBConfig } from "@mod-system/js/internal/generation/gen_config_nodb";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 
 const config = generateNoDBConfig();

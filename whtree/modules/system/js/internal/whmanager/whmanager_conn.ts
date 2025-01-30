@@ -1,8 +1,8 @@
 import * as net from "net";
 import EventSource from "../eventsource";
-import { RefTracker, RefLock } from "./refs";
+import { RefTracker, type RefLock } from "./refs";
 import { parseRPC, createRPC } from "./whmanager_rpc";
-import { WHMResponse, WHMRequest } from "./whmanager_rpcdefs";
+import type { WHMResponse, WHMRequest } from "./whmanager_rpcdefs";
 import * as envbackend from "@webhare/env/src/envbackend";
 
 export * from "./whmanager_rpcdefs";

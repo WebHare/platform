@@ -1,5 +1,5 @@
 import { generateRandomId } from "@webhare/std";
-import { type Dirent } from "node:fs";
+import type { Dirent } from "node:fs";
 import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import type { Stream } from "node:stream";

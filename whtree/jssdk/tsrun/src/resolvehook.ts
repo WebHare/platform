@@ -2,7 +2,7 @@
 */
 
 import InternalModule from "module";
-import { Loader, transformSync, version as esbuildversion } from "esbuild";
+import { type Loader, transformSync, version as esbuildversion } from "esbuild";
 
 import crypto from "node:crypto";
 import fs from "node:fs";

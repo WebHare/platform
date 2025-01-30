@@ -1,4 +1,4 @@
-import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
+import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
 import { getApplyTesterForObject, getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";

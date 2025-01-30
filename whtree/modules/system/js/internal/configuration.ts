@@ -1,12 +1,12 @@
 import * as fs from "node:fs";
-import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config";
+import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
 import { freezeRecursive } from "./util/algorithms";
 import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
-import { getScriptName } from "./whmanager/bridge";
+import { getScriptName } from "@webhare/system-tools/src/node";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 

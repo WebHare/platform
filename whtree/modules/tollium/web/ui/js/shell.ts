@@ -38,7 +38,7 @@ import { setupMouseHandling } from "./shell/mousehandling";
 import { AppMgr } from './shell/appmgr';
 
 import * as $todd from './support';
-import { ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
+import { type ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/login";
@@ -57,7 +57,7 @@ import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
 
 import TolliumShell from "@mod-tollium/shell/platform/shell";
-import { AppLaunchInstruction, ShellInstruction } from '@mod-platform/js/tollium/types';
+import type { AppLaunchInstruction, ShellInstruction } from '@mod-platform/js/tollium/types';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
 function preventNavigation(event) {

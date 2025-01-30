@@ -1,8 +1,8 @@
-import { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
+import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
 import { emplace } from "@webhare/std/collections";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
-import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { regExpFromWildcards } from "@webhare/std/strings";
 import { debugFlags } from "@webhare/env/src/envbackend";
 

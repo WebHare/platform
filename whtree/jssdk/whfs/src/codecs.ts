@@ -1,9 +1,11 @@
 import { uploadBlob } from "@webhare/whdb";
 import { Money, omit } from "@webhare/std";
-import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts, exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
-import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
+import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
+import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
+import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import { type RichTextDocument } from "@webhare/services";
+import type { RichTextDocument } from "@webhare/services";
 import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
 import { describeWHFSType } from "./contenttypes";
 

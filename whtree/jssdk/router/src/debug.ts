@@ -1,5 +1,5 @@
 import type { DebugFlags } from "@webhare/env/src/envbackend";
-import { WebRequest } from "./request";
+import type { WebRequest } from "./request";
 import { getSignatureForThisServer, validateSignatureForThisServer } from "@webhare/services";
 
 const whconstant_whdebug_publicflags = ["apr"];

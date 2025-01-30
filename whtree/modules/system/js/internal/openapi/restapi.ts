@@ -1,14 +1,14 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument } from "@webhare/router";
-import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
+import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument } from "@webhare/router";
+import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
-import { LoggableRecord } from "@webhare/services/src/logmessages";
+import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { loadJSFunction } from "../resourcetools";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
-import { AsyncWorker } from "../worker";
+import type { AsyncWorker } from "../worker";
 import { type WebRequestTransferData, createWebRequestFromTransferData } from "@webhare/router/src/request";
 import { type WebResponseForTransfer, createWebResponseFromTransferData } from "@webhare/router/src/response";
 import { type ConvertLocalServiceInterfaceToClientInterface, type ReturnValueWithTransferList, createReturnValueWithTransferList } from "@webhare/services/src/localservice";

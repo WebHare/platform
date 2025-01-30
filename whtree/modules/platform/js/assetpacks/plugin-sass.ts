@@ -3,7 +3,7 @@
 
 "use strict";
 
-import * as esbuild from 'esbuild';
+import type * as esbuild from 'esbuild';
 import { readFile } from "node:fs/promises";
 import * as sass from "sass";
 import * as compileutils from './compileutils';

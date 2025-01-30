@@ -1,12 +1,11 @@
 import EventSource from "../eventsource";
-import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
-import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from './transport';
+import { readMarshalPacket, writeMarshalPacket, type IPCMarshallableRecord } from './hsmarshalling';
+import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
-import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
-import { MessagePort, receiveMessageOnPort, TransferListItem } from 'node:worker_threads';
-import { StackTrace, parseTrace } from "@webhare/js-api-tools";
+import { type MessagePort, receiveMessageOnPort, type TransferListItem } from 'node:worker_threads';
+import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
 
 export type IPCEncodedException = {
   type: string;

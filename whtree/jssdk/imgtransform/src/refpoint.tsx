@@ -10,7 +10,7 @@ import type { RefPoint } from "@mod-tollium/web/ui/js/dialogs/imgeditcontroller"
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
 
-import { ImageToolbarPanel, Size } from "./imageeditor";
+import { ImageToolbarPanel, type Size } from "./imageeditor";
 
 // Set to true to activate 'inline' mode, without the modal toolbar
 const tool_inline = false;

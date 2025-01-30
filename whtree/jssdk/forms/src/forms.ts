@@ -9,7 +9,7 @@ declare module "@webhare/forms" {
 }
 
 import FormBase from '@mod-publisher/js/forms/rpc';
-import { verifyAddress, AddressValidationResult, AddressChecks } from './address';
+import { verifyAddress, type AddressValidationResult, type AddressChecks } from './address';
 import { FileUploadFormElement as FileEditElement } from "@mod-publisher/js/forms/fields/upload";
 import { ImgEditElement } from "@mod-publisher/js/forms/fields/imgedit";
 import { JSFormElement } from './jsformelement';

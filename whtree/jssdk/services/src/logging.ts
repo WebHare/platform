@@ -1,6 +1,7 @@
-import bridge, { LogErrorOptions, LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
-import { LoggableRecord } from "./logmessages";
-import { backendConfig, type LogFormats } from "./services";
+import bridge, { type LogErrorOptions, type LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
+import type { LoggableRecord } from "./logmessages";
+import { backendConfig } from "./config.ts";
+import type { LogFormats } from "./services.ts";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";

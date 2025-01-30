@@ -3,9 +3,9 @@
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
-import { openFolder, openSite, Site, WHFSFolder, WHFSObject } from "@webhare/whfs";
-import { SiteResponse, SiteResponseSettings } from "./sitereponse";
-import { WebRequest } from "./request";
+import { openFolder, openSite, type Site, type WHFSFolder, type WHFSObject } from "@webhare/whfs";
+import { type SiteResponse, SiteResponseSettings } from "./sitereponse";
+import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { wrapHSWebdesign } from "./hswebdesigndriver";

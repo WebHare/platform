@@ -1,5 +1,5 @@
-import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
+import bridge, { type IPCMessagePacket, type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
+import type { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from '@mod-system/js/internal/types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { broadcast } from "@webhare/services/src/backendevents";
 import { setLink } from "./symbols";

@@ -7,7 +7,7 @@
 */
 const IS_NON_DIMENSIONAL = /acit|ex(?:s|g|n|p|$)|rph|ows|mnc|ntw|ine[ch]|zoo|^ord/i;
 
-export { qS, qSA } from '@webhare/dompack';
+export { qS, qSA } from '@webhare/dompack/impl/tree.ts';
 
 function generateInsertList(nodes: Array<string | Node>) {
   if (nodes.length === 1)

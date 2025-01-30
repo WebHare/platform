@@ -9,7 +9,7 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as domfocus from 'dompack/browserfix/focus';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
-import { ApplicationBase, type BackendApplication } from '@mod-tollium/web/ui/js/application';
+import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js/application';
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, toCamelCase } from '@webhare/std';

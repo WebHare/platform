@@ -1,5 +1,5 @@
-import { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
-import { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
+import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 /****************************************************************************************************************************

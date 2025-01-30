@@ -1,15 +1,15 @@
 import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { getConnection } from "@webhare/whdb/src/impl";
-import { AliasedRawBuilder, RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
+import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
-import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
+import type { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
-import { Tid } from "@webhare/whdb/src/types";
-import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
-import { HareScriptVM } from "@webhare/harescript/src/wasm-hsvm";
+import type { Tid } from "@webhare/whdb/src/types";
+import type { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
+import type { HareScriptVM } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
-import { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
-import { Money } from "@webhare/std";
+import type { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
+import type { Money } from "@webhare/std";
 import { BindParam } from "@webhare/whdb/vendor/postgresql-client/src";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 

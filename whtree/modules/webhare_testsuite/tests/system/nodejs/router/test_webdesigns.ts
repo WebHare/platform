@@ -1,9 +1,9 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import { WebResponse } from "@webhare/router";
+import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
-import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
-import { DOMParser, Document } from "@xmldom/xmldom";
+import type { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
+import { DOMParser, type Document } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";

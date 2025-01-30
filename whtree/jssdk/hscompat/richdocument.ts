@@ -1,4 +1,4 @@
-import { WebHareBlob } from "@webhare/services";
+import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
 import { rtdParagraphTypes, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";

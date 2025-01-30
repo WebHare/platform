@@ -1,0 +1,195 @@
+/** this function should use as little dependencies as possible, and no \@mod-... imports in the import tree
+ */
+
+import * as fs from "node:fs";
+import { omit, pick } from "@webhare/std/collections";
+import type { RecursivePartial } from "@webhare/js-api-tools";
+import { DTAPStage } from "@webhare/env/src/concepts";
+import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
+
+function appendSlashWhenMissing(path: string) {
+  return !path || path.endsWith("/") ? path : path + "/";
+}
+
+function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
+  return Object.values(DTAPStage).includes(dtapstage as DTAPStage);
+}
+
+type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataroot" | "installationroot" | "module" | "buildinfo"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
+
+type ModuleScanData = ModuleData & { creationdate: Date };
+type ModuleScanMap = Map<string, ModuleScanData>;
+
+export function generateNoDBConfig(): NoDBConfig {
+  let baseport = Number(process.env.WEBHARE_BASEPORT || "0");
+  const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
+  const installationroot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");
+
+  if (baseport === 0)
+    baseport = 13679; //default port, needed for backwards compatibility
+  if (baseport < 1024 || baseport > 65500)
+    throw new Error("Invalid WEBHARE_BASEPORT");
+  if (!dataroot)
+    throw new Error("Invalid WEBHARE_DATAROOT");
+  if (!installationroot)
+    throw new Error("Cannot determine the WebHare installation root");
+
+  const modulescandirs = [dataroot + "installedmodules/"];
+
+  const env_modulepaths = process.env.WEBHARE_MODULEPATHS ?? "";
+  if (env_modulepaths) {
+    for (const path of env_modulepaths.split(":").filter(p => p))
+      modulescandirs.push(appendSlashWhenMissing(path));
+  }
+
+  const buildinfo: BackendConfiguration["buildinfo"] = {
+    comitttag: "",
+    version: "",
+    branch: "",
+    origin: ""
+  };
+
+  //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
+  const buildinfo_keys = (["comitttag", "version", "branch", "origin"]) satisfies Array<keyof typeof buildinfo>;
+
+  try {
+    const buildinfo_lines = fs.readFileSync(installationroot + "modules/platform/generated/buildinfo").toString().split("\n");
+    for (const line of buildinfo_lines) {
+      const eqpos = line.indexOf("=");
+      if (eqpos !== -1) {
+        const key = line.substring(0, eqpos).trim() as keyof typeof buildinfo;
+        let value = line.substring(eqpos + 1).trim();
+        if (buildinfo_keys.includes(key)) {
+          if (value.startsWith('"'))
+            value = JSON.parse(value);
+          buildinfo[key] = value;
+        }
+      }
+    }
+  } catch (e) {
+    // ignore non-existing buildinfo
+  }
+
+  const scanmap: ModuleScanMap = new Map;
+  for (const moduledir of modulescandirs)
+    scanModuleFolder(scanmap, moduledir, true, false);
+  scanModuleFolder(scanmap, installationroot + "modules/", true, true);
+
+  const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, { root: data.root }]));
+  const retval: NoDBConfig = {
+    baseport,
+    modulescandirs,
+    public: {
+      buildinfo,
+      dataroot,
+      installationroot,
+      module
+    }
+  };
+
+  if (process.env.WEBHARE_DTAPSTAGE && isValidDTAPStage(process.env.WEBHARE_DTAPSTAGE))
+    retval.public.dtapstage = process.env.WEBHARE_DTAPSTAGE;
+
+  return retval;
+}
+
+export type PartialConfigFile = RecursivePartial<ConfigFile> & { debugsettings?: ConfigFile["debugsettings"] };
+
+export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): ConfigFile {
+  const nodbconfig = generateNoDBConfig();
+
+  const publicdata: BackendConfiguration = {
+    dtapstage: DTAPStage.Production,
+    servername: "",
+    backendURL: "",
+    ...oldconfig?.public,
+    ...nodbconfig.public,
+  };
+
+  return {
+    public: publicdata,
+    secrets: {  //copy from oldconfig, ensure they were actually a string
+      cache: String(oldconfig?.secrets?.cache || ''),
+      cookie: String(oldconfig?.secrets?.cookie || ''),
+      debug: String(oldconfig?.secrets?.debug || ''),
+      gcm: String(oldconfig?.secrets?.gcm || '')
+    },
+    ...pick(oldconfig, ["debugsettings"]),
+    ...omit(nodbconfig, ["public"]),
+  };
+}
+
+export function parseModuleFolderName(name: string) {
+  const dotpos = name.indexOf('.');
+  if (dotpos !== -1) {
+    const dateparts = name.match(/\.(20\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(\.\d\d\d)?Z$/);
+    if (!dateparts) {
+      return null;
+    }
+    const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7] || ''}Z`;
+    const isofulldate_msecs = Date.parse(isofulldate);
+    if (!isofulldate_msecs) {
+      // Invalid ISO date, ignore module
+      return null;
+    }
+    return { creationdate: new Date(isofulldate_msecs), name: name.substring(0, dotpos) };
+  }
+
+  return { creationdate: new Date(Date.parse("1970-01-01T00:00:00Z")), name };
+}
+
+/* The devkit module is part of Webhare but not activated inside a docker container (WEBHARE_IN_DOCKER) unless WEBHARE_CI_MODULERE_CI or WEBHARE_ENABLE_DEVKIT is set */
+export function enableDevKit() {
+  return Boolean(process.env.WEBHARE_ENABLE_DEVKIT || process.env.WEBHARE_CI_MODULE || !process.env.WEBHARE_IN_DOCKER);
+}
+
+function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {
+  let entries: fs.Dirent[];
+  try {
+    entries = fs.readdirSync(folder, { withFileTypes: true });
+  } catch (e) {
+    // not a directory
+    return;
+  }
+
+  for (const entry of entries) {
+    if (!entry.isDirectory() && !entry.isSymbolicLink())
+      continue;
+    if (entry.name === "devkit" && !enableDevKit())
+      continue;
+
+    const modpath = folder + entry.name + "/";
+    const hasModXML = fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false });
+    const hasModYML = fs.statSync(modpath + "moduledefinition.yml", { throwIfNoEntry: false });
+
+    if (!hasModXML && !hasModYML) {
+      if (rootfolder)
+        scanModuleFolder(modulemap, modpath, false, always_overwrites);
+
+      continue;
+    }
+
+    const nameinfo = parseModuleFolderName(entry.name);
+    if (!nameinfo)
+      continue;
+
+    const mdata = { creationdate: nameinfo.creationdate, root: modpath };
+
+    const current = modulemap.get(nameinfo.name);
+    if (current) {
+      if (!always_overwrites && current.creationdate >= nameinfo.creationdate) {
+        //console.log(`Older module version found at ${modpath}`);
+        continue;
+      }
+      //console.log(`New module version found at ${modpath}`);
+    }
+    modulemap.set(nameinfo.name, mdata);
+  }
+}
+
+export const updateCallbacks = new Array<() => void>;
+
+// Listen to local updateWebHareConfigFile changes. This is *not* a global (bridge event) config change listener.
+export function registerUpdateConfigCallback(cb: () => void) {
+  updateCallbacks.push(cb);
+}

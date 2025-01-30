@@ -1,6 +1,6 @@
 import * as stacktrace_parser from "stacktrace-parser";
-import { Definition } from "typescript-json-schema";
-import { SchemaObject } from "ajv/dist/2020";
+import type { Definition } from "typescript-json-schema";
+import type { SchemaObject } from "ajv/dist/2020";
 
 export function reportAssertError(stack: string) {
   //TODO we should probably async-schedule a stacktrace parse and report the sourcemapped location. for now we simply exist to have 'a' testsupport implementation for the browser and preventing node:fs deps

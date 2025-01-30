@@ -1,6 +1,6 @@
-import { isWorkOpen, onFinishWork, FinishHandler } from "@webhare/whdb";
+import { isWorkOpen, onFinishWork, type FinishHandler } from "@webhare/whdb";
 import { openBackendService } from "./backendservice";
-import { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
+import type { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 
 const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");

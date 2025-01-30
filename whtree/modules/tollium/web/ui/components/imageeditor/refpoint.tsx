@@ -7,7 +7,7 @@ import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type { RefPoint } from "@mod-tollium/web/ui/js/dialogs/imgeditcontroller";
 
-import { ImageToolbarPanel, Size } from ".";
+import { ImageToolbarPanel, type Size } from ".";
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
 

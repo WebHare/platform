@@ -4,7 +4,7 @@
 import * as test from "@webhare/test";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { openBackendService, backendConfig } from "@webhare/services";
-import { HSVMObject, loadlib } from "@webhare/harescript";
+import { type HSVMObject, loadlib } from "@webhare/harescript";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 
 async function prepTests() {

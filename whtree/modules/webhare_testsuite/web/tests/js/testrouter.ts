@@ -1,4 +1,4 @@
-import { WebHareRouter, WebRequest, WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
+import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
 
 export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   const searchParams = new URL(req.url).searchParams;

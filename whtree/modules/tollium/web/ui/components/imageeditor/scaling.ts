@@ -2,7 +2,7 @@ import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, ToolbarSeparator, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
-import { ImageToolbarPanel, SetStatusCallback, Size } from ".";
+import { ImageToolbarPanel, type SetStatusCallback, type Size } from ".";
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
 

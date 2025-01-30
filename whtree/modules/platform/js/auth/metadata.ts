@@ -1,4 +1,4 @@
-import { WebHareRouter, WebRequest, WebResponse, createJSONResponse } from "@webhare/router";
+import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though

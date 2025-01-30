@@ -1,4 +1,4 @@
-import { CheckResult, openBackendService } from "@webhare/services";
+import { type CheckResult, openBackendService } from "@webhare/services";
 
 export async function checkMissingServices(): Promise<CheckResult[]> {
   const smservice = await openBackendService("platform:servicemanager");

@@ -22,10 +22,10 @@ import { generateRandomId, regExpFromWildcards, sleep } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
-import { LoggableRecord } from "@webhare/services/src/logmessages";
+import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { getAllServices, getSpawnSettings } from './gatherservices';
-import { defaultShutDownStage, ServiceDefinition, Stage, shouldRestartService } from './smtypes';
+import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 
 

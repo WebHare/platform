@@ -1,7 +1,7 @@
 import { loadlib } from "@webhare/harescript";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, createWebResponse } from "./router";
+import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";

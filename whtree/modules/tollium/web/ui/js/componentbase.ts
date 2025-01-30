@@ -1,9 +1,9 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
-import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
+import { type SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import type { SelectionMatch, TolliumCondition } from './types';
 import type { BackendApplication } from './application';
 import { generateRandomId, toSnakeCase } from "@webhare/std";

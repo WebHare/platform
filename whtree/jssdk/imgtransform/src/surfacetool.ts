@@ -1,4 +1,4 @@
-import { ImageSurface } from "./surface";
+import type { ImageSurface } from "./surface";
 
 export class SurfaceTool {
   surface: ImageSurface;

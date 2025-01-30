@@ -1,7 +1,7 @@
 import * as dompack from '@webhare/dompack';
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
-import { navigateTo, NavigateInstruction } from "@webhare/env";
+import { navigateTo, type NavigateInstruction } from "@webhare/env";
 export { frontendConfig as config } from '@webhare/frontend/src/init';
 
 export function executeSubmitInstruction(instr: NavigateInstruction, options?: {

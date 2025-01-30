@@ -3,12 +3,11 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/datetime";
 import { Money } from "../../../../../jssdk/std/money";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
-
-import { setHareScriptType, HareScriptType } from "@webhare/hscompat";
-import { determineType, getDefaultValue, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
+import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
 
 export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
-export { getDefaultValue, HSType }; //edudex compatibility
+export type { HSType };
+export { getDefaultValue }; //edudex compatibility
 
 type ArrayHareScriptType = HareScriptType.VariantArray | HareScriptType.IntegerArray | HareScriptType.MoneyArray | HareScriptType.FloatArray | HareScriptType.BooleanArray | HareScriptType.DateTimeArray | HareScriptType.Integer64Array | HareScriptType.FunctionPtrArray | HareScriptType.RecordArray | HareScriptType.StringArray | HareScriptType.BlobArray | HareScriptType.ObjectArray;
 

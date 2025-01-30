@@ -1,4 +1,4 @@
-import { type PSPCheckResult, type PSPDriver, type PSPPushResult, type PSPPrecheckRequest, type PSPRequest, type PSPPayResult, type PSPWebRequest } from "@webhare/psp-base";
+import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPPrecheckRequest, PSPRequest, PSPPayResult, PSPWebRequest } from "@webhare/psp-base";
 import { createServerSession, getServerSession, updateServerSession } from "@webhare/services";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 

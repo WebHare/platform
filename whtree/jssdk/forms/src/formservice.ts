@@ -1,6 +1,6 @@
 import { createClient, type GetClientInterface } from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationStatus } from "./address";
-import { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
+import type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission } from "./types";
 import type { FormService } from "@mod-publisher/lib/internal/forms/service";
 import type { AddressValue } from "@webhare/std";

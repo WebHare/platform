@@ -1,14 +1,14 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateContext } from "./shared";
+import type { FileToUpdate, GenerateContext } from "./shared";
 import type { Readable } from "node:stream";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import type { OpenAPI3, OpenAPITSOptions } from "openapi-typescript";
-import { OpenAPIV3 } from "openapi-types";
+import type { OpenAPIV3 } from "openapi-types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getExtractedConfig } from "../configuration";
-import { OpenAPIDescriptor } from "./gen_extracts";
+import type { OpenAPIDescriptor } from "./gen_extracts";
 import { promises as fs } from "node:fs";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 

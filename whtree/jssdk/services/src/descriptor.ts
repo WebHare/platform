@@ -1,5 +1,6 @@
-import { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON, dateToParts } from "@webhare/hscompat";
+import type { ReadableStream } from "node:stream/web";
+import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
+import { dateToParts } from "@webhare/hscompat/datetime.ts";
 import { pick, slugify } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";

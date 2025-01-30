@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
 
 import * as dompack from '@webhare/dompack';
-import { DocEvent, FormControlElement, TakeFocusEvent, addDocEventListener, isFormControl } from '@webhare/dompack';
+import { type DocEvent, type FormControlElement, type TakeFocusEvent, addDocEventListener, isFormControl } from '@webhare/dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
 import './internal/requiredstyles.css';
-import { SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
+import { type SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike } from '@webhare/forms/src/domsupport';

@@ -1,4 +1,4 @@
-import whbridge, { BridgeEvent, BridgeEventData } from "@mod-system/js/internal/whmanager/bridge";
+import whbridge, { type BridgeEvent, type BridgeEventData } from "@mod-system/js/internal/whmanager/bridge";
 import { regExpFromWildcards } from "@webhare/std/strings";
 import { isValidBackendEventName } from "./naming";
 

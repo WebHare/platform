@@ -1,7 +1,7 @@
 import { backendConfig, resolveResource, toFSPath } from "@webhare/services";
-import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
-import { ServiceDefinition, Stage } from './smtypes';
-import { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
+import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
+import { type ServiceDefinition, Stage } from './smtypes';
+import type { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
 import { pick } from "@webhare/std";
 

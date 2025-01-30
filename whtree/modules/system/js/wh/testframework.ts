@@ -7,7 +7,7 @@ import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/do
 import * as whtest from '@webhare/test';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
-import { Annotation } from '@webhare/test/src/checks';
+import type { Annotation } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
 import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';

@@ -1,5 +1,5 @@
 import { readLogLines } from "@webhare/services";
-import { GenericLogLine } from "@webhare/services/src/logging";
+import type { GenericLogLine } from "@webhare/services/src/logging";
 
 /** @deprecated This API is intended for use by HareScript only */
 export async function readJSONLogLines(name: string, since: Date, limit: Date | null = null): Promise<GenericLogLine[]> {

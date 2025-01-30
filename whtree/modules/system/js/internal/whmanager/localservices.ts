@@ -2,7 +2,7 @@ import { logError } from "@webhare/services/src/logging";
 import { loadJSFunction } from "../resourcetools";
 import { registerAsNonReloadableLibrary } from "../hmrinternal";
 import type { TypedMessagePort } from "./transport";
-import { LocalServiceHandlerBase, type LocalServiceRequest, type LocalServiceResponse } from "@webhare/services/src/localservice";
+import type { LocalServiceHandlerBase, LocalServiceRequest, LocalServiceResponse } from "@webhare/services/src/localservice";
 import { localServiceHandlerAddPort } from "@webhare/services/src/symbols";
 
 export type LocalServiceFactory = () => Promise<LocalServiceHandlerBase> | LocalServiceHandlerBase;

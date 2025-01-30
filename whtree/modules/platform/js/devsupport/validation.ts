@@ -4,7 +4,7 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { resolveResource, ResourceDescriptor, WebHareBlob } from "@webhare/services";
+import { resolveResource, ResourceDescriptor, type WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";

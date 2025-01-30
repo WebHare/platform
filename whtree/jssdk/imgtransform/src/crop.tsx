@@ -6,10 +6,10 @@ import SmartCrop from "./smartcrop";
 import { debugFlags } from "@webhare/env";
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { type Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
-import { ImageToolbarPanel, Rect, RectSize, SetStatusCallback, Size } from "./imageeditor";
-import { ImageSurface } from "./surface";
+import { ImageToolbarPanel, type Rect, type RectSize, type SetStatusCallback, type Size } from "./imageeditor";
+import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
 
 const DraggerPos = Symbol("DraggerPos");

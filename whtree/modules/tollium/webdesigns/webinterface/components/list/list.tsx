@@ -10,12 +10,11 @@ import Keyboard from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import './listview.css';
 import * as ListColumn from './listcolumns';
-import { translatePageCoordinatesToElement } from './listdomhelpers';
+import { translatePageCoordinatesToElement, getScrollbarWidth } from './listdomhelpers';
 
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
-import { ListColumnBase, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text, IconColumn, IconsColumn, IconWrapper } from './listcolumns';
-import { getScrollbarWidth } from './listdomhelpers';
+import { type ListColumnBase, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text, IconColumn, IconsColumn, IconWrapper } from './listcolumns';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";

@@ -1,12 +1,12 @@
-import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode } from "@webhare/router";
+import { HTTPErrorCode, createJSONResponse, type WebResponse, HTTPSuccessCode } from "@webhare/router";
 import * as services from "@webhare/services";
-import { WebRequestInfo, WebResponseInfo } from "./types";
-import { StackTrace, parseTrace, } from "@webhare/js-api-tools";
+import type { WebRequestInfo, WebResponseInfo } from "./types";
+import { type StackTrace, parseTrace, } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import type { RequestID, JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
-import { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
+import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { makeJSObject } from "./resourcetools";
 
 /*

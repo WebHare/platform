@@ -1,7 +1,7 @@
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { MyService } from "./type";
+import type { MyService } from "./type";
 import { debugFlags } from "@webhare/env";
-import { WebRequest } from "@webhare/router";
+import type { WebRequest } from "@webhare/router";
 import { getRequestUser } from "@webhare/wrd";
 import { beginWork } from "@webhare/whdb";
 

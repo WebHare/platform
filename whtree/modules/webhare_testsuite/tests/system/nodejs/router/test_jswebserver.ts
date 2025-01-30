@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import { Configuration } from "@mod-system/js/internal/webserver/webconfig";
+import type { Configuration } from "@mod-system/js/internal/webserver/webconfig";
 import * as webserver from "@mod-system/js/internal/webserver/webserver";
 import * as net from "node:net";
 import * as undici from "undici";

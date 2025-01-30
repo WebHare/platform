@@ -1,5 +1,5 @@
 import { isLike } from "@webhare/hscompat";
-import { WebRequest } from "@webhare/router";
+import type { WebRequest } from "@webhare/router";
 
 // Methods which are allowed in HTTP access control requests (uppercase!)
 const ACCESSCONTROL_ALLOWEDMETHODS = ["GET", "HEAD", "POST", "OPTIONS"];

@@ -1,6 +1,6 @@
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
+import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
 import { WHMProcessType } from '@mod-system/js/internal/whmanager/whmanager_rpcdefs';
 import * as child_process from "node:child_process";
 

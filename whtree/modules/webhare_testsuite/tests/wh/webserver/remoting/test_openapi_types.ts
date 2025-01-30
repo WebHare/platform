@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DefaultErrorType, GetBodyType, GetOperation, GetParametersType, IsMediaTypeJSON, JSONResponseTypes, JSONResponseTypesFromResponses, MergeParameters, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest, OperationIds, SquashObjectType } from "@mod-system/js/internal/openapi/types";
+import type { DefaultErrorType, GetBodyType, GetOperation, GetParametersType, IsMediaTypeJSON, JSONResponseTypes, JSONResponseTypesFromResponses, MergeParameters, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest, OperationIds, SquashObjectType } from "@mod-system/js/internal/openapi/types";
 import { HTTPErrorCode, HTTPSuccessCode, type RestRequest } from "@webhare/router";
 import * as test from "@webhare/test";
 

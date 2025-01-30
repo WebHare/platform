@@ -1,15 +1,15 @@
 /* Generates various extracts of moduledefinition information */
 
 import { resolveResource } from "@webhare/services";
-import { FileToUpdate, GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
+import { type FileToUpdate, type GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
 import { addModule } from "@webhare/services/src/naming";
-import { ModDefYML } from "@webhare/services/src/moduledefparser";
+import type { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { generateWebDesigns } from "./webdesigns";
 import * as crypto from "node:crypto";
 import { stringify, throwError } from "@webhare/std";
-import { type Document } from "@xmldom/xmldom";
+import type { Document } from "@xmldom/xmldom";
 
 export interface AssetPack {
   name: string; //full name

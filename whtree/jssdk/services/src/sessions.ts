@@ -1,5 +1,6 @@
 import { generateRandomId } from "@webhare/std/platformbased";
-import { SessionScopes, toFSPath } from "./services";
+import { toFSPath } from "./resources.ts";
+import type { SessionScopes } from "./services.ts";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, onFinishWork } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";

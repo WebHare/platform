@@ -1,4 +1,4 @@
-import { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
+import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { registerAsNonReloadableLibrary } from "@webhare/services";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";

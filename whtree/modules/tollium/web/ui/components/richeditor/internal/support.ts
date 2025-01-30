@@ -1,6 +1,6 @@
 import * as tablesupport from "./tableeditor";
 import * as dompack from 'dompack';
-import { RTESettings, RTEWidget, type TargetInfo } from "./types";
+import type { RTESettings, RTEWidget, TargetInfo } from "./types";
 import { queryEmbeddedObjects } from "./domlevel";
 
 export function fixupScopeTRs(node: HTMLElement) {

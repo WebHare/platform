@@ -6,7 +6,7 @@ import * as test from "@webhare/test-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { getSharpResizeOptions } from "@mod-platform/js/cache/imgcache";
-import { createSharpImage, Sharp } from "@webhare/deps/src/deps";
+import { createSharpImage, type Sharp } from "@webhare/deps/src/deps";
 import { promises as fs } from "node:fs";
 import { listDirectory } from "@webhare/system-tools";
 

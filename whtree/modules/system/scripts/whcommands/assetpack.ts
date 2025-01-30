@@ -4,11 +4,10 @@ import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/vali
 import { openBackendService, subscribe, writeRegistryKey, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
-import { ansiCmd } from '@webhare/cli';
+import { ansiCmd, run } from '@webhare/cli';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
-import { run } from '@webhare/cli';
 
 let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 

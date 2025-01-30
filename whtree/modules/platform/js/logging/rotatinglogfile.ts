@@ -1,4 +1,4 @@
-import { LoggableRecord, formatLogObject } from '@webhare/services/src/logmessages';
+import { type LoggableRecord, formatLogObject } from '@webhare/services/src/logmessages';
 import * as fs from 'node:fs';
 
 export class RotatingLogFile {

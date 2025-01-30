@@ -1,4 +1,4 @@
-import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { type IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import * as test from "@webhare/test";
 import { createVM } from "@webhare/harescript/src/machinewrapper";
 import { floatAsyncHandler } from "@mod-webhare_testsuite/js/testhelpers";
