@@ -15,7 +15,7 @@ const client = createClient<JSAPIService>("system:jsapi");
 
 import { getTid } from "@mod-tollium/js/gettid";
 import { encodeString } from "@webhare/std";
-import IndyShell from '@mod-tollium/web/ui/js/shell';
+import type IndyShell from '@mod-tollium/web/ui/js/shell';
 import type { TowlNotification } from "./towl";
 import type { AppLaunchInstruction } from "@mod-platform/js/tollium/types";
 

@@ -4,7 +4,7 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import Keyboard from 'dompack/extra/keyboard';
 
 import "./codeedit.scss";
-import { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 
 // ---------------------------------------------------------------------------
 //

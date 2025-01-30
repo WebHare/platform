@@ -3,7 +3,7 @@ import * as browser from 'dompack/extra/browser';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
-import ObjAction from '../action/action';
+import type ObjAction from '../action/action';
 
 /****************************************************************************************************************************
  *                                                                                                                          *

@@ -3,11 +3,11 @@
 
 import * as frontend from '@webhare/frontend';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { FrontendEmbeddedApplication, registerJSApp } from "../application";
+import { type FrontendEmbeddedApplication, registerJSApp } from "../application";
 import "../../common.lang.json";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
 import { navigateTo, type NavigateInstruction } from '@webhare/env/src/navigation';
 

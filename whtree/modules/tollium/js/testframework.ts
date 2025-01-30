@@ -2,8 +2,8 @@
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
 import { escapeRegExp } from '@webhare/std';
-import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ApplicationBase } from '@mod-tollium/web/ui/js/application';
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type { } from "@mod-tollium/js/internal/debuginterface";
 import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 

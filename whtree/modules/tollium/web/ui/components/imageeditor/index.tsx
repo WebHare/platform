@@ -2,14 +2,14 @@ import * as dompack from "dompack";
 
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { Toolbar, ToolbarButton, ToolbarPanel, ToolbarPanelOptions, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
-import * as $todd from "@mod-tollium/web/ui/js/support";
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import { Toolbar, type ToolbarButton, ToolbarPanel, type ToolbarPanelOptions, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import type * as $todd from "@mod-tollium/web/ui/js/support";
+import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
-import { PhotoCrop, addImageCropButton } from "./crop";
-import { PhotoPoint, addRefPointButton } from "./refpoint";
-import { PhotoRotate, addImageRotateButton } from "./scaling";
-import { ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./surface";
+import { type PhotoCrop, addImageCropButton } from "./crop";
+import { type PhotoPoint, addRefPointButton } from "./refpoint";
+import { type PhotoRotate, addImageRotateButton } from "./scaling";
+import { type ImageSurfaceSettings, ImageSurface, type ImageSurfaceOptions } from "./surface";
 
 import "./imageeditor.css";
 import "./imageeditor.lang.json";

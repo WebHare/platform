@@ -1,7 +1,7 @@
 import { toSnakeCase, type ToSnakeCase } from "@webhare/hscompat";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as services from "@webhare/services";
-import { MultiFileUploader, UploadManifest } from "@webhare/upload";
+import { MultiFileUploader, type UploadManifest } from "@webhare/upload";
 import { pick } from "@webhare/std";
 
 export async function createUploadSession(manifest: ToSnakeCase<UploadManifest>) {

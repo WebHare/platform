@@ -35,7 +35,7 @@ import textarea from './textarea/textarea';
 import textedit from './textedit/textedit';
 import toolbar from './toolbar/toolbar';
 
-import { ToddCompBase, ToddCompClass } from '@mod-tollium/web/ui/js/componentbase';
+import type { ToddCompBase, ToddCompClass } from '@mod-tollium/web/ui/js/componentbase';
 
 export function getComponents(): Record<string, ToddCompClass<ToddCompBase>> {
   return {

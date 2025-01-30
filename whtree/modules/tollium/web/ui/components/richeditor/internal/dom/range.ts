@@ -1,6 +1,6 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import { Locator, findParent, splitDataNode, PreservedLocatorList, testType, NodeType } from '../domlevel';
+import { Locator, findParent, splitDataNode, type PreservedLocatorList, testType, NodeType } from '../domlevel';
 import * as richdebug from "../richdebug";
 import * as browser from "dompack/extra/browser";
 

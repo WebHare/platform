@@ -75,7 +75,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
 
   // Build the DOM node(s) for this component
   buildNode() {
-    const id = `radio-${generateRandomId()}`
+    const id = `radio-${generateRandomId()}`;
     this.node =
       <div className="wh-radiobutton-wrapper"
         data-name={this.name}

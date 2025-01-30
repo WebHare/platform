@@ -6,8 +6,8 @@ import './textedit.scss';
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
-import ObjButton from '../button/button';
+import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import type ObjButton from '../button/button';
 
 const intra_button_padding = 5; //pixels between textedit buttons
 const prefix_suffix_margin = 5; //pixels between prefix/suffix and input

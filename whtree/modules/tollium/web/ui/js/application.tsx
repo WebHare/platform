@@ -15,8 +15,9 @@ import LinkEndPoint from './comm/linkendpoint';
 import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
-import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
-import IndyShell, { getIndyShell, handleApplicationErrors } from './shell';
+import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
+import type IndyShell from './shell';
+import { getIndyShell, handleApplicationErrors } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
 import { debugFlags } from "@webhare/env";
 

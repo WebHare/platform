@@ -327,7 +327,7 @@ export interface EditorBaseOptions {
   cssinstance: string | null;
   csslinks: string[] | null;
   csscode: string;
-  preloadedcss: { addcss: Array<{ type: string, src: string }> } | null;
+  preloadedcss: { addcss: Array<{ type: string; src: string }> } | null;
   breakupnodes: string[];
   htmlclass: string;
   bodyclass: string;
@@ -2918,7 +2918,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     this.executeDefaultPropertiesAction({ target: node, detail: action });
   }
-  executeAction(action: string | { action: string, size?: { x: number, y: number } }, actiontarget?: TargetInfo | null): void {
+  executeAction(action: string | { action: string; size?: { x: number; y: number } }, actiontarget?: TargetInfo | null): void {
     //actiontarget describes the target, and is currently only set for context menu actions but probably every action route should add this
 
     // Fallback for single string argument call without extra parameters - apparently everyone but the 'table' action doe sthis
