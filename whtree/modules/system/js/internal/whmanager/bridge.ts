@@ -18,6 +18,7 @@ import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/cod
 import { isMainThread, type TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
+import { getScriptName } from "@webhare/system-tools";
 
 export type { IPCMessagePacket, IPCLinkType } from "./ipc";
 export type { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -255,11 +256,6 @@ type LocalBridgeInitData = {
   consoleLogData: Uint32Array;
 };
 
-/** Get the current script name */
-export function getScriptName() {
-  //require.main is not set until the main code runs and the bridge may connect before it does.
-  return globalThis.process?.argv?.[1] ?? require.main ?? "<unknown JavaScript script>";
-}
 
 /** Check if all messages types have been handled in a switch. Put this function in the
  * default handler. Warning: only works for union types, because non-union types aren't

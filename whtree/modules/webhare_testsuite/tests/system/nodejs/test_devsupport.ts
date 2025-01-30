@@ -5,7 +5,7 @@ import { readFile } from "fs/promises";
 import { convertCompilerOptionsFromJson } from "typescript";
 import { basename, dirname, resolve } from "path";
 import { pick } from "@webhare/std";
-import { enableDevKit } from "@mod-system/js/internal/generation/gen_config";
+import { enableDevKit } from "@mod-system/js/internal/generation/gen_config_nodb";
 
 async function testDevBridge() {
   test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "storage/system/generated/wrd/example.ts"));

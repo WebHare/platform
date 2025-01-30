@@ -23,7 +23,7 @@ import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { updateConfig } from "../configuration";
 import { backendConfig, toFSPath } from "@webhare/services";
-import type { FileToUpdate, GenerateContext, GeneratorType, LoadedModuleDefs } from "./shared";
+import { getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -40,14 +40,6 @@ function getPaths() {
   const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
 
   return { installedBaseDir, builtinBaseDir };
-}
-
-export function getGeneratedFilePath(module: string, type: string, path: string) {
-  if (module === "platform" && type === "schema")
-    return toFSPath(`mod::platform/generated/${path}`);
-  if (module === "platform" && type !== 'extract')
-    return backendConfig.installationroot + "modules/platform/generated/" + path;
-  return backendConfig.dataroot + "storage/system/generated/" + path;
 }
 
 function fixFilePaths(files: FileToUpdate[]) {

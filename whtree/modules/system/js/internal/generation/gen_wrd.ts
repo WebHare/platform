@@ -6,7 +6,7 @@ import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wr
 import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std";
 import { elements } from "./xmlhelpers";
-import { getGeneratedFilePath } from "./generator";
+import { getGeneratedFilePath } from "./shared";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
 export function generateTypeName(str: string) {

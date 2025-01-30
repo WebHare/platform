@@ -2,7 +2,7 @@ import { whconstant_builtinmodules } from "../webhareconstants";
 import { type FileToUpdate, type GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
-import { getGeneratedFilePath } from "./generator";
+import { getGeneratedFilePath } from "./shared";
 import type { Element } from "@xmldom/xmldom";
 
 function generateTableTypeName(str: string) {
