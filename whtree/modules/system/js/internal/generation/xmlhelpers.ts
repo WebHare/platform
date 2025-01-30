@@ -1,7 +1,7 @@
 /* TODO These APIs are potential hscompat candidates? As the whole idea of XML support is HSCompat...
 */
 
-import { isAbsoluteResource, parseResourcePath } from "@webhare/services";
+import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy } from "@webhare/std";
 import type { Node, Element, LiveNodeList } from "@xmldom/xmldom";
 

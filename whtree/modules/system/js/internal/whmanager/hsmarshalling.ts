@@ -3,9 +3,7 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/datetime";
 import { Money } from "../../../../../jssdk/std/money";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
-
-import { setHareScriptType, HareScriptType } from "@webhare/hscompat";
-import { determineType, getDefaultValue, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
+import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
 
 export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
 export type { HSType };
