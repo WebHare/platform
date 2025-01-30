@@ -1,7 +1,7 @@
 import { Marshaller, IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
-import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
+import { dateToParts, makeDateFromParts } from "@webhare/hscompat/datetime.ts";
 import { Money } from "@webhare/std";
 import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";

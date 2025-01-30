@@ -2,7 +2,8 @@ import { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, sleep, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, isWorkOpen, onFinishWork } from "@webhare/whdb";
-import { openBackendService, subscribeToEventStream } from "@webhare/services";
+import { openBackendService } from "@webhare/services/src/backendservice.ts";
+import { subscribeToEventStream } from "@webhare/services/src/backendevents.ts";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 import { checkModuleScopedName } from "./naming";
 

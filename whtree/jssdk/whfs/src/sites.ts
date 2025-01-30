@@ -3,7 +3,7 @@ import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { WHFSFile, WHFSFolder, openWHFSObject, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType } from "./contenttypes";
-import { createAppliedPromise } from "@webhare/services";
+import { createAppliedPromise } from "@webhare/services/src/applyconfig.ts";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {

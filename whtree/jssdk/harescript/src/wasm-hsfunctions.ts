@@ -1,7 +1,8 @@
 import { recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
 import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
-import { backendConfig, log, logError } from "@webhare/services";
+import { backendConfig } from "@webhare/services/src/config.ts";
+import { log, logError } from "@webhare/services/src/logging.ts";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";

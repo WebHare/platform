@@ -9,7 +9,7 @@
 declare module "@webhare/geoip" {
 }
 
-import { backendConfig } from '@webhare/services';
+import { backendConfig } from '@webhare/services/src/config.ts';
 import type { CityResponse, CountryResponse, Reader } from 'maxmind';
 
 export { type CityResponse, type CountryResponse } from 'maxmind';

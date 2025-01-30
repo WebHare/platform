@@ -1,6 +1,6 @@
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { generateRandomId } from "@webhare/std";
-import { openFile, openFolder } from "./whfs";
+import { openFile, openFolder } from "./objects.ts";
 
 export interface Tag {
   id: number;
