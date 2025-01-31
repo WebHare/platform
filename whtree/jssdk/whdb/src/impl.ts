@@ -54,11 +54,8 @@ class HandlerList implements Disposable {
     handlers: HSVMHeapVar;
   }>();
 
-  async setup(conn: WHDBConnection, iscommit: boolean) {
+  async setup(iscommit: boolean) {
     for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
-      if (vm.connections.at(-1) !== conn)
-        continue; //this connection is not matched by the HSVM, should be a separate primary..
-
       const handlers = vm.allocateVariable();
       using commitparam = vm.allocateVariable();
       commitparam.setBoolean(iscommit);
@@ -113,7 +110,7 @@ class Work implements WorkObject {
     /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary transaction object) state which
        is why we need to copy the HS commithandler state at commit time (as commithandlers may start new work) */
     const handlerlist = new HandlerList();
-    await handlerlist.setup(this.conn, commit);
+    await handlerlist.setup(commit);
     return handlerlist;
   }
 
@@ -411,7 +408,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     @typeParam T - Kysely database definition interface
 */
 
-export type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
 
@@ -672,4 +669,4 @@ db<PlatformDB>().insertInto("wrd.entities").values(values).execute();
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;
 
-export type { StashedWork, WHDBConnectionImpl };
+export type { StashedWork };
