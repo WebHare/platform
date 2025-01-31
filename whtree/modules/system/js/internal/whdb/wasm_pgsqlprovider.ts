@@ -1,3 +1,5 @@
+import { beginWork, commitWork, db, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
+import { getConnection } from "@webhare/whdb/src/impl";
 import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import type { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
@@ -182,7 +184,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   //console.log(query);
   //console.log(query.tablesources[0].columns);
   const query = queryparam.getJSValue() as Query;
-  const whdb = vm.getCurrentConnection().db();
+  const whdb = db();
 
   for (const cond of query.singleconditions) {
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
@@ -520,19 +522,19 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 }
 
 function cbIsWorkOpen(vm: HareScriptVM, id_set: HSVMVar) {
-  id_set.setBoolean(vm.getCurrentConnection().isWorkOpen());
+  id_set.setBoolean(isWorkOpen());
 }
 
 async function cbDoBeginWork(vm: HareScriptVM) {
-  await vm.getCurrentConnection().beginWork();
+  await beginWork();
 }
 
 //this needs to go through a syscall so we can WaitForPromise the commit. otherwise whdb.ts cannot invoke finish handlers in this VM
 export async function cbDoFinishWork(vm: HareScriptVM, commit: boolean): Promise<void> {
   if (commit)
-    await vm.getCurrentConnection().commitWork();
+    await commitWork();
   else
-    await vm.getCurrentConnection().rollbackWork();
+    await rollbackWork();
 }
 
 export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: HSVMVar, options: HSVMVar) {
@@ -555,13 +557,13 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
     else {
       const val = hsarg.getJSValue();
       if (WebHareBlob.isWebHareBlob(val))
-        await vm.getCurrentConnection().uploadBlob(val);
+        await uploadBlob(val);
 
       args.push(val);
     }
   }
 
-  const connection = vm.getCurrentConnection();
+  const connection = getConnection();
   type ResultRowType = Record<string, unknown>;
   const result = await connection.query(sqlquery.getString(), args) as FullPostgresQueryResult<ResultRowType>;
 
@@ -633,7 +635,7 @@ async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVa
       //We'll manually get the individual cells so we can retrieve binary data where needed
       const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
       if (WebHareBlob.isWebHareBlob(setvalue))
-        await vm.getCurrentConnection().uploadBlob(setvalue);
+        await uploadBlob(setvalue);
 
       if (setvalue instanceof Date && setvalue.getTime() === defaultDateTime.getTime())
         values[column.dbase_name] = sql`'-infinity'::timestamp`;
@@ -649,7 +651,7 @@ async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: 
   const values = await decodeNewFields(vm, query, newfields);
 
   const name = query.tablesources[0].name;
-  const whdb = vm.getCurrentConnection().db<Record<string, unknown>>();
+  const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
 }
 
@@ -662,7 +664,7 @@ async function cbInsertRecords(vm: HareScriptVM, queryparam: HSVMVar, newfields:
   const resolvedValues = await Promise.all(values);
 
   const name = query.tablesources[0].name;
-  const whdb = vm.getCurrentConnection().db<Record<string, unknown>>();
+  const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(resolvedValues).execute();
 }
 
@@ -673,7 +675,7 @@ export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowd
   if (!Object.keys(values).length) //nothing to update!
     return;
 
-  const whdb = vm.getCurrentConnection().db();
+  const whdb = db();
   await whdb
     .updateTable(sql.table(query.tablesources[0].name.toLowerCase()).as('T'))
     .set(values)
@@ -685,7 +687,7 @@ export async function cbDeleteRecord(vm: HareScriptVM, queryparam: HSVMVar, rowd
   const query = queryparam.getJSValue() as Query;
   const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
 
-  const whdb = vm.getCurrentConnection().db();
+  const whdb = db();
 
   await whdb
     .deleteFrom(sql.table(query.tablesources[0].name.toLowerCase()).as('T'))
