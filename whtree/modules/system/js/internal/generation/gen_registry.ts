@@ -1,5 +1,5 @@
-import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
-import { type Element, type Node } from "@xmldom/xmldom";
+import { type FileToUpdate, type GenerateContext, generatorBanner } from "./shared";
+import type { Element, Node } from "@xmldom/xmldom";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 
 

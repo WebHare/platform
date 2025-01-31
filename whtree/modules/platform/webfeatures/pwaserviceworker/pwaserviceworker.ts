@@ -6,8 +6,7 @@ import { getAssetPackBase } from '@mod-platform/js/concepts/frontend';
 import type { AssetPackManifest } from '@mod-platform/js/assetpacks/types';
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 // when developing, to explicitly recompile our package: wh assetpack compile publisher:pwaserviceworker
-import { generateRandomId } from "@webhare/std";
-import { throwError } from '@webhare/std';
+import { generateRandomId, throwError } from "@webhare/std";
 import type { IDBPDatabase } from 'idb';
 
 const serviceworkerurl = new URL(location.href);

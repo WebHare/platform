@@ -2,7 +2,7 @@ import { throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
-import { exportRTDToRawHTML } from "@webhare/hscompat";
+import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
 
 /** Paragraph types supported by us */
 export const rtdParagraphTypes: string[] = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;

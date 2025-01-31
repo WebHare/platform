@@ -1,7 +1,8 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-tollium/js/testframework";
-import JSONRPC from '@mod-system/js/net/jsonrpc';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const JSONRPC = require("@mod-system/js/net/jsonrpc");
 
 import ParsedStructure from "@mod-tollium/web/ui/components/richeditor/internal/parsedstructure";
 
