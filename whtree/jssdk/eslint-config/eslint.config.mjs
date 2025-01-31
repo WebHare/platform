@@ -4,6 +4,7 @@ import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
 import tsDoc from "eslint-plugin-tsdoc";
 import stylistic from "@stylistic/eslint-plugin";
+import importPlugin from 'eslint-plugin-import';
 
 /* We add some rules that don't exist in this WebHare, but are referenced by eslint-disable comments in
    code that needs to validate on previous or future WebHare versions. These rules shouldn't be activated,
@@ -45,6 +46,8 @@ tseslint.configs.recommended.unshift({
 const baseConfig = tseslint.config(
   js.configs.recommended,
   react.configs.flat.recommended,
+  importPlugin.flatConfigs.recommended,
+  importPlugin.flatConfigs.typescript,
   ...tseslint.configs.recommended, {
   name: "@webhare/eslint-config main configuration",
   languageOptions: {
@@ -203,6 +206,16 @@ const baseConfig = tseslint.config(
         allowInterfaces: "always"
       }
     ],
+    // The importplugin resolver requires providing extentions. Typescript compilation will catch these errors anyway.
+    "import/no-unresolved": "off",
+    // these gives back false positives
+    "import/namespace": "off",
+    "import/named": "off",
+    // make the recommended errors of the import plugin warnings
+    "import/default": "warn",
+    "import/export": "warn",
+    // Warn on circular dependencies
+    "import/no-cycle": "warn",
   },
   settings: {
     "react": {
@@ -222,7 +235,7 @@ const baseConfig = tseslint.config(
     parser: tseslint.parser,
     parserOptions: {
       project: true,
-      tsconfigRootDir: ".",
+      tsconfigRootDir: process.cwd(), // was '.', but the eslint-import-plugin crashes on that
     },
   },
   // place all rules that need parser services here
@@ -258,6 +271,13 @@ const baseConfig = tseslint.config(
     "*.mjs",
     "**/*.mjs"
   ],
+  languageOptions: {
+    ecmaVersion: 2024,
+    parserOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+    }
+  }
 }, {
   name: "@webhare/eslint-config disable no-explicit-any for tests",
   files: [
@@ -318,8 +338,29 @@ export const strictConfig = [
   ...baseConfig, {
     name: "@webhare/eslint-config WebHare specific configuration",
     rules: {
-      "eqeqeq": "error"
-    },
+      "eqeqeq": "error",
+      "@typescript-eslint/no-import-type-side-effects": "error",
+    }
+  }, {
+    name: "@webhare/eslint-config WebHare specific TypeScript configuration",
+    files: [
+      "*.ts",
+      "**/*.ts",
+      "*.tsx",
+      "**/*.tsx"
+    ],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": [
+        "error", {
+          disallowTypeAnnotations: false,
+          fixStyle: "inline-type-imports",
+        }
+      ],
+      "@typescript-eslint/consistent-type-exports": "error",
+      // Make the recommended errors of the import plugin errors again
+      "import/default": "error",
+      "import/export": "error",
+    }
   }
 ];
 
