@@ -242,23 +242,3 @@ export function getFileAsDataURL(file: File): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
-
-/** Read an image file and return its dimensions
- * @param file - An image file
- * @returns A promise that resolves to an object containing the image's width and height
-*/
-export async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.addEventListener("load", () => {
-      const img = document.createElement("img");
-      img.addEventListener("load", () => {
-        resolve({ width: img.naturalWidth, height: img.naturalHeight });
-      });
-      img.addEventListener("error", error => reject(new Error(error.message)));
-      img.src = reader.result as string;
-    });
-    reader.addEventListener("error", () => reject(new Error("readAsDataURL failed")));
-    reader.readAsDataURL(file);
-  });
-}

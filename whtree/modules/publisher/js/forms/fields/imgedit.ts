@@ -4,7 +4,7 @@ import * as dompack from '@webhare/dompack';
 import { FileEditElement } from './fileeditbase';
 import { emplace } from '@webhare/std';
 import { getTid } from '@webhare/gettid';
-import { getImageDimensions } from '@webhare/upload';
+import { getFileAsDataURL } from '@webhare/upload';
 import { setFieldError } from '@mod-publisher/js/forms';
 
 let revoker: FinalizationRegistry<string> | undefined;
@@ -21,6 +21,11 @@ function createFileURL(file: File): string {
       return newurl;
     }
   });
+}
+
+async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  const img = await dompack.loadImage(await getFileAsDataURL(file));
+  return { width: img.naturalWidth, height: img.naturalHeight };
 }
 
 interface ImgEditTexts {
