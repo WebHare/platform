@@ -3,16 +3,36 @@
     @topic forms/standardcomponents
 */
 
+LOADLIB "wh::xml/xsd.whlib";
+
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::publisher/lib/webtools/formcomponents/upload.whlib";
 
 PUBLIC STATIC OBJECTTYPE ImgEditField EXTEND FileEditFieldBase
 <
+  PUBLIC INTEGER minwidth;
+  PUBLIC INTEGER maxwidth;
+  PUBLIC INTEGER minheight;
+  PUBLIC INTEGER maxheight;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FileEditFieldBase(form, parent, field)
+  {
+    this->minwidth := CellExists(field, "minwidth") ? field.minwidth : 0;
+    this->maxwidth := CellExists(field, "maxwidth") ? field.maxwidth : 0;
+    this->minheight := CellExists(field, "minheight") ? field.minheight : 0;
+    this->maxheight := CellExists(field, "maxheight") ? field.maxheight : 0;
+  }
+
   UPDATE PUBLIC RECORD FUNCTION __GetRenderData()
   {
     RECORD data :=
            CELL[ ...FileEditFieldBase::__GetRenderData()
                , type := "imgedit"
+               , this->minwidth
+               , this->maxwidth
+               , this->minheight
+               , this->maxheight
                ];
     IF(data.accept = "")
       data.accept := "image/jpeg,image/gif,image/png";
@@ -25,3 +45,15 @@ PUBLIC STATIC OBJECTTYPE ImgEditField EXTEND FileEditFieldBase
     RETURN GetCachedImageLink(file, [ baseurl := baseurl, method := "none", fixorientation := TRUE ]);
   }
 >;
+
+PUBLIC RECORD FUNCTION ParseFormImgEdit(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  fielddef := CELL
+      [ ...ParseFormUpload(fielddef, node, parsecontext)
+      , minwidth := node->HasAttribute("minwidth") ? ParseXSInt(node->GetAttribute("minwidth")) : 0
+      , maxwidth := node->HasAttribute("maxwidth") ? ParseXSInt(node->GetAttribute("maxwidth")) : 0
+      , minheight := node->HasAttribute("minheight") ? ParseXSInt(node->GetAttribute("minheight")) : 0
+      , maxheight := node->HasAttribute("maxheight") ? ParseXSInt(node->GetAttribute("maxheight")) : 0
+      ];
+  RETURN fielddef;
+}

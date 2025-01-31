@@ -35,6 +35,7 @@ export { loadWittyResource } from "./witty.ts";
 export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
+export { IntExtLink } from "./intextlink";
 
 /** Extend this interface to define the format of your own secret scopes */
 export interface ServerEncryptionScopes {

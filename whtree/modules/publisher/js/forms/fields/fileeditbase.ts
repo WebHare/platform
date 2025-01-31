@@ -43,7 +43,7 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
     this.root.append(csslink, this.maindiv);
 
     this.group = this.closest<HTMLElement>(".wh-form__fieldgroup");
-    this.whFormsApiChecker = () => this._check();
+    this.whFormsApiChecker = async () => { await this._check(); };
     this.maxFiles = parseInt(this.getAttribute("max-files")!) || 1;
     if (this.getAttribute("value"))
       this.#setValue(JSON.parse(this.getAttribute("value")!));
@@ -58,11 +58,13 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
   isSet(): boolean {
     return this.currentFiles.length > 0;
   }
-  _check() {
-    if (this.required && !this.isSet())
+  async _check() {
+    const error = this.required && !this.isSet();
+    if (error)
       setFieldError(this, getTid("publisher:site.forms.commonerrors.required"), { reportimmediately: false });
     else
       setFieldError(this, "", { reportimmediately: false });
+    return error;
   }
 
   protected refreshState() {

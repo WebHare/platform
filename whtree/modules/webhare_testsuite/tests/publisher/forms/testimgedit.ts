@@ -108,12 +108,37 @@ test.runTests(
         test.assert(imggroup);
         test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
-        //upload an image
+        //upload a small image that's too small
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
+        test.click('#rtdtest-img');
+        await test.wait('ui');
+        test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should still be in error');
+
+        //dynamically remove the min width constraint
+        test.qR('#rtdtest-img').setAttribute("min-width", "0");
+        //re-upload to trigger revalidation
+        test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/logo.png']);
+        test.click('#rtdtest-img');
+        await test.wait('ui');
+        test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
+
+        //dynamically set a max height constraint
+        test.qR('#rtdtest-img').setAttribute("max-height", "500");
+        //upload portrait image that's too high
+        test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
         prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg']);
         test.click('#rtdtest-img');
         await test.wait('ui');
+        test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error again');
 
-        test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
+        //upload landscape image
+        test.click(test.qR(imgCompRoot, '.image__deletebutton')); //kill image
+        prepareUpload(['/tollium_todd.res/webhare_testsuite/tollium/landscape_4.jpg']);
+        test.click('#rtdtest-img');
+        await test.wait('ui');
+
+        test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should finally be out of error');
       }
     },
 

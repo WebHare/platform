@@ -702,12 +702,16 @@
                              icon="tollium:forms/image"
                              linecomponent="false"
                              ordering="12"
-                             parserfunc="/lib/webtools/formcomponents/upload.whlib#parseFormUpload"
+                             parserfunc="/lib/webtools/formcomponents/imgedit.whlib#parseFormImgEdit"
                              supportedvalues="image"
                              tid="formcomponents.imgedit.name" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="UploadAttributes" />
+      <xs:attribute name="minwidth" type="xs:integer" />
+      <xs:attribute name="maxwidth" type="xs:integer" />
+      <xs:attribute name="minheight" type="xs:integer" />
+      <xs:attribute name="maxheight" type="xs:integer" />
     </xs:complexType>
   </xs:element>
 

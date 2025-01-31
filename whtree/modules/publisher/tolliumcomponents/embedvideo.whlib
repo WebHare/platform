@@ -406,7 +406,7 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
       OBJECT previewimage := this->CreateTolliumComponent("image");
       previewimage->width := "16px";
       previewimage->height := "16px";
-      previewimage->SetImageSrc("google:pop_up");
+      previewimage->SetImageSrc("tollium:actions/openlink");
       previewimage->action := this->preview;
       previewpanel->InsertComponentAfter(previewimage, preview, FALSE);
 

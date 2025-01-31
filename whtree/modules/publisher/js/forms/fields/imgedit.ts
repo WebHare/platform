@@ -4,6 +4,8 @@ import * as dompack from '@webhare/dompack';
 import { FileEditElement } from './fileeditbase';
 import { emplace } from '@webhare/std';
 import { getTid } from '@webhare/gettid';
+import { getFileAsDataURL } from '@webhare/upload';
+import { setFieldError } from '@mod-publisher/js/forms';
 
 let revoker: FinalizationRegistry<string> | undefined;
 const cachedURLs = new WeakMap<File, string>();
@@ -21,19 +23,61 @@ function createFileURL(file: File): string {
   });
 }
 
+async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  const img = await dompack.loadImage(await getFileAsDataURL(file));
+  return { width: img.naturalWidth, height: img.naturalHeight };
+}
+
 interface ImgEditTexts {
   explainUpload?: string;
 }
 
 export class ImgEditElement extends FileEditElement {
+  static observedAttributes = ["min-width", "max-width", "min-height", "max-height"];
+
   private static texts: ImgEditTexts | null = null;
+
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
 
   constructor() {
     super();
     // this.addEventListener("keypress", evt => this.checkForUploadOrClear(evt)); // handle space+enter to active
 
     this.maindiv.classList.add("images");
+
+    this.minWidth = parseInt(this.getAttribute("min-width") || "0") || 0;
+    this.maxWidth = parseInt(this.getAttribute("max-width") || "0") || 0;
+    this.minHeight = parseInt(this.getAttribute("min-height") || "0") || 0;
+    this.maxHeight = parseInt(this.getAttribute("max-height") || "0") || 0;
+
     this.refresh();
+  }
+
+  attributeChangedCallback(name: string, _oldValue: string, newValue: string) {
+    const value = parseInt(newValue);
+    if (isNaN(value))
+      return;
+    switch (name) {
+      case "min-width": {
+        this.minWidth = value;
+        break;
+      }
+      case "max-width": {
+        this.maxWidth = value;
+        break;
+      }
+      case "min-height": {
+        this.minHeight = value;
+        break;
+      }
+      case "max-height": {
+        this.maxHeight = value;
+        break;
+      }
+    }
   }
 
   static setTexts(textupdate: ImgEditTexts) {
@@ -42,6 +86,26 @@ export class ImgEditElement extends FileEditElement {
 
     Object.assign(ImgEditElement.texts, textupdate);
     dompack.qSA<ImgEditElement>("wh-imgedit").forEach(node => node.refresh()); //update any existing nodes
+  }
+
+  async _check() {
+    const error = await super._check();
+    if (!error && this.isSet() && (this.minWidth || this.maxWidth || this.minHeight || this.maxHeight)) {
+      for (const file of this.currentFiles) {
+        if (file.file) {
+          const size = await getImageDimensions(file.file);
+          if (this.minWidth && size.width < this.minWidth)
+            setFieldError(this, getTid("publisher:site.forms.commonerrors.minwidth", size.width, this.minWidth), { reportimmediately: false });
+          else if (this.maxWidth && size.width > this.maxWidth)
+            setFieldError(this, getTid("publisher:site.forms.commonerrors.maxwidth", size.width, this.maxWidth), { reportimmediately: false });
+          else if (this.minHeight && size.height < this.minHeight)
+            setFieldError(this, getTid("publisher:site.forms.commonerrors.minheight", size.height, this.minHeight), { reportimmediately: false });
+          else if (this.maxHeight && size.height > this.maxHeight)
+            setFieldError(this, getTid("publisher:site.forms.commonerrors.maxheight", size.height, this.maxHeight), { reportimmediately: false });
+        }
+      }
+    }
+    return error;
   }
 
   refresh() {
