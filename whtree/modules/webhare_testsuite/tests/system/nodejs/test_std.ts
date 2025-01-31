@@ -12,6 +12,7 @@ import * as test from "@webhare/test";
 import * as env from "@webhare/env";
 import * as std from "@webhare/std";
 import { Money } from "@webhare/std";
+import "temporal-polyfill/global";
 
 export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
@@ -473,14 +474,39 @@ async function testStrings() {
 }
 
 async function testTypes() {
-  test.eq("null", std.stdTypeOf(null));
-  test.eq("undefined", std.stdTypeOf(undefined));
-  test.eq("Array", std.stdTypeOf([]));
-  test.eq("object", std.stdTypeOf({}));
-  test.eq("object", std.stdTypeOf({ a: 42 }));
-  test.eq("object", std.stdTypeOf(JSON.parse(`{"a":43}`)));
-  test.eq("Date", std.stdTypeOf(new Date));
-  test.eq("object", std.stdTypeOf(new Error));
+  const checkmatrix: Array<{ value: unknown; typedStringify?: boolean; stdType: ReturnType<typeof std.stdTypeOf>; quacks: Array<((x: unknown) => boolean)> }> = [
+    { value: new Money("1.23"), stdType: "Money", quacks: [std.isMoney], typedStringify: true },
+    { value: new Date, stdType: "Date", quacks: [std.isDate], typedStringify: true },
+    { value: new Blob([]), stdType: "Blob", quacks: [std.isBlob] },
+    { value: new File([], "file.txt"), stdType: "File", quacks: [std.isBlob, std.isFile] },
+    { value: null, stdType: "null", quacks: [], typedStringify: true },
+    { value: undefined, stdType: "undefined", quacks: [] },
+    { value: [], stdType: "Array", quacks: [Array.isArray], typedStringify: true },
+    { value: {}, stdType: "object", quacks: [], typedStringify: true },
+    { value: { a: 42 }, stdType: "object", quacks: [], typedStringify: true },
+    { value: JSON.parse(`{"a":43}`), stdType: "object", quacks: [], typedStringify: true },
+    { value: new Error, stdType: "object", quacks: [std.isError] }, //we no (longer) have stdTypeOf Error detection
+    { value: { "$stdType": "NotARealObject" }, stdType: "object", quacks: [] },
+    { value: Temporal.Now.instant(), stdType: "Instant", quacks: [std.isTemporalInstant], typedStringify: true },
+    { value: Temporal.Now.plainDate("iso8601"), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
+    { value: Temporal.Now.plainDateTime("iso8601"), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
+  ];
+
+  const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);
+  for (const [idx, row] of checkmatrix.entries()) {
+    test.eq(row.stdType, std.stdTypeOf(row.value), `Row #${idx} - incorrect type`);
+    for (const quack of allquacks) { //test the value against all quacks, ensure only the expected quacks succeed
+      test.eq(row.quacks.includes(quack), quack(row.value), `Row #${idx} with type ${row.stdType} - quack test ${quack.name} failed`);
+    }
+
+    test.eq(row.value, row.value); //ensure the value is itself
+    for (const [otheridx, otherrow] of checkmatrix.slice(0, idx).entries()) //we compare *up* to the current row
+      test.throws(/.*/, () => test.eq(row.value, otherrow.value), `Row #${idx} (${row.stdType}) should not equal row #${otheridx} (${otherrow.stdType})`);
+
+    if (row.typedStringify)
+      test.eq(row.value, std.parseTyped(std.stringify(row.value, { typed: true })), `Row #${idx} with type ${row.stdType} - typed stringify/parse failed`);
+  }
+
   test.eq({ "$stdType": "NotARealObject" }, JSON.parse(std.stringify({ "$stdType": "NotARealObject" })));
   test.throws(/Unrecognized type/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" })));
   test.throws(/already embedded '\$stdType'/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" }, { typed: true })));

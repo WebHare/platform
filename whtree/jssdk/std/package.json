@@ -14,5 +14,8 @@
       "./std.ts"
     ]
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "temporal-polyfill": "^0.2.5"
+  }
 }

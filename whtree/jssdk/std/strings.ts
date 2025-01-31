@@ -160,10 +160,11 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
           value = { "$stdType": "Date", date: (origvalue as Date).toISOString() };
           break;
         case "Money":
-          value = { "$stdType": type, money: (origvalue as Money).toString() };
-          break;
         case "bigint":
-          value = { "$stdType": type, bigint: (origvalue as bigint).toString() };
+        case "Instant":
+        case "PlainDate":
+        case "PlainDateTime":
+          value = { "$stdType": type, [type.toLowerCase()]: (origvalue as { toString: () => string }).toString() };
           break;
         case "object":
           if ("$stdType" in (origvalue as { "$stdType": string }))
@@ -198,6 +199,11 @@ export function parseTyped(input: string) {
       case "bigint":
       case "BigInt": //pre wh5.7 spelling
         return BigInt(value.bigint as string);
+      case "Instant":
+      case "PlainDate":
+      case "PlainDateTime":
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we just assume/require you to have Temporal installed if you expect to receive/decode Temporal types. browsers should catch up eventually
+        return (globalThis as any).Temporal[value["$stdType"]].from(value[value["$stdType"].toLowerCase()]);
       case undefined:
         return value;
       default:
