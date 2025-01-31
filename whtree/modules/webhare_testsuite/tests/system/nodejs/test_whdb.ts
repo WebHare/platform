@@ -523,6 +523,25 @@ async function testFinishHandlers() {
   test.eq("webhare_testsuite:worktest.8", (await eventStream.next()).value.name);
 }
 
+async function testIsolation() {
+  await beginWork({ isolationLevel: "repeatable read" });
+  await query("select 1"); //we need to start querying to actually establish the starting point in PG
+
+  const stash = stashWork();
+  await beginWork();
+  const nextid = await nextVal("webhare_testsuite.exporttest.id");
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "Isolationtest" }).execute();
+  test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  await commitWork();
+
+  test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  stash.restore(); //back to our repeateable read tansaction
+
+  test.eq(undefined, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  await commitWork();
+  await verifyConnectionsInSync();
+}
+
 async function verifyConnectionsInSync() {
   const ourconn = getConnection().pgclient?.processID;
   const vmconn = (await getCodeContextHSVM())?._getHSVM().getCurrentConnection().pgclient?.processID;
@@ -634,10 +653,6 @@ async function testHSRunInSeparatePrimary() {
   test.eq({ separatetest: 1 }, await invoketarget.GetGlobal(), "Test SetGlobal");
   await invoketarget.SetGobalOnCommit({ separatetest: 2 });
 
-  /* we *must* read the exporttest table to ensure repeatable read actually isolates us
-     FIXME why is this as this conflicts with the docs? */
-  await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().executeTakeFirst();
-
   //*we* shouldn't see id2 in our work yet, and the finish handlers shouldn't have fired either
   const id2 = await invoketarget.InsertUsingSeparateTrans();
   test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id2).executeTakeFirst());
@@ -691,6 +706,7 @@ test.runTests([
   testMutex,
   testFinishHandlers,
   testCodeContexts,
+  testIsolation,
   testHSRunInSeparatePrimary,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testSeparatePrimary, //as the test stands, it desyncs us from the HSVM connection, so order it after testHSRunInSeparatePrimary for now

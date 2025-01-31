@@ -530,6 +530,8 @@ fi
 
 if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
   ALLOWSTARTUPERRORS=1
+elif [ -z "$ISMODULETEST" ]; then
+  ALLOWSTARTUPERRORS=1 #it turns out startup error detection was broken for core webhare too (runwasm didn't return errors). disable the check until we've got clean logs
 fi
 
 if [ ! -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then

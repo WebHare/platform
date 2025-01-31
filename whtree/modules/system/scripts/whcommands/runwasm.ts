@@ -10,6 +10,7 @@ async function runWasmScript(script: string, params: string[]) {
   try {
     const vm = await runScript(script, { consoleArguments: params });
     await vm.done;
+    process.exitCode = vm.vm?.deref()?.exitCode ?? 254;
   } finally {
     await bridge.ensureDataSent();
   }

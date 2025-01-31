@@ -34,7 +34,7 @@ async function cleanupOldUploads() {
   const uploadsessions = new Set(uploadsessionids.map(_ => _.sessionid));
   for (const session of currentuploads)
     if (!uploadsessions.has(session.name))
-      await deleteRecursive(`${basedir}/${session}`, { deleteSelf: true });
+      await deleteRecursive(session.fullPath, { deleteSelf: true });
 }
 
 async function rotateLogs() {
