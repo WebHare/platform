@@ -7,8 +7,6 @@ import "../internal/rtd.lang.json";
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 
-const youtubedomain = 'www.youtube.com';
-
 function createMyFrame() {
   const ifrm = document.createElement("iframe");
   ifrm.style.width = "100%";
@@ -24,7 +22,7 @@ function initYouTube(node, video, playback) {
   // List of embed parameters YouTube supports:
   // https://developers.google.com/youtube/player_parameters
 
-  const youtubeUrl = new URL(`//${youtubedomain}/embed/${video.id}`, location.href);
+  const youtubeUrl = new URL(`https://www.youtube.com/embed/${encodeURIComponent(video.id)}`);
 
   if (playback.autoplay)
     youtubeUrl.searchParams.set("autoplay", "1");
@@ -67,7 +65,7 @@ function initVimeo(node, video, playback) {
   // List of embed parameters Vimeo supports:
   // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
 
-  const vimeoUrl = new URL("//player.vimeo.com/video/" + video.id, location.href);
+  const vimeoUrl = new URL(`https://player.vimeo.com/video/${encodeURIComponent(video.id)}`);
 
   if (playback.autoplay)
     vimeoUrl.searchParams.set("autoplay", "1");
