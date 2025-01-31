@@ -11,7 +11,7 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "@webhare/wrd/src/auth";
 import type { ValueQueryChecker } from "./checker";
@@ -46,6 +46,9 @@ export type AwaitableEncodedSetting = Updateable<PlatformDB["wrd.entity_settings
   id?: number;
   attribute: number;
   sub?: Array<AwaitableEncodedSetting | Promise<EncodedSetting[]>>;
+  ///If we also need to encode a link in the WHFS/WRD link table
+  linktype?: typeof LinkTypes[keyof typeof LinkTypes];
+  link?: number;
 };
 /// All values needed for an field update
 export type EncodedValue = {
@@ -2070,6 +2073,48 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
+class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null> {
+  getDefaultValue(): IntExtLink | null {
+    return null;
+  }
+
+  isSet(value: IntExtLink | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): IntExtLink | null {
+    const setting = entity_settings[settings_start];
+    if (!setting.rawdata)
+      return null;
+
+    let result: IntExtLink | null = null;
+    if (setting.rawdata.startsWith("*")) // external link
+      result = new IntExtLink(setting.rawdata.substring(1));
+    else if (setting.rawdata === "WHFS" || setting.rawdata.startsWith("WHFS:")) {
+      const target = links.filter(_ => _.id === setting.id)[0]?.fsobject;
+      if (target)
+        result = new IntExtLink(target, { append: setting.rawdata.substring(5) });
+    } else
+      throw new Error("Unrecognized whfs int/extlink format");
+    return result;
+  }
+
+  validateInput(value: IntExtLink | null, checker: ValueQueryChecker, attrPath: string) {
+    if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
+      throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+  }
+
+  encodeValue(value: IntExtLink | null) {
+    if (!value)
+      return {};
+
+    if (value.internalLink) {
+      return { settings: { rawdata: "WHFS" + (value.append ? ":" + value.append : ""), attribute: this.attr.id, link: value.internalLink, linktype: LinkTypes.FSObject } };
+    } else if (value.externalLink) {
+      return { settings: { rawdata: "*" + value.externalLink, attribute: this.attr.id } };
+    }
+    throw new Error("Invalid whfs int/extlink");
+  }
+}
+
 type WRDDBInteger64Conditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: bigint | number;
 } | {
@@ -2339,7 +2384,6 @@ type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Opti
 
 /// The following accessors are not implemented yet
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }

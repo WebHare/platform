@@ -7,7 +7,7 @@ import { type ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildRTD, ResourceDescriptor, toResourcePath, subscribeToEventStream, type BackendEvent } from "@webhare/services";
+import { buildRTD, ResourceDescriptor, toResourcePath, subscribeToEventStream, type BackendEvent, IntExtLink } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { generateRandomId } from "@webhare/std/platformbased";
@@ -18,7 +18,7 @@ import { wrdSettingId } from "@webhare/services/src/symbols";
 import { Money, type AddressValue } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
-import { buildRTDFromHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
+import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";
 import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 
 
@@ -619,17 +619,63 @@ async function testNewAPI() {
   await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
   // Read the rich document in TypeScript
   let richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
-  test.eq(testHTML, await richdoc!.__getRawHTML());
+  test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
 
   // Set the 'richie' rich document document through TypeScript
   testHTML = `<html><body><p class="normal">test</p></body></html>`;
   await schema.update("wrdPerson", newperson, { richie: await buildRTD([{ p: "test" }]) });
   // Read the rich document in HareScript
   richdoc = await buildRTDFromHareScriptRTD(await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestRichDocumentField(testSchemaTag, newperson) as HareScriptRTD);
-  test.eq(testHTML, await richdoc!.__getRawHTML());
+  test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
   // Read the rich document in TypeScript
   richdoc = (await schema.getFields("wrdPerson", newperson, ["richie"])).richie;
-  test.eq(testHTML, await richdoc!.__getRawHTML());
+  test.eq(testHTML, await exportRTDToRawHTML(richdoc!));
+
+  // Set the 'linkie' intextlink field through HareScript to an internal link
+  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { internallink: 1 });
+  // Read the intextlink in TypeScript
+  let tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
+  test.eq(1, tsLink!.internalLink);
+  test.eq(null, tsLink!.externalLink);
+  test.eq("", tsLink!.append);
+
+  // Set the 'linkie' intextlink field through TypeScript to an internal link
+  let testLink = new IntExtLink(16, { append: "?app=publisher" });
+  await schema.update("wrdPerson", newperson, { linkie: testLink });
+  // Read the intextlink in HareScript
+  let hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  test.assert(hsLink);
+  test.eq(16, hsLink.internallink);
+  test.eq("", hsLink.externallink);
+  test.eq("?app=publisher", hsLink.append);
+  // Read the intextlink in TypeScript
+  tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
+  test.eq(16, tsLink!.internalLink);
+  test.eq(null, tsLink!.externalLink);
+  test.eq("?app=publisher", tsLink!.append);
+
+  // Set the 'linkie' intextlink field through HareScript to an external link
+  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestIntExtLinkField(testSchemaTag, newperson, { externallink: "https://example.org/" });
+  // Read the intextlink in TypeScript
+  tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
+  test.eq(null, tsLink!.internalLink);
+  test.eq("https://example.org/", tsLink!.externalLink);
+  test.eq(null, tsLink!.append);
+
+  // Set the 'linkie' intextlink field through TypeScript to an external link
+  testLink = new IntExtLink("https://webhare.dev/");
+  await schema.update("wrdPerson", newperson, { linkie: testLink });
+  // Read the intextlink in HareScript
+  hsLink = await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestIntExtLinkField(testSchemaTag, newperson) as { internallink: number; externallink: string; append: string } | null;
+  test.assert(hsLink);
+  test.eq(0, hsLink.internallink);
+  test.eq("https://webhare.dev/", hsLink.externallink);
+  test.eq("", hsLink.append);
+  // Read the intextlink in TypeScript
+  tsLink = (await schema.getFields("wrdPerson", newperson, ["linkie"])).linkie;
+  test.eq(null, tsLink!.internalLink);
+  test.eq("https://webhare.dev/", tsLink!.externalLink);
+  test.eq(null, tsLink!.append);
 
   // test array & nested record selectors
   {

@@ -56,6 +56,7 @@ export type CustomExtensions = {
     testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeTypeId.RichDocument;//", { title: "Rich document" });
+    linkie: WRDAttributeTypeId.WHFSIntExtLink;//", { title: "Internal/external link" });
   } & WRDTypeBaseSettings;
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
@@ -176,6 +177,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testStatusrecord", { attributeType: "deprecatedStatusRecord", title: "Status record", allowedValues: ["warning", "error", "ok"] });
   await persontype.createAttribute("testFreeNocopy", { attributeType: "string", title: "Uncopyable free attribute", isUnsafeToCopy: true });
   await persontype.createAttribute("richie", { attributeType: "richDocument", title: "Rich document" });
+  await persontype.createAttribute("linkie", { attributeType: "whfsIntExtLink", title: "Internal/external link" });
 
   const personattachment = await schemaobj.createType("personattachment", { metaType: "attachment", title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   await personattachment.createAttribute("attachfree", { attributeType: "string", title: "Free text attribute" });
