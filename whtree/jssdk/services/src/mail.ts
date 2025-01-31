@@ -37,7 +37,7 @@ class PreparedMail {
     if (!isWorkOpen())
       throw new Error(`Cannot queue mail outside of a work - use beginWork`);
 
-    const sender = await readRegistryKey<string>("system.services.smtp.mailfrom"); //FIXME read from witty's dom
+    const sender = await readRegistryKey("system:services.smtp.mailfrom"); //FIXME read from witty's dom
     const html = await this.templ.run(this.data);
     const headers: Array<{
       field: string;

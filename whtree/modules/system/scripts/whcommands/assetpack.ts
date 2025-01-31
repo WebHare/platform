@@ -134,7 +134,7 @@ const runData = run({
         if (state !== "on" && state !== "off")
           throw new Error("Allowed autocompilation values: on/off");
 
-        await runInWork(() => writeRegistryKey<boolean>("publisher.bundledassets.suspendautocompile", state === "off"));
+        await runInWork(() => writeRegistryKey("publisher:bundledassets.suspendautocompile", state === "off"));
         await (await getControlClient()).reload();
       }
     },

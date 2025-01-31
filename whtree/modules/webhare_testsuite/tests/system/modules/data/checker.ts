@@ -1,7 +1,7 @@
 import { readRegistryKey, type CheckFunction } from "@webhare/services";
 
 export async function runTestsuiteCheck() {
-  const response = await readRegistryKey("webhare_testsuite.tests.response");
+  const response = await readRegistryKey("webhare_testsuite:tests.response");
   if (response !== "checker.ts test")
     return [];
 

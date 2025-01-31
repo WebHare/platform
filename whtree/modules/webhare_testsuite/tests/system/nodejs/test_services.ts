@@ -58,16 +58,16 @@ async function testServices() {
   test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs#default"))());
   test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs"))());
 
-  const runoncekey = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
+  const runoncekey = await services.readRegistryKey("webhare_testsuite:tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);
 
   const nope = false as boolean;
   if (nope) {
-    const runoncekey2 = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
+    const runoncekey2 = await services.readRegistryKey("webhare_testsuite:tests.runoncetest");
     void runoncekey2;
     test.typeAssert<test.Equals<typeof runoncekey2, string>>();
     /// @ts-expect-error -- Verify that key string is determined by the key name
-    await services.writeRegistryKey("webhare_testsuite.tests.runoncetest", 10);
+    await services.writeRegistryKey("webhare_testsuite:tests.runoncetest", 10);
     /// The following should just work (unknown key)
     await services.writeRegistryKey("whatever", 10);
   }
