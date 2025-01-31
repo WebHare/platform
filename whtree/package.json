@@ -57,6 +57,7 @@
     "stack-trace": "0.0.10",
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.10",
+    "temporal-polyfill": "^0.2.5",
     "typeface-roboto": "^1.1.13",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.15.0",

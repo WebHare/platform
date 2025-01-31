@@ -34,6 +34,7 @@ export function dateToParts(date: Date): { days: number; msecs: number } {
   return { days, msecs };
 }
 
+/** @deprecated Switch to Temporal (or use temporal-polyfill) */
 export function utcToLocal(utc: Date, timeZone: string) {
   if (utc.getTime() >= maxDateTimeTotalMsecs || utc.getTime() < defaultDateTime.getTime())
     return utc;
@@ -53,6 +54,7 @@ export function utcToLocal(utc: Date, timeZone: string) {
   return new Date(toparse);
 }
 
+/** @deprecated Switch to Temporal (or use temporal-polyfill) */
 export function localToUTC(local: Date, timeZone: string) {
   // Calculate the timezone offsets a day before and a day after the local date (pretending local is UTC)
   const localTimeMs = local.getTime();

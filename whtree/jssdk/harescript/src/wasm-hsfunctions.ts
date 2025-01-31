@@ -9,7 +9,7 @@ import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, setCachedWebAssemblyModule } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, isPromise, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
-import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
@@ -25,6 +25,7 @@ import type { LocalLockService } from "./wasm-locallockservice";
 import type { AdhocCacheService } from "./wasm-adhoccacheservice";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { isatty } from "node:tty";
+import { Temporal } from "temporal-polyfill";
 
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
@@ -559,15 +560,35 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setJSValue(list.sort());
   });
   wasmmodule.registerExternalFunction("__ICU_LOCALTOUTC::D:DS", (vm, id_set, var_date, var_timezone) => {
+    const hsdt = var_date.getDateTime().getTime();
+    if (hsdt === defaultDateTime.getTime() || hsdt === maxDateTime.getTime()) {
+      id_set.copyFrom(var_date);
+      return;
+    }
+
     try {
-      id_set.setDateTime(localToUTC(var_date.getDateTime(), var_timezone.getString()));
+      //This takes a few steps as Temporal doesn't agree with having Dates that are not UTC, but HS DATETIMEs lack TZ information. Basically HS DATETIME is a Temporal.PlainDateTime
+      const dt = Temporal.Instant.fromEpochMilliseconds(hsdt);
+      const plain = Temporal.TimeZone.from("UTC").getPlainDateTimeFor!(dt);
+      const sourceTz = Temporal.TimeZone.from(var_timezone.getString());
+      id_set.setDateTime(new Date(sourceTz.getInstantFor!(plain, { disambiguation: "later" }).epochMilliseconds));
     } catch (e) {
       id_set.copyFrom(var_date);
     }
   });
   wasmmodule.registerExternalFunction("__ICU_UTCTOLOCAL::D:DS", (vm, id_set, var_date, var_timezone) => {
+    const hsdt = var_date.getDateTime().getTime();
+    if (hsdt === defaultDateTime.getTime() || hsdt === maxDateTime.getTime()) {
+      id_set.copyFrom(var_date);
+      return;
+    }
+
     try {
-      id_set.setDateTime(utcToLocal(var_date.getDateTime(), var_timezone.getString()));
+      const dt = Temporal.Instant.fromEpochMilliseconds(hsdt);
+      const destTz = Temporal.TimeZone.from(var_timezone.getString());
+      const plain = destTz.getPlainDateTimeFor!(dt);
+      const instant = Temporal.TimeZone.from("UTC").getInstantFor!(plain, { disambiguation: "later" });
+      id_set.setDateTime(new Date(instant.epochMilliseconds));
     } catch (e) {
       id_set.copyFrom(var_date);
     }
