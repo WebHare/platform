@@ -21,6 +21,20 @@ PUBLIC RECORD FUNCTION GetTestRichDocumentField(STRING wrdschemaname, INTEGER pe
   RETURN OpenWRDSchema(wrdschemaname)->^wrd_person->GetEntityField(person, "richie");
 }
 
+PUBLIC MACRO SetTestIntExtLinkField(STRING wrdschemaname, INTEGER person, RECORD intextlink)
+{
+  intextlink := ValidateOptions([ internallink := 0, externallink := "", append := "" ], intextlink);
+
+  OpenWRDSchema(wrdschemaname)->^wrd_person->UpdateEntity(person,
+      [ linkie := intextlink
+      ]);
+}
+
+PUBLIC RECORD FUNCTION GetTestIntExtLinkField(STRING wrdschemaname, INTEGER person)
+{
+  RETURN OpenWRDSchema(wrdschemaname)->^wrd_person->GetEntityField(person, "linkie");
+}
+
 PUBLIC STRING ARRAY FUNCTION GetWRDTypeEventMasks(STRING wrdschemaname, STRING typetag)
 {
   RETURN OpenWRDSchema(wrdschemaname)->__GetTypeByTag(typetag)->GetEventMasks();

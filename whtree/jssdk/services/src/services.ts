@@ -32,6 +32,7 @@ export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 
 export type { RichDocument } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
+export { IntExtLink } from "./intextlink";
 
 /** Extend this interface to define the format of your own secret scopes */
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
