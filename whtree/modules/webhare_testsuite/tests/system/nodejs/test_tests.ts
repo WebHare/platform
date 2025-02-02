@@ -5,6 +5,8 @@ import * as std from '@webhare/std';
 // import * as util from 'node:util';
 import * as child_process from 'node:child_process';
 
+import { Temporal } from 'temporal-polyfill';
+
 async function testChecks() {
   //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
   test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
@@ -15,9 +17,13 @@ async function testChecks() {
   test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
   test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
   test.eqPartial({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
-  test.throws(/Expected date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
-  test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
-  test.throws(/Expected date/, () => test.eqPartial({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+  test.throws(/Expected Date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
+  test.throws(/Expected Date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+  test.throws(/Expected Date/, () => test.eqPartial({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+
+  //test Temporal types
+  test.eq(Temporal.Instant.from("2023-01-01T00:00:00Z"), Temporal.Instant.fromEpochMilliseconds(Date.parse("2023-01-01")));
+  test.throws(/Expected Instant:.*actual/, () => test.eq(Temporal.Instant.from("2023-01-01T00:00:00Z"), Temporal.Instant.fromEpochMilliseconds(Date.parse("2022-01-01"))));
 
   //Test promises not evaluating to true
   test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(1)));

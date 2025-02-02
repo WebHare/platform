@@ -1,5 +1,6 @@
 //TODO can we replace ourselves with nodejs util.types in a pure NodeJS environment?
 
+import type { Temporal } from "temporal-polyfill";
 import type { Money } from "./money";
 
 function isCrossRealm(value: unknown): value is object {
@@ -11,6 +12,21 @@ function isCrossRealm(value: unknown): value is object {
 /** Test whether a value looks like an instance of Money */
 export function isMoney(value: unknown): value is Money {
   return Boolean((value as Money)?.["__ moneySymbol"]);
+}
+
+/** Test whether a value looks like an instance of Temporal.Instant */
+export function isTemporalInstant(value: unknown): value is Temporal.Instant {
+  return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.Instant');
+}
+
+/** Test whether a value looks like an instance of Temporal.PlainDateTime */
+export function isTemporalPlainDateTime(value: unknown): value is Temporal.PlainDateTime {
+  return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.PlainDateTime');
+}
+
+/** Test whether a value looks like an instance of Temporal.PlainDate */
+export function isTemporalPlainDate(value: unknown): value is Temporal.PlainDate {
+  return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.PlainDate');
 }
 
 /** Test whether a value looks like an instance of Date (assumes no subclasses) */
@@ -40,9 +56,9 @@ export function isPromise<T>(e: unknown): e is Promise<T> {
 
 /** Check the type of a value, return its JS or STD type
  * @param value - The value to check
- * @returns The type of the value. If the value is an object but recognized as a Money, Date or Blob, that type is returned. If a value looks to be class-constructed, "instance" is returned
+ * @returns The type of the value. If the value is an object but recognized as any of Money, Date, Blob, Temporal.Instant/PlainDate/PlainDateTime, that type is returned.
  */
-export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" {
+export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" | "Instant" | "PlainDate" | "PlainDateTime" | "File" | "Blob" {
   const t = typeof value;
   if (t === "object") {
     if (!value)
@@ -51,8 +67,16 @@ export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "nu
       return "Array";
     if (isMoney(value))
       return "Money";
+    if (isBlob(value))
+      return isFile(value) ? "File" : "Blob";
     if (isDate(value))
       return "Date";
+    if (isTemporalInstant(value))
+      return "Instant";
+    if (isTemporalPlainDate(value))
+      return "PlainDate";
+    if (isTemporalPlainDateTime(value))
+      return "PlainDateTime";
   }
   return t;
 }

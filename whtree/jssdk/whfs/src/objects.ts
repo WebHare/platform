@@ -9,6 +9,7 @@ import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidNa
 import * as std from "@webhare/std";
 import type { WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
+import { Temporal } from "temporal-polyfill";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -22,8 +23,8 @@ interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
 interface ListableFsObjectRow {
   /// Unique identification for this file
   id: number;
-  /// The date and time in UTC when this file was created
-  creationDate: Date;
+  /// The date and time when this file was created
+  creationDate: Temporal.Instant;
   /// The content of the file, for file types which have physical content (all file types except profiles and link files)
   // data: WHDBBlob | null;
   /// A description for this file
@@ -50,10 +51,10 @@ interface ListableFsObjectRow {
   isFolder: boolean;
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
   keywords: string;
-  /// The date and time in UTC when this file was first published
-  firstPublishDate: Date;
-  /// The date and time in UTC when this file was last published
-  // lastPublishDate: Date;
+  /// The date and time  when this file was first published
+  firstPublishDate: Temporal.Instant;
+  /// The date and time  when this file was last published
+  // lastPublishDate: Temporal.Instant;
   /// The size of the item since its last publication
   // lastPublishSize: number;
   /// The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.
@@ -62,10 +63,10 @@ interface ListableFsObjectRow {
   // scanData: string;
   /// The id of the user that modified this item last.
   // modifiedBy: number | null;
-  /// The date and time in UTC when any file (meta)data was last modified
-  modificationDate: Date;
-  /// The date and time in UTC when this file's content was last modified
-  contentModificationDate: Date;
+  /// The date and time when any file (meta)data was last modified
+  modificationDate: Temporal.Instant;
+  /// The date and time when this file's content was last modified
+  contentModificationDate: Temporal.Instant;
   /// The name for this file, which must be unique inside its parent folder
   name: string;
   /// Relative ordering of this file
@@ -100,8 +101,8 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   keywords?: string;
   data?: ResourceDescriptor | null;
   publish?: boolean;
-  firstPublishDate?: Date;
-  contentModificationDate?: Date;
+  firstPublishDate?: Temporal.Instant;
+  contentModificationDate?: Temporal.Instant;
 }
 
 export type CreateFolderMetadata = CreateFSObjectMetadata;
@@ -147,8 +148,8 @@ export class WHFSObject {
   get whfsPath() { return this.dbrecord.whfspath; }
   get parentSite() { return this.dbrecord.parentsite; }
   get type() { return this._typens; }
-  get creationDate(): Date { return this.dbrecord.creationdate; }
-  get modificationDate(): Date { return this.dbrecord.modificationdate; }
+  get creationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime()); }
+  get modificationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime()); }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -171,8 +172,8 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.omit(metadata as UpdateFileMetadata, ["type", "data", "publish", "firstPublishDate", "contentModificationDate"]); //we need to upcast to be able to remove 'data'
-    const moddate = storedata.modificationdate || new Date;
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "isPinned", "keywords", "name"]);
+    const moddate = Temporal.Now.instant();
 
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
@@ -184,9 +185,9 @@ export class WHFSObject {
 
     if (this.isFile) {
       if ((metadata as UpdateFileMetadata).firstPublishDate)
-        storedata.firstpublishdate = (metadata as UpdateFileMetadata).firstPublishDate;
+        storedata.firstpublishdate = new Date((metadata as UpdateFileMetadata).firstPublishDate!.epochMilliseconds);
       if ((metadata as UpdateFileMetadata).contentModificationDate)
-        storedata.contentmodificationdate = (metadata as UpdateFileMetadata).contentModificationDate;
+        storedata.contentmodificationdate = new Date((metadata as UpdateFileMetadata).contentModificationDate!.epochMilliseconds);
     }
 
     if (this.isFile && (metadata as UpdateFileMetadata).publish) {
@@ -196,9 +197,9 @@ export class WHFSObject {
       if (curfields && !isPublish(curfields.published)) {
         storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
         if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = moddate;
+          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);;
         if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
-          storedata.firstpublishdate = moddate;
+          storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
       }
     }
 
@@ -208,7 +209,7 @@ export class WHFSObject {
         storedata.scandata = await addMissingScanData(resdescr, { fileName: metadata.name || this.name });
         storedata.data = resdescr?.resource || null;
         if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = moddate;
+          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
       } else {
         storedata.scandata = '';
       }
@@ -221,7 +222,7 @@ export class WHFSObject {
     if (!Object.keys(storedata).length)
       return; //nothing to update
 
-    storedata.modificationdate = moddate;
+    storedata.modificationdate = new Date(moddate.epochMilliseconds);
     await db<PlatformDB>()
       .updateTable("system.fs_objects")
       .where("id", "=", this.id)
@@ -236,11 +237,11 @@ export class WHFSFile extends WHFSObject {
   get publish() {
     return isPublish(this.dbrecord.published);
   }
-  get firstPublishDate(): Date | null {
-    return this.dbrecord.firstpublishdate === defaultDateTime ? null : this.dbrecord.firstpublishdate;
+  get firstPublishDate(): Temporal.Instant | null {
+    return this.dbrecord.firstpublishdate === defaultDateTime ? null : Temporal.Instant.fromEpochMilliseconds(this.dbrecord.firstpublishdate.getTime());
   }
-  get contentModificationDate(): Date | null {
-    return this.dbrecord.contentmodificationdate === defaultDateTime ? null : this.dbrecord.contentmodificationdate;
+  get contentModificationDate(): Temporal.Instant | null {
+    return this.dbrecord.contentmodificationdate === defaultDateTime ? null : Temporal.Instant.fromEpochMilliseconds(this.dbrecord.contentmodificationdate.getTime());
   }
   get data(): ResourceDescriptor {
     const meta: ResourceMetaDataInit = {
@@ -363,8 +364,16 @@ export class WHFSFolder extends WHFSObject {
         externallink: "",
         isfolder: Boolean(type.foldertype),
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
-        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate ?? (initialPublish ? creationdate : defaultDateTime),
-        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModificationDate ?? (initialPublish || initialData ? creationdate : defaultDateTime),
+        firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate
+          ? new Date((metadata! as CreateFileMetadata).firstPublishDate!.epochMilliseconds)
+          : initialPublish
+            ? creationdate
+            : defaultDateTime,
+        contentmodificationdate: (metadata as CreateFileMetadata)?.contentModificationDate
+          ? new Date((metadata! as CreateFileMetadata).contentModificationDate!.epochMilliseconds)
+          : initialPublish || initialData
+            ? creationdate
+            : defaultDateTime,
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
         lastpublishtime: 0,

@@ -1,7 +1,7 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { Money, isDate, isError, isPromise, sleep } from "@webhare/std";
+import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 
 export type { LoadTSTypeOptions } from "./testsupport";
@@ -52,19 +52,17 @@ export class TestError extends Error {
   }
 }
 
-function myTypeOf(item: unknown) {
-  if (item === undefined) return 'undefined';
-  if (item === null) return 'null';
-
-  if ((item as Node).nodeName) {
-    if ((item as Node).nodeType === 1) return 'element';
-    if ((item as Node).nodeType === 3) return (/\S/).test((item as Node).nodeValue || '') ? 'textnode' : 'whitespace';
+function myTypeOf(item: unknown): ReturnType<typeof stdTypeOf> | "Error" | "element" | "textnode" | "whitespace" {
+  const type = stdTypeOf(item);
+  if (type === "object") {
+    if (isError(item))
+      return "Error";
+    if ((item as Node).nodeName) {
+      if ((item as Node).nodeType === 1) return 'element';
+      if ((item as Node).nodeType === 3) return (/\S/).test((item as Node).nodeValue || '') ? 'textnode' : 'whitespace';
+    }
   }
-
-  if (isDate(item))
-    return "date";
-
-  return typeof item;
+  return type;
 }
 
 function presentDomNode(node: Node) {
@@ -167,50 +165,33 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
   if (Money.isMoney(expected))
     return testMoney(expected, actual, path, annotation);
 
-  const t_expected = typeof expected;
-  const t_actual = typeof actual;
-  if (t_expected !== t_actual)
-    throw new TestError("Expected type: " + t_expected + " actual type: " + t_actual + (path !== "" ? " at " + path : ""), annotation);
-
-  if (typeof expected !== "object") {//simple value mismatch
-    if (typeof expected === "number" && isNaN(expected) && isNaN(actual as number))
-      return;
-
-    if (typeof expected === "string" && typeof actual === "string") {
-      printColoredTextDiff(expected, actual);
-    }
-
-    throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
-  }
-
   if (isPromise(expected))
     throw new TestError(`Passing a Promise to test.eq's expected value - did you mean to await it?`, annotation);
   if (isPromise(actual))
     throw new TestError(`Passing a Promise to test.eq's actual value - did you mean to await it?`, annotation);
 
-  // Deeper type comparison
   const type_expected = myTypeOf(expected);
   const type_actual = myTypeOf(actual);
-
   if (type_expected !== type_actual)
     throw new TestError("Expected type: " + type_expected + " actual type: " + type_actual + (path !== "" ? " at " + path : ""), annotation);
 
-  if (type_expected === 'date') {
-    expected = JSON.stringify(expected);
-    actual = JSON.stringify(actual);
-    if (expected !== actual)
-      throw new TestError("Expected date: " + expected + " actual date: " + actual + (path !== "" ? " at " + path : ""), annotation);
-    return;
+  if (["number", "string", "Date", "Instant", "PlainDate", "PlainDateTime"].includes(type_expected)) {
+    const str_expected = type_expected === "Date" ? (expected as Date).toISOString() : (expected as object).toString();
+    const str_actual = type_actual === "Date" ? (actual as Date).toISOString() : (actual as object).toString();
+    if (str_expected === str_actual)
+      return;
+
+    printColoredTextDiff(str_expected, str_actual);
+    throw new TestError(`Expected ${type_expected}: ${str_expected}, actual: ${str_actual}${path !== "" ? " at " + path : ""}`, annotation);
   }
+
+  if (typeof expected !== "object") //simple value mismatch
+    throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
 
   if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected !== actual) {
     onLog("Expected node: ", expected);
     onLog("Actual node:", actual);
     throw new TestError("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path !== "" ? " at " + path : ""), annotation);
-  }
-
-  if (['window', 'collection', 'document'].includes(type_expected) && expected !== actual) {
-    throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
   }
 
   if (Array.isArray(expected) && Array.isArray(actual)) {
@@ -273,7 +254,7 @@ function testStringify(val: unknown): string {
         return `Date("${val.toISOString()}")`;
       if (Array.isArray(val))
         return `[${val.map(testStringify).join(", ")}]`;
-      return `{${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}}`;
+      return `{ ${Object.entries(val).toSorted(([lhsKey], [rhsKey]) => lhsKey.localeCompare(rhsKey)).map(([k, v]) => `${k}: ${testStringify(v)}`).join(", ")}} `;
     default:
       return JSON.stringify(val);
   }
@@ -316,7 +297,7 @@ export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, annota
 */
 export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
   if (isPromise(actual))
-    throw new TestError(`You cannot assert on a promise. Did you forget to await it?`, annotation);
+    throw new TestError(`You cannot assert on a promise.Did you forget to await it ? `, annotation);
 
   if (actual)
     return; //test passed is actual was 'true'
@@ -343,7 +324,7 @@ async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation
 //handle the failure of throws(Async)
 function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
   //If we get here, no exception occurred
-  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, annotation);
+  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()} `, annotation);
 
   onLog("Expected exception: ", expect.toString());
   if (retval === undefined)
@@ -417,11 +398,19 @@ export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
 }
 
 function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+  switch (stdTypeOf(expect)) {
+    case "Date":
+    case "Money":
+    case "Instant":
+      testDeepEq(expect, actual, path, annotation);
+      return;
+  }
+
   switch (typeof expect) {
     case "undefined": {
       if (expect !== actual) {
         onLog({ expect, actual });
-        throw new TestError(`Mismatched value at ${path}`, annotation);
+        throw new TestError(`Mismatched value at ${path} `, annotation);
       }
       return;
     }
@@ -429,35 +418,30 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
       return testTestFunction(expect as TestFunction<unknown>, actual, path, annotation);
     case "object":
       {
-        if (isDate(expect) || isDate(actual) || Money.isMoney(expect) || Money.isMoney(actual)) {
-          testDeepEq(expect, actual, path, annotation);
-          return;
-        }
-
         if (expect instanceof RegExp)
           return testRegExp(expect, actual, path, annotation);
 
         if (expect === null) {
           if (expect !== actual) {
             onLog({ expect, actual });
-            throw new TestError(`Mismatched value at ${path}`, annotation);
+            throw new TestError(`Mismatched value at ${path} `, annotation);
           }
           return;
         }
         const expectarray = Array.isArray(expect);
         if (expectarray !== Array.isArray(actual)) {
           onLog({ expect, actual });
-          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`, annotation);
+          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path} `, annotation);
         }
         if (expectarray) {
           if (!Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array, got object, at ${path}`, annotation);
+            throw new TestError(`Expected array, got object, at ${path} `, annotation);
           }
 
           if (expect.length !== actual.length) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`, annotation);
+            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path} `, annotation);
           }
           for (let i = 0; i < expect.length; ++i)
             eqPropsRecurse(expect[i], actual[i], `${path} [${i}]`, ignore, annotation);
@@ -465,14 +449,14 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
         } else {
           if (Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected object, got array, at ${path}`, annotation);
+            throw new TestError(`Expected object, got array, at ${path} `, annotation);
           }
 
         }
 
         if (typeof actual !== "object" || !actual) {
           onLog({ expect, actual });
-          throw new TestError(`Mismatched value at ${path}`, annotation);
+          throw new TestError(`Mismatched value at ${path} `, annotation);
         }
 
         const gotkeys = Object.keys(actual);
