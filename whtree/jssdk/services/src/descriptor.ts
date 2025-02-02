@@ -1,5 +1,5 @@
 import type { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
+import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
 import { pick, slugify } from "@webhare/std";
 import * as crypto from "node:crypto";
@@ -7,7 +7,6 @@ import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
 import { createSharpImage } from "@webhare/deps";
-import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeBMP } from "./bmp-to-raw";

@@ -15,10 +15,9 @@ import {
 } from 'kysely';
 
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
-import { type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
+import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
-import type { BackendEvent } from '@webhare/services/src/backendevents.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';

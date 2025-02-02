@@ -33,6 +33,7 @@
     "diff": "^5.2.0",
     "esbuild": "^0.21.1",
     "eslint": "^9.15.0",
+    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-tsdoc": "^0.3.0",
     "events": "^3.3.0",
