@@ -26,8 +26,6 @@ export type {
   Assignable,
   Equals,
   Extends,
-  RecursiveOrRegExp,
-  RecursivePartialOrRegExp,
   RevEquals,
 } from './checks';
 

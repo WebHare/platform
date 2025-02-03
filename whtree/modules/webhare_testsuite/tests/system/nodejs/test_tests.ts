@@ -43,6 +43,19 @@ async function testChecks() {
   ///@ts-expect-error -- TS also rejects the regexp on the RHS
   test.throws(/Expected type/, () => test.eq({ text: "Heb jij mijn konijntje gezien?" }, { text: /konijntje/ }), "Only 'expect' is allowed to hold regexes");
 
+  //test comparison callbacks
+  test.eq(val => val === "konijntje", "konijntje");
+  test.eq([val => val === "konijntje"], ["konijntje"]);
+  test.eq({ x: val => val === "konijntje" }, { x: "konijntje" });
+  test.eqPartial({ x: val => val === "konijntje" }, { x: "konijntje" });
+  test.eq({ x: val => val.y === "konijntje" }, { x: { y: "konijntje" } });
+  test.eqPartial({ x: val => val.y === "konijntje" }, { x: { y: "konijntje" } });
+
+  test.throws(/test function failed/, () => test.eq(val => val === "konijntje", "aapje"));
+  test.throws(/test function failed/, () => test.eq([val => val === "konijntje"], ["aapje"]));
+  test.throws(/test function failed/, () => test.eq({ x: val => val === "konijntje" }, { x: "aapje" }));
+  test.throws(/test function failed/, () => test.eqPartial({ x: val => val === "konijntje" }, { x: "aapje" }));
+
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
 

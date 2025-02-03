@@ -4,7 +4,7 @@
    Other @webhare/ libs should avoid depending on HSCompat
 */
 import * as test from "@webhare/test";
-import { Money } from "@webhare/std";
+import { isBlob, Money, toCamelCase, toSnakeCase } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType } from "@webhare/hscompat";
 import { compare, lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
 import { getRoundedDateTime, localizeDate } from "@webhare/hscompat/datetime";
@@ -38,6 +38,14 @@ function testStrings() {
   test.eq(false, isNotLike("testje", "*est*"));
   test.eq(false, isNotLike("a", "?*"));
   test.eq(true, isNotLike("", "?*"));
+}
+
+async function testBlobs() {
+  //verify WebHareBlob (and thus HSVMBlob) are properly recognized as a Blob so they can safely be marshalled
+  const blobbie: WebHareBlob = WebHareBlob.from("Ik ben een blob");
+  test.assert(isBlob(blobbie), "It has to quack like a blob for toCamelCase/toSnakeCase to work");
+  test.eq({ camelBlob: (b: Blob) => b === blobbie && "arrayBuffer" in b && !("arraybuffer" in b) && !("array_buffer" in b) }, toCamelCase({ camel_blob: blobbie }));
+  test.eq({ camel_blob: (b: Blob) => b === blobbie && "arrayBuffer" in b && !("arraybuffer" in b) && !("array_buffer" in b) }, toSnakeCase({ camelBlob: blobbie }));
 }
 
 async function testCompare() {
@@ -569,6 +577,7 @@ function testOmitHareScriptDefaultValues() {
 
 test.run([
   testStrings,
+  testBlobs,
   testCompare,
   testRecordLowerBound,
   testRecordUpperBound,

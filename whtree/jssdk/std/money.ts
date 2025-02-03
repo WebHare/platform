@@ -10,6 +10,7 @@
 */
 
 import * as finmath from "./finmath"; //TODO absorb into us as soon as noone externally depends on finmath anymore
+import { isMoney } from "./quacks";
 
 export type MoneyRoundingMode = "none" | "toward-zero" | "down" | "up" | "half-toward-zero" | "half-down" | "half-up" | "toward-infinity" | "half-toward-infinity";
 export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";
@@ -147,7 +148,7 @@ export class Money {
   }
 
   static isMoney(value: unknown): value is Money {
-    return Boolean((value as Money)?.["__ moneySymbol"]);
+    return isMoney(value);
   }
 
   static fromNumber(value: number): Money {
@@ -260,11 +261,11 @@ export class Money {
   }
 
   toJSON(): string {
-    return finmath.formatPrice(this.value, ".", 0);
+    return this.value;
   }
 
   toString(): string {
-    return finmath.formatPrice(this.value, ".", 0);
+    return this.value;
   }
 
   toNumber(): number {

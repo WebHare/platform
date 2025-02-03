@@ -39,6 +39,7 @@ function testEqMoney(expect: string, actual: Money) {
 function testMoney() {
   //test the constructor
   test.eq('"0"', JSON.stringify(new Money));
+  test.eq("Money", std.stdTypeOf(new Money));
   test.eq('"0"', JSON.stringify(new Money('-0')));
   test.eq('"0"', JSON.stringify(new Money('0')));
   test.eq(new Money("15.5"), new Money("15.50"));
@@ -411,18 +412,6 @@ async function testStrings() {
   test.eq("\n", std.decodeString("<br>", "html"), "Verify our <br> is decoded");
   //TODO strip all html, HS DecodeHTML learned that too?
 
-  test.eq(JSON.stringify({ a: { b: 42 } }), std.stringify({ a: { b: 42 } }, { stable: true }));
-  test.eq(std.stringify({ a1: { b1: 45, b2: 43 }, a2: 44 }, { stable: true }), std.stringify({ a2: 44, a1: { b2: 43, b1: 45 } }, { stable: true }));
-
-  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }));
-  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }, { target: "string" }));
-  test.eq(`{"a":"<\\/script>"}`, std.stringify({ a: "</script>" }, { target: "script" }));
-  test.eq(`{&quot;a&quot;:&quot;&lt;\\/script&gt;&quot;}`, std.stringify({ a: "</script>" }, { target: "attribute" }));
-
-  test.eq({ "$stdType": "NotARealObject" }, JSON.parse(std.stringify({ "$stdType": "NotARealObject" })));
-  test.throws(/Unrecognized type/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" })));
-  test.throws(/already embedded '\$stdType'/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" }, { typed: true })));
-
   test.eq("ab", std.slugify("\x1Fab"));
   test.eq("a-b", std.slugify("a\u00A0b"));
   test.eq("uber-12-strassen", std.slugify(".Über '12' _Straßen_.?"));
@@ -463,6 +452,35 @@ async function testStrings() {
 
   test.eq("TéST0-9_()A", std.toCLocaleUppercase("tésT0-9_()a"));
   test.eq("tÉst0-9_()a", std.toCLocaleLowercase("TÉSt0-9_()A"));
+}
+
+async function testTypes() {
+  test.eq("null", std.stdTypeOf(null));
+  test.eq("undefined", std.stdTypeOf(undefined));
+  test.eq("Array", std.stdTypeOf([]));
+  test.eq("object", std.stdTypeOf({}));
+  test.eq("object", std.stdTypeOf({ a: 42 }));
+  test.eq("object", std.stdTypeOf(JSON.parse(`{"a":43}`)));
+  test.eq("Date", std.stdTypeOf(new Date));
+  test.eq("object", std.stdTypeOf(new Error));
+  test.eq({ "$stdType": "NotARealObject" }, JSON.parse(std.stringify({ "$stdType": "NotARealObject" })));
+  test.throws(/Unrecognized type/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" })));
+  test.throws(/already embedded '\$stdType'/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" }, { typed: true })));
+
+  //Verify that the typed checks aren't confusing the stringifier for basic types
+  for (const toStringify of [null, undefined, 42, "string", true, false, [42]]) {
+    test.eq(JSON.stringify(toStringify), std.stringify(toStringify));
+    test.eq(JSON.stringify(toStringify), std.stringify(toStringify, { typed: true }));
+    test.eq(JSON.stringify(toStringify), std.stringify(toStringify, { stable: true }));
+  }
+
+  test.eq(JSON.stringify({ a: { b: 42 } }), std.stringify({ a: { b: 42 } }, { stable: true }));
+  test.eq(std.stringify({ a1: { b1: 45, b2: 43 }, a2: 44 }, { stable: true }), std.stringify({ a2: 44, a1: { b2: 43, b1: 45 } }, { stable: true }));
+
+  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }));
+  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }, { target: "string" }));
+  test.eq(`{"a":"<\\/script>"}`, std.stringify({ a: "</script>" }, { target: "script" }));
+  test.eq(`{&quot;a&quot;:&quot;&lt;\\/script&gt;&quot;}`, std.stringify({ a: "</script>" }, { target: "attribute" }));
 }
 
 function testLevenstein() {
@@ -685,8 +703,9 @@ function testBigInt() {
     space: 2
   }));
 
-  test.eq({ "$stdType": "BigInt", "bigint": "43" }, JSON.parse(std.stringify(43n, { typed: true })));
+  test.eq({ "$stdType": "bigint", "bigint": "43" }, JSON.parse(std.stringify(43n, { typed: true })));
   test.eq(43n, std.parseTyped(std.stringify(43n, { typed: true })));
+  test.eq(43n, std.parseTyped('{ "$stdType": "BigInt", "bigint": "43" }'), "Verify any pre-wh5.7 bigint doesn't break");
   test.eq({ deep: 44n, deeper: [45n] }, std.parseTyped(std.stringify({ deep: 44n, deeper: [45n] }, { typed: true })));
 }
 
@@ -700,10 +719,15 @@ function testCaseChanging() {
   test.typeAssert<test.Equals<{ messageText: string }, std.ToCamelCase<{ message_text: string }>>>();
   test.typeAssert<test.Equals<{ aB: { cD: string } }, std.ToCamelCase<{ a_b: { c_d: string } }>>>();
 
+  const blobbie = new Blob(["test"], { type: "text/plain" });
+  function verifyBlob(x: Blob) {
+    return x.size === 4 && x.type === "text/plain" && std.isBlob(x);
+  }
+
   test.eq({ message_text: "test" }, std.toSnakeCase({ messageText: "test" }));
-  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test" }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test" }] }));
+  test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23"), my_blob: verifyBlob }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23"), myBlob: blobbie }] }));
   test.eq({ messageText: "test" }, std.toCamelCase({ message_text: "test" }));
-  test.eq({ deepArray: [{}, { messageText: "test" }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test" }] }));
+  test.eq({ deepArray: [{}, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23"), myBlob: verifyBlob }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23"), my_blob: blobbie }] }));
 }
 
 function testUUIDFallback() {
@@ -722,6 +746,7 @@ test.run([
   testDateTime,
   "Crypto and strings",
   testStrings,
+  testTypes,
   testLevenstein,
   testEmails,
   testUrls,
