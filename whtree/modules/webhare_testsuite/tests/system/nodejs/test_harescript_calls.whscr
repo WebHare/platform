@@ -42,6 +42,13 @@ STRING calljs_randomonce := CallJS("./data/calls.ts#getOnceRandom");
 STRING calljs_randomtwice := CallJS("./data/calls.ts#getOnceRandom");
 TestEq(calljs_randomonce, calljs_randomtwice, "Should be equal as we expect CallJS to cache loaded lib instances");
 
+IF(NOT IsWasm()) { //Running twice, the second one should not fail outside WASM as CallJS-es should all be in separate scopes
+  CallJS("./data/calls.ts#leakWork");
+  TestEq(FALSE, CallJS("./data/calls.ts#isWorkOpen"));
+  CallJS("./data/calls.ts#leakWork");
+  TestEq(FALSE, CallJS("./data/calls.ts#isWorkOpen"));
+}
+
 IF(IsWasm()) //Remove once CallAsync is eliminated
   TestEq(randomonce, calljs_randomonce, "In WASM mode ImportJS and CallJS shouldn't make a difference");
 ELSE
