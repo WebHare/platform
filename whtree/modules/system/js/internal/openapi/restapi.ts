@@ -3,9 +3,8 @@ import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestPar
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
-import { resolveResource, toFSPath } from "@webhare/services";
+import { loadJSFunction, resolveResource, toFSPath } from "@webhare/services";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
-import { loadJSFunction } from "../resourcetools";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { AsyncWorker } from "../worker";

@@ -1,6 +1,6 @@
 import { addBestMatch } from "@webhare/js-api-tools/src/levenshtein";
 import { BackendServiceConnection } from "@webhare/services/src/backendservicerunner";
-import { registerAsDynamicLoadingLibrary } from "@mod-system/js/internal/hmrinternal.ts";
+import { registerAsDynamicLoadingLibrary } from "@webhare/services/src/hmrinternal";
 import { toFSPath } from "@webhare/services/src/resources";
 import { isPromise } from "@webhare/std";
 

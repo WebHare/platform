@@ -1,9 +1,9 @@
 import { logError } from "@webhare/services/src/logging";
-import { loadJSFunction } from "../resourcetools";
-import { registerAsNonReloadableLibrary } from "../hmrinternal";
+import { registerAsNonReloadableLibrary } from "../../../../../jssdk/services/src/hmrinternal";
 import type { TypedMessagePort } from "./transport";
 import type { LocalServiceHandlerBase, LocalServiceRequest, LocalServiceResponse } from "@webhare/services/src/localservice";
 import { localServiceHandlerAddPort } from "@webhare/services/src/symbols";
+import { loadJSFunction } from "@webhare/services";
 
 export type LocalServiceFactory = () => Promise<LocalServiceHandlerBase> | LocalServiceHandlerBase;
 

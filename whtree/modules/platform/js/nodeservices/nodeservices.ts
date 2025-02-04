@@ -3,7 +3,8 @@
 
 */
 
-import { BackendServiceConnection, activateHMR, runBackendService } from '@webhare/services';
+import { BackendServiceConnection, runBackendService } from '@webhare/services';
+import { activateHMR } from '@webhare/services/src/hmrinternal';
 import type { WebHareService } from '@webhare/services/src/backendservicerunner';
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";

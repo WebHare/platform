@@ -1,5 +1,6 @@
 import { existsSync, promises as fs } from "node:fs";
-import { activateHMR, backendConfig, openBackendService, registerAsDynamicLoadingLibrary, toFSPath } from "@webhare/services";
+import { backendConfig, openBackendService, toFSPath } from "@webhare/services";
+import { activateHMR, registerAsDynamicLoadingLibrary } from "@webhare/services/src/hmr";
 import { autoCompleteCLIRunScript, enableAutoCompleteMode, parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { debugFlags } from "@webhare/env";
 import * as http from "node:http";

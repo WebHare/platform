@@ -1,7 +1,6 @@
-import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 import { type ToSnakeCase, toSnakeCase } from "@webhare/hscompat";
+import { loadJSFunction, resolveResource } from "@webhare/services";
 import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
-import { resolveResource } from "@webhare/services/src/resources";
 
 type CheckScopes = "gdpr" | "policy";
 

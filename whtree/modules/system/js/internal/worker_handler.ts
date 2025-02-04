@@ -1,11 +1,11 @@
 import { type TransferListItem, workerData } from "node:worker_threads";
 import type { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
-import { loadJSFunction } from "./resourcetools";
 import { describePublicInterface } from "@webhare/services/src/backendservicerunner";
 import { encodeIPCException } from "./whmanager/ipc";
 import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
-import { activateHMR } from "@webhare/services/src/services";
 import { ReturnValueWithTransferList } from "@webhare/services/src/localservice";
+import { loadJSFunction } from "@webhare/services";
+import { activateHMR } from "@webhare/services/src/hmr";
 
 export type ServiceRequestFactoryFunction = (...params: unknown[]) => Promise<object> | object;
 export type ServiceRequestConstructor = { new(...args: unknown[]): object };

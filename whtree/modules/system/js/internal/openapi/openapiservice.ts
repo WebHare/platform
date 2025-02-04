@@ -5,7 +5,7 @@ import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services
 import { LogInfo, RestAPI } from "./restapi";
 import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, HTTPSuccessCode } from "@webhare/router";
 import type { WebRequestInfo, WebResponseInfo } from "../types";
-import { registerLoadedResource } from "../hmrinternal";
+import { registerResourceDependency } from "../../../../../jssdk/services/src/hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
@@ -161,10 +161,10 @@ export async function getServiceInstance(servicename: string) {
     throw new Error(`Invalid OpenAPI service name: ${servicename}`);
 
   const apispec_fs = toFSPath(serviceinfo.spec);
-  registerLoadedResource(module, apispec_fs);
+  registerResourceDependency(module, apispec_fs);
   const apimerge_fs = serviceinfo.merge && toFSPath(serviceinfo.merge);
   if (apimerge_fs)
-    registerLoadedResource(module, apimerge_fs);
+    registerResourceDependency(module, apimerge_fs);
 
   // Read and parse the OpenAPI Yaml definition
   const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));

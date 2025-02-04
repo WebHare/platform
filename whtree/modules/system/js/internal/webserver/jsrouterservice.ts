@@ -1,7 +1,7 @@
 import type { WebRequestInfo, WebResponseInfo } from "../types";
-import { loadJSFunction } from "../resourcetools";
 import { newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
 import { type WebHareRouter, createWebResponse } from "@webhare/router/src/router";
+import { loadJSFunction } from "@webhare/services";
 import { BackendServiceConnection } from "@webhare/services/src/backendservicerunner";
 
 class JSRouter extends BackendServiceConnection {

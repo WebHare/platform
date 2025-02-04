@@ -1,4 +1,4 @@
-import { registerAsDynamicLoadingLibrary } from "@mod-system/js/internal/hmr";
+import { registerAsDynamicLoadingLibrary } from "@webhare/services/src/hmr";
 import { register } from "./keeper";
 
 export async function dynimport(lib: string) {

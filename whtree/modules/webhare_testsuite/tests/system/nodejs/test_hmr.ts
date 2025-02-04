@@ -2,9 +2,8 @@ import { map } from "./hmrlibs/keeper";
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { registerLoadedResourceWithCallback, activate } from "@mod-system/js/internal/hmrinternal";
-import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { toFSPath, backendConfig } from "@webhare/services";
+import { toFSPath, backendConfig, loadJSFunction } from "@webhare/services";
+import { addResourceChangeListener, activateHMR } from "@webhare/services/src/hmr";
 import { storeDiskFile } from "@webhare/system-tools";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 
@@ -15,7 +14,7 @@ async function testFileEdits() {
   // make sure the bridge is ready to receive events
   await bridge.ready;
 
-  activate();
+  activateHMR();
 
   const path_root = require.resolve("./hmrlibs/root.ts");
   const path_dep = require.resolve("./hmrlibs/dep.ts");
@@ -96,7 +95,7 @@ async function testFileEdits() {
 
   // test callbacks
   const stateTest = { count: 0 };
-  registerLoadedResourceWithCallback(module, path_resource, () => {
+  addResourceChangeListener(module, path_resource, () => {
     stateTest.count++;
   });
   await storeDiskFile(path_resource, fs.readFileSync(path_resource, "utf-8"), { overwrite: true });
@@ -135,24 +134,24 @@ async function testModuleReplacement() {
   </meta>
 </module>`,
     "js/file2.ts": `import { func } from "@mod-webhare_testsuite_hmrtest/js/file"; export function func2() { return func(); }`,
-    "js/file3.ts": `import { registerLoadedResource } from "@mod-system/js/internal/hmrinternal";
+    "js/file3.ts": `import { registerResourceDependency } from "@webhare/services";
 import { toFSPath } from "@webhare/services";
 import * as fs from "node:fs";
 const fspath = toFSPath("mod::webhare_testsuite_hmrtest/js/data.txt");
 const file = fs.readFileSync(fspath).toString();
-registerLoadedResource(module, fspath);
+registerResourceDependency(module, fspath);
 export function func3() { return Number(file.trim()); }
 `
   });
 
-  const loaderfilepath = toFSPath("mod::system/js/internal/resourcetools.ts");
+  const loaderfilepath = backendConfig.installationroot + "jssdk/services/src/resourcetools.ts";
 
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
 
-  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
-  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
-  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
+  test.eq(1, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+  test.eq(1, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
+  test.eq(1, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
   const orgpath = backendConfig.module["webhare_testsuite_hmrtest"].root;
   test.eq(hmrtestresult.path + '/', orgpath); //not sure if ImportModule should be returning without slash, but not modifying any APIs right now if we don't have to
   test.eq(hmrtestresult2.path + '/', backendConfig.module["webhare_testsuite_hmrtest2"].root);
@@ -187,9 +186,9 @@ export function func3() { return Number(file.trim()); }
 
   test.eq(hmrtestresult_reupload.path + '/', backendConfig.module["webhare_testsuite_hmrtest"].root, "Path in config object should have been updated");
   test.assert(orgpath !== backendConfig.module["webhare_testsuite_hmrtest"].root, `new path ${backendConfig.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
-  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
-  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
-  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
+  test.eq(2, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+  test.eq(2, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
+  test.eq(2, (await loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
 
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));

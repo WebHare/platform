@@ -9,7 +9,7 @@ import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
 import type { RichTextDocument } from "./richdocument";
 
-export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource, registerLoadedResourceWithCallback } from "@mod-system/js/internal/hmr";
+export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
@@ -31,6 +31,7 @@ export { fetchResource } from "./fetchresource";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
+export { loadJSFunction, loadJSObject } from "./resourcetools.ts";
 
 export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";

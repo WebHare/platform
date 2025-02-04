@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import Module from "node:module";
-import { backendConfig, getFullConfigFile } from "./configuration";
+import { backendConfig, getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { debugFlags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 export type LibraryData = {
@@ -78,10 +78,11 @@ export function registerAsNonReloadableLibrary(mod: NodeModule) {
     libdata[mod.id] = { fixed: true, dynamicloader: false, directloads: [], resources: [] };
 }
 
-/** Register as a loaded resources as a dependency, to trigger reload when that resource changes.
-    Call with `registerLoadedResource(module, path)`.
+/** Register a resource as a dependency for the a module. If the dependency is modified the module will be invalidated (and thus be reloaded when requested again).
+    @param mod - The module which will be invalidated when the resource changes. You should use `module` for this parameter
+    @param resourcePath - The path to the resource to watch
 */
-export function registerLoadedResource(mod: NodeModule, path: string) {
+export function registerResourceDependency(mod: NodeModule, path: string) {
   const lib = libdata[mod.id];
   if (lib) {
     if (lib.resources.includes(path))
@@ -94,21 +95,23 @@ export function registerLoadedResource(mod: NodeModule, path: string) {
     console.log(`[hmr] register resource ${path} by module ${mod.id}`);
 }
 
-/** Register a loaded resource that can be invalided without the module being invalidated.
- * When the module is invalidated, the callback will be discarded
+/** Register a callback that is invoked when the specified resource is modified. The callback is invoked only once and discarded if the module itself is invalidated.
+    @param mod - The module whose invalidation will deactivate the callback. You should use `module` for this parameter
+    @param resourcePath - The path to the resource to watch
+    @param callback - The callback that will be invoked once when the resource is modified
  */
-export function registerLoadedResourceWithCallback(mod: NodeModule, path: string, callback: () => void) {
+export function addResourceChangeListener(mod: NodeModule, resourcePath: string, callback: () => void) {
   let lib = libdata[mod.id];
   if (!lib)
     libdata[mod.id] = lib = { fixed: false, dynamicloader: false, directloads: [], resources: [] };
   lib.resourceCallbacks ??= new Map<string, Array<() => void>>();
-  let callbacks = lib.resourceCallbacks.get(path);
+  let callbacks = lib.resourceCallbacks.get(resourcePath);
   if (!callbacks)
-    lib.resourceCallbacks.set(path, callbacks = []);
+    lib.resourceCallbacks.set(resourcePath, callbacks = []);
   callbacks.push(callback);
 
   if (debugFlags.hmr)
-    console.log(`[hmr] register resource ${path} by module ${mod.id} with callback`);
+    console.log(`[hmr] register resource ${resourcePath} by module ${mod.id} with callback`);
 }
 
 let deferred: Set<string> | null = new Set<string>;
@@ -286,7 +289,7 @@ export function handleSoftReset() {
     callback();
 }
 
-export function activate() {
+export function activateHMR() {
   if (deferred) {
     if (debugFlags.hmr)
       console.log(`[hmr] activated`);

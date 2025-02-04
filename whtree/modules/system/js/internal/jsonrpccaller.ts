@@ -7,7 +7,7 @@ import type { RequestID, JSONRPCErrorResponse } from "@webhare/jsonrpc-client/sr
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
-import { makeJSObject } from "./resourcetools";
+import { loadJSObject } from "@webhare/services";
 
 /*
 Status codes
@@ -81,7 +81,7 @@ export class JSONRPCError extends Error {
 async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
   let id: RequestID = null;
   try {
-    const instance = await makeJSObject(servicedef.service, await newWebRequestFromInfo(req)) as Record<string, (...args: unknown[]) => unknown | Promise<unknown>>;
+    const instance = await loadJSObject(servicedef.service, await newWebRequestFromInfo(req)) as Record<string, (...args: unknown[]) => unknown | Promise<unknown>>;
     const jsonrpcreq = JSON.parse(await req.body.text());
     id = jsonrpcreq.id;
 

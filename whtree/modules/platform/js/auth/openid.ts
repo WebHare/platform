@@ -9,8 +9,8 @@ import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
-import { makeJSObject } from "@mod-system/js/internal/resourcetools";
 import { buildCookieHeader } from "@webhare/dompack/impl/cookiebuilder";
+import { loadJSObject } from "@webhare/services";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -71,7 +71,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
   //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
   const applytester = await getApplyTesterForURL(url);
   const settings = await applytester.getWRDAuth();
-  const customizer = settings.customizer ? await makeJSObject(settings.customizer) as WRDAuthCustomizer : null;
+  const customizer = settings.customizer ? await loadJSObject(settings.customizer) as WRDAuthCustomizer : null;
   if (!settings.wrdSchema)
     return createJSONResponse(400, { error: "No WRD schema defined for URL " + url });
 
@@ -159,7 +159,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
-  const customizer = login.customizer ? await makeJSObject(login.customizer) as WRDAuthCustomizer : null;
+  const customizer = login.customizer ? await loadJSObject(login.customizer) as WRDAuthCustomizer : null;
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])

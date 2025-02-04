@@ -19,8 +19,8 @@ import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } fro
 import { buildRPCLoaderPlugin } from './rpcloader';
 import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
 import type { ValidationMessageWithType } from '../devsupport/validation';
-import { loadJSFunction } from '@mod-system/js/internal/resourcetools';
 import { getAssetPackBase } from '../concepts/frontend';
+import { loadJSFunction } from '@webhare/services';
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);

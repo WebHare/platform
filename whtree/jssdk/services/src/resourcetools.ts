@@ -23,7 +23,7 @@ export async function loadJSExport<T = unknown>(name: string): Promise<T> {
   }
 }
 
-export async function makeJSObject(objectname: string, ...args: unknown[]): Promise<object> {
+export async function loadJSObject(objectname: string, ...args: unknown[]): Promise<object> {
   const obj = await loadJSExport<AnyConstructor>(objectname);
   return new obj(...args);
 }

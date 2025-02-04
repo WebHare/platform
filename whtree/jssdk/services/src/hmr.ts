@@ -2,9 +2,9 @@ import { handleModuleInvalidation, handleSoftReset } from "./hmrinternal";
 export {
   registerAsDynamicLoadingLibrary,
   registerAsNonReloadableLibrary,
-  activate,
-  registerLoadedResource,
-  registerLoadedResourceWithCallback,
+  activateHMR,
+  registerResourceDependency,
+  addResourceChangeListener,
 } from "./hmrinternal";
 import * as resources from "@webhare/services/src/resources";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
