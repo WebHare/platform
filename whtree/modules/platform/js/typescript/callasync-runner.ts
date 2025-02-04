@@ -1,3 +1,5 @@
+/** This script is invoked by mod::system/lib/internal/tasks/callasync.whlib to implement native ImportJS */
+
 import bridge, { type IPCLinkType, type IPCMessagePacket } from "@mod-system/js/internal/whmanager/bridge";
 import { loadJSFunction } from "@webhare/services";
 import { activateHMR } from "@webhare/services/src/hmr";

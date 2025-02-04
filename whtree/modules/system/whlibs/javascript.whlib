@@ -73,9 +73,9 @@ OBJECTTYPE ImportedLibrary
       RETURN EM_Syscall("importCall", CELL[ lib := this->__lib, name, args ]);
 
     FUNCTION PTR CallAsync := MakeFunctionPtr("mod::system/lib/internal/tasks/callasync.whlib#CallAsync");
-    RECORD result := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#callExport", VARIANT[this->__lib, name, args]));
+    RECORD result := WaitForPromise(CallAsync("@mod-platform/js/typescript/callasync.ts#callExport", VARIANT[this->__lib, name, args]));
     IF(CellExists(result,'promiseid'))
-      RETURN CallAsync("@mod-system/js/internal/util/jssupport.ts#awaitPromise", VARIANT[ result.promiseid ]);
+      RETURN CallAsync("@mod-platform/js/typescript/callasync.ts#awaitPromise", VARIANT[ result.promiseid ]);
 
     RETURN result.retval;
   }
@@ -148,7 +148,7 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
     ELSE
     {
       FUNCTION PTR CallAsync := MakeFunctionPtr("mod::system/lib/internal/tasks/callasync.whlib#CallAsync");
-      descr := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#describe", [ name ]));
+      descr := WaitForPromise(CallAsync("@mod-platform/js/typescript/callasync.ts#describe", [ name ]));
     }
     lib := NEW ImportedLibrary(name, descr);
     INSERT CELL [ lib, name ] INTO libcache AT END;
@@ -157,7 +157,7 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
   RETURN lib;
 }
 
-OBJECT invokeservice;
+OBJECT calljsservice;
 
 /** Invoke a specific JavaScript function. Through a central service in Native mode and
     directly in WASM mode (with reentrancy disallowed)
@@ -178,8 +178,8 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
     RETURN EM_SyncSyscall("jsCall", CELL[ lib, name, args ]);
   }
 
-  IF(NOT ObjectExists(invokeservice))
-    invokeservice := __OpenSynchronousWebHareService("system:invokeservice");
+  IF(NOT ObjectExists(calljsservice))
+    calljsservice := __OpenSynchronousWebHareService("platform:calljs");
 
-  RETURN invokeservice->Invoke(lib,name,args);
+  RETURN calljsservice->Invoke(lib,name,args);
 }

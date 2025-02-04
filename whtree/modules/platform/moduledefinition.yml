@@ -30,6 +30,8 @@ backendServices:
   configuration:
     controllerFactory: js/configure/configservice.ts#createConfigManager
     coreService: true
+  calljs:
+    clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
 
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices

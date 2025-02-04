@@ -3,12 +3,13 @@ import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
 import { lockMutex as servicesLockMutex } from '@webhare/services/src/mutex.ts';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
 import { setHareScriptType } from "@webhare/hscompat/hson";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
+import { loadJSFunction } from "@webhare/services";
+import { callOnLibrary, describeLibrary } from "@mod-platform/js/typescript/call-js";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -125,17 +126,19 @@ export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: strin
   }));
 }
 
-export function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
-  return describe(name);
+export async function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
+  const lib = await hsvm.loadJSLibrary(name);
+  return describeLibrary(lib);
 }
 
 export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
-  return callExportNowrap(lib, name, args);
+  const libJS = hsvm.getJSLibrarySync(lib);
+  return callOnLibrary(libJS, name, args);
 }
 
 export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
-  await load(lib);
-  return await callExportNowrap(lib, name, args);
+  const func = await loadJSFunction<(...args: unknown[]) => unknown>(`${lib}#${name}`);
+  return await func(...args);
 }
 
 const stashes = new Array<StashedWork | null>;

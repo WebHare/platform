@@ -46,7 +46,7 @@ ASYNC MACRO StartIPCNodeProcess()
     port := CreateGlobalIPCPort(portname);
 
     proc := CreateProcess(`${webhareconfig.installationroot}/modules/system/scripts/whcommands/node.sh`,
-        [ `${webhareconfig.installationroot}/modules/system/scripts/internal/callrunnerts.ts`
+        [ `${webhareconfig.installationroot}modules/platform/js/typescript/callasync-runner.ts`
         , portname
         ], [ take_output := FALSE, take_errors := FALSE ]);
 
