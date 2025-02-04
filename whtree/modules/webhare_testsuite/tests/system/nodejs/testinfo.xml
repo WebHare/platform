@@ -10,6 +10,7 @@
   <test script="test_systemtools.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_codecontext.ts" />
+  <test script="test_registry.ts" />
   <test script="test_services.ts" />
   <test script="test_services_secrets.ts" />
   <test script="test_sessions.ts" />

@@ -33,7 +33,7 @@ export type AssetPackBundleStatus = AssetPackMiniStatus & {
 export async function loadAssetPacksConfig() {
   let suspendAutoCompile = false;
   try {
-    suspendAutoCompile = await readRegistryKey<boolean>("publisher.bundledassets.suspendautocompile");
+    suspendAutoCompile = await readRegistryKey("publisher.bundledassets.suspendautocompile");
   } catch (e) {
     //ignore
   }

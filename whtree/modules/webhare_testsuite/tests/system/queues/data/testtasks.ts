@@ -17,7 +17,7 @@ export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> 
     return req.resolveByCancellation({ data: req.taskdata }, "ping=CANCEL");
   if (req.taskdata.ping === "ABORT")
     process.exit(162);
-  if (req.taskdata.ping === "THROWNOW" && await readRegistryKey("webhare_testsuite.tests.taskthrownow"))
+  if (req.taskdata.ping === "THROWNOW" && await readRegistryKey("webhare_testsuite:tests.taskthrownow"))
     throw new Error("PING-TASK-Throw-Now"); //TODO also verify throwing outside beginWork
 
   if (req.taskdata.extraping)
