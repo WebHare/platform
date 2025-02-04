@@ -22,7 +22,6 @@ export async function readRegistryKey(key: string, defaultValue?: unknown): Prom
 }
 
 export async function writeRegistryKey<Key extends keyof RegistryKeys>(key: Key, value: RegistryKeys[Key], options?: { createIfNeeded?: boolean; initialCreate?: boolean }): Promise<void>;
-export async function writeRegistryKey<Key extends keyof RegistryKeys>(key: Key, value: RegistryKeys[Key], options?: { createIfNeeded?: boolean; initialCreate?: boolean }): Promise<void>;
 export async function writeRegistryKey<ValueType, Key extends string = string>(key: Key, value: Key extends keyof RegistryKeys ? RegistryKeys[Key] : ValueType, options?: { createIfNeeded?: boolean; initialCreate?: boolean }): Promise<void>;
 
 export async function writeRegistryKey(key: string, value: unknown, options?: { createIfNeeded?: boolean; initialCreate?: boolean }): Promise<void> {
