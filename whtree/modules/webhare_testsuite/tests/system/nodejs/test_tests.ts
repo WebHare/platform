@@ -29,7 +29,12 @@ async function testChecks() {
   test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(1)));
   test.throws(/Passing a Promise/, () => test.eq(Promise.resolve(1), Promise.resolve(2)));
 
-  //test WH Money tye
+  //test Sets
+  test.eq(new Set([1, 2, 3]), new Set([3, 2, 1]));
+  test.eq(new Set([]), new Set([]));
+  test.throws(/Missing 2 elements and 2 unexpected elements/, () => test.eq(new Set([1, 2]), new Set([3, 4])));
+
+  //test WH Money type
   test.eq(std.Money.fromNumber(2.5), new std.Money("2.5"));
   test.eq(new std.Money("2.5"), new std.Money("2.500"));
   test.eqPartial({ deep: new std.Money("2.5") }, { deep: new std.Money("2.500") });

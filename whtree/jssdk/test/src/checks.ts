@@ -143,6 +143,25 @@ function testRegExp(expect: RegExp, actual: unknown, path: string, annotation: A
   }
 }
 
+function testSet(expect: Set<unknown>, actual: unknown, path: string, annotation: Annotation) {
+  if (!(actual instanceof Set))
+    throw new TestError(`Expected a Set, got ${actual?.constructor.name} at ${path}`, annotation);
+
+  const missing = expect.difference(actual);
+  const unexpected = actual.difference(expect);
+
+  if (missing.size || unexpected.size) {
+    if (missing.size)
+      onLog(`Missing ${missing.size} elements, eg:`, [...missing].slice(0, 3).join(", "));
+    if (unexpected.size)
+      onLog(`Unexpected ${unexpected.size} elements, eg:`, [...unexpected].slice(0, 3).join(", "));
+
+    const baseError = (missing.size && unexpected.size) ? `Missing ${missing.size} elements and ${unexpected.size} unexpected elements` :
+      missing.size ? `Missing ${missing.size} elements` : `Unexpected ${unexpected.size} elements`;
+    throw new TestError(`${baseError} in Set at ${path}`, annotation);
+  }
+}
+
 function testDeepEq(expected: unknown, actual: unknown, path: string, annotation: Annotation) {
   if (expected === actual)
     return;
@@ -184,6 +203,9 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
     printColoredTextDiff(str_expected, str_actual);
     throw new TestError(`Expected ${type_expected}: ${str_expected}, actual: ${str_actual}${path !== "" ? " at " + path : ""}`, annotation);
   }
+
+  if (expected instanceof Set)
+    return testSet(expected, actual, path, annotation);
 
   if (typeof expected !== "object") //simple value mismatch
     throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
