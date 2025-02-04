@@ -1,4 +1,4 @@
-import { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode } from "@webhare/services";
 import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask } from "@webhare/services/src/registry";
