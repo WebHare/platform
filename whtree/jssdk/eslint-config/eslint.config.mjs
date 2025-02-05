@@ -152,6 +152,11 @@ const baseConfig = tseslint.config(
     "no-alert": "error",
     //Added with 5.5, require !== / === for performance and to prevent subtle bugs. we'll phase it in with a warning for now that is not part of `nowarnings`
     "eqeqeq": "warn",
+    "prefer-const": [
+      "error", {
+        destructuring: "all"
+      }
+    ],
     //We're fine with explicit ! assertions.
     "@typescript-eslint/no-non-null-assertion": "off",
     //Things that make diffing hard
