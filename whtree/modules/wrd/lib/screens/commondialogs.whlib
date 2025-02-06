@@ -1107,6 +1107,7 @@ RECORD FUNCTION SetupEntityList(OBJECT list, OBJECT type, RECORD ARRAY listcolum
   }
 
   list->columns := listcols;
+  list->sortcolumn := listcols[0].name;
 
   IF(NOT seen_rowkey)
     base_query.sources[0].outputcolumns := CellInsert(base_query.sources[0].outputcolumns, "ROWKEY", "WRD_ID");
