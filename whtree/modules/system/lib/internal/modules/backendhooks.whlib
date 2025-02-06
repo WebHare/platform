@@ -181,7 +181,7 @@ PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
     FOREVERY(STRING insertpoint FROM screendef.extendtabs.insertpoints)
     {
       IF(NOT MemberExists(screen, "^" || insertpoint))
-        THROW NEW Exception(`Extend component '${insertpoint}' not found in screen '${options.screenname}' - fix the screen or its modulescreens.yml definition`);
+        THROW NEW Exception(`Insert point '${insertpoint}' not found in screen '${options.screenname}' - fix the screen or its modulescreens.yml definition`);
       INSERT [ name := insertpoint, component := GetMember(screen, "^" || insertpoint) ] INTO tabcomp->insertpoints AT END;
     }
     FOREVERY(STRING extendcomponent FROM screendef.extendtabs.extendcomponents)

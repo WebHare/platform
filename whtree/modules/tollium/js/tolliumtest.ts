@@ -65,8 +65,20 @@ class ComponentProxy implements CastableToElement {
     return this.node.dataset.name ? `'${this.node.dataset.name}'` : `<unnamed ${this.node.tagName.toLowerCase()}>`;
   }
 
+  /** Obtain the text value for components that don't differentiate between their normal and text value */
+  private getIfTextValue(): string | undefined {
+    if (this.node.matches("t-textarea"))
+      return this.node.querySelector("textarea")!.value;
+    if (this.node.matches("t-textedit")) //But what if valuetype= is set?  currently not passed to tollium frontend anyway
+      return this.node.querySelector('input')!.value;
+  }
+
   /** Obtain the 'natural' value for this component's form control */
   getValue(): string | boolean | number {
+    const textvalue = this.getIfTextValue();
+    if (textvalue !== undefined)
+      return textvalue;
+
     if (this.node.matches("input[type=checkbox], input[type=radio]"))
       return Boolean((this.node as HTMLInputElement).checked);
     if (this.node.matches("select"))
@@ -77,8 +89,10 @@ class ComponentProxy implements CastableToElement {
 
   /** Obtain the text value for this component's form control */
   getTextValue() {
-    if (this.node.matches("t-textarea"))
-      return this.node.querySelector("textarea")!.value;
+    const textvalue = this.getIfTextValue();
+    if (textvalue !== undefined)
+      return textvalue;
+
     if (this.node.matches("select"))
       return (this.node as HTMLSelectElement).selectedOptions[0].textContent || '';
 

@@ -534,8 +534,12 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
           IF(NOT CellExists(row, req.name))
             THROW NEW TolliumException(this->pvt_callback, "Component " || this->callback->GetComponentIdentification() || " received a row update, but row #" || #row || " has no cell named '" || req.name || "'");
 
+          VARIANT val := GetCell(row, req.name);
+          IF(CellExists(req,"allowconstants") AND SearchElement(req.allowconstants, val) >= 0)
+            CONTINUE; //acceptable constant! ("indeterminate")
+
           // test if the input value is correct (if onmapvalue is used this might be different than the type of the listcolumn)
-          IF(req.type != 0 AND NOT CanCastTypeTo(TypeId(GetCell(row, req.name)), req.type))
+          IF(req.type != 0 AND NOT CanCastTypeTo(TypeId(val), req.type))
             THROW NEW TolliumException(this->pvt_callback, "Component " || this->callback->GetComponentIdentification() || " received a row update, but row #" || #row || " has an incorrect type for cell '" || req.name || "' "||
                 "(got "||GetTypeName(TypeId(GetCell(row, req.name)))||", but wanted "||GetTypeName(req.type)||")");
         }
@@ -1491,9 +1495,11 @@ PUBLIC STATIC OBJECTTYPE ListTreeHelper
         IF (name NOT IN this->pvt_updateable_cells)
           CONTINUE;
 
-        IF (GetCell(this->pvt_rows[pos], name) != upd.value)
+        VARIANT currentvalue := GetCell(this->pvt_rows[pos], name);
+        BOOLEAN cancast := CanCastTypeTo(TypeID(upd.value), TypeID(currentvalue));
+        IF(NOT cancast OR currentvalue != upd.value) //it's a complex update
         {
-          this->pvt_rows[pos] := CellUpdate(this->pvt_rows[pos], name, upd.value);
+          this->pvt_rows[pos] := CellInsert(CellDelete(this->pvt_rows[pos], name), name, upd.value);
           any_change := TRUE;
         }
       }
