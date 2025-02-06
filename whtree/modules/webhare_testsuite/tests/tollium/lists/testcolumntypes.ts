@@ -1,10 +1,14 @@
 import * as test from '@mod-tollium/js/testframework';
-
+import * as tt from "@mod-webhare_testsuite/js/tolliumtest-wts";
 
 function getListRowCells(list: HTMLElement, findtext: string) {
   const row = test.qSA(list, '.listrow').filter(listrow => listrow.textContent?.includes(findtext))[0];
   const rowcells = [...row.children].filter(node => node.matches("span"));
   return rowcells;
+}
+
+function getListContents() {
+  return JSON.parse(test.qR<HTMLTextAreaElement>("t-codeedit textarea").value);
 }
 
 test.runTests(
@@ -26,9 +30,9 @@ test.runTests(
         const row5cells = getListRowCells(list, "<A05>");
 
         // test whether we got the expected amount of columns
-        test.eq(10, row1cells.length);
-        test.eq(10, row2cells.length);
-        test.eq(10, row3cells.length);
+        test.eq(11, row1cells.length);
+        test.eq(row1cells.length, row2cells.length);
+        test.eq(row1cells.length, row3cells.length);
 
         // test whether <style>'s are picked up and applied correctly
         test.eq("700", getComputedStyle(row1cells[3]).fontWeight);
@@ -85,9 +89,39 @@ test.runTests(
         test.eq("9:08", row1cells[8].textContent);
         test.eq("0:00", row2cells[8].textContent);
 
+        //checkbox
+        test.eq(false, row1cells[10].querySelector('input')?.checked);
+        test.eq(false, row1cells[10].querySelector('input')?.indeterminate);
+        test.eq(true, row2cells[10].querySelector('input')?.checked);
+        test.eq(false, row2cells[10].querySelector('input')?.indeterminate);
+        test.eq(true, row3cells[10].querySelector('input')?.indeterminate);
+
         // ADDME: test datetime
         // ADDME: also test integer, integer64, money and blobrecord
       }
+    },
+
+    'Click checkboxes',
+    async function () {
+      const list = test.compByName('list1');
+      test.eq('', tt.comp("feedback").getValue());
+      test.eq([false, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
+
+      test.click(getListRowCells(list, "<R01>")[10].querySelector('input')!); //toggle first row
+      await test.wait('ui');
+
+      test.eq('OnCheck: <R01> cbox1_value', tt.comp("feedback").getValue());
+      test.eq([true, true, "indeterminate", false, false], getListContents().map((row: any) => row.cbox1_value));
+
+      test.click(getListRowCells(list, "<A03>")[10].querySelector('input')!); //toggle indeermiante one
+      await test.wait('ui');
+
+      test.eq('OnCheck: <A03> cbox1_value', tt.comp("feedback").getValue());
+      test.eq([true, true, true, false, false], getListContents().map((row: any) => row.cbox1_value));
+
+      test.click(getListRowCells(list, "<A03>")[10].querySelector('input')!); //toggle indeermiante one
+      await test.wait('ui');
+      test.eq([true, true, false, false, false], getListContents().map((row: any) => row.cbox1_value));
     },
 
     {
@@ -104,11 +138,14 @@ test.runTests(
 
     {
       name: 'clickiconcolumn',
-      test: function () {
+      test: async function () {
         //find the icon in col A03. icon is 16x16 so x:15/y:15 should work
         const listrow = test.getCurrentScreen().getListRow('list1', '<A03>');
         const imgcell = listrow.childNodes[2];
         test.click(imgcell.querySelector('img, canvas'), { x: 15, y: 15 });
+
+        await test.wait('ui');
+        test.eq('Iconclick: <A03> icon', tt.comp("feedback").getValue());
       }
     }
 

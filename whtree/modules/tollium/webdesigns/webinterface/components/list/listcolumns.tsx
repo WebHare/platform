@@ -422,7 +422,8 @@ export class CheckboxWrapper<DataType extends string = string> extends BaseEdita
       checkbox.style.visibility = "hidden";
       checkbox.disabled = true;
     } else {
-      checkbox.checked = row.cells[columndef.checkboxidx] !== false;
+      checkbox.checked = row.cells[columndef.checkboxidx] === true; //ensure that indeterminate checkboxes click to true instead of depending on an invisible state
+      checkbox.indeterminate = row.cells[columndef.checkboxidx] === "indeterminate";
       checkbox.disabled = typeof columndef.checkboxenabledidx !== "undefined" && columndef.checkboxenabledidx !== -1 && !row.cells[columndef.checkboxenabledidx];
     }
 

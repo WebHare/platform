@@ -51,19 +51,19 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
     };
   }
 
-  setValue(value, indeterminate) {
-    this.node.checked = value;
+  setValue(value: boolean, indeterminate: boolean) {
+    this.node.checked = value && !indeterminate;
     this.node.indeterminate = indeterminate;
   }
 
-  setReadOnly(value) {
+  setReadOnly(value: boolean) {
     if (value !== this.readonly) {
       this.readonly = value;
       this.node.disabled = !(this.enabled && !this.readonly);
     }
   }
 
-  setEnabled(value) {
+  setEnabled(value: boolean) {
     if (value !== this.enabled) {
       this.enabled = value;
       this.node.disabled = !(this.enabled && !this.readonly);

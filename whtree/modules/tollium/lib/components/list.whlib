@@ -1655,6 +1655,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
         INSERT [ name := col.checkboxname
                , type := TYPEID(BOOLEAN)
                , allowdupe := FALSE
+               , allowconstants := VARIANT["indeterminate"]
                ] INTO this->storage->required_cells AT END;
 
         INSERT ToUppercase(col.checkboxname) INTO this->storage->updateable_cells AT END;
@@ -2609,7 +2610,13 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
             {
               // Checkboxes/radios
               // FIXME: this code won't prevent multiple radios from being enabled.
-              INSERT [ name := vals[1], value := vals[2] = 'true' ] INTO updates[pos].updates AT END;
+              VARIANT setvalue;
+              IF(vals[2] = 'indeterminate')
+                setvalue := 'indeterminate';
+              ELSE
+                setvalue := vals[2] = 'true';
+
+              INSERT [ name := vals[1], value := setvalue ] INTO updates[pos].updates AT END;
             }
           }
         }

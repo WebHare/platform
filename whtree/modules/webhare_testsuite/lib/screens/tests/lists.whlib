@@ -2,6 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/modules/json.whlib";
 
 STRING ARRAY subjects := [ "Lorem ipsum dolor sit amet, consectetuer adipiscing elit"
                          , "Nunc id lorem"
@@ -326,8 +327,13 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
+    RECORD baserow := CELL[
+       cbox1 := "",
+       cbox1_value := FALSE
+    ];
     this->list1->rows :=
-      [ [ style := "bold"
+      [ [ ...baserow
+        , style := "bold"
         , rowicon := 3
         , rowiconhint := "hover row1cell0"
         , rowkey := "<R01>"
@@ -352,7 +358,8 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
         , "datetime" := MakeDatetime(2012,10,11,9,8,7)
         , datetimehint := "Erg laat!"
         ]
-      , [ style := "italic"
+      , [ ...baserow
+        , style := "italic"
         , rowicon := 0
         , rowiconhint := ""
         , rowkey := "<D02>"
@@ -375,8 +382,10 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
         , time := 0
         , "datetime" := DEFAULT DATETIME
         , datetimehint := "Kweenie"
+        , cbox1_value := TRUE
         ]
-      , [ rowicon := 3
+      , [ ...baserow
+        , rowicon := 3
         , rowiconhint := ""
         , rowkey := "<A03>"
         , sorttext := "R3"
@@ -398,8 +407,10 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
         , time := GetMsecondCount(MakeDatetime(2012,11,10,12,53,7))
         , "datetime" := MakeDatetime(2012,10,11,9,8,7)
         , datetimehint := "Erg laat!"
+        , cbox1_value := "indeterminate"
         ]
-      , [ style := "textcolor"
+      , [ ...baserow
+        , style := "textcolor"
         , rowicon := 3
         , rowiconhint := ""
         , rowkey := "<A04>"
@@ -423,7 +434,8 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
         , "datetime" := MakeDatetime(2012,10,11,9,18,7)
         , datetimehint := "Nog veel later!"
         ]
-      , [ style := "backgroundcolor"
+      , [ ...baserow
+        , style := "backgroundcolor"
         , rowicon := 3
         , rowiconhint := ""
         , rowkey := "<A05>"
@@ -464,12 +476,22 @@ PUBLIC OBJECTTYPE ColumnTypes EXTEND TolliumScreenBase
           , datetimehint := "Oi!"
           ]
         ];
+
+    this->Refresh();
   }
   MACRO OnIconClick(RECORD rec, STRING str)
   {
-    this->feedback->value := "Iconclick: " || rec.rowkey || " " || str;
+    ^feedback->value := "Iconclick: " || rec.rowkey || " " || str;
+    this->Refresh();
   }
-
+  MACRO OnCheck(RECORD rec, STRING cellname)
+  {
+    ^feedback->value := "OnCheck: " || rec.rowkey || " " || cellname;
+    this->Refresh();
+  }
+  MACRO Refresh() {
+    ^liststate->value := PrettifyJSON(EncodeJSON(this->list1->rows));
+  }
 >;
 
 PUBLIC OBJECTTYPE MultiRow EXTEND TolliumScreenBase

@@ -93,6 +93,7 @@
                     oniconclick="oniconclick"
                     selectmode="single"
                     height="1pr"
+                    oncheck="oncheck"
                     >
                 <column type="text" name="rowkey" title="Text (rowkey)" sortkeyname="sorttext" />
 
@@ -106,6 +107,8 @@
                 <column type="date" name="date" title="Date" />
                 <column type="time" name="time" title="Time" />
                 <column type="datetime" name="datetime" hintname="datetimehint" title="Datetime" />
+
+                <column type="text" name="cbox1" title="CBox" checkboxname="cbox1_value" width="3x" />
 
                 <!--
                 ADDME ?:
@@ -121,7 +124,8 @@
                 <style name="backgroundcolor" backgroundcolor="#FF00FF" />
                 <!-- ADDME: test color and backgroundcolor -->
               </list>
-              <textedit enabled="false" name="feedback" />
+              <textedit enabled="false" name="feedback" width="1pr" />
+              <codeedit enabled="false" name="liststate" width="1pr" height="5gr" />
             </part>
             <part width="8x" name="rightpart">
             </part>

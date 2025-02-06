@@ -337,7 +337,7 @@ export default class ObjList extends ComponentBase {
 
       for (const col of this.checkboxcolumns) {
         if (rows[i][col.checkboxidx] !== null)
-          retval += " c" + rows[i][0].rowkey + "\t" + col.checkbox + "\t" + (rows[i][col.checkboxidx] ? "true" : "");
+          retval += " c" + rows[i][0].rowkey + "\t" + col.checkbox + "\t" + (rows[i][col.checkboxidx] === 'indeterminate' ? 'indeterminate' : rows[i][col.checkboxidx] ? "true" : "");
       };
 
       if (rows[i][0].subrows)

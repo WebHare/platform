@@ -1,5 +1,3 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
 
 test.runTests(
@@ -67,7 +65,7 @@ test.runTests(
         test.assert(test.compByName("thecomponent").indeterminate);
         test.assert(test.compByName("indeterminate").checked);
 
-        //now click the checkbox. it will toggle and lose indeterminate
+        //now click the checkbox. it will toggle to true and lose indeterminate
         test.click(test.compByName("thecomponent"));
         await test.wait('ui');
         test.eq("8", test.compByName("onchangecount").textContent);
@@ -75,13 +73,23 @@ test.runTests(
         test.assert(!test.compByName("thecomponent").indeterminate);
         test.assert(!test.compByName("indeterminate").checked);
 
-        //make it indeterminate again.. it will remain true
-        test.click(test.compByName("indeterminate"));
+        //set it to false
+        test.click(test.compByName("thecomponent"));
         await test.wait('ui');
         test.eq("9", test.compByName("onchangecount").textContent);
-        test.assert(test.compByName("thecomponent").checked);
+
+        //re-enable indetermiante
+        test.click(test.compByName("indeterminate"));
+        await test.wait('ui');
         test.assert(test.compByName("thecomponent").indeterminate);
-        test.assert(test.compByName("indeterminate").checked);
+
+        //click it
+        test.click(test.compByName("thecomponent"));
+        await test.wait('ui');
+
+        test.assert(test.compByName("thecomponent").checked);
+        test.assert(!test.compByName("thecomponent").indeterminate);
+        test.assert(test.compByName("thecomponent").checked);
       }
     },
 
