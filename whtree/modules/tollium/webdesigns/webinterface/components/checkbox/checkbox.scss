@@ -23,6 +23,12 @@ input[type="checkbox"]:not(.wh-checkbox)
     background-image: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg");
     border-color: #308fe2;
   }
+  &:indeterminate
+  {
+    background-color: #308fe2;
+    background-image: url("~@mod-tollium/web/ui/skins/default/indeterminate.16x16.svg");
+    border-color: #308fe2;
+  }
 
   &:focus-visible
   {
