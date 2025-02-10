@@ -254,12 +254,12 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
   }
 
   //Split selected attributes into fields and basefields and setup accessors for non basefields. Can be called with different jsmode
-  PUBLIC RECORD FUNCTION CreateAccessors(BOOLEAN jsmode, BOOLEAN wrapobjects)
+  PUBLIC RECORD FUNCTION CreateAccessors(BOOLEAN jsmode, BOOLEAN wrapobjects, BOOLEAN jsonstrings)
   {
     IF (LENGTH(this->selected_attributes) = 0)
       RETURN DEFAULT RECORD;
 
-    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, jsmode, wrapobjects);
+    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, jsmode, wrapobjects, jsonstrings);
   }
 
   PUBLIC RECORD ARRAY FUNCTION RecurseGetOutputColumns(VARIANT in_outputcolumns)
@@ -436,6 +436,8 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
     BOOLEAN wrapobjects;
 
+    BOOLEAN jsonstrings;
+
     // Initialize the multiquery with a single query
     // ----------------------------------------------------------------------------
     //
@@ -445,12 +447,13 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
     /** @param wrd_schema WRD schema
         @param whfsmapper WHFS mapper
     */
-    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects)
+    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects, BOOLEAN jsonstrings)
     {
       this->wrd_schema := wrd_schema;
       this->pvt_whfsmapper := whfsmapper;
       this->jsmode := jsmode;
       this->wrapobjects := wrapobjects;
+      this->jsonstrings := jsonstrings;
       this->resultlimit := -1;
     }
 
@@ -1700,7 +1703,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
       FOREVERY (OBJECT single FROM this->singles)
       {
-        RECORD accessors := single->CreateAccessors(this->jsmode, this->wrapobjects);
+        RECORD accessors := single->CreateAccessors(this->jsmode, this->wrapobjects, this->jsonstrings);
         IF(NOT RecordExists(accessors))
           CONTINUE;
 
@@ -2044,10 +2047,10 @@ STATIC OBJECTTYPE WRDQueryInterfaceNormalQuery EXTEND WRDQueryInterface
       RETURN this->query->GetOutputColumns();
     }
 
-    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname, BOOLEAN jsmode, BOOLEAN wrapobjects)
+    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname, BOOLEAN jsmode, BOOLEAN wrapobjects, BOOLEAN jsonstrings)
     {
       //NOTE this only supports single source scenario
-      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], jsmode, wrapobjects), colname));
+      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], jsmode, wrapobjects, jsonstrings), colname));
     }
     UPDATE PUBLIC MACRO ResetCurrentTime(DATETIME current_time DEFAULTSTO DEFAULT DATETIME)
     {
@@ -3638,16 +3641,20 @@ STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
 <
   BOOLEAN wrapobjects;
   BOOLEAN jsmode;
+  BOOLEAN jsonstrings;
 
   MACRO NEW(OBJECT type, RECORD attr, RECORD options)
   : WRDDBIncomparableValue(type, attr)
   {
     this->wrapobjects := options.wrapobjects;
     this->jsmode := options.jsmode;
+    this->jsonstrings := options.jsonstrings;
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
   {
+    IF(this->jsonstrings)
+      RETURN "null";
     IF(this->wrapobjects)
       RETURN DEFAULT OBJECT;
 
@@ -3658,6 +3665,9 @@ STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
   {
     IF(settings_start = settings_limit)
       RETURN this->GetDefaultValue();
+
+    IF(this->jsonstrings)
+      RETURN entity_settings[settings_start].rawdata ?? BlobToString(entity_settings[settings_start].blobdata);
 
     IF(this->jsmode)
       RETURN CELL[ "^$wrdtype" := "json", json := entity_settings[settings_start].rawdata ?? BlobToString(entity_settings[settings_start].blobdata) ];
@@ -4283,9 +4293,9 @@ RECORD ARRAY FUNCTION ProcessParameters(RECORD ARRAY parameters, BOOLEAN strict)
   RETURN processed_parameters;
 }
 
-RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode, BOOLEAN wrapobjects)
+RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode, BOOLEAN wrapobjects, BOOLEAN jsonstrings)
 {
-  RECORD accessors := querysource->CreateAccessors(jsmode, wrapobjects);
+  RECORD accessors := querysource->CreateAccessors(jsmode, wrapobjects, jsonstrings);
 
   RECORD data := GenerateBaseFields(accessors.base_fields, default_entity, jsmode);
   FOREVERY (RECORD field FROM accessors.fields)
@@ -4304,11 +4314,12 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
       [ whfsmapper :=   DEFAULT OBJECT
       , jsmode :=       FALSE
       , wrapobjects :=   FALSE
+      , jsonstrings := FALSE
       ], options);
 
   OBJECT obj := NEW WRDQuerySource(wrdtype, options.whfsmapper, options.jsmode);
   obj->return_map := obj->RecurseGetoutputColumns(outputcolumns);
-  RETURN GetDefaultRecordForSource(obj, options.jsmode, options.wrapobjects);
+  RETURN GetDefaultRecordForSource(obj, options.jsmode, options.wrapobjects, options.jsonstrings);
 }
 
 /** Constructs a WRD query
@@ -4354,7 +4365,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
     THROW NEW Exception(`Trying to execute a query on a WRD schema without specifying the type (use wrdschema->^type->RunQuery)`);
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(querydata))
-    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER", "JSMODE", "WRAPOBJECTS"])
+    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER", "JSMODE", "WRAPOBJECTS", "JSONSTRINGS"])
       THROW NEW Exception(`Unsupported query parameter '${cellrec.name}'`);
 
   RECORD ARRAY sources := querydata.sources;
@@ -4362,6 +4373,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
   RECORD ARRAY parameters := CellExists(querydata, "PARAMS") ? querydata.params : DEFAULT RECORD ARRAY;
   BOOLEAN jsmode := CellExists(querydata, "JSMODE") AND querydata.jsmode;
   BOOLEAN wrapobjects := CellExists(querydata, "wrapobjects") AND querydata.wrapobjects;
+  BOOLEAN jsonstrings := CellExists(querydata, "jsonstrings") AND querydata.jsonstrings;
 
   // Parsed links and sources (objects)
   OBJECT ARRAY parsed_sources;
@@ -4585,7 +4597,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
   OBJECT wrd_schema := parsed_sources[0]->wrd_type->wrdschema;
 
   // Build a new query object
-  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper, jsmode, wrapobjects);
+  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper, jsmode, wrapobjects, jsonstrings);
   query->singles := parsed_sources;
   query->links := parsed_links;
   query->parameters := parsed_parameters;
@@ -5214,13 +5226,14 @@ STRING FUNCTION FormatMoneyXSD(MONEY value)
     @cell return.base_fields List of fields with base attributes
     @cell return.fields List of fields with normal attributes
 */
-PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects)
+PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects, BOOLEAN jsonstrings)
 {
   RECORD options := CELL
       [ linkgetter
       , whfsmapper
       , jsmode
-      ,wrapobjects
+      , wrapobjects
+      , jsonstrings
       ];
 
   RECORD ARRAY fields, base_fields;
