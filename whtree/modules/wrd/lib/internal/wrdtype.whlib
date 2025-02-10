@@ -54,6 +54,7 @@ CONSTANT RECORD wrd_query_options :=
     , cachettl := 0
     , jsmode := FALSE
     , wrapobjects := FALSE
+    , jsonstrings := FALSE
     ];
 
 STRING ARRAY warnings_per_vm;
@@ -62,7 +63,7 @@ INTEGER64 ARRAY entity_settings_autonumbers;
 
 RECORD FUNCTION PickEnrichQueryOptions(RECORD options)
 {
-  RETURN PickCells(options, [ "jsmode", "wrapobjects" ]);
+  RETURN PickCells(options, [ "jsmode", "wrapobjects", "jsonstrings" ]);
 }
 
 INTEGER64 FUNCTION AllocEntitySettingsAutonumber()
@@ -1772,9 +1773,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     INTEGER resultlimit := -1;
     OBJECT whfsmapper;
-    BOOLEAN singlecolumn;
-    BOOLEAN jsmode;
-    BOOLEAN wrapobjects;
+    BOOLEAN singlecolumn, jsmode, wrapobjects, jsonstrings;
 
     IF (CellExists(querydata, "resultlimit"))
     {
@@ -1806,6 +1805,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       wrapobjects := querydata.wrapobjects;
       DELETE CELL wrapobjects FROM querydata;
     }
+    IF (CellExists(querydata, "jsonstrings"))
+    {
+      jsonstrings := querydata.jsonstrings;
+      DELETE CELL jsonstrings FROM querydata;
+    }
 
 
     RECORD wrdquery := [ sources := [ CELL[...querydata, type := this] ]];
@@ -1817,15 +1821,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INSERT CELL jsmode := jsmode INTO wrdquery;
     IF (wrapobjects)
       INSERT CELL wrapobjects := wrapobjects INTO wrdquery;
+    IF (jsonstrings)
+      INSERT CELL jsonstrings := jsonstrings INTO wrdquery;
 
     OBJECT wrd_query := MakeWRDQuery(wrdquery);
     VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
     IF(singlecolumn)
     {
-      INTEGER returntype := wrd_query->GetTypeForOutputcolumn("RETVAL", FALSE, wrapobjects);
+      INTEGER returntype := wrd_query->GetTypeForOutputcolumn("RETVAL", FALSE, wrapobjects, jsonstrings);
       IF (jsmode)
       {
-        INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE, wrapobjects);
+        INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE, wrapobjects, jsonstrings);
         IF (returntype != jsreturntype OR IsTypeIDArray(returntype))
           returntype := TypeID(VARIANT);
       }
@@ -2371,7 +2377,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           IF(RecordExists(val))
             data := EncodeJSON(val);
         }
-        ELSE IF(jsmode AND TypeId(val) = TYPEID(STRING)) //already encoded
+        ELSE IF(TypeId(val) = TYPEID(STRING)) //already encoded
         {
           IF(val != "null")
           {
@@ -2931,6 +2937,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         , filterentities :=         INTEGER[]
         , jsmode :=                 FALSE
         , wrapobjects :=            FALSE
+        , jsonstrings :=            FALSE
         ], options);
 
     STRING ARRAY filterguids;
@@ -2974,7 +2981,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              , sourcename :=  "rowdata"
              , subselect :=   STRING[]
              , wrapper := DEFAULT RECORD
-          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT, options.jsmode, options.wrapobjects);
+          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT, options.jsmode, options.wrapobjects, options.jsonstrings);
 
     FOREVERY (RECORD change FROM changes)
     {

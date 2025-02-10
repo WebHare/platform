@@ -486,10 +486,15 @@ MACRO TestJSONAttr()
   //verify that it's cleared in the database
   TestEq(0, Length(SELECT FROM wrd.entity_settings WHERE entity = testperson->id AND attribute = jsondata_attributeid));
 
-  //test preserving casse
+  //test preserving case
   testperson->UpdateEntity([ jsondata := DecodeJSON(`{"myJSONValue":43}`,CELL[], [ wrapobjects := TRUE ])]);
   TestEq([ jsondata := [ myjsonvalue := 43 ] ], testperson->GetFields(["jsondata"]));
   TestEq(43, testperson->GetField("jsondata", [ wrapobjects := TRUE ])->GetProp("myJSONValue"));
+  TestEq([ jsondata := `{"myJSONValue":43}` ], testperson->GetFields(["jsondata"], [ jsonstrings := TRUE ]));
+
+  testperson->UpdateEntity([ jsondata := `{"myJSONValue":44}` ]);
+  TestEq(44, testperson->GetField("jsondata", [ wrapobjects := TRUE ])->GetProp("myJSONValue"));
+  TestEq([ jsondata := `{"myJSONValue":44}` ], testperson->GetFields(["jsondata"], [ jsonstrings := TRUE ]));
 
   testperson->UpdateEntity([ jsondata := DEFAULT OBJECT ]);
   TestEq([ jsondata := DEFAULT RECORD ], testperson->GetFields(["jsondata"]));

@@ -592,10 +592,12 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
 
   // ListTypeEntities and RunWRDQuery knownblob support are only present in 5.0.1 and older
   BOOLEAN peer_supports_isync := TRUE;
+  BOOLEAN peer_supports_jsonstrings := FALSE;
   IF (ObjectExists(remotepeer))
   {
     RECORD conndata := remotepeer->InvokeAdminService("Connect");
     peer_supports_isync := CellExists(conndata, "semver") AND VersionSatisfiesRange(conndata.semver, ">= 5.0.1-dev");
+    peer_supports_jsonstrings := VersionSatisfiesRange(conndata.semver, ">= 5.7.1") OR VersionSatisfiesRange(conndata.semver, ">= 5.6.4");
   }
 
   // Get the schema structure first
@@ -791,6 +793,8 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
         knownblobs := blobgetter->GetBlobsOfEntities(SELECT AS INTEGER ARRAY wrd_id FROM todo);
         INSERT CELL knownblobs := SELECT AS STRING ARRAY hash FROM knownblobs INTO syncopts;
       }
+      IF (peer_supports_jsonstrings)
+        INSERT CELL jsonstrings := TRUE INTO query;
 
       RECORD res;
       IF (NOT ObjectExists(remotepeer))
