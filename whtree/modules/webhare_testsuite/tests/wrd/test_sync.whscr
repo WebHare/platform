@@ -186,9 +186,12 @@ MACRO TestSync()
   // Test array with extra attributes too
   testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ARRAY2", "ARRAY");
   testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT", "FREE");
+  testfw->GetWRDSchema()->^wrd_person->CreateAttribute("ETEST_ARRAY2.JSON1", "JSON");
   synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2", "ARRAY");
   synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT", "FREE");
   synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.TEXT2", "FREE");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.JSON1", "JSON");
+  synctarget->^wrd_person->CreateAttribute("ETEST_ARRAY2.JSON2", "JSON");
 
   // Lookup ids for test entities
   INTEGER org_0 := testfw->GetWRDSchema()->^wrd_person->Search("WRD_GUID", org_persons[0].wrd_guid);
@@ -196,7 +199,7 @@ MACRO TestSync()
   INTEGER new_1 := synctarget->^wrd_person->Search("WRD_GUID", org_persons[1].wrd_guid);
 
   schemaobj->^wrd_person->UpdateEntity(org_0,
-        [ etest_array2 := [ [ text := "t1" ] ], linktome := linktome2->id
+        [ etest_array2 := [ [ text := "t1", json1 := `{"myJSONValue":41}` ] ], linktome := linktome2->id
         ]);
 
   Sleep(2); // make sure the org_0 and new_0 entities have different modificationdates
@@ -204,7 +207,7 @@ MACRO TestSync()
       [ etest_domain := new_1
       , etest_file :=   WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg")
       , etest_array :=  [ [ text := "t3" ] ]
-      , etest_array2 := [ [ text := "t4", text2 := "t5" ] ]
+      , etest_array2 := [ [ text := "t4", text2 := "t5", json2 := `{"myJSONValue":45}` ] ]
       ]);
 
   RECORD fields_before_sync := synctarget->^wrd_person->GetEntityFields(new_0,
@@ -212,18 +215,22 @@ MACRO TestSync()
         , "etest_file"
         , "etest_array"
         , "etest_array2"
-        ]);
+        ], [ jsonstrings := TRUE  ]);
+
+  TestEq(`{"myJSONValue":45}`, fields_before_sync.etest_array2[0].json2);
 
   testfw->CommitWork();
 
   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag); //set syncpeer to DEFAULT OBJECT to test locally
 
-  RECORD fields_after_update := synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_domain", "etest_file", "etest_array", "etest_array2" ]);
+  RECORD fields_after_update := synctarget->^wrd_person->GetEntityFields(new_0, [ "etest_domain", "etest_file", "etest_array", "etest_array2" ], [ jsonstrings := TRUE ]);
 
   // etest_array2[0].text was synced to 't1', erasing other array members. array setting will be changed too
   RECORD expected_fields := fields_before_sync;
   expected_fields.etest_array2[0].text := "t1";
   expected_fields.etest_array2[0].text2 := "";
+  expected_fields.etest_array2[0].json1 := `{"myJSONValue":41}`;
+  expected_fields.etest_array2[0].json2 := "null";
   expected_fields.etest_array2[0].wrd_settingid := fields_after_update.etest_array2[0].wrd_settingid;
 
   TestEQ(expected_fields, fields_after_update);
