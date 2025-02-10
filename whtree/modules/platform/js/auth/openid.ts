@@ -9,7 +9,7 @@ import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
-import { buildCookieHeader } from "@webhare/dompack/impl/cookiebuilder";
+import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
 import { loadJSObject } from "@webhare/services";
 
 export type FrontendLoginResult = {

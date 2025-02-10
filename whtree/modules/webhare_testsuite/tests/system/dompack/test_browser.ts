@@ -1,6 +1,6 @@
 import * as test from "@mod-system/js/wh/testframework";
 import { browser } from '@webhare/dompack';
-import { parseUserAgent } from '@webhare/dompack/impl/browser';
+import { parseUserAgent } from '@webhare/dompack/src/browser';
 
 test.runTests(
   [
