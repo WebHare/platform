@@ -1,4 +1,4 @@
-import { generateRandomId } from "@webhare/std";
+import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/std";
 import type { Dirent } from "node:fs";
 import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
@@ -73,11 +73,15 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
   }
 }
 
-async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean): Promise<ListDirectoryEntry[]> {
+async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined): Promise<ListDirectoryEntry[]> {
   const direntries: ListDirectoryEntry[] = [];
+  const subdirs: string[] = [];
   try {
     for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
-      direntries.push(new ListDirectoryEntry(entry));
+      if (!mask || mask.test(entry.name))
+        direntries.push(new ListDirectoryEntry(entry));
+      if (recursive && entry.isDirectory())
+        subdirs.push(entry.name);
     }
   } catch (err) {
     if (allowMissing && (err as { code: string })?.code === "ENOENT")
@@ -86,15 +90,17 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
     throw err;
   }
 
-  if (recursive)
-    for (const item of direntries.filter(_ => _.type === "directory"))
-      direntries.push(...await doReadDir(basepath, join(subpath, item.name), false, true));
+  for (const subdir of subdirs) //they were only gathered if recursive === true
+    appendToArray(direntries, await doReadDir(basepath, join(subpath, subdir), false, true, mask));
   return direntries;
 }
 
 /** List a directory, recursive */
-export async function listDirectory(basepath: string, { allowMissing, recursive }: { allowMissing?: boolean; recursive?: boolean } = {}): Promise<ListDirectoryEntry[]> {
-  return await doReadDir(basepath, "", allowMissing || false, recursive || false);
+export async function listDirectory(basepath: string, { allowMissing, recursive, mask }: { allowMissing?: boolean; recursive?: boolean; mask?: string | RegExp } = {}): Promise<ListDirectoryEntry[]> {
+  if (typeof mask === "string")
+    mask = regExpFromWildcards(mask);
+
+  return await doReadDir(basepath, "", allowMissing || false, recursive || false, mask);
 }
 
 interface DeleteRecursiveOptions {

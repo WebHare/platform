@@ -56,6 +56,12 @@ async function testFS() {
   test.eq("directory", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper` && _.name === "deeper")?.type);
   test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper/deepest.txt` && _.name === "deepest.txt")?.type);
 
+  const direntries_txt = await listDirectory(tempdir, { recursive: true, mask: "*.txt" });
+  test.eq(4, direntries_txt.length);
+
+  const direntries_deep = await listDirectory(tempdir, { recursive: true, mask: /deep/ });
+  test.eq(new Set(["deeper", "deepest.txt", "deep2.txt"]), new Set(direntries_deep.map(_ => _.name)));
+
   const should_disappear = [path.join(tempdir, "subdir", "deeper", "deepest.txt"), path.join(tempdir, "subdir", "backup")];
   should_disappear.forEach(p => test.assert(existsSync(p), `${p} should exist for now...`));
 
