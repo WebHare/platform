@@ -2,13 +2,13 @@
   "name": "@webhare/dompack",
   "version": "",
   "description": "",
-  "main": "dompack.ts",
+  "main": "src/dompack.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./dompack.ts"
+      "./src/dompack.ts"
     ]
   },
   "private": true

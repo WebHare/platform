@@ -7,9 +7,6 @@
     <!-- Set site language -->
     <sitelanguage lang="en" />
 
-    <!-- Disable the legacy site settings -->
-    <disablelegacysitesettings notemplateprofile="true" />
-
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"

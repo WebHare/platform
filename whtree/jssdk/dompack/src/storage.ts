@@ -1,4 +1,4 @@
-import { buildCookieHeader, type CookieOptions } from '@webhare/dompack/impl/cookiebuilder';
+import { buildCookieHeader, type CookieOptions } from '@webhare/dompack/src/cookiebuilder';
 import { escapeRegExp, parseTyped, stringify } from '@webhare/std';
 
 const isolatedcookies: Record<string, string> = {};

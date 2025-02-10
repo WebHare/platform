@@ -1,4 +1,4 @@
-import * as storage from "@webhare/dompack/impl/storage";
+import * as storage from "@webhare/dompack/src/storage";
 
 /** @deprecated Import \@webhare/dompack for storage APIs */
 export const isIsolated = storage.isIsolated;

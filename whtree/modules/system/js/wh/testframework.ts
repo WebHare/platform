@@ -43,7 +43,7 @@ export {
   type Selector
 } from "../internal/tests/waitforelement";
 
-export { waitUIFree } from '@webhare/dompack/impl/busy';
+export { waitUIFree } from '@webhare/dompack/src/busy';
 
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
 

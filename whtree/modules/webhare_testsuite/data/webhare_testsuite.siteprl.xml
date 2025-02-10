@@ -121,7 +121,6 @@
 
   <apply>
     <to type="all" sitetype="http://www.webhare.net/xmlns/webhare_testsuite/testsite" />
-    <disablelegacysitesettings notemplateprofile="true" />
     <webdesign objectname="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#BetaWebDesign"
                witty="mod::webhare_testsuite/lib/publisher/testsitedesign.witty"
                wittyencoding="HTML-NI" />

@@ -23,9 +23,6 @@
     <republish folder="/" indexonly="false" recursive="true" />
     -->
 
-    <!-- Disable the legacy site settings -->
-    <disablelegacysitesettings notemplateprofile="true" />
-
     <!-- Enable formsapi
          To enable (google) recaptcha, add: usecaptcha="1"
     -->
