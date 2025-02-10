@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
+import { updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
 import { freezeRecursive } from "./util/algorithms";
 import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
@@ -7,6 +7,7 @@ import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
 import { getScriptName } from "@webhare/system-tools/src/node";
+import { updateDebugConfig } from "@webhare/env/src/envbackend";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -31,8 +32,6 @@ function readConfigFile() {
   }
 }
 
-registerUpdateConfigCallback(() => updateConfig());
-
 let configfile = readConfigFile();
 const publicconfig = { ...configfile.public };
 
@@ -42,19 +41,11 @@ export const backendConfig = new Proxy(publicconfig, {
   }
 }) as WebHareBackendConfiguration;
 
-const updateHandlers = new Array<() => void>;
-
-export function updateConfig() {
+/** Reload the config.json file into backendConfig. Also reloads debug settings */
+export function reloadBackendConfig() {
   configfile = readConfigFile();
   Object.assign(publicconfig, configfile.public);
-  for (const handler of [...updateHandlers]) {
-    // ignore throws here, we can't do anything in this lowlevel code
-    try { handler(); } catch (e) { }
-  }
-}
-
-export function addConfigUpdateHandler(handler: () => void): void {
-  updateHandlers.push(handler);
+  updateDebugConfig(configfile.debugsettings || null);
 }
 
 export function getFullConfigFile(): RecursiveReadonly<ConfigFile> {

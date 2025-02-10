@@ -9,7 +9,8 @@ import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";
 
-import { updateWebHareConfigWithoutDB, updateCallbacks, type PartialConfigFile } from "./gen_config_nodb";
+import { updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
+import { reloadBackendConfig } from "../configuration";
 
 function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
@@ -109,8 +110,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
 
   if (anychanges) {
     await storeDiskFile(file, newconfigtext, { overwrite: true });
-    for (const cb of [...updateCallbacks])
-      cb();
+    reloadBackendConfig();
 
     if (!nodb) {
       //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
