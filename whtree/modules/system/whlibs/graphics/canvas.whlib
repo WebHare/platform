@@ -1287,13 +1287,9 @@ PUBLIC OBJECT FUNCTION CreateCanvasFromRawBlob(BLOB infile, RECORD inputformat)
     @param method Resize method
     @return Canvas object, or DEFAULT OBJECT if the image could not be read
 */
-PUBLIC OBJECT FUNCTION CreateResizedCanvasFromBlob(BLOB infile, RECORD method)
-{
-  DELETE CELL noforce FROM method;
-  INSERT CELL noforce := FALSE INTO method; //ensure canvas is loaded, even if nothing changed
-
+PUBLIC OBJECT FUNCTION CreateResizedCanvasFromBlob(BLOB infile, RECORD method) {
   RECORD filerec := CellInsert(ScanBLob(infile), "data", infile);
-  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(filerec, method);
+  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(filerec, CELL[...method, noforce := FALSE]); //noforce: ensure canvas is loaded, even if nothing changed
   IF(NOT RecordExists(outinfo))
     RETURN DEFAULT OBJECT;
 
@@ -1337,4 +1333,23 @@ PUBLIC RECORD FUNCTION GetImageResizeInstruction(INTEGER width, INTEGER height, 
 PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for canvas marshaller
 {
   RETURN NEW GraphicsCanvas(id);
+}
+
+/** @short Resize an image with a given resizing method
+    @param fileinfo Wrapped input image blob (i.e. WrapBlob, or ScanBlob with an added 'data' cell)
+    @param resizemethod The resize method properties, all cells but the 'method' cell are optional
+    @cell resizemethod.method The method to use, one of "none", "fit", "scale", "fitcanvas", "scalecanvas", "fill" or "stretch"
+    @cell resizemethod.setwidth Width to set, in pixels.
+    @cell resizemethod.setheight Height to set, in pixels.
+    @cell resizemethod.format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or
+                              "image/png" will be used
+    @cell resizemethod.bgcolor The background color to use (an integer value as returned by GfxCreateColor or a CSS string
+                               color value). Default color is white.
+
+*/
+PUBLIC RECORD FUNCTION GfxResizeAndOpenImage(RECORD fileinfo, RECORD resizemethod) {
+  RECORD resized := __MyGfxResizeImageBlobWithMethod(fileinfo, CELL[...resizemethod, noforce := FALSE ]); //noforce: ensure canvas is loaded, even if nothing changed
+  IF(RecordExists(resized))
+    resized := CELL[ ...resized, canvas := NEW GraphicsCanvas(resized.canvas) ];
+  RETURN resized;
 }
