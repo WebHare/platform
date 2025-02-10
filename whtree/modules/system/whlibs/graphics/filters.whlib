@@ -319,6 +319,7 @@ PUBLIC RECORD FUNCTION GfxResizeWrappedImageWithMethod(RECORD infile, RECORD res
                               "image/png" will be used
     @cell resizemethod.bgcolor The background color to use (an integer value as returned by GfxCreateColor or a CSS string
                                color value). Default color is white.
+
 */
 PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD resizemethod)
 {
@@ -341,7 +342,7 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
   IF((instructions.renderwidth = fileinfo.width AND instructions.renderheight = fileinfo.height) AND instructions.rotate = 0 AND instructions.mirror = FALSE) //change input?
   {
     IF(exactcover AND instructions.noforce AND instructions.outtype = fileinfo.mimetype AND NOT instructions.grayscale) //don't open at all
-      RETURN [ canvas := 0, outtype := fileinfo.mimetype, width := instructions.outwidth, height := instructions.outheight ];
+      RETURN [ canvas := 0, outtype := fileinfo.mimetype, width := instructions.outwidth, height := instructions.outheight, refpoint := instructions.refpoint ];
 
     inputcanvas := __DRAWLIB_V2_CREATECANVASFROMFILE(fileinfo.data);
   }
@@ -396,5 +397,6 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
          , width := instructions.outwidth
          , height := instructions.outheight
          , quality := instructions.quality
+         , refpoint := instructions.refpoint
          ];
 }
