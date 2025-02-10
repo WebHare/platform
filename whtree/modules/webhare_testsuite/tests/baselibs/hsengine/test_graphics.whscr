@@ -7,6 +7,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::graphics/filters.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
+
 
 MACRO FilterTest()
 {
@@ -289,6 +291,21 @@ MACRO FilterTest()
   //regression: allow empty background colors (map to transparent)
   TestEq( [ outwidth := 320, outheight := 120, outtype := "image/jpeg", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 120, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 95, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing(example_jpg, [ method := "stretch", setwidth:=320,setheight:=120,quality:=95,bgcolor := "" ]));
+
+  RECORD directresource := WrapBlob(GetWebhareResource("mod::system/web/tests/snowbeagle.jpg"),"snowbeagle.jpg");
+  directresource.refpoint := [ x := 100, y := 50 ];
+
+  IF(NOT IsWASM()) {
+    RECORD directresize1 := GfxResizeAndOpenImage(directresource, [ method := "fitcanvas", setwidth:=120,setheight:=120 ]);
+    TestEq([ x := 29, y := 35 ], directresize1.refpoint);
+    TestEq(TRUE, ObjectExists(directresize1.canvas));
+    directresize1.canvas->Close();
+
+    RECORD directunresized := GfxResizeAndOpenImage(directresource, [ method := "none" ]);
+    TestEq([ x := 100, y := 50 ], directunresized.refpoint);
+    TestEq(TRUE, ObjectExists(directunresized.canvas));
+    directunresized.canvas->Close();
+  }
 
   CloseTest("TestGraphics: FilterTest");
 }
