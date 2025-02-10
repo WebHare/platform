@@ -20,7 +20,7 @@ function callExportNowrap(libname: string, name: string, args: unknown[]): Promi
   return lib.call(name, args);
 }
 
-/* callExport is used by importJS (javascriptp.whlib) _Invoke in non-WASM environents */
+/* callExport is used by importJS (javascript.whlib) _Invoke in non-WASM environents */
 export async function callExport(lib: string, name: string, args: unknown[]): Promise<unknown> {
   const retval = callExportNowrap(lib, name, args);
   if (isPromise(retval)) { //If the API returned a promise, mimick that in HS
