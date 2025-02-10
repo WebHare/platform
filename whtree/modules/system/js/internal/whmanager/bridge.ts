@@ -2,7 +2,7 @@ import EventSource from "../eventsource";
 import { WHManagerConnection, type WHMResponse } from "./whmanager_conn";
 import { type WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, type LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
-import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
+import { registerAsNonReloadableLibrary, getState as getHMRState } from "../../../../../jssdk/services/src/hmrinternal";
 import { pick, generateRandomId } from "@webhare/std";
 import { type IPCPortControlMessage, type IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, type IPCLinkType } from "./ipc";
 import { type TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer, type AnyTypedMessagePort } from './transport';

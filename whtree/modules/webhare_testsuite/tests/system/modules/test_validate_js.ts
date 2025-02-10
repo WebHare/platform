@@ -38,8 +38,8 @@ disruption: "It should be 'description' not 'disruption'"
   { //verify validation against schemas
     const res = await runJSBasedValidator(WebHareBlob.from(`
 backendServices:
-  invokeservice:
-    clientFactory: "js/internal/util/jssupport.ts#getInvokeService"
+  calljs:
+    clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
     klubikWapperdam: false
 `), "mod::webhare_testsuite/moduledefinition.yml");
 

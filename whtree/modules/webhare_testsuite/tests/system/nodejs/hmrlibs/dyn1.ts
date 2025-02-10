@@ -1,7 +1,7 @@
-import { registerLoadedResource } from "@mod-system/js/internal/hmrinternal";
+import { registerResourceDependency } from "@webhare/services";
 import { register } from "./keeper";
 
 import "./dep";
 
 register(module);
-registerLoadedResource(module, require.resolve("./resource.txt"));
+registerResourceDependency(module, require.resolve("./resource.txt"));

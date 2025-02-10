@@ -10,7 +10,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import type { Mutex } from "@webhare/services";
+import { type Mutex, JSLibraryLoader } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
@@ -217,6 +217,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   inSyncSyscall = false;
   abortController = new AbortController();
   exitCode?: number;
+  readonly importedLibs = new JSLibraryLoader;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;

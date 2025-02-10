@@ -1,11 +1,11 @@
 import { loadlib } from "@webhare/harescript";
 import * as whfs from "@webhare/whfs";
-import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
 import * as undici from "undici";
+import { loadJSFunction } from "@webhare/services";
 
 export async function lookupPublishedTarget(url: string, { clientWebServer = 0 } = {}) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -89,7 +89,7 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
     return await routeThroughHSWebserver(request);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
+  const renderer: WebHareWHFSRouter = await loadJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildSiteRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }

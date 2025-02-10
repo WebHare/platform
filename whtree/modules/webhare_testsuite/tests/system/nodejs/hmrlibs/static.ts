@@ -1,4 +1,4 @@
-import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmr";
+import { registerAsNonReloadableLibrary } from "@webhare/services/src/hmr";
 import { register } from "./keeper";
 import "./dep2";
 

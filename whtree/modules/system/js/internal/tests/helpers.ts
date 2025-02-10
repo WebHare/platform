@@ -1,5 +1,5 @@
 import { parseTyped, stringify } from "@webhare/std/strings";
-import { loadJSExport } from "../resourcetools";
+import { loadJSExport } from "@webhare/services/src/resourcetools";
 
 ///stringifying for safe transport through HS
 export async function testInvoke(lib: string, params: string): Promise<string> {

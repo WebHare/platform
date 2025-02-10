@@ -10,7 +10,7 @@ import EventSource from "@mod-system/js/internal/eventsource";
 import { type DebugFlags, registerDebugConfigChangedCallback, setDebugFlagsOverrideCB } from "@webhare/env/src/envbackend";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 import * as async_hooks from "node:async_hooks";
-import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmrinternal";
+import { registerAsNonReloadableLibrary } from "@webhare/services/src/hmrinternal";
 
 let contextcounter = 0;
 

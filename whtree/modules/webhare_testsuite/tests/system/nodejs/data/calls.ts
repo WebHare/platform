@@ -1,4 +1,5 @@
 import { generateRandomId } from "@webhare/std";
+import { beginWork, isWorkOpen } from "@webhare/whdb";
 
 const random = generateRandomId();
 
@@ -25,3 +26,9 @@ export function runVoid(): void {
 export async function runAsyncVoid(): Promise<void> {
   return;
 }
+
+export async function leakWork() {
+  await beginWork();
+}
+
+export { isWorkOpen };

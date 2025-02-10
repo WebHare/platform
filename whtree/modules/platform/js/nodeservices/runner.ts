@@ -1,6 +1,5 @@
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
-import { runBackendService } from "@webhare/services";
+import { loadJSFunction, runBackendService } from "@webhare/services";
 import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction, WebHareService } from "@webhare/services/src/backendservicerunner";
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {

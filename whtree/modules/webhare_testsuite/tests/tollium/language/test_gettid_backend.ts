@@ -1,8 +1,8 @@
-import { getState } from "@mod-system/js/internal/hmrinternal";
+import { getState, activateHMR } from "@webhare/services/src/hmrinternal";
 import { registerTexts } from "@mod-tollium/js/gettid";
 import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, setTidLanguage } from "@webhare/gettid";
 import { loadlib } from "@webhare/harescript";
-import { WittyEncodingStyle, activateHMR, backendConfig, loadWittyResource } from "@webhare/services";
+import { WittyEncodingStyle, backendConfig, loadWittyResource } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as test from "@webhare/test";
 

@@ -1,6 +1,6 @@
 import type { IPCLinkType } from "./ipc";
 import type { WHMProcessType } from "./whmanager_rpcdefs";
-import type { State as HMRState } from "../hmrinternal";
+import type { State as HMRState } from "../../../../../jssdk/services/src/hmrinternal";
 import type { StackTraceItem } from "../util/stacktrace";
 import type { ConsoleLogItem } from "@webhare/env/src/concepts";
 

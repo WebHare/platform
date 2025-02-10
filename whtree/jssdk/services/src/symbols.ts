@@ -1,7 +1,7 @@
 //Symbols that should survive hot module reloading
 //Restart WebHare after adding symbols
 
-import { registerAsNonReloadableLibrary } from "@mod-system/js/internal/hmrinternal";
+import { registerAsNonReloadableLibrary } from "@webhare/services/src/hmrinternal";
 
 export const setLink = Symbol("setLink");
 export const localServiceHandlerAddPort = Symbol("localServiceHandlerAddPort");

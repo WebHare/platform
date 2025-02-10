@@ -1,7 +1,7 @@
 import { toFSPath } from "@webhare/services";
 import type { CompiledLanguageFile, IfParam, LanguagePart, LanguageText } from "../../../../jssdk/gettid/src/types";
 import { existsSync, readFileSync } from "node:fs";
-import { registerLoadedResourceWithCallback } from "@mod-system/js/internal/hmrinternal";
+import { addResourceChangeListener } from "@webhare/services/src/hmrinternal";
 import { DOMParser, type Node, type Element } from "@xmldom/xmldom";
 import type { CodeContextTidStorage, GetTidHooks } from "@webhare/gettid/src/types";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -149,7 +149,7 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
     const resdata = readFileSync(resname, 'utf-8');
     retval = { resource: resname, ...compileLanguageFile(resdata, texts), registered };
   }
-  registerLoadedResourceWithCallback(module, resname, () => {
+  addResourceChangeListener(module, resname, () => {
     console.log(`Unloading ${resname}`);
     retval.resource = "";
     retval.texts.clear();
