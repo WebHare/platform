@@ -360,7 +360,6 @@ function parseApply(module: string, siteprofile: string, baseScope: string | nul
     mailtemplates: [],
     modifyfiletypes: [],
     modifyfoldertypes: [],
-    disablelegacysitesettings: false,
     extendproperties: apply.editProps ? parseEditProps(baseScope, apply.editProps) : [],
     formdefinitions: [],
     hookintercepts: [],

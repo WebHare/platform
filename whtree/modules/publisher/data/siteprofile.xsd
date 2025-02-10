@@ -871,7 +871,7 @@
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
-      <xs:element name="disablelegacysitesettings" type="DisableLegacySiteSettings" />
+      <xs:element name="disablelegacysitesettings" />
       <xs:element name="usepublishtemplate" type="UsePublishTemplate" />
       <xs:element name="intercept" type="sc:Intercept" />
       <xs:element name="uploadtypemapping" type="UploadTypeMapping" />
@@ -1532,19 +1532,6 @@
     <xs:attribute name="task" type="ModuleNamespacedName" use="required">
       <xs:annotation>
         <xs:documentation>Managed task to run.</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-  </xs:complexType>
-
-  <xs:complexType name="DisableLegacySiteSettings">
-    <xs:annotation>
-      <xs:documentation>
-        Disable the "Legacy settings" tab (containing filelinks, folder indices and content listing) if no more settings are present on it
-      </xs:documentation>
-    </xs:annotation>
-    <xs:attribute name="notemplateprofile" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>Disable template and profile selection (note that HareScript templates and conversionprofiles have been permanently removed in WH 4.32)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>

@@ -62,9 +62,6 @@
     <!-- Allow RTD documents -->
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
 
-    <!-- Disable the legacy site settings -->
-    <disablelegacysitesettings notemplateprofile="true" />
-
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
     <mswordconversion webharecss="false">

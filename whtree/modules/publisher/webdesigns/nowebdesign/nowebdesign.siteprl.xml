@@ -6,7 +6,6 @@
                designfolder="."
                objectname="nowebdesign.whlib#NoWebdesign"
                wittyencoding="HTML-NI" />
-    <disablelegacysitesettings notemplateprofile="true" />
     <baseproperties keywords="false" />
     <denyfoldertype typemask="*" />
     <denyfiletype typemask="*" />

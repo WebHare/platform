@@ -237,7 +237,6 @@ export interface CSPApplyRule {
   contentlisting?: any;
   customnodes: any[];
   defaultsettings: any[];
-  disablelegacysitesettings: boolean;
   disabletemplateprofile: boolean;
   extendproperties: Array<{
     contenttype: string;

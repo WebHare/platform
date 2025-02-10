@@ -811,7 +811,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , contentlisting := DEFAULT RECORD
                     , customnodes := DEFAULT RECORD ARRAY
                     , defaultsettings := DEFAULT RECORD ARRAY
-                    , disablelegacysitesettings := FALSE
                     , disabletemplateprofile := FALSE
                     , extendproperties := DEFAULT RECORD ARRAY
                     , folderindex := DEFAULT RECORD
@@ -1137,8 +1136,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "disablelegacysitesettings"
             {
-              apply.disablelegacysitesettings := TRUE;
-              apply.disabletemplateprofile := ParseXSBoolean(node->GetAttribute("notemplateprofile"));
               CONTINUE;
             }
             CASE "customplugin"

@@ -26,9 +26,6 @@
     <republish folder="/" indexonly="false" recursive="true" />
     -->
 
-    <!-- Disable the legacy site settings -->
-    <disablelegacysitesettings notemplateprofile="true" />
-
     <!-- disable keywords field -->
     <baseproperties keywords="false" />
 
