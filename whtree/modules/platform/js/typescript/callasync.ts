@@ -1,38 +1,26 @@
 /** This script contains the APIs to build ImportJS on top of callasync-runner */
 
-import { toFSPath } from "@webhare/services";
+import { JSLibraryLoader } from "@webhare/services";
 import { isPromise } from "@webhare/std";
-import { callOnLibrary, describeLibrary, loadLibrary, normalizeLibPath, type LoadedJSLibrary } from "./call-js";
 
-const libmap = new Map<string, LoadedJSLibrary>;
+const cache = new JSLibraryLoader;
 const promises: Array<Promise<unknown> | null> = [];
 
-export async function load(lib: string) {
-  lib = normalizeLibPath(lib);
-
-  const loaded = await loadLibrary(lib);
-  libmap.set(lib, loaded);
-  return loaded;
-}
-
+/* Invoked by javascript.whlib#ImportJS */
 export async function describe(lib: string) {
-  const loaded = await load(lib);
-  return describeLibrary(loaded);
+  return (await cache.load(lib)).describe();
 }
 
 function callExportNowrap(libname: string, name: string, args: unknown[]): Promise<unknown> | unknown | undefined {
-  if (libname.startsWith('mod::'))
-    libname = toFSPath(libname);
-
   //as describe was invoked earlier the lib must be available now
-  const lib = libmap.get(libname)!;
+  const lib = cache.getIfExists(libname);
   if (!lib)
-    throw new Error(`Library '${libname}' could not be loaded`);
+    throw new Error(`Library '${libname}' was not be loaded`);
 
-  return callOnLibrary(lib, name, args);
+  return lib.call(name, args);
 }
 
-//callExport is used by importJS _Invoke in non-WASM environents
+/* callExport is used by importJS (javascriptp.whlib) _Invoke in non-WASM environents */
 export async function callExport(lib: string, name: string, args: unknown[]): Promise<unknown> {
   const retval = callExportNowrap(lib, name, args);
   if (isPromise(retval)) { //If the API returned a promise, mimick that in HS

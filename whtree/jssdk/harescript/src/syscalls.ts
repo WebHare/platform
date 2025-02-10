@@ -9,7 +9,7 @@ import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl"
 import { setHareScriptType } from "@webhare/hscompat/hson";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { loadJSFunction } from "@webhare/services";
-import { callOnLibrary, describeLibrary } from "@mod-platform/js/typescript/call-js";
+import { throwError } from "@webhare/std";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -127,13 +127,12 @@ export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: strin
 }
 
 export async function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
-  const lib = await hsvm.loadJSLibrary(name);
-  return describeLibrary(lib);
+  return (await hsvm.importedLibs.load(name)).describe();
 }
 
 export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
-  const libJS = hsvm.getJSLibrarySync(lib);
-  return callOnLibrary(libJS, name, args);
+  const loaded = hsvm.importedLibs.getIfExists(lib) ?? throwError(`Library '${lib}' was not described yet`);
+  return loaded.call(name, args);
 }
 
 export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {

@@ -10,7 +10,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import type { Mutex } from "@webhare/services";
+import { type Mutex, JSLibraryLoader } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
@@ -18,7 +18,6 @@ import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeCon
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath } from "./wasm-support";
-import { loadLibrary, normalizeLibPath, type LoadedJSLibrary } from "@mod-platform/js/typescript/call-js";
 
 
 export interface StartupOptions {
@@ -218,7 +217,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   inSyncSyscall = false;
   abortController = new AbortController();
   exitCode?: number;
-  private importedLibs = new Map<string, LoadedJSLibrary>;
+  readonly importedLibs = new JSLibraryLoader;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -288,21 +287,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   writeToStderr(data: Buffer) {
     process.stderr.write(data);
-  }
-
-  async loadJSLibrary(name: string): Promise<LoadedJSLibrary> {
-    const libName = normalizeLibPath(name);
-    if (!this.importedLibs.get(libName))
-      this.importedLibs.set(libName, await loadLibrary(libName));
-
-    return this.importedLibs.get(libName)!;
-  }
-  getJSLibrarySync(name: string): LoadedJSLibrary {
-    const libName = normalizeLibPath(name);
-    const lib = this.importedLibs.get(libName);
-    if (!lib)
-      throw new Error(`Library ${libName} not loaded yet`);
-    return lib;
   }
 
   /** Throw if the current VM has a pending exception or error. Needed to ensure errors are handled on the current stack (and not on the eventloop) */
