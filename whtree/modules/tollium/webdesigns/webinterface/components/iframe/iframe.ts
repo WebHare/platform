@@ -54,17 +54,6 @@ type IframeMessage = {
   type: "calljs";
   funcname: string;
   args: unknown[];
-} | {
-  type: "resize";
-} | {
-  type: "createdimage"; //we generate these internally. is this the reason we fallback to postmessage?
-  id: number;
-  src: string;
-  width: number;
-  height: number;
-} | {
-  type: "callback";  //we generate these internally. is this the reason we fallback to postmessage?
-  data: unknown;
 };
 
 export default class ObjIFrame extends ComponentBase {
@@ -158,9 +147,6 @@ export default class ObjIFrame extends ComponentBase {
           console.error("calljs failure", e);
           //and ignore. don't break the UI
         }
-      } else {
-        console.error(`frame postmessage fallback path reached. type == ${msg.type}`); //TODO remove, why is the fallback needed?
-        this.iframe.contentWindow.postMessage(msg, '*');
       }
     }
   }
@@ -219,7 +205,7 @@ export default class ObjIFrame extends ComponentBase {
     if (this.width.set !== this.prevwidth || this.height.set !== this.prevheight) {
       this.prevwidth = this.width.set;
       this.prevheight = this.height.set;
-      this.queuedmessages.push({ type: 'resize' });
+      this.queuedmessages.push({ type: "postmessage", data: { message: { type: "resize" }, targetorigin: "*" } });
       this.postQueuedMessages(false);
     }
   }
@@ -350,7 +336,19 @@ export default class ObjIFrame extends ComponentBase {
       case 'createimage': {
         const img = createImage(data.imgname, data.width, data.height, data.color, null);
         img.addEventListener("load", () => {
-          this.queuedmessages.push({ id: data.id, type: 'createdimage', src: img.src, width: data.width, height: data.height });
+          this.queuedmessages.push({
+            type: "postmessage",
+            data: {
+              message: {
+                type: "createdimage",
+                id: data.id,
+                src: img.src,
+                width: data.width,
+                height: data.height,
+              },
+              targetorigin: event.origin,
+            },
+          });
           this.postQueuedMessages(false);
         });
         break;
@@ -378,7 +376,7 @@ export default class ObjIFrame extends ComponentBase {
   }
 
   onMsgCallback(data: unknown) {
-    this.queuedmessages.push({ type: 'callback', data: data });
+    this.queuedmessages.push({ type: "postmessage", data: { message: { type: "callback", data: data }, targetorigin: "*" } });
     this.postQueuedMessages(false);
   }
 
