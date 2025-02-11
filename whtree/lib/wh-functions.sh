@@ -46,11 +46,15 @@ wh_runjs()
   SAVE_NODE_OPTIONS="$NODE_OPTIONS"
 
   export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
-  export NODE_OPTIONS="--trace-warnings --enable-source-maps --require \"$WEBHARE_DIR/jssdk/tsrun/dist/resolveplugin.js\" --require "@mod-platform/js/bootstrap/whnode-preload" --openssl-legacy-provider $NODE_OPTIONS"
+  export NODE_OPTIONS="--trace-warnings --require \"$WEBHARE_DIR/jssdk/tsrun/dist/resolveplugin.js\" --require "@mod-platform/js/bootstrap/whnode-preload" --openssl-legacy-provider $NODE_OPTIONS"
 
   # is the 'retainers' flag set ?
   if [[ $WEBHARE_DEBUG =~ ((^|[,])retainers([,]|$))+ ]] ; then
     NODE_OPTIONS="--require \"$WEBHARE_DIR/modules/system/js/internal/debug/retainers.js\" $NODE_OPTIONS"
+  fi
+
+  if [ -z "$WEBHARE_NO_SOURCEMAPS" ]; then
+    NODE_OPTIONS="--enable-source-maps $NODE_OPTIONS"
   fi
 
   [ -n "$WEBHARE_NODE_BINARY" ] || wh_getnodeconfig
