@@ -301,20 +301,27 @@ export default class ObjIFrame extends ComponentBase {
 
   handleWindowMessage = (event: MessageEvent) => {
     const data = event.data;
-    switch (data.type) {
-      case 'callback':
-        this.queueMessage('callback', { parameters: data.data }, false);
+    // The legacy $iframetodd object sends messages with a 'type' property where the new iframe integration code uses the
+    // '$tolliumMsg' property to improve separation between tollium messages and user messages (when postTolliumMessage is
+    // used, the user can send any message, inclusing messages with a 'type' property that is used in internal communication)
+    switch (data.$tolliumMsg ?? data.type) {
+      case "message":
+        this.queueMessage("postmessage", { data: data.message, origin: event.origin });
         break;
 
-      case 'data':
+      case "callback":
+        this.queueMessage("callback", { parameters: data.data }, false);
+        break;
+
+      case "data":
         if (typeof data.data === "object") {
           this.data = data.data;
           this.queueMessage('data', { data: data.data }, false);
         } else
-          console.error('IFrame "' + this.name + '" sent non-object value:', data.data);
+          console.error(`IFrame "${this.name}" sent non-object value:'`, data.data);
         break;
 
-      case 'contextmenu': {
+      case "contextmenu": {
         const menu = this.owner.getComponent(data.name) ?? this.owner.getComponent(`${this.owner.screenname}:${data.name}`);
         if (!(menu instanceof ObjMenuItem))
           return;
@@ -324,28 +331,34 @@ export default class ObjIFrame extends ComponentBase {
         break;
       }
 
-      case 'closeallmenus':
+      case "closeallmenus":
         menus.closeAll();
         break;
 
-      case 'actionenabler':
+      case "actionenabler":
         this.selectionflags = data.selectionflags || [];
         this.owner.actionEnabler();
         break;
 
-      case 'createimage': {
+      case "createimage": {
         const img = createImage(data.imgname, data.width, data.height, data.color, null);
         img.addEventListener("load", () => {
+          const message: Record<string, unknown> = {
+            id: data.id,
+            src: img.src,
+            width: data.width,
+            height: data.height,
+          };
+          // If the new API using $tolliumMsg was used, send the message back with a $tolliumMsg property instead of a type
+          // property, so they can be easily ignored by a message event listener
+          if (data.$tolliumMsg)
+            message.$tolliumMsg = "createdimage";
+          else
+            message.type = "createdimage";
           this.queuedmessages.push({
             type: "postmessage",
             data: {
-              message: {
-                type: "createdimage",
-                id: data.id,
-                src: img.src,
-                width: data.width,
-                height: data.height,
-              },
+              message,
               targetorigin: event.origin,
             },
           });
@@ -356,7 +369,7 @@ export default class ObjIFrame extends ComponentBase {
 
       //FIXME get rid of (most of) the handlers above... just go for free communication!
       default:
-        this.queueMessage('postmessage', { data: event.data, origin: event.origin });
+        this.queueMessage("postmessage", { data, origin: event.origin });
     }
   };
 
