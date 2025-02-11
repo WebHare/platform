@@ -4,7 +4,6 @@ import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
 import { openFile, openFileOrFolder } from "@webhare/whfs";
 import { ResourceDescriptor } from "@webhare/services";
-import "temporal-polyfill/global";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));

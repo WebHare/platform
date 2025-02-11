@@ -2,6 +2,9 @@
 
 import { DTAPStage } from "./concepts";
 
+/// List global polyfills currently active. This may be needed to align TypeScript hosts configuration
+export const globalPolyfils: string[] = [];
+
 /// An object with string keys and typed values
 export interface WellKnownFlags {
   /** Log RPcs */

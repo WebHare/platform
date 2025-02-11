@@ -5,6 +5,7 @@ import { backendConfig } from "../configuration";
 import * as path from "node:path";
 import { mkdir, readlink, rm, symlink } from "node:fs/promises";
 import { whconstant_builtinmodules } from "../webhareconstants";
+import { globalPolyfils } from "@webhare/env/src/envbackend";
 
 type DataRootItem = {
   name: string;
@@ -94,6 +95,10 @@ async function getTSPaths(items: DataRootItem[], startpath: string): Promise<Rec
   return result;
 }
 
+export function getTSPolyfills() {
+  return globalPolyfils.map(name => require.resolve(name));
+}
+
 async function buildTSConfig(node_modules: DataRootItem[]) {
   const tsconfig = {
     extends: backendConfig.installationroot + "tsconfig.json",
@@ -101,7 +106,15 @@ async function buildTSConfig(node_modules: DataRootItem[]) {
       paths: await getTSPaths(node_modules, ""),
       baseUrl: "."
     },
-    exclude: ["**/vendor/**"]
+    exclude: [
+      "**/vendor/**",
+      "**/node_modules/**"
+    ],
+    include: [
+      "**/*",
+      //activate the Temporal polyfill in the IDEs
+      ...getTSPolyfills()
+    ]
   };
   return tsconfig;
 }
@@ -190,8 +203,15 @@ export default relaxedConfig;
   await syncLinks(whdatamods, datarootitems, true); //Add verbose support to syncLinks? but it's a lot of noise
 
   const tsconfig = await buildTSConfig(datarootitems);
-  const dataRootConfig = structuredClone(tsconfig);
-  await updateFile(backendConfig.dataroot + "tsconfig.json", JSON.stringify(dataRootConfig, null, 2));
+  const dataRootConfig = {
+    ...tsconfig,
+    include: [
+      "installedmodules/**/*", //to prevent tsc from scanning your entire whdata directory
+      ...getTSPolyfills()
+    ]
+  };
+
+  await updateFile(backendConfig.dataroot + "tsconfig.json", formatTSConfig(dataRootConfig));
 
   /* Generate tsconfig.jsons for all modules. Considered going without tsconfig.jsons on non-dev setups but
      - this breaks ESLint validation whose TSLint plugins look up tsconfig.json. we'd have to manually set up those plugins then
