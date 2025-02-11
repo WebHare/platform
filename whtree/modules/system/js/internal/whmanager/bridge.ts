@@ -13,7 +13,7 @@ import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type PortLi
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
-import { updateConfig } from "../configuration";
+import { reloadBackendConfig } from "../configuration";
 import { getActiveCodeContexts, getCodeContext } from "@webhare/services/src/codecontexts";
 import { isMainThread, type TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
@@ -1406,7 +1406,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 function handleGlobalEvent(data: { name: string }) {
   switch (data.name) {
     case "system:configupdate": {
-      updateConfig();
+      reloadBackendConfig();
     } break;
   }
 }

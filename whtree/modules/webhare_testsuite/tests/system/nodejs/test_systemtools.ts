@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import { storeDiskFile, listDirectory, deleteRecursive } from "@webhare/system-tools";
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, stat } from 'node:fs/promises';
 import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
@@ -44,8 +44,21 @@ async function testFS() {
   await storeDiskFile(path.join(tempdir, "1.txt"), new Blob(["test 11"]), { overwrite: true });
   test.eq("test 11", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
 
-  await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deepest.txt"), "Deepest file", { mkdir: true });
-  await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deep2.txt"), "Deep file");
+  const deepestfile = path.join(tempdir, "subdir", "deeper", "deepest.txt");
+  await storeDiskFile(deepestfile, "Deepest file", { mkdir: true });
+  await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deep2.txt"), "Deep file", { onlyIfChanged: true }); //verify it won't crash on non-existing files
+
+  const modtime = (await stat(deepestfile)).mtime;
+  await test.sleep((modtime.getTime() % 1000) === 0 ? 1000 : 1); //sleep 1 ms unless filesystem looks imprecise
+  await storeDiskFile(deepestfile, "Deepest file", { overwrite: true, onlyIfChanged: true });
+  test.eq(modtime, (await stat(deepestfile)).mtime);
+  await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true, onlyIfChanged: true });
+  test.assert(modtime < (await stat(deepestfile)).mtime);
+
+  const modtime2 = (await stat(deepestfile)).mtime;
+  await test.sleep((modtime2.getTime() % 1000) === 0 ? 1000 : 1); //sleep 1 ms unless filesystem looks imprecise
+  await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true });
+  test.assert(modtime2 < (await stat(deepestfile)).mtime);
 
   symlinkSync(path.join(tempdir, "subdir"), path.join(tempdir, "subdir", "backup"));
 
@@ -55,6 +68,12 @@ async function testFS() {
   test.eq("symboliclink", direntries.find(_ => _.fullPath === `${tempdir}/subdir/backup` && _.name === "backup")?.type);
   test.eq("directory", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper` && _.name === "deeper")?.type);
   test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper/deepest.txt` && _.name === "deepest.txt")?.type);
+
+  const direntries_txt = await listDirectory(tempdir, { recursive: true, mask: "*.txt" });
+  test.eq(4, direntries_txt.length);
+
+  const direntries_deep = await listDirectory(tempdir, { recursive: true, mask: /deep/ });
+  test.eq(new Set(["deeper", "deepest.txt", "deep2.txt"]), new Set(direntries_deep.map(_ => _.name)));
 
   const should_disappear = [path.join(tempdir, "subdir", "deeper", "deepest.txt"), path.join(tempdir, "subdir", "backup")];
   should_disappear.forEach(p => test.assert(existsSync(p), `${p} should exist for now...`));

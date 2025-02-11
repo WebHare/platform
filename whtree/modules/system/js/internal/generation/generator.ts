@@ -21,7 +21,6 @@ import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_
 import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
-import { updateConfig } from "../configuration";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { mkdir, readFile } from "fs/promises";
@@ -133,13 +132,11 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
     if (options?.verbose)
       console.time("Updating WebHare config files");
     if (!options.dryRun)
-      await updateWebHareConfigFile(options);
+      await updateWebHareConfigFile(options); //will invoke reloadBackendConfig if anything changed
     if (options?.verbose)
       console.timeEnd("Updating WebHare config files");
   }
 
-  // Reload any configuration updated above (TODO shouldn't updateWebHareConfig have triggered a callback to do this ?)
-  updateConfig();
 
   if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
     return;

@@ -1,6 +1,6 @@
-import { generateRandomId } from "@webhare/std";
+import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/std";
 import type { Dirent } from "node:fs";
-import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
+import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile } from "node:fs/promises";
 import { join, parse } from "node:path";
 import type { Stream } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
@@ -28,12 +28,14 @@ class ListDirectoryEntry {
 }
 
 export interface StoreDiskFileOptions {
-  /** Overwrite if the file already exists? (other we would throw) */
+  /** Overwrite if the file already exists? (otherwise we would throw) */
   overwrite?: boolean;
   /** Create/overwrite the file in place. Normally, a temporary file is generated first to allow atomic replacement */
   inPlace?: boolean;
   /** Create parent directory recursively if it doesn't exist */
   mkdir?: boolean;
+  /** Update only if the file has changed. This takes a bit more time but prevents triggering watchers or updating timestamps. Currently only supported for strings */
+  onlyIfChanged?: boolean;
 }
 
 /** Store a file to disk (atomically if possible)
@@ -47,6 +49,18 @@ export interface StoreDiskFileOptions {
 export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions) {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
+  if (options?.onlyIfChanged) { //we'll check the content of any existing target first
+    if (typeof data !== "string")
+      throw new Error("onlyIfChanged is currently only supported for string data");
+    try {
+      const curdata = await readFile(path, 'utf-8');
+      if (curdata === data)
+        return; //done!
+    } catch (err) {
+      if ((err as { code: string })?.code !== "ENOENT")
+        throw err;
+    }
+  }
 
   /* To provide both the atomicity guarantee of inplace := FALSE and the exlusive-create guarantee of overwrite := FALSE
      we need to hold handles to both versions */
@@ -73,11 +87,15 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
   }
 }
 
-async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean): Promise<ListDirectoryEntry[]> {
+async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined): Promise<ListDirectoryEntry[]> {
   const direntries: ListDirectoryEntry[] = [];
+  const subdirs: string[] = [];
   try {
     for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
-      direntries.push(new ListDirectoryEntry(entry));
+      if (!mask || mask.test(entry.name))
+        direntries.push(new ListDirectoryEntry(entry));
+      if (recursive && entry.isDirectory())
+        subdirs.push(entry.name);
     }
   } catch (err) {
     if (allowMissing && (err as { code: string })?.code === "ENOENT")
@@ -86,15 +104,17 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
     throw err;
   }
 
-  if (recursive)
-    for (const item of direntries.filter(_ => _.type === "directory"))
-      direntries.push(...await doReadDir(basepath, join(subpath, item.name), false, true));
+  for (const subdir of subdirs) //they were only gathered if recursive === true
+    appendToArray(direntries, await doReadDir(basepath, join(subpath, subdir), false, true, mask));
   return direntries;
 }
 
 /** List a directory, recursive */
-export async function listDirectory(basepath: string, { allowMissing, recursive }: { allowMissing?: boolean; recursive?: boolean } = {}): Promise<ListDirectoryEntry[]> {
-  return await doReadDir(basepath, "", allowMissing || false, recursive || false);
+export async function listDirectory(basepath: string, { allowMissing, recursive, mask }: { allowMissing?: boolean; recursive?: boolean; mask?: string | RegExp } = {}): Promise<ListDirectoryEntry[]> {
+  if (typeof mask === "string")
+    mask = regExpFromWildcards(mask);
+
+  return await doReadDir(basepath, "", allowMissing || false, recursive || false, mask);
 }
 
 interface DeleteRecursiveOptions {
