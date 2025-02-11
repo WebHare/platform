@@ -1,5 +1,8 @@
-/* This configuration file is needed because eslint can also be ran on deployed
-   WebHares that don't have the root eslint.config.mjs file.
+/* This configuration is used by 'wh checkmodule'/RunESLint
+
+   checkmodule normally prefilters by extension (.ts/.tsx) and passes the
+   individual files to eslint, but running 'eslint' in whtree/ will also
+   validate all JS files
 */
 import { strictConfig } from "./jssdk/eslint-config/eslint.config.mjs";
 

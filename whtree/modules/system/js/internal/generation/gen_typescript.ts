@@ -166,8 +166,8 @@ export async function updateTypeScriptInfrastructure({ verbose = false } = {}) {
   await mkdir(whdatamods, { recursive: true });
 
   await updateFile(backendConfig.dataroot + "eslint.config.mjs",
-    `import { moduleConfig } from "@webhare/eslint-config";
-export default moduleConfig;
+    `import { relaxedConfig } from "@webhare/eslint-config";
+export default relaxedConfig;
 `);
 
   /* When runnning `npm install` in the dataroot or a subdirectory (without its own package.json),

@@ -3,10 +3,10 @@ Use this package if you want to match or base yourself on WebHare Platform's lin
 
 Example:
 ```typescript
-import defaultSettings from "@webhare/eslint-config";
+import { relaxedConfig } from "@webhare/eslint-config";
 
 export default = [
-    ...defaultSettings, {
+    ...relaxedConfig, {
         rules: {
             ...
         }
@@ -15,6 +15,5 @@ export default = [
 ```
 
 The following exports are provided:
-- webHareConfig: the configuration used for WebHare itself
-- moduleConfig: the configuration used for modules (relaxes some rules)
-- default: the configuration used for modules
+- strictConfig: the configuration used for WebHare itself
+- relaxedConfig: the configuration used for modules (relaxes some rules)
