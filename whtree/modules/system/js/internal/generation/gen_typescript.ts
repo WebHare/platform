@@ -35,18 +35,6 @@ function getDataRootNodeModules(): DataRootItem[] {
     ]);
 
   items.push(
-    /* TODO why needed?
-    {
-    name: ".bin",
-    type: "directory",
-    items: [
-      {
-        name: "tsc",
-        type: "symboliclink",
-        target: `${installationroot}node_modules/.bin/tsc`
-      }
-    ]
-  },*/
     {
       name: "dompack",
       type: "symboliclink",
@@ -87,27 +75,6 @@ function getDataRootNodeModules(): DataRootItem[] {
       name: "wh:wrd",
       type: "symboliclink",
       target: `${whdataroot}storage/system/generated/wrd`
-    },
-    {
-      name: "wh:internal",
-      type: "directory",
-      items: [
-        {
-          name: "kysely",
-          type: "symboliclink",
-          target: `${installationroot}node_modules/kysely`
-        },
-        {
-          name: "whtree",
-          type: "symboliclink",
-          target: installationroot
-        }
-      ]
-    },
-    { // WebHare whtree node_module packages that are available for client modules. dev might need it for docs/listcircularimports.ts ?
-      name: "typescript",
-      type: "symboliclink",
-      target: `${installationroot}node_modules/typescript`
     }
   );
   return items;
