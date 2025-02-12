@@ -4,6 +4,7 @@ import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { backendConfig } from "../configuration";
 import * as path from "node:path";
 import { mkdir, readlink, rm, symlink } from "node:fs/promises";
+import { whconstant_builtinmodules } from "../webhareconstants";
 
 type DataRootItem = {
   name: string;
@@ -138,12 +139,16 @@ async function buildTSConfig(node_modules: DataRootItem[]) {
   return tsconfig;
 }
 
-export async function generateTSConfigForModule(module: string) {
+function formatTSConfig(config: unknown) {
+  return JSON.stringify(config, null, 2) + '\n';
+}
+
+export async function generateTSConfigTextForModule(module: string) {
   if (!backendConfig.module[module])
     throw new Error(`Module '${module}' not found`);
 
-  const node_modules = getDataRootNodeModules();
-  return await buildTSConfig(node_modules);
+  const datarootitems = getDataRootNodeModules();
+  return formatTSConfig(await buildTSConfig(datarootitems));
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
@@ -212,11 +217,25 @@ export default moduleConfig;
 
   await updateFile(backendConfig.dataroot + ".npmrc", `engine-strict=true\n`);
 
-  const tocheck = getDataRootNodeModules();
-  await syncLinks(whdatamods, tocheck, true); //Add verbose support to syncLinks? but it's a lot of noise
+  const datarootitems = getDataRootNodeModules();
+  await syncLinks(whdatamods, datarootitems, true); //Add verbose support to syncLinks? but it's a lot of noise
 
-  const dataRootConfig = await buildTSConfig(tocheck);
+  const tsconfig = await buildTSConfig(datarootitems);
+  const dataRootConfig = structuredClone(tsconfig);
   await updateFile(backendConfig.dataroot + "tsconfig.json", JSON.stringify(dataRootConfig, null, 2));
+
+  /* Generate tsconfig.jsons for all modules. Considered going without tsconfig.jsons on non-dev setups but
+     - this breaks ESLint validation whose TSLint plugins look up tsconfig.json. we'd have to manually set up those plugins then
+     - this breaks loadType in @webhare/tests,it would have to start depending on gen_typescript
+     - esbuild might also use it ?
+
+    Note that 'wh checkmodule' currently also updates this for the checked module.*/
+  const tsconfigText = formatTSConfig(tsconfig);
+  for (const [module, config] of Object.entries(backendConfig.module)) {
+    if (!whconstant_builtinmodules.includes(module)) { //the builtin ones are handled by a central tsconfig.json
+      await updateFile(config.root + "tsconfig.json", tsconfigText);
+    }
+  }
 
   if (verbose)
     console.timeEnd("Updating TypeScript infrastructure");
