@@ -30,15 +30,8 @@ function getCachePathForFile(cachepath: string, filename: string): string {
 }
 
 export const loadersmap: Record<string, Loader> = {
-  ".js": "js",
-  ".mjs": "js",
-  ".cjs": "js",
-  ".jsx": "jsx",
   ".ts": "ts",
   ".tsx": "tsx",
-  // ".css": "css",
-  ".json": "json",
-  // ".txt": "text",
 };
 
 export function supports(filename: string) {
