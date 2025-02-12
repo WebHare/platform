@@ -1386,6 +1386,8 @@
       <text tid="feedback-general">Algemene feedback</text>
       <text tid="feedback-specific">Specifieke feedback</text>
       <text tid="feedbackerror">Het uploaden van je feedback is helaas niet gelukt. Probeer het later nog eens.</text>
+      <text tid="feedbackfailed-text">Het is niet gelukt de feedback vast te leggen. Probeer het  later nog eens.</text>
+      <text tid="feedbackfailed-title">Feedback NIET verstuurd</text>
       <text tid="feedbackform">Feedback</text>
       <text tid="feedbacksubmitted">Feedback is verstuurd</text>
       <text tid="from">Van</text>

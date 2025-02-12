@@ -30,8 +30,8 @@ export interface PointOptions {
 export interface FeedbackResult {
   /** If the feedback was successfully stored  */
   success: boolean;
-
-  responsetext: string;
+  /** Text to show to reporter */
+  response_text: string;
 }
 
 export interface PointResult {
