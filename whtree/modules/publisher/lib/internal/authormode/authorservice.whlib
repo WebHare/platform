@@ -42,7 +42,7 @@ PUBLIC RECORD FUNCTION RPC_SubmitFeedback(RECORD data)
   RECORD userdata := VerifyFeedbackWebToken(data.token);
   DELETE CELL token FROM data;
   IF(NOT RecordExists(userdata))
-    RETURN [ success := FALSE, responsetext := "Not authorized to submit feedback" ];
+    RETURN [ success := FALSE, response_text := "Not authorized to submit feedback" ];
 
   OpenPrimary();
   INTEGER targetfile := LookupPublisherURL(data.url).file;
@@ -55,5 +55,5 @@ PUBLIC RECORD FUNCTION RPC_SubmitFeedback(RECORD data)
   IF(IsModuleInstalled("connect"))
     RETURN MakeFunctionPTR("mod::connect/lib/internal/whfeedbackapi.whlib#ProcessAuthorFeedback")(CELL[ ...data, userdata ]);
   ELSE
-    RETURN [ success := FALSE, responsetext := "No feedback processor installed" ];
+    RETURN [ success := FALSE, response_text := "No feedback processor installed" ];
 }

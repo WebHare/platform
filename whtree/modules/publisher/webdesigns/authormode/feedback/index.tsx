@@ -46,15 +46,29 @@ async function submitFeedback(dialog: dialogapi.DialogBase, event: SubmitEvent, 
     remarks: elements.remarks.value || ''
   };
 
-  const submission = await authorservice.submitFeedback(feedbackinfo);
-  await dialogapi.runMessageBox(
-    <div>
-      <h2>{getTid("publisher:site.authormode.feedbacksubmitted")}</h2>
-      <p>{submission.responsetext}</p>
-    </div>,
-    [{ title: getTid("tollium:tilde.ok"), result: "ok" }], { /*signal: actrl.signal, */allowcancel: true });
+  try {
+    const submission = await authorservice.submitFeedback(feedbackinfo);
+    if (!submission.success)
+      throw new Error(submission.response_text || "Unknown submitFeedback error");
+    await dialogapi.runMessageBox(
+      <div>
+        <h2>{getTid("publisher:site.authormode.feedbacksubmitted")}</h2>
+        <p>{submission.response_text}</p>
+      </div>,
+      [{ title: getTid("tollium:tilde.ok"), result: "ok" }], { /*signal: actrl.signal, */allowcancel: true });
 
-  dialog.resolve("ok");
+  } catch (e) {
+    console.error("Feedback submission failed", e);
+    await dialogapi.runMessageBox(
+      <div>
+        <h2>{getTid("publisher:site.authormode.feedbackfailed-title")}</h2>
+        <p>{getTid("publisher:site.authormode.feedbackfailed-text")}</p>
+        <p>{(e as Error).message}</p>
+      </div>,
+      [{ title: getTid("tollium:tilde.close"), result: "close" }], { /*signal: actrl.signal, */allowcancel: true });
+  } finally {
+    dialog.resolve("ok");
+  }
 }
 
 export async function runFeedbackReport(event: MouseEvent, addElement: boolean) {
