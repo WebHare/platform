@@ -106,6 +106,17 @@ PUBLIC OBJECTTYPE TolliumCheckbox EXTEND TolliumComposableComponentWithLabelBase
     RETURN this->value;
   }
 
+  UPDATE PUBLIC MACRO ExecutePathAction(STRING path)
+  {
+    IF (path IN [ "", "toggle", "true", "false" ])
+    {
+      this->SetValue(path IN [ "true", "false" ] ? path = "true" : NOT this->value);
+      RETURN;
+    }
+
+    TolliumComposableComponentWithLabelBase::ExecutePathAction(path);
+  }
+
   // ---------------------------------------------------------------------------
   //
   // Getters & setters
