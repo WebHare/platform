@@ -1,11 +1,19 @@
 import * as test from "@webhare/test";
 import { storeDiskFile, listDirectory, deleteRecursive } from "@webhare/system-tools";
-import { mkdtemp, stat } from 'node:fs/promises';
+import { mkdtemp, stat, utimes } from 'node:fs/promises';
 import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { Readable } from "node:stream";
 
+async function rewindAndGetModTime(file: string) {
+  /* Just reading modtime and sleeping is unreliable because a FS may have only 1 second precision (eg overlayfs used in CI)
+     AND linux is imprecise when reading/setting modtimes - reading mtime, sleeping for 1 sec, touchingm does not guarantee that
+     the 2 modtimes are 1 second apart as many failed CI runs can attest  */
+  const setDate = new Date(Date.now() - 5000);
+  await utimes(file, setDate, setDate);
+  return (await stat(file)).mtime;
+}
 
 async function testFS() {
   const tempdir = await mkdtemp(path.join(os.tmpdir(), "test-systemtools-"));
@@ -48,17 +56,15 @@ async function testFS() {
   await storeDiskFile(deepestfile, "Deepest file", { mkdir: true });
   await storeDiskFile(path.join(tempdir, "subdir", "deeper", "deep2.txt"), "Deep file", { onlyIfChanged: true }); //verify it won't crash on non-existing files
 
-  const modtime = (await stat(deepestfile)).mtime;
-  await test.sleep((modtime.getTime() % 1000) === 0 ? 1000 : 1); //sleep 1 ms unless filesystem looks imprecise
-  await storeDiskFile(deepestfile, "Deepest file", { overwrite: true, onlyIfChanged: true });
-  test.eq(modtime, (await stat(deepestfile)).mtime);
-  await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true, onlyIfChanged: true });
-  test.assert(modtime < (await stat(deepestfile)).mtime);
+  let modtime = await rewindAndGetModTime(deepestfile);
+  test.eq({ skipped: true }, await storeDiskFile(deepestfile, "Deepest file", { overwrite: true, onlyIfChanged: true }));
+  test.eq(modtime, (await stat(deepestfile)).mtime, "Should be unchanged (onlyIfChanged: true)");
+  test.eq({ skipped: false }, await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true, onlyIfChanged: true }));
+  test.assert(modtime < (await stat(deepestfile)).mtime, "Should have been touched (onlyIfChanged: true, but actual changes!)");
 
-  const modtime2 = (await stat(deepestfile)).mtime;
-  await test.sleep((modtime2.getTime() % 1000) === 0 ? 1000 : 1); //sleep 1 ms unless filesystem looks imprecise
-  await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true });
-  test.assert(modtime2 < (await stat(deepestfile)).mtime);
+  modtime = await rewindAndGetModTime(deepestfile);
+  test.eq({ skipped: false }, await storeDiskFile(deepestfile, "Deepest file!", { overwrite: true }));
+  test.assert(modtime < (await stat(deepestfile)).mtime, "Should have been touched (onlyIfChanged not set)");
 
   symlinkSync(path.join(tempdir, "subdir"), path.join(tempdir, "subdir", "backup"));
 
