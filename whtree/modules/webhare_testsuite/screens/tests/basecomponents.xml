@@ -1,124 +1,125 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
-         xmlns:publisher="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/tests/basecomponents.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="/lib/screens/tests/basecomponents.whlib">
 
   <messageboxes>
-    <messagebox name="mbox" title="This is a message box" buttons="ok" />
-    <messagebox name="sure" title="Sure?" buttons="yes no" />
+    <messagebox name="mbox" buttons="ok" title="This is a message box" />
+    <messagebox name="sure" buttons="yes no" title="Sure?" />
   </messageboxes>
 
   <screen name="inputvalidations" allowresize="1" implementation="none">
     <body>
-      <textedit name="textedit" public="true"/>
+      <textedit name="textedit" public="true" />
     </body>
   </screen>
 
-  <screen name="menutest" title="Menu testing" width="600px" height="400px" menubar="menubar" onmessage="onmessage" >
+  <screen name="menutest" width="600px" height="400px" menubar="menubar" onmessage="onmessage" title="Menu testing">
     <actions>
       <action name="action1" onexecute="doaction1" />
       <action name="enable_x05" onexecute="doenablex05" />
       <action name="nothing" onexecute="donothing" />
       <action name="switchbar" onexecute="doswitchbar" />
       <action name="customaction" customaction="webhare_testsuite:customaction" />
-      <action name="togglecustomaction" onexecute="dotogglecustomaction"/>
-      <action name="togglebuttonbarbutton" shortcut="ctrl+b" onexecute="dotogglebuttonbarbutton"/>
-      <action name="toggleforcemenubar" onexecute="dotoggleforcemenubar"/>
-      <action name="toggleb03" onexecute="dotoggleb03"/>
-      <action name="togglex16" onexecute="dotogglex16"/>
+      <action name="togglecustomaction" onexecute="dotogglecustomaction" />
+      <action name="togglebuttonbarbutton" onexecute="dotogglebuttonbarbutton" shortcut="ctrl+b" />
+      <action name="toggleforcemenubar" onexecute="dotoggleforcemenubar" />
+      <action name="toggleb03" onexecute="dotoggleb03" />
+      <action name="togglex16" onexecute="dotogglex16" />
       <action name="openwithinitialburger" onexecute="doopenwithinitialburger" />
       <action name="openwithinitialburgerandpopup" onexecute="doopenwithinitialburgerandpopup" />
-      <action name="addx04" onexecute="doaddx04"/>
+      <action name="addx04" onexecute="doaddx04" />
       <action name="togglebodyvisibility" onexecute="dotogglebodyvisibility" />
     </actions>
+
     <menus>
       <menu name="menubar">
-        <item title="X0B1" name="x0b1" action="nothing" />
-        <item title="X0B2" name="x0b2" action="nothing" />
-        <item title="X01 Menu" name="x01menu">
-          <item title="X02 menu1 act1" action="action1">
-            <item title="X02-1" action="nothing" />
-            <item title="X02-2" action="nothing" />
-            <item title="X02-4" action="nothing" />
-            <item title="X02-5" action="nothing" />
-            <item title="X02-6" action="nothing" />
-            <item title="X02-7" action="nothing" />
-            <item title="X02-8" action="nothing" />
-            <item title="X02-9" action="nothing" name="x02_9menu">
-              <item title="X02-9-00000000001" action="nothing" />
-              <item title="X02-9-00000000002" action="nothing" />
-              <item title="X02-9-00000000003" action="nothing" />
-              <item title="X02-9-00000000004" action="nothing">
-                <item title="X02-9-00000000004-001" action="nothing" />
-                <item title="X02-9-00000000004-002" action="nothing" />
-                <item title="X02-9-00000000004-003" action="nothing" />
-                <item title="X02-9-00000000004-004" action="nothing" />
-                <item title="X02-9-00000000004-005" action="nothing" />
-                <item title="X02-9-00000000004-006" action="nothing" />
-                <item title="X02-9-00000000004-007" action="nothing" />
-                <item title="X02-9-00000000004-008" action="nothing" />
-                <item title="X02-9-00000000004-009" action="nothing" />
-                <item title="X02-9-00000000004-010" action="nothing" />
-                <item title="X02-9-00000000004-011" action="nothing" />
-                <item title="X02-9-00000000004-012" action="nothing" />
-                <item title="X02-9-00000000004-013" action="nothing" />
+        <item name="x0b1" action="nothing" title="X0B1" />
+        <item name="x0b2" action="nothing" title="X0B2" />
+        <item name="x01menu" title="X01 Menu">
+          <item action="action1" title="X02 menu1 act1">
+            <item action="nothing" title="X02-1" />
+            <item action="nothing" title="X02-2" />
+            <item action="nothing" title="X02-4" />
+            <item action="nothing" title="X02-5" />
+            <item action="nothing" title="X02-6" />
+            <item action="nothing" title="X02-7" />
+            <item action="nothing" title="X02-8" />
+            <item name="x02_9menu" action="nothing" title="X02-9">
+              <item action="nothing" title="X02-9-00000000001" />
+              <item action="nothing" title="X02-9-00000000002" />
+              <item action="nothing" title="X02-9-00000000003" />
+              <item action="nothing" title="X02-9-00000000004">
+                <item action="nothing" title="X02-9-00000000004-001" />
+                <item action="nothing" title="X02-9-00000000004-002" />
+                <item action="nothing" title="X02-9-00000000004-003" />
+                <item action="nothing" title="X02-9-00000000004-004" />
+                <item action="nothing" title="X02-9-00000000004-005" />
+                <item action="nothing" title="X02-9-00000000004-006" />
+                <item action="nothing" title="X02-9-00000000004-007" />
+                <item action="nothing" title="X02-9-00000000004-008" />
+                <item action="nothing" title="X02-9-00000000004-009" />
+                <item action="nothing" title="X02-9-00000000004-010" />
+                <item action="nothing" title="X02-9-00000000004-011" />
+                <item action="nothing" title="X02-9-00000000004-012" />
+                <item action="nothing" title="X02-9-00000000004-013" />
               </item>
             </item>
-            <item title="X02-10" action="nothing" />
-            <item title="X02-11" action="nothing" />
-            <item title="X02-12" action="nothing" />
-            <item title="X02-13" action="nothing" />
-            <item title="X02-14" action="nothing" />
-            <item title="X02-15" action="nothing" />
+            <item action="nothing" title="X02-10" />
+            <item action="nothing" title="X02-11" />
+            <item action="nothing" title="X02-12" />
+            <item action="nothing" title="X02-13" />
+            <item action="nothing" title="X02-14" />
+            <item action="nothing" title="X02-15" />
           </item>
-          <item title="X09 do nothing" action="nothing" />
-          <item title="X10 switch menu bar" action="switchbar" />
-          <item title="X11 customaction" action="customaction" name="customactionitem"/>
-          <item title="X12 togglecustomaction" action="togglecustomaction" name="togglecustomactionitem" />
-          <item title="X13 togglebuttonbarbutton" action="togglebuttonbarbutton" name="x13" />
-          <item title="X14 toggleforcemenubar" action="toggleforcemenubar" />
-          <item title="X15 toggleB03" action="toggleb03" />
-          <item title="X16 toggleX16" action="togglex16" name="x16" />
-          <item title="X17 open with initial burger" action="openwithinitialburger" name="x17" />
-          <item title="X18 Add X04 items to menubar" action="addx04" name="x18" />
-          <item title="X19 open with initial burger+popup" action="openwithinitialburgerandpopup" name="x19" />
-          <item title="X20 toggle body visibility" action="togglebodyvisibility" name="x20" />
+          <item action="nothing" title="X09 do nothing" />
+          <item action="switchbar" title="X10 switch menu bar" />
+          <item name="customactionitem" action="customaction" title="X11 customaction" />
+          <item name="togglecustomactionitem" action="togglecustomaction" title="X12 togglecustomaction" />
+          <item name="x13" action="togglebuttonbarbutton" title="X13 togglebuttonbarbutton" />
+          <item action="toggleforcemenubar" title="X14 toggleforcemenubar" />
+          <item action="toggleb03" title="X15 toggleB03" />
+          <item name="x16" action="togglex16" title="X16 toggleX16" />
+          <item name="x17" action="openwithinitialburger" title="X17 open with initial burger" />
+          <item name="x18" action="addx04" title="X18 Add X04 items to menubar" />
+          <item name="x19" action="openwithinitialburgerandpopup" title="X19 open with initial burger+popup" />
+          <item name="x20" action="togglebodyvisibility" title="X20 toggle body visibility" />
         </item>
-        <item title="X03 act1" action="action1" />
-        <item title="X04 Menu" name="x04menu">
-          <divider/>
-          <item title="X05 item" action="action1" disablemode="hidden" enabled="false" name="x05" />
-          <divider/>
-          <item title="X06 item" action="action1" disablemode="hidden" enabled="false" />
-          <divider/>
-          <item title="X07 item" action="enable_x05" disablemode="hidden" name="x07"/>
-          <divider/>
-          <item title="X08 item" action="action1" enabled="false" />
-          <divider/>
+        <item action="action1" title="X03 act1" />
+        <item name="x04menu" title="X04 Menu">
+          <divider />
+          <item name="x05" action="action1" disablemode="hidden" enabled="false" title="X05 item" />
+          <divider />
+          <item action="action1" disablemode="hidden" enabled="false" title="X06 item" />
+          <divider />
+          <item name="x07" action="enable_x05" disablemode="hidden" title="X07 item" />
+          <divider />
+          <item action="action1" enabled="false" title="X08 item" />
+          <divider />
         </item>
       </menu>
       <menu name="menubar2">
         <item title="X21 Menu">
-          <item title="x22 switch menu bar" action="switchbar" />
+          <item action="switchbar" title="x22 switch menu bar" />
         </item>
       </menu>
     </menus>
+
     <toolbar>
       <button name="b01_switchbar" action="switchbar" title="B01 Switchbar" />
       <button name="b02_togglebutton" action="togglecustomaction" title="B02 Toggle" />
-      <button name="b03_menubutton" title="B03 Bar" menu="x04menu" enabled="false" />
-      <button name="b04_submenubutton" title="B04 Submenu" menu="x01menu" />
+      <button name="b03_menubutton" enabled="false" menu="x04menu" title="B03 Bar" />
+      <button name="b04_submenubutton" menu="x01menu" title="B04 Submenu" />
       <button name="b14_toggleforcemenubar" action="toggleforcemenubar" title="B14 Burger" />
     </toolbar>
+
     <body name="body">
       <text name="action1count" title="Action #1 count" value="0" />
     </body>
+
     <footer>
       <text name="testbottom" value="Test bottom" />
     </footer>
   </screen>
 
-  <screen name="windowtest" title="Window Test" width="400px" height="250px" menubar="menubar">
+  <screen name="windowtest" width="400px" height="250px" menubar="menubar" title="Window Test">
     <actions>
       <action name="opensubwindow" onexecute="doopensubwindow" title="A01 Open sub window" />
       <action name="embedwindow" onexecute="doembedwindow" title="A02 Embed a window #1" />
@@ -126,6 +127,7 @@
       <action name="openmegawindow" onexecute="doopenmegawindow" title="A04 Open Mega Window" />
       <action name="embedwindow2" onexecute="doembedwindow2" title="A05 Embed a window #2" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item title="M01 Actions">
@@ -137,25 +139,24 @@
         </item>
       </menu>
     </menus>
+
     <body name="body">
       <text name="test" title="Test &lt;text> node" />
     </body>
   </screen>
 
-  <screen name="megawindow" title="MegaMegaWindow" width="12345x" height="67890x" implementation="none">
+  <screen name="megawindow" width="12345x" height="67890x" footerbuttons="close" implementation="none" title="MegaMegaWindow">
     <body>
       <panel height="1pr" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="subwindow" title="Subwindow" width="400px" height="250px" menubar="menubar">
+  <screen name="subwindow" width="400px" height="250px" footerbuttons="close" menubar="menubar" title="Subwindow">
     <actions>
       <action name="opensubwindow" onexecute="doopensubwindow" title="B01 Open sub window" />
       <action name="open2subwindows" onexecute="doopen2subwindows" title="B02 Open two subwindows" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item title="N01 Actions">
@@ -164,23 +165,22 @@
         </item>
       </menu>
     </menus>
+
     <body name="subwindowbody">
-      <panel name="vstretch" height="1pr" /> <!-- ADDME defaultformbuttons should stick to bottom WITHOUT panel help -->
+      <panel name="vstretch" height="1pr" />  <!-- ADDME defaultformbuttons should stick to bottom WITHOUT panel help -->
     </body>
-    <footer>
-      <defaultformbuttons buttons="close" />
-    </footer>
   </screen>
 
-  <screen name="embedwindow" title="Embeddable window" width="400px" height="250px" onshow="onshow">
+  <screen name="embedwindow" width="400px" height="250px" onshow="onshow" title="Embeddable window">
     <actions>
       <action name="addline" onexecute="doaddline" title="B01 Add line" />
     </actions>
-    <menus>
-    </menus>
+
+    <menus />
+
     <body name="embedwindowbody">
-      <text name="embedtitle" value="" public="true" />
-      <textedit name="embedwindowtext" title="Embedtext" /> <!-- we need named components to test for name clashes between embedded windows -->
+      <text name="embedtitle" public="true" value="" />
+      <textedit name="embedwindowtext" title="Embedtext" />  <!-- we need named components to test for name clashes between embedded windows -->
       <panel name="vstretch" height="1pr" />
       <line layout="right">
         <button name="addlinebutton" action="addline" title="B01 Add line" visible="false" />
@@ -188,20 +188,19 @@
     </body>
   </screen>
 
-  <screen name="tabletest" title="Table Test" menubar="menubar">
+  <screen name="tabletest" menubar="menubar" title="Table Test">
     <menus>
       <menu name="menubar">
-        <item title="M01 Actions">
-        </item>
+        <item title="M01 Actions" />
       </menu>
     </menus>
+
     <body>
-      <table name="mytable">
-      </table>
+      <table name="mytable" />
     </body>
   </screen>
 
-  <screen name="focustest" title="Focus Test" menubar="menubar">
+  <screen name="focustest" menubar="menubar" title="Focus Test">
     <actions>
       <action name="opensubwindow" onexecute="doopensubwindow" title="A01 open sub window" />
       <action name="opendialog" onexecute="doopendialog" title="A02 open dialog" />
@@ -210,6 +209,7 @@
       <action name="openrtefocusdialog" onexecute="doopenrtefocusdialog" title="A05 open RTE-focused dialog" />
       <action name="focuslist" onexecute="dofocuslist" title="A06 focus list" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item title="M01 Actions">
@@ -222,14 +222,15 @@
         </item>
       </menu>
     </menus>
+
     <body>
       <tabs name="tabs">
         <tab name="firsttab" title="T01 tab 1">
-          <box name="box" title="C01 box" checkbox="true">
+          <box name="box" checkbox="true" title="C01 box">
             <textedit name="textedit" title="C02 Textedit" />
             <textarea name="textarea" title="C03 Textarea" />
           </box>
-          <list name="list" selectmode="single" onselect="onlistselect">
+          <list name="list" onselect="onlistselect" selectmode="single">
             <column name="col" type="text" title="Col" />
             <row>
               <element name="col" data="R01 Row 1" />
@@ -251,10 +252,12 @@
     <body>
     </body>
   </screen>
+
   <screen name="focustest_rtedialog" menubar="menubar">
     <actions>
       <action name="openrtedialog" onexecute="doopenrtedialog" title="A03 open RTE-second dialog" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item title="M02 Actions">
@@ -262,23 +265,27 @@
         </item>
       </menu>
     </menus>
+
     <body>
       <textedit name="textedit" />
       <richarea name="rte" />
     </body>
   </screen>
 
-  <screen name="iframetest" title="Iframe Test" menubar="menubar" allowresize="true">
+  <screen name="iframetest" allowresize="true" menubar="menubar" title="Iframe Test">
     <actions>
       <action name="act_init" onexecute="doinit" title="I00 Init" />
-      <action name="sethtmlcontent" onexecute="dosethtmlcontent" title="I01 SetHTMLContent" public="true" />
+      <action name="sethtmlcontent" onexecute="dosethtmlcontent" public="true" title="I01 SetHTMLContent" />
       <action name="sethtmlblobcontent" onexecute="dosethtmlblobcontent" title="I02 SetHTMLBlobContent" />
       <action name="calljs" onexecute="docalljs" title="I03 CallJS" />
       <action name="printupdatedata" onexecute="doprintupdatedata" title="I04 Data" />
       <action name="grablinks" onexecute="dograblinks" title="I05 Grab links" />
       <action name="postmessage" onexecute="dopostmessage" title="I06 PostMessage" />
       <action name="postrequest" onexecute="dopostrequest" title="I07 PostRequest" />
+      <action name="testassetpack" onexecute="dotestassetpack" title="I08 TestAssetpack" />
+      <action name="createimage" onexecute="docreateimage" title="I09 CreateImage" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item action="act_init" />
@@ -289,11 +296,14 @@
         <item action="grablinks" />
         <item action="postmessage" />
         <item action="postrequest" />
+        <item action="testassetpack" />
+        <item action="createimage" />
       </menu>
       <menu name="testcontextmenu">
         <item title="T01 testcontextmenuitem" />
       </menu>
     </menus>
+
     <body>
       <text value="Iframe" />
       <iframe name="iframe" height="220px" onmessage="onmessage" />
@@ -302,21 +312,23 @@
     </body>
   </screen>
 
-  <screen name="iframetestincontents" title="Iframe Testholder" allowresize="true">
+  <screen name="iframetestincontents" allowresize="true" title="Iframe Testholder">
     <body>
       <panel name="holder" height="1pr" />
     </body>
   </screen>
 
-  <screen name="formtest" title="Forms test" menubar="menubar">
+  <screen name="formtest" menubar="menubar" title="Forms test">
     <actions>
       <action name="settextvalues" onexecute="dosettextvalues" title="F01 Set text values" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item action="settextvalues" />
       </menu>
     </menus>
+
     <body>
       <tabs>
         <tab>
@@ -325,18 +337,18 @@
         </tab>
       </tabs>
       <line>
-        <select type="pulldown" name="c01" title="C01 Pulldown" onchange="onc01change">
+        <select name="c01" type="pulldown" onchange="onc01change" title="C01 Pulldown">
           <option rowkey="o01" title="O01 option 1" />
-          <option rowkey="o02" title="O02 option 2" selected="true"/>
+          <option rowkey="o02" selected="true" title="O02 option 2" />
         </select>
         <textedit name="v01" title="V01 Value" />
       </line>
-      <text name="richhtmlcomp" title="Rich component HTML" onclicklink="onrichhtmlclick" />
-      <text name="richplaincomp" title="Rich component PLAIN" value="&lt;plaintext"/>
+      <text name="richhtmlcomp" onclicklink="onrichhtmlclick" title="Rich component HTML" />
+      <text name="richplaincomp" title="Rich component PLAIN" value="&lt;plaintext" />
     </body>
   </screen>
 
-  <screen name="codeedittest" title="Codeedit test" menubar="menubar" allowresize="true">
+  <screen name="codeedittest" allowresize="true" footerbuttons="ok" menubar="menubar" title="Codeedit test">
     <actions>
       <action name="gotofirst" onexecute="dogotofirst" title="I01 Goto first line" />
       <action name="gotolast" onexecute="dogotolast" title="I02 Goto last line" />
@@ -345,6 +357,7 @@
       <action name="base64text" onexecute="dobase64text" title="I05 Base64" />
       <action name="updatestatus" onexecute="doupdatestatus" title="I06 Update status" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item action="gotofirst" />
@@ -355,16 +368,14 @@
         <item action="updatestatus" />
       </menu>
     </menus>
+
     <body>
       <codeedit name="edit" />
       <text name="status" title="Status" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok" />
-    </footer>
   </screen>
 
-  <screen name="imagetest" title="Image test" menubar="menubar" allowresize="true">
+  <screen name="imagetest" allowresize="true" menubar="menubar" title="Image test">
     <actions>
       <action name="updateplaceholder" onexecute="doupdateplaceholder" title="I01 Update placeholder" />
       <action name="updateimagedata_bob" onexecute="doupdateimagedata_bob" title="J02 Bob" />
@@ -373,7 +384,6 @@
       <action name="updateactionanddirectclick" onexecute="doupdateactionanddirectclick" title="I05 Update action/callback" />
       <action name="clearaction" onexecute="doclearaction" title="I06 Clear action" />
       <action name="clearonclick" onexecute="doclearonclick" title="I07 Clear onclick" />
-
       <action name="actionclick" onexecute="doactionclick" title="Click">
         <enableon source="actioncheckbox" min="1" />
       </action>
@@ -381,6 +391,7 @@
         <enableon source="action2checkbox" min="1" />
       </action>
     </actions>
+
     <menus>
       <menu name="menubar">
         <item action="updateplaceholder" />
@@ -394,13 +405,14 @@
         <item action="clearonclick" />
       </menu>
     </menus>
+
     <body>
       <grid>
         <col width="1pr" />
         <col width="1pr" />
         <row>
           <cell>
-            <image name="image" title="image" onclick="ondirectclick" action="actionclick" opacity="0.75"/>
+            <image name="image" action="actionclick" onclick="ondirectclick" opacity="0.75" title="image" />
           </cell>
           <cell>
             <line>
@@ -411,21 +423,29 @@
               <checkbox name="action2checkbox" />
               <button action="action2" title="Action2" />
             </line>
-            <textedit name="opacity" value="0.75" decimals="2" onchange="onopacitychange" valuetype="float" minvalue="0" maxvalue="1" title="Opacity" />
+            <textedit name="opacity"
+                      minvalue="0"
+                      maxvalue="1"
+                      decimals="2"
+                      onchange="onopacitychange"
+                      title="Opacity"
+                      value="0.75"
+                      valuetype="float" />
           </cell>
         </row>
       </grid>
-      <textarea name="log" title="" height="200px"/>
+      <textarea name="log" height="200px" title="" />
     </body>
   </screen>
 
-  <screen name="downloadactiontest" title="Downloadaction test" width="120x" menubar="menubar">
+  <screen name="downloadactiontest" width="120x" menubar="menubar" title="Downloadaction test">
     <actions>
       <downloadaction name="download" ondownload="dodownload" title="I01a Download" />
       <downloadaction name="cancelleddownload" ondownload="DoCancelledDownload" title="I01b Cancelled download" />
-      <windowopenaction name="windowopen" onwindowopen="dowindowopen" title="I02 Window Open" target="ype" />
+      <windowopenaction name="windowopen" onwindowopen="dowindowopen" target="ype" title="I02 Window Open" />
       <action name="action" onexecute="doaction" title="I03 Action" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item action="download" />
@@ -434,122 +454,137 @@
         <item action="action" />
       </menu>
     </menus>
+
     <body>
-      <textarea name="log" title="" height="200px"/>
+      <textarea name="log" height="200px" title="" />
     </body>
   </screen>
 
-  <screen name="datetimetest" title="Datetime test" menubar="menubar" allowresize="true">
+  <screen name="datetimetest" allowresize="true" footerbuttons="ok cancel" menubar="menubar" title="Datetime test">
     <actions>
-      <action name="a01" onexecute="gorandom" title="A01 Random"/>
-      <action name="a02" onexecute="ShowCurrent" title="A02 Show current"/>
-      <action name="a03" onexecute="togglerequired" title="A03 Toggle required"/>
-      <action name="a04" onexecute="cycle" title="A04 Cycle"/>
-      <action name="a05" onexecute="toggleutc" title="A05 Toggle UTC"/>
-      <action name="a06" onexecute="togglero" title="A06 Toggle read only"/>
-      <action name="a07" onexecute="togglevisi" title="A07 Toggle visible"/>
-      <action name="a08" onexecute="dotoggleenabled" title="A08 Toggle enabled"/>
-      <action name="a09" onexecute="setmaxdatetime" title="A09 Set DT3 to max_datetime"/>
-      <action name="a10" onexecute="cyclecutoffyear" title="A10 Cycle cutoff year"/>
+      <action name="a01" onexecute="gorandom" title="A01 Random" />
+      <action name="a02" onexecute="ShowCurrent" title="A02 Show current" />
+      <action name="a03" onexecute="togglerequired" title="A03 Toggle required" />
+      <action name="a04" onexecute="cycle" title="A04 Cycle" />
+      <action name="a05" onexecute="toggleutc" title="A05 Toggle UTC" />
+      <action name="a06" onexecute="togglero" title="A06 Toggle read only" />
+      <action name="a07" onexecute="togglevisi" title="A07 Toggle visible" />
+      <action name="a08" onexecute="dotoggleenabled" title="A08 Toggle enabled" />
+      <action name="a09" onexecute="setmaxdatetime" title="A09 Set DT3 to max_datetime" />
+      <action name="a10" onexecute="cyclecutoffyear" title="A10 Cycle cutoff year" />
     </actions>
+
     <menus>
       <menu name="menubar">
         <item title="M01">
-          <item action="a01"/>
-          <item action="a02"/>
-          <item action="a03"/>
-          <item action="a04"/>
-          <item action="a05"/>
-          <item action="a06"/>
-          <item action="a07"/>
-          <item action="a08"/>
-          <item action="a09"/>
-          <item action="a10"/>
+          <item action="a01" />
+          <item action="a02" />
+          <item action="a03" />
+          <item action="a04" />
+          <item action="a05" />
+          <item action="a06" />
+          <item action="a07" />
+          <item action="a08" />
+          <item action="a09" />
+          <item action="a10" />
         </item>
       </menu>
     </menus>
-    <body layout="form" name="body">
-      <date     public="true" name="da1" title="da1" required="true" />
-      <datetime public="true" name="dt1" title="dt1" required="true" type="datetime" precision="minutes" />
-      <datetime public="true" name="dt2" title="dt2" required="true" type="datetime" precision="seconds" emptyvalue="max_datetime" />
-      <datetime public="true" name="dt3" title="dt3" required="true" type="datetime" precision="milliseconds" emptyvalue="max_datetime" defaultbutton="alternatedefault" />
-      <datetime public="true" name="ti1" title="ti1" type="time" required="true" precision="minutes" />
-      <datetime public="true" name="ti2" title="ti2" type="time" required="true" precision="seconds" />
-      <datetime public="true" name="ti3" title="ti3" type="time" required="true" precision="milliseconds" />
-      <datetime public="true" name="cyc" title="cyc" type="date" required="true" />
-      <time     public="true" name="ti4" title="ti4" required="true" precision="minutes" />
-      <time     public="true" name="ti5" title="ti5" required="true" precision="seconds" />
-      <time     public="true" name="ti6" title="ti6" required="true" precision="milliseconds" />
-      <time     public="true" name="midnight" title="midnight" precision="milliseconds" />
-      <time     public="true" name="emptytime" title="emptytime" precision="milliseconds" />
-      <datetime public="true" name="bigdt" title="bigdt" type="datetime" required="true" precision="seconds"  />
-      <datetime public="true" name="maxdt" title="maxdt" type="datetime" required="true" precision="seconds" emptyvalue="max_datetime" />
-      <datetime public="true" name="cutoff" title="cutoff" type="date" />
-      <text     name="now" title="now" />
+
+    <body name="body" layout="form">
+      <date name="da1" public="true" required="true" title="da1" />
+      <datetime name="dt1" type="datetime" precision="minutes" public="true" required="true" title="dt1" />
+      <datetime name="dt2"
+                type="datetime"
+                emptyvalue="max_datetime"
+                precision="seconds"
+                public="true"
+                required="true"
+                title="dt2" />
+      <datetime name="dt3"
+                type="datetime"
+                defaultbutton="alternatedefault"
+                emptyvalue="max_datetime"
+                precision="milliseconds"
+                public="true"
+                required="true"
+                title="dt3" />
+      <datetime name="ti1" type="time" precision="minutes" public="true" required="true" title="ti1" />
+      <datetime name="ti2" type="time" precision="seconds" public="true" required="true" title="ti2" />
+      <datetime name="ti3" type="time" precision="milliseconds" public="true" required="true" title="ti3" />
+      <datetime name="cyc" type="date" public="true" required="true" title="cyc" />
+      <time name="ti4" precision="minutes" public="true" required="true" title="ti4" />
+      <time name="ti5" precision="seconds" public="true" required="true" title="ti5" />
+      <time name="ti6" precision="milliseconds" public="true" required="true" title="ti6" />
+      <time name="midnight" precision="milliseconds" public="true" title="midnight" />
+      <time name="emptytime" precision="milliseconds" public="true" title="emptytime" />
+      <datetime name="bigdt" type="datetime" precision="seconds" public="true" required="true" title="bigdt" />
+      <datetime name="maxdt"
+                type="datetime"
+                emptyvalue="max_datetime"
+                precision="seconds"
+                public="true"
+                required="true"
+                title="maxdt" />
+      <datetime name="cutoff" type="date" public="true" title="cutoff" />
+      <text name="now" title="now" />
       <textarea name="dump" width="1pr" height="1pr" title="dump" />
       <line>
         <button action="a02" />
         <button name="alternatedefault" title="Alternate default" />
       </line>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="arrayedittest" width="80x" height="40x">
     <actions>
     </actions>
+
     <body>
       <arrayedit name="comp"
-                 roweditscreen=".arrayedittest_editscreen"
                  height="1pr"
-                 orderable="true"
                  onchange="onarrayeditchange"
-                 >
+                 orderable="true"
+                 roweditscreen=".arrayedittest_editscreen">
         <column name="title" type="text" />
       </arrayedit>
     </body>
   </screen>
 
-  <screen name="arrayedittest_editscreen" implementation="rowedit">
+  <screen name="arrayedittest_editscreen" footerbuttons="ok cancel" implementation="rowedit">
     <actions>
     </actions>
+
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
       <textedit composition="row" cellname="title" title="title" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="listedittest" width="80x" height="40x">
     <body>
       <listedit name="comp"
-                ongetchildren="ongetchildren"
-                onchangeorder="onchangeorder"
-                onrowdelete="onrowdelete"
-                onrowedit="onrowedit"
                 height="1pr"
-                >
+                onchangeorder="onchangeorder"
+                ongetchildren="ongetchildren"
+                onrowdelete="onrowdelete"
+                onrowedit="onrowedit">
         <column name="title" type="text" />
       </listedit>
     </body>
   </screen>
 
-  <screen name="listedittest_editscreen">
+  <screen name="listedittest_editscreen" footerbuttons="ok cancel">
     <compositions>
       <record name="row" />
     </compositions>
+
     <body>
       <textedit composition="row" cellname="title" title="title" />
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
   <screen name="radiogrouptest" allowresize="true">
@@ -560,26 +595,27 @@
       <action name="readvaluetype" onexecute="doreadvaluetype" />
       <action name="writevaluetype" onexecute="dowritevaluetype" />
     </actions>
+
     <compositions>
       <radiogroup name="radiogroup" valuetype="boolean" />
     </compositions>
-    <body>
-      <radiobutton group="radiogroup" name="button1" rowkey="false" title="false" />
-      <radiobutton group="radiogroup" name="button2" rowkey="true" title="true" />
 
+    <body>
+      <radiobutton name="button1" group="radiogroup" rowkey="false" title="false" />
+      <radiobutton name="button2" group="radiogroup" rowkey="true" title="true" />
       <line layout="left">
-        <checkbox name="listenonchange" onchange="gotlistenonchangechange" title="" label="Listen onchange" />
+        <checkbox name="listenonchange" label="Listen onchange" onchange="gotlistenonchangechange" title="" />
         <text name="onchangecount" title="Count" value="0" />
       </line>
       <line>
-        <textedit title="value" name="value" />
+        <textedit name="value" title="value" />
         <button name="readvaluebutton" action="readvalue" title="read" />
         <button name="writevaluebutton" action="writevalue" title="write" />
         <button name="validatevaluebutton" action="validatevalue" title="validate" />
         <text name="validateresult" title="Result" />
       </line>
       <line>
-        <select title="valuetype" name="valuetype" type="pulldown">
+        <select name="valuetype" type="pulldown" title="valuetype">
           <option rowkey="" title="" />
           <option rowkey="boolean" title="boolean" />
           <option rowkey="integer" title="integer" />
@@ -590,6 +626,5 @@
       </line>
     </body>
   </screen>
-
 
 </screens>
