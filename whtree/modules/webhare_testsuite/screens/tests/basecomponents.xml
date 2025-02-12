@@ -282,6 +282,8 @@
       <action name="grablinks" onexecute="dograblinks" title="I05 Grab links" />
       <action name="postmessage" onexecute="dopostmessage" title="I06 PostMessage" />
       <action name="postrequest" onexecute="dopostrequest" title="I07 PostRequest" />
+      <action name="testassetpack" onexecute="dotestassetpack" title="I08 TestAssetpack" />
+      <action name="createimage" onexecute="docreateimage" title="I09 CreateImage" />
     </actions>
 
     <menus>
@@ -294,6 +296,8 @@
         <item action="grablinks" />
         <item action="postmessage" />
         <item action="postrequest" />
+        <item action="testassetpack" />
+        <item action="createimage" />
       </menu>
       <menu name="testcontextmenu">
         <item title="T01 testcontextmenuitem" />
