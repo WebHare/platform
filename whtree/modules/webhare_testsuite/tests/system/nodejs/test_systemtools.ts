@@ -8,7 +8,7 @@ import { Readable } from "node:stream";
 
 async function rewindAndGetModTime(file: string) {
   /* Just reading modtime and sleeping is unreliable because a FS may have only 1 second precision (eg overlayfs used in CI)
-     AND linux is imprecise when reading/setting modtimes - reading mtime, sleeping for 1 sec, touchingm does not guarantee that
+     AND linux is imprecise when reading/setting modtimes - reading mtime, sleeping for 1 sec, touching does not guarantee that
      the 2 modtimes are 1 second apart as many failed CI runs can attest  */
   const setDate = new Date(Date.now() - 5000);
   await utimes(file, setDate, setDate);
