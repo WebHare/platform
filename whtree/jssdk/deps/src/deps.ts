@@ -2,11 +2,16 @@
 declare module "@webhare/deps" {
 }
 
-import type * as sharp from "sharp";
-import type * as Puppeteer from "puppeteer";
-export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..
+////////////////////////////// esbuild //////////////////////////
+// We need to expose some internal esbuild APIs for plugin builders
+export type * as ESBuild from "esbuild";
+
+////////////////////////////// Kysely //////////////////////////
+// We need to expose Kysely to generated db/ files
+export type * as Kysely from "kysely";
 
 ////////////////////////////// SHARP //////////////////////////
+import type * as sharp from "sharp";
 let sharppromise: Promise<typeof sharp> | undefined = undefined;
 
 /** Load Sharp  */
@@ -36,6 +41,9 @@ export type SharpAvifOptions = sharp.AvifOptions;
 export type SharpGifOptions = sharp.GifOptions;
 
 ////////////////////////////// Puppeteer //////////////////////////
+import type * as Puppeteer from "puppeteer";
+export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..
+
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
 /** Load Puppeteer */
