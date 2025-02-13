@@ -92,6 +92,9 @@ Points to a script that will be sourced by 'wh' and can filter any command passe
 ### WEBHARE_WEBSERVER
 If set to `node` this will enable the experimental JS webserver.
 
+### WEBHARE_NO_SOURCEMAPS
+If set WebHare will not pass `--enable-source-maps` to NodeJS
+
 ## Networking
 Changing the bindings of internal ports gives you more flexibility to route internal WebHare traffic or to access ports
 for debugging but may have serious repercussions for security. Be very careful when opening these ports and make sure

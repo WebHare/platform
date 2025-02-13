@@ -45,8 +45,9 @@ export interface StoreDiskFileOptions {
  *
     @param path - Path to the file to create.
     @param data - Blob to write
+    @returns \{ skipped: true \} if onlyIfChanged was set and the file was already up-to-date
 */
-export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions) {
+export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array> | Blob, options?: StoreDiskFileOptions): Promise<{ skipped: boolean }> {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
   if (options?.onlyIfChanged) { //we'll check the content of any existing target first
@@ -55,7 +56,7 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
     try {
       const curdata = await readFile(path, 'utf-8');
       if (curdata === data)
-        return; //done!
+        return { skipped: true }; //done!
     } catch (err) {
       if ((err as { code: string })?.code !== "ENOENT")
         throw err;
@@ -85,6 +86,7 @@ export async function storeDiskFile(path: string, data: string | Buffer | Stream
     if (writepath)
       unlink(writepath).catch(function () {/*ignore*/ });
   }
+  return { skipped: false };
 }
 
 async function doReadDir(basepath: string, subpath: string, allowMissing: boolean, recursive: boolean, mask: RegExp | undefined): Promise<ListDirectoryEntry[]> {

@@ -5,8 +5,9 @@ import * as fs from "node:fs/promises";
 import { backendConfig, toFSPath, toResourcePath } from "@webhare/services";
 import type { ValidationMessageWithType } from "./validation";
 import { mkdir } from "node:fs/promises";
-import { loadlib } from "@webhare/harescript/src/contextvm";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
+import { storeDiskFile } from "@webhare/system-tools";
+import { generateTSConfigForModule } from "@mod-system/js/internal/generation/gen_typescript";
 
 function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): ValidationMessageWithType[] {
   const issues: ValidationMessageWithType[] = [];
@@ -97,8 +98,8 @@ export async function checkUsingTSC(modulename: string, options?: { files: strin
     return []; //don't bother launching TSC, no TypeScript here
 
   if (modulename !== "platform" && modulename !== "jssdk") { //apply decentral tsconfig.json
-    //Update if needed. But we could just calculate it directly and make actual on-disk storage wh fixupmodule or dev's problem...
-    await loadlib("mod::system/lib/internal/modulemanager.whlib").BuildTSConfigFile(projectRoot);
+    //Update if needed.TODO but we could just calculate it directly and make actual on-disk storage wh fixupmodule or dev's problem...
+    await storeDiskFile(projectRoot + "tsconfig.json", JSON.stringify(await generateTSConfigForModule(modulename), null, 2), { overwrite: true });
 
     //We're building a submodule
     const tsconfigres = `mod::${modulename}/tsconfig.json`;

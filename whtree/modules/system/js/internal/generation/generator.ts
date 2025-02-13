@@ -34,6 +34,7 @@ import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types"
 import { listAllSchemas } from "./gen_schema";
 import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
 import { listAllRegistryDefs } from "./gen_registry";
+import { updateTypeScriptInfrastructure } from "./gen_typescript";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
@@ -137,6 +138,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
       console.timeEnd("Updating WebHare config files");
   }
 
+  await updateTypeScriptInfrastructure({ verbose: options.verbose }); // Setup symlinks and helpers files
 
   if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
     return;

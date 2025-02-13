@@ -236,10 +236,6 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   EnsureCreatedMagicSysop("<overrideuser>");
   GetPrimary()->CommitWork();
   EnsureModuleStorageFolders(FALSE);
-
-  IF (debug) //set up symlinks before starting modules so that any JS code can find its configuration
-    Print("Fixing module symlinks, generated database files and server configuration JS\n");
-  FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
   UpdatePublicConfig();
 
   //then the rest
