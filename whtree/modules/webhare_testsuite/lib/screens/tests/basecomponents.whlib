@@ -4,6 +4,8 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -393,6 +395,23 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   MACRO OnMessage(VARIANT message, STRING origin)
   {
     this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "message:" || EncodeJSON(message) || "\norigin:" || origin);
+  }
+
+  MACRO DoTestAssetpack()
+  {
+    this->iframe->value := `
+        <html>
+          <head>
+            ${GetAssetpackIntegrationCode("webhare_testsuite:iframetest")}
+          </head>
+          <body>
+          </body>
+        </html>`;
+    this->iframe->postmessage([ answer := 42 ], "*");
+  }
+  MACRO DoCreateImage()
+  {
+    this->iframe->postmessage([ image := "tollium:objects/webhare" ], "*");
   }
 >;
 
