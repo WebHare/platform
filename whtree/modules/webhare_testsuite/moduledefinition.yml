@@ -47,6 +47,10 @@ assetPacks:
   treeshaketest: # FIXME for this test, just adhoc create assetpacks like the testfw do, and implictly import all frontend libs
     supportedLanguages: [en, nl, ps]
     entryPoint: js/treeshaketest.tsx
+  iframetest:
+    entryPoint: js/iframetest.ts
+    supportedLanguages: [en nl]
+    whPolyfills: false
 
 webFeatures:
   testfeature:

@@ -207,8 +207,28 @@ test.registerTests(
         test.eq(`response:{"response":1764}`, result);
       }
     },
+    {
+      name: 'assetpack',
+      test: async function () {
+        test.compByName('callbacks').querySelector('textarea').value = '';
+        test.click(test.getMenu(['I08'])); //testassetpack
+
+        await test.wait(function () { return Boolean(test.compByName('callbacks').querySelector('textarea').value); });
+        let result = test.compByName('callbacks').querySelector('textarea').value;
+        const origin = test.getWin().location.origin;
+        test.eq(`message:{"question":1764}\norigin:${origin}`, result);
+
+        test.compByName('callbacks').querySelector('textarea').value = '';
+        test.click(test.getMenu(['I09'])); //createimage
+
+        await test.wait(function () { return Boolean(test.compByName('callbacks').querySelector('textarea').value); });
+        result = test.compByName('callbacks').querySelector('textarea').value;
+        test.eq(/^message:\{"height":16,"src":"data:image\/svg\+xml;base64,[^"]*","width":16}\norigin:/, result);
+      }
+    },
 
     {
+      name: 'iframe in contents',
       loadpage: test.getTestScreen('tests/basecomponents.iframetestincontents'),
       waits: [
         'ui', function () { /*var iframe = test.qSA('iframe')[0]; */

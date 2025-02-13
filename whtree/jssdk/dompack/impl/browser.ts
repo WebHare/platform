@@ -71,7 +71,7 @@ export function parseUserAgent(ua: string): UserAgentInfo {
  *
  * @param event - Event to check
  */
-export function isMultiSelectKey(event: KeyboardEvent): boolean {
+export function isMultiSelectKey(event: KeyboardEvent | MouseEvent): boolean {
   return browser.platform === 'mac' ? event.metaKey : event.ctrlKey;
 }
 
@@ -80,7 +80,7 @@ export function isMultiSelectKey(event: KeyboardEvent): boolean {
  *
  * @param event - Event to check
  */
-export function isCopyKey(event: KeyboardEvent): boolean {
+export function isCopyKey(event: KeyboardEvent | MouseEvent): boolean {
   return browser.platform === 'mac' ? event.altKey : event.ctrlKey;
 }
 
