@@ -181,6 +181,7 @@ const baseConfig = tseslint.config(
       }
     ],
     "@stylistic/member-delimiter-style": "error",
+    "@stylistic/no-extra-semi": "error",
     "@typescript-eslint/no-invalid-this": "error",
     "@typescript-eslint/no-loop-func": "error",
     "@typescript-eslint/no-shadow": "error",
