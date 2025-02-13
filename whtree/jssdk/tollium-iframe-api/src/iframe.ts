@@ -9,7 +9,7 @@ const imgQueue: Map<number, { id: number; imgname: string; resolve: (value: { sr
 */
 export function postTolliumMessage(message: Record<string, unknown>, origin = "*") {
   window.parent.postMessage({ $tolliumMsg: "message", message }, origin);
-};
+}
 
 /** Show a menu at a given position
     @param menuName - The name of the menu to show
@@ -17,19 +17,19 @@ export function postTolliumMessage(message: Record<string, unknown>, origin = "*
 */
 export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }, origin = "*") {
   window.parent.postMessage({ $tolliumMsg: "contextmenu", name: menuName, x: pos.x, y: pos.y }, origin);
-};
+}
 
 /** Close any currently opened (context) menus */
 export function closeAllTolliumMenus(origin = "*") {
   window.parent.postMessage({ $tolliumMsg: "closeallmenus" }, origin);
-};
+}
 
 /** Check enabled state of all actions
     @param selectionflags - The flags for the current selection
 */
 export function tolliumActionEnabler(selectionflags: string[], origin = "*") {
   window.parent.postMessage({ $tolliumMsg: "actionenabler", selectionflags: selectionflags }, origin);
-};
+}
 
 /** Retrieve the source for an image
     @param imgname - The module:path/img name of the image
