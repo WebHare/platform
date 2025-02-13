@@ -105,14 +105,14 @@ ASYNC MACRO HandleModuleDefinitionChange()
 {
   // ADDME: get resource names to see which modules need to be updated
   OBJECT siteprofcompile := AsyncRecompileSiteProfiles();
-  UpdateGeneratedFiles(["extract","whdb","wrd","openapi"]);
+  ApplyWebHareConfiguration([ subsystems := ["config.extracts" ], source := "HandleModuleDefinitionChange" ]);
   WaitForPromise(siteprofcompile);
 }
 
 ASYNC MACRO HandleWRDSchemaChange()
 {
   // ADDME: get resource names to see which modules need to be updated
-  UpdateGeneratedFiles(["wrd"]);
+  ApplyWebHareConfiguration([ subsystems := ["wrd.ts" ], source := "HandleWRDSchemaChange" ]);
 }
 
 ASYNC MACRO DoSiteProfileRecompile()

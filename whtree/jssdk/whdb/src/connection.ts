@@ -1,4 +1,4 @@
-/* This module is directly used by `wh update-generated-files`
+/* This module is directly used by `wh apply --offline --nodb config.base`
    to bootstrap the WebHare configuration without relying on services' backendConfig. When
    adding imports, make sure this separate invocation still works
 */

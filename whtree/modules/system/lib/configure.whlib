@@ -7,6 +7,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::internal/callbacks.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -250,6 +251,7 @@ RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
     [ modules := STRING[]
     , subsystems := STRING[]
     , force := FALSE
+    , verbose := FALSE
     , source := ""
     ], inoptions, [ required := [ "subsystems", "source"]]);
 }
@@ -263,6 +265,7 @@ PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
   TRY
   {
     WaitForPromise(service->applyConfiguration(options));
+    BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about any new module paths
   }
   FINALLY
   {

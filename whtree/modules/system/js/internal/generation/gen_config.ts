@@ -81,6 +81,9 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
 }
 
 export async function updateWebHareConfigFile({ verbose = false, nodb = false, debugSettings }: { verbose?: boolean; nodb?: boolean; debugSettings?: ConfigFile["debugsettings"] | null } = {}) {
+  if (verbose)
+    console.time("Updating WebHare config files");
+
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   if (!dataroot)
     throw new Error("Invalid WEBHARE_DATAROOT");
@@ -120,4 +123,6 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   }
 
   // process.stderr.write((new Date).toString() + " Done config update, modules: " + Object.keys(newconfig.public.module).join(", ") + "\n");
+  if (verbose)
+    console.timeEnd("Updating WebHare config files");
 }

@@ -123,21 +123,13 @@ async function generateFiles(files: FileToUpdate[], context: GenerateContext, op
   }
 }
 
-export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all")>, options: {
+export async function updateGeneratedFiles(targets: GeneratorType[], options: {
+  //TODO remove? dryRUn is unreachable now and not currently guaranteed by wh apply to work?
   dryRun?: boolean;
   verbose?: boolean;
   nodb?: boolean;
   generateContext?: GenerateContext;
 } = {}) {
-  if (targets.includes('all') || targets.includes('config')) {
-    if (options?.verbose)
-      console.time("Updating WebHare config files");
-    if (!options.dryRun)
-      await updateWebHareConfigFile(options); //will invoke reloadBackendConfig if anything changed
-    if (options?.verbose)
-      console.timeEnd("Updating WebHare config files");
-  }
-
   await updateTypeScriptInfrastructure({ verbose: options.verbose }); // Setup symlinks and helpers files
 
   if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
@@ -147,12 +139,12 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
 
   //TODO we might need to be above buildGenerateContext in the future to provide moduledefinition schemas for runtime validation?
   const schemas = fixFilePaths(await listAllSchemas(context));
-  if (targets.includes('schema') || targets.includes('all'))
+  if (targets.includes('schema'))
     await generateFiles(schemas, context, options);
 
   //Start generating files. Finish all extracts before we start the rest, as some extracts are needed input for generators
   const extracts = fixFilePaths(await listAllExtracts());
-  if (targets.includes('extract') || targets.includes('all'))
+  if (targets.includes('extract'))
     await generateFiles(extracts, context, options);
 
   const { installedBaseDir, builtinBaseDir } = getPaths();
@@ -162,19 +154,19 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
     ...extracts.map(file => file.path)
   ]);
 
-  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('registry') || targets.includes('all')) {
+  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('registry')) {
     const otherfiles = await listOtherGeneratedFiles();
     otherfiles.forEach(file => keepfiles.add(file.path));
-    const togenerate = targets.includes('all') ? otherfiles : otherfiles.filter(file => targets.includes(file.type));
+    const togenerate = otherfiles.filter(file => targets.includes(file.type));
     await generateFiles(togenerate, context, options);
   }
 
-  //Remove old files - but only if we have a full view of which files there should be
-  if (targets.includes('all')) {
-    for (const root of [installedBaseDir, builtinBaseDir])
-      for (const subdir of ["schema", "whdb", "wrd", "openapi"])
+  //Remove old files from subdirs that contain per-module files
+  for (const subdir of ["schema", "whdb", "wrd", "openapi"] as const)
+    if (targets.includes(subdir)) {
+      for (const root of [installedBaseDir, builtinBaseDir])
         await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(_.fullPath), dryRun: options.dryRun, verbose: options.verbose });
-  }
+    }
   return;
 }
 
@@ -188,6 +180,7 @@ export async function updateDebugSettings(debugSettings: {
   nodb?: boolean;
   generateContext?: GenerateContext;
 } = {}) {
+  //FIXME this may still be dangerous, we should go through the service to update config files
   if (options?.verbose)
     console.time("Updating WebHare config file");
   if (!options.dryRun)

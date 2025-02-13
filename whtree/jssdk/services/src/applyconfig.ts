@@ -1,11 +1,11 @@
 import { isWorkOpen, onFinishWork, type FinishHandler } from "@webhare/whdb";
 import { openBackendService } from "./backendservice";
-import type { ApplyConfigurationOptions, ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
+import type { ApplyConfigurationOptions, ConfigurableSubsystemPart } from "@mod-platform/js/configure/applyconfig";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
 
 const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");
 
-type RemoteApplyConfigOptions = Omit<ApplyConfigurationOptions, "verbose" | "source"> & Required<Pick<ApplyConfigurationOptions, "source">>;
+type RemoteApplyConfigOptions = ApplyConfigurationOptions & Required<Pick<ApplyConfigurationOptions, "source">>;
 
 /** Apply configuation changes */
 export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
@@ -18,7 +18,7 @@ export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
 
 //TODO Support module targeted updates, for now we only record the subsystems
 class ApplyFinishHandler implements FinishHandler {
-  private subsystems = new Set<ConfigurableSubsystem | "all">();
+  private subsystems = new Set<ConfigurableSubsystemPart>;
   private sources = new Set<string>();
   private defer = Promise.withResolvers<void>();
   private applying = false;
@@ -27,7 +27,7 @@ class ApplyFinishHandler implements FinishHandler {
     this.defer.promise.catch(() => { }); //prevent unhandled rejection if the promise is never requested
   }
 
-  add(subsystem: ConfigurableSubsystem | "all", source: string): void {
+  add(subsystem: ConfigurableSubsystemPart, source: string): void {
     this.sources.add(source);
     this.subsystems.add(subsystem);
   }

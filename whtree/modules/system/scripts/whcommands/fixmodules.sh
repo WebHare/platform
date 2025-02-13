@@ -38,7 +38,7 @@ FAILED=0
 NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore-scripts --no-progress --omit=peer"
 
 # ensure module maps are up-to-date (TODO we really need more coordination here, especially in CI. wh fixmodules racing wh console startup is painful)
-wh update-generated-files --only=config --nodb
+wh apply --offline --nodb config.base
 
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
   MODULESLIST=($(wh getinstalledmodulelist))

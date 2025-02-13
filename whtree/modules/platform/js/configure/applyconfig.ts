@@ -3,17 +3,52 @@ import type { GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
+import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
+
+type SubsystemConfig = {
+  generate?: readonly GeneratorType[];
+};
 
 type SubsystemData = {
   title: string;
   description: string;
-  generate?: readonly GeneratorType[];
-};
+  /** Specific update targetting, eg wrd.ts to update just the wh:wrd/ TS files. Should be considered an internal API */
+  parts?: Record<string, SubsystemConfig>;
+} & SubsystemConfig;
+
+
+const generateForConfig = ["config", "extract", "wrd", "openapi"] as const;
+const generateForDev = ["whdb", "schema", "registry"] as const;
 
 const subsystems = {
   assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extract"] },
-  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions" },
-  wrd: { title: "WRD", description: "Apply wrdschema definitions and regenerate the TS definitions", generate: ["wrd"] },
+  /* 'wh apply config' should
+      - ensure all code can run after updating a module
+        - so it also needs to update any non type-only TS Files  */
+  config: {
+    title: "Configuration",
+    description: "Update configuration files",
+    generate: generateForConfig,
+    parts: {
+      //config.base if you're only here to update eg. the backend URL or module map
+      base: { generate: ["config"] },
+      extracts: { generate: ["config", "extract"] },
+    }
+  },
+  /* 'wh apply dev' should ensure dev tooling is operable
+      - so it probably wants to do everythint 'wh apply config' does
+      - it also needs to fix type-only files (whdb, schemas)
+  */
+  dev: { title: "Development", description: "Update development infrastructure (imports, schemas)", generate: [...generateForConfig, ...generateForDev] },
+  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["registry"] },
+  wrd: {
+    title: "WRD",
+    description: "Apply wrdschema definitions and regenerate the TS definitions",
+    generate: ["wrd"],
+    parts: {
+      ts: { generate: ["wrd"] }
+    }
+  },
   siteprofiles: { title: "Siteprofiles", description: "Recompile site profiles" },
   siteprofilerefs: { title: "Siteprofile references", description: "Regenerate site webfeature/webdesign associations" },
 } as const satisfies Record<string, SubsystemData>;
@@ -21,40 +56,61 @@ const subsystems = {
 
 export type ConfigurableSubsystem = keyof typeof subsystems;
 export const configurableSubsystems: Record<ConfigurableSubsystem, SubsystemData> = subsystems;
+export type ConfigurableSubsystemPart = ConfigurableSubsystem | "all" | `${ConfigurableSubsystem}.${string}`;
 
 
 export interface ApplyConfigurationOptions {
   modules?: string[];
-  subsystems: Array<ConfigurableSubsystem | "all">;
+  /** List of subsytems to re-apply */
+  subsystems: ConfigurableSubsystemPart[];
   verbose?: boolean;
   force?: boolean;
+  nodb?: boolean;
   source: string;
 }
 
-export async function applyConfiguration(options: ApplyConfigurationOptions) {
-  using mutex = await lockMutex("platform:setup");
+export async function executeApply(options: ApplyConfigurationOptions & { offline?: boolean }) {
+  using mutex = options.offline ? null : await lockMutex("platform:setup");
   void (mutex);
 
   const start = Date.now();
-  const todo = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
   const verbose = Boolean(options.verbose);
-  logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: todo, source: options.source });
+  const togenerate = new Set<GeneratorType>;
+  logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: options.subsystems, source: options.source });
+
+  const todoList = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
+  for (const todoItem of todoList) {
+    const [systemName, partName] = todoItem.split('.');
+    const system = configurableSubsystems[systemName as ConfigurableSubsystem];
+    if (!system)
+      continue;
+
+    const def = partName ? system.parts?.[partName] : system;
+    if (!def)
+      throw new Error(`Invalid subsystem '${todoItem}' targeted. Valid subsystems are: ${Object.keys(configurableSubsystems).join(", ")}`);
+
+    def.generate?.forEach(_ => togenerate.add(_));
+  }
+
   try {
+    if (togenerate.has('config')) //regenerating config must be done before buildGeneratorContext or there'll be no module map!
+      await updateWebHareConfigFile(options); //will invoke reloadBackendConfig if anything changed
+
     //Which config files to update
-    const togenerate = new Set<GeneratorType>(["config"]);
-    for (const [subsystem, settings] of Object.entries(configurableSubsystems))
-      if (settings.generate && (todo.includes(subsystem as ConfigurableSubsystem)))
-        settings.generate.forEach(_ => togenerate.add(_));
-
     const generateContext = await buildGeneratorContext(null, verbose || false);
-    await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: false, dryRun: false, generateContext });
+    if (togenerate.size) {
+      if (verbose)
+        console.log(`Update generated files: ${[...togenerate].join(", ")}`);
 
-    if (todo.includes('assetpacks')) {
+      await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: options.nodb, dryRun: false, generateContext });
+    }
+
+    if (todoList.includes('assetpacks')) {
       const assetpackcontroller = await openBackendService("platform:assetpacks", ["apply assetpacks"]);
       await assetpackcontroller.reload();
     }
 
-    if (todo.includes('registry')) {
+    if (todoList.includes('registry')) {
       /* Initialize missing registry keys. This should be done before eg. WRD so that wrd upgrade scripts can read the registry
 
          We could port this to JS... but then we'd have to process XML too *and* HS would have to be updated to process YML keys too (to match expectations)
@@ -63,7 +119,7 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
       await loadlib("mod::system/lib/internal/modules/moduleregistry.whlib").InitModuleRegistryKeys(options.modules || Object.keys(backendConfig.module));
     }
 
-    if (todo.includes('wrd')) {
+    if (todoList.includes('wrd')) {
       //Update WRD schemas (TODO limit ourselves based on module mask)
       if (options.verbose)
         console.log("Updating WRD schemas based on their schema definitions");
@@ -79,9 +135,9 @@ export async function applyConfiguration(options: ApplyConfigurationOptions) {
       await updateGeneratedFiles(["wrd"], { verbose, nodb: false, dryRun: false, generateContext });
     }
 
-    if (todo.includes('siteprofiles')) {
+    if (todoList.includes('siteprofiles')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true);
-    } else if (todo.includes('siteprofilerefs')) {
+    } else if (todoList.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
     }
 

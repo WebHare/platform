@@ -285,7 +285,7 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
   eventmgr->RegisterInterest("system:internal.servicestate.poststartdone");
 
   // Make sure config.json is up-to-date, the user might have moved module dirs around manually and is now trying to wh softreset to fix things
-  UpdateGeneratedFiles(["config"]);
+  ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "RunSoftReset" ]);
 
   // Reload modules on all processes (updates module installation paths)
   ReloadWebhareConfig2("MODULES");
