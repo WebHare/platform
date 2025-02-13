@@ -1386,6 +1386,8 @@
       <text tid="feedback-general">General feedback</text>
       <text tid="feedback-specific">Specific feedback</text>
       <text tid="feedbackerror">Uploading your feedback failed unfortunately. Please try again later.</text>
+      <text tid="feedbackfailed-text">We were unable to record the feedback you provided. Please try again later.</text>
+      <text tid="feedbackfailed-title">Feedback NOT submitted</text>
       <text tid="feedbackform">Feedback</text>
       <text tid="feedbacksubmitted">Feedback is submitted</text>
       <text tid="from">From</text>
