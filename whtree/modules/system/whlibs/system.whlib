@@ -4686,7 +4686,7 @@ PUBLIC STATIC OBJECTTYPE JSONObject
     FOR (INTEGER i := 0, e := LENGTH(cells); i < e; i := i + 1)
     {
       VARIANT value := cells[i].value;
-      IF (TypeID(value) = TypeID(OBJECT))
+      IF (TypeID(value) = TypeID(OBJECT) AND ObjectExists(value))
         cells[i].value := value->DeepClone();
     }
 
@@ -4891,7 +4891,7 @@ PUBLIC STATIC OBJECTTYPE JSONArray
     FOR (INTEGER i := 0, e := LENGTH(elements); i < e; i := i + 1)
     {
       VARIANT value := elements[i];
-      IF (TypeID(value) = TypeID(OBJECT))
+      IF (TypeID(value) = TypeID(OBJECT) AND ObjectExists(value))
         elements[i] := value->DeepClone();
     }
 
