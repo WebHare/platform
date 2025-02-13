@@ -1,8 +1,7 @@
 import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVM_HSVMSource } from "./machinewrapper";
-import type { HareScriptVM } from "./wasm-hsvm";
+import type { HareScriptVM, HSVM_VariableId } from "./wasm-hsvm";
 import type { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
-import type { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
 export interface HSVMCallsProxy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- it's overhead to have to define the type whenever you invoke. But feel free to extend commonlibs.ts!

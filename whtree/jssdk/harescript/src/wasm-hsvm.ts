@@ -19,6 +19,7 @@ import type { HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath } from "./wasm-support";
 
+export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
 export interface StartupOptions {
   /// Script to run. If not specified an eventloop is started

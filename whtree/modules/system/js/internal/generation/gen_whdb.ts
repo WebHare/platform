@@ -220,7 +220,6 @@ export function generateKyselyDefs(context: GenerateContext, modulename: string)
   if (!Object.keys(whdbdefs.schemas).length)
     return '';
 
-  const kyselyimportlib = modulename === "platform" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
   const tablemap = new Map<string, string>;
   let hasblobs = false;
   let tabledefs = "";
@@ -242,10 +241,10 @@ export function generateKyselyDefs(context: GenerateContext, modulename: string)
   }
 
   return `${generatorBanner}
-import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
+import type { Kysely } from "@webhare/deps";
 ${hasblobs ? `import type { WebHareBlob } from "@webhare/services";` : ""}
 
-type IsGenerated<T> = ColumnType<T, T | undefined, never>;
+type IsGenerated<T> = Kysely.ColumnType<T, T | undefined, never>;
 
 ${tabledefs}
 
