@@ -354,6 +354,8 @@ class LocalBridge extends EventSource<BridgeEvents> {
             this._ready = Promise.withResolvers<void>();
         }
         this.initDebugger(message.have_ts_debugger);
+        //Reload the backend configuration - we may have missed system:configupdate (TODO maybe the bridge should announce the config or at least a moddate)
+        reloadBackendConfig();
         this.emit("systemconfig", this.systemconfig);
       } break;
       case ToLocalBridgeMessageType.Event: {
