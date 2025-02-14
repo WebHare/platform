@@ -49,8 +49,6 @@ compilerOptions:
       - modules/tollium/*
     "@mod-wrd/*":
       - modules/wrd/*
-    wh:internal/whtree/*:
-      - "*"
 
 exclude:
   - modules/webhare_testsuite
