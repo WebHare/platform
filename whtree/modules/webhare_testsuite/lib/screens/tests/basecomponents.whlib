@@ -6,6 +6,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -384,11 +385,13 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   }
   MACRO DoPostMessage()
   {
+    ^callbacks->value := "";
     this->iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest-postmessage.html");
     this->iframe->postmessage([ answer := 42 ], "*");
   }
   ASYNC MACRO DoPostRequest()
   {
+    ^callbacks->value := "";
     RECORD res := AWAIT this->iframe->postrequest([ request := 42 ], "*");
     this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "response:" || EncodeJSON(res));
   }
@@ -396,22 +399,19 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   {
     this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "message:" || EncodeJSON(message) || "\norigin:" || origin);
   }
-
+  MACRO OnClientMessage(STRING message, RECORD data)
+  {
+     this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || EncodeJSON(CellInsert(CELL[], message, data )));
+  }
   MACRO DoTestAssetpack()
   {
-    this->iframe->value := `
-        <html>
-          <head>
-            ${GetAssetpackIntegrationCode("webhare_testsuite:iframetest")}
-          </head>
-          <body>
-          </body>
-        </html>`;
-    this->iframe->postmessage([ answer := 42 ], "*");
+    ^callbacks->value := "";
+    ^iframe->InitializeWithAssetpack("webhare_testsuite:iframetest", [ my_init_info := "Hi Frame!" ]);
+    ^iframe->Post("multiply", 42);
   }
   MACRO DoCreateImage()
   {
-    this->iframe->postmessage([ image := "tollium:objects/webhare" ], "*");
+    ^iframe->Post("createImage", "tollium:objects/webhare");
   }
 >;
 
