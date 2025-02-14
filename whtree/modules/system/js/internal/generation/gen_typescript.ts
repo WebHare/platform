@@ -157,9 +157,13 @@ export async function updateTypeScriptInfrastructure({ verbose = false } = {}) {
     console.time("Updating TypeScript infrastructure");
 
   async function updateFile(filePath: string, text: string) {
-    const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
-    if (verbose)
-      console.log(`${skipped ? 'Kept' : 'Updated'} file ${filePath}`);
+    try {
+      const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
+      if (verbose)
+        console.log(`${skipped ? 'Kept' : 'Updated'} file ${filePath}`);
+    } catch (e) {
+      console.error(`Error updating ${filePath}: ${(e as Error)?.message}`);
+    }
   }
 
   const whdatamods = backendConfig.dataroot + "node_modules/";
