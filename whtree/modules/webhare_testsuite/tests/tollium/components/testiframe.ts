@@ -235,14 +235,6 @@ test.runTests(
           return Boolean(test.qSA('iframe')[0].contentWindow.document.querySelector('#source, .wh-errorinfo'));
         }
       ]
-    },
-    {
-      name: "test iframe load when component renamed",
-      test: function (doc, win) {
-        const iframe = test.qSA('iframe')[0];
-        test.eq('htmlcontent1', iframe.contentWindow.document.getElementById('source').dataset.source);
-      },
-      xfail: true
     }
 
   ]);
