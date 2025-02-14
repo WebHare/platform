@@ -2,8 +2,9 @@ import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
-import { encodeString, stringify } from "@webhare/std";
+import { stringify } from "@webhare/std";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
+import { encodeAttr, getAssetPackIntegrationCode } from "./concepts";
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -26,26 +27,6 @@ type Insertable = string | (() => string | Promise<string>);
 function getDesignRootForAssetPack(assetpack: string): string {
   //Transform an assetpackname, eg 'webhare_testsuite:basetestjs' to its corresponding URL, '/.publisher/sd/webhare_testsuite/basetestjs/'
   return `/.publisher/sd/${assetpack.replace(":", "/")}/`;
-}
-
-function encodeAttr(s: string): string {
-  return encodeString(s, "attribute");
-}
-
-export function getAssetpackIntegrationCode(assetpack: string, { designRoot = '', cacheBuster = '' } = {}) {
-  let scriptsettings = '';
-  if (designRoot !== "")
-    scriptsettings += ' crossorigin="anonymous"';
-  scriptsettings += ' async type="module"';
-
-  let bundleBaseUrl = "/.wh/ea/ap/" + assetpack.replace(":", ".") + "/";
-  if (cacheBuster)
-    bundleBaseUrl = "/!" + encodeURIComponent(cacheBuster) + bundleBaseUrl;
-  if (designRoot)
-    bundleBaseUrl = new URL(designRoot, bundleBaseUrl).toString();
-
-  return `<link rel="stylesheet" href="${encodeAttr(bundleBaseUrl)}ap.css">`
-    + `<script src="${encodeAttr(bundleBaseUrl)}ap.mjs"${scriptsettings}></script>`;
 }
 
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
@@ -127,7 +108,7 @@ export class SiteResponse<T extends object = object> {
     const assetpacksettings = getExtractedConfig("assetpacks").find(assetpack => assetpack.name === this.settings.assetpack);
     if (!assetpacksettings)
       throw new Error(`Settings for assetpack '${this.settings.assetpack}' not found`);
-    page += getAssetpackIntegrationCode(this.settings.assetpack);
+    page += getAssetPackIntegrationCode(this.settings.assetpack);
 
 
     if (this.insertions["dependencies-bottom"])
