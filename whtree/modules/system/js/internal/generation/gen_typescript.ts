@@ -119,7 +119,7 @@ export async function generateTSConfigTextForModule(module: string) {
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
-  const contents = (await listDirectory(basepath, { allowMissing: true })).map(entry => ({ ...entry, used: false }));
+  const contents = (await listDirectory(basepath)).map(entry => ({ ...entry, used: false }));
   for (const item of want) {
     const itemPath = basepath + item.name;
     const pos = contents.findIndex(entry => entry.name === item.name);
@@ -157,12 +157,14 @@ export async function updateTypeScriptInfrastructure({ verbose = false } = {}) {
     console.time("Updating TypeScript infrastructure");
 
   async function updateFile(filePath: string, text: string) {
-    const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true, mkdir: true });
+    const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
     if (verbose)
       console.log(`${skipped ? 'Kept' : 'Updated'} file ${filePath}`);
   }
 
   const whdatamods = backendConfig.dataroot + "node_modules/";
+  await mkdir(whdatamods, { recursive: true });
+
   await updateFile(backendConfig.dataroot + "eslint.config.mjs",
     `import { moduleConfig } from "@webhare/eslint-config";
 export default moduleConfig;
