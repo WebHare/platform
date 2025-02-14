@@ -6,8 +6,10 @@ import { createImage } from "@mod-tollium/js/icons";
 import "./iframe.scss";
 import type { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
 import type { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
-import type { SelectionMatch } from '@mod-tollium/web/ui/js/types';
+import type { FlagSet, SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import ObjMenuItem from '../menuitem/menuitem';
+import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tollium-iframe-api/src/host-protocol';
+import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -65,9 +67,14 @@ export default class ObjIFrame extends ComponentBase {
   data: unknown = null;
   iframe;
   viewport: IframeAttributes["viewport"];
-  selectionflags = [];
+  selectionflags: FlagSet = [];
   prevwidth = 0;
   prevheight = 0;
+
+  /** Initial data to send as soon as the iframe is ready */
+  private initdata: unknown = undefined;
+  /** Iframe api post queue collecting outgoing messages until we get the requestInit */
+  private postQueue: HostRuntimeMessage[] | null = [];
 
   constructor(parentcomp: ToddCompBase, data: IframeAttributes) {
     super(parentcomp, data);
@@ -256,7 +263,8 @@ export default class ObjIFrame extends ComponentBase {
 
   gotIFrameLoad() {
     this.loaded = true;
-    this.postQueuedMessages(true);
+    if (this.data) //only send if set. deprecate this?
+      this.postQueuedMessages(true);
 
     try {
       const doc = this.iframe.contentWindow!.document;
@@ -287,12 +295,71 @@ export default class ObjIFrame extends ComponentBase {
       window.open(anchor.href, '_blank');
   };
 
+  //NOTE OutgoingAndIncomingMessage
+  postTypedMessage(data: HostMessage) {
+    this.queuedmessages.push({ type: "postmessage", data: { message: data, targetorigin: "*" } });
+    this.postQueuedMessages(false);
+  }
+
+  handleTypedMessage(msg: GuestMessage, origin: string) {
+    switch (msg.tollium_iframe) {
+      case "createImage": {
+        const img = createImage(msg.imgname, msg.width, msg.height, msg.color, null);
+        img.addEventListener("load", () => {
+          this.postTypedMessage({ tollium_iframe: "createdImage", id: msg.id, src: img.src, width: msg.width, height: msg.height });
+        });
+        return;
+      }
+
+      case "requestInit": {
+        this.postTypedMessage({ tollium_iframe: "init", initdata: this.initdata });
+        if (this.postQueue) {
+          this.postQueue.forEach(m => this.postTypedMessage(m));
+          this.postQueue = null;
+        }
+        return;
+      }
+
+      case "post": { //forward message to server
+        this.queueMessage("post", { msg, origin });
+        return;
+      }
+
+      case "contextMenu": {
+        const menu = this.owner.getComponent(msg.name) ?? this.owner.getComponent(`${this.owner.screenname}:${msg.name}`);
+        if (!(menu instanceof ObjMenuItem))
+          return;
+
+        const iframepos = this.node!.getBoundingClientRect();
+        menu.openMenuAt({ pageX: iframepos.left + msg.x, pageY: iframepos.top + msg.y, target: null });
+        return;
+      }
+
+      case "actionEnabler": {
+        this.selectionflags = msg.selectionFlags || [];
+        this.owner.actionEnabler();
+        return;
+      }
+
+      case "closeAllMenus": {
+        menus.closeAll();
+        return;
+      }
+
+      default: //verify we don't miss any new message types (msg is never if all caeses are handled, then cast it back to HostRuntimeMessage)
+        console.error(`Unsupported tollium_iframe type '${(msg satisfies never as GuestMessage).tollium_iframe}'`);
+    }
+  }
+
   handleWindowMessage = (event: MessageEvent) => {
     const data = event.data;
+    if (data?.tollium_iframe)
+      return this.handleTypedMessage(data as GuestMessage, event.origin);
+
     // The legacy $iframetodd object sends messages with a 'type' property where the new iframe integration code uses the
     // '$tolliumMsg' property to improve separation between tollium messages and user messages (when postTolliumMessage is
     // used, the user can send any message, inclusing messages with a 'type' property that is used in internal communication)
-    switch (data.$tolliumMsg ?? data.type) {
+    switch (data.$tolliumMsg ?? data.tollium_iframe ?? data.type) {
       case "message":
         this.queueMessage("postmessage", { data: data.message, origin: event.origin });
         break;
@@ -360,6 +427,19 @@ export default class ObjIFrame extends ComponentBase {
         this.queueMessage("postmessage", { data, origin: event.origin });
     }
   };
+
+  onMsgPostToGuest(data: { type: string; args: unknown[] }) {
+    const msg: HostRuntimeMessage = { tollium_iframe: "post", type: data.type, args: data.args };
+    if (this.postQueue)
+      this.postQueue.push(msg);
+    else
+      this.postTypedMessage(msg);
+  }
+
+  onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean }) {
+    this.initdata = data.initdata;
+    this.iframe.srcdoc = `<html><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.dev/debug.js"></script>` : ''}</head><body></body></html>`;
+  }
 
   onMsgPostMessage(data: {
     message: unknown;
