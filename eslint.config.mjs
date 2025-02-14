@@ -4,7 +4,7 @@
 
    RunESLint will use whtree/eslint.config.mjs (or versions in the data folder)
 
-   `eslint` when invoked inthe project root (and IDEs) both report errors on eg *.js files
+   `eslint` when invoked in the project root (and IDEs) both report errors on eg *.js files
    that checkmodule won't report due to the latter only validating *.ts and *.tsx
    Would be nice to have their behaviors match but it's not that important. We're happy
    enough if eslint doesn't run out of memory due to issues with the import plugin.
