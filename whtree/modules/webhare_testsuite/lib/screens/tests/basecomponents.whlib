@@ -7,7 +7,6 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -400,9 +399,6 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 
   MACRO DoTestAssetpack()
   {
-    OBJECT service := WaitForPromise(OpenWebHareService("platform:assetpacks"));
-    RECORD res := WaitForPromise(service->WaitForCompile("webhare_testsuite:iframetest", FALSE));
-
     this->iframe->value := `
         <html>
           <head>
