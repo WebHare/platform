@@ -2,7 +2,7 @@ import * as dompack from "dompack";
 
 import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
-import { Toolbar, type ToolbarButton, ToolbarPanel, type ToolbarPanelOptions, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
+import { Toolbar, type ToolbarButton, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type * as $todd from "@mod-tollium/web/ui/js/support";
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
@@ -32,15 +32,6 @@ export type RectSize = { width: number; height: number };
 export type Rect = RectSize & { left: number; top: number };
 export type OffsetRect = Rect & { offsetx: number; offsety: number };
 export type OffsetRectWithRefpoint = OffsetRect & { refPoint?: RefPoint };
-
-export class ImageToolbarPanel extends ToolbarPanel {
-  imageEditTool: string;
-
-  constructor(tool: string, options?: ToolbarPanelOptions) {
-    super(options);
-    this.imageEditTool = tool;
-  }
-}
 
 export type SetStatusCallback = (width: number, height: number, orgwidth?: number, orgheight?: number) => void;
 export type ExportImageCallback = (blob: Blob | null, settings: { refPoint: RefPoint | null }) => void;

@@ -9,8 +9,8 @@ import type { RefPoint } from "@mod-tollium/web/ui/js/dialogs/imgeditcontroller"
 
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
-
-import { ImageToolbarPanel, type Size } from "./imageeditor";
+import type { Size } from "./imageeditor";
+import { ImageToolbarPanel } from "./toolbarpanel";
 
 // Set to true to activate 'inline' mode, without the modal toolbar
 const tool_inline = false;
@@ -21,7 +21,6 @@ export type PhotoPointProps = {
   refPoint: Size | null;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type PhotoPointOptions = object; // no options yet
 
 class PhotoPoint extends SurfaceTool {

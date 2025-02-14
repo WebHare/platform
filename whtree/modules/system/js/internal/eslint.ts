@@ -42,7 +42,7 @@ export async function handleLintingCommand(indata: LintingCommand): Promise<ESLi
       hasfixes: false,
       output: indata.data
     };
-  };
+  }
 
   return {
     messages: results[0].messages.map((message) => ({

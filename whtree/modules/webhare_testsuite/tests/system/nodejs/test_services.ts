@@ -449,7 +449,7 @@ async function testLogs() {
 
   // Historic files reading. First write two lines:
   await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241204.log",
-    `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });;
+    `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });
 
   const logreader_1204 = services.readLogLines<{ line: number }>("webhare_testsuite:test", { start: new Date("2024-12-04"), limit: new Date("2024-12-06") });
   test.eq(1, (await logreader_1204.next()).value.line);

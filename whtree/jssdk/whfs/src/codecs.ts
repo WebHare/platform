@@ -1,13 +1,16 @@
+import type * as kysely from "kysely";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { uploadBlob } from "@webhare/whdb";
-import { Money, omit } from "@webhare/std";
+import { appendToArray, isPromise, Money, omit } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 import type { RichTextDocument } from "@webhare/services";
-import { type FSSettingsRow, type EncodedFSSetting, type WHFSTypeMember, recurseGetData, recurseSetData } from "./contenttypes";
-import { describeWHFSType } from "./contenttypes";
+import type { WHFSTypeMember } from "./contenttypes";
+import type { FSSettingsRow } from "./describe";
+import { describeWHFSType } from "./describe";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -418,3 +421,72 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   }
 };
+
+export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"]> & {
+  id?: number;
+  fs_member?: number;
+  sub?: EncodedFSSetting[];
+};
+
+/** Recursively set the data
+ * @param members - The set of members at his level
+ * @param data - Data to apply at this level */
+export async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
+  const toInsert = new Array<EncodedFSSetting>;
+  for (const [key, value] of Object.entries(data as object)) {
+    if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
+      continue;
+
+    const matchmember = members.find(_ => _.name === key);
+    if (!matchmember)  //TODO orphan check, parent path, DidYouMean
+      throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
+
+    try {
+      const mynewsettings = new Array<Partial<FSSettingsRow>>;
+      if (!codecs[matchmember.type])
+        throw new Error(`Unsupported type ${matchmember.type}`);
+
+      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value, matchmember);
+      const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
+
+      if (Array.isArray(finalsettings))
+        appendToArray(mynewsettings, finalsettings);
+      else if (finalsettings)
+        mynewsettings.push(finalsettings);
+
+      for (let i = 0; i < mynewsettings.length; ++i) {
+        toInsert.push({ fs_member: matchmember.id, ...mynewsettings[i] });
+      }
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while setting '${matchmember.name}')`;
+      throw e;
+    }
+  }
+  return toInsert;
+}
+
+export async function recurseGetData(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
+  const retval: { [key: string]: unknown } = {};
+
+  for (const member of members) {
+    const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
+    let setval;
+
+    try {
+      if (!codecs[member.type])
+        throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+
+      setval = codecs[member.type].decoder(settings, cc, member, cursettings);
+      if (isPromise(setval))
+        setval = await setval;
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while getting '${member.name}')`;
+      throw e;
+    }
+    retval[member.name] = setval;
+  }
+
+  return retval;
+}

@@ -126,7 +126,7 @@ class HSRTDImporter {
       if (rtdParagraphTypes.includes(tag)) {
         const outputtag = className ? `${tag}.${className}` : tag;
         blocks.push({ [outputtag]: await this.getBlockItems(child) });
-      };
+      }
     }
     return blocks;
   }

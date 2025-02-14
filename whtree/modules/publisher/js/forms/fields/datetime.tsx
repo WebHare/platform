@@ -20,7 +20,7 @@ nice to have:
 
 interface MultiInputSubstitionOptions {
   baseclass: string;
-};
+}
 
 abstract class MultiInputSubstition {
   protected _replacednode: HTMLInputElement;

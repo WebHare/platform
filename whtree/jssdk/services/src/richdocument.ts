@@ -29,7 +29,7 @@ type RTDBaseBlock<Build extends boolean> = {
 } | { widget: Readonly<WidgetInterface> };
 
 /** The contents of text blocks */
-type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)>;;
+type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)>;
 
 type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> }) & {
   [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;

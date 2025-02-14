@@ -105,7 +105,6 @@ class PreloadedCSS implements CSSRefRequester {
 
     const rules = register(this);
     // Wait for all rule promises, return false if any gave back an error
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- we know rule.promise to be set because of type:"link"
     this.loadpromise = Promise.all(rules.map(rule => rule.promise!.then(() => true, () => false))).then(arr => arr.every(_ => _));
   }
 

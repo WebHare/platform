@@ -7,7 +7,6 @@ import { sleep } from "@webhare/std";
 async function testCacheBasics() {
   const whlib_data = `<?wh
 LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::os.whlib";
 
 INTEGER toreturn := 24742;
 RECORD FUNCTION GetCacheabletInfiniteDAta() { toreturn := toreturn + 1; RETURN [ value := toreturn, eventmasks := ["webhare_testsuite:unlikeltyevent" ] ]; }
