@@ -65,7 +65,7 @@ ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
 # Update/generate whdata/storage/system/generated/config/config.json - C++ will need it too for the module mapping
 # Update/generate whdata/storage/system/generated/extract/ - core/nodesevices require the list of managed services
-if ! WEBHARE_NODE_OPTIONS= wh update-generated-files --only=config,extract --nodb "${STARTUPOPTIONS[@]}"; then
+if ! WEBHARE_NODE_OPTIONS= wh apply --offline --nodb "${STARTUPOPTIONS[@]}" config.extracts ; then
   echo "Failed to update the configuration file, aborting"  1>&2
   exit 1
 fi

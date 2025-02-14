@@ -15,7 +15,7 @@ LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-///Update the server type. Assumes an available primary transaction
+///Update the server type. Assumes an available primary transaction.
 PUBLIC MACRO SetSystemServerType(STRING newservertype)
 {
   IF(newservertype = ReadRegistryKey("system.global.servertype"))
@@ -26,10 +26,12 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
   GetPrimary()->BeginWork();
   WriteRegistryKey("system.global.servertype", newservertype);
   GetPrimary()->CommitWork();
+
+  // TODO This very likely needs to be replaced by a full soft reset
   UpdateSystemConfigurationRecord();
 
   // Rebuild the webhare config file
-  UpdateGeneratedFiles(["config"]);
+  ApplyWebHareConfiguration([ subsytems := ["config"], source := "SetSystemServerType" ]);
 
   BroadcastEvent("system:config.servertype", DEFAULT RECORD);
   //ADDME access rules should listen to servertype themselves?

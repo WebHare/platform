@@ -77,7 +77,7 @@ logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be disc
 wh prepare-whdata
 
 logWithTime "Update generated files"
-wh update-generated-files --nodb
+wh apply --nodb --offline config dev
 
 logWithTime "Precompiling TypeScript"
 rm -rf "$WEBHARE_TSBUILDCACHE" 2>/dev/null || true # ignore errors, often triggered by rebuilding while active

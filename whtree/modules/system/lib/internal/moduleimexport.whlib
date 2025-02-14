@@ -188,7 +188,7 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
   }
 
   ReloadWebhareConfig(TRUE, TRUE, [ isdelete := TRUE ]);
-  UpdateGeneratedFiles(["all"]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
+  ApplyWebHareConfiguration([ subsystems := ["config"], source := "deletemodule " || module ]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
   RecompileSiteProfiles();
 
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
@@ -422,7 +422,7 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   RECORD retval := [ warnings := DEFAULT STRING ARRAY ];
 
   //Updates config.json, updates symlinks, regenerates dependencies for java/typescript
-  UpdateGeneratedFiles(["all"]);
+  ApplyWebHareConfiguration([ subsystems := ["config"], source := "activatemodule " || modulename ]);
 
   ReconfigureLogFiles();
 

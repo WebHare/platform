@@ -171,7 +171,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
     BroadcastEvent("system:config.servertype", DEFAULT RECORD);
     UpdateSystemConfigurationRecord();
-    UpdateGeneratedFiles(["config"]);
+    ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "WebHare backend settings"]);
 
     RETURN TRUE;
   }

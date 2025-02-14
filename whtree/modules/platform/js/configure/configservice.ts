@@ -1,10 +1,10 @@
 import { BackendServiceConnection, type ServiceControllerFactoryFunction } from "@webhare/services/src/backendservicerunner";
-import { type ApplyConfigurationOptions, applyConfiguration } from "./applyconfig";
+import { type ApplyConfigurationOptions, executeApply } from "./applyconfig";
 
 class ConfigClient extends BackendServiceConnection {
 
   async applyConfiguration(options: Omit<ApplyConfigurationOptions, "verbose">) {
-    await applyConfiguration(options);
+    await executeApply(options);
   }
 }
 

@@ -204,7 +204,7 @@ std::string Connection::GetTmpRoot() const
 
 void Connection::ReloadPluginConfig() const
 {
-        //this file should be prepared by `wh console` (currently: wh update-generated-files)
+        //this file should be prepared by `wh console` (currently: wh apply --nodb config.base)
         std::string configpath = Blex::MergePath(basedatadir, "storage/system/generated/config/config.json");
         std::unique_ptr<Blex::FileStream> infile(Blex::FileStream::OpenRead(configpath));
         if(!infile.get())

@@ -389,15 +389,9 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
   RETURN retval;
 }
 
-PUBLIC MACRO UpdateGeneratedFiles(STRING ARRAY targets, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  WaitForPromise(ImportJS("@mod-system/js/internal/generation/generator.ts")->UpdateGeneratedFiles(targets, CELL[ verbose := IsDebugTagEnabled("startup"), ...options ]));
-  IF("all" IN targets OR "config" IN targets)
-    BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about any new module paths
-}
-
 PUBLIC MACRO UpdateDebugSettings(RECORD newsettings, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  //FIXME this may still be dangerous, we should go through the service to update config files
   WaitForPromise(ImportJS("@mod-system/js/internal/generation/generator.ts")->updateDebugSettings(newsettings, CELL[ verbose := IsDebugTagEnabled("startup"), ...options ]));
   BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about the new settings
 }
