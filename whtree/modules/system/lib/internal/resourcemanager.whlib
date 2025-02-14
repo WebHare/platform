@@ -27,7 +27,7 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
   WriteRegistryKey("system.global.servertype", newservertype);
   GetPrimary()->CommitWork();
 
-  // TODO This very likely needs to be replaced by a full soft rest
+  // TODO This very likely needs to be replaced by a full soft reset
   UpdateSystemConfigurationRecord();
 
   // Rebuild the webhare config file
