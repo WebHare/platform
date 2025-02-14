@@ -1,13 +1,13 @@
 //This preload is invoked for all node scripts executed by WebHare (together with the TS preload support)
 
 import { backendConfig, getFullConfigFile } from '@mod-system/js/internal/configuration';
-import { debugFlags, globalPolyfils, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
+import { debugFlags, globalPolyfills, initEnv, updateDebugConfig } from '@webhare/env/src/envbackend';
 import { enableFetchDebugging } from '@webhare/env/src/fetchdebug';
 import { setGetTidHooksFactory } from '@webhare/gettid/src/hooks';
 import { env } from "node:process";
 
 import "@webhare/deps/temporal-polyfill"; //Polyfill Temporal into all backend code
-globalPolyfils.push("@webhare/deps/temporal-polyfill");
+globalPolyfills.push("@webhare/deps/temporal-polyfill");
 
 initEnv(backendConfig.dtapstage, backendConfig.backendURL);
 updateDebugConfig(getFullConfigFile().debugsettings || null);

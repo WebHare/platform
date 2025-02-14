@@ -5,7 +5,7 @@ import { backendConfig } from "../configuration";
 import * as path from "node:path";
 import { mkdir, readlink, rm, symlink } from "node:fs/promises";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { globalPolyfils } from "@webhare/env/src/envbackend";
+import { globalPolyfills } from "@webhare/env/src/envbackend";
 
 type DataRootItem = {
   name: string;
@@ -96,7 +96,7 @@ async function getTSPaths(items: DataRootItem[], startpath: string): Promise<Rec
 }
 
 export function getTSPolyfills() {
-  return globalPolyfils.map(name => require.resolve(name));
+  return globalPolyfills.map(name => require.resolve(name));
 }
 
 async function buildTSConfig(node_modules: DataRootItem[]) {
