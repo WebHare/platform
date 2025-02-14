@@ -146,7 +146,6 @@ MACRO RecompileInvalidationTest()
       "<?wh\n" ||
       "LOADLIB 'mod::system/lib/cache.whlib';\n" ||
       "LOADLIB 'mod::system/lib/webserver.whlib';\n" ||
-      "LOADLIB 'mod::system/lib/webserver/errors.whlib';\n" ||
       "PUBLIC INTEGER FUNCTION GetCachedData() { RETURN GetAdhocCached([ type := 1 ], PTR GetData); }\n" ||
       "RECORD FUNCTION GetData() { RETURN [ ttl := 60 * 1000, value := ToInteger(GetWebVariable('value'), -1) ]; }\n" ||
       "PRINT(ToString(GetCachedData()));\n";

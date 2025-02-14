@@ -1,6 +1,6 @@
 import type { WebRequest } from "@webhare/router/src/request";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
-import { WRDSchema } from "./wrd";
+import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { IdentityProvider } from "./auth";
 

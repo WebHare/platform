@@ -8,9 +8,10 @@ import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { type Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
-import { ImageToolbarPanel, type Rect, type RectSize, type SetStatusCallback, type Size } from "./imageeditor";
+import type { Rect, RectSize, SetStatusCallback, Size } from "./imageeditor";
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
+import { ImageToolbarPanel } from "./toolbarpanel";
 
 const DraggerPos = Symbol("DraggerPos");
 interface DraggerElement extends HTMLDivElement {

@@ -368,14 +368,12 @@ export class ApplicationBase {
 
   private getAppAndChildren(): ApplicationBase[] {
     const apps: ApplicationBase[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
     let app: ApplicationBase = this;
     while (app.parentapp)
       app = app.parentapp;
 
     for (; ;) {
       apps.push(app);
-      // eslint-disable-next-line @typescript-eslint/no-loop-func
       const child = $todd.applications.find(_ => _.parentapp === app);
       if (child) {
         app = child;

@@ -30,7 +30,7 @@ function normalizeIP6(a: string) {
     sections[i] = sections[i].padStart(4, '0');
   }
   return sections.join(':');
-};
+}
 
 function abbreviateIP6(a: string) {
   a = normalizeIP6(a);

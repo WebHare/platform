@@ -59,7 +59,7 @@ const reftrestrows = [
 
 async function getSheet1(xlsx: Blob): Promise<Document> {
   const result = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").UnpackArchive(await WebHareBlob.fromBlob(xlsx));
-  const sheet1blob = result.find((_: any) => _.name === "sheet1.xml");;
+  const sheet1blob = result.find((_: any) => _.name === "sheet1.xml");
   test.assert(sheet1blob);
   return new DOMParser().parseFromString(await (sheet1blob.data as WebHareBlob).text(), 'text/xml');
 }

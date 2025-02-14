@@ -789,7 +789,7 @@ export function distributeSizes(available: number, sizeobjs: SizeObj[], horizont
       if (logdistribute)
         console.log("Child " + idx + " prop=" + tempsizes[idx].prop + " min=" + tempsizes[idx].min);
     }
-  };
+  }
 
   /* - if we have any proportionally sized items
        - remaining_for_prop = (available - total_absolutes)
@@ -849,7 +849,7 @@ export function distributeSizes(available: number, sizeobjs: SizeObj[], horizont
           propleft -= tempsize.prop;
       }
       takenaway += takeaway;
-    };
+    }
 
     if (!takenaway) {
       console.error("distributeSizes was unable to fix its overcommit. Total needed=" + total_pixels + ", available=" + available + " pixels", sizeobjs);

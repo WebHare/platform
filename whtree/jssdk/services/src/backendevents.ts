@@ -113,7 +113,7 @@ class EventStream implements Disposable, AsyncIterable<BackendEvent> {
     else
       return Promise.resolve({ done: true, value: null });
   }
-};
+}
 
 export function subscribeToEventStream(masks: BackendEventMasks) {
   return new EventStream(masks);

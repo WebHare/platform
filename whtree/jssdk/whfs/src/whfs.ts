@@ -2,7 +2,8 @@
 declare module "@webhare/whfs" {
 }
 
-export { describeWHFSType, openType } from "./contenttypes";
+export { openType } from "./contenttypes";
+export { describeWHFSType } from "./describe";
 export { openTagManager } from "./tagmanager";
 export type { TagManager, Tag } from "./tagmanager";
 export { isValidName } from "./support";

@@ -52,7 +52,7 @@ export { invoke };
 export type { TestWaitItem };
 
 //basic test functions
-let testfw: TestFramework | undefined;;
+let testfw: TestFramework | undefined;
 if (typeof window !== 'undefined') {
   testfw = (window.parent ? window.parent.__testframework : null)!;
   whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw!.log(...args); } });
@@ -264,7 +264,7 @@ export interface TestQueriedElement extends Omit<HTMLInputElement, UncombinableP
   nextSibling: TestQueriedElement | null;
   previousElementSibling: TestQueriedElement | null;
   nextElementSibling: TestQueriedElement | null;
-};
+}
 
 //Set up overloads for both call approaches (with and without starting element)
 export function qS<E extends Element = TestQueriedElement>(startnode: ParentNode, selector: string): E | null;

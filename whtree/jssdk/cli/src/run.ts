@@ -10,13 +10,13 @@ export class CLIError extends Error {
   constructor(message: string, public command?: string) {
     super(message);
   }
-};
+}
 
 export class CLISyntaxError extends CLIError {
-};
+}
 
 export class CLIConfigError extends CLIError {
-};
+}
 
 export class CLIShowHelp extends CLIError {
   constructor(message: string, public options: { command?: string } = {}) {

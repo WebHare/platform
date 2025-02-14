@@ -7,11 +7,12 @@ import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type { RefPoint } from "@mod-tollium/web/ui/js/dialogs/imgeditcontroller";
 
-import { ImageToolbarPanel, type Size } from ".";
+import type { Size } from ".";
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
 
 import "./imageeditor.lang.json";
+import { ImageToolbarPanel } from "./toolbarpanel";
 
 // Set to true to activate 'inline' mode, without the modal toolbar
 const tool_inline = false;

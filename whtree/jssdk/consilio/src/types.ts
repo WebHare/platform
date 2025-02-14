@@ -13,7 +13,7 @@ export interface CatalogListEntry {
   managed: boolean;
   /** Wildcard mask for related suffixes, if any */
   suffixMask: string;
-};
+}
 
 export interface AttachedIndex {
   id: number;
@@ -32,4 +32,4 @@ export interface CatalogSuffix {
   // status: string;
   // docs: number;
   // size: number;
-};
+}

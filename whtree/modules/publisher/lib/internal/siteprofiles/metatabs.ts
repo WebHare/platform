@@ -1,5 +1,5 @@
 import { getApplyTesterForMockedObject, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
-import { getType } from "@webhare/whfs/src/contenttypes";
+import { getType } from "@webhare/whfs/src/describe";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import type { FieldLayout, ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";

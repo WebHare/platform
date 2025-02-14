@@ -2,9 +2,10 @@ import { getTid } from "@mod-tollium/js/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, ToolbarSeparator, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
-import { ImageToolbarPanel, type SetStatusCallback, type Size } from "./imageeditor";
+import type { SetStatusCallback, Size } from "./imageeditor";
 import type { ImageSurface } from "./surface";
 import { SurfaceTool } from "./surfacetool";
+import { ImageToolbarPanel } from "./toolbarpanel";
 
 type PhotoRotateOptions = {
   setStatus?: SetStatusCallback;

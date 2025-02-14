@@ -86,7 +86,7 @@ export function setupWRDAuth() {
       dompack.stop(event);
       await logout();
       location.reload(); //TODO put this behind a 'login state change' event
-    };
+    }
 
     node.addEventListener("click", event => void handleLogoutClick(event));
   });

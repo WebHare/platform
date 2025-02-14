@@ -1,7 +1,7 @@
 import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, nextVal } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
-import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./contenttypes";
+import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
@@ -197,7 +197,7 @@ export class WHFSObject {
       if (curfields && !isPublish(curfields.published)) {
         storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
         if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);;
+          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
         if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
           storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
       }

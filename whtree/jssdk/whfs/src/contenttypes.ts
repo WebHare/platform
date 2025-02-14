@@ -1,25 +1,16 @@
 import * as kysely from "kysely";
-import { type Selectable, db } from "@webhare/whdb";
+import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
-import type { CSPContentType } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
-import { type EncoderBaseReturnValue, type EncoderReturnValue, type MemberType, codecs } from "./codecs";
-import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
-import { appendToArray, isPromise, omit } from "@webhare/std";
+import { appendToArray, omit } from "@webhare/std";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
+import { describeWHFSType, type FSSettingsRow } from "./describe";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
-export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
-export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
 
-//positioned list to convert database ids:
-const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", "formCondition", "record", "image", "date"];
-
-export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
-type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
 export interface WHFSTypeMember {
@@ -64,26 +55,6 @@ export interface FolderTypeInfo extends WHFSTypeBaseInfo {
 /** A type representing all possible WHFS Type interfaces */
 export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
 
-//WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
-export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
-  const types = getExtractedHSConfig("siteprofiles").contenttypes;
-  if (typeof type === "string") {
-    if (!type)
-      return undefined;
-    return types.find(_ => _.scopedtype === type || _.namespace === type);
-  }
-
-  if (!type) {
-    if (!kind)
-      return undefined;
-
-    const fallbackns = kind === "fileType" ? unknownfiletype : normalfoldertype;
-    return types.find(_ => _.namespace === fallbackns);
-  }
-
-  return types.find(_ => _.id === type);
-}
-
 /* It would have been nice to get these from the CSP... but the CSP currently has no IDs (and no orphan info)
 function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
   const members: ContentTypeMember[] = [];
@@ -104,21 +75,6 @@ function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
 }
 */
 
-function memberNameToJS(tag: string): string {
-  tag = tag.toLowerCase();
-  tag = tag.replaceAll(/_[a-z]/g, c => c[1].toUpperCase());
-  return tag;
-}
-
-function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null): WHFSTypeMember[] {
-  return allrows.filter(_ => _.parent === parent).map(_ => ({
-    id: _.id,
-    name: memberNameToJS(_.name),
-    type: membertypenames[_.type] as MemberType,
-    children: mapRecurseMembers(allrows, _.id)
-  }));
-}
-
 //Given a flat array of members and the toplevel members we want, only return those members and their children
 function getMemberIds(members: WHFSTypeMember[], topLevelMembers: readonly string[]): number[] {
   function getIds(member: WHFSTypeMember): number[] {
@@ -128,75 +84,6 @@ function getMemberIds(members: WHFSTypeMember[], topLevelMembers: readonly strin
   return members.filter(_ => topLevelMembers.includes(_.name)).map(getIds).flat();
 }
 
-/** Returns the configuration of a content type
- * @param type - Namespace of the content type
- * @param options - Options:
- *   allowMissing - if set and if combined with kind fileType/folderType, will return a mockup of the type if missing. null if kind is not set
- *   kind - expect the specified kind to be returend
- * @returns The content type configuration, or null if the type was not found, allowMissing was set and expect was not set
- * @throws If the type could not be found and allowMissing was not set
-*/
-
-export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
-export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
-export async function describeWHFSType(type: string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
-export async function describeWHFSType(type: string | number): Promise<WHFSTypeInfo>;
-
-export async function describeWHFSType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
-  const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
-  if (!matchtype) {
-    if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
-      throw new Error(`No such type: '${type}'`);
-    if (!options?.metaType || !['fileType', 'folderType'].includes(options?.metaType))
-      return null;
-
-    const fallbackns = options.metaType === "fileType" ? unknownfiletype : normalfoldertype;
-    const fallbacktype = await describeWHFSType(fallbackns);
-    const usenamespace = typeof type === "string" ? type : "#" + type;
-
-    return {
-      ...fallbacktype,
-      id: null,
-      namespace: usenamespace,
-      title: ":" + usenamespace,
-      members: [],
-      ...(options.metaType === "fileType" ? { hasData: false } : {})
-    };
-  }
-
-  const allmembers = await db<PlatformDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
-  const members = mapRecurseMembers(allmembers);
-
-  const baseinfo: WHFSTypeBaseInfo = {
-    id: matchtype.id || null,
-    namespace: matchtype.namespace,
-    title: matchtype.title,
-    members: members //mapMembers(matchtype.members)
-  };
-
-  if (matchtype.filetype)
-    if (matchtype.isembeddedobjecttype) {
-      return {
-        ...baseinfo,
-        metaType: "widgetType"
-      };
-    } else {
-      return {
-        ...baseinfo,
-        metaType: "fileType",
-        isWebPage: Boolean(matchtype.filetype.needstemplate),
-        hasData: Boolean(matchtype.filetype.blobiscontent)
-      };
-    }
-
-  if (matchtype.foldertype)
-    return {
-      ...baseinfo,
-      metaType: "folderType"
-    };
-
-  return baseinfo;
-}
 
 /** An API offering access to data stored in an instance type.
  */
@@ -214,76 +101,6 @@ interface InstanceSetOptions {
   ///How to handle readonly fsobjects. fail (the default), skip or actually update
   ifReadOnly?: "fail" | "skip" | "update";
 }
-
-export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"]> & {
-  id?: number;
-  fs_member?: number;
-  sub?: EncodedFSSetting[];
-};
-
-/** Recursively set the data
- * @param members - The set of members at his level
- * @param data - Data to apply at this level */
-export async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
-  const toInsert = new Array<EncodedFSSetting>;
-  for (const [key, value] of Object.entries(data as object)) {
-    if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
-      continue;
-
-    const matchmember = members.find(_ => _.name === key);
-    if (!matchmember)  //TODO orphan check, parent path, DidYouMean
-      throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
-
-    try {
-      const mynewsettings = new Array<Partial<FSSettingsRow>>;
-      if (!codecs[matchmember.type])
-        throw new Error(`Unsupported type ${matchmember.type}`);
-
-      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value, matchmember);
-      const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
-
-      if (Array.isArray(finalsettings))
-        appendToArray(mynewsettings, finalsettings);
-      else if (finalsettings)
-        mynewsettings.push(finalsettings);
-
-      for (let i = 0; i < mynewsettings.length; ++i) {
-        toInsert.push({ fs_member: matchmember.id, ...mynewsettings[i] });
-      }
-    } catch (e) {
-      if (e instanceof Error)
-        e.message += ` (while setting '${matchmember.name}')`;
-      throw e;
-    }
-  }
-  return toInsert;
-}
-
-export async function recurseGetData(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
-  const retval: { [key: string]: unknown } = {};
-
-  for (const member of members) {
-    const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
-    let setval;
-
-    try {
-      if (!codecs[member.type])
-        throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
-
-      setval = codecs[member.type].decoder(settings, cc, member, cursettings);
-      if (isPromise(setval))
-        setval = await setval;
-    } catch (e) {
-      if (e instanceof Error)
-        e.message += ` (while getting '${member.name}')`;
-      throw e;
-    }
-    retval[member.name] = setval;
-  }
-
-  return retval;
-}
-
 
 class RecursiveSetter {
   linkchecked_settingids: number[] = [];

@@ -286,7 +286,7 @@ class MessageParser {
               data
             };
           }
-        };
+        }
       }
       case "K":
         return {
@@ -344,7 +344,7 @@ class MessageParser {
         } else {
           return { type: "CommandComplete", tag: data.toString("utf8", 0, data.indexOf(0)) };
         }
-      };
+      }
       case "3":
         return { type: "CloseComplete" };
       case "d":
@@ -363,7 +363,7 @@ class MessageParser {
         for (const i of rangeItr(3, retval.columnCount, 2))
           retval.formatCodes.push(data.readInt16BE(i));
         return retval;
-      };
+      }
       case "H": {
         if (this.frontend) {
           return { type: "Flush" };
@@ -378,7 +378,7 @@ class MessageParser {
             retval.formatCodes.push(data.readInt16BE(i));
           return retval;
         }
-      };
+      }
       case "W": {
         const retval = {
           type: "CopyBothResponse" as const,
@@ -389,7 +389,7 @@ class MessageParser {
         for (const i of rangeItr(3, retval.columnCount, 2))
           retval.formatCodes.push(data.readInt16BE(i));
         return retval;
-      };
+      }
       case "D": {
         if (this.frontend) {
           return {
@@ -412,7 +412,7 @@ class MessageParser {
           }
           return retval;
         }
-      };
+      }
       case "I":
         return { type: "EmptyQueryResponse" };
       case "E": {
@@ -438,7 +438,7 @@ class MessageParser {
           }
           return retval;
         }
-      };
+      }
       case "F": {
         const retval = {
           type: "FunctionCall" as const,
@@ -1421,7 +1421,7 @@ run({
           log(`PG conn ${id}:  DB message: ${JSON.stringify(msg)}`);
           if (msg.type === "AuthenticationOk") {
             clientParser.setAuthenticated();
-          };
+          }
         });
       });
       dbConn.on("end", () => {

@@ -562,6 +562,8 @@ HERE
 
     # Force brew to update
     touch "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
+    # Force emsdk to update
+    rm -f "$WEBHARE_CHECKEDOUT_TO/vendor/wh-current-emscripten-version"
 
     # Cannot build a target for this in the makefile, we want to serialise these steps
     for P in postuninstall clean install; do

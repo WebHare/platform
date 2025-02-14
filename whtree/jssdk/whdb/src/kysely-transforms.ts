@@ -40,7 +40,7 @@ class KyselyInToAnyTransformer extends OperationNodeTransformer {
     }
     return node;
   }
-};
+}
 
 /** This plugin converts all `"field" in value` expressions to
  * `"field" = ANY(value)` expressions. For the first expression, Kysely
@@ -57,4 +57,4 @@ export class KyselyInToAnyPlugin implements KyselyPlugin {
   async transformResult(args: PluginTransformResultArgs): Promise<QueryResult<UnknownRow>> {
     return args.result;
   }
-};
+}
