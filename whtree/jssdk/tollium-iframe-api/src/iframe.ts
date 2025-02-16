@@ -154,7 +154,7 @@ async function processMessage(msg: HostRuntimeMessage) {
       break;
     }
 
-    default: //verify we don't miss any new message types (msg is never if all caeses are handled, then cast it back to HostRuntimeMessage)
+    default: //verify we don't miss any new message types (msg is never if all cases are handled, then cast it back to HostRuntimeMessage)
       console.error(`Unsupported tollium_iframe type '${(msg satisfies never as HostRuntimeMessage).tollium_iframe}'`);
   }
 }
@@ -165,7 +165,7 @@ export function setupGuest<InitData = any>(
   endpoints?: GuestProtocol
 ): void {
   if (stage)
-    throw new Error("setupIframe can only be called once");
+    throw new Error("setupGuest can only be called once");
 
   stage = { waitForOrigin: init as GuestInitFunction || null };
   guestEndpoints = endpoints;

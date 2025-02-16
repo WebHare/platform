@@ -38,7 +38,7 @@ const host = new Host<OurHostProtocol>();
 
 You can then send messages to the host using `host.post(...)`
 
-And define endpoints for mesages it will receive from the host
+And define endpoints for messages it will receive from the host:
 
 ```typescript
 async function init(context: HostContext, initData: { my_init_info: string }) {

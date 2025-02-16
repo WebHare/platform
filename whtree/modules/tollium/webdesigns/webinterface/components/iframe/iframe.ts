@@ -358,7 +358,7 @@ export default class ObjIFrame extends ComponentBase {
         return;
       }
 
-      default: //verify we don't miss any new message types (msg is never if all caeses are handled, then cast it back to HostRuntimeMessage)
+      default: //verify we don't miss any new message types (msg is never if all cases are handled, then cast it back to HostRuntimeMessage)
         console.error(`Unsupported tollium_iframe type '${(msg satisfies never as GuestMessage).tollium_iframe}'`);
     }
   }

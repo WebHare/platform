@@ -551,7 +551,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     this->QueueOutboundMessage("Callback", data);
   }
 
-  /** Post a mesage using the tollium-iframe-api protocol */
+  /** Post a message using the tollium-iframe-api protocol */
   PUBLIC MACRO Post(STRING type, VARIANT ARRAY args) __ATTRIBUTES__(VARARG) {
     this->QueueOutboundMessage("PostToGuest", CELL[ type, args ]);
   }
