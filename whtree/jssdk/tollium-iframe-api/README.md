@@ -8,24 +8,56 @@ integrate with the Tollium user interface.
 Add an iframe component to a screen:
 
 ```xml
-<iframe name="myframe" onmessage="onframemessage" />
+<iframe name="myframe" onclientmessage="onframemessage" />
 ```
 
 The iframe component can receive and send messages:
 
 ```harescript
-MACRO OnFrameMessage(RECORD message)
+MACRO OnClientMessage(STRING message, RECORD data)
 {
   // Do something with the message
-  this->RunSimpleScreen("info", `Got message: ${message.msg}`);
+  this->RunSimpleScreen("info", `Got message of type ${message}`);
 
   // Send a message back
-  ^myframe->PostMessage([ msg := "Thanks for the message" ]);
+  ^myframe->Post("response", [ msg := "Thanks for the message" ]);
 }
 ```
 
-In the loaded iframe, use the `postTolliumMessage` function to send messages. The standard 'message' event can be used to
-listen for messages from the server.
+We recommend having the iframe define the protocol for messages it will send the host:
+
+```typescript
+
+interface OurHostProtocol extends HostProtocol {
+  greeting: { g: string };
+  multiplied: { n: number };
+}
+
+const host = new Host<OurHostProtocol>();
+```
+
+You can then send messages to the host using `host.post(...)`
+
+And define endpoints for messages it will receive from the host:
+
+```typescript
+async function init(context: HostContext, initData: { my_init_info: string }) {
+  console.log("init", initData);
+  host.post("greeting", { g: "Hello from the iframe!" });
+}
+
+const myEndpoints: GuestProtocol = {
+  multiply: (n: number) => host.post("multiplied", { n: n * n }),
+  ...
+};
+
+setupGuest(init, myEndpoints);
+```
+
+The iframe guest code *must* invoke setupGuest before messages are actually sent and received. They
+will be queued until the `init` callback, if any, has succesfully completed. If needed you should
+verify the origin of the host loading your iframe inside this callback.
+
 
 ```typescript
 import { postTolliumMessage } from "@webhare/tollium-iframe-api";
@@ -75,3 +107,10 @@ createTolliumImage("tollium:objects/webhare", 16, 16, "c").then(image => {
   const img = <img src={image.src} width={image.width} height={image.height} />;
 });
 ```
+
+## Security considerations
+The iframe should use a `Content-Security-Policy: frame-ancestors...` header to ensure it's not loaded by an unexpected host.
+If it's not possible to protect the guest page this way we recommend verifying the origin in the init callback to ensure it
+has the expected value.
+
+Avoid using `postMessage` and `message` event listeners directly.

@@ -7,6 +7,8 @@ LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -46,6 +48,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 
   /// PostMessage receiver
   PUBLIC MACRO PTR onmessage;
+
+  /// host.post receiver
+  PUBLIC MACRO PTR onclientmessage;
 
   /// Pending requests
   RECORD ARRAY pendingrequests;
@@ -123,6 +128,7 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     this->pvt_oncallback := def.oncallback;
     this->pvt_ondata := def.ondata;
     this->onmessage := def.onmessage;
+    this->onclientmessage := def.onclientmessage;
     this->sandbox := def.sandbox;
   }
 
@@ -411,6 +417,11 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
         IF (this->pvt_ondata != DEFAULT FUNCTION PTR)
           this->pvt_ondata();
       }
+      CASE "post" // { tollium_iframe: "post"; type: string; data: unknown };
+      {
+        IF(this->onclientmessage != DEFAULT FUNCTION PTR)
+          this->onclientmessage(msgdata.msg.type, msgdata.msg.data);
+      }
       CASE "postmessage"
       {
         IF(CellExists(msgdata.data,"__REQUESTTOKEN")) //it's a response
@@ -424,7 +435,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
           DELETE FROM this->pendingrequests AT matchingrequest;
         }
         ELSE IF(this->onmessage != DEFAULT FUNCTION PTR)
+        {
           this->onmessage(msgdata.data, msgdata.origin);
+        }
       }
       DEFAULT
       {
@@ -538,6 +551,11 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
     this->QueueOutboundMessage("Callback", data);
   }
 
+  /** Post a message using the tollium-iframe-api protocol */
+  PUBLIC MACRO Post(STRING type, VARIANT ARRAY args) __ATTRIBUTES__(VARARG) {
+    this->QueueOutboundMessage("PostToGuest", CELL[ type, args ]);
+  }
+
   PUBLIC MACRO PostMessage(VARIANT message, STRING targetorigin)
   {
     this->QueueOutboundMessage("PostMessage", CELL[ message, targetorigin ]);
@@ -576,5 +594,10 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   PUBLIC MACRO DeleteEmbeddedObject(STRING dellink)
   {
     this->RemoveDownload(dellink);
+  }
+
+  /** Initialize the value with an assetpack */
+  PUBLIC MACRO InitializeWithAssetpack(STRING assetpack, RECORD initdata DEFAULTSTO DEFAULT RECORD) {
+    this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("dev") ]);
   }
 >;
