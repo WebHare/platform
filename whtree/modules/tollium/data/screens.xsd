@@ -2959,7 +2959,15 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-  </xs:complexType>
+     <xs:attribute name="onclientmessage" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:callbacksignature arguments="string record" />
+        </xs:appinfo>
+        <xs:documentation>Callback to handle host.post messages</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+ </xs:complexType>
 
   <xs:complexType name="CodeEdit">
     <xs:annotation>
