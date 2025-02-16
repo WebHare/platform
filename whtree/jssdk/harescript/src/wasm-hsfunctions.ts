@@ -25,8 +25,6 @@ import type { LocalLockService } from "./wasm-locallockservice";
 import type { AdhocCacheService } from "./wasm-adhoccacheservice";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { isatty } from "node:tty";
-import { Temporal } from "temporal-polyfill";
-
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 

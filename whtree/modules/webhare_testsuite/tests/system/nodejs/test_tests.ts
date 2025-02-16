@@ -5,8 +5,6 @@ import * as std from '@webhare/std';
 // import * as util from 'node:util';
 import * as child_process from 'node:child_process';
 
-import { Temporal } from 'temporal-polyfill';
-
 async function testChecks() {
   //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
   test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
@@ -106,7 +104,9 @@ async function testChecks() {
     test.throws(/^Expected type: undefined actual type: string at .b$/, () => test.eq({ a: 6, b: undefined }, myVar), "b is set and not undefined, so should be treated as mismatch");
     test.eq({ a: 6, b: "2" }, myVar);
   }
+}
 
+async function testLoadTypes() {
   {
 
     const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);
@@ -224,5 +224,6 @@ async function checkTestFailures() {
 
 test.runTests([
   testChecks,
+  testLoadTypes,
   checkTestFailures
 ]);

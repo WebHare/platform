@@ -22,45 +22,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
       , allowinlineconfig := TRUE
       ], options);
 
-  STRING path := resourcename LIKE "*::*" ? GetWebHareResourceDiskPath(resourcename) : resourcename;
-  RECORD config := GetWebhareConfiguration();
-
-  STRING basepath;
-
-  /* If the path points inside a module, we check for a eslint.config.mjs in the root of the
-     module. If that exists, we use that module root as basepath.
-     If no eslint config is found, we use the whdata/eslint.config.mjs (which exposes the
-     module config rules), otherwise whtree/eslint.config.mjs (which exposes the WebHare
-     config rules). It looks like VS code looks up upward in the path to search for
-     eslint.config.mjs (in default configuration).
-  */
-
-  // Translate paths back to resource names so we can get the module name for paths too
-  resourcename := GetResourceNameFromDiskPath(path) ?? resourcename;
-  STRING modulename := __GetModuleNameFromResourcePath(resourcename);
-  IF (modulename != "")
-  {
-    STRING moduleroot := GetModuleInstallationRoot(modulename);
-    STRING module_eslint_config_path := moduleroot || "eslint.config.mjs";
-    IF (RecordExists(GetDiskFileProperties(module_eslint_config_path)))
-      basepath := moduleroot;
-  }
-
-  IF (basepath = "")
-    basepath :=  path LIKE config.basedataroot || "*" ? config.basedataroot : config.installationroot;
-
-  STRING eslintconfigpath := MergePath(basepath , "eslint.config.mjs");
-
-  RECORD cmd := CELL
-      [ path
-      , data :=           EncodeBase64(BlobToString(libdata))
-      , cwd :=            basepath
-      , configfile :=     eslintconfigpath
-      , options.fix
-      , options.allowinlineconfig
-      ];
-
-  RECORD result := CallJS("mod::system/js/internal/eslint.ts#handleLintingCommand", cmd);
+  RECORD result := CallJS("mod::system/js/internal/eslint.ts#handleLintingCommand", resourcename, BlobToString(libdata), options.fix, options.allowinlineconfig);
 
   RETURN CELL
       [ messages :=

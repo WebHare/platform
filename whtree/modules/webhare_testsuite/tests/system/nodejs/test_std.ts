@@ -12,7 +12,7 @@ import * as test from "@webhare/test";
 import * as env from "@webhare/env";
 import * as std from "@webhare/std";
 import { Money } from "@webhare/std";
-import "temporal-polyfill/global";
+import "@webhare/deps/temporal-polyfill"; //required to run in the frontend
 
 export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 

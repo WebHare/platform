@@ -2,12 +2,13 @@ import * as fs from "node:fs";
 import v8 from 'node:v8';
 import vm from 'node:vm';
 import * as stacktrace_parser from "stacktrace-parser";
-import * as path from "path";
 import ts from "typescript";
 import type { SchemaObject } from "ajv/dist/2020";
 import * as TJS from "typescript-json-schema";
 import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
 import '@mod-system/js/internal/whmanager/bridge'; // for whmanager registration and automatic error reporting
+import { dirname } from "node:path";
+import { getTSPolyfills } from "@mod-system/js/internal/generation/gen_typescript";
 
 
 export function reportAssertError(stack: string) {
@@ -52,6 +53,36 @@ export function getTypeExportsForSourceFile(sourceFile: ts.SourceFile) {
   return allExports;
 }
 
+export async function prepTSHost(tsConfigFile: string, options?: { setFiles?: string[]; ignoreErrors?: boolean; tsBuildInfoFile?: string }) {
+  // Read and parse the configuration file
+  const { config } = ts.readConfigFile(tsConfigFile, ts.sys.readFile);
+  const { options: tsOptions, errors, fileNames } = ts.parseJsonConfigFileContent(config, ts.sys, dirname(tsConfigFile));
+  tsOptions.configFilePath = tsConfigFile; //needed to make @types/... lookups independent of cwd
+  tsOptions.noEmit = true;
+  tsOptions.incremental = true;
+  if (options?.tsBuildInfoFile)
+    tsOptions.tsBuildInfoFile = options.tsBuildInfoFile;
+
+  //Construct a compilation list, don't touch the arrays we received
+  const rootNames = [...(options?.setFiles || fileNames)];
+  rootNames.push(...getTSPolyfills()); //ensure any polyfills activated by whnode-preload are visible to the compilers
+
+  const host = ts.createCompilerHost(tsOptions);
+  const program = ts.createProgram({ options: tsOptions, host, rootNames, configFileParsingDiagnostics: errors });
+  let diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
+
+  // We can't exclude files from validation, so like checkmodules has to, we'll just discard errors about files we don't care about. TODO shouldn't be hardcoded if we pretend to be generic
+  diagnostics = diagnostics.filter(_ => !_.file?.fileName.includes("/vendor/"));
+
+  if (diagnostics.length && !options?.ignoreErrors) {
+    const message = ts.formatDiagnostics(diagnostics, host);
+    throw new Error(`TypeScript error: ${message}`);
+  }
+
+  return { program, diagnostics };
+}
+
+
 export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTypeOptions = {}): Promise<TJS.Definition> {
 
   let file = typeref.split("#")[0];
@@ -61,35 +92,13 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
   if (file.startsWith("@mod-"))
     file = require.resolve(file);
 
-  let tsconfigdir = "";
-  if (process.env["WEBHARE_DIR"] && file.startsWith(process.env["WEBHARE_DIR"]))
-    tsconfigdir = process.env["WEBHARE_DIR"];
-  else if (process.env["WEBHARE_DATAROOT"] && file.startsWith(process.env["WEBHARE_DATAROOT"]))
-    tsconfigdir = process.env["WEBHARE_DATAROOT"];
-  else
-    throw new Error(`Cannot find relevant tsconfig.json file for ${JSON.stringify(file)}`);
+  const tsconfigfile = ts.findConfigFile(file, ts.sys.fileExists);
+  if (!tsconfigfile)
+    throw new Error(`Could not find tsconfig.json file for ${JSON.stringify(file)}`);
 
   let program = programcache[file];
   if (!program) {
-    // Read and parse the configuration file
-    const { config } = ts.readConfigFile(path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
-    const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
-    tsOptions.configFilePath = tsconfigdir + "/tsconfig.json"; //needed to make @types/... lookups independent of cwd
-
-    const host = ts.createCompilerHost(tsOptions);
-
-    // Parse file with the definition
-    program = ts.createProgram({ options: tsOptions, host, rootNames: [file], configFileParsingDiagnostics: errors });
-    let diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
-
-    // We can't exclude files from validation, so like checkmodules has to, we'll just discard errors about files we don't care about
-    diagnostics = diagnostics.filter(_ => !_.file?.fileName.includes("/vendor/"));
-
-    if (diagnostics.length && !options.ignoreErrors) {
-      const message = ts.formatDiagnostics(diagnostics, host);
-      throw new Error(`Got errors compiling file: ${JSON.stringify(fileref)}: ${message}`);
-    }
-
+    program = (await prepTSHost(tsconfigfile, { setFiles: [file], ignoreErrors: options?.ignoreErrors })).program;
     programcache[file] = program;
   }
 

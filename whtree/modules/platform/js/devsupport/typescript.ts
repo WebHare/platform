@@ -1,13 +1,12 @@
-import { readFile } from "fs/promises";
-import * as ts from "typescript";
+import ts from "typescript";
 import * as path from "node:path";
-import * as fs from "node:fs/promises";
-import { backendConfig, toFSPath, toResourcePath } from "@webhare/services";
+import { backendConfig, toResourcePath } from "@webhare/services";
 import type { ValidationMessageWithType } from "./validation";
 import { mkdir } from "node:fs/promises";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { storeDiskFile } from "@webhare/system-tools";
 import { generateTSConfigTextForModule } from "@mod-system/js/internal/generation/gen_typescript";
+import { prepTSHost } from "@webhare/test/src/testsupport";
 
 function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): ValidationMessageWithType[] {
   const issues: ValidationMessageWithType[] = [];
@@ -44,95 +43,19 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
   return issues;
 }
 
-/* Gather list of files to compile
-
-  TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
-   an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
-async function getTSFilesRecursive(startpath: string): Promise<string[]> {
-  const entries = await fs.readdir(startpath, { withFileTypes: true });
-  const result = [];
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      if (entry.name !== "node_modules" && entry.name !== "vendor")
-        result.push(...await getTSFilesRecursive(path.join(startpath, entry.name)));
-      continue;
-    }
-    if (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx"))
-      result.push(path.join(startpath, entry.name));
-  }
-  return result;
-}
-
 export async function checkUsingTSC(modulename: string, options?: { files: string[] }): Promise<ValidationMessageWithType[]> {
-  const baseconfigfile = backendConfig.installationroot + "tsconfig.json";
-  const baseconfig = JSON.parse(await readFile(baseconfigfile, 'utf-8')); //ie: whtree/tsconfig.json
-  const compileroptions = baseconfig.compilerOptions;
+  const isPlatform = modulename === "jssdk" || whconstant_builtinmodules.includes(modulename);
+  const projectRoot = isPlatform ? backendConfig.installationroot : backendConfig.module[modulename].root;
+  const projectFile = projectRoot + "tsconfig.json";
+  if (!isPlatform) //Update if needed
+    await storeDiskFile(projectFile, await generateTSConfigTextForModule(modulename), { overwrite: true, onlyIfChanged: true });
 
-  //Discover root of the project and which paths to compile
-  let projectRoot = '';
-  const rootpaths = [];
-  if (modulename === "platform") {
-    //We're building the platform
-    projectRoot = backendConfig.installationroot;
-    rootpaths.push(backendConfig.installationroot + "jssdk", ...whconstant_builtinmodules.map(mod => backendConfig.installationroot + "modules/" + mod));
-  } else if (modulename === "jssdk") {
-    projectRoot = backendConfig.installationroot;
-    rootpaths.push(backendConfig.installationroot + "jssdk");
-  } else {
-    projectRoot = backendConfig.module[modulename].root;
-    rootpaths.push(projectRoot);
-  }
-
-  const rootnames: string[] = [];
-  if (options?.files) {
-    rootnames.push(...options.files);
-  } else {
-    /* Gather list of files to compile
-      TODO why is command line tsc ignoring node_modules? our tsconfig.json files don't explicitly request it, --showConfig indeed shows
-      an implied files[] list without node_modules, but I can't find it documented anywhere what happens without include and files */
-    for (const root of rootpaths)
-      rootnames.push(...await getTSFilesRecursive(root));
-  }
-
-  if (!rootnames.length)
-    return []; //don't bother launching TSC, no TypeScript here
-
-  if (modulename !== "platform" && modulename !== "jssdk") { //apply decentral tsconfig.json
-    //Update if needed.TODO but we could just calculate it directly and make actual on-disk storage wh fixupmodule or dev's problem...
-    await storeDiskFile(projectRoot + "tsconfig.json", await generateTSConfigTextForModule(modulename), { overwrite: true });
-
-    //We're building a submodule
-    const tsconfigres = `mod::${modulename}/tsconfig.json`;
-    const tsconfigpath = toFSPath(tsconfigres);
-    let tsconfig;
-    try {
-      //TODO consider feeding the generated tsconfig.json directly to our code, then we won't even need to have it just to checkmodule. (but VSCode & tsrun will still need it!)
-      tsconfig = JSON.parse(await readFile(tsconfigpath, 'utf8'));
-    } catch (e) {
-      return [{ type: "error", resourcename: tsconfigres, message: `Unable to open tsconfig.json: ${(e as Error).message}`, col: 1, line: 1, source: "tsc" }];
-    }
-
-    Object.assign(compileroptions, tsconfig.compilerOptions); //overwrite any set options
-  }
-
-  //Complete compiler options
-  const converted = ts.convertCompilerOptionsFromJson(compileroptions, projectRoot, "tsconfig.json");
-  if (converted.errors.length)
-    return mapDiagnostics(projectRoot, converted.errors);
-  converted.options.noEmit = true;
-  converted.options.incremental = true;
-  converted.options.configFilePath = baseconfigfile; //needed to make @types/... lookups independent of cwd
-
-  //TODO move to storage/ somewhere or something that otherwise has a CACHEDIR.tag ? (not that it's really much data...) - or some dir that is recreated every WebHarere/container restart like the compilecache
-  const tsbuildinfodir = backendConfig.dataroot + "ephemeral/system.typescript";
+  const tsbuildinfodir = backendConfig.dataroot + "caches/platform/typescript";
   await mkdir(tsbuildinfodir, { recursive: true });
-  converted.options.tsBuildInfoFile = path.join(tsbuildinfodir, modulename + ".tsbuildinfo");
 
-  //The actual TypeScript compilation:
-  const program = ts.createProgram({
-    rootNames: rootnames,
-    options: converted.options
-  });
+  const { program, diagnostics } = await prepTSHost(projectFile, { setFiles: options?.files, ignoreErrors: true, tsBuildInfoFile: path.join(tsbuildinfodir, modulename + ".tsbuildinfo") });
+  if (diagnostics.length)
+    return mapDiagnostics(projectRoot, diagnostics);
 
   const emitResult = program.emit();
   const allDiagnostics = ts.getPreEmitDiagnostics(program).concat(emitResult.diagnostics);
