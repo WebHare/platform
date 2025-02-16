@@ -48,7 +48,7 @@ export function showTolliumContextMenu(menuName: string, pos: { x: number; y: nu
 }
 
 /** Close any currently opened (context) menus */
-export function closeAllTolliumMenus(origin = "*") {
+export function closeAllTolliumMenus() {
   postToHost({ tollium_iframe: "closeAllMenus" });
 }
 
