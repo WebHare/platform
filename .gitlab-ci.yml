@@ -12,6 +12,7 @@ services:
 
 variables:
   GIT_SUBMODULE_STRATEGY: normal
+  DOCKER_CONFIG: /tmp/docker-creds-$CI_CONCURRENT_ID/
 
 stages:
   - build
