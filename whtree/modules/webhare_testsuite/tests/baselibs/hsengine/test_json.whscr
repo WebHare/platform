@@ -383,6 +383,19 @@ MACRO TestJSONArray()
   obj := WrapJSONObjects([ 2, 4, 6 ]);
   TestEQ(`[]`, EncodeJSON(obj->Splice(1, -1, 1)));
   TestEQ(`[2,1,4,6]`, EncodeJSON(obj));
+
+  TestEQ(`[2,4,6]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice()));
+  TestEQ(`[4,6]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(1)));
+  TestEQ(`[6]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(-1))); // negative start counts from end from end
+  TestEQ(`[2,4,6]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(-10)));
+  TestEQ(`[]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(5)));
+  TestEQ(`[2]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(0, 1)));
+  TestEQ(`[4]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(1, 2)));
+  TestEQ(`[2,4]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(0, -1)));
+  TestEQ(`[4]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(1, -1)));
+  TestEQ(`[4]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(-2, -1)));
+  TestEQ(`[]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(-2, -3)));
+  TestEQ(`[]`, EncodeJSON(WrapJSONObjects([ 2, 4, 6 ])->Slice(-2, -100)));
 }
 
 MACRO TestJSONFormatting()

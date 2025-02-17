@@ -4819,6 +4819,30 @@ PUBLIC STATIC OBJECTTYPE JSONArray
     RETURN retval;
   }
 
+  /** Returns a shallow copy of a portion of the array, selected start to end (end not included)
+      @param start Start index. When negative, counted from the end of the rray. Defaults to 0.
+      @param end End index. When negative, counted from the end of the array. Defaults to the length of the array.
+      @return(object #JSONArray) New array with the selected elements
+  */
+  PUBLIC OBJECT FUNCTION Slice(INTEGER startidx DEFAULTSTO 0, INTEGER endidx DEFAULTSTO 2147483647)
+  {
+    IF (startidx < 0)
+      startidx := startidx + LENGTH(this->elements);
+    IF (endidx < 0)
+      endidx := endidx + LENGTH(this->elements);
+    IF (startidx < 0)
+      startidx := 0;
+    IF (startidx > LENGTH(this->elements))
+      startidx := LENGTH(this->elements);
+    IF (endidx < startidx)
+      endidx := startidx;
+    IF (endidx > LENGTH(this->elements))
+      endidx := LENGTH(this->elements);
+
+    jsonobject_directinit := [ value := ArraySlice(this->elements, startidx, endidx - startidx) ];
+    RETURN NEW JSONArray;
+  }
+
   /** Appends the contents of an array
       @param value Array with values to add
   */
