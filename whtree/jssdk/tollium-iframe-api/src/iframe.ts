@@ -1,5 +1,6 @@
 import type { FlagSet } from "@mod-tollium/web/ui/js/types";
 import type { HostMessage, HostInitMessage, GuestMessage, HostRuntimeMessage } from "./host-protocol";
+import { debugFlags } from "@webhare/env";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/tollium-iframe-api" {
@@ -26,6 +27,8 @@ let setup: {
 
 let imgQueueId = 0;
 const imgQueue: Map<number, { id: number; imgname: string; resolve: (value: { src: string; width: number; height: number }) => void }> = new Map();
+
+let lastFocusNode: HTMLElement | SVGElement | null = null;
 
 function postToHost(message: GuestMessage) {
   if (setup?.stage !== "active" || !setup.origin) {
@@ -156,6 +159,25 @@ async function processMessage(msg: HostRuntimeMessage) {
       break;
     }
 
+    case "focus": {
+      if (!lastFocusNode)
+        break;
+      if (!document.documentElement.contains(lastFocusNode)) {
+        //The element is gone
+        console.warn(`[tollium-focus] Wanted to focus %o but it's not in the iframe anymore`, lastFocusNode);
+        lastFocusNode = null; //it's not coming back so prevent future lookups
+        return;
+      }
+
+      if (lastFocusNode === document.activeElement)
+        return; //already focused
+
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Setting iframe focus to %o`, lastFocusNode);
+      lastFocusNode.focus();
+      break;
+    }
+
     default: //verify we don't miss any new message types (msg is never if all cases are handled, then cast it back to HostRuntimeMessage)
       console.error(`Unsupported tollium_iframe type '${(msg satisfies never as HostRuntimeMessage).tollium_iframe}'`);
   }
@@ -172,4 +194,14 @@ export function setupGuest<InitData = any>(
   setup = { init: init as GuestInitFunction<unknown> || null, endpoints: endpoints || null, stage: "waitfororigin", origin: null };
   window.addEventListener("message", onParentMessage);
   window.parent.postMessage({ tollium_iframe: "requestInit" } satisfies GuestMessage, "*");
+  window.addEventListener("focusin", event => {
+    if (event.target instanceof HTMLElement || event.target instanceof SVGElement) {
+      if (lastFocusNode === document.activeElement)
+        return; //already focused
+
+      lastFocusNode = event.target;
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Iframe focused element now %o`, lastFocusNode);
+    }
+  });
 }
