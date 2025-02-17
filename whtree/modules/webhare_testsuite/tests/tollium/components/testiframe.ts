@@ -189,23 +189,31 @@ test.runTests(
         test.eq(`response:{"response":1764}`, result);
       }
     },
+
     {
       name: 'assetpack',
       test: async function () {
         test.compByName('callbacks').querySelector('textarea').value = '';
-        test.click(test.getMenu(['I08'])); //testassetpack
+        test.click(test.getMenu(['I08', 'IA01'])); //testassetpack
 
         async function waitForLine(lineNum: number) {
           const line = await test.wait(() => test.compByName('callbacks').querySelector('textarea').value?.split('\n')[lineNum]);
-          console.error(line);
           return JSON.parse(line);
         }
 
-        test.eq({ greeting: { g: "Hello from the iframe!" } }, await waitForLine(0));
+        test.eq({ greeting: { g: "Hello from the iframe!", initcount: 1, initinfo: "Hi Frame!" } }, await waitForLine(0));
         test.eq({ multiplied: { n: 1764 } }, await waitForLine(1));
 
-        test.click(test.getMenu(['I09'])); //createimage
-        test.eqPartial({ imagedetails: { height: 16, width: 16, src: /^data:image\/svg\+xml;base64,/ } }, await waitForLine(2));
+        test.click(test.getMenu(['I08', 'IA02'])); //create image
+        test.eq({ greeting: { g: "Hello from the iframe!", initcount: 2, initinfo: "another greeting" } }, await waitForLine(2));
+
+        test.click(test.getMenu(['I08', 'IA03'])); //create image
+        test.eqPartial({ imagedetails: { height: 16, width: 16, src: /^data:image\/svg\+xml;base64,/ } }, await waitForLine(3));
+
+        //test iframe reload, should reinit with new init settings
+        const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
+        iframe.contentWindow!.location.reload();
+        test.eq({ greeting: { g: "Hello from the iframe!", initcount: 1, initinfo: "another greeting" } }, await waitForLine(4));
       }
     },
 

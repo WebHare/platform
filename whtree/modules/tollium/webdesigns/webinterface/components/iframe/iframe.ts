@@ -132,7 +132,7 @@ export default class ObjIFrame extends ComponentBase {
       return;
     }
 
-    if (resenddata) {
+    if (resenddata && this.data) {
       this.iframe.contentWindow.postMessage({
         type: 'data',
         data: this.data
@@ -263,8 +263,7 @@ export default class ObjIFrame extends ComponentBase {
 
   gotIFrameLoad() {
     this.loaded = true;
-    if (this.data) //only send if set. deprecate this?
-      this.postQueuedMessages(true);
+    this.postQueuedMessages(true);
 
     try {
       //TODO we should offer a @webhare/tollium-frame library or something like that and install click interception there ?
@@ -451,6 +450,11 @@ export default class ObjIFrame extends ComponentBase {
   onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean }) {
     this.initdata = data.initdata;
     this.iframe.srcdoc = `<html><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.dev/debug.js"></script>` : ''}</head><body></body></html>`;
+  }
+
+  onMsgUpdateInitData(data: { initdata: unknown }) {
+    this.initdata = data.initdata;
+    this.postTypedMessage({ tollium_iframe: "init", initdata: this.initdata });
   }
 
   onMsgPostMessage(data: {
