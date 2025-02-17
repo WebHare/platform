@@ -189,6 +189,8 @@ RECORD ARRAY FUNCTION ReadLanguageTexts(OBJECT element, STRING pathsofar)
 RECORD FUNCTION CompileLanguageFile(BLOB input)
 {
   OBJECT doc := MakeXMLDocument(input);
+  IF(NOT ObjectExists(doc->documentelement))
+    THROW NEW Exception("Invalid XML document");
   RECORD result := [ fallbacklanguage := ToLowercase(doc->documentelement->GetAttribute("fallbacklanguage"))
                    , langcode := ToLowercase(doc->documentelement->GetAttribute("xml:lang"))
                    , texts := (SELECT * FROM ReadLanguageTexts(doc->documentelement, "") ORDER BY ToLowercase(tid))

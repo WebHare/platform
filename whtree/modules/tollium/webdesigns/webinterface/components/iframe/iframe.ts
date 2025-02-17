@@ -10,6 +10,7 @@ import type { FlagSet, SelectionMatch } from '@mod-tollium/web/ui/js/types';
 import ObjMenuItem from '../menuitem/menuitem';
 import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tollium-iframe-api/src/host-protocol';
 import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
+import { debugFlags } from '@webhare/env';
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -101,6 +102,12 @@ export default class ObjIFrame extends ComponentBase {
       this.setAdditionalComponents(data.addcomps);
 
     this.data = data.data;
+
+    this.iframe.addEventListener("focus", () => {
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Setting focus to iframe`);
+      this.postTypedMessage({ tollium_iframe: "focus" });
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -132,7 +139,7 @@ export default class ObjIFrame extends ComponentBase {
       return;
     }
 
-    if (resenddata) {
+    if (resenddata && this.data) {
       this.iframe.contentWindow.postMessage({
         type: 'data',
         data: this.data
@@ -263,8 +270,7 @@ export default class ObjIFrame extends ComponentBase {
 
   gotIFrameLoad() {
     this.loaded = true;
-    if (this.data) //only send if set. deprecate this?
-      this.postQueuedMessages(true);
+    this.postQueuedMessages(true);
 
     try {
       //TODO we should offer a @webhare/tollium-frame library or something like that and install click interception there ?
@@ -369,9 +375,9 @@ export default class ObjIFrame extends ComponentBase {
       return this.handleTypedMessage(data as GuestMessage, event.origin);
 
     // The legacy $iframetodd object sends messages with a 'type' property where the new iframe integration code uses the
-    // '$tolliumMsg' property to improve separation between tollium messages and user messages (when postTolliumMessage is
+    // 'tollium_iframe' property to improve separation between tollium messages and user messages (when postTolliumMessage is
     // used, the user can send any message, inclusing messages with a 'type' property that is used in internal communication)
-    switch (data.$tolliumMsg ?? data.tollium_iframe ?? data.type) {
+    switch (data.tollium_iframe ?? data.type) {
       case "message":
         this.queueMessage("postmessage", { data: data.message, origin: event.origin });
         break;
@@ -410,22 +416,16 @@ export default class ObjIFrame extends ComponentBase {
       case "createimage": {
         const img = createImage(data.imgname, data.width, data.height, data.color, null);
         img.addEventListener("load", () => {
-          const message: Record<string, unknown> = {
-            id: data.id,
-            src: img.src,
-            width: data.width,
-            height: data.height,
-          };
-          // If the new API using $tolliumMsg was used, send the message back with a $tolliumMsg property instead of a type
-          // property, so they can be easily ignored by a message event listener
-          if (data.$tolliumMsg)
-            message.$tolliumMsg = "createdimage";
-          else
-            message.type = "createdimage";
           this.queuedmessages.push({
             type: "postmessage",
             data: {
-              message,
+              message: {
+                type: "createdimage",
+                id: data.id,
+                src: img.src,
+                width: data.width,
+                height: data.height,
+              },
               targetorigin: event.origin,
             },
           });
@@ -451,6 +451,11 @@ export default class ObjIFrame extends ComponentBase {
   onMsgInitializeWithAssetpack(data: { assetpack: string; initdata: unknown; devmode: boolean }) {
     this.initdata = data.initdata;
     this.iframe.srcdoc = `<html><head>${getAssetPackIntegrationCode(data.assetpack)}${data.devmode ? `<script src="/.dev/debug.js"></script>` : ''}</head><body></body></html>`;
+  }
+
+  onMsgUpdateInitData(data: { initdata: unknown }) {
+    this.initdata = data.initdata;
+    this.postTypedMessage({ tollium_iframe: "init", initdata: this.initdata });
   }
 
   onMsgPostMessage(data: {

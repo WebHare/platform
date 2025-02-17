@@ -282,8 +282,9 @@
       <action name="grablinks" onexecute="dograblinks" title="I05 Grab links" />
       <action name="postmessage" onexecute="dopostmessage" title="I06 PostMessage" />
       <action name="postrequest" onexecute="dopostrequest" title="I07 PostRequest" />
-      <action name="testassetpack" onexecute="dotestassetpack" title="I08 TestAssetpack" />
-      <action name="createimage" onexecute="docreateimage" title="I09 CreateImage" />
+      <action name="testassetpack" onexecute="dotestassetpack" title="IA01 Initialize with assetpack" />
+      <action name="updateinitdata" onexecute="doupdateinitdata" title="IA02 UpdateInitdata" />
+      <action name="createimage" onexecute="docreateimage" title="IA03 CreateImage" />
     </actions>
 
     <menus>
@@ -296,8 +297,11 @@
         <item action="grablinks" />
         <item action="postmessage" />
         <item action="postrequest" />
-        <item action="testassetpack" />
-        <item action="createimage" />
+        <item title="I08 Assetpack">
+          <item action="testassetpack" />
+          <item action="updateinitdata" />
+          <item action="createimage" />
+        </item>
       </menu>
       <menu name="testcontextmenu">
         <item title="T01 testcontextmenuitem" />
