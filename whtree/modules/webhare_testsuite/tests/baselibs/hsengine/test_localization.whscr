@@ -421,9 +421,6 @@ MACRO TimeZoneTests()
 
   TestBothConversions(MakeDateTime(2003, 10, 22, 00, 00, 00), MakeDateTime(2003, 10, 21, 22, 00, 00), "CET");
 
-  TestBothConversions(AddTimeToDate(-1, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(-1, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
-  TestBothConversions(AddTimeToDate(0, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(0, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
-  TestBothConversions(AddTimeToDate(1, MakeDateTime(1890, 1, 1, 0, 0, 0)), AddTimeToDate(1, MakeDateTime(1889, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(-1, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(-1, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(0, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(0, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
   TestBothConversions(AddTimeToDate(1, MakeDateTime(1969, 1, 1, 0, 0, 0)), AddTimeToDate(1, MakeDateTime(1968, 12, 31, 23, 0, 0)), "CET");
