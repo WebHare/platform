@@ -4,7 +4,8 @@ import type { FlagSet } from "@mod-tollium/web/ui/js/types";
 export type HostInitMessage = { tollium_iframe: "init"; initdata: unknown };
 export type HostRuntimeMessage
   = { tollium_iframe: "post"; type: string; args: unknown[] }
-  | { tollium_iframe: "createdImage"; id: number; src: string; width: number; height: number };
+  | { tollium_iframe: "createdImage"; id: number; src: string; width: number; height: number }
+  | { tollium_iframe: "focus" };
 export type HostMessage = HostInitMessage | HostRuntimeMessage;
 
 export type GuestMessage
