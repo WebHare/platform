@@ -405,6 +405,7 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   }
   MACRO DoTestAssetpack()
   {
+    ^iframe->data := DEFAULT RECORD;
     ^callbacks->value := "";
     ^iframe->InitializeWithAssetpack("webhare_testsuite:iframetest", [ my_init_info := "Hi Frame!" ]);
     ^iframe->Post("multiply", 42);
@@ -412,6 +413,10 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   MACRO DoCreateImage()
   {
     ^iframe->Post("createImage", "tollium:objects/webhare");
+  }
+  MACRO DoUpdateInitdata()
+  {
+    ^iframe->UpdateInitData([ my_init_info := "another greeting" ]);
   }
 >;
 

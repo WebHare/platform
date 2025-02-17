@@ -5,15 +5,10 @@ import type { HostMessage, HostInitMessage, GuestMessage, HostRuntimeMessage } f
 declare module "@webhare/tollium-iframe-api" {
 }
 
-//TODO use a marshallable type definition for unknown and support functions in the future. and as long as only HS can implement a Iframe Host, we'll have to limit to a Record..
-type HostPostData = Record<string, unknown> | null;
 type GuestInitFunction<GuestInitData = unknown> = (context: HostContext, initData: GuestInitData) => void | Promise<void>;
 
 const incomingQueue = new Array<{ msg: HostRuntimeMessage; origin: string }>;
 const outgoingQueue = new Array<{ msg: GuestMessage }>;
-
-/** Describe messages and their data that the iframe's Host is expected to understand */
-export type HostProtocol = Record<string, HostPostData>;
 
 export type HostContext = {
   origin: string;
@@ -22,21 +17,23 @@ export type HostContext = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type GuestProtocol = Record<string, (...args: any[]) => void | Promise<void>>;
 
-let stage: undefined | { waitForOrigin: GuestInitFunction | null } | { runningInit: null } | { expectOrigin: string | null };
-let guestEndpoints: undefined | GuestProtocol;
+let setup: {
+  stage: "waitfororigin" | "runninginit" | "active" | "blocked";
+  init: GuestInitFunction | null;
+  endpoints: GuestProtocol | null;
+  origin: string | null;
+} | undefined;
 
 let imgQueueId = 0;
 const imgQueue: Map<number, { id: number; imgname: string; resolve: (value: { src: string; width: number; height: number }) => void }> = new Map();
 
 function postToHost(message: GuestMessage) {
-  if (!stage || !("expectOrigin" in stage)) {
+  if (setup?.stage !== "active" || !setup.origin) {
     outgoingQueue.push({ msg: message });
     return;
   }
-  if (stage.expectOrigin === null)
-    return; //we don't trust the host
 
-  window.parent.postMessage(message, stage.expectOrigin);
+  window.parent.postMessage(message, setup.origin);
 }
 
 /** Show a menu at a given position
@@ -74,15 +71,17 @@ export async function createTolliumImage(imgname: string, width: number, height:
   });
 }
 
-export class Host<P extends HostProtocol> {
+export class Host<P extends object> {
   post(messageType: keyof P & string, message: P[keyof P]): void {
     postToHost({ tollium_iframe: "post", type: messageType, data: message });
   }
 }
 
 function onParentMessage(event: MessageEvent) {
-  if (event.source !== window.parent)
+  if (event.source !== window.parent || (setup?.origin && setup.origin !== event.origin))
     return; //not from our host.
+  if (setup?.stage === "blocked")
+    return; //we're blocked
 
   const msg = event.data as HostMessage;
   if (!msg || typeof msg !== "object" || !msg.tollium_iframe) {
@@ -90,55 +89,58 @@ function onParentMessage(event: MessageEvent) {
     return;
   }
 
+
   if (msg.tollium_iframe === "init") {
-    if (!stage || !("waitForOrigin" in stage)) {
-      console.error("Unexpected 'init' message", msg);
-      return;
-    }
-    processInit(msg, event.origin, stage.waitForOrigin).then(() => { }, () => { });
+    processInit(msg, event.origin).then(() => { }, () => { });
     return;
   }
 
-  if (!stage || !("expectOrigin" in stage)) { //not yet in communication stage
+  if (setup?.stage !== "active") { //not (yet) in communication stage
     incomingQueue.push({ msg, origin: event.origin });
     return;
   }
 
-  if (stage.expectOrigin === event.origin)
-    void processMessage(msg);
+  void processMessage(msg);
 }
 
-async function processInit(msg: HostInitMessage, origin: string, init: GuestInitFunction | null) {
-  stage = { runningInit: null }; //mark us as running init. this will still cause us to incomingQueue messages
-  if (init) {
+async function processInit(msg: HostInitMessage, origin: string) {
+  if (!setup) //not configured yet
+    return;
+  setup = { ...setup, stage: "runninginit" }; //mark us as running init, temporarily queue other messages until init is complete
+
+  if (setup.init) {
     const context: HostContext = { origin };
     try {
-      await init(context, msg.initdata ?? null);
+      await setup.init(context, msg.initdata ?? null);
     } catch (e) {
       console.error("Initialization failed", e);
-      stage = { expectOrigin: null }; // game over!
+      setup = { ...setup, stage: "blocked" };
       return;
     }
   }
 
-  stage = { expectOrigin: origin };
+  setup = { ...setup, origin, stage: "active" }; //record the trusted origin
+
   while (outgoingQueue.length)
     postToHost(outgoingQueue.shift()!.msg);
-  while (incomingQueue.length)
-    void processMessage(incomingQueue.shift()!.msg);
+  while (incomingQueue.length) {
+    const next = incomingQueue.shift()!;
+    if (next.origin === origin)
+      void processMessage(next.msg);
+  }
 }
 
 async function processMessage(msg: HostRuntimeMessage) {
   switch (msg.tollium_iframe) {
     case "post": {
-      if (!guestEndpoints)
+      if (!setup?.endpoints)
         console.warn(`No guest endpoints registered, ignoring message '${msg.type}'`);
-      else if (!guestEndpoints[msg.type])
+      else if (!setup.endpoints[msg.type])
         console.warn(`No guest endpoint available for message '${msg.type}'`);
       else try {
         //Note that noone is actually waiting for processMessage so messages are still processed in parallel
         //'await' helps normalize both non-promise and promise reutrns here.
-        await guestEndpoints[msg.type](...msg.args);
+        await setup.endpoints[msg.type](...msg.args);
       } catch (e) {
         console.error(`Rejection processing message '${msg.type}':`, e);
       }
@@ -164,39 +166,10 @@ export function setupGuest<InitData = any>(
   init?: GuestInitFunction<InitData>,
   endpoints?: GuestProtocol
 ): void {
-  if (stage)
+  if (setup)
     throw new Error("setupGuest can only be called once");
 
-  stage = { waitForOrigin: init as GuestInitFunction || null };
-  guestEndpoints = endpoints;
+  setup = { init: init as GuestInitFunction<unknown> || null, endpoints: endpoints || null, stage: "waitfororigin", origin: null };
   window.addEventListener("message", onParentMessage);
   window.parent.postMessage({ tollium_iframe: "requestInit" } satisfies GuestMessage, "*");
-
-
-  // event => {
-  //   switch (event.data.$tolliumMsg) {
-  //     case "createdimage":
-  //       {
-  //         // The result of the 'createImage' call
-  //         const queued = imgQueue.get(event.data.id);
-  //         if (queued) {
-  //           imgQueue.delete(queued.id);
-  //           queued.resolve({ src: event.data.src, width: event.data.width, height: event.data.height });
-  //         }
-  //         break;
-  //       }
-  //   }
-  // }, true);
-
-
-  // window.parent.postMessage({ $tolliumMsg: "setupIframe" }, "*");
-}
-
-// eslint-disable-next-line no-constant-condition
-if (false) { //TS tests - these should all compile (or fail) as specified:
-  setupGuest();
-  setupGuest((context) => { });
-  setupGuest(async (context) => { });
-  setupGuest(async (context, initData?: string) => { });
-  setupGuest(async (context, initData: string) => { });
 }

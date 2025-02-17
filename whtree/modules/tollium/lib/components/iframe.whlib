@@ -600,4 +600,9 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
   PUBLIC MACRO InitializeWithAssetpack(STRING assetpack, RECORD initdata DEFAULTSTO DEFAULT RECORD) {
     this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("dev") ]);
   }
+
+  /** Update the initial data without reloading the assetpack */
+  PUBLIC MACRO UpdateInitData(RECORD initdata) {
+    this->QueueOutboundMessage("UpdateInitData", CELL[ initdata ]);
+  }
 >;

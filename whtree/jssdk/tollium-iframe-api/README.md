@@ -28,7 +28,7 @@ We recommend having the iframe define the protocol for messages it will send the
 
 ```typescript
 
-interface OurHostProtocol extends HostProtocol {
+interface OurHostProtocol {
   greeting: { g: string };
   multiplied: { n: number };
 }
