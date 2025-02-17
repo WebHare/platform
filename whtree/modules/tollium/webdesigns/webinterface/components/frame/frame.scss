@@ -1,4 +1,5 @@
-.frame--innerfocus {
+.frame--innerfocus,
+t-iframe:has(> .frame--innerfocus) {
   outline: 2px solid darkred;
   outline-offset: -1px;
 }

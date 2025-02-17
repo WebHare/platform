@@ -300,6 +300,14 @@ export default class Frame extends ToddCompBase {
       if (debugFlags["tollium-focus"])
         console.log(`[tollium-focus] Losing focus from %o to %o`, evt.target, evt.relatedTarget);
     }
+
+    setTimeout(() => { //iframe handling, backported from 5.7
+      if (document.activeElement instanceof HTMLIFrameElement) {
+        this.innerFocus = document.activeElement;
+        if (debugFlags["tollium-focus"])
+          console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
+      }
+    }, 1);
   }
 
   _updateDefaultButton(activenode: HTMLElement) {
