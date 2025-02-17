@@ -323,6 +323,18 @@ export class HSVMVar {
       this.vm.throwIfFailed();
   }
 
+  insertMember(name: string, value: unknown, options?: { isPrivate: boolean }): void {
+    if (this.memberExists(name))
+      throw new Error(`Mmember or property '${name}' already exists on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    using temp = this.vm.allocateVariable();
+    temp.setJSValue(value);
+
+    if (this.vm.wasmmodule._HSVM_ObjectMemberInsert(this.vm.hsvm, this.id, columnid, temp.id, options?.isPrivate ? 1 : 0, /*skipaccess=*/1) !== 1)
+      this.vm.throwIfFailed();
+  }
+
   /** Get a primitive object member. Will fail if the property requires a callback. Returns a reference that may be invalidated on future VM calls */
   getMemberRef(name: string, options?: { allowMissing: false }): HSVMVar;
   getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined;

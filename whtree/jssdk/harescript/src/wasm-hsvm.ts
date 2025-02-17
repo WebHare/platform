@@ -8,7 +8,7 @@ import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
-import { type HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
+import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { type Mutex, JSLibraryLoader } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
@@ -219,6 +219,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   abortController = new AbortController();
   exitCode?: number;
   readonly importedLibs = new JSLibraryLoader;
+  readonly proxies = new Map<string, HSVMMarshallableOpaqueObject>(); //TODO this should go in to the VM object
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;

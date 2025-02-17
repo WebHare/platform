@@ -3,7 +3,7 @@ import { type HSVMCallsProxy, type HSVMObject, invokeOnVM } from "./wasm-proxies
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { type HSVMWrapper, createVM } from "./machinewrapper";
 
-const HSVMSymbol = Symbol("HSVM");
+export const HSVMSymbol = Symbol("HSVM");
 
 async function allocateCodeContextHSVM() {
   /// this makes sure the eventloop won't keep the process alive as the global root context (and its HSVM) is never discarded
