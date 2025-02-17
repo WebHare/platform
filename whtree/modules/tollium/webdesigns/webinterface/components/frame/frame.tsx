@@ -232,8 +232,7 @@ export default class Frame extends ToddCompBase {
 
     this.node.addEventListener("dompack:takefocus", evt => this.onTakeFocus(evt));
     this.node.addEventListener("focusin", evt => this.onFocusIn(evt));
-    // Listen to focusout events to capture losing focus to an iframe (use a timeout so the document's activeElement is updated)
-    this.node.addEventListener("focusout", evt => setTimeout(() => this.onFocusOut(evt)));
+    this.node.addEventListener("focusout", evt => this.onFocusOut(evt));
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
@@ -292,11 +291,23 @@ export default class Frame extends ToddCompBase {
   }
 
   private onFocusOut(evt: FocusEvent) {
-    if (document.activeElement instanceof HTMLIFrameElement) {
-      this.innerFocus = document.activeElement;
+    if (!evt.relatedTarget && document.activeElement === document.body && evt.target) {
+      //this is the focus jumping to an iframe. prevent that
       if (debugFlags["tollium-focus"])
-        console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
+        console.log(`[tollium-focus] Preventing focus theft, returning it to %o`, evt.target);
+      (evt.target as HTMLElement)?.focus();
+    } else if (!evt.relatedTarget || !this.node.contains(evt.relatedTarget as Node)) {
+      if (debugFlags["tollium-focus"])
+        console.log(`[tollium-focus] Losing focus from %o to %o`, evt.target, evt.relatedTarget);
     }
+
+    setTimeout(() => { //iframe handling, backported from 5.7
+      if (document.activeElement instanceof HTMLIFrameElement) {
+        this.innerFocus = document.activeElement;
+        if (debugFlags["tollium-focus"])
+          console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
+      }
+    }, 1);
   }
 
   _updateDefaultButton(activenode: HTMLElement) {
