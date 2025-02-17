@@ -3376,7 +3376,7 @@ void VirtualMachine::ObjectThrowMemberNotFound(VarId obj, ColumnNameId nameid)
 bool VirtualMachine::ObjectMemberInsert(VarId obj, ColumnNameId nameid, bool this_access, bool is_private, VarId new_value)
 {
         ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(stackmachine.ObjectGetTypeDescriptor(obj));
-        if (type->objdefs.back()->def->flags & ObjectTypeFlags::Static)
+        if (type && type->objdefs.back()->def->flags & ObjectTypeFlags::Static)
         {
                 Blex::StringPair name = columnnamemapper.GetReverseMapping(nameid);
                 if (name.empty() || name.begin[0] != '^')
@@ -3394,7 +3394,7 @@ bool VirtualMachine::ObjectMemberInsert(VarId obj, ColumnNameId nameid, bool thi
 bool VirtualMachine::ObjectMemberDelete(VarId obj, ColumnNameId nameid, bool this_access)
 {
         ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(stackmachine.ObjectGetTypeDescriptor(obj));
-        if (type->objdefs.back()->def->flags & ObjectTypeFlags::Static)
+        if (type && type->objdefs.back()->def->flags & ObjectTypeFlags::Static)
         {
                 Blex::StringPair name = columnnamemapper.GetReverseMapping(nameid);
                 if (name.empty() || name.begin[0] != '^')
