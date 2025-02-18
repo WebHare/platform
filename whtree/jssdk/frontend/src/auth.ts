@@ -76,12 +76,9 @@ export function isLoggedIn(): boolean {
 /** Setup WRDAuth frontend integration */
 export function setupWRDAuth() {
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
-    // node.whplugin_processed = true;
     node.addEventListener("submit", evt => void submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
-    // node.whplugin_processed = true;
-
     async function handleLogoutClick(event: Event) {
       dompack.stop(event);
       await logout();

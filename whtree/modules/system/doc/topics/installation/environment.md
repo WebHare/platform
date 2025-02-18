@@ -165,23 +165,3 @@ The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by
 
 ### WEBHARE_ENABLE_DEVKIT
 Enable the devkit module - even if running in a Docker container
-
-# Tips and tricks
-
-## Build-time variables
-These variables are only used during the WebHare build proces or by 'from source' installations. They have no effect
-on a running WebHare or on Docker versions
-
-### WHBUILD_NUMPROC
-Number of processors to use (the `make -j` parameter). Estimated based on CPU cores and/or memory if not set.
-
-### WHBUILD_DEBUG
-Set to build debug versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
-
-### WHBUILD_PROFILE
-Set to build profiling versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
-
-### WHBUILD_ASSETROOT
-Path to external dependencies. Defaults to https://build.webhare.dev/whbuild/
-
-Set to an invalid URL to test build fallback URLs, eg: `WHBUILD_ASSETROOT="https://123xyz.invalid/" wh builddocker`
