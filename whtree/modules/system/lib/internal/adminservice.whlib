@@ -166,7 +166,7 @@ PUBLIC RECORD FUNCTION RPC_GetModuleChangedFiles(STRING modulename)
   moduleinfo := EnrichInstalledModulesWithManifests([moduleinfo])[0];
 
   STRING moduleroot := GetModuleInstallationRoot(modulename);
-  RECORD data := GetModuleModifiedFiles(moduleroot, FALSE);
+  RECORD data := GetModuleModifiedFiles(modulename, moduleroot, FALSE);
 
   RETURN
       [ success :=      data.success
