@@ -431,7 +431,9 @@ export class WASMModule extends WASMModuleBase {
     } else if (!webAssemblyInstantiatedSourcePromise) {
       // No instantiation promise present yet, fill it with a new instantiation.
       webAssemblyInstantiatedSourcePromise = (async () => {
-        const wasmFilePath = path.join(__dirname, "../../../lib/harescript.wasm");
+        const wasmFilePath = process.env.WEBHARE_WASMMODULEDIR ?
+          path.join(process.env.WEBHARE_WASMMODULEDIR, "harescript.wasm") :
+          path.join(__dirname, "../../../lib/harescript.wasm");
         const binary = await fs.promises.readFile(wasmFilePath);
         return await WebAssembly.instantiate(binary, imports);
       })();

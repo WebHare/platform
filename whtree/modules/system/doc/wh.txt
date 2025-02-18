@@ -29,6 +29,7 @@ finalize-webhare                        Run postinstall tasks (including rebuild
 mic                                     Make Install, run in console mode
 umic                                    Update git, make install, run in console mode
 installsocketbinder                     Install the socket binder
-execbuilt                               Execute the specificed process directly from the build tree
+execbuilt                               Execute the specified executable directly from the build tree (eg 'runscript <script>')
+usebuiltwasm ...                        Execute the specified process using the WASM modules from build tree (eg 'wh run <script>')
 
 --- standard options ---

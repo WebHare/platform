@@ -1,3 +1,4 @@
+import * as path from "node:path";
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { isTruthy } from "@webhare/std";
@@ -694,7 +695,14 @@ export class HareScriptVM implements HSVM_HSVMSource {
 async function createHarescriptModule() {
   const modulefunctions = new WASMModule;
   modulefunctions.prepare();
-  const wasmmodule = await createModule(modulefunctions);
+  let useCreateModule = createModule;
+  if (process.env["WEBHARE_WASMMODULEDIR"]) {
+    const modulePath = path.join(process.env["WEBHARE_WASMMODULEDIR"], "harescript.js");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    useCreateModule = require(modulePath);
+  }
+
+  const wasmmodule = await useCreateModule(modulefunctions);
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
