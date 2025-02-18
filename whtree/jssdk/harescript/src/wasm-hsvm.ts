@@ -238,10 +238,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   /** Throw if the current VM has a pending exception or error. Needed to ensure errors are handled on the current stack (and not on the eventloop) */
-  throwIfFailed(): void {
-    if (!this._wasmmodule?._HSVM_TestMustAbort(this.hsvm))
-      return; //nothing's up
-
+  throwDetectedVMError(): void {
     if (this._wasmmodule?._HSVM_IsUnwinding(this.hsvm)) {
       const throwvarid: HSVM_VariableId = this._wasmmodule._HSVM_GetThrowVar(this.hsvm);
       if (throwvarid) {
@@ -254,7 +251,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
           throw new Error(what);
         }
       }
+      throw new Error(`HareScript VM is unwinding, but no exception was found`);
     }
+
     this.throwVMErrors();
   }
 
@@ -602,7 +601,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const parsederrors = this.quickParseVariable(errorlist) as MessageList;
     const trace = parsederrors.filter(e => e.istrace).map(e =>
       `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-    throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
+    throw new Error((parsederrors[0]?.message ?? "Unknown error") + trace);
   }
 
   async call(functionref: string, ...params: unknown[]): Promise<unknown> {
