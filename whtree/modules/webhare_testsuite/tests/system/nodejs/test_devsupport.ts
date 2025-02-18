@@ -1,6 +1,7 @@
 import * as test from "@webhare/test";
 import * as devbridge from "@mod-platform/js/devsupport/devbridge";
 import { backendConfig } from "@webhare/services";
+import { existsSync } from "node:fs";
 
 async function testDevBridge() {
   test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "storage/system/generated/wrd/example.ts"));
@@ -38,6 +39,9 @@ async function testDevBridge() {
 
   const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
   test.eq("publisher:siteprofile.shorturl", parseresult.gid);
+
+  test.assert(existsSync(backendConfig.dataroot + "node_modules/@types/node"), "The node symlink must exist, or modules may not get node builtin types");
+  test.assert(existsSync(backendConfig.dataroot + "node_modules/@types/node/buffer.d.ts"), "Test one of the expected files");
 }
 
 
