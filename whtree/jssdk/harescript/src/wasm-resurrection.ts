@@ -1,3 +1,4 @@
+import { throwError } from "@webhare/std";
 import { HSVMVar } from "./wasm-hsvmvar";
 
 export function resurrectBuffer(obj: HSVMVar) {
@@ -15,10 +16,16 @@ export function resurrectPromise(obj: HSVMVar) {
   return obj.vm.callWithHSVMVars("wh::internal/hsservices.whlib#WaitForPromise", [obj]);
 }
 
+export function resurrectJSProxy(obj: HSVMVar) {
+  const id = obj.getMemberRef("^$OBJECTID").getString();
+  return obj.vm.proxies.get(id) ?? throwError(`Could not find JSProxy with id ${id}`);
+}
+
 export function resurrect(type: string, obj: HSVMVar) {
   const resurrectmap: Record<string, (obj: HSVMVar) => unknown> = {
     "Buffer": resurrectBuffer,
-    "Promise": resurrectPromise
+    "Promise": resurrectPromise,
+    "JSProxy": resurrectJSProxy,
   };
 
   if (resurrectmap[type])

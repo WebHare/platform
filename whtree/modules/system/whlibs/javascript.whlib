@@ -174,9 +174,7 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
     name := toks[1];
 
   IF(IsWasm())
-  {
-    RETURN EM_SyncSyscall("jsCall", CELL[ lib, name, args ]);
-  }
+    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args ]));
 
   IF(NOT ObjectExists(calljsservice))
     calljsservice := __OpenSynchronousWebHareService("platform:calljs");

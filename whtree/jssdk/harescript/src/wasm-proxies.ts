@@ -2,6 +2,7 @@ import { Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import type { HareScriptVM, HSVM_VariableId } from "./wasm-hsvm";
 import type { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
+import { generateRandomId } from "@webhare/std";
 
 export interface HSVMCallsProxy {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- it's overhead to have to define the type whenever you invoke. But feel free to extend commonlibs.ts!
@@ -156,4 +157,23 @@ export class HSVMObjectCache {
     });
     return this.cachedobjects.size;
   }
+}
+
+export class HSVMMarshallableOpaqueObject {
+  private __hsvm_id = generateRandomId();
+
+  constructor() {
+  }
+
+  [Marshaller] = {
+    type: HareScriptType.Object,
+    setValue: function (this: HSVMMarshallableOpaqueObject, value: HSVMVar) {
+      const id = (this as unknown as { __hsvm_id: string }).__hsvm_id;
+      const mod = value.vm._getHSVM().wasmmodule;
+      mod._HSVM_ObjectInitializeEmpty(value.vm.hsvm, value.id);
+      value.insertMember("^$WASMTYPE", "JSProxy", { isPrivate: true });
+      value.insertMember("^$OBJECTID", id, { isPrivate: true });
+      value.vm.proxies.set(id, this);
+    }
+  };
 }

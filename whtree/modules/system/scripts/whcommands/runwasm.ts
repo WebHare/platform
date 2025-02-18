@@ -2,6 +2,8 @@ import * as path from "node:path";
 import { toResourcePath } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { runScript } from "@webhare/harescript/src/machinewrapper";
+import { HSVMSymbol } from "@webhare/harescript/src/contextvm";
+import { setScopedResource } from "@webhare/services/src/codecontexts";
 
 async function runWasmScript(script: string, params: string[]) {
   if (!script.startsWith("mod::"))
@@ -9,6 +11,7 @@ async function runWasmScript(script: string, params: string[]) {
 
   try {
     const vm = await runScript(script, { consoleArguments: params });
+    setScopedResource(HSVMSymbol, vm);
     await vm.done;
     process.exitCode = vm.vm?.deref()?.exitCode ?? 254;
   } finally {

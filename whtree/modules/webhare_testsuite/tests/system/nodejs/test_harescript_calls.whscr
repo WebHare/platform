@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::javascript.whlib";
 
@@ -61,3 +62,11 @@ CallJS("./data/calls.ts#runVoid");
 CallJS("./data/calls.ts#runAsyncVoid");
 
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));
+
+IF(IsWasm()) { //Support opaque object marshalling
+  OBJECT jsobj_11 := CallJS("./data/calls.ts#getObject", 11);
+  TestEq(11, CallJS("./data/calls.ts#getObjectValue", jsobj_11));
+  OBJECT jsobj_11_b := CallJS("./data/calls.ts#returnObject", jsobj_11);
+  TestEq(11, CallJS("./data/calls.ts#getObjectValue", jsobj_11_b));
+  TestAssert(jsobj_11_b != jsobj_11, "Objects on the HS side don't yet have the same identity. Would have been nice...");
+}
