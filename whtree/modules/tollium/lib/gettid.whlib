@@ -186,11 +186,12 @@ RECORD ARRAY FUNCTION ReadLanguageTexts(OBJECT element, STRING pathsofar)
   RETURN texts;
 }
 
-RECORD FUNCTION CompileLanguageFile(BLOB input)
+RECORD FUNCTION CompileLanguageFile(STRING resname)
 {
+  BLOB input := GetWebHareResource(resname);
   OBJECT doc := MakeXMLDocument(input);
   IF(NOT ObjectExists(doc->documentelement))
-    THROW NEW Exception("Invalid XML document");
+    THROW NEW Exception(`Invalid XML document '${resname}`);
   RECORD result := [ fallbacklanguage := ToLowercase(doc->documentelement->GetAttribute("fallbacklanguage"))
                    , langcode := ToLowercase(doc->documentelement->GetAttribute("xml:lang"))
                    , texts := (SELECT * FROM ReadLanguageTexts(doc->documentelement, "") ORDER BY ToLowercase(tid))
@@ -275,7 +276,7 @@ RECORD FUNCTION GetCompiledLanguageFile(STRING module, STRING langcode)
 
     resname := fallbackresname;
   }
-  RETURN [ value := CELL[ resource := resname, ...CompileLanguageFile(GetWebhareResource(resname)) ]
+  RETURN [ value := CELL[ resource := resname, ...CompileLanguageFile(resname) ]
          , ttl := 60 * 60 * 1000
          , eventmasks := GetResourceEventMasks([resname])
          ];
