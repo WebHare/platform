@@ -65,10 +65,7 @@ async function testWasmSpawn() {
         results: ["externref"]
       }, instance.exports.test, { promising: 'first' }) :
       // @ts-ignore -- WebAssembly.promising is not yet spec (node 23+)
-      WebAssembly.promising({
-        parameters: ["i32"],
-        results: ["externref"]
-      }, instance.exports.test, { promising: 'first' });
+      WebAssembly.promising(instance.exports.test);
 
     const arg = { valueOf: () => { testExecSync("within wasm"); return 24; } };
 
