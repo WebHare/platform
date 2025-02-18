@@ -14,10 +14,11 @@ import { type Mutex, JSLibraryLoader } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { decodeTransferredIPCEndPoint, encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath } from "./wasm-support";
+import { HSVMSymbol } from "./contextvm";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -761,6 +762,7 @@ export async function harescriptWorkerFactory(script: string, encodedLink: unkno
   const vmPromise = preparedJobHSVM ?? allocateHSVM();
   preparedJobHSVM = undefined;
   const vm = await vmPromise;
+  setScopedResource(HSVMSymbol, vm);
   if (debugFlags.vmlifecycle)
     console.log(`[${vm.currentgroup}] VM allocation/preparation complete`);
   return new HareScriptJob(vm, script, link, authRecord, externalSessionData, env);
