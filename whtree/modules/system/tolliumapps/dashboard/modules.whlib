@@ -390,7 +390,7 @@ PUBLIC STATIC OBJECTTYPE ModuleInfo EXTEND TolliumScreenBase
         BREAK;
       }
 
-    RECORD mods := GetModuleModifiedFiles(this->modulepath, FALSE);
+    RECORD mods := GetModuleModifiedFiles(this->modulename, this->modulepath, FALSE);
     IF (mods.success AND LENGTH(mods.files) != 0)
     {
       INSERT

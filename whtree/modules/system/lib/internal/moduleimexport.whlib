@@ -683,7 +683,7 @@ BOOLEAN FUNCTION HaveDateChangedFromZip(DATETIME zipdate, DATETIME currentdate)
   RETURN NOT (-2000 <= diff AND diff <= 2000);
 }
 
-PUBLIC RECORD FUNCTION GetModuleModifiedFiles(STRING moduleroot, BOOLEAN include_sourcedata)
+PUBLIC RECORD FUNCTION GetModuleModifiedFiles(STRING modulename, STRING moduleroot, BOOLEAN include_sourcedata)
 {
   STRING sourcezippath := MergePath(moduleroot, "history/source.zip");
   BLOB sourcezip := GetDiskResource(sourcezippath, [ allowmissing := TRUE ]);
@@ -739,6 +739,10 @@ PUBLIC RECORD FUNCTION GetModuleModifiedFiles(STRING moduleroot, BOOLEAN include
     GROUP BY path
       HAVING MAX(source_size) != MAX(current_size) OR HaveDateChangedFromZip(MAX(source_modtime), MAX(current_modtime))
     ORDER BY path;
+
+    IF (modulename = "platform") //ignore generated files for platform, they're not even part of finalize-webhare so would always appear as a change
+      DELETE FROM result WHERE path LIKE "generated/*";
+    DELETE FROM result WHERE path = "tsconfig.json";
 
   IF (include_sourcedata)
   {

@@ -27,10 +27,7 @@ FOREVERY (STRING module FROM GetSortedSet(GetInstalledModulenames()))
   STRING path := GetModuleInstallationRoot(module);
   IF (RecordExists(GetDiskFileProperties(MergePath(path, "history/source.zip"))))
   {
-    RECORD changes := GetModuleModifiedFiles(path || "/", FALSE);
-    IF (module = "platform") //ignore generated files for platform, they're not even part of finalize-webhare so would always appear as a change
-      DELETE FROM changes.files WHERE files.path LIKE "generated/*";
-
+    RECORD changes := GetModuleModifiedFiles(module, path || "/", FALSE);
     IF (changes.success AND RecordExists(changes.files))
     {
       STRING ARRAY limitedfiles := SELECT AS STRING ARRAY COLUMN path FROM changes.files LIMIT 4;
