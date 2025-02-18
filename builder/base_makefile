@@ -567,7 +567,7 @@ endif
 ##
 # GLOBAL
 all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
-.PHONY: wasm wasm-test
+.PHONY: wasm wasm-test list-targets list-raw-targets
 
 #################################################
 ##
@@ -614,10 +614,10 @@ clean-libs:
 clean-install:
 	@rm -f $(addprefix $(PREFIX)/,$(ALL_INSTALLABLES_CLEAN))
 
-clean:
+clean: # Delete all build files
 	rm -rf -- $(WEBHARE_BUILDDIR)/*
 
-clean-pch:
+clean-pch: # Delete precompiled header files
 	rm -f -- $(ALLPCHS_NATIVE) $(ALLPCHS_WASM)
 
 %.wasm-obj: %.cpp $(EMSCRIPTEN_VERSION_FILE) | $(ALLPCHS_WASM)
@@ -865,7 +865,7 @@ success.wasm: build.wasm
 	# TODO test?
 	> success.wasm
 
-wasm-clean:
+wasm-clean: # Clean all wasm deployables to force a rebuild after eg. switching emcc versions or options
 	rm -f $(wasm_DEPLOYABLES_WHAP) $(WASM_ALL_OBJS)
 
 wasm: lib/harescript.js lib/harescript.wasm success.wasm
@@ -1015,21 +1015,23 @@ BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_parser_format_hsxml hsm_parser_format_html
 WASM_ALIASES = harescript
 
-showtargets:
-	@echo $(BIN_ALIASES)
-	@echo $(MOD_ALIASES)
-	@echo wordconv
-	@echo "Above targets can be combined with -overwrite and -uninstall"
+list-targets:    # List all available targets
+	@printf "%-21s %s\n" "Target" "Description"
+	@cat $(SRCDIR)/builder/base_makefile | grep -E '^[-a-z0-9]+: .*#.*$$'|sed -e 's/: .*#/:/'|awk '{x=$$1;$$1="";printf "%-20s %s\n", x, $$0}' | sort
+	@echo ""
+	@echo "Additional we support the following commands that directly build a target:"
+	@echo "Executables: $(sort $(BIN_ALIASES))"
+	@echo "Libraries:   $(sort $(MOD_ALIASES))"
+
 
 #Convenience overwrite targets
-wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite
-wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall
+wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite  # Overwrite the word conversion related modules in the install dir
+wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall # Remove the word conversion related modules
 
-wasm-overwrite: $(addprefix $(PREFIX)/,$(wasm_DEPLOYABLES_WHAP))
+wasm-overwrite: $(addprefix $(PREFIX)/,$(wasm_DEPLOYABLES_WHAP))  #Overwrite WASM files in the install dir
 
 # Helper to add 'wh make list-targets' - https://stackoverflow.com/a/26339924 - a future make version should allow 'wh make --print-targets'
-.PHONY: list-targets
-list-targets:
+list-raw-targets: # List all targets including undocumented ones
 	@LC_ALL=C $(MAKE) -pRrq -f $(firstword $(MAKEFILE_LIST)) : 2>/dev/null | awk -v RS= -F: '/(^|\n)# Files(\n|$$)/,/(^|\n)# Finished Make data base/ {if ($$1 !~ "^[#.]") {print $$1}}' | sort | grep -E -v -e '^[^[:alnum:]]' -e '^$@$$'
 
 define GenerateBinAlias
