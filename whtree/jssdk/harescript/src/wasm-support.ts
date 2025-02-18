@@ -1,5 +1,7 @@
 import { toFSPath } from "@webhare/services/src/resources.ts";
 
+export const HSVMSymbol = Symbol("HSVM");
+
 export function mapHareScriptPath(uri: string | null) {
   if (!uri)
     return "unknown";

@@ -17,8 +17,7 @@ import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/brid
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { decodeTransferredIPCEndPoint, encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
-import { mapHareScriptPath } from "./wasm-support";
-import { HSVMSymbol } from "./contextvm";
+import { mapHareScriptPath, HSVMSymbol } from "./wasm-support";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -448,6 +447,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const heapvar = this.allocateVariable();
     this.wasmmodule._HSVM_CopyFrom(this.hsvm, heapvar.id, source);
     return heapvar;
+  }
+
+  wrapExistingVariableId(id: HSVM_VariableId): HSVMVar {
+    return new HSVMVar(this, id);
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
