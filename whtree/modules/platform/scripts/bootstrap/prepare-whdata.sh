@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # prepare-whdata sets up the WebHare data ($WEBHARE_DATAROOT, whdata) directory
-# we will normally be invoked by `wh prepare-whdata`
 #
 # We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS support!
 
