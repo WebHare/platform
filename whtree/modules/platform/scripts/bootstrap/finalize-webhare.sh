@@ -18,6 +18,7 @@ source "lib/wh-functions.sh"
 WEBHARE_DATAROOT="$(mktemp -d)"
 mkdir -p "$WEBHARE_DATAROOT"
 export WEBHARE_DATAROOT
+logWithTime "Finalizing WebHare in $WEBHARE_DATAROOT"
 
 getwebhareversion
 
@@ -74,7 +75,7 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
 )
 
 logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
-wh prepare-whdata
+"$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
 
 logWithTime "Update generated files"
 wh apply --nodb --offline config dev

@@ -552,11 +552,6 @@ HERE
     exit 0
     ;;
 
-  "prepare-whdata")
-    check_webhare_not_running
-    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --verbose "${OPTIONS[@]}"
-    ;;
-
   "fixbuild")
     check_webhare_not_running
 
