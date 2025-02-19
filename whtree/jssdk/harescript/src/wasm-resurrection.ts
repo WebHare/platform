@@ -13,6 +13,7 @@ export function resurrectBuffer(obj: HSVMVar) {
 }
 
 export function resurrectPromise(obj: HSVMVar) {
+  //We may need to reconsider this... injecting WaitForPromise on the stack may deadlock VMs if they need to execute other microtasks
   return obj.vm.callWithHSVMVars("wh::internal/hsservices.whlib#WaitForPromise", [obj]);
 }
 
