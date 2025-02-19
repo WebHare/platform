@@ -4,12 +4,11 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::publisher/lib/publisher.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 
 PUBLIC OBJECTTYPE MenuTest EXTEND TolliumScreenBase
 <
@@ -308,9 +307,10 @@ PUBLIC OBJECTTYPE FocusTest_RTEDialog EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 <
   INTEGER counter;
+  BOOLEAN selected; // for assetpack selection/focus test
 
   MACRO Init()
   {
@@ -319,24 +319,24 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 
   MACRO DoGrabLinks()
   {
-    this->iframe->onclicklink := PTR this->OnClickLink;
+    ^iframe->onclicklink := PTR this->OnClickLink;
   }
 
   MACRO OnClickLink(STRING href)
   {
-    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "click:" || href);
+    ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || "click:" || href);
     RETURN;
   }
 
   STRING FUNCTION GenerateContent(STRING source)
   {
     BLOB bobimage := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg");
-    STRING link := this->iframe->AddEmbeddedObject(bobimage, "image/jpeg");
+    STRING link := ^iframe->AddEmbeddedObject(bobimage, "image/jpeg");
 
     RETURN
        `<html>
          <head>
-           <script src="${EncodeValue(this->iframe->toddiframeurl)}"></script>
+           <script src="${EncodeValue(^iframe->toddiframeurl)}"></script>
            <script src="/tollium_todd.res/webhare_testsuite/tests/iframetest.js"></script>
          </head>
          <body>
@@ -349,62 +349,65 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
 
   MACRO DoInit()
   {
-    this->iframe->data := [ text := "data" ];
-    this->iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest.html");
-    this->iframe->oncallback := PTR this->OnCallback;
+    ^iframe->data := [ text := "data" ];
+    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest.html");
+    ^iframe->oncallback := PTR this->OnCallback;
     this->DoCallJS();
   }
 
   MACRO OnCallback(RECORD data)
   {
-    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || EncodeJSON(data));
+    ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || EncodeJSON(data));
   }
 
   MACRO DoSetHTMLContent()
   {
     this->counter := this->counter + 1;
-    this->iframe->value := this->GenerateContent("htmlcontent" || this->counter);
+    ^iframe->value := this->GenerateContent("htmlcontent" || this->counter);
   }
 
   MACRO DoSetHTMLBlobContent()
   {
     this->counter := this->counter + 1;
-    this->iframe->blobvalue := StringToBlob(this->GenerateContent("blobcontent" || this->counter));
+    ^iframe->blobvalue := StringToBlob(this->GenerateContent("blobcontent" || this->counter));
   }
 
   MACRO DoCallJS()
   {
     this->counter := this->counter + 1;
-    this->iframe->postmessage([ type := "calljs", funcname := "func1", args := VARIANT[this->counter, "test"] ], "*");
+    ^iframe->postmessage([ type := "calljs", funcname := "func1", args := VARIANT[this->counter, "test"] ], "*");
   }
 
   MACRO DoPrintUpdateData()
   {
-    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "data:" || this->iframe->data.text);
-    this->iframe->data.text := this->iframe->data.text || "b";
+    ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || "data:" || ^iframe->data.text);
+    ^iframe->data.text := ^iframe->data.text || "b";
   }
   MACRO DoPostMessage()
   {
     ^callbacks->value := "";
-    this->iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest-postmessage.html");
-    this->iframe->postmessage([ answer := 42 ], "*");
+    ^iframe->src := ResolveToAbsoluteURL(this->tolliumcontroller->baseurl, "/tollium_todd.res/webhare_testsuite/tests/iframetest-postmessage.html");
+    ^iframe->postmessage([ answer := 42 ], "*");
   }
   ASYNC MACRO DoPostRequest()
   {
     ^callbacks->value := "";
-    RECORD res := AWAIT this->iframe->postrequest([ request := 42 ], "*");
-    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "response:" || EncodeJSON(res));
+    RECORD res := AWAIT ^iframe->postrequest([ request := 42 ], "*");
+    ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || "response:" || EncodeJSON(res));
   }
   MACRO OnMessage(VARIANT message, STRING origin)
   {
-    this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || "message:" || EncodeJSON(message) || "\norigin:" || origin);
+    ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || "message:" || EncodeJSON(message) || "\norigin:" || origin);
   }
   MACRO OnClientMessage(STRING message, RECORD data)
   {
-     this->callbacks->value := TrimWhitespace(this->callbacks->value || "\n" || EncodeJSON(CellInsert(CELL[], message, data )));
+     ^callbacks->value := TrimWhitespace(^callbacks->value || "\n" || EncodeJSON(CellInsert(CELL[], message, data )));
+     IF (message = "selected")
+      this->selected := data.s;
   }
   MACRO DoTestAssetpack()
   {
+    ^iframe->onenabledon := PTR this->OnIframeEnabledOn;
     ^iframe->data := DEFAULT RECORD;
     ^callbacks->value := "";
     ^iframe->InitializeWithAssetpack("webhare_testsuite:iframetest", [ my_init_info := "Hi Frame!" ]);
@@ -418,17 +421,21 @@ PUBLIC OBJECTTYPE IFrameTest EXTEND TolliumScreenBase
   {
     ^iframe->UpdateInitData([ my_init_info := "another greeting" ]);
   }
+  BOOLEAN FUNCTION OnIframeEnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    RETURN this->selected;
+  }
 >;
 
-PUBLIC OBJECTTYPE IframeTestInContents EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE IframeTestInContents EXTEND TolliumScreenBase
 <
   MACRO Init()
   {
     //demonstrate embedded screens holding inline objects that receive the wrong url
     OBJECT subscreen := this->LoadScreen(".iframetest");
     //the test works when you set contents before tolliumclick.. because then the component has already been renamed
-    subscreen->sethtmlcontent->TolliumClick();
-    this->holder->contents := subscreen;
+    subscreen->^sethtmlcontent->TolliumClick();
+    ^holder->contents := subscreen;
   }
 >;
 
