@@ -41,6 +41,11 @@ FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
 USEPODMAN=
 
+HOSTTAROPTIONS=(--no-xattrs)
+if [ "$(uname)" == "Darwin" ]; then #prevents eg language/._default.xml files
+  HOSTTAROPTIONS+=(--disable-copyfile)
+fi
+
 testfail()
 {
   echo ""
@@ -658,7 +663,7 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   # cp doesn't work for tmpfs - https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases
   # RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
   RunDocker exec -i "$CONTAINERID" mkdir /opt/whdata/installedmodules
-  tar --no-xattrs -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
+  tar "${HOSTTAROPTIONS[@]}" -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
 
   if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
     RunDocker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
@@ -844,7 +849,7 @@ else
 fi
 
 if [ -n "$TESTFW_EXPORTMODULE" ]; then
-  "${CONTAINERENGINE[@]}" exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
+  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
 fi
 
 if [ -n "$TESTFW_TWOHARES" ]; then

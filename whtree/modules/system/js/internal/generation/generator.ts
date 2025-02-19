@@ -124,7 +124,7 @@ async function generateFiles(files: FileToUpdate[], context: GenerateContext, op
 }
 
 export async function updateGeneratedFiles(targets: GeneratorType[], options: {
-  //TODO remove? dryRUn is unreachable now and not currently guaranteed by wh apply to work?
+  //TODO remove? dryRun is unreachable now and not currently guaranteed by wh apply to work?
   dryRun?: boolean;
   verbose?: boolean;
   nodb?: boolean;
