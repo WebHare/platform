@@ -272,7 +272,7 @@
     </body>
   </screen>
 
-  <screen name="iframetest" allowresize="true" menubar="menubar" title="Iframe Test">
+  <screen name="iframetest" allowresize="true" forcemenubar="true" menubar="menubar" title="Iframe Test">
     <actions>
       <action name="act_init" onexecute="doinit" title="I00 Init" />
       <action name="sethtmlcontent" onexecute="dosethtmlcontent" public="true" title="I01 SetHTMLContent" />
@@ -285,6 +285,9 @@
       <action name="testassetpack" onexecute="dotestassetpack" title="IA01 Initialize with assetpack" />
       <action name="updateinitdata" onexecute="doupdateinitdata" title="IA02 UpdateInitdata" />
       <action name="createimage" onexecute="docreateimage" title="IA03 CreateImage" />
+      <action name="testaction" onexecute="@notimplemented" title="IA04 Test action">
+        <enableon source="iframe" min="1" max="1" />
+      </action>
     </actions>
 
     <menus>
@@ -308,11 +311,16 @@
       </menu>
     </menus>
 
+    <toolbar>
+      <button name="testbutton" action="testaction" />
+    </toolbar>
+
     <body>
+      <textedit name="input" placeholder="focus test" />
       <text value="Iframe" />
-      <iframe name="iframe" height="220px" onmessage="onmessage" onclientmessage="onclientmessage" />
+      <iframe name="iframe" height="220px" onclientmessage="onclientmessage" onmessage="onmessage" />
       <text value="Callbacks" />
-      <textarea name="callbacks" height="200px" title="" enabled="false" />
+      <textarea name="callbacks" height="200px" enabled="false" title="" />
     </body>
   </screen>
 
