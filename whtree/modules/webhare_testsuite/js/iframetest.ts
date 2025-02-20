@@ -2,19 +2,40 @@
 
 import { sleep } from "@webhare/std";
 import * as test from "@webhare/test";
-import { Host, createTolliumImage, type HostContext, type GuestProtocol, setupGuest } from "@webhare/tollium-iframe-api";
+import { Host, createTolliumImage, type HostContext, type GuestProtocol, setupGuest, tolliumActionEnabler } from "@webhare/tollium-iframe-api";
 
 interface OurHostProtocol {
   greeting: { g: string; initinfo: string; initcount: number };
   multiplied: { n: number };
   imagedetails: { src: string; width: number; height: number };
+  selected: { s: boolean };
 }
 
 const host = new Host<OurHostProtocol>();
 
 let initcount = 0;
+let focusNode: HTMLElement | null = null;
 
 async function init(context: HostContext, initData: { my_init_info: string }) {
+  if (!focusNode) {
+    const styleNode = document.createElement("style");
+    styleNode.innerText = `span.focusnode { background: #eeeeff; cursor: pointer; display: inline-block; } span.focusnode:focus { background: #ffeeee; }`;
+    document.head.appendChild(styleNode);
+    focusNode = document.createElement("span");
+    focusNode.innerText = "focus test";
+    focusNode.className = "focusnode";
+    focusNode.tabIndex = 0;
+    focusNode.addEventListener("focus", () => {
+      host.post("selected", { s: true });
+      tolliumActionEnabler([{}]);
+    });
+    focusNode.addEventListener("blur", () => {
+      host.post("selected", { s: false });
+      tolliumActionEnabler([]);
+    });
+    document.body.appendChild(focusNode);
+  }
+
   await sleep(5);
   test.assert(context.origin);
   host.post("greeting", { g: "Hello from the iframe!", initcount: ++initcount, initinfo: initData.my_init_info });
