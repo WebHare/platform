@@ -214,6 +214,32 @@ test.runTests(
         const iframe = test.qSA<HTMLIFrameElement>('iframe')[0];
         iframe.contentWindow!.location.reload();
         test.eq({ greeting: { g: "Hello from the iframe!", initcount: 1, initinfo: "another greeting" } }, await waitForLine(4));
+
+        test.focus(test.compByName("input").querySelector("input"));
+        await test.wait("ui");
+        // The test action should be disabled if the iframe input doesn't have focus
+        test.assert(test.compByName("testbutton").classList.contains("todd--disabled"), "test action should be disabled");
+
+        test.focus(iframe.contentWindow!.document.querySelector("span.focusnode")!);
+        await test.wait("ui");
+        await new Promise(resolve => setTimeout(resolve, 1));
+        test.assert(!test.compByName("testbutton").classList.contains("todd--disabled"), "test action should be enabled");
+        // The iframe input now has focus, so the test action should no longer be disabled
+        // (In 5.6 the frame focus code would steal the focus back from the iframe)
+        test.clickTolliumButton("IA04");
+        await test.wait("ui");
+        // The test action should display a 'not implemented' message with a 'information' icon
+        test.assert(test.qR(`img[data-toddimg^="tollium:messageboxes/information"]`), "'not implemented' message box should be visible");
+        // Close the message
+        test.clickTolliumButton("Close");
+        await test.wait("ui");
+        await new Promise(resolve => setTimeout(resolve, 1));
+        test.assert(!test.compByName("testbutton").classList.contains("todd--disabled"), "test action should still be enabled");
+        // The iframe should regain focus, run the test action again
+        test.clickTolliumButton("IA04");
+        await test.wait("ui");
+        // The test action should display a 'not implemented' message with a 'information' icon
+        test.assert(test.qR(`img[data-toddimg^="tollium:messageboxes/information"]`), "'not implemented' message box should be visible again");
       }
     },
 
