@@ -15,4 +15,5 @@ export type GuestMessage
   | { tollium_iframe: "contextMenu"; name: string; x: number; y: number }
   | { tollium_iframe: "closeAllMenus" }
   | { tollium_iframe: "actionEnabler"; selectionFlags: FlagSet } //TODO if we ever npm publish @webhare/tollium-iframe-api we'll need to avoid importing from @mod-tollium
+  | { tollium_iframe: "focused" }
   ;
