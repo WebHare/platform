@@ -352,6 +352,11 @@ export default class ObjIFrame extends ComponentBase {
         return;
       }
 
+      case "focused": {
+        dompack.dispatchCustomEvent(this.iframe, "tollium:iframe_focus", { bubbles: true, cancelable: false });
+        return;
+      }
+
       default: //verify we don't miss any new message types (msg is never if all cases are handled, then cast it back to HostRuntimeMessage)
         console.error(`Unsupported tollium_iframe type '${(msg satisfies never as GuestMessage).tollium_iframe}'`);
     }

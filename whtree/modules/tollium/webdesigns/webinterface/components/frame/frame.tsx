@@ -233,6 +233,7 @@ export default class Frame extends ToddCompBase {
     this.node.addEventListener("dompack:takefocus", evt => this.onTakeFocus(evt));
     this.node.addEventListener("focusin", evt => this.onFocusIn(evt));
     this.node.addEventListener("focusout", evt => this.onFocusOut(evt));
+    this.node.addEventListener("tollium:iframe_focus", evt => this.onIframeFocus(evt));
 
     this.scrollmonitor = new scrollmonitor.Monitor(this.node);
   }
@@ -300,14 +301,12 @@ export default class Frame extends ToddCompBase {
       if (debugFlags["tollium-focus"])
         console.log(`[tollium-focus] Losing focus from %o to %o`, evt.target, evt.relatedTarget);
     }
+  }
 
-    setTimeout(() => { //iframe handling, backported from 5.7
-      if (document.activeElement instanceof HTMLIFrameElement) {
-        this.innerFocus = document.activeElement;
-        if (debugFlags["tollium-focus"])
-          console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
-      }
-    }, 1);
+  private onIframeFocus(evt: Event) {
+    this.innerFocus = evt.target as HTMLElement;
+    if (debugFlags["tollium-focus"])
+      console.log(`[tollium-focus] Focus lost to iframe %o`, this.innerFocus);
   }
 
   _updateDefaultButton(activenode: HTMLElement) {

@@ -195,6 +195,9 @@ export function setupGuest<InitData = any>(
   window.addEventListener("message", onParentMessage);
   window.parent.postMessage({ tollium_iframe: "requestInit" } satisfies GuestMessage, "*");
   window.addEventListener("focusin", event => {
+    if (setup?.stage === "active" && setup.origin)
+      window.parent.postMessage({ tollium_iframe: "focused" }, setup.origin);
+
     if (event.target instanceof HTMLElement || event.target instanceof SVGElement) {
       if (lastFocusNode === document.activeElement)
         return; //already focused
