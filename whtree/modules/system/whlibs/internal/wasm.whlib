@@ -34,6 +34,11 @@ PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
   }
 >;
 
+MACRO HandleCatch(INTEGER requestid, OBJECT exc)
+{
+  __EM_SYSCALL_RESOLVE(requestid, -1, exc->EncodeForIPC());
+}
+
 MACRO RunFunctionRequest(RECORD request)
 {
   TRY
@@ -55,7 +60,14 @@ MACRO RunFunctionRequest(RECORD request)
     VARIANT result := CallAnyPtrVA(target, request.params);
     TRY
     {
-      __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
+      IF(TYPEID(result) = TYPEID(OBJECT) AND result EXTENDSFROM PromiseBase)
+      { //Await in our context (we used to bounce the promise back to TS which would then wrap it in WaitForPromise, hanging the HSVM)
+        result->Then(PTR __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, #1), PTR HandleCatch(request.id, #1));
+      }
+      ELSE
+      {
+        __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
+      }
     }
     CATCH (OBJECT e)
     {
