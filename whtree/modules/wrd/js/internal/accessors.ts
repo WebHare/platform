@@ -855,7 +855,9 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
+    query = db_cv.value === null && db_cv.condition === '!='
+      ? addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, "is not", null))
+      : addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
     return {
       needaftercheck: false,
       query
