@@ -269,9 +269,7 @@ ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
   STRING dir := GetDirectoryFromPath(file.path);
 
   RECORD cmd := CELL
-      [ basedir :=          dir
-      , tsfmtfile :=        ResolveToRelativePath(dir, MergePath(GetWebhareConfiguration().installationroot, "tsfmt.json"))
-      , file.path
+      [ file.path
       , data :=             EncodeBase64(BlobToString(data))
       ];
 
