@@ -292,7 +292,7 @@ export default class Frame extends ToddCompBase {
   }
 
   private onFocusOut(evt: FocusEvent) {
-    if (!evt.relatedTarget && document.activeElement === document.body && evt.target) {
+    if (!evt.relatedTarget && document.activeElement === document.body && evt.target && !(evt.target instanceof HTMLIFrameElement)) {
       //this is the focus jumping to an iframe. prevent that
       if (debugFlags["tollium-focus"])
         console.log(`[tollium-focus] Preventing focus theft, returning it to %o`, evt.target);
