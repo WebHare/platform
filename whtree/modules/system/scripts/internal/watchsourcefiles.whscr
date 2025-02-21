@@ -244,7 +244,7 @@ ELSE
   }
 }
 
-OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
+OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait, STRING watchdir)
 {
   INTEGER output_handle;
   STRING buffer;
@@ -260,7 +260,11 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
     IF (output = "" AND errors = "")
     {
       IF (NOT proc->IsRunning())
-        BREAK;
+      {
+        PrintTo(2, `Lost watcher for ${watchdir} - restarting\n`);
+        StartWatcher(watchdir);
+        RETURN DEFAULT RECORD;
+      }
 
       // ADDME: Sleep a bit
       CONTINUE;
@@ -419,8 +423,12 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
 IF (args.v)
   PRINT("Watching: " || Detokenize(watchdirs, " ") || "\n");
 
+
 //ADDME why multiple processes? i think both inotifywait and fswatch handle mulitple paths...
 FOREVERY (STRING dir FROM watchdirs)
+  StartWatcher(dir);
+
+MACRO StartWatcher(STRING dir)
 {
   OBJECT proc;
   IF (inotifywait != "")
@@ -435,7 +443,7 @@ FOREVERY (STRING dir FROM watchdirs)
   }
 
   proc->userdata := [ title := dir ];
-  HandleWatchProcess(proc, inotifywait != "");
+  HandleWatchProcess(proc, inotifywait != "", dir);
   proc->Start();
 }
 
