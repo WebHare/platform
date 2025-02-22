@@ -80,7 +80,7 @@ function convertToModuleKey(regkey: string) {
   return firstcolon === -1 ? regkey : regkey.substring(0, firstcolon) + ":" + regkey.substring(firstcolon + 1);
 }
 
-export function generateRegistryDefs(context: GenerateContext, platform: boolean, mods: string[]): string {
+export async function generateRegistryDefs(context: GenerateContext, platform: boolean, mods: string[]): Promise<string> {
   const keys = listRegistryKeys(context, mods);
 
   return `${generatorBanner}

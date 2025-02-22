@@ -172,7 +172,7 @@ function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
   return addto;
 }
 
-export function generateAssetPacks(context: GenerateContext): string {
+export async function generateAssetPacks(context: GenerateContext): Promise<string> {
   const assetpacks = new Array<AssetPack>();
   const addto = [];
 
@@ -195,7 +195,7 @@ export function generateAssetPacks(context: GenerateContext): string {
   return JSON.stringify(assetpacks, null, 2) + "\n";
 }
 
-export function generateServices(context: GenerateContext): string {
+export async function generateServices(context: GenerateContext): Promise<string> {
   const retval: Services = {
     backendServices: [],
     openAPIServices: [],

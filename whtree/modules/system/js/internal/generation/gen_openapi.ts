@@ -1,8 +1,7 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
 import type { FileToUpdate, GenerateContext } from "./shared";
-import type { Readable } from "node:stream";
 import SwaggerParser from "@apidevtools/swagger-parser";
-import type { OpenAPI3, OpenAPITSOptions } from "openapi-typescript";
+import { astToString, type OpenAPI3, type SchemaObject } from "openapi-typescript";
 import type { OpenAPIV3 } from "openapi-types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
@@ -16,7 +15,7 @@ import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 
 function convertStatusCodes(result: string) {
   return result.split("\n").map(line => {
-    const match = /^( {8})(\d\d\d)(.*)$/.exec(line);
+    const match = /^( {16})(\d\d\d)(.*)$/.exec(line);
     if (match) {
       let code: number | string = Number(match[2]);
       if (code in HTTPSuccessCode)
@@ -123,26 +122,36 @@ function addInternalFormatTags(root: object, node: object, path: string) {
  */
 function moveSharedSchemaObjects(parsed: OpenAPI3) {
   // Detect all shared schema objects
-  const visited = new Set<object>;
-  const shared = new Set<object>;
+  const visited = new Set<SchemaObject>;
+  const shared = new Set<SchemaObject>;
   detectSharedSchemaObjectsIterate(parsed, parsed, visited, shared, "", undefined, "#");
 
   if (!visited.size)
     return;
 
-  const defs: Record<string, object> = {};
   const remap = new Map<object, { $ref: string }>;
+  if (!parsed.components)
+    parsed.components = {};
+  if (!parsed.components.schemas)
+    parsed.components.schemas = {};
+
   let idx = 0;
+  const defs: Record<string, SchemaObject> = {};
   for (const node of shared) {
-    const defName = `__sharedDef${++idx}`;
-    defs[defName] = node;
-    remap.set(node, { $ref: `#/$defs/${defName}` });
+    let defName;
+    do //guard against name clashes (reprocessing our own schema somehow?)
+      defName = `__sharedDef${++idx}`;
+    while (defName in parsed.components.schemas);
+
+    defs[defName] = node; //we're not adding them to the openapi doc yet or we would reprocess them and point thme to themselves
+    remap.set(node, { $ref: `#/components/schemas/${defName}` });
   }
+
   replaceRefsIterate(parsed, remap, new Set, "#", true);
   for (const movedValue of Object.values(defs))
-    replaceRefsIterate(movedValue, remap, new Set, "#/defs", true);
+    replaceRefsIterate(movedValue, remap, new Set, "#/components/schemas", true);
 
-  Object.assign(parsed.$defs ??= {}, defs);
+  Object.assign(parsed.components.schemas, defs);
 }
 
 function detectSharedSchemaObjectsIterate(parsed: OpenAPI3, node: object, visited: Set<object>, shared: Set<object>, keyname: string, isSchema: boolean | undefined, path: string) {
@@ -258,9 +267,8 @@ export async function createOpenAPITypeDocuments(openapifilepath: string | OpenA
   */
   moveSharedSchemaObjects(parsed as OpenAPI3);
 
-  type OpenAPITS = (schema: string | URL | OpenAPI3 | Readable, options?: OpenAPITSOptions) => Promise<string>;
-  const openapiTSfunc = (await import("openapi-typescript")).default as OpenAPITS;
-  const output = await openapiTSfunc(parsed as OpenAPI3);
+  const openapiTSfunc = (await import("openapi-typescript")).default;
+  const output = astToString(await openapiTSfunc(parsed as OpenAPI3));
 
   let result = convertStatusCodes(output);
 

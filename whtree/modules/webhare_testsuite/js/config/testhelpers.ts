@@ -1,7 +1,8 @@
-import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
+import { runJSBasedValidator, type ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
 import { type HSVMObject, loadlib } from "@webhare/harescript";
 import { WebHareBlob, backendConfig } from "@webhare/services";
 import { parseModuleDefYMLText, type ModDefYML } from "@webhare/services/src/moduledefparser";
+import { omit } from "@webhare/std";
 import * as test from "@webhare/test";
 
 export async function installTestModule(name: string, files: Record<string, string>) {
@@ -27,6 +28,37 @@ export async function installTestModule(name: string, files: Record<string, stri
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
   return res;
 }
+
+export async function checkModule(name: string): Promise<ValidationMessageWithType[]> {
+  const res = await loadlib("mod::system/lib/internal/modules/checkmodule.whlib").CheckModule(name) as
+    Array<{
+      resourcename: string;
+      line: number;
+      col: number;
+      message: string;
+      category: 'error' | 'warning' | 'hint';
+    }>;
+  return res.map(_ => ({
+    ...omit(_, ["category"]),
+    type: _.category,
+    source: "checkmodule" //FIXME shouldn't (some) errors have sources?
+  }));
+  /*
+    modname, CELL
+    [ printissues := TRUE
+    , args.debug
+    , args.onlytids
+    , args.filemask
+    , args.color
+    , args.nowarnings
+    , checktypescript := checktypescript AND NOT args.nochecktypescript
+    , args.hidehints
+    , documentation := args.doc
+    , onlypaths
+    ]);
+*/
+}
+
 
 //TODO does this need to be a testapi? or something for a @webhare/config ?
 export async function deleteTestModule(name: string) {

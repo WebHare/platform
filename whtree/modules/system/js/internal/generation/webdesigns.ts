@@ -36,7 +36,7 @@ export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Doc
   return webFeatures;
 }
 
-export function generateWebDesigns(context: GenerateContext): string {
+export async function generateWebDesigns(context: GenerateContext): Promise<string> {
   const webDesigns: never[] = [];
   const webFeatures = new Array<WebFeature>();
 
