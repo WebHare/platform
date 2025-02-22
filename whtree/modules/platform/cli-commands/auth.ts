@@ -11,6 +11,7 @@ import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { isValidWRDTag } from '@webhare/wrd/src/wrdsupport';
+import { run } from "@webhare/cli";
 
 async function getUserApiSchemaName(): Promise<string> {
   if (program.opts().schema)
@@ -28,155 +29,159 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
   };
 }
 
-program
-  .name('wh auth')
-  .description('Control WebHare users and rights')
-  .option('-j, --json', "Output in JSON format")
-  .option("-s, --schema <schema>", "Schema to use (if not primary schema)");
+run({
+  description: "Control WebHare users and rights",
+  /// Global options
+  flags: {
+    "j,json": { description: "Output in JSON format" }
+  }, options: {
+    "s,schema": { default: "", description: "Schema to use (if not primary schema)" },
+  }, subCommands: {
+    describe: {
+      shortDescription: "Describe current authentication settings",
+      main: async ({ opts, args }) => {
+        const wrdSchema = opts.schema ?? await getUserApiSchemaName();
+        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const idp = await describeIdp(schema);
 
-const json: boolean = program.opts().json;
+        if (opts.json) {
+          console.log(JSON.stringify({
+            wrdschema: wrdSchema,
+            ...idp
+          }));
+        } else {
+          console.log("WRD Schema:    " + wrdSchema);
+          console.log("OpenID Issuer: " + (idp.issuer || "not set"));
+        }
+      }
+    },
+    "idp-setup": {
+      shortDescription: "Setup an identity provider for a schema",
+      options: { "issuer": { description: "Issuer name. Defaults to " + backendConfig.backendURL } },
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName();
+        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const settings = await getSchemaSettings(schema, ["issuer"]);
 
-program.command('describe')
-  .description('Describe current authentication settings')
-  .action(async () => {
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
-    const idp = await describeIdp(schema);
+        if (settings.issuer)
+          throw new Error(`Identity provider already set up for schema ${wrdSchema} with issuer: ${settings.issuer}`);
 
-    if (json) {
-      console.log(JSON.stringify({
-        wrdschema: wrdSchema,
-        ...idp
-      }));
-    } else {
-      console.log("WRD Schema:    " + wrdSchema);
-      console.log("OpenID Issuer: " + (idp.issuer || "not set"));
-    }
-  });
+        const prov = new IdentityProvider(schema);
+        await beginWork();
+        await prov.initializeIssuer(opts.issuer || backendConfig.backendURL);
+        await commitWork();
 
-program.command('idp-setup')
-  .description('Setup an identity provider for a schema')
-  .option('--issuer <issuer>', "Issuer name. Defaults to " + backendConfig.backendURL)
-  .action(async (localOptions) => {
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
-    const settings = await getSchemaSettings(schema, ["issuer"]);
+        if (opts.json) {
+          console.log(JSON.stringify(await describeIdp(schema)));
+        } else {
+          console.log("Created identity provider");
+        }
+      }
+    },
+    "oidc-callback-url": {
+      shortDescription: "Obtain this server's OIDC callback URL",
+      main: async ({ opts, args }) => {
+        const url = backendConfig.backendURL + ".wh/common/oauth2/";
+        console.log(opts.json ? JSON.stringify({ url }) : url);
+      }
+    },
+    "oidc-add": {
+      shortDescription: "Connect schema to a OIDC Identity provider",
+      options: {
+        "additionalscopes": { description: "Additional scopes to request, eg email" },
+        "metadataurl": { description: "Metadata URL" },
+        "title": { description: "Title on login screen" },
+        "loginfield": { description: "Set the loginfield to use (eg 'sub' or 'email')" }
+      },
+      arguments: [
+        { name: "<tag>", description: "Identity provider wrdTag" },
+        { name: "<clientid>", description: "Client ID" },
+        { name: "<clientsecret>", description: "Client secret" }
+      ],
+      main: async ({ opts, args }) => {
+        if (!isValidWRDTag(args.tag))
+          throw new Error(`Invalid wrdTag '${args.tag}'`);
 
-    if (settings.issuer)
-      throw new Error(`Identity provider already set up for schema ${wrdSchema} with issuer: ${settings.issuer}`);
+        const wrdSchema = await getUserApiSchemaName();
+        const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
+        if (await schema.find("wrdauthOidcClient", { wrdTag: args.tag }))
+          throw new Error(`OIDC Service provider with tag '${args.tag}' already exists`);
 
-    const prov = new IdentityProvider(schema);
-    await beginWork();
-    await prov.initializeIssuer(localOptions.issuer || backendConfig.backendURL);
-    await commitWork();
+        if (!opts.metadataurl)
+          throw new Error("--metadataurl is required");
 
-    if (json) {
-      console.log(JSON.stringify(await describeIdp(schema)));
-    } else {
-      console.log("Created identity provider");
-    }
-  });
+        //just verify the metadata is reachable and Somewhat Sane
+        await loadlib("mod::wrd/lib/internal/auth/oidc.whlib").GetOIDCMetadata(opts.metadataurl);
 
-program.command('oidc-callback-url')
-  .description("Obtain this server's OIDC callback URL")
-  .action(async () => {
-    const url = backendConfig.backendURL + ".wh/common/oauth2/";
-    console.log(json ? JSON.stringify({ url }) : url);
-  });
+        await beginWork();
+        const wrdId = await schema.insert("wrdauthOidcClient", {
+          wrdTag: args.tag,
+          clientid: args.clientid,
+          clientsecret: args.clientsecret,
+          metadataurl: opts.metadataurl,
+          additionalscopes: (opts.additionalscopes || '').replaceAll(',', ' '),
+          wrdTitle: opts.title || args.tag.toLowerCase()
+        });
+        await commitWork();
 
-program.command("oidc-add")
-  .description("Connect schema to a OIDC Identity provider")
-  .argument("<tag>", "Identity provider wrdTag")
-  .argument("<clientid>", "Client ID")
-  .argument("<clientsecret>", "Client secret")
-  .option("--additionalscopes <scopes>", "Additional scopes to request, eg email")
-  .option("--metadataurl <url>", "Metadata URL")
-  .option("--title [title]", "Title on login screen")
-  .option("--loginfield [loginfield]", "Set the loginfield to use (eg 'sub' or 'email')")
-  .action(async (tag: string, clientId: string, clientSecret: string, opts: Record<string, string | boolean>) => {
-    if (!isValidWRDTag(tag))
-      throw new Error(`Invalid wrdTag '${tag}'`);
+        console.log(opts.json ? JSON.stringify({ wrdId }) : `Added client #${wrdId} to schema ${wrdSchema}`);
+      }
+    }, "oidc-delete": {
+      shortDescription: "Delete OIDC client",
+      arguments: [{ name: "<tag>", description: "Identity provider wrdTag" }],
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName();
+        const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
+        const wrdId = await schema.find("wrdauthOidcClient", { wrdTag: args.tag });
+        if (!wrdId)
+          throw new Error(`OIDC Service provider with tag '${args.tag}' not found`);
 
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
-    if (await schema.find("wrdauthOidcClient", { wrdTag: tag }))
-      throw new Error(`OIDC Service provider with tag '${tag}' already exists`);
+        await beginWork();
+        await schema.delete("wrdauthOidcClient", wrdId);
+        await commitWork();
 
-    if (!opts.metadataurl)
-      throw new Error("--metadataurl is required");
+        console.log(opts.json ? JSON.stringify({ wrdId }) : `Delete client #${wrdId} from schema ${wrdSchema}`);
+      }
+    },
+    "sp-add": {
+      shortDescription: "Add a service provider",
+      arguments: [{ name: "<name>", description: "Service provider name" }, { name: "<callbackurl>", description: "Service provider callback URL" }],
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName();
+        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
 
-    //just verify the metadata is reachable and Somewhat Sane
-    await loadlib("mod::wrd/lib/internal/auth/oidc.whlib").GetOIDCMetadata(opts.metadataurl);
+        const prov = new IdentityProvider(schema);
+        await beginWork();
+        const newSp = await prov.createServiceProvider({ title: args.name, callbackUrls: [args.callbackurl] });
+        await commitWork();
 
-    await beginWork();
-    const wrdId = await schema.insert("wrdauthOidcClient", {
-      wrdTag: tag,
-      clientid: clientId,
-      clientsecret: clientSecret,
-      metadataurl: opts.metadataurl as string,
-      additionalscopes: (opts.additionalscopes as string).replaceAll(',', ' ') || '',
-      wrdTitle: opts.title as string || tag.toLowerCase()
-    });
-    await commitWork();
+        if (opts.json) {
+          console.log(JSON.stringify(await newSp));
+        } else {
+          console.log("Created service provider");
+          console.log("Client ID: " + newSp.clientId);
+          console.log("Client secret: " + newSp.clientSecret);
+        }
+      }
+    },
 
-    console.log(json ? JSON.stringify({ wrdId }) : `Added client #${wrdId} to schema ${wrdSchema}`);
-  });
-
-program.command("oidc-delete")
-  .description("Delete OIDC client")
-  .argument("<tag>", "Identity provider wrdTag")
-  .action(async (tag: string) => {
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
-    const wrdId = await schema.find("wrdauthOidcClient", { wrdTag: tag });
-    if (!wrdId)
-      throw new Error(`OIDC Service provider with tag '${tag}' not found`);
-
-    await beginWork();
-    await schema.delete("wrdauthOidcClient", wrdId);
-    await commitWork();
-
-    console.log(json ? JSON.stringify({ wrdId }) : `Delete client #${wrdId} from schema ${wrdSchema}`);
-  });
-
-program.command('sp-add')
-  .description('Add a service provider')
-  .argument('<name>', 'Service provider name')
-  .argument('<callbackurl>', 'Service provider callback URL')
-  .action(async (title: string, callbackUrl: string) => {
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
-
-    const prov = new IdentityProvider(schema);
-    await beginWork();
-    const newSp = await prov.createServiceProvider({ title, callbackUrls: [callbackUrl] });
-    await commitWork();
-
-    if (json) {
-      console.log(JSON.stringify(await newSp));
-    } else {
-      console.log("Created service provider");
-      console.log("Client ID: " + newSp.clientId);
-      console.log("Client secret: " + newSp.clientSecret);
-    }
-  });
-
-program.command('sp-list')
-  .description('List service provider')
-  .action(async () => {
-    const wrdSchema = await getUserApiSchemaName();
-    const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
-    const sps = (await schema.query("wrdauthServiceProvider").
-      select(["wrdId", "wrdTitle", "wrdCreationDate", "wrdGuid"]).
-      execute()).map((sp) => ({
-        ...pick(sp, ["wrdId", "wrdTitle", "wrdCreationDate"]),
-        clientId: compressUUID(sp.wrdGuid)
-      }));
-    if (json) {
-      console.log(JSON.stringify(sps));
-    } else {
-      console.table(sps);
-    }
-  });
-
-program.parse();
+    "sp-list": {
+      shortDescription: "List service provider",
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName();
+        const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
+        const sps = (await schema.query("wrdauthServiceProvider").
+          select(["wrdId", "wrdTitle", "wrdCreationDate", "wrdGuid"]).
+          execute()).map((sp) => ({
+            ...pick(sp, ["wrdId", "wrdTitle", "wrdCreationDate"]),
+            clientId: compressUUID(sp.wrdGuid)
+          }));
+        if (opts.json) {
+          console.log(JSON.stringify(sps));
+        } else {
+          console.table(sps);
+        }
+      }
+    },
+  }
+});
