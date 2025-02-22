@@ -1,4 +1,4 @@
-/* CLI tool to manage authentication */
+// @webhare/cli: allowautocomplete
 
 import { WRDSchema } from '@mod-wrd/js/internal/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
@@ -7,15 +7,14 @@ import { backendConfig } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { IdentityProvider, compressUUID } from '@webhare/wrd/src/auth';
 import { getSchemaSettings } from '@webhare/wrd/src/settings';
-import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { isValidWRDTag } from '@webhare/wrd/src/wrdsupport';
 import { run } from "@webhare/cli";
 
-async function getUserApiSchemaName(): Promise<string> {
-  if (program.opts().schema)
-    return program.opts().schema;
+async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
+  if (opts?.schema)
+    return opts.schema;
 
   const primaryPlugin = await loadlib("mod::system/lib/userrights.whlib").GetPrimaryWebhareAuthPlugin() as HSVMObject;
   return await (await primaryPlugin.$get<HSVMObject>("wrdschema")).$get<string>("tag");
@@ -35,12 +34,12 @@ run({
   flags: {
     "j,json": { description: "Output in JSON format" }
   }, options: {
-    "s,schema": { default: "", description: "Schema to use (if not primary schema)" },
+    "s,schema": { description: "Schema to use (if not primary schema)" },
   }, subCommands: {
     describe: {
       shortDescription: "Describe current authentication settings",
       main: async ({ opts, args }) => {
-        const wrdSchema = opts.schema ?? await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
         const idp = await describeIdp(schema);
 
@@ -59,7 +58,7 @@ run({
       shortDescription: "Setup an identity provider for a schema",
       options: { "issuer": { description: "Issuer name. Defaults to " + backendConfig.backendURL } },
       main: async ({ opts, args }) => {
-        const wrdSchema = await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
         const settings = await getSchemaSettings(schema, ["issuer"]);
 
@@ -102,7 +101,7 @@ run({
         if (!isValidWRDTag(args.tag))
           throw new Error(`Invalid wrdTag '${args.tag}'`);
 
-        const wrdSchema = await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
         if (await schema.find("wrdauthOidcClient", { wrdTag: args.tag }))
           throw new Error(`OIDC Service provider with tag '${args.tag}' already exists`);
@@ -130,7 +129,7 @@ run({
       shortDescription: "Delete OIDC client",
       arguments: [{ name: "<tag>", description: "Identity provider wrdTag" }],
       main: async ({ opts, args }) => {
-        const wrdSchema = await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<System_UsermgmtSchemaType>(wrdSchema);
         const wrdId = await schema.find("wrdauthOidcClient", { wrdTag: args.tag });
         if (!wrdId)
@@ -147,7 +146,7 @@ run({
       shortDescription: "Add a service provider",
       arguments: [{ name: "<name>", description: "Service provider name" }, { name: "<callbackurl>", description: "Service provider callback URL" }],
       main: async ({ opts, args }) => {
-        const wrdSchema = await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
 
         const prov = new IdentityProvider(schema);
@@ -168,7 +167,7 @@ run({
     "sp-list": {
       shortDescription: "List service provider",
       main: async ({ opts, args }) => {
-        const wrdSchema = await getUserApiSchemaName();
+        const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
         const sps = (await schema.query("wrdauthServiceProvider").
           select(["wrdId", "wrdTitle", "wrdCreationDate", "wrdGuid"]).
