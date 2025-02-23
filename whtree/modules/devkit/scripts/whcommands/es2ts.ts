@@ -10,6 +10,7 @@ import { generateTSConfigTextForModule } from "@mod-system/js/internal/generatio
 import ts from "typescript/lib/typescript";
 import { handleLintingCommand } from "@mod-system/js/internal/eslint";
 import { simpleGit } from "simple-git";
+import { handleFormattingCommand } from "@mod-system/js/internal/tsfmt";
 
 function containsJSX(node: ts.Node): true | undefined {
   if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
@@ -88,6 +89,16 @@ run({
 
       if (fixed.messages.some(_ => _.fatal))
         code = '/* eslint-disable */\n' + code;
+
+      const tsfmtresult = await handleFormattingCommand({ path: file, data: Buffer.from(code, 'utf8').toString('base64') });
+      const tsfmtcode = Buffer.from(tsfmtresult.output, 'base64').toString('utf8');
+      if (tsfmtcode !== code) {
+        const refixed = await handleLintingCommand(toResourcePath(file), tsfmtcode, true, true);
+        if (refixed.hasfixes)
+          code = Buffer.from(refixed.output, 'base64').toString('utf8'); //handleLintingCommand returns base64 output.
+        else
+          code = tsfmtcode;
+      }
 
       await storeDiskFile(file, code.trim() + '\n', { overwrite: true });
     }

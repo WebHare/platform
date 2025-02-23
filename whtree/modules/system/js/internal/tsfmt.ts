@@ -1,11 +1,11 @@
+import { backendConfig } from "@webhare/services";
 import * as typescriptFormat from "typescript-formatter";
+import * as path from "node:path";
 
 /// Format of our incoming commands
 interface FormattingCommand {
   path: string;
   data: string;
-  basedir: string;
-  tsfmtfile: string;
 }
 
 export type TSFormatResult = {
@@ -16,7 +16,7 @@ export type TSFormatResult = {
 
 export async function handleFormattingCommand(indata: FormattingCommand): Promise<TSFormatResult> {
   const options: typescriptFormat.Options = {
-    baseDir: indata.basedir,
+    baseDir: path.dirname(indata.path),
     replace: false,
     verify: false,
     tsconfig: true,
@@ -27,7 +27,7 @@ export async function handleFormattingCommand(indata: FormattingCommand): Promis
     vscode: false,
     vscodeFile: null,
     tsfmt: true,
-    tsfmtFile: indata.tsfmtfile
+    tsfmtFile: backendConfig.installationroot + "tsfmt.json",
   };
 
   const contents = Buffer.from(indata.data, "base64").toString("utf-8");
