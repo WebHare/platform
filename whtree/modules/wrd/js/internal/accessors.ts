@@ -246,9 +246,13 @@ function getSettingsSelect(qb: ExpressionBuilder<PlatformDB, "wrd.entities">, at
  * @param builder - Function that add the relevant conditions on the first subquery to identify matching settings records
  * @returns Updated query
 */
-function addQueryFilter2<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, attr: number, defaultmatches: boolean, builder: (b: SettingsExpressionBuilder) => Expression<SqlBool>): SelectQueryBuilder<PlatformDB, "wrd.entities", O> {
+function addQueryFilter2<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, attr: number, defaultmatches: boolean, builder?: (b: SettingsExpressionBuilder) => Expression<SqlBool>): SelectQueryBuilder<PlatformDB, "wrd.entities", O> {
   return query.where((oqb) => {
-    const valueTest = oqb.exists(getSettingsSelect(oqb, attr).where(sqb => builder(sqb)));
+    let subquery = getSettingsSelect(oqb, attr);
+    if (builder)
+      subquery = subquery.where(sqb => builder(sqb));
+
+    const valueTest = oqb.exists(subquery);
     if (defaultmatches) {
       return oqb.or([
         valueTest,
@@ -856,7 +860,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
     query = db_cv.value === null && db_cv.condition === '!='
-      ? addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, "is not", null))
+      ? addQueryFilter2(query, this.attr.id, defaultmatches)
       : addQueryFilter2(query, this.attr.id, defaultmatches, b => b(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
     return {
       needaftercheck: false,
