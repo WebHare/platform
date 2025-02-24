@@ -555,7 +555,7 @@ run({
     //TODO check if webhare isn't already running when not started with --secondary
     verbose = opts.verbose || debugFlags.startup || false;
 
-    //Setting up logs must be one of the first things we do so log() works and even verifyUpgrae can write there
+    //Setting up logs must be one of the first things we do so log() works and even verifyUpgrade can write there
     fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
     logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
 

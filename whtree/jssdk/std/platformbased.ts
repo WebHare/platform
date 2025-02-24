@@ -1,4 +1,4 @@
-/** Test whether a string looks like a valid randomi */
+/** Test whether a string looks like a valid random id */
 export function isLikeRandomId(input: string) { //TODO add encoding parameter/bytes support ?
   return input.match(/^[A-Za-z0-9_-]{22}$/);
 }
