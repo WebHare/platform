@@ -2,17 +2,29 @@
 
 import { nameToSnakeCase } from "@webhare/std/types";
 
+/** Verify a module name is valid
+ * - The name must start and end end with a letter or digit and should have a length of at least 2
+ * - No names starting with 'wh_' or 'system_'
+ * - No names starting with a digit, except for '4tu' which we will permit, for now.
+ * - Only lowercase letters
+ * - No '.', or '-' in module names (as these make it harder to derive valid TS/HS identifiers from module names)
+ * - Prevent illegal names that clash with internal resource identifiers
+ */
+export function isValidModuleName(name: string) {
+  return name === '4tu' || (/^[a-z][a-z0-9_]*[a-z0-9]$/.test(name) && !name.startsWith("wh_") && !name.startsWith("system_") && !["wh", "mod", "module", "direct"].includes(name));
+}
+
 /** Split a module scoped name
  *  @param name - Name to split
  *  @returns [module, name] or null if not a valid module scoped name
 */
 export function splitModuleScopedName(name: string): string[] | null {
-  // The name parts must start end end with a letter or digit and should have a length of at least 2
+  // The name parts must start and end with a letter or digit and should have a length of at least 2
   // Only allow lowercase letters
   // Don't allow '.' in module names
   // Ensure the scoped name is an unambiguously url-safe slug when the ':' is replaced with a '/'
-  const match = name.match(/^([a-z0-9][-a-z0-9_]*[a-z0-9]):([a-z0-9][-.a-z0-9_]*[a-z0-9])$/);
-  if (!match || match[1].startsWith("wh_") || match[1].startsWith("system_"))
+  const match = name.match(/^([^:]*):([a-z0-9][-.a-z0-9_]*[a-z0-9])$/);
+  if (!match || !isValidModuleName(match[1]))
     return null;
   return [match[1], match[2]];
 }

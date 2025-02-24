@@ -21,11 +21,15 @@ async function testServices() {
   test.typeAssert<test.Assignable<ConfigurableSubsystem, "anything">>();
 
   test.assert(checkModuleScopedName("aa:aa"));
-  test.assert(checkModuleScopedName("11:11"));
-  test.assert(checkModuleScopedName("a-a:a-a"));
-  test.assert(checkModuleScopedName("a-a:a.a"));
-  test.assert(checkModuleScopedName("a-a:a_a"));
+  test.assert(checkModuleScopedName("aa:11"));
   test.assert(checkModuleScopedName("a_a:a-a"));
+  test.assert(checkModuleScopedName("a_a:a.a"));
+  test.assert(checkModuleScopedName("a_a:a_a"));
+
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("11:11"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a-a"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a.a"));
+  test.throws(/Invalid name.*/, () => checkModuleScopedName("a-a:a_a"));
 
   test.throws(/Invalid name.*/, () => checkModuleScopedName("a:aa"));
   test.throws(/Invalid name.*/, () => checkModuleScopedName("aa:a"));
