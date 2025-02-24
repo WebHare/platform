@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <version>0.1.0</version>
+    <description>[description]</description>
+    <packaging download="true" webhareversion=">= 5.3.0">
+      <excludepath mask="*localtests*" />
+    </packaging>
+    <validation options="nowarnings">
+    </validation>
+  </meta>
+
+</module>

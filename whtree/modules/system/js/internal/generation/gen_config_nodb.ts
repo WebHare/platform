@@ -6,6 +6,7 @@ import { omit, pick } from "@webhare/std/collections";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import { DTAPStage } from "@webhare/env/src/concepts";
 import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
+import { isValidModuleName } from "@webhare/services/src/naming";
 
 function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
@@ -170,7 +171,7 @@ function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: 
     }
 
     const nameinfo = parseModuleFolderName(entry.name);
-    if (!nameinfo)
+    if (!nameinfo || !isValidModuleName(nameinfo.name))
       continue;
 
     const mdata = { creationdate: nameinfo.creationdate, root: modpath };
