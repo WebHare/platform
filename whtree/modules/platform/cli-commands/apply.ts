@@ -2,9 +2,9 @@
 // @webhare/cli: allowautocomplete
 
 import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigurationOptions, executeApply, type ConfigurableSubsystemPart } from '@mod-platform/js/configure/applyconfig';
-import { program } from 'commander';
 import { run } from "@webhare/cli";
 import { applyConfiguration } from '@webhare/services';
+import { CLISyntaxError } from '@webhare/cli/src/run';
 
 run({
   flags: {
@@ -20,13 +20,9 @@ run({
 
     //Too bad this requires an 'as' even if you 'as const' subsystems. https://stackoverflow.com/questions/52856496/typescript-object-keys-return-string
     const validsubsystems = Object.keys(configurableSubsystems) as ConfigurableSubsystem[];
-    const badsubsystem = program.args.find(_ => !validsubsystems.includes(_.split('.')[0] as ConfigurableSubsystem));
-    if (badsubsystem) {
-      console.error(`Invalid subsystem '${badsubsystem}' specified. Valid subsystems are: ${validsubsystems.join(", ")}`);
-      process.exitCode = 1;
-      program.help();
-      return;
-    }
+    const badsubsystem = args.subsystems.find(_ => !validsubsystems.includes(_.split('.')[0] as ConfigurableSubsystem));
+    if (badsubsystem)
+      throw new CLISyntaxError(`Invalid subsystem '${badsubsystem}' specified. Valid subsystems are: ${validsubsystems.join(", ")}`);
 
     const toApply: ApplyConfigurationOptions = {
       subsystems: args.subsystems as ConfigurableSubsystemPart[],
@@ -37,7 +33,7 @@ run({
     };
 
     if (opts.modules)
-      toApply.modules = program.opts().module.split(',');
+      toApply.modules = opts.modules.split(',');
     if (opts.offline)
       await executeApply({ ...toApply, offline: true });
     else { //use the service
