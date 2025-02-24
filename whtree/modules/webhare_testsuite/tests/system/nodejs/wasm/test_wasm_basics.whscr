@@ -10,6 +10,14 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+OBJECTTYPE TObject <
+  PUBLIC OBJECT val;
+>;
+
+OBJECTTYPE TToCreate <
+  PUBLIC INTEGER v;
+>;
+
 PUBLIC MACRO RunWasmtest()
 {
   TestEq("81DC9BDB52D04DC20036DBD8313ED055", EncodeBase16(GetHashForBlob(StringToBlob("1234"),"MD5")));
@@ -75,6 +83,25 @@ PUBLIC MACRO RunWasmtest()
 
   // Not allowed to reenter the HSVM while running a synchronous syscall
   TestThrowsLike("Not allowed *SyncSyscall", PTR EM_SyncSyscall("executeInline", [ func := `return 1 + await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall();`, param := DEFAULT RECORD ]));
+
+  // Test extending empty objects
+  OBJECT t := NEW TObject;
+  VARIANT res := EM_Syscall("executeInline", [ func :=
+  `
+    const r = vm.wasmmodule._HSVM_ObjectMemberRef(vm.hsvm, param.$obj.id, vm.getColumnId("VAL"), 1);
+    vm.wasmmodule._HSVM_ObjectInitializeEmpty(vm.hsvm, r);
+    const libbuf = vm.wasmmodule.stringToNewUTF8("mod::webhare_testsuite/tests/system/nodejs/wasm/test_wasm_basics.whscr");
+    const namebuf = vm.wasmmodule.stringToNewUTF8("TTOCREATE");
+    try {
+      return vm.wasmmodule._HSVM_ObjectExtend(vm.hsvm, r, libbuf, namebuf);
+    } finally {
+      vm.wasmmodule._free(libbuf);
+      vm.wasmmodule._free(namebuf);
+    }
+  `, param := t ]);
+  TestEQ(1, res);
+  TestEQ(TRUE, t->val EXTENDSFROM TToCreate);
+  TestEQ(0, t->val->v);
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

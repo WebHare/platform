@@ -92,6 +92,8 @@ BOOLEAN FUNCTION IsResolvablePath(STRING name)
 {
   IF(name LIKE "./*" OR name LIKE "../*") //relative paths
     RETURN TRUE;
+  IF (name LIKE "/*")
+    RETURN FALSE;
   IF(name NOT LIKE "*::*" AND name NOT LIKE "@mod-*" AND name NOT LIKE "@webhare/*") //try node_modules like resolution
     RETURN TRUE;
 

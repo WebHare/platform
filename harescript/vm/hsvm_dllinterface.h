@@ -658,7 +658,16 @@ HSVM_PUBLIC void*  HSVM_ObjectContext(struct HSVM *vm, HSVM_VariableId object_id
     @param id Id of the object to initialize */
  HSVM_PUBLIC void HSVM_ObjectInitializeEmpty (struct HSVM *vm, HSVM_VariableId id) ;
 
-/** Copies content of an object member (for properties, the return value of the getter function) to another variable (BETA, may change)
+ /** Extends an existing with an objecttype definition, without running the constructor (BETA, may change)
+     @param vm Virtual machine
+     @param id Id of the object to extend
+     @param libraryuri Library that contains the objecttype definition
+     @param objecttype Name of the objecttype definition
+     @return 1 on success, 0 if the function failed (objecttype didn't exist, dynamic members added that overlap the objecttype members) */
+ HSVM_PUBLIC int HSVM_ObjectExtend(struct HSVM *vm, HSVM_VariableId id, const char *libraryuri, const char *objecttype);
+
+/** Copies content of an object member (for properties, the return value of the getter function) to another variable. Can
+    run code (and is async in WASM mode). (BETA, may change)
     @param vm Virtual machine
     @param object_id Id of the object
     @param name_id The name of the member to return the contents of

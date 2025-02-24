@@ -496,6 +496,54 @@ void HSVM_ObjectInitializeEmpty (struct HSVM *vm, HSVM_VariableId id)
         END_CATCH_VMEXCEPTIONS
 }
 
+int HSVM_ObjectExtend(struct HSVM *vm, HSVM_VariableId id, const char *libraryuri, const char *objecttype)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        std::string toloadlib = libraryuri;
+        std::string toloadobjecttype = objecttype;
+        Blex::ToUppercase(toloadobjecttype);
+
+        Library const *lib = VM.GetLibraryLoader().GetWHLibrary(toloadlib);
+        if (!lib)
+            ThrowInternalError(("Library " + toloadlib + " has not been loaded yet").c_str());
+
+        LinkedLibrary::LinkedObjectDef const *def = 0;
+        for (LinkedLibrary::LinkedObjectDefs::const_iterator it = lib->GetLinkedLibrary().localobjects.begin();
+                it != lib->GetLinkedLibrary().localobjects.end(); ++it)
+        {
+                if (it->name == toloadobjecttype && !(it->def->symbolflags & SymbolFlags::Imported))
+                {
+                        def = &*it;
+                        break;
+                }
+        }
+
+        if (!def)
+            ThrowInternalError(("Cannot find object type definition for object type " + toloadobjecttype).c_str());
+
+        ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(STACKMACHINE.ObjectGetTypeDescriptor(id));
+        if (type && !type->objdefs.empty() && type->objdefs.back()->def->flags & ObjectTypeFlags::InternalProtected)
+            ThrowVMRuntimeError(Error::CannotAccessProtectedObjectType);
+
+        ObjectTypeDefinition *newtype = VM.ExtendObjectType(type, def);
+        if (STACKMACHINE.ObjectHasDeletableMembers(id))
+        {
+                for (auto &itr: newtype->new_entries)
+                    if (STACKMACHINE.ObjectMemberExists(id, itr.nameid))
+                        throw VMRuntimeError(Error::CannotOverrideDynamicMember, VM.columnnamemapper.GetReverseMapping(itr.nameid).stl_str());
+        }
+
+        for (auto &itr: newtype->new_entries)
+            if (itr.type == ObjectCellType::Member)
+                STACKMACHINE.ObjectMemberInsertDefault(id, itr.nameid, true, itr.is_private, false, itr.var_type);
+
+        STACKMACHINE.ObjectSetTypeDescriptor(id, newtype);
+        return 1;
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
 int HSVM_ObjectMemberInsert(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId value, int is_private, int skip_access)
 {
         START_CATCH_VMEXCEPTIONS
