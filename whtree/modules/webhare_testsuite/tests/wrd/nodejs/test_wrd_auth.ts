@@ -2,7 +2,7 @@ import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test-backend";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/wrd/src/auth";
 import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
-import { addDuration, convertWaitPeriodToDate, generateRandomId } from "@webhare/std";
+import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -174,7 +174,7 @@ async function setupOpenID() {
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
   peopleClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts people testclient" });
-  test.eq(/^[-_0-9a-zA-Z]{22}$/, peopleClient.clientId, "verify clientid is not a UUID");
+  test.assert(isLikeRandomId(peopleClient.clientId), "verify clientid is not a UUID");
 
   robotClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
   evilClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });

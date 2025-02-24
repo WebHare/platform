@@ -8,6 +8,8 @@ import { toFSPath } from "@webhare/services/src/resources";
 import type { CachedSiteProfiles, SiteProfileRef } from "@webhare/whfs/src/siteprofiles";
 import { getScriptName } from "@webhare/system-tools/src/node";
 import { updateDebugConfig } from "@webhare/env/src/envbackend";
+import { throwError } from "@webhare/std";
+import * as semver from "semver";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -74,6 +76,10 @@ export function getVersionInteger(): number {
   throw new Error(`Version '${backendConfig.buildinfo.version}' is not convertible to a legacy version integer`);
 }
 
+export function getVersionFile() {
+  return (backendConfig.dataroot ?? throwError("dataroot not set")) + "webhare.version";
+}
+
 export function isRestoredWebHare(): boolean {
   return Boolean(process.env["WEBHARE_ISRESTORED"]);
 }
@@ -109,6 +115,23 @@ function getCacheableJSONConfig(diskpath: string) {
   } finally {
     fs.closeSync(file);
   }
+}
+
+export function isInvalidWebHareUpgrade(from: string, to: string): string | null {
+  //Note that we currently assume 'to' is at least WH 5+, especially for the purppose of 4.35 checking
+  if (!semver.satisfies(from, ">= 4.35.0", { includePrerelease: true }))
+    return `Previous WebHare version '${from}' is older than 5.0.0 - you cannot skip 4.35.xx between 4.34 and 5.0!`;
+  if (from.match(/^4\.35\.[0-9]+-.*$/))
+    return `Previous WebHare version '${from}' is a dangerous prerelease - you cannot skip 4.35.xx between 4.34 and 5.0!`;
+
+  // if (semver.satisfies(from, "< 4.35.0") && !semver.satisfies(to, ">= 4.35.0 , < 4.35.99"))
+  //   return `Previous WebHare version '${from}' is older than 5.0.0 - you cannot skip 4.35.xx between 4.34 and 5.0!`;
+  // if (semver.satisfies(from, "< 4.35.0") && !semver.satisfies(to, ">= 4.35.0 , < 4.35.99"))
+  // return `Previous WebHare version '${from}' is older than 5.0.0 - you cannot skip 4.35.xx between 4.34 and 5.0!`;
+  if (semver.gt(from, to))
+    return `You shouldn't downgrade WebHare (previous versions: ${from}, installed version: ${to}`;
+
+  return null;
 }
 
 export function getExtractedConfig(which: "assetpacks"): AssetPack[];

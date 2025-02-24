@@ -14,10 +14,13 @@ export type ModuleMap = { [name: string]: ModuleData };
 
 export type BackendConfiguration = {
   buildinfo: {
-    comitttag: string;
+    committag: string;
     version: string;
     branch: string;
     origin: string;
+    builddatetime: string;
+    builddate: string;
+    buildtime: string;
   };
   /** The data path, ending with a slash. Usually /opt/whdata/. */
   dataroot: string;

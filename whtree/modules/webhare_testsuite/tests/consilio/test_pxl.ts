@@ -1,6 +1,7 @@
 import { sendPxl, type PxlData, getPxlUserId, getPxlSessionId } from "@webhare/frontend";
 import * as test from "@webhare/test-frontend";
 import * as pxl from "@mod-consilio/js/pxl";
+import { isLikeRandomId } from "@webhare/std";
 
 declare module "@webhare/frontend" {
   interface PxlDataTypes {
@@ -76,7 +77,7 @@ test.runTests([
     test.eq("anonymous", vars.get("pi"));
     url = pxl.makePxlURL(baseurl, "webhare_testsuite:test", null)!;
     vars = new URL(url).searchParams;
-    test.eq(/^[-_0-9A-Za-z]{22}$/, vars.get("pi"));
+    test.assert(isLikeRandomId(vars.get("pi")!));
     const id = vars.get("pi");
 
     pxl.setPxlOptions({ pi: "anonymous" });

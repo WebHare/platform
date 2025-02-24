@@ -1,3 +1,8 @@
+/** Test whether a string looks like a valid random id */
+export function isLikeRandomId(input: string) { //TODO add encoding parameter/bytes support ?
+  return input.match(/^[A-Za-z0-9_-]{22}$/);
+}
+
 /** Generate a configurable random id (the default settings, base64url and 16 bytes, match HareScript's GenerateUFS128BitId)
  * @param encoding - Encoding to use, base64url, hex or uuidv4. Default is base64url
  * @param bytes - Number of bytes to generate. Default is 16

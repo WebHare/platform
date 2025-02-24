@@ -363,16 +363,6 @@ case $INSTR in
     getwhparameters
     setup_webhare_envsettings
 
-    # Verify no unsupported downgrade
-    PREVIOUSVERSION=""
-    if [ -f "$WEBHARE_DATAROOT/webhare.version" ]; then
-      PREVIOUSVERSION="$(jq -r .version < "$WEBHARE_DATAROOT/webhare.version" 2>/dev/null)"
-    fi
-    if [ -n "$PREVIOUSVERSION" ] && ! verify_webhare_version "$PREVIOUSVERSION" "$WEBHARE_VERSION" ; then
-      echo "Aborting - if you want to ignore this version check failure, delete $WEBHARE_DATAROOT/webhare.version at your own risk!"
-      exit 1
-    fi
-
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
       wh_runwhscr "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
