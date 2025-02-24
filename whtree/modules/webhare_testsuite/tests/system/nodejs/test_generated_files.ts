@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import * as fs from "fs";
 import { applyConfiguration, backendConfig } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { checkModule, deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
@@ -53,7 +53,7 @@ async function testWebHareConfig() {
 
 async function testBasics() {
   const context = await buildGeneratorContext(["system"], false);
-  const result = generateKyselyDefs(context, "platform");
+  const result = await generateKyselyDefs(context, "platform");
   test.eq(/id: IsGenerated<number>/, result);
 
   test.eq({ creationdate: new Date(0), name: "mymodule" }, parseModuleFolderName("mymodule"));
@@ -143,6 +143,7 @@ paths:
                     properties:
                       recursiveRef:
                         "$ref": "#/paths/~1circular/get/responses/200/content/application~1json/schema"
+      x-webhare-implementation: circular.ts#getCircular
 components:
   schemas:
     user_out:
@@ -180,6 +181,33 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
 
   return createJSONResponse(HTTPSuccessCode.Ok, foundpersons);
 }
+`, "openapi/circular.ts": `
+import { HTTPSuccessCode, type WebResponse } from "@webhare/router";
+import { TypedRestRequest } from "wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice";
+
+type APIAuthInfo = null;
+
+export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circular">): Promise<WebResponse> {
+  if (Math.random() > .5)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, "Hey everyone");
+  if (Math.random() > .5)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, { recursiveRef: "Hey everyone" });
+  if (Math.random() > .5)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, { recursiveRef: { recursiveRef: "Hey everyone" } });
+  if (Math.random() > .5) //@ts-expect-error 'invalid' not expected
+    return req.createJSONResponse(HTTPSuccessCode.Ok, { invalid: "Hey everyone" });
+  if (Math.random() > .5) //@ts-expect-error 'invalid' not expected
+    return req.createJSONResponse(HTTPSuccessCode.Ok, { recursiveRef: { invalid: "Hey everyone" } });
+
+  /* TODO why isn't this rejected ?
+  if (Math.random() > .5)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, 42);
+
+  if (Math.random() > .5)
+    return req.createJSONResponse(HTTPSuccessCode.Ok, { recursiveRef: [42] });
+  */
+  return req.createJSONResponse(HTTPSuccessCode.Ok, "done");
+}
 `
   });
 
@@ -194,9 +222,8 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   test.assert(Boolean(fs.statSync(file_wrd)));
   test.assert(Boolean(fs.statSync(file_openapi)));
 
-  const generatedOpenApiData = fs.readFileSync(file_openapi, "utf-8").toString();
-  test.assert(/"\/circular": {\n(.*\n){4,8} *"application\/json": \$defs\["__sharedDef[0-9]*"\];/m.exec(generatedOpenApiData), "Circular reference should be rerouted");
-  test.assert(generatedOpenApiData.indexOf(`__sharedDef1: OneOf<[string, {\n    recursiveRef?: $defs["__sharedDef1"];\n  }]>;`) !== -1);
+  const checkres = await checkModule("webhare_testsuite_generatedfilestest");
+  test.eq([], checkres.filter(_ => _.type === "error"), "No errors should be found in the module");
 
   console.log(`delete module webhare_testsuite_generatedfilestest`);
   await deleteTestModule("webhare_testsuite_generatedfilestest");

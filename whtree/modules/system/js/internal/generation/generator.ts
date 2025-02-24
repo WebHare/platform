@@ -23,8 +23,8 @@ import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
-import { mkdir, readFile } from "fs/promises";
-import { dirname, join } from "node:path";
+import { readFile } from "fs/promises";
+import { join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { DOMParser, type Document } from '@xmldom/xmldom';
@@ -98,11 +98,16 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
 }
 
 async function generateFiles(files: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean }) {
-  const generated = files.map(file => file.generator(context));
+  const generated = files.map(file => file.generator(context).catch(e => {
+    console.error(`Error generating ${file.path}: ${e}`);
+    return null;
+  }));
 
   //Process them
   for (const [idx, file] of files.entries()) {
     const content = await generated[idx];
+    if (content === null) //already failed
+      continue;
 
     try {
       const currentdata = await readFile(file.path, 'utf8');
@@ -114,11 +119,10 @@ async function generateFiles(files: FileToUpdate[], context: GenerateContext, op
     } catch (ignore) {
     }
 
-    if (!options?.dryRun) {
-      await mkdir(dirname(file.path), { recursive: true });
-      await storeDiskFile(file.path, content, { overwrite: true });
-    }
-    if (options?.verbose)
+    let updated = false;
+    if (!options?.dryRun)
+      updated = !(await storeDiskFile(file.path, content, { overwrite: true, mkdir: true, onlyIfChanged: true })).skipped;
+    if (updated && options?.verbose)
       console.log(`Updated ${file.path}`);
   }
 }

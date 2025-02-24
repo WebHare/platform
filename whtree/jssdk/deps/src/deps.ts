@@ -47,7 +47,7 @@ export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browse
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
 
 /** Load Puppeteer */
-export async function launchPuppeteer(options?: Puppeteer.PuppeteerLaunchOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
+export async function launchPuppeteer(options?: Puppeteer.LaunchOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
   if (!puppeteerpromise)
     puppeteerpromise = import("puppeteer");
 

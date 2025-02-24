@@ -17,7 +17,7 @@ export interface FileToUpdate {
   path: string;
   module: string; //'platform' for builtin modules
   type: GeneratorType;
-  generator: (options: GenerateContext) => string | Promise<string>;
+  generator: (options: GenerateContext) => Promise<string>;
 }
 
 export interface LoadedModuleDefs {

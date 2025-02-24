@@ -215,7 +215,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
   };
 }
 
-export function generateKyselyDefs(context: GenerateContext, modulename: string): string {
+export async function generateKyselyDefs(context: GenerateContext, modulename: string): Promise<string> {
   const whdbdefs = parseWHDBDefs(context, modulename);
   if (!Object.keys(whdbdefs.schemas).length)
     return '';
