@@ -18,14 +18,14 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, logError } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { generateRandomId, regExpFromWildcards, sleep } from "@webhare/std";
-import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
+import { generateRandomId, regExpFromWildcards, sleep, stringify } from "@webhare/std";
+import { getCompileServerOrigin, getFullConfigFile, getRescueOrigin, getVersionFile, getVersionInteger, isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { getAllServices, getSpawnSettings } from './gatherservices';
-import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService } from './smtypes';
+import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService, type WebHareVersionFile } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 
 
@@ -499,6 +499,44 @@ const argv = process.argv.slice(2);
 if (argv.at(-1)?.match(/^ +$/))  // To allow us to rewrite our name in the process tree, we're invoked with a dummy space argument.
   argv.pop(); //strip the spaces argument from the parsed list
 
+async function verifyUpgrade() {
+  let config: WebHareVersionFile;
+  try {
+    config = JSON.parse(fs.readFileSync(getVersionFile(), 'utf8')) as WebHareVersionFile;
+  } catch (e) {
+    if (e && typeof e === "object" && "code" in e && e.code === 'ENOENT')
+      return; //first and clean startup, normal..
+
+    smLog("Error occurred parsing webhare.version: " + (e as Error)?.message); //ignore the error though.
+    return;
+  }
+
+  const error = isInvalidWebHareUpgrade(config.version, backendConfig.buildinfo.version);
+  if (error) {
+    smLog(error);
+    smLog(`Aborting - if you want to ignore this version check failure, delete ${getVersionFile()} at your own risk!`);
+    process.exit(1);
+  }
+}
+
+async function setConfigAndVersion() {
+  await updateWebHareConfigFile({ debugSettings: null, nodb: true });
+  const fullconfig = getFullConfigFile();
+  const versionInfo: WebHareVersionFile = {
+    ...backendConfig.buildinfo,
+    basedataroot: backendConfig.dataroot,
+    installationroot: backendConfig.installationroot,
+    baseport: fullconfig.baseport,
+    moduledirs: fullconfig.modulescandirs,
+    docker: Boolean(process.env.WEBHARE_IN_DOCKER),
+    versionnum: getVersionInteger(),
+    servicemanagerid: serviceManagerId,
+    startdatetime: new Date().toISOString()
+  };
+
+  await storeDiskFile(getVersionFile(), stringify(versionInfo, { stable: true, space: 2 }) + '\n', { overwrite: true });
+}
+
 run({
   flags: {
     "s,secondary": { description: "Mark us as a secondary service manager" },
@@ -517,9 +555,13 @@ run({
     //TODO check if webhare isn't already running when not started with --secondary
     verbose = opts.verbose || debugFlags.startup || false;
 
-    //Setting up logs must be one of the first things we do so log() works
+    //Setting up logs must be one of the first things we do so log() works and even verifyUpgrae can write there
     fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
     logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
+
+    if (!opts.secondary) { //verify we're allowed to run
+      await verifyUpgrade();
+    }
 
     const mgr = new ServiceManager(opts.name, opts.secondary, opts.include, opts.exclude);
     await mgr.loadServiceList("");
@@ -533,13 +575,11 @@ run({
 
     smLog(`Starting WebHare ${backendConfig.buildinfo.version} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
 
-    // Update configuration, clear debug settings
     if (!opts.secondary) {
-      await updateWebHareConfigFile({ debugSettings: null, nodb: true });
-    }
+      // Update configuration, clear debug settings
+      await setConfigAndVersion();
 
-    //remove old servicestate files
-    if (!opts.secondary) {
+      //remove old servicestate files
       unlinkServicestateFiles();
       await storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
     }

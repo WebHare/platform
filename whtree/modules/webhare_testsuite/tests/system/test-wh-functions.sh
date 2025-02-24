@@ -22,55 +22,6 @@ testIsWasmEngine()
   expectWasmEngine false "<?wh *WASMENGINE*)"
 }
 
-testVersionCheck()
-{
-  local TEXT STATUS
-
-  echo -n "VersionCheck($2,$3): "
-  TEXT="$(verify_webhare_version $2 $3)"
-  STATUS="$?"
-  if [ "$STATUS" != "$1" ]; then
-    echo "${TEXT:-accepted} (FAIL)"
-    echo "$4"
-    exit 1
-  fi
-  echo "${TEXT:-accepted} (OK)"
-}
-
-testAllowedUpgrade()
-{
-  testVersionCheck 0 "$@"
-}
-testRejectedUpgrade()
-{
-  testVersionCheck 1 "$@"
-}
-
-testVersionChecks()
-{
-  #testAllow/Reject   PREVIOUS   NEW
-  testAllowedUpgrade  5.0.2-dev  5.0.2-dev  "Comparing identical versions should be fine"
-  testRejectedUpgrade 5.0.2      5.0.1      "Downgrade from 5.0.2 to 5.0.1 should not have been accepted"
-  testAllowedUpgrade  5.0.2-dev  5.0.2      "Accept going from -dev to real version"
-  testAllowedUpgrade  5.0.1-dev  5.0.2      "Accept going from previous -dev to a real version"
-  testAllowedUpgrade  4.35.0     5.0.0-dev  "Accept major update"
-  testRejectedUpgrade 5.0.3-dev  5.0.2      "Should not allow you to downgrade from -dev back to the previous prod version"
-  testRejectedUpgrade 5.0.3      5.0.3-dev  "Should not allow you to downgrade back to -dev"
-
-  testAllowedUpgrade  4.34.0     4.35.0     "Accept minor upgrade (if this check had already existed in 4.35...)"
-  testRejectedUpgrade 4.34.0     5.0.0      "Should not allow you to upgrade from 4.34 straight to 5.0"
-  testRejectedUpgrade 4.34.0     5.0.0-dev  "Should not allow you to upgrade from 4.34 straight to 5.0"
-  testRejectedUpgrade 4.34.99    5.0.0-dev  "Should not allow you to upgrade from 4.34 straight to 5.0"
-  testRejectedUpgrade 4.35.0-dev 5.0.0-dev  "Should not allow you to upgrade from 4.35 dangerous prereleases straight to 5.0"
-
-  testRejectedUpgrade 5.1.0-dev  5.1.0-custom-5.1  "Same base version, but dev > custom, so unacceptable"
-  testAllowedUpgrade  5.1.0-dev  5.1.1-custom-5.1  "A 'sideways' upgrade to newer is acceptable"
-  testRejectedUpgrade 5.1.1-dev  5.1.0-custom-5.1  "A 'sideways' upgrade to older is unacceptable"
-
-  testRejectedUpgrade 5.1.0-dev  5.1.0-5-1-certbotupdates  "Don't get confused by the many numbers added by a custom/5-1-certbotupdates branch #1"
-  testAllowedUpgrade  5.1.0-5-1-certbotupdates  5.1.0-dev  "Don't get confused by the many numbers added by a custom/5-1-certbotupdates branch #2"
-}
-
 testDockerTagCalculation()
 {
   CI_REGISTRY_IMAGE=gitlab-registry.webhare.com/webhare-opensource/platform
@@ -124,7 +75,6 @@ testDockerTagCalculation()
 }
 
 testIsWasmEngine
-testVersionChecks
 testDockerTagCalculation
 
 echo tests succeeded!

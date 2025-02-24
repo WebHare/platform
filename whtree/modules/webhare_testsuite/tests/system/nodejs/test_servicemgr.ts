@@ -6,6 +6,29 @@ import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/c
 import { openBackendService, backendConfig } from "@webhare/services";
 import { type HSVMObject, loadlib } from "@webhare/harescript";
 import "@mod-platform/js/services/platformservices"; //to ensure openBackendService can see our service
+import { isInvalidWebHareUpgrade } from "@mod-system/js/internal/configuration";
+
+async function testWebHareUpgrades() {
+  test.assert(!isInvalidWebHareUpgrade("5.0.2-dev", "5.0.2-dev"), "Comparing identical versions should be fine");
+  test.assert(isInvalidWebHareUpgrade("5.0.2", "5.0.1"), "Downgrade from 5.0.2 to 5.0.1 should not have been accepted");
+  test.assert(!isInvalidWebHareUpgrade("5.0.2-dev", "5.0.2"), "Accept going from -dev to real version");
+  test.assert(!isInvalidWebHareUpgrade("5.0.1-dev", "5.0.2"), "Accept going from previous -dev to a real version");
+  test.assert(!isInvalidWebHareUpgrade("4.35.0", "5.0.0-dev"), "Accept major update");
+  test.assert(isInvalidWebHareUpgrade("5.0.3-dev", "5.0.2"), "Should not allow you to downgrade from -dev back to the previous prod version");
+  test.assert(isInvalidWebHareUpgrade("5.0.3", "5.0.3-dev"), "Should not allow you to downgrade back to -dev");
+
+  test.assert(isInvalidWebHareUpgrade("4.34.0", "5.0.0"), "Should not allow you to upgrade from 4.34 straight to 5.0");
+  test.assert(isInvalidWebHareUpgrade("4.34.0", "5.0.0-dev"), "Should not allow you to upgrade from 4.34 straight to 5.0");
+  test.assert(isInvalidWebHareUpgrade("4.34.99", "5.0.0-dev"), "Should not allow you to upgrade from 4.34 straight to 5.0");
+  test.assert(isInvalidWebHareUpgrade("4.35.0-dev", "5.0.0-dev"), "Should not allow you to upgrade from 4.35 dangerous prereleases straight to 5.0");
+
+  test.assert(isInvalidWebHareUpgrade("5.1.0-dev", "5.1.0-custom-5.1"), "Same base version, but dev > custom, so unacceptable");
+  test.assert(!isInvalidWebHareUpgrade("5.1.0-dev", "5.1.1-custom-5.1"), "A 'sideways' upgrade to newer is acceptable");
+  test.assert(isInvalidWebHareUpgrade("5.1.1-dev", "5.1.0-custom-5.1"), "A 'sideways' upgrade to older is unacceptable");
+
+  test.assert(isInvalidWebHareUpgrade("5.1.0-dev", "5.1.0-5-1-certbotupdates"), "Don't get confused by the many numbers added by a custom/5-1-certbotupdates branch #1 - semver wise this is invalid (ASCII: d < 5)");
+  test.assert(!isInvalidWebHareUpgrade("5.1.0-5-1-certbotupdates", "5.1.0-dev"), "Don't get confused by the many numbers added by a custom/5-1-certbotupdates branch #2 - semver wise this is valid (ASCII: d > c)");
+}
 
 async function prepTests() {
   const smservice = await openBackendService("platform:servicemanager", [], { timeout: 5000 });
@@ -109,6 +132,7 @@ service = runBackendService(port, () => new Client);`
 }
 
 test.runTests([
+  testWebHareUpgrades,
   prepTests,
   testBasicAPI
 ]);

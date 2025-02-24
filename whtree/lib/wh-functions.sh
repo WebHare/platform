@@ -514,32 +514,6 @@ autocomplete_print_compreply()
   fi
 }
 
-verify_webhare_version()
-{
-  PREVVER="$1"
-  CURVER="$2"
-
-  [ "$PREVVER" == "$CURVER" ] && return 0
-
-  vercomp "$PREVVER" "$CURVER"
-  if [ "$?" == "1" ]; then # PREVVER > CURVER
-    echo "Previous WebHare version '$PREVVER' is newer than this WebHare version '$CURVER' - downgrading is never safe"
-    return 1
-  fi
-
-  vercomp "$CURVER" 5.0.0-dev
-  if [ "$?" != "2" ]; then # CURVER >= 5.0.0-dev (we should know which version we are, but this is useful for test coverage)
-    # 4.35 was unskippable for 5.0.0
-    vercomp "4.35.0" "$PREVVER"
-    if [ "$?" == "1" ]; then # 4.35.0 > PREVVER
-      echo "Previous WebHare version '$PREVVER' is older than 4.35.0 - you cannot skip 4.35.xx between 4.34 and 5.0!"
-      return 1
-    fi
-  fi
-
-  return 0
-}
-
 load_postgres_settings()
 {
   # Let's start (and setup?) PostgreSQL!

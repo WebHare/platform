@@ -1,13 +1,16 @@
 import { getAllServices, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
-import type { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
+import type { ServiceDefinition, WebHareVersionFile } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
-import { getExtractedConfig } from '@mod-system/js/internal/configuration';
+import { getExtractedConfig, getVersionFile } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
 import { openBackendService, type GetBackendServiceInterface } from '@webhare/services';
-import { spawn } from 'child_process';
 import { CLIRuntimeError, run } from "@webhare/cli";
+import { spawn, spawnSync } from 'child_process';
+import { readFileSync } from 'fs';
+import { isLikeRandomId } from '@webhare/std';
 
 //short: Control the WebHare service manager
+// @webhare/cli: allowautocomplete
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 
@@ -134,6 +137,18 @@ run({
           process.exit(1);
         }
         console.log("Service restarting");
+      }
+    },
+    "force-terminate-all": {
+      description: "Terminate or kill all child processes of this service manager",
+      flags: { "kill": { description: "Use kill instead of terminate" } },
+      main: async ({ opts, args }) => {
+        const versioninfo = JSON.parse(readFileSync(getVersionFile(), 'utf8')) as WebHareVersionFile;
+        if (!isLikeRandomId(versioninfo.servicemanagerid))
+          throw new Error("Not a valid servicemanager id");
+
+        const flags = opts.kill ? "-9" : "";
+        spawnSync(`kill ${flags} $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=${versioninfo.servicemanagerid}' | cut -d' ' -f1)`, { shell: true });
       }
     }
   }

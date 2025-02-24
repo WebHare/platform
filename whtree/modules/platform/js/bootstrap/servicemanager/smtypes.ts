@@ -6,6 +6,27 @@ export enum Stage { Bootup, StartupScript, Active, Terminating, ShuttingDown }
 
 export const defaultShutDownStage = Stage.Terminating;
 
+/** The WebHare version file contains basic build/runtime info about this installation for use by upgrade scripts, automated checks and other things for the underlying platform */
+export type WebHareVersionFile = {
+  basedataroot: string;
+  baseport: number;
+  branch: string;
+  builddate: string;
+  builddatetime: string;
+  buildtime: string;
+  committag: string;
+  docker: boolean;
+  installationroot: string;
+  moduledirs: readonly string[];
+  origin: string;
+  version: string;
+  versionnum: number;
+  /** Service manager instance id, unique per 'wh console' launch. Set and exporterd to subprocesses in the WEBHARE_SERVICEMANAGERID environment variable by the primary servicemanager */
+  servicemanagerid: string;
+  /** Startup time of this service manager instance */
+  startdatetime: string;
+};
+
 export interface ServiceDefinition {
   cmd: string[];
   /** When waitForCompletion is set to true, the service is started in startIn. Otherwise, a service is
