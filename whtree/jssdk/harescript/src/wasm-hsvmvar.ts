@@ -320,7 +320,7 @@ export class HSVMVar {
     temp.setJSValue(value);
 
     if (await this.vm.wasmmodule._HSVM_ObjectMemberSet(this.vm.hsvm, this.id, columnid, temp.id, /*skipaccess=*/1) !== 1)
-      this.vm.throwIfFailed();
+      this.vm.throwDetectedVMError();
   }
 
   insertMember(name: string, value: unknown, options?: { isPrivate: boolean }): void {
@@ -332,7 +332,7 @@ export class HSVMVar {
     temp.setJSValue(value);
 
     if (this.vm.wasmmodule._HSVM_ObjectMemberInsert(this.vm.hsvm, this.id, columnid, temp.id, options?.isPrivate ? 1 : 0, /*skipaccess=*/1) !== 1)
-      this.vm.throwIfFailed();
+      this.vm.throwDetectedVMError();
   }
 
   /** Get a primitive object member. Will fail if the property requires a callback. Returns a reference that may be invalidated on future VM calls */

@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fs = require("node:fs");
 
 class SkipTypeError extends Error {
@@ -16,7 +17,7 @@ const async_exports = fs.readFileSync(`${__dirname}/wasm-suspending-functions.tx
 const keepalive = `__attribute__((used))`;
 
 let outfile =
-  `import { VariableType } from "../modules/system/js/internal/whmanager/hsmarshalling";
+  `import type { VariableType } from "../modules/system/js/internal/whmanager/hsmarshalling";
 export type Ptr = number;
 export type StringPtr = Ptr;
 export type StringPtrPtr = Ptr;
@@ -133,7 +134,7 @@ outfile += `}\n`;
   console.log(outfile);
 }
 
-/** @param {string[]} parts
+/** @param {string[]} parts - parse the part type
 */
 function parseType(parts) {
   const partstr = parts.filter(p => !["const", "struct"].includes(p)).join(" ");
@@ -188,7 +189,7 @@ function parseType(parts) {
 
 }
 
-/** @param {string} line
+/** @param {string} line - line to parse
 */
 function parseSignature(line) {
   if (line.indexOf(` ( * `) !== -1) // callback signature
@@ -198,7 +199,7 @@ function parseSignature(line) {
 
   const params = line.split("(")[1].split(")")[0].trim().split(",").map(p => p.trim()).filter(p => p).map(p => p.split(" ")).map(p => {
     let name = p.pop();
-    if (name == "[]") {
+    if (name === "[]") {
       const pushback = name;
       name = p.pop();
       p.push(pushback);

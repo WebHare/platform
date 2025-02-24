@@ -268,7 +268,7 @@ setup_for_console()
 }
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
-if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata|fixbuild|builddocker|testdocker|deploydocker)$ ]]; then
+if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|usebuiltwasm|shell|make|finalize-webhare|prepare-whdata|fixbuild|builddocker|testdocker|deploydocker)$ ]]; then
   if [ -z "$__WEBHARE_WHDATA_PREPARED" ]; then
     if [ ! -f "$WEBHARE_DIR/jssdk/tsrun/dist/resolveplugin.js" ]; then #this may trigger after a source checkout and attempting to just 'wh'
       echo "It looks like WebHare isn't built yet. Try wh make install" 1>&2
@@ -333,6 +333,12 @@ case $INSTR in
     fi
     exec "${DBGARGS[@]}" $PROCESS "--moduledir" "$WEBHARE_BUILDDIR/lib" "$@"
     exit 255
+    ;;
+
+  "usebuiltwasm")
+    setup_builddir
+    export WEBHARE_WASMMODULEDIR="$WEBHARE_BUILDDIR/lib/"
+    exec "$@"
     ;;
 
   "console")

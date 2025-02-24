@@ -3,12 +3,14 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { backendConfig } from "@webhare/services/src/config.ts";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
+import type { HareScriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
 import { mapHareScriptPath } from "./wasm-support";
 import { AsyncResource, executionAsyncId } from "node:async_hooks";
+import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
+import { decodeString } from "@webhare/std";
 
 const wh_namespace_location = "mod::system/whlibs/";
 let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
@@ -429,7 +431,9 @@ export class WASMModule extends WASMModuleBase {
     } else if (!webAssemblyInstantiatedSourcePromise) {
       // No instantiation promise present yet, fill it with a new instantiation.
       webAssemblyInstantiatedSourcePromise = (async () => {
-        const wasmFilePath = path.join(__dirname, "../../../lib/harescript.wasm");
+        const wasmFilePath = process.env.WEBHARE_WASMMODULEDIR ?
+          path.join(process.env.WEBHARE_WASMMODULEDIR, "harescript.wasm") :
+          path.join(__dirname, "../../../lib/harescript.wasm");
         const binary = await fs.promises.readFile(wasmFilePath);
         return await WebAssembly.instantiate(binary, imports);
       })();
@@ -670,4 +674,59 @@ export class OutputObjectBase {
     }
     this.closed = true;
   }
+}
+
+///compile library, return raw fetch result
+export async function recompileHarescriptLibraryRaw(uri: string, options?: { force: boolean }) {
+  try {
+    // console.log(`recompileHarescriptLibrary`, uri);
+
+    const res = await fetch(`${getCompileServerOrigin()}/compile/${encodeURIComponent(uri)}`, {
+      headers: {
+        ...(options?.force ? { "X-WHCompile-Force": "true" } : {})
+      }
+    });
+    // console.log({ res });
+
+    if (res.status === 200 || res.status === 403) {
+      return await res.text();
+    }
+    throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
+  } catch (e) {
+    /*
+      iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
+      line: parseInt(errorparts[1]),
+      col: parseInt(errorparts[2]),
+      filename: errorparts[3],
+      code: parseInt(errorparts[4]),
+      msg1: errorparts[5],
+      msg2: errorparts[6],
+      message: decodeString(errorparts[7], 'html')
+    (*/
+    const msg = `Compilation failed: ${(e as Error).message}`;
+    return `E\t0\t0\t${uri}\t0\t${msg}\t\t${msg}`;
+  }
+}
+
+function parseError(line: string) {
+  const errorparts = line.split("\t");
+  if (errorparts.length < 8)
+    throw new Error("Unrecognized error string returned by HareScript compiler");
+
+  return {
+    iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
+    line: parseInt(errorparts[1]),
+    col: parseInt(errorparts[2]),
+    filename: errorparts[3],
+    code: parseInt(errorparts[4]),
+    msg1: errorparts[5],
+    msg2: errorparts[6],
+    message: decodeString(errorparts[7], 'html')
+  };
+}
+
+export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+  const text = await recompileHarescriptLibraryRaw(uri, options);
+  const lines = text.split("\n").filter(line => line);
+  return lines.map(line => parseError(line));
 }

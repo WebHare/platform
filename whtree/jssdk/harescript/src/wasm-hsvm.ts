@@ -1,12 +1,12 @@
+import * as path from "node:path";
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { type IPCMarshallableData, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
-import { decodeString, isTruthy } from "@webhare/std";
+import { type IPCMarshallableData, type IPCMarshallableRecord, type SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { isTruthy } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
-import { registerBaseFunctions } from "./wasm-hsfunctions";
-import { WASMModule } from "./wasm-modulesupport";
+import { HareScriptJob, registerBaseFunctions } from "./wasm-hsfunctions";
+import { getCachedWebAssemblyModule, setCachedWebAssemblyModule, WASMModule } from "./wasm-modulesupport";
 import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { type HSVMCallsProxy, HSVMLibraryProxy, type HSVMMarshallableOpaqueObject, HSVMObjectCache, argsToHSVMVar, cleanupHSVMCall } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
@@ -14,10 +14,10 @@ import { type Mutex, JSLibraryLoader } from "@webhare/services";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
-import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
-import { mapHareScriptPath } from "./wasm-support";
+import { decodeTransferredIPCEndPoint, encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { mapHareScriptPath, HSVMSymbol } from "./wasm-support";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -66,55 +66,6 @@ type HSVMList = Set<WeakRef<HareScriptVM>>;
 //   err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
 // }
 
-function parseError(line: string) {
-  const errorparts = line.split("\t");
-  if (errorparts.length < 8)
-    throw new Error("Unrecognized error string returned by HareScript compiler");
-
-  return {
-    iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
-    line: parseInt(errorparts[1]),
-    col: parseInt(errorparts[2]),
-    filename: errorparts[3],
-    code: parseInt(errorparts[4]),
-    msg1: errorparts[5],
-    msg2: errorparts[6],
-    message: decodeString(errorparts[7], 'html')
-  };
-}
-
-///compile library, return raw fetch result
-export async function recompileHarescriptLibraryRaw(uri: string, options?: { force: boolean }) {
-  try {
-    // console.log(`recompileHarescriptLibrary`, uri);
-
-    const res = await fetch(`${getCompileServerOrigin()}/compile/${encodeURIComponent(uri)}`, {
-      headers: {
-        ...(options?.force ? { "X-WHCompile-Force": "true" } : {})
-      }
-    });
-    // console.log({ res });
-
-    if (res.status === 200 || res.status === 403) {
-      return await res.text();
-    }
-    throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
-  } catch (e) {
-    /*
-      iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
-      line: parseInt(errorparts[1]),
-      col: parseInt(errorparts[2]),
-      filename: errorparts[3],
-      code: parseInt(errorparts[4]),
-      msg1: errorparts[5],
-      msg2: errorparts[6],
-      message: decodeString(errorparts[7], 'html')
-    (*/
-    const msg = `Compilation of ${uri} failed: ${(e as Error).message}`;
-    return `E\t0\t0\t${uri}\t0\t${msg}\t\t${msg}`;
-  }
-}
-
 class TransitionLock {
   vm: HareScriptVM;
   intoHareScript: boolean;
@@ -158,12 +109,6 @@ class TransitionLock {
       }
     }
   }
-}
-
-export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
-  const text = await recompileHarescriptLibraryRaw(uri, options);
-  const lines = text.split("\n").filter(line => line);
-  return lines.map(line => parseError(line));
 }
 
 function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
@@ -292,10 +237,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   /** Throw if the current VM has a pending exception or error. Needed to ensure errors are handled on the current stack (and not on the eventloop) */
-  throwIfFailed(): void {
-    if (!this._wasmmodule?._HSVM_TestMustAbort(this.hsvm))
-      return; //nothing's up
-
+  throwDetectedVMError(): void {
     if (this._wasmmodule?._HSVM_IsUnwinding(this.hsvm)) {
       const throwvarid: HSVM_VariableId = this._wasmmodule._HSVM_GetThrowVar(this.hsvm);
       if (throwvarid) {
@@ -308,7 +250,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
           throw new Error(what);
         }
       }
+      throw new Error(`HareScript VM is unwinding, but no exception was found`);
     }
+
     this.throwVMErrors();
   }
 
@@ -505,6 +449,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     return heapvar;
   }
 
+  wrapExistingVariableId(id: HSVM_VariableId): HSVMVar {
+    return new HSVMVar(this, id);
+  }
+
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
     let value;
     const type = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
@@ -656,7 +604,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const parsederrors = this.quickParseVariable(errorlist) as MessageList;
     const trace = parsederrors.filter(e => e.istrace).map(e =>
       `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-    throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
+    throw new Error((parsederrors[0]?.message ?? "Unknown error") + trace);
   }
 
   async call(functionref: string, ...params: unknown[]): Promise<unknown> {
@@ -741,12 +689,23 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.wasmmodule._free(stacktrace);
     return retval;
   }
+
+  allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
+    return allocateHSVM(options);
+  }
 }
 
 async function createHarescriptModule() {
   const modulefunctions = new WASMModule;
   modulefunctions.prepare();
-  const wasmmodule = await createModule(modulefunctions);
+  let useCreateModule = createModule;
+  if (process.env["WEBHARE_WASMMODULEDIR"]) {
+    const modulePath = path.join(process.env["WEBHARE_WASMMODULEDIR"], "harescript.js");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    useCreateModule = require(modulePath);
+  }
+
+  const wasmmodule = await useCreateModule(modulefunctions);
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
@@ -769,4 +728,44 @@ export function getActiveVMs(): HareScriptVM[] {
 //Only for CI tests:
 export async function isInFreePool(mod: WASMModule) {
   return enginePool.includes(mod);
+}
+
+let preparedJobHSVM: Promise<HareScriptVM> | undefined;
+
+export async function harescriptWorkerPrepare(preloadScripts: string[], wasmModule: WebAssembly.Module | undefined): Promise<void> {
+  if (preparedJobHSVM)
+    return;
+  if (wasmModule && !getCachedWebAssemblyModule())
+    setCachedWebAssemblyModule(wasmModule);
+  if (debugFlags.vmlifecycle)
+    console.log(`[n/a] Load script: prepare job`);
+  preparedJobHSVM = allocateHSVM().then(async vm => {
+    if (debugFlags.vmlifecycle)
+      console.log(`[n/a] VM allocated, preloading libraries`, preloadScripts);
+    for (const script of preloadScripts) {
+      const ptr_str = vm.wasmmodule.stringToNewUTF8(script);
+      const result = await vm.wasmmodule._HSVM_PrelinkLibraryLeakRef(vm.hsvm, ptr_str);
+      if (!result && debugFlags.vmlifecycle)
+        console.log(`[${vm.currentgroup}] Preloaded script ${JSON.stringify(script)} failed, result: ${result}`);
+      vm.wasmmodule._free(ptr_str);
+    }
+    if (debugFlags.vmlifecycle)
+      console.log(`[${vm.currentgroup}] Preload complete`);
+    return vm;
+  });
+}
+
+export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null, wasmModule: WebAssembly.Module | undefined): Promise<HareScriptJob> {
+  if (wasmModule && !getCachedWebAssemblyModule())
+    setCachedWebAssemblyModule(wasmModule);
+  const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
+  if (debugFlags.vmlifecycle)
+    console.log(`[n/a] create new VM in worker${preparedJobHSVM ? ", using prepared VM" : ", allocating new VM"}`);
+  const vmPromise = preparedJobHSVM ?? allocateHSVM();
+  preparedJobHSVM = undefined;
+  const vm = await vmPromise;
+  setScopedResource(HSVMSymbol, vm);
+  if (debugFlags.vmlifecycle)
+    console.log(`[${vm.currentgroup}] VM allocation/preparation complete`);
+  return new HareScriptJob(vm, script, link, authRecord, externalSessionData, env);
 }

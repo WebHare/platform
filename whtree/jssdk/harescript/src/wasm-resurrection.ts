@@ -1,5 +1,5 @@
 import { throwError } from "@webhare/std";
-import { HSVMVar } from "./wasm-hsvmvar";
+import type { HSVMVar } from "./wasm-hsvmvar";
 
 export function resurrectBuffer(obj: HSVMVar) {
   /* resurrects
@@ -9,7 +9,9 @@ export function resurrectBuffer(obj: HSVMVar) {
   >; */
   const bytes_columnid = obj.vm.getColumnId("BYTES");
   const bytes_column = obj.vm.wasmmodule._HSVM_ObjectMemberRef(obj.vm.hsvm, obj.id, bytes_columnid, /*skipaccess=*/1);
-  return new HSVMVar(obj.vm, bytes_column).getStringAsBuffer();
+  if (!bytes_column)
+    throw new Error(`Could not recreate Buffer object due to missing column BYTES`);
+  return obj.vm.wrapExistingVariableId(bytes_column).getStringAsBuffer();
 }
 
 export function resurrectPromise(obj: HSVMVar) {
