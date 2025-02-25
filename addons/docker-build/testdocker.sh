@@ -31,6 +31,8 @@ RUNTESTARGS=()
 COVERAGE=
 ADDMODULES=
 ISMODULETEST=
+ISJSPACKAGETEST=
+ISPLATFORMTEST=
 TESTFAIL=0
 FATALERROR=
 ARTIFACTS=
@@ -161,7 +163,7 @@ create_container()
     rm "$BUILDINFOFILE"
   fi
 
-  if [ -z "$ISMODULETEST" ]; then
+  if [ -n "$ISPLATFORMTEST" ]; then
     [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die "If we're testing WebHare code code, WEBHARE_CHECKEDOUT_TO must be set"
     # Runs additional verifications
     RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/startup-webhare-ci.sh" "$CONTAINERID":/opt/wh/whtree/etc/startup.d/
@@ -172,6 +174,124 @@ create_container()
   fi
 
   CONTAINERS+=("$CONTAINERID")
+}
+
+unblock_containers()
+{
+  echo "$(date) Unblocking startup"
+  for CONTAINERID in "${CONTAINERS[@]}"; do
+    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
+  done
+}
+
+wait_for_poststarts()
+{
+  echo "$(date) Wait for poststartdone container1"
+  if ! RunDocker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
+    testfail "Wait for poststartdone container1 failed"
+    FATALERROR=1
+  fi
+
+
+  echo "$(date) container1 poststartdone, look for errors"
+  if ! RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+    if [ -z "$ALLOWSTARTUPERRORS" ]; then
+      testfail "Error logs not clean!"
+    else
+      echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+    fi
+  fi
+
+  if [ -n "$TESTFW_TWOHARES" ]; then
+    echo "$(date) Wait for poststartdone container2"
+    if ! RunDocker exec "$TESTENV_CONTAINER2" wh waitfor --timeout 600 poststartdone ; then
+      testfail "Wait for poststartdone container2 failed"
+      FATALERROR=1
+    fi
+
+    echo "$(date) container2 poststartdone, look for errors"
+    if ! RunDocker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
+      if [ -z "$ALLOWSTARTUPERRORS" ]; then
+        testfail "Error logs not clean!"
+      else
+        echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+      fi
+    fi
+  fi
+}
+
+finalize_tests()
+{
+  if [ "$ENTERSHELL" == "1" ]; then
+    mark "Entering shell in container $TESTENV_CONTAINER1"
+    [ "$TESTFAIL" == "1" ] && echo "***NOTE*** THERE WERE ERRORS!"
+    RunDocker exec -ti "$TESTENV_CONTAINER1" /bin/bash
+  fi
+
+  mark "Done with tests - stopping containers"
+
+  # Stop the containers nicely so we have full logs
+  RunDocker exec "$TESTENV_CONTAINER1" sv down webhare
+  [ -n "$TESTENV_CONTAINER2" ] && RunDocker exec "$TESTENV_CONTAINER2" sv down webhare
+
+  if [ -z "$ARTIFACTS" ]; then
+    if [ -n "$CI_PROJECT_DIR" ]; then
+      ARTIFACTS="$CI_PROJECT_DIR/artifacts"
+    else
+      mkdir -p /tmp/whtest/
+      ARTIFACTS="$(mktemp -d /tmp/whtest/test.XXXXXXXXX)"
+      echo "Saving artifacts to $ARTIFACTS"
+    fi
+  fi
+
+  # Can't use docker cp due to the volume at /opt/whdata/
+  mkdir -p $ARTIFACTS/whdata
+  RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
+  RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
+  # For consistency we should probably get everyone inside the container to dump any artifacts in $TESTFW_OUTPUT
+  RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
+  if is_atleast_version 5.7.0 ; then
+    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo $ARTIFACTS/buildinfo
+  else
+    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
+  fi
+
+  if [ -n "$TESTFW_EXPORTMODULE" ]; then
+    RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
+  fi
+
+  if [ -n "$TESTFW_TWOHARES" ]; then
+    mkdir -p $ARTIFACTS/whdata2
+    RunDocker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
+    RunDocker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
+  fi
+
+  if [ -n "$COVERAGE" ]; then
+    RunDocker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
+    RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
+    echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
+  fi
+
+  if [ -n "$WEBHARE_PROFILE" ]; then
+    RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
+    echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
+  fi
+
+  if [ "`RunDocker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
+    echo "Container1 exited early!"
+    RunDocker logs $TESTENV_CONTAINER1
+  fi
+  if [ -n "$TESTFW_TWOHARES" -a "`RunDocker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
+    echo "Container2 exited early!"
+    RunDocker logs $TESTENV_CONTAINER2
+  fi
+
+  if [ "$TESTFAIL" = "0" ]; then
+    echo "$(c green).... SUCCESS! no errors recorded$(c reset)"
+  else
+    echo "$(c red).... tests have failed, exiting with errorcode $TESTFAIL$(c reset)"
+  fi
+  exit $TESTFAIL
 }
 
 print_syntax()
@@ -274,8 +394,12 @@ while true; do
     ARTIFACTS=$(get_absolute_path "$1")
     ORIGINALOPTIONS+=("$1")
     shift
-  elif [ "$1" == "-m" ]; then
+  elif [ "$1" == "-m" ] || [ "$1" == "--module" ]; then
     ISMODULETEST=1
+    shift
+  elif [ "$1" == "--jspackage" ]; then
+    ISJSPACKAGETEST=1
+    export TESTFW_WEBHARE_ENABLE_DEVKIT=1 #The actual test logic is in the devkit
     shift
   elif [ "$1" == "--twohares" ] ; then
     TESTFW_TWOHARES=1
@@ -299,6 +423,7 @@ done
 
 IMPLICITARGS=()
 if [ -n "$ISMODULETEST" ]; then
+  [ -z "$ISPACKAGETEST" ] || die "Cannot specify both --jspackage and --m"
   if [ -n "$CI_PROJECT_DIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
     TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
@@ -312,12 +437,26 @@ if [ -n "$ISMODULETEST" ]; then
       exit 1
     fi
   fi
+  TESTINGMODULEREF="${TESTINGMODULENAME}"
+elif [ -n "$ISJSPACKAGETEST" ]; then
+  if [ -n "$CI_PROJECT_DIR" ]; then
+    TESTINGMODULE="$CI_PROJECT_DIR"
+    TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
+    IMPLICITARGS+=("$TESTINGMODULENAME")
+  else
+    TESTINGMODULE="$(cd "$1" ; pwd)"
+    [ -f "${TESTINGMODULE}/package.json" ] || die "Invalid package in $TESTINGMODULE"
+    TESTINGMODULENAME="$TESTINGMODULE"
+    shift
+    [ -n "$TESTINGMODULE" ] || die "Please specify a package to run"
+  fi
+  TESTINGMODULEREF="jspackagetest"
 else
   [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die "If we're testing WebHare code code, WEBHARE_CHECKEDOUT_TO must be set"
+  ISPLATFORMTEST=1
+  # Reference to the module being tested, 'platform' when we're testing WebHare's core (allows us to share code between module and core test as some scripts accept 'platform' as a module name)
+  TESTINGMODULEREF="platform"
 fi
-
-# Reference to the module being tested, 'platform' when we're testing WebHare's core (allows us to share code between module and core test as some scripts accept 'platform' as a module name)
-TESTINGMODULEREF="${TESTINGMODULENAME:-platform}"
 
 if [ "$COVERAGE" == "1" ]; then
   WEBHARE_DEBUG="cov,$WEBHARE_DEBUG"
@@ -356,7 +495,7 @@ if [ -n "$TESTSECRET_SECRETSURL" ]; then
   unset TESTSECRET_SECRETSURL
 fi
 
-if [ -n "$ISMODULETEST" ] && [ -z "$WEBHAREIMAGE" ]; then
+if [ -z "$ISPLATFORMTEST" ] && [ -z "$WEBHAREIMAGE" ]; then
   WEBHAREIMAGE=main
 fi
 
@@ -493,19 +632,19 @@ fi
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
 mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
 
-if [ -n "$ISMODULETEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
+if [ -z "$ISPLATFORMTEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
   TESTENV_KILLCONTAINER1=1
   TESTENV_KILLCONTAINER2=1
 fi
 
-if [ -z "$ISMODULETEST" ]; then # NOTE: we *also* know we're running 5.4 then, as platform CI doesn't use an external testmodule.sh
+if [ -n "$ISPLATFORMTEST" ]; then # NOTE: we *also* know we're running 5.4 then, as platform CI doesn't use an external testmodule.sh
   TESTINGMODULE="webhare_testsuite"
   TESTINGMODULEDIR="${PWD}/../../whtree/modules/webhare_testsuite"
 
   if [ -z "$TESTLIST" ]; then
     TESTLIST="all"
   fi
-else
+elif [ -n "$ISMODULETEST" ]; then
   TESTINGMODULEDIR="$TESTINGMODULE" # we look in the current directory first
 
   if [ ! -d "$TESTINGMODULEDIR" ]; then
@@ -533,23 +672,36 @@ if [ -n "$TESTFW_TWOHARES" ]; then
   echo "Container 2: $TESTENV_CONTAINER2"
 fi
 
-if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
+if [ -z "$ISPLATFORMTEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
   ALLOWSTARTUPERRORS=1
-elif [ -z "$ISMODULETEST" ]; then
+elif [ -n "$ISPLATFORMTEST" ]; then
   ALLOWSTARTUPERRORS=1 #it turns out startup error detection was broken for core webhare too (runwasm didn't return errors). disable the check until we've got clean logs
-fi
-
-if [ ! -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then
-  exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
 fi
 
 if [ -z "$TESTLIST" ]; then
   TESTLIST="$TESTINGMODULENAME"
 fi
 
-echo "$(date) Pulling dependency information for module $TESTINGMODULE"
+if [ -n "$ISJSPACKAGETEST" ]; then
+  DESTCOPYDIR="/testpackage/"
+  RunDocker exec "$TESTENV_CONTAINER1" mkdir "$DESTCOPYDIR"
+  tar "${HOSTTAROPTIONS[@]}" -C "${TESTINGMODULE}" -c . | RunDocker exec -i "$TESTENV_CONTAINER1" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
+  unblock_containers
+  wait_for_poststarts
+  RunDocker exec "$TESTENV_CONTAINER1" wh devkit:testjspackage "$DESTCOPYDIR"
+  finalize_tests # should exit with 0 or 1 depending on the test results
+
+  # shellcheck disable=SC2317  # Don't warn about unreachable commands in this file - it's here just in case until we have.. expect-shellcheck-error?
+  exit 255
+fi
+
 # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
 RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
+
+if ! [ -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then
+  exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
+fi
+echo "$(date) Pulling dependency information for module $TESTINGMODULE"
 MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
 ERRORCODE="$?"
 
@@ -662,10 +814,10 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
   # cp doesn't work for tmpfs - https://docs.docker.com/reference/cli/docker/container/cp/#corner-cases
   # RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
-  RunDocker exec -i "$CONTAINERID" mkdir /opt/whdata/installedmodules
+  RunDocker exec -i "$CONTAINERID" mkdir -p "$DESTCOPYDIR"
   tar "${HOSTTAROPTIONS[@]}" -C "${TEMPBUILDROOT}/docker-tests/modules/" -c . | RunDocker exec -i "$CONTAINERID" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
 
-  if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
+  if [ -n "$ISPLATFORMTEST" ] && [ -d "$BUILDDIR/build" ]; then
     RunDocker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
   fi
 
@@ -686,10 +838,7 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   fi
 done
 
-echo "$(date) Unblocking startup"
-for CONTAINERID in "${CONTAINERS[@]}"; do
-  RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
-done
+unblock_containers
 
 echo "$(date) Waiting for assetpack compilation"
 for CONTAINERID in "${CONTAINERS[@]}"; do
@@ -697,39 +846,7 @@ for CONTAINERID in "${CONTAINERS[@]}"; do
   RunDocker exec "$CONTAINERID" wh assetpack --quiet recompile --onlyfailed "*"  # Note 're'compile is a hidden but still available API in 5.7
 done
 
-echo "$(date) Wait for poststartdone container1"
-if ! RunDocker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
-  testfail "Wait for poststartdone container1 failed"
-  FATALERROR=1
-fi
-
-
-echo "$(date) container1 poststartdone, look for errors"
-if ! RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-  if [ -z "$ALLOWSTARTUPERRORS" ]; then
-    testfail "Error logs not clean!"
-  else
-    echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-  fi
-fi
-
-if [ -n "$TESTFW_TWOHARES" ]; then
-  echo "$(date) Wait for poststartdone container2"
-  if ! RunDocker exec "$TESTENV_CONTAINER2" wh waitfor --timeout 600 poststartdone ; then
-    testfail "Wait for poststartdone container2 failed"
-    FATALERROR=1
-  fi
-
-  echo "$(date) container2 poststartdone, look for errors"
-  if ! RunDocker exec "$TESTENV_CONTAINER2" wh run mod::system/scripts/debug/checknoerrors.whscr ; then
-    if [ -z "$ALLOWSTARTUPERRORS" ]; then
-      testfail "Error logs not clean!"
-    else
-      echo "$(c red)****** WARNING: Error logs not clean (declare <validation options=\"nostartuperrors\" /> to make this fatal) *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-    fi
-  fi
-fi
-
+wait_for_poststarts
 
 if [ -z "$FATALERROR" ]; then
   if [ -z "$NOCHECKMODULE" ] ; then
@@ -799,7 +916,7 @@ if [ -z "$FATALERROR" ]; then
 
   else
     # When module testing, only run runtest if there actually appear to be any tests
-    if [ -z "$ISMODULETEST" -o -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
+    if [ -n "$ISPLATFORMTEST" ] && [ -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
       if ! RunDocker exec --env TESTFW_OUTDIR=/output "$TESTENV_CONTAINER1" wh runtest --outputdir /output --autotests $TERSE "${RUNTESTARGS[@]}" $TESTLIST; then
         testfail "One or more tests failed"
       fi
@@ -807,80 +924,11 @@ if [ -z "$FATALERROR" ]; then
   fi
 fi
 
-if [ -z "$ISMODULETEST" ] && [ -z "$TESTFW_SKIP_FINALIZE_CI" ]; then
+if [ -n "$ISPLATFORMTEST" ] && [ -z "$TESTFW_SKIP_FINALIZE_CI" ]; then
   RunDocker cp "${WEBHARE_CHECKEDOUT_TO}/addons/docker-build/finalize-webhare-ci.sh" "$TESTENV_CONTAINER1:/"
   if ! RunDocker exec "$TESTENV_CONTAINER1" /finalize-webhare-ci.sh ; then
     testfail "finalize-webhare-ci.sh reported errors"
   fi
 fi
 
-if [ "$ENTERSHELL" == "1" ]; then
-  mark "Entering shell in container $TESTENV_CONTAINER1"
-  [ "$TESTFAIL" == "1" ] && echo "***NOTE*** THERE WERE ERRORS!"
-  RunDocker exec -ti "$TESTENV_CONTAINER1" /bin/bash
-fi
-
-mark "Done with tests - stopping containers"
-
-# Stop the containers nicely so we have full logs
-RunDocker exec "$TESTENV_CONTAINER1" sv down webhare
-[ -n "$TESTENV_CONTAINER2" ] && RunDocker exec "$TESTENV_CONTAINER2" sv down webhare
-
-if [ -z "$ARTIFACTS" ]; then
-  if [ -n "$CI_PROJECT_DIR" ]; then
-    ARTIFACTS="$CI_PROJECT_DIR/artifacts"
-  else
-    mkdir -p /tmp/whtest/
-    ARTIFACTS="$(mktemp -d /tmp/whtest/test.XXXXXXXXX)"
-    echo "Saving artifacts to $ARTIFACTS"
-  fi
-fi
-
-# Can't use docker cp due to the volume at /opt/whdata/
-mkdir -p $ARTIFACTS/whdata
-RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
-RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
-# For consistency we should probably get everyone inside the container to dump any artifacts in $TESTFW_OUTPUT
-RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
-if is_atleast_version 5.7.0 ; then
-  RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo $ARTIFACTS/buildinfo
-else
-  RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
-fi
-
-if [ -n "$TESTFW_EXPORTMODULE" ]; then
-  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
-fi
-
-if [ -n "$TESTFW_TWOHARES" ]; then
-  mkdir -p $ARTIFACTS/whdata2
-  RunDocker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
-  RunDocker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
-fi
-
-if [ -n "$COVERAGE" ]; then
-  RunDocker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
-  RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
-  echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
-fi
-
-if [ -n "$WEBHARE_PROFILE" ]; then
-  RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
-  echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
-fi
-
-if [ "`RunDocker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
-  echo "Container1 exited early!"
-  RunDocker logs $TESTENV_CONTAINER1
-fi
-if [ -n "$TESTFW_TWOHARES" -a "`RunDocker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
-  echo "Container2 exited early!"
-  RunDocker logs $TESTENV_CONTAINER2
-fi
-
-if [ "$TESTFAIL" = "0" ]; then
-  echo "$(c green).... SUCCESS! no errors recorded$(c reset)"
-else
-  echo "$(c red).... tests have failed, exiting with errorcode $TESTFAIL$(c reset)"
-fi
-exit $TESTFAIL
+finalize_tests
