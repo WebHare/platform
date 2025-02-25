@@ -12,6 +12,7 @@ PUBLIC OBJECTTYPE ExternalPaymentProvider EXTEND WRDPaymentProviderBase
   : WRDPaymentProviderBase("wrd:external","external", settings)
   {
     this->expiredays := settings.expiredays;
+    this->needspaymentref := TRUE;
   }
 
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
