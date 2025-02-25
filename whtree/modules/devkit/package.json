@@ -4,9 +4,7 @@
   "license": "MIT",
   "dependencies": {
     "simple-git": "^3.27.0",
-    "typedoc": "^0.26.11",
-    "typescript": "file:../../node_modules/typescript",
-    "yaml": "file:../../node_modules/yaml"
+    "typedoc": "^0.26.11"
   },
   "overrides": {
     "typedoc": {

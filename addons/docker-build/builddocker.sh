@@ -67,12 +67,6 @@ else
   SUDO=
 fi
 
-TARCREATEOPTS=()
-# select the right tar implementation, we need gnu-tar
-if [ "$(uname)" == "Darwin" ]; then
-  TARCREATEOPTS+=(--no-xattrs)
-fi
-
 DOCKERPULLARG=--pull
 
 if [ "$#" != "0" ]; then

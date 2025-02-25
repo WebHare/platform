@@ -955,11 +955,12 @@ postuninstall:
 postinstall: success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js
 
 success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platform/generated/buildinfo &: \
+			$(PREFIX)/tsconfig.yml \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
-			$(PREFIX)/tsconfig.yml \
-			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json \
+			$(PREFIX)/modules/devkit/package.json \
+			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/etc/platform.conf \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
 	$(PREFIX)/bin/wh finalize-webhare
