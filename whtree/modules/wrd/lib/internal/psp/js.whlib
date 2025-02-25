@@ -117,15 +117,19 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
 
     STRING returnurl := GetInternalReturnURL(paymenttok);
     STRING pushurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ]);
-
-    RECORD paymentresult:= CallJS("@mod-wrd/js/internal/paymentbridge.ts#runPaymentRequest",
-        this->methodsettings.driver,
-        this->methodsettings.configuration,
+    RECORD transdata :=
         CELL[ ...this->newtransdata
             , paymentuuid := paymenttok
             , returnurl
             , pushurl
-            ]);
+            ];
+    IF(transdata.orderid = "")
+      THROW NEW Exception(`Transactions must have an orderid`); //we should have always required this, using the switch to JS PSPs to enforce it
+
+    RECORD paymentresult:= CallJS("@mod-wrd/js/internal/paymentbridge.ts#runPaymentRequest",
+        this->methodsettings.driver,
+        this->methodsettings.configuration,
+        transdata);
 
     IF(paymentresult.paymentmetadata != "")
     {
