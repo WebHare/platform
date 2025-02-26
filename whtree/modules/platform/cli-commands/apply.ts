@@ -20,7 +20,7 @@ run({
 
     //Too bad this requires an 'as' even if you 'as const' subsystems. https://stackoverflow.com/questions/52856496/typescript-object-keys-return-string
     const validsubsystems = Object.keys(configurableSubsystems) as ConfigurableSubsystem[];
-    const badsubsystem = args.subsystems.find(_ => !validsubsystems.includes(_.split('.')[0] as ConfigurableSubsystem));
+    const badsubsystem = args.subsystems.find(_ => _ !== 'all' && !validsubsystems.includes(_.split('.')[0] as ConfigurableSubsystem));
     if (badsubsystem)
       throw new CLISyntaxError(`Invalid subsystem '${badsubsystem}' specified. Valid subsystems are: ${validsubsystems.join(", ")}`);
 
