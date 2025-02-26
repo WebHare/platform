@@ -5,11 +5,11 @@ wh runtest checkmodules
 
 To simply verify the packges
 
-wh run mod::platform/scripts/platformdev/package_jssdk.ts --verbose
+wh run mod::platform/scripts/jspackages/publish_jssdk.ts --verbose
 
 To publish alpha versions to NPM:
 
-wh run mod::platform/scripts/platformdev/package_jssdk.ts --publish-alpha --verbose
+wh run mod::platform/scripts/jspackages/publish_jssdk.ts --publish-alpha --verbose
 */
 
 import { run } from "@webhare/cli";
@@ -19,6 +19,7 @@ import { cp, mkdir, rm, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { pick } from '@webhare/std';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
+import type { PackageJson } from "./jspackages";
 
 
 run({
@@ -38,7 +39,7 @@ run({
 
     const axioms = await readAxioms();
 
-    const workdir = join(backendConfig.dataroot, "tmp", "package_jssdk");
+    const workdir = join(backendConfig.dataroot, "tmp", "publish_jssdk");
     if (verbose)
       console.log(`Work dir: ${workdir}`);
     const [majorText, minorText] = backendConfig.buildinfo.version.split(".");
@@ -101,14 +102,7 @@ run({
     //let's patch the packages for distribution outside the WebHare tree
     for (const pkgname of axioms.publishPackages) {
       const pkgroot = join(jssdkPath, pkgname);
-      const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8")) as {
-        version?: string;
-        main?: string;
-        private?: boolean;
-        files?: string[];
-        keywords?: string[];
-        dependencies?: Record<string, string>;
-      };
+      const packagejson = JSON.parse(await readFile(join(pkgroot, "package.json"), "utf8")) as PackageJson;
       packagejson.private = false;
       //for eg @webhare/eslint-config we also need to include the manually written .d.ts file
       packagejson.files = [...(packagejson.files || []), "dist/", "bin/"];

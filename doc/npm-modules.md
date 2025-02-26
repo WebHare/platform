@@ -10,9 +10,9 @@ A subset of these packages can be published directly to npm (see `publishPackage
 
 ```bash
 # test first
-wh run mod::platform/scripts/platformdev/validate_jssdk.ts
-wh run mod::platform/scripts/platformdev/package_jssdk.ts -v
+wh run mod::platform/scripts/jspackages/validate_jssdk.ts
+wh run mod::platform/scripts/jspackages/publish_jsddk.ts -v
 
 # publish alpha version
-wh run mod::platform/scripts/platformdev/package_jssdk.ts --publish-alpha
+wh run mod::platform/scripts/jspackages/publish_jsddk.ts --publish-alpha
 ```

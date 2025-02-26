@@ -1,10 +1,10 @@
-/* The platform JSSDK packages are either published as a group together to npmjs (using package_jssdk)
+/* The platform JSSDK packages are either published as a group together to npmjs (using publish_jssdk)
    or don't make sense outside WebHare at all
 
    Note that not all @webhare/ packages on npmjs are part of the platform JSSDK
 
-   wh run mod::platform/scripts/platformdev/validate_jssdk.ts
-   wh run mod::platform/scripts/platformdev/validate_jssdk.ts --fix
+   wh run mod::platform/scripts/jspackages/validate_jssdk.ts
+   wh run mod::platform/scripts/jspackages/validate_jssdk.ts --fix
 */
 
 import { run } from "@webhare/cli";
@@ -97,7 +97,7 @@ run({
 
     if (anyIssues && !opts.fix) { //issues!
       process.exitCode = 1;
-      console.log('Run `wh run mod::platform/scripts/platformdev/validate_jssdk.ts --fix` to attempt automatic fixes');
+      console.log('Run `wh run mod::platform/scripts/jspackages/validate_jssdk.ts --fix` to attempt automatic fixes');
     }
   }
 });

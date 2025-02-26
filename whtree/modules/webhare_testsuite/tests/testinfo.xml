@@ -19,9 +19,9 @@
 
   <group name="checkmodules">
     <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
-    <test name="validatejssdk" script="mod::platform/scripts/platformdev/validate_jssdk.ts" />
-    <!-- packagejssdk does some more consistency checks that can only happen during publication -->
-    <test name="packagejssdk" script="mod::platform/scripts/platformdev/package_jssdk.ts">
+    <test name="validatejssdk" script="mod::platform/scripts/jspackages/validate_jssdk.ts" />
+    <!-- publish_jssdk does some more consistency checks that can only happen during packaging-->
+    <test name="testjssdk" script="mod::platform/scripts/jspackages/publish_jssdk.ts">
       <arg value="--verbose" />
     </test>
     <!-- we need to checkmodule the webhare_testsuite to help find API breakage especially for typescript.
