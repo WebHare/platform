@@ -5,8 +5,7 @@ import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { isValidName } from "@webhare/whfs";
 import { WittyEncodingStyle, WittyTemplate, type WittyData } from "@webhare/witty";
 import { mkdirSync, readFileSync, statSync } from "node:fs";
-// eslint-disable-next-line import/no-named-as-default
-import simpleGit from "simple-git";
+import { simpleGit } from "simple-git";
 
 async function instantiateTemplateFolder(sourcefolder: string, destfolder: string, data: WittyData) {
   for (const path of await listDirectory(sourcefolder)) {
