@@ -470,7 +470,7 @@ MACRO TestPaymentOverview()
     dumpvalue(enrichedpayments,'boxed');
 
   TestEq(Length(payments), Length(enrichedpayments));
-  TestEq("", enrichedpayments[1].paymentref); //this being an externally handled payment, no ref!
+  TestEq(22, Length(enrichedpayments[1].paymentref)); //for consistency everyone has a paymentref
   TestEq("pending", enrichedpayments[1].status);
   TestEq(10.49m, enrichedpayments[1].amountpayable);
   TestEq("Pay by invoice", enrichedpayments[1].paymentmethodtitle);
