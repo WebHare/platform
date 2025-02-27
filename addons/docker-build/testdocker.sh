@@ -916,7 +916,7 @@ if [ -z "$FATALERROR" ]; then
 
   else
     # When module testing, only run runtest if there actually appear to be any tests
-    if [ -n "$ISPLATFORMTEST" ] && [ -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
+    if [ -n "$ISPLATFORMTEST" ] || [ -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
       if ! RunDocker exec --env TESTFW_OUTDIR=/output "$TESTENV_CONTAINER1" wh runtest --outputdir /output --autotests $TERSE "${RUNTESTARGS[@]}" $TESTLIST; then
         testfail "One or more tests failed"
       fi
