@@ -673,7 +673,7 @@ HSVM_PUBLIC void*  HSVM_ObjectContext(struct HSVM *vm, HSVM_VariableId object_id
     @param name_id The name of the member to return the contents of
     @param storeto The contents will be stored in this variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return Returns the storeto variable, or 0 if the function failed (member didn't exists, memeber was a method, getter function failed) */
+    @return Returns the storeto variable, or 0 if the function failed (member didn't exist, member was a method, getter function failed) */
 HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberCopy(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId storeto, int skip_access);
 
 /** Returns the variable that contains the value of a simple member variable. Fails for properties!(BETA, may change)
@@ -682,16 +682,16 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberCopy(struct HSVM *vm, HSVM_Variabl
     @param name_id The name of the member to return the contents of
     @param storeto The contents will be stored in this variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return Returns the variable, or 0 if the function failed (member didn't exists, memeber wasn't a simple member) */
+    @return Returns the variable, or 0 if the function failed (member didn't exist, member wasn't a simple member) */
 HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberRef(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, int skip_access);
 
-/** Sets the content of an object member (for properties, calls the setter function) (BETA, may change)
+/** Sets the content of an object member (for properties, calls the setter function). Can run code (and is async in WASM mode). (BETA, may change)
     @param vm Virtual machine
     @param object_id Id of the object
     @param name_id The name of the member to return the contents of
     @param value The new value of the variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return 1 on success, or 0 if the function failed (member didn't exists, memeber was a method, setter function failed) */
+    @return 1 on success, or 0 if the function failed (member didn't exist, member was a method, setter function failed) */
  HSVM_PUBLIC int HSVM_ObjectMemberSet(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId storeto, int skip_access);
 
 /** Returns the type of an object member (BETA, may change)
@@ -704,7 +704,7 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberRef(struct HSVM *vm, HSVM_Variable
 /** Returns whether a weak object exists
     @param vm Virtual machine
     @param id Id of the object
-    @return 1 if the opject exists */
+    @return 1 if the object exists */
  HSVM_PUBLIC int HSVM_WeakObjectExists (struct HSVM *vm, HSVM_VariableId id);
 
 /*****************************************************************************
