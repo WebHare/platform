@@ -19,8 +19,7 @@ import { cp, mkdir, rm, readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { pick } from '@webhare/std';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
-import type { PackageJson } from "./jspackages";
-
+import type { PackageJson } from "../../js/devsupport/jspackages";
 
 run({
   description: "Validate/lint the WebHaer JSSDK packages",
