@@ -6,11 +6,6 @@ LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/callbacks.whlib";
 
-//This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
-RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-RECORD FUNCTION __EM_SYNCSYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-MACRO __EM_SYSCALL_RESOLVE(INTEGER requestid, INTEGER mode, VARIANT param) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-
 RECORD ARRAY pendingpromises;
 
 ///We can't base off system.whlibs Exception (At least not without a whole lot of refactoring around ValidateOptions)

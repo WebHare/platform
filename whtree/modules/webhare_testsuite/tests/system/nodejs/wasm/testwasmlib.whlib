@@ -88,3 +88,43 @@ PUBLIC OBJECTTYPE TestObj
     }
   }
 >;
+
+PUBLIC OBJECTTYPE TestCallObj <
+  PUBLIC FUNCTION PTR member_func;
+  PUBLIC MACRO PTR member_macr;
+  PUBLIC INTEGER member_int;
+
+  PUBLIC PROPERTY property_int(member_int, member_int);
+  PUBLIC PROPERTY property_macr(member_macr, member_macr);
+  PUBLIC PROPERTY property_func(member_func, member_func);
+  PUBLIC PROPERTY ^(gethat, -);
+
+  MACRO NEW() {
+    this->member_func := PTR this->method_func;
+    this->member_macr := PTR this->method_macr;
+  }
+
+  PUBLIC INTEGER FUNCTION method_func(INTEGER x) {
+    IF (x = 2)
+      THROW NEW Exception("testthrow");
+    IF (x = 3)
+      ABORT("testabort");
+    RETURN x;
+  }
+  PUBLIC MACRO method_macr(INTEGER x) {
+    IF (x = 2)
+      THROW NEW Exception("throw");
+    IF (x = 3)
+      ABORT("testabort");
+  }
+
+  VARIANT FUNCTION GetHat(STRING name) {
+    IF (name = "^HAT_FUNC")
+      RETURN this->member_func;
+    IF (name = "^HAT_MACR")
+      RETURN this->member_macr;
+    IF (name = "^HAT_INT")
+      RETURN this->member_int;
+    ABORT(`Unknown property '${name}'`);
+  }
+>;

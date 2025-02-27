@@ -192,10 +192,38 @@ async function testLingeringContext() {
   test.eq([17, 42, 999], await lingering.run(async () => await loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999])));
 }
 
+async function testMethodCalls() {
+  await using vm = await createVM();
+
+  await test.throws(/We're async throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowItAsync());
+
+  const testobj = await vm.makeObject("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#TestCallObj");
+  test.eq(1, await testobj.$invoke("method_func", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("method_func", [2]));
+  test.eq(undefined, await testobj.$invoke("method_macr", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("method_macr", [2]));
+
+  test.eq(1, await testobj.$invoke("member_func", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("member_func", [2]));
+  test.eq(undefined, await testobj.$invoke("member_macr", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("member_macr", [2]));
+
+  test.eq(1, await testobj.$invoke("property_func", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("property_func", [2]));
+  test.eq(undefined, await testobj.$invoke("property_macr", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("property_macr", [2]));
+
+  test.eq(1, await testobj.$invoke("^hat_func", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("^hat_func", [2]));
+  test.eq(undefined, await testobj.$invoke("^hat_macr", [1]));
+  await test.throws(/throw/, async () => await testobj.$invoke("^hat_macr", [2]));
+}
+
 test.runTests([
   testTypeAPIs,
   testVarMemory,
   testCalls,
+  testMethodCalls,
   testMutex,
   testLingeringContext
 ]);

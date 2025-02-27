@@ -303,12 +303,14 @@ export class HSVMVar {
       else
         throw new Error(`No such member or property '${name}' on HareScript object`);
 
-    const columnid = this.vm.getColumnId(name);
-    const temp = this.vm.wasmmodule._HSVM_AllocateVariable(this.vm.hsvm);
-    if (!await this.vm.wasmmodule._HSVM_ObjectMemberCopy(this.vm.hsvm, this.id, columnid, temp, /*skipaccess=*/1))
-      throw new Error(`Failed to copy member ${name} from object`);
+    return await this.vm.executeWithRunPermission(async () => {
+      const columnid = this.vm.getColumnId(name);
+      const temp = this.vm.wasmmodule._HSVM_AllocateVariable(this.vm.hsvm);
+      if (!await this.vm.wasmmodule._HSVM_ObjectMemberCopy(this.vm.hsvm, this.id, columnid, temp, /*skipaccess=*/1))
+        throw new Error(`Failed to copy member ${name} from object`);
 
-    return new HSVMHeapVar(this.vm, temp);
+      return new HSVMHeapVar(this.vm, temp);
+    });
   }
 
   async setMember(name: string, value: unknown): Promise<void> {
@@ -319,8 +321,10 @@ export class HSVMVar {
     using temp = this.vm.allocateVariable();
     temp.setJSValue(value);
 
-    if (await this.vm.wasmmodule._HSVM_ObjectMemberSet(this.vm.hsvm, this.id, columnid, temp.id, /*skipaccess=*/1) !== 1)
-      this.vm.throwDetectedVMError();
+    await this.vm.executeWithRunPermission(async () => {
+      if (await this.vm.wasmmodule._HSVM_ObjectMemberSet(this.vm.hsvm, this.id, columnid, temp.id, /*skipaccess=*/1) !== 1)
+        this.vm.throwDetectedVMError();
+    });
   }
 
   insertMember(name: string, value: unknown, options?: { isPrivate: boolean }): void {

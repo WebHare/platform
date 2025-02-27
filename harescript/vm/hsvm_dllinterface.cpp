@@ -1737,12 +1737,15 @@ int HSVM_FunctionPtrExists(HSVM *vm, HSVM_VariableId fptr)
         return false;
 }
 
-void HSVM_OpenFunctionCall(HSVM *vm, unsigned param_count)
+int HSVM_OpenFunctionCall(HSVM *vm, unsigned param_count)
 {
         START_CATCH_VMEXCEPTIONS
+        auto retval = STACKMACHINE.StackPointer();
         STACKMACHINE.PushVariables(param_count + 1);
         STACKMACHINE.SetInteger(STACKMACHINE.StackPointer() - 1, param_count);
+        return retval;
         END_CATCH_VMEXCEPTIONS
+        return 0;
 }
 
 void HSVM_CloseFunctionCall(HSVM *vm)
@@ -1750,6 +1753,17 @@ void HSVM_CloseFunctionCall(HSVM *vm)
         START_CATCH_VMEXCEPTIONS
         // Remove result value
         STACKMACHINE.PopVariablesN(VM.is_unwinding ? 0 : 1);
+        END_CATCH_VMEXCEPTIONS
+}
+
+HSVM_PUBLIC void HSVM_CloseFunctionCall2(struct HSVM *vm, int orgstackpointer)
+{
+        START_CATCH_VMEXCEPTIONS
+        auto toremove = static_cast<int>(STACKMACHINE.StackPointer()) - orgstackpointer;
+        if (toremove < 0)
+            ThrowInternalError("HSVM_CloseFunctionCall2: orgstackpointer is higher than current stackpointer");
+        // Remove excess variables
+        STACKMACHINE.PopVariablesN(toremove);
         END_CATCH_VMEXCEPTIONS
 }
 
@@ -1840,7 +1854,7 @@ HSVM_VariableId HSVM_CallFunctionPtrInternal(HSVM *vm, HSVM_VariableId fptr, int
            stackm.PopDeepVariables(param_count, 2);
 
         // Call function pointer
-        VM.PrepareCallFunctionPtr(false, allow_macro);
+        VM.PrepareCallFunctionPtr(false, allow_macro, true);
 
         if (TestMustAbort(vm))
             return 0;
@@ -1892,7 +1906,9 @@ HSVM_VariableId HSVM_CallObjectMethod(struct HSVM *vm, HSVM_VariableId object_id
             return 0;
 
         VarId last = STACKMACHINE.StackPointer() - 1;
-        unsigned param_count = STACKMACHINE.GetInteger(last);
+        signed param_count = STACKMACHINE.GetInteger(last);
+        if (param_count < 0)
+            param_count = 0;
         ++param_count;
 
         STACKMACHINE.CopyFrom(last, object_id);

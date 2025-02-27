@@ -1088,6 +1088,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
     RECORD ARRAY retval;
     WHILE (TRUE)
     {
+      BOOLEAN have_callback := __INTERNAL_RunAsyncJSCode();
       DATETIME event_timeout := __INTERNAL_GetEventCallBackTimeout();
 
       DATETIME timeout := until < event_timeout ? until : event_timeout;
@@ -1098,7 +1099,6 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
       INTEGER ARRAY waitwritehandles := __INTERNAL_GetEventCallBackWriteHandles();
       RECORD rec := __HS_WAITFORMULTIPLEUNTIL(readhandles CONCAT waithandles, writehandles CONCAT waitwritehandles, timeout);
 
-      BOOLEAN have_callback;
 
       IF (LENGTH(rec.read) != 0)
       {

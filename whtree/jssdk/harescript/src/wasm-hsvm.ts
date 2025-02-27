@@ -17,7 +17,9 @@ import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/brid
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
 import { decodeTransferredIPCEndPoint, encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
-import { mapHareScriptPath, HSVMSymbol } from "./wasm-support";
+import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { HSVMRunContext, HSVMRunPermissionSystem } from "./runcontext";
 
 export type { HSVM_VariableId, HSVM_VariableType }; //prevent others from reaching into harescript-interface
 
@@ -147,7 +149,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
   mutexes: Array<Mutex | null> = [];
-  currentgroup: string;
+  currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
   pipeWaiters = new Map<Ptr, PromiseWithResolvers<number> & { timer?: NodeJS.Timeout; cancel: () => void }>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
@@ -158,6 +160,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
   private gotErrorCallbackId = 0;  //id of error callback provided to the C++ code
   private onErrors: undefined | ((errors: Buffer) => void);
   __unrefMainTimer: boolean;
+  mainTimer?: NodeJS.Timer;
+  keepAliveLocks = new Set<string>();
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
   contexts = new Map<symbol, { close?: () => void }>;
   inSyncSyscall = false;
@@ -165,6 +169,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
   exitCode?: number;
   readonly importedLibs = new JSLibraryLoader;
   readonly proxies = new Map<string, HSVMMarshallableOpaqueObject>(); //TODO this should go in to the VM object
+  permissionSystem = new HSVMRunPermissionSystem(this);
+  rootRunPermission = this.permissionSystem.allocRootContext();
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -185,6 +191,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     retvalStore: HSVMHeapVar | undefined;
     sent: boolean;
   }>;
+  runContextStore = new AsyncLocalStorage<HSVMRunContext>();
 
   constructor(module: WASMModule, startupoptions: StartupOptions) {
     this._wasmmodule = module;
@@ -197,7 +204,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = startupoptions?.consoleArguments || [];
-    this.currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
     this.integrateEvents();
     this.onScriptDone = startupoptions.onScriptDone || null;
 
@@ -205,7 +211,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.captureErrors(this.writeToStderr.bind(this));
 
     this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
-
   }
 
   captureOutput(onOutput: (output: Buffer) => void) {
@@ -242,13 +247,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
       const throwvarid: HSVM_VariableId = this._wasmmodule._HSVM_GetThrowVar(this.hsvm);
       if (throwvarid) {
         const throwvar = new HSVMVar(this, throwvarid);
-        const whatcolumn = this.getColumnId("WHAT");
-
-        if (throwvar.objectExists() && this._wasmmodule._HSVM_ObjectMemberExists(this.hsvm, throwvarid, whatcolumn)) {
-          const what = String(this.quickParseVariable(this._wasmmodule._HSVM_ObjectMemberRef(this.hsvm, throwvarid, whatcolumn, 1))) || "HareScript exception";
-          this._wasmmodule._HSVM_CleanupException(this.hsvm);
-          throw new Error(what);
-        }
+        const err = parseHSException(throwvar);
+        this._wasmmodule._HSVM_CleanupException(this.hsvm);
+        throw err;
       }
       throw new Error(`HareScript VM is unwinding, but no exception was found`);
     }
@@ -256,9 +257,40 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.throwVMErrors();
   }
 
+  assertRunPermission() {
+    if (!this.runContextStore.getStore()?.havePermission)
+      throw new Error("No run permission available");
+  }
+
+  async executeWithRunPermission<T>(fn: () => T): Promise<Awaited<T>> {
+    const ctxt = this.runContextStore.getStore() ?? this.rootRunPermission;
+    const childCtxt = new HSVMRunContext(this.permissionSystem, ctxt);
+    return await this.runContextStore.run(childCtxt, async () => {
+      using useCtxt = childCtxt; void useCtxt;
+      using lock = await childCtxt.ensureRunPermission(); void lock;
+      return await fn();
+    });
+  }
+
+  breakPipeWaiterOnRequest() {
+    const ctxt = this.runContextStore.getStore();
+    if (!ctxt)
+      throw new Error("No run context available");
+    return ctxt.breakPipeWaiterOnRequest();
+  }
+
+  anyPendingPermissionRequests() {
+    return this.permissionSystem.waitingForPermission.length !== 0;
+  }
+
   currentRun?: Promise<void>;
   run(script: string): Promise<void> {
-    return this.currentRun = this.runInternal(script);
+    if (this.runContextStore.getStore())
+      return this.currentRun = this.executeWithRunPermission(() => this.runInternal(script));
+    else
+      return this.runContextStore.run(this.rootRunPermission, () => {
+        return this.currentRun = this.runInternal(script);
+      });
   }
 
   private async runInternal(script: string): Promise<void> {
@@ -276,6 +308,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     try {
       if (debugFlags.vmlifecycle)
         console.log(`[${this.currentgroup}] Execute script`);
+      // Run the script in a new runContext
       await this.executeScript();
     } catch (e) {
       exception = e;
@@ -348,12 +381,26 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (!waiter)
       throw new Error(`Could not find pipewaiter`);
 
+
+    // Ensure a query for run permission breaks the timer
+    const ctxt = this.runContextStore.getStore();
+    if (!ctxt)
+      throw new Error(`No run context available`);
+    using callbackRegistration = ctxt.shortTimerOnRequest ?
+      ctxt.onPermissionRequest(() => waiter.resolve(0)) :
+      null;
+    void callbackRegistration;
+
     this.abortController.signal.addEventListener("abort", waiter.cancel);
     if (waiter.timer)
       clearTimeout(waiter.timer);
-    waiter.timer = rootstorage.run(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); }, wait_ms));
-    if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
-      waiter.timer.unref();
+    waiter.timer = rootstorage.run(() => setTimeout(() => { waiter.timer = undefined; waiter.resolve(0); this.mainTimer = undefined; }, wait_ms));
+    const isMainTimer = !this.permissionSystem.anyRequestsInFlight();
+    if (isMainTimer) {
+      this.mainTimer = waiter.timer;
+      if (this.__unrefMainTimer && !this.keepAliveLocks.size)
+        waiter.timer.unref();
+    }
     const res = await waiter.promise;
     this.abortController.signal.removeEventListener("abort", waiter.cancel);
     return res;
@@ -522,6 +569,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   async executeScript(): Promise<void> {
+    this.assertRunPermission();
     const executeresult = await this.wasmmodule._HSVM_ExecuteScript(this.hsvm, 1, 0);
     if (executeresult === 1)
       return;
@@ -563,18 +611,81 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
   }
 
-  openFunctionCall(paramcount: number): HSVMVar[] {
-    const params: HSVMVar[] = [];
-    this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, paramcount);
-    for (let i = 0; i < paramcount; ++i)
-      params.push(new HSVMVar(this, this.wasmmodule._HSVM_CallParam(this.hsvm, i)));
-    return params;
-  }
-
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
   async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
+    if (this.inSyncSyscall)
+      throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
+
+    const execResult = await this.executeWithRunPermission(async () => {
+      let retvalid: HSVM_VariableId | undefined;
+      let wasfunction = false;
+      let stackptr = 0;
+      let colid: HSVM_ColumnId | undefined;
+
+      if (objectid) {
+        colid = this.getColumnId(functionref);
+        stackptr = this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
+
+        for (const [idx, param] of params.entries())
+          this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
+
+        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, objectid, colid!, 0, 1); //allow macro=1
+        //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
+        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
+      } else {
+        // Call all potentially throwing functions before opening the function call
+        const parts = functionref.split("#");
+        if (!objectid && parts.length !== 2)
+          throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
+
+        using callfuncptr: HSVMHeapVar = this.allocateVariable();
+        await this.makeFunctionPtr(callfuncptr.id, parts[0], parts[1]);
+
+        const returntypecolumn = this.getColumnId("RETURNTYPE");
+        const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
+        const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
+        wasfunction = ![0, 2].includes(returntype);
+
+        stackptr = this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
+
+        for (const [idx, param] of params.entries())
+          this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
+
+        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, 1); //allow macro=1
+      }
+
+      // Handle the return value
+      let retval: unknown = false;
+      if (retvalid) {
+        const returnVariable = new HSVMVar(this, retvalid);
+        if (retvalStore) {
+          if (wasfunction)
+            retvalStore.copyFrom(returnVariable);
+          else
+            retvalStore.setBoolean(false);
+        }
+        retval = retvalStore ? wasfunction : wasfunction ? returnVariable.getJSValue() : undefined;
+      }
+
+      // Close the function call, cleanup the return value
+      this.wasmmodule._HSVM_CloseFunctionCall2(this.hsvm, stackptr);
+
+      /* Throw throwDetectedVMError after closing the function call, that function needs to now whether the VM is
+      unwinding. throwDetectedVMError resets that state */
+      if (!retvalid) {
+        this.throwDetectedVMError();
+      }
+
+      /* Need to wrap the return value because it might be a HS promise. We need to release
+         run permission so the code resolveing the promise can run */
+      return { value: retval };
+    });
+
+    return execResult.value;
+
+    /*/
     if (this.inSyncSyscall)
       throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
 
@@ -587,6 +698,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
     this.injectEvent("system:wasm-promises", null);
     return defer.promise;
+    //*/
   }
 
   parseMessageList(): MessageList {
@@ -692,6 +804,20 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
     return allocateHSVM(options);
+  }
+
+  setKeepaliveLock(subsystem: string, keepalive: boolean) {
+    if (keepalive)
+      this.keepAliveLocks.add(subsystem);
+    else
+      this.keepAliveLocks.delete(subsystem);
+
+    if (this.mainTimer && this.__unrefMainTimer && this.mainTimer.hasRef() !== Boolean(this.keepAliveLocks.size)) {
+      if (this.keepAliveLocks.size)
+        this.mainTimer.ref();
+      else
+        this.mainTimer.unref();
+    }
   }
 }
 

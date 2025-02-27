@@ -980,7 +980,7 @@ std::string VirtualMachine::GenerateFunctionPTRSignature(HSVM_VariableId functio
 
 
 
-void VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bool allow_macro)
+void VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bool allow_macro, bool initmacroretval)
 {
         VarId functionptr = stackmachine.StackPointer() - 1;
         VarId args = stackmachine.StackPointer() - 2;
@@ -1019,7 +1019,9 @@ void VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bool allow_mac
                 if (!allow_macro)
                     throw VMRuntimeError(Error::MacroDoesNotReturnValue);
 
-                stackmachine.SetInteger(stackmachine.PushVariables(1), -1); //translate no-return values to an integer -1 return (FIXME?!!)
+                VarId retval = stackmachine.PushVariables(1);
+                if (initmacroretval)
+                    stackmachine.SetInteger(retval, -1); //translate no-return values to an integer -1 return (FIXME?!!)
         }
 
         VarId params = stackmachine.RecordCellGetByName(functionptr, cn_cache.col_parameters);
@@ -1865,7 +1867,7 @@ void VirtualMachine::AbortForUncaughtException()
 
 void VirtualMachine::DoInvokeFptr(bool allow_macro)
 {
-        PrepareCallFunctionPtr(is_suspendable, allow_macro);
+        PrepareCallFunctionPtr(is_suspendable, allow_macro, true);
 }
 
 void VirtualMachine::DoInitFunctionPtr()
@@ -2937,15 +2939,108 @@ bool VirtualMachine::GetObjectInternalProtected(VarId obj)
         return type->objdefs.back()->def->flags & ObjectTypeFlags::InternalProtected;
 }
 
-void VirtualMachine::PrepareObjMethodCall(ColumnNameId nameid, unsigned parameters, bool this_access, bool allow_macro)
+void VirtualMachine::PrepareObjMethodCall(ColumnNameId nameid, int32_t paramcount, bool this_access, bool allow_macro)
 {
         VarId obj = stackmachine.StackPointer() - 1;
 
-        LinkedLibrary::ObjectVTableEntry const *entry = ResolveVTableEntry(obj, nameid);
-        if (!entry || entry->type != ObjectCellType::Method)
-            ObjectThrowMemberNotFound(obj, nameid);
+        // TODO: see if DoObjMethodCall and this function can be merged
 
-        PrepareObjMethodCallByEntry(entry, parameters, this_access, allow_macro);
+        LinkedLibrary::ObjectVTableEntry const *entry = ResolveVTableEntry(obj, nameid);
+        VarId var_fptr_args = 0;
+        VarId var_fptr = 0;
+        bool is_hat = false;
+
+        if (!entry)
+        {
+                // No entry present. Dynamically inserted member?
+                var_fptr_args = stackmachine.PushVariables(2);
+                var_fptr = var_fptr_args + 1;
+                if (!stackmachine.ObjectMemberCopy(obj, nameid, this_access, var_fptr))
+                {
+                        // Cleanup the pushed variables
+                        stackmachine.PopVariablesN(2);
+
+                        var_fptr_args = 0;
+                        var_fptr = 0;
+
+                        // If the name starts with ^, see if there is a property ^
+                        auto namestr = columnnamemapper.GetReverseMapping(nameid);
+                        if (namestr.size() >= 2 && *namestr.begin == '^')
+                        {
+                                is_hat = true;
+                                entry = ResolveVTableEntry(obj, cn_cache.col_hat);
+                        }
+
+                        if (!entry || entry->type != ObjectCellType::Property)
+                            ObjectThrowMemberNotFound(obj, nameid);
+                }
+        }
+
+        if (entry)
+        {
+                if (entry->type == ObjectCellType::Method)
+                {
+                        PrepareObjMethodCallByEntry(entry, paramcount, this_access, allow_macro);
+                        return;
+                }
+
+                if (entry->is_private && !this_access && !stackmachine.ObjectIsPrivilegedReference(obj))
+                    throw VMRuntimeError(Error::PrivateMemberOnlyThroughThis);
+
+                var_fptr_args = stackmachine.PushVariables(1);
+                if (entry->type == ObjectCellType::Property)
+                {
+                        if (!entry->getter_nameid)
+                            throw VMRuntimeError(Error::ReadingWriteOnlyProperty, columnnamemapper.GetReverseMapping(nameid).stl_str());
+
+                        entry = ResolveVTableEntry(obj, entry->getter_nameid);
+                        if (!entry)
+                            ThrowInternalError("Could not locate getter function of property");
+
+                        this_access = true; // no more access checks, property has authority to redirect.
+                }
+
+                if (entry->type == ObjectCellType::Method)
+                {
+                        // It is a property getter, execute it directly; we need its return value
+                        if (is_hat)
+                            stackmachine.SetString(stackmachine.PushVariables(1), columnnamemapper.GetReverseMapping(nameid));
+                        stackmachine.PushCopy(obj);
+
+                        SetupReturnStackframe();
+                        PrepareObjMethodCallByEntry(entry, is_hat ? 2 : 1, this_access, allow_macro);
+                        Run(false, false);
+
+                        if (is_unwinding)
+                        {
+                                UnwindToNextCatch(true);
+                                return;
+                        }
+
+                        if (vmgroup->TestMustAbort())
+                            return;
+
+                        // var_fpr is left on the stack
+                        var_fptr = var_fptr_args + 1;
+                }
+                else
+                {
+                        // Use nameid from entry, we may be redirected by a property
+                        var_fptr = stackmachine.PushVariables(1);
+                        if (!stackmachine.ObjectMemberCopy(obj, entry->nameid, this_access, var_fptr))
+                            throw VMRuntimeError(Error::InternalError, "Variable from vtable not found in object");
+                }
+        }
+
+        stackmachine.CastTo(var_fptr, VariableTypes::FunctionRecord);
+
+        // Calling a function-pointer, translate the call
+        stackmachine.InitVariable(var_fptr_args, VariableTypes::VariantArray);
+        for (int32_t idx = 1; idx < paramcount; ++idx)
+            stackmachine.MoveFrom(stackmachine.ArrayElementAppend(var_fptr_args), obj - idx);
+
+        stackmachine.PopDeepVariables(paramcount, 2);
+        PrepareCallFunctionPtr(false, allow_macro, false);
 }
 
 bool VirtualMachine::GetObjectDefinitions(HSVM_VariableId obj, Blex::PodVector< LinkedLibrary::LinkedObjectDef const * > *objdefs)
@@ -3198,7 +3293,7 @@ void VirtualMachine::DoObjMethodCall(int32_t id, int32_t paramcount, bool this_a
 
         stackmachine.CastTo(var + 1, VariableTypes::FunctionRecord);
 
-        // Calling a function-pointer, tracnslate the call
+        // Calling a function-pointer, translate the call
         stackmachine.InitVariable(var, VariableTypes::VariantArray);
         for (signed idx = 1; idx < paramcount; ++idx)
             stackmachine.MoveFrom(stackmachine.ArrayElementAppend(var), obj - idx);
@@ -3579,9 +3674,11 @@ bool VirtualMachine::ObjectMemberSet(VarId obj, ColumnNameId nameid, bool this_a
                                 SetupReturnStackframe();
                                 PrepareObjMethodCallByEntry(setter, is_hat ? 3 : 2, this_access, true);
                                 Run(false, false);
-                                if (vmgroup->TestMustAbort() || is_unwinding)
+                                if (vmgroup->TestMustAbort())
                                     return false;
                                 stackmachine.PopVariablesN(1);
+                                if (is_unwinding)
+                                    return false;
                                 return true;
                         }
                     default:

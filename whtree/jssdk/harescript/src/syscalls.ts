@@ -10,6 +10,7 @@ import { setHareScriptType } from "@webhare/hscompat/hson";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { loadJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
+export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and

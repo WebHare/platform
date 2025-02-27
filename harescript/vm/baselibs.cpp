@@ -3074,6 +3074,11 @@ void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 }
 
+void EM_HandleRunRequests(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
+{
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Boolean);
+}
+
 namespace
 {
 
@@ -3085,6 +3090,32 @@ struct WaitableOutputObject
 };
 
 } // End of anonymous namespace
+
+#ifdef __EMSCRIPTEN__
+
+EM_JS(int, supportGetTimerBreakLock, (), {
+        const id = Module.breakPipeWaiterOnRequest();
+        return id;
+});
+
+EM_JS(int, supportGetAnyPendingPermissionRequests, (), {
+        return Module.anyPendingPermissionRequests();
+});
+
+EM_JS(int, supportCloseBreakLock, (int id), {
+        return Module.releaseBreakPipeWaiterOnRequest(id);
+});
+
+void CloseBreakLockIfSet(int *id)
+{
+        if (*id)
+        {
+                supportCloseBreakLock(*id);
+                *id = 0;
+        }
+}
+
+#endif
 
 /** WaitForMultipleUntil copied from hsvm_processmgr.cpp and specialized for emscripten usage */
 void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
@@ -3253,11 +3284,20 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                 }
         }
 
+#ifdef __EMSCRIPTEN__
+        auto lock = supportGetTimerBreakLock();
+#endif
         while (run_waitloop)
         {
+#ifdef __EMSCRIPTEN__
+                bool pendingrequests = false;
+#endif
                 if (have_signal)
                 {
                         waitlist.Wait(now);
+#ifdef __EMSCRIPTEN__
+                        pendingrequests = supportGetAnyPendingPermissionRequests();
+#endif
                 }
                 else
                 {
@@ -3268,9 +3308,19 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                                 bool have_signalled_waiter = waitlist.Wait(nextwait);
                                 if (have_signalled_waiter)
                                         break;
+#ifdef __EMSCRIPTEN__
+                                pendingrequests = supportGetAnyPendingPermissionRequests();
+                                WFM_PRINT("waitloop pipewaiter loop pendingrequests " << pendingrequests);
+                                if (pendingrequests)
+                                   break;
+#endif
 
                                 if (nextwait == until || HSVM_TestMustAbort(hsvm))
                                 {
+#ifdef __EMSCRIPTEN__
+                                        // Don't break other pipewaiter waits anymore
+                                        CloseBreakLockIfSet(&lock);
+#endif
                                         HSVM_BooleanSet(hsvm, var_timeout, true);
                                         return;
                                 }
@@ -3311,9 +3361,25 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                         }
                 }
 
+#ifdef __EMSCRIPTEN__
+                if (!have_timeout && !have_signal && pendingrequests)
+                {
+                        WFM_PRINT("  Have pending run permission requests, return as timeout");
+
+                        // Make it seem like a timeout
+                        have_timeout = true;
+                        HSVM_BooleanSet(hsvm, var_timeout, true);
+                }
+#endif
+
                 // At this moment, we have checked ALL outputobjects, so we can return now
                 if (have_timeout || have_signal)
                 {
+#ifdef __EMSCRIPTEN__
+                        // Don't break other pipewaiter waits anymore
+                        CloseBreakLockIfSet(&lock);
+#endif
+
                         WFM_PRINT(" Exiting local wait loop due to timeout or signals");
                         return;
                 }
@@ -3469,6 +3535,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYNCSYSCALL::R:SV", EM_Syscall));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_RUNASYNCJSCODE::B:", EM_HandleRunRequests));
 
 #ifdef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",EM_WaitForMultipleUntil));

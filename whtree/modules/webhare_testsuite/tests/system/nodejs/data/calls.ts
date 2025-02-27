@@ -1,4 +1,4 @@
-import { HSVMMarshallableOpaqueObject } from "@webhare/harescript/src/wasm-proxies";
+import { HSVMMarshallableOpaqueObject, type HSVMObjectWrapper } from "@webhare/harescript/src/wasm-proxies";
 import { generateRandomId } from "@webhare/std";
 import { beginWork, isWorkOpen } from "@webhare/whdb";
 import * as test from "@webhare/test";
@@ -64,6 +64,14 @@ export function returnObject(o: TestObject) {
 export function crash() {
   console.error("crash() invoked!");
   process.exit(0);
+}
+
+export async function getThrowingProperty(p: HSVMObjectWrapper): Promise<number> {
+  return await p.$get("p") as number;
+}
+
+export async function setThrowingProperty(p: HSVMObjectWrapper) {
+  await p.$set("p", 10);
 }
 
 export { isWorkOpen };

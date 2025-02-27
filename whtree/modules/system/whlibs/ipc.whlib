@@ -8,6 +8,7 @@ LOADLIB "wh::system.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/callbacks.whlib" EXPORT
     __INTERNAL_HandleEventCallbackEvents,
+    __INTERNAL_RunAsyncJSCode,
     __INTERNAL_GetEventCallBackTimeout,
     __INTERNAL_GetEventCallBackHandles,
     __INTERNAL_GetEventCallBackWriteHandles,

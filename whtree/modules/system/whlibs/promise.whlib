@@ -435,6 +435,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
 
   STRING "^$WASMTYPE";
 
+  INTEGER tspromise;
+
   // ---------------------------------------------------------------------------
   //
   // Public properties
@@ -700,6 +702,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
       this->status := status;
       this->keeper := [ value := value ];
 
+      IF (this->tspromise != 0)
+        __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, value ]);
       this->ExecuteCallbacks(TRUE);
       RETURN;
     }
@@ -741,6 +745,9 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
 
     this->status := status;
     this->keeper := [ value := value ];
+
+    IF (this->tspromise != 0)
+      __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, this->keeper.value ]);
 
     this->ExecuteCallbacks(TRUE);
   }

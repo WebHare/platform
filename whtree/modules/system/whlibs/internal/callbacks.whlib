@@ -1,7 +1,7 @@
 ﻿<?wh (* ISSYSTEMLIBRARY *)
 
 LOADLIB "wh::system.whlib";
-LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/interface.whlib" EXPORT __INTERNAL_RunAsyncJSCode;
 LOADLIB "wh::internal/debug.whlib";
 
 
@@ -618,11 +618,17 @@ PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleTimeouts()
       reg.callback();
 
     did_anything := TRUE;
+    __INTERNAL_RunAsyncJSCode();
     RunMicroTasks();
   }
 
   IF (NOT did_anything)
-    did_anything := RunMicroTasks();
+  {
+    IF (__INTERNAL_RunAsyncJSCode())
+      did_anything := TRUE;
+    IF (RunMicroTasks())
+      did_anything := TRUE;
+  }
 
   RETURN did_anything;
 }
@@ -893,4 +899,3 @@ PUBLIC RECORD ARRAY FUNCTION __HS_ListCallbacks()
 
   RETURN retval;
 }
-

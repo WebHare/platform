@@ -1096,8 +1096,9 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
 
 /** Prepares for function call, allocates parameters. After this function is
     invoked, HSVM_CloseFunctionCall or HSVM_CancelFunctionCall MUST be called
-    before returning to the VM. */
- HSVM_PUBLIC void HSVM_OpenFunctionCall(struct HSVM *vm, unsigned param_count) ;
+    before returning to the VM.
+    @return Stackpointer before opening call, pass to HSVM_CloseFunctionCall */
+ HSVM_PUBLIC int HSVM_OpenFunctionCall(struct HSVM *vm, unsigned param_count) ;
 
 /** Access for individual parameters
     @param vm Virtual machine
@@ -1146,6 +1147,12 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_CallObjectMethod(struct HSVM *vm, HSVM_Variabl
     before you have done an actual function call using HSVM_CallFunction(ptr)
     @param vm Virtual Machine */
  HSVM_PUBLIC void HSVM_CloseFunctionCall(struct HSVM *vm) ;
+
+/** Performs cleanup after function (ptr) call. This destroys the return variable
+    offered by HSVM_CallFunction's return value. This function may NOT be called
+    before you have done an actual function call using HSVM_CallFunction(ptr)
+    @param vm Virtual Machine */
+ HSVM_PUBLIC void HSVM_CloseFunctionCall2(struct HSVM *vm, int orgstackpointer);
 
 /** Performs cleanup after function (ptr) call. This function MUST be called
     if you wish to rollback from a HSVN_OpenFunctionCall

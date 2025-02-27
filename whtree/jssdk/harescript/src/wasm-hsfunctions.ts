@@ -1400,6 +1400,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     debugger;
     id_set.setJSValue([]);
   });
+
+  wasmmodule.registerAsyncExternalFunction("__INTERNAL_RUNASYNCJSCODE::B:", async (vm, id_set) => {
+    const runCtxt = vm.runContextStore.getStore();
+    if (!runCtxt)
+      throw new Error("No run context store available");
+    id_set.setBoolean(await runCtxt.runPendingRequests());
+  });
 }
 
 //The HareScriptJob wraps the actual job inside the Worker
