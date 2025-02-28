@@ -13,7 +13,7 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { listDirectory, storeDiskFile } from '@webhare/system-tools';
 import { makeAssetPack, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
-import { stringify } from '@webhare/std';
+import { appendToArray, stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
@@ -271,6 +271,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   let buildresult;
   const start = new Date;
+  const verbose = ["verbose", "debug"].includes(esbuild_configuration.logLevel || '');
 
   try {
     if (bundle.config.esBuildSettings)
@@ -340,6 +341,15 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   if (haserrors)
     return assetPackState;
 
+  const previousassets: AssetPackManifest["assets"] = [];
+  try {
+    const previousoverview = JSON.parse(await fs.readFile(path.join(bundle.outputpath, "apmanifest.json"), 'utf8')) as AssetPackManifest;
+    if (previousoverview?.assets)
+      appendToArray(previousassets, previousoverview.assets);
+  } catch (e) {
+    //ignore
+  }
+
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
@@ -349,7 +359,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   if (!buildresult.outputFiles)
     throw new Error(`No errors but no outputfiles either?`);
 
-  const finalpack = new Map<string, Uint8Array>();
+  const finalpack = new Map<string, Uint8Array | null>();
 
   const expected_css_path = path.join(outdir, "ap.css");
   //Ensure ap.css exists in the outputFiles set (we want it to be in the manifest too, so we'll append it there)
@@ -366,11 +376,18 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   for (const file of buildresult.outputFiles) {
     const subpath = file.path.substring(esbuild_configuration.outdir.length + 1);
-    finalpack.set(subpath, file.contents);
+    const sha384 = crypto.createHash('sha384').update(file.contents).digest('base64');
+    //do we already have it on disk? if so, we don't need to write and/or compress it again
+    const previousIsOk = previousassets.find(_ => _.subpath === subpath && _.sha384 === sha384 && existsSync(path.join(bundle.outputpath, _.subpath)));
+    if (verbose)
+      console.log(`[assetpack] ${subpath} ${previousIsOk ? "unchanged" : "changed"}`);
+
+    finalpack.set(subpath, previousIsOk ? null : file.contents);
     assetoverview.assets.push({
       subpath: subpath,
       compressed: false,
       sourcemap: subpath.endsWith(".map"),
+      sha384
     });
 
     if (!bundle.isdev) { //only compress in production mode
@@ -378,27 +395,39 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       if (!compressFast && !compressExtensions.includes(path.extname(subpath)))
         continue;
 
-      const gzipped = await compressGz(file.contents, { level: compressFast ? zlib.constants.Z_BEST_SPEED : zlib.constants.Z_DEFAULT_COMPRESSION });
-      finalpack.set(subpath + '.gz', gzipped);
+      if (previousIsOk && existsSync(path.join(bundle.outputpath, subpath + '.gz'))) {
+        if (verbose)
+          console.log(`[assetpack] ${subpath}.gz can be re-used`);
+        finalpack.set(subpath + '.gz', null);
+      } else {
+        const gzipped = await compressGz(file.contents, { level: compressFast ? zlib.constants.Z_BEST_SPEED : zlib.constants.Z_DEFAULT_COMPRESSION });
+        finalpack.set(subpath + '.gz', gzipped);
+      }
+
       assetoverview.assets.push({
         subpath: subpath + '.gz',
         compressed: true,
-        sourcemap: subpath.endsWith(".map")
+        sourcemap: subpath.endsWith(".map"),
       });
 
       if (compressFast) //only gzip please
         continue;
 
-      const brotlied = await compressBrotli(file.contents);
-      finalpack.set(subpath + '.br', brotlied);
+      if (previousIsOk && existsSync(path.join(bundle.outputpath, subpath + '.br'))) {
+        if (verbose)
+          console.log(`[assetpack] ${subpath}.br can be re-used`);
+        finalpack.set(subpath + '.br', null);
+      } else {
+        const brotlied = await compressBrotli(file.contents);
+        finalpack.set(subpath + '.br', brotlied);
+      }
       assetoverview.assets.push({
         subpath: subpath + '.br',
         compressed: true,
-        sourcemap: subpath.endsWith(".map")
+        sourcemap: subpath.endsWith(".map"),
       });
     }
   }
-
 
   //Now prepare the other files which will be in the result dir but not in the manifest
   finalpack.set("apmanifest.json", Buffer.from(JSON.stringify(assetoverview)));
@@ -407,7 +436,10 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   //Write all files to disk in a temp location
   await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
   for (const [name, filedata] of finalpack.entries())
-    await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
+    if (filedata !== null)
+      await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
+    else
+      await fs.utimes(path.join(bundle.outputpath, name), new Date(), new Date()); //touch the file to update the mtime so we won't delete it too fast later ons
 
   //Move them in place. Also fix the casing in this final step
   const removefiles = new Set<string>();
@@ -417,9 +449,10 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     else
       removefiles.add(file.fullPath); //add to the cleanup list
 
-  for (const [name] of finalpack.entries()) {
+  for (const [name, filedata] of finalpack.entries()) {
     const outputname = name.toLowerCase();
-    await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
+    if (filedata !== null)
+      await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
     removefiles.delete(path.join(bundle.outputpath, outputname));
   }
 
