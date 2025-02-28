@@ -154,7 +154,31 @@ async function testMutex() {
   mutex2lock.release();
 }
 
+declare module "@webhare/services" {
+  interface BackendEvents {
+    "webhare_testsuite:test2event.x": null;
+    "webhare_testsuite:test_ts_api.param1": { param1?: number };
+  }
+}
+
 async function testEvents() {
+  // eslint-disable-next-line no-constant-condition -- testing typed event api
+  if (true) {
+    services.broadcast("webhare_testsuite:test_ts_api.unknown");
+    services.broadcast("webhare_testsuite:test_ts_api.unknown", { cannot_know: 42 });
+
+    services.broadcast("webhare_testsuite:test2event.x");
+    //@ts-expect-error doesn't require a parameter
+    services.broadcast("webhare_testsuite:test2event.x", { unexpected: 1 });
+    services.broadcast("webhare_testsuite:test2event.x", null); //specifying null is fine too
+
+    services.broadcast("webhare_testsuite:test_ts_api.param1", { param1: 42 });
+    //@ts-expect-error badParam is incorrect
+    services.broadcast("webhare_testsuite:test_ts_api.param1", { badParam: 42 });
+    //@ts-expect-error missing parameter
+    services.broadcast("webhare_testsuite:test_ts_api.param1");
+  }
+
   const allevents: services.BackendEvent[] = [];
 
   function onEvents(events: services.BackendEvent[], subscription: services.BackendEventSubscription) {

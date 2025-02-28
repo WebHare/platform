@@ -38,6 +38,10 @@ export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkap
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
 export { IntExtLink } from "./intextlink";
 
+/** Extend this interface to register broadcast event formats */
+export interface BackendEvents {
+}
+
 /** Extend this interface to define the format of your own secret scopes */
 export interface ServerEncryptionScopes {
 }
