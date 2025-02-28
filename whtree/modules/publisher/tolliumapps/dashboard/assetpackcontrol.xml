@@ -20,9 +20,7 @@
     </menus>
 
     <compositions>
-      <eventlistener name="listener"
-                     masks="publisher:assetpackcontrol.change.* publisher:assetpackcontrol.watch.* publisher:assetpackcontrol.settings.*"
-                     onevents="onassetevent" />
+      <eventlistener name="listener" masks="platform:assetpackcontrol.update" onevents="onassetevent" />
       <eventlistener name="configlistener" masks="system:registry.publisher.bundledassets" onevents="onconfigevent" />
     </compositions>
 
@@ -37,8 +35,8 @@
                     icons="tollium:status/positive"
                     onselect="onbundleselect"
                     openaction="bundleproperties"
-                    selectcontextmenu="bundlecontextmenu"
                     rowkeytype="string"
+                    selectcontextmenu="bundlecontextmenu"
                     selectmode="multiple"
                     sortcolumn="outputtag">
                 <column name="status" type="text" width="12x" sortkeyname="status_sort" />
@@ -80,7 +78,7 @@
     </actions>
 
     <compositions>
-      <eventlistener name="listener" onevents="gotevents" />
+      <eventlistener name="listener" masks="platform:assetpackcontrol.update" onevents="gotevents" />
     </compositions>
 
     <body spacers="none">

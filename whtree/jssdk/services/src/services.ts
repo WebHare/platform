@@ -40,6 +40,7 @@ export { IntExtLink } from "./intextlink";
 
 /** Extend this interface to register broadcast event formats */
 export interface BackendEvents {
+  "platform:assetpackcontrol.update": { assetpacks: string[] };
 }
 
 /** Extend this interface to define the format of your own secret scopes */
