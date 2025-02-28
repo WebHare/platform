@@ -22,6 +22,11 @@ import type { ValidationMessageWithType } from '../devsupport/validation';
 import { getAssetPackBase } from '../concepts/frontend';
 import { loadJSFunction } from '@webhare/services';
 
+// Files with these extensions should be maximally compressed as all clients need them
+const compressExtensions = [".js", ".css", ".mjs", ".svg", ".ttf", ".otf"]; //Note that EOT and WOFF fonts already come compressed
+// Files with these extensions we'll only do a fast pass
+const compressExtensionsFast = [".map"];
+
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
 
@@ -365,18 +370,27 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     assetoverview.assets.push({
       subpath: subpath,
       compressed: false,
-      sourcemap: subpath.endsWith(".map")
+      sourcemap: subpath.endsWith(".map"),
     });
 
-    if (!bundle.isdev) {
-      finalpack.set(subpath + '.gz', await compressGz(file.contents));
+    if (!bundle.isdev) { //only compress in production mode
+      const compressFast = compressExtensionsFast.includes(path.extname(subpath));
+      if (!compressFast && !compressExtensions.includes(path.extname(subpath)))
+        continue;
+
+      const gzipped = await compressGz(file.contents, { level: compressFast ? zlib.constants.Z_BEST_SPEED : zlib.constants.Z_DEFAULT_COMPRESSION });
+      finalpack.set(subpath + '.gz', gzipped);
       assetoverview.assets.push({
         subpath: subpath + '.gz',
         compressed: true,
         sourcemap: subpath.endsWith(".map")
       });
 
-      finalpack.set(subpath + '.br', await compressBrotli(file.contents));
+      if (compressFast) //only gzip please
+        continue;
+
+      const brotlied = await compressBrotli(file.contents);
+      finalpack.set(subpath + '.br', brotlied);
       assetoverview.assets.push({
         subpath: subpath + '.br',
         compressed: true,
@@ -384,6 +398,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
       });
     }
   }
+
 
   //Now prepare the other files which will be in the result dir but not in the manifest
   finalpack.set("apmanifest.json", Buffer.from(JSON.stringify(assetoverview)));
@@ -408,15 +423,24 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     removefiles.delete(path.join(bundle.outputpath, outputname));
   }
 
-  const cutoff = Date.now() - 86400 * 1000; //delete files older than one day. but gz files should go away immediately *iff* we're building for dev mode
+  const cutoff = Date.now() - 86400 * 1000; //delete files older than one day
   for (const removeFile of removefiles) {
-    const props = await fs.lstat(removeFile).catch(_ => null);
-    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && (removeFile.endsWith('.gz') || removeFile.endsWith('.br'))))) {
-      if (props?.isDirectory())
-        await fs.rm(removeFile, { recursive: true });
-      else
-        await fs.unlink(removeFile);
+    const iscompressed = removeFile.endsWith('.gz') || removeFile.endsWith('.br');
+    let deleteIt = false;
+    if (iscompressed) {
+      const basename = removeFile.slice(0, removeFile.length - 3); //strips gz | br
+      if (!finalpack.has(basename)) //if the base version doesn't exist, delete the compressed version immediately to avoid confusion (server still serving compressed versions)
+        deleteIt = true;
     }
+
+    if (!deleteIt) { //see if the file is old enough where we assume it to be safely deletable (visitors with 'old' JS/CSS files might otherwise still refer to old chynks)
+      const props = await fs.lstat(removeFile).catch(_ => null);
+      if (props && (props?.mtime.getTime() < cutoff))
+        deleteIt = true;
+    }
+
+    if (deleteIt)
+      await fs.rm(removeFile, { recursive: true });
   }
 
   await storeDiskFile(statspath + "metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
