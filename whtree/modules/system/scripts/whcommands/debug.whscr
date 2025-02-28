@@ -137,12 +137,15 @@ MACRO ShowDebugConfig(RECORD debugconfig)
 
 args := ParseArguments(GetConsoleArguments(),
     [ [ name := "debug", type := "switch" ]
+    , [ name := "showmode", type := "stringopt" ]
     , [ name := "command", type := "param" ]
     , [ name := "params", type := "paramlist"]
     ]);
 
 IF (NOT RecordExists(args))
   ShowSyntax("Invalid command");
+
+STRING showmode := args.showmode ?? "boxed";
 
 RECORD FUNCTION ParseSubArgs(RECORD ARRAY subparams)
 {
@@ -251,7 +254,7 @@ ASYNC MACRO RunCommand()
       RECORD ARRAY processes := AWAIT processlistener->RequestUpdate();
       processlistener->Close();
 
-      DumpValue((SELECT processcode, clientname FROM processes WHERE present), [ name := "List of processes", format := "boxed" ]);
+      DumpValue((SELECT processcode, clientname FROM processes WHERE present), [ name := "List of processes", format := showmode ]);
     }
     CASE "joblist"
     {
@@ -286,7 +289,7 @@ ASYNC MACRO RunCommand()
         DumpValue(joblist, [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := "tree" ]);
       ELSE
       {
-        DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+        DumpValue((SELECT groupid, scriptshow, creationdate, status, total_running := FormatDateTime("%H:%M:%S.%Q", total_running) FROM joblist), [ name := `Job list for process ${process->processcode} ('${process->clientname}')`, format := showmode ]);
       }
     }
     CASE "alljobs"
@@ -361,7 +364,7 @@ ASYNC MACRO RunCommand()
       ParseSubArgs(
             [ [ name := "v", type := "switch" ]
             , [ name := "process", type := "param", required := TRUE ]
-            , [ name := "mask", type := "param", required := TRUE ]
+            , [ name := "mask", type := "param" ]
             ]);
 
       OBJECT process := AWAIT GetProcessByParam(args.process);
@@ -376,16 +379,21 @@ ASYNC MACRO RunCommand()
            WHERE status != "Terminated"
         ORDER BY creationdate;
 
-      joblist :=
-          SELECT *
-            FROM joblist
-           WHERE scriptshow LIKE `${args.mask}`
-              OR groupid LIKE `${args.mask}*`;
+      IF(args.mask != "")
+      {
+        joblist :=
+            SELECT *
+              FROM joblist
+            WHERE scriptshow LIKE `${args.mask}`
+                OR groupid LIKE `${args.mask}*`;
 
-      IF (LENGTH(joblist) > 1)
-        ExitWithError(`Multiple matches for job ${args.mask}`);
+        IF (LENGTH(joblist) > 1)
+          ExitWithError(`Multiple matches for job ${args.mask}`);
+        ELSE IF (NOT RecordExists(joblist) AND args.mask != "")
+          ExitWithError(`No matches for job ${args.mask}`);
+      }
       ELSE IF (NOT RecordExists(joblist))
-        ExitWithError(`No matches for job ${args.mask}`);
+        ExitWithError(`No active jobs`);
 
       OBJECT jobconnector := process->ConnectToJob(joblist[0].groupid);
       OBJECT job := AWAIT jobconnector->promise;
@@ -394,7 +402,7 @@ ASYNC MACRO RunCommand()
       {
         CASE "stacktrace"
         {
-          DumpValue((SELECT filename, line, col, func FROM job->laststatus.stacktrace), [ name := `Stack trace for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+          DumpValue((SELECT filename, line, col, func FROM job->laststatus.stacktrace), [ name := `Stack trace for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := showmode ]);
         }
         CASE "jobstats"
         {
@@ -424,19 +432,19 @@ Executed instrs.:   ${stats.instructions}
         {
           AWAIT job->Pause();
           RECORD handlelist := AWAIT job->GetHandleList();
-          DumpValue((SELECT name, id FROM handlelist.rawdata.items ORDER BY id, name), [ name := `Handle list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+          DumpValue((SELECT name, id FROM handlelist.rawdata.items ORDER BY id, name), [ name := `Handle list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := showmode ]);
         }
         CASE "jobadhoccache"
         {
           AWAIT job->Pause();
           RECORD handlelist := AWAIT job->GetAdhocCacheList();
-          DumpValue((SELECT * FROM handlelist.rawdata.items ORDER BY library), [ name := `Adhoccache list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+          DumpValue((SELECT * FROM handlelist.rawdata.items ORDER BY library), [ name := `Adhoccache list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := showmode ]);
         }
         CASE "jobblobreferences"
         {
           AWAIT job->Pause();
           RECORD items := AWAIT job->GetBlobReferences(TRUE);
-          DumpValue((items.rawdata.items), [ name := `blob reference list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := "boxed" ]);
+          DumpValue((items.rawdata.items), [ name := `blob reference list for job ${joblist[0].groupid} at process ${process->processcode} ('${process->clientname}')`, format := showmode ]);
         }
         DEFAULT
         {
@@ -455,7 +463,7 @@ Executed instrs.:   ${stats.instructions}
       IF (IsDefaultValue(results))
         PRINT(`No job found with prefix ${args.prefix}\n`);
       ELSE
-        DumpValue(results, [ name := "Matching jobs", format := "boxed" ]);
+        DumpValue(results, [ name := "Matching jobs", format := showmode ]);
     }
 
     CASE "complexfsstats"
