@@ -377,7 +377,10 @@ async function testNewAPI() {
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGuid", selectres[0].guid, { historyMode: "unfiltered" }));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdGender", "male"));
   test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
-  test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE"));
+  //@ts-expect-error TS also detects incorrect enum spelling
+  await test.throws(/Invalid.*MALE/, () => schema.search("wrdPerson", "wrdGender", "MALE"));
+  //@ts-expect-error TS (currnently?) doesn't know about ignoreAllowedValues
+  test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE", { ignoreAllowedValues: true }));
   test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "FIRST"));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid2));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGender", "female"));
@@ -776,6 +779,10 @@ async function testNewAPI() {
     await schema.update("wrdPerson", newperson, { testEnum: null, testEnumarray: [] });
     test.eq(null, await schema.getFields("wrdPerson", newperson, "testEnum"));
     test.eq([], await schema.getFields("wrdPerson", newperson, "testEnumarray"));
+    test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "=", null).execute());
+    test.eq([newperson], await schema.query("wrdPerson").select("wrdId").where("testEnum", "in", [null]).execute());
+    await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentions", null).execute());
+    await test.throws(/Value may not be empty /, schema.query("wrdPerson").select("wrdId").where("testEnum", "mentionsany", [null]).execute());
 
     await schema.update("wrdPerson", newperson, { testEnum: "enum1", testEnumarray: ["enumarray1", "enumarray2"] });
     test.eq("enum1", await schema.getFields("wrdPerson", newperson, "testEnum"));
@@ -785,6 +792,13 @@ async function testNewAPI() {
     await test.throws(/Invalid value.*wrong-enum-value/, () => schema.update("wrdPerson", newperson, { testEnum: "wrong-enum-value" }));
     // @ts-expect-error -- TS detects the wrong value too
     await test.throws(/Invalid value.*wrong-enum-value/, () => schema.update("wrdPerson", newperson, { testEnumarray: ["enumarray1", "wrong-enum-value"] }));
+    // @ts-expect-error -- TS detects the wrong value too
+    await test.throws(/Invalid value.*wrong-enum-value/, () => schema.query("wrdPerson").select("wrdId").where("testEnum", "=", "wrong-enum-value").execute());
+
+    // @ts-expect-error -- TS detects the wrong value too
+    await test.throws(/Invalid value.*wrong-enum-value/, () => schema.query("wrdPerson").select("wrdId").where("testEnumarray", "contains", "wrong-enum-value").execute());
+    // @ts-expect-error -- TS detects the wrong value too
+    await test.throws(/Invalid value.*wrong-enum-value/, () => schema.query("wrdPerson").select("wrdId").where("testEnumarray", "=", ["wrong-enum-value"]).execute());
 
     //update allowedvalues
     await (schema.getType("wrdPerson")).updateAttribute("testEnum", { allowedValues: ["enum1", "enum2", '*-????-?????'] });
@@ -817,9 +831,9 @@ async function testNewAPI() {
     // @ts-expect-error -- type must conform to the specified type
     await schema.update("wrdPerson", newperson, { testStatusrecord: { status: "ok", misspelledMessage: "message" } });
 
-    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "misspelled").executeRequireAtMostOne());
+    // @ts-expect-error -- TS detects the misspelling
+    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "misspelled", { ignoreAllowedValues: true }).executeRequireAtMostOne());
     test.eq(newperson, await schema.search("wrdPerson", "testStatusrecord", "ok"));
-    test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "in", ["ok", "warning"]).executeRequireAtMostOne());
     test.eq(newperson, await schema.query("wrdPerson").select("wrdId").where("testStatusrecord", "!=", "error").executeRequireAtMostOne());
   }
 
