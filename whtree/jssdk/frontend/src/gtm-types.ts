@@ -50,28 +50,7 @@ type EcommerceObject = {
   items: EcommerceItemInfo[];
 };
 
-type EcommerceDataLayerEntry = {
-  event: "add_payment_info";
-  ecommerce: EcommerceObject & {
-    coupon?: string;
-    payment_type?: string;
-  };
-} | {
-  event: "add_shipping_info";
-  ecommerce: EcommerceObject & {
-    coupon?: string;
-    shipping_tier?: string;
-  };
-} | {
-  event: "add_to_cart" | "add_to_wishlist" | "remove_from_cart" | "view_cart" | "view_item";
-  ecommerce: EcommerceObject;
-} | {
-  event: "begin_checkout";
-  ecommerce: EcommerceObject & {
-    coupon?: string;
-    shipping_tier?: string;
-  };
-} | {
+export type EcommerceDataLayerPurchaseEntry = {
   event: "purchase" | "refund";
   ecommerce: EcommerceObject & {
     coupon?: string;
@@ -82,23 +61,70 @@ type EcommerceDataLayerEntry = {
     /** Tax cost associated with a transaction. */
     tax?: number;
   };
-} | {
+};
+
+export type EcommerceDataLayerViewItemEntry = {
+  event: "view_item_list";
+  ecommerce: EcommerceObject & {
+    item_list_id?: string;
+    item_list_name?: string;
+  };
+};
+
+export type EcommerceDataLayerSearchEntry = {
+  event: "search";
+  search_term: string;
+};
+
+export type EcommerceDataLayerAddToCartEntry = {
+  event: "add_to_cart" | "add_to_wishlist" | "remove_from_cart" | "view_cart" | "view_item";
+  ecommerce: EcommerceObject & {
+    coupon?: string;
+  };
+};
+
+export type EcommerceDataLayerAddPaymentInfoEntry = {
+  event: "add_payment_info";
+  ecommerce: EcommerceObject & {
+    coupon?: string;
+    payment_type?: string;
+  };
+};
+
+export type EcommerceDataLayerAddShippingInfoEntry = {
+  event: "add_shipping_info";
+  ecommerce: EcommerceObject & {
+    coupon?: string;
+    shipping_tier?: string;
+  };
+};
+
+export type EcommerceDataLayerBeginCheckoutEntry = {
+  event: "begin_checkout";
+  ecommerce: EcommerceObject & {
+    coupon?: string;
+    shipping_tier?: string;
+  };
+};
+
+export type EcommerceDataLayerSelectItemEntry = {
   event: "select_item";
   ecommerce: {
     item_list_id?: string;
     item_list_name?: string;
     items: EcommerceItemInfo[];
   };
-} | {
-  event: "view_item_list";
-  ecommerce: EcommerceObject & {
-    item_list_id?: string;
-    item_list_name?: string;
-  };
-} | {
-  event: "search";
-  search_term: string;
 };
+
+export type EcommerceDataLayerEntry =
+  EcommerceDataLayerAddPaymentInfoEntry |
+  EcommerceDataLayerAddShippingInfoEntry |
+  EcommerceDataLayerAddToCartEntry |
+  EcommerceDataLayerBeginCheckoutEntry |
+  EcommerceDataLayerPurchaseEntry |
+  EcommerceDataLayerViewItemEntry |
+  EcommerceDataLayerSearchEntry |
+  EcommerceDataLayerSelectItemEntry;
 
 export type DataLayerVar = boolean | string | number | { [key: string]: DataLayerVar } | DataLayerVar[];
 
