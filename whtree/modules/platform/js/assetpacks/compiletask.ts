@@ -466,7 +466,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
         deleteIt = true;
     }
 
-    if (!deleteIt) { //see if the file is old enough where we assume it to be safely deletable (visitors with 'old' JS/CSS files might otherwise still refer to old chynks)
+    if (!deleteIt) { //see if the file is old enough where we assume it to be safely deletable (visitors with 'old' JS/CSS files might otherwise still refer to old chunks)
       const props = await fs.lstat(removeFile).catch(_ => null);
       if (props && (props?.mtime.getTime() < cutoff))
         deleteIt = true;
