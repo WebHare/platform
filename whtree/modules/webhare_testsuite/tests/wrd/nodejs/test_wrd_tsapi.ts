@@ -379,7 +379,7 @@ async function testNewAPI() {
   test.eq(firstperson, await schema.search("wrdPerson", "wrdFirstName", "first"));
   //@ts-expect-error TS also detects incorrect enum spelling
   await test.throws(/Invalid.*MALE/, () => schema.search("wrdPerson", "wrdGender", "MALE"));
-  //@ts-expect-error TS (currnently?) doesn't know about ignoreAllowedValues
+  //@ts-expect-error TS (currently?) doesn't know about ignoreAllowedValues
   test.eq(null, await schema.search("wrdPerson", "wrdGender", "MALE", { ignoreAllowedValues: true }));
   test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "FIRST"));
   test.eq(secondperson, await schema.search("wrdPerson", "wrdGuid", secondPersonGuid2));
