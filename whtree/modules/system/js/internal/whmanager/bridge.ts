@@ -31,9 +31,9 @@ const whmanager_connection_timeout = 15000;
 
 export type BridgeEventData = hsmarshalling.SimpleMarshallableRecord;
 export type BridgeMessageData = hsmarshalling.IPCMarshallableRecord;
-export type BridgeEvent = {
+export type BridgeEvent<DataType extends BridgeEventData = BridgeEventData> = {
   name: string;
-  data: BridgeEventData;
+  data: DataType;
 };
 
 type BridgeEvents = {

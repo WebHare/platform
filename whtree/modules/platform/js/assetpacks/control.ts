@@ -17,6 +17,21 @@ import { getAssetPackState, readBundleSettings, writeBundleSettings, type Bundle
 import type { AssetPackState } from "./types";
 import type { AssetPackBundleStatus, AssetPackMiniStatus } from "../devsupport/devbridge";
 
+let updatedAssetPacks: Set<string> | undefined;
+
+function flushBroadcasts() {
+  if (updatedAssetPacks)
+    broadcast("platform:assetpackcontrol.update", { assetpacks: [...updatedAssetPacks] });
+  updatedAssetPacks = undefined;
+}
+
+function broadcastAssetPackChange(name: string) {
+  if (!updatedAssetPacks) {
+    updatedAssetPacks = new Set;
+    setTimeout(flushBroadcasts, 1);
+  }
+  updatedAssetPacks.add(name);
+}
 
 class LoadedBundle {
   dirtyReason = '';
@@ -31,10 +46,6 @@ class LoadedBundle {
     if (state)
       this.updateState(state);
     this.checkIfDirtied();
-  }
-
-  broadcastUpdated() {
-    broadcast("publisher:assetpackcontrol.change." + this.name);
   }
 
   getStatus(): AssetPackMiniStatus {
@@ -96,7 +107,7 @@ class LoadedBundle {
     this.fileDeps = new Set(state.fileDependencies);
     this.missingDeps = new Set(state.missingDependencies);
     void this.checkDeps(); // no need to await the update
-    this.broadcastUpdated();
+    broadcastAssetPackChange(this.name);
   }
 
   private async checkDepList(deps: Set<string>, recompileIfMissing: boolean) {
@@ -144,6 +155,7 @@ class LoadedBundle {
 
     this.dirtyReason = reason;
     this.forceCompile ||= forceCompile;
+    broadcastAssetPackChange(this.name);
     this.startCompile();
   }
 
@@ -175,7 +187,7 @@ class LoadedBundle {
 
       this.dirtyReason = '';
       this.forceCompile = false;
-      this.broadcastUpdated();
+      broadcastAssetPackChange(this.name);
       compilePromise = recompile(buildRecompileSettings(this.config, this.settings));
     } catch (e) {
       console.error('Recompile exception', e); //TODO what to do to prevent a stuck assetpack? what kind of exceptions can happen?
@@ -214,7 +226,7 @@ class LoadedBundle {
       console.log("Updating settings for", this.name, newSettings);
 
     this.updateConfig(this.config, await writeBundleSettings(this.name, newSettings));
-    broadcast("publisher:assetpackcontrol.settings." + this.name);
+    broadcastAssetPackChange(this.name);
 
     this.checkIfDirtied();
   }
@@ -325,6 +337,10 @@ class AssetPackControlClient extends BackendServiceConnection {
   }
   async recompileBundle(tag: string) {
     this.controller.bundles.get(tag)?.forceRecompile();
+  }
+  async recompileBundles(tags: string[]) {
+    for (const tag of tags)
+      this.controller.bundles.get(tag)?.forceRecompile();
   }
   async updateBundleSettings(tag: string, newSettings: Partial<BundleSettings>) {
     const bundle = this.controller.bundles.get(tag) ?? throwError(`Bundle '${tag}' not found`);

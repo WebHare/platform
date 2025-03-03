@@ -1,7 +1,7 @@
 import { loadAssetPacksConfig } from '@mod-platform/js/assetpacks/api';
 import type { AssetPackMiniStatus } from '@mod-platform/js/devsupport/devbridge';
 import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/validation';
-import { openBackendService, subscribe, writeRegistryKey, type GetBackendServiceInterface } from '@webhare/services';
+import { openBackendService, subscribe, writeRegistryKey, type BackendEvents, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
 import { ansiCmd, run } from '@webhare/cli';
@@ -43,7 +43,7 @@ const runData = run({
         } else {
           for (; ;) {
             setTimeout(() => { }, 86400 * 1000); //keep the process alive
-            const waiter = waitForEvent("publisher:assetpackcontrol.change.*");
+            const waiter = waitForEvent("platform:assetpackcontrol.update");
             console.log(`${ansiCmd("erasedisplay", { pos: { x: 2, y: 2 } })}Watching assetpacks, last update: ${new Date().toISOString()}\n\n`);
             await listBundles(assetpacks, options.withwatchcounts);
             await waiter;
@@ -151,7 +151,7 @@ const runData = run({
   }
 }, { argv });
 
-function waitForEvent(eventmask: string) {
+function waitForEvent<Mask extends keyof BackendEvents>(eventmask: Mask): Promise<void> {
   const defer = Promise.withResolvers<void>();
   const sub = subscribe(eventmask, () => {
     void sub.then(resolvedSub => resolvedSub.setMasks([])); //unsubscribe
@@ -226,7 +226,7 @@ async function waitForCompilation(masks: string[], verbose: boolean): Promise<bo
   });
 
   for (; ;) {
-    const waiter = waitForEvent("publisher:assetpackcontrol.change.*");
+    const waiter = waitForEvent("platform:assetpackcontrol.update");
     const bundles = await getBundles(masks);
     const compiling = bundles.filter(bundle => bundle.iscompiling).map(bundle => bundle.outputtag);
     // eslint-disable-next-line @typescript-eslint/no-loop-func

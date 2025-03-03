@@ -118,14 +118,12 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
       this->RefreshDashboardPanel();
   }
 
-  MACRO GotAssetpackControlStatus(RECORD status)
-  {
+  MACRO GotAssetpackControlStatus(RECORD status) {
     this->laststatus := status;
     this->RefreshDashboardPanel();
   }
 
-  MACRO OnAssetEvent(RECORD ARRAY events)
-  {
+  MACRO OnAssetEvent(RECORD ARRAY events) {
     FOREVERY (RECORD rec FROM events)
       IF (rec.event = "system:webhareservice.publisher:assetpackcontrol.start")
       {
@@ -144,7 +142,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
   {
     this->RunScreen(Resolve("assetpackcontrol.xml#bundleprops"),
                                    [ assetpackcontrol := this->assetpackcontrol
-                                   , uuid := ^bundles->value[0]
+                                   , outputtag := ^bundles->value[0]
                                    , id := ^bundles->selection[0].id
                                    ]);
   }
@@ -187,11 +185,11 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
     RECORD status;
     TRY
     {
-      FOREVERY (RECORD rec FROM ^bundles->selection)
-        WaitForPromise(this->assetpackcontrol->RecompileBundle(rec.outputtag));
+      WaitForPromise(this->assetpackcontrol->RecompileBundles(^bundles->value));
     }
     CATCH (OBJECT e)
     {
+      LogHarescriptException(e);
       this->ResetConnection();
     }
   }
@@ -200,16 +198,15 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 <
   OBJECT assetpackcontrol;
-  STRING uuid;
+  STRING outputtag;
 
   MACRO Init(RECORD data)
   {
     this->assetpackcontrol := data.assetpackcontrol;
-    this->uuid := data.uuid;
-    ^listener->masks := [ "publisher:assetpackcontrol.change." || data.uuid ];
+    this->outputtag := data.outputtag;
     ^aboutmetafile->htmlvalue := this->GetHTMLTid(".aboutmetafile");
 
-    RECORD settings := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->uuid));
+    RECORD settings := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->outputtag));
     ^dev->value := settings.isdev;
 
     this->Reload();
@@ -217,16 +214,16 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 
   MACRO DoDownloadmetafile(OBJECT filereceiver)
   {
-    STRING metafile := CallJS("@mod-platform/js/assetpacks/support.ts#getAssetPackMetaDataFile", this->uuid);
+    STRING metafile := CallJS("@mod-platform/js/assetpacks/support.ts#getAssetPackMetaDataFile", this->outputtag);
     IF(Length(metafile) > 0)
-      filereceiver->SendFile(StringToBlob(metafile), "application/json", "metafile-" || Substitute(this->uuid, ":", "-") || ".json");
+      filereceiver->SendFile(StringToBlob(metafile), "application/json", "metafile-" || Substitute(this->outputtag, ":", "-") || ".json");
     ELSE
       this->RunSimpleScreen("error", this->GetTid(".nometafile"));
   }
 
-  MACRO GotEvents(RECORD ARRAY events)
-  {
-    this->Reload();
+  MACRO GotEvents(RECORD ARRAY events) {
+    IF(RecordExists(SELECT FROM events WHERE this->outputtag IN assetpacks))
+      this->Reload();
   }
 
   MACRO Reload()
@@ -234,7 +231,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
     IF(NOT ObjectExists(this->assetpackcontrol))
       RETURN;
 
-    RECORD status := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->uuid));
+    RECORD status := WaitForPromise(this->assetpackcontrol->GetBundleStatus(this->outputtag));
     IF(NOT RecordExists(status))
     {
       this->tolliumresult := "cancel";
@@ -247,7 +244,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
 
     ^filedependencies->rows := ToRecordArray(status.filedependencies, "path");
     ^missingdependencies->rows := ToRecordArray(status.missingdependencies,"path");
-    ^outputtag->value := this->uuid;
+    ^outputtag->value := this->outputtag;
     ^errors->value := messages;
     ^entrypoint->value := status.entrypoint;
     IF (RecordExists(status.bundleconfig))
@@ -262,7 +259,7 @@ PUBLIC STATIC OBJECTTYPE BundleProps EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginFeedback();
     IF(NOT work->HasFailed())
-      WaitForPromise(this->assetpackcontrol->UpdateBundleSettings(this->uuid, CELL[ dev := ^dev->value ]));
+      WaitForPromise(this->assetpackcontrol->UpdateBundleSettings(this->outputtag, CELL[ dev := ^dev->value ]));
     RETURN work->Finish();
   }
 >;

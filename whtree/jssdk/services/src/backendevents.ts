@@ -1,11 +1,12 @@
 import whbridge, { type BridgeEvent, type BridgeEventData } from "@mod-system/js/internal/whmanager/bridge";
 import { regExpFromWildcards } from "@webhare/std/strings";
 import { isValidBackendEventName } from "./naming";
+import type { BackendEvents } from "@webhare/services";
 
-export type BackendEvent = BridgeEvent;
+export type BackendEvent<T extends BridgeEventData = BridgeEventData> = BridgeEvent<T>;
 export type BackendEventData = BridgeEventData;
 type BackendEventMasks = string | string[];
-type BackendEventCallback = (events: BackendEvent[], subscription: BackendEventSubscription) => void;
+type BackendEventCallback<DataType extends BackendEventData = BackendEventData> = (events: Array<BackendEvent<DataType>>, subscription: BackendEventSubscription) => void;
 
 //TODO groupevents, supsend/resume - See TolliumEventListenerBase for inspiration on what a good event listener can do. OR just redesign a subscription or the bridge as an EventTarget
 class BackendEventSubscription implements Disposable {
@@ -56,6 +57,9 @@ class BackendEventSubscription implements Disposable {
   }
 }
 
+export async function subscribe<Mask extends string>(mask: Mask, callback: BackendEventCallback<Mask extends keyof BackendEvents ? BackendEvents[Mask] : BackendEventData>): Promise<BackendEventSubscription>;
+export async function subscribe(masks: string[], callback: BackendEventCallback): Promise<BackendEventSubscription>;
+
 export async function subscribe(masks: BackendEventMasks, callback: BackendEventCallback): Promise<BackendEventSubscription> {
   const subscr = new BackendEventSubscription(callback);
   await subscr.setMasks(masks);
@@ -68,7 +72,8 @@ class EventStream implements Disposable, AsyncIterable<BackendEvent> {
   private queue: BackendEvent[] = [];
 
   constructor(masks: BackendEventMasks) {
-    this.subscription = subscribe(masks, (events) => this.callback(events));
+    //TODO pretending its string[] so we don't have to type-parameter EventStream yet
+    this.subscription = subscribe(masks as string[], (events) => this.callback(events));
   }
 
   private callback(events: BackendEvent[]) {
@@ -124,7 +129,13 @@ export function subscribeToEventStream(masks: BackendEventMasks) {
     @param event - Name of the event
     @param data - Event data
 */
-export function broadcast(event: string, data?: BackendEventData) {
+
+export function broadcast<EventName extends keyof BackendEvents>(event: EventName, data: BackendEvents[EventName]): void;
+export function broadcast<EventName extends keyof BackendEvents>(event: EventName & (BackendEvents[EventName] extends null ? string : "Event requires parameter")): void;
+export function broadcast<EventName extends string>(event: EventName & (EventName extends keyof BackendEvents ? "Event requires parameter" : string), data?: BackendEventData): void;
+export function broadcast<EventName extends string>(event: EventName & (EventName extends keyof BackendEvents ? "Event requires parameter" : string)): void;
+
+export function broadcast<EventName extends string>(event: EventName, data?: EventName extends keyof BackendEvents ? BackendEvents[EventName] : BackendEventData | undefined): void {
   whbridge.sendEvent(event, data ?? null);
 }
 
