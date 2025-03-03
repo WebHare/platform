@@ -11,6 +11,7 @@ import ts from "typescript/lib/typescript";
 import { handleLintingCommand } from "@mod-system/js/internal/eslint";
 import { simpleGit } from "simple-git";
 import { handleFormattingCommand } from "@mod-system/js/internal/tsfmt";
+import { relative } from "path";
 
 function containsJSX(node: ts.Node): true | undefined {
   if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
@@ -20,8 +21,11 @@ function containsJSX(node: ts.Node): true | undefined {
 }
 
 run({
+  flags: {
+    "v,verbose": { description: "Show more information" }
+  },
   arguments: [{ name: "<module>", description: "Module to convert" }],
-  async main({ args }) {
+  async main({ opts, args }) {
     const root = backendConfig.module[args.module]?.root;
     if (!root)
       throw new CLIRuntimeError(`Module ${args.module} not found`);
@@ -38,7 +42,8 @@ run({
     await storeDiskFile(tsConfigFile, await generateTSConfigTextForModule(args.module), { overwrite: true, onlyIfChanged: true });
 
     //build us a host!
-    const originalFiles = await listDirectory(root, { recursive: true, mask: /\.es$/ });
+    const originalFiles = (await listDirectory(root, { recursive: true, mask: /\.es$/ })).
+      filter(_ => !_.fullPath.startsWith(root + "node_modules/") && !_.fullPath.startsWith(root + "vendor/"));
 
     console.log("Converting all .es files to .tsx...");
     const output = new Map<string, string>();
@@ -89,6 +94,9 @@ run({
 
       if (fixed.messages.some(_ => _.fatal))
         code = '/* eslint-disable */\n' + code;
+
+      if (opts?.verbose)
+        console.log('- checking ' + relative(root, file));
 
       const tsfmtresult = await handleFormattingCommand({ path: file, data: Buffer.from(code, 'utf8').toString('base64') });
       const tsfmtcode = Buffer.from(tsfmtresult.output, 'base64').toString('utf8');
