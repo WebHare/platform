@@ -116,7 +116,9 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param cv - Condition and value to compare with
    * @returns Whether after-filtering is necessary and updated query
    */
-  abstract addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O>;
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O> {
+    return { needaftercheck: true, query };
+  }
 
   /** Returns true all the values in a filter match the default value
    * @param cv - Condition+value to check
@@ -582,10 +584,6 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
     if (cv.condition === "in")
       return cv.value.includes(value);
     return cmp(value, cv.condition, cv.value);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBaseGeneratedStringConditions): AddToQueryResponse<O> {
-    return { needaftercheck: true, query };
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
@@ -1091,16 +1089,16 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
   }
 }
 
-type WRDDBEnumConditions = {
-  condition: "=" | "!="; value: string | null;
+type WRDDBEnumConditions<Options extends { allowedValues: string }, Required extends boolean> = {
+  condition: "=" | "!="; value: GetEnumAllowedValues<Options, Required> | null; options: { ignoreAllowedValues?: boolean };
 } | {
-  condition: "in"; value: ReadonlyArray<string | null>;
+  condition: "in"; value: ReadonlyArray<GetEnumAllowedValues<Options, Required> | null>; options: { ignoreAllowedValues?: boolean };
 } | {
   condition: "like"; value: string;
 } | {
-  condition: "mentions"; value: string;
+  condition: "mentions"; value: GetEnumAllowedValues<Options, Required>; options: { ignoreAllowedValues?: boolean };
 } | {
-  condition: "mentionsany"; value: readonly string[];
+  condition: "mentionsany"; value: ReadonlyArray<GetEnumAllowedValues<Options, Required>>; options: { ignoreAllowedValues?: boolean };
 };
 
 // FIXME: add wildcard support
@@ -1117,30 +1115,42 @@ function isAllowed(allowed: AllowedValues, value: string) {
 }
 
 
-abstract class WRDDBEnumValueBase<Options extends { allowedValues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+abstract class WRDDBEnumValueBase<
+  Options extends { allowedValues: string },
+  Required extends boolean> extends WRDAttributeValueBase<
+    GetEnumAllowedValues<Options, Required>,
+    GetEnumAllowedValues<Options, Required> | null,
+    GetEnumAllowedValues<Options, Required>,
+    WRDDBEnumConditions<Options, Required>
+  > {
   getDefaultValue(): GetEnumAllowedValues<Options, Required> | null { return null; }
   isSet(value: string | null) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBEnumConditions) {
-    if (condition === "mentions" && !value)
-      throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
-    if (value === "")
+  checkFilter(cv: WRDDBEnumConditions<Options, Required>) {
+    if ((cv.condition === "mentions" && !cv.value) || (cv.condition === "mentionsany" && cv.value.some(_ => !_)))
+      throw new Error(`Value may not be empty for condition type ${JSON.stringify(cv.condition)}`);
+    if (cv.value === "")
       throw new Error(`Use null instead of "" for enum compares`);
+
+    if (cv.condition !== "like" && !cv.options?.ignoreAllowedValues) {
+      if (cv.value && cv.condition === "=" && !isAllowed(prepAllowedValues(this.attr.allowedvalues), cv.value))
+        throw new Error(`Invalid value ${JSON.stringify(cv.value)} for enum attribute ${this.attr.fullTag}`);
+    }
   }
-  matchesValue(value: string | null, cv: WRDDBEnumConditions): boolean {
+  //Note that even though the vlque
+  matchesValue(value: GetEnumAllowedValues<Options, Required> | null, cv: WRDDBEnumConditions<Options, Required>): boolean {
     if (cv.condition === "in") {
       return cv.value.includes(value);
     }
-    value = value || "";
     if (cv.condition === "mentionsany") {
-      return cv.value.includes(value);
+      return Boolean(value && cv.value.includes(value));
     }
     if (cv.condition === "like") {
-      return isLike(value, cv.value);
+      return Boolean(value && isLike(value, cv.value));
     }
-    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value || "");
+    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions<Options, Required>): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     // Rewrite like query to PostgreSQL LIKE mask format
@@ -1155,18 +1165,12 @@ abstract class WRDDBEnumValueBase<Options extends { allowedValues: string }, Req
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
-    // Eliminate nulls
-    if (db_cv.condition === "=" || db_cv.condition === "!=")
-      db_cv = { ...db_cv, value: db_cv.value ?? "" };
-    if (db_cv.condition === "in")
-      db_cv = { ...db_cv, value: db_cv.value.map(v => v ?? "") };
-
     if (db_cv.condition === "in" && !db_cv.value.length)
       return null; // no results!
 
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`rawdata`, filtered_cv.condition, filtered_cv.value));
+    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`rawdata`, filtered_cv.condition, filtered_cv.value || ''));
     return {
       needaftercheck: false,
       query
@@ -1183,7 +1187,7 @@ abstract class WRDDBEnumValueBase<Options extends { allowedValues: string }, Req
     if (value) {
       if (this.attr.isunique)
         checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
-      if (!checker.importMode && !(this.attr.allowedvalues.length && isAllowed(prepAllowedValues(this.attr.allowedvalues), value)))
+      if (!checker.importMode && !isAllowed(prepAllowedValues(this.attr.allowedvalues), value))
         throw new Error(`Invalid value ${JSON.stringify(value)} for enum attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     }
   }
@@ -1196,15 +1200,12 @@ class WRDDBEnumValue<Options extends { allowedValues: string }, Required extends
 }
 
 class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedValues: WRDGender }, false> {
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions<{ allowedValues: WRDGender }, false>): AddToQueryResponse<O> {
     if (this.attr.tag !== 'wrdGender')
       throw new Error(`Unhandled base gender attribute ${JSON.stringify(this.attr.tag)}`);
 
     //TODO implement (but low prio, searching by gender is rare)
-    return {
-      needaftercheck: true,
-      query
-    };
+    return { needaftercheck: true, query }; //avoid suoer() - WRDDBEnumValueBase does the wrong thing
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): WRDGender | null {
@@ -1247,33 +1248,27 @@ class WRDDBBaseGenderValue extends WRDDBEnumValueBase<{ allowedValues: WRDGender
 }
 
 
-type WRDDBEnumArrayConditions = {
-  condition: "=" | "!="; value: readonly string[];
+type WRDDBEnumArrayConditions<Options extends { allowedValues: string }> = {
+  condition: "=" | "!=" | "intersects"; value: ReadonlyArray<GetEnumAllowedValues<Options, true>>; options: { ignoreAllowedValues?: boolean };
 } | {
-  condition: "intersects"; value: readonly string[];
-} | {
-  condition: "contains"; value: string;
+  condition: "contains"; value: GetEnumAllowedValues<Options, true>;
 };
 
-class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRDAttributeValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, WRDDBEnumArrayConditions> {
+class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRDAttributeValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, WRDDBEnumArrayConditions<Options>> {
   getDefaultValue(): Array<GetEnumArrayAllowedValues<Options>> { return []; }
   isSet(value: string[]) { return Boolean(value?.length); }
-  checkFilter(cv: WRDDBEnumArrayConditions) {
-    if (cv.condition === "contains") {
-      if (!cv.value)
-        throw new Error(`Value may not be empty for condition type ${JSON.stringify(cv.condition)}`);
-    } else if (cv.value.some(v => !v))
-      throw new Error(`Value may not contain empty strings empty for condition type ${JSON.stringify(cv.condition)}`);
+  checkFilter(cv: WRDDBEnumArrayConditions<Options>) {
+    const allowedvalues = prepAllowedValues(this.attr.allowedvalues);
+    const testList = cv.condition === "contains" ? [cv.value] : cv.value;
+    const firstBadValue = testList.find(_ => !_ || !isAllowed(allowedvalues, _));
+    if (firstBadValue)
+      throw new Error(`Invalid value ${JSON.stringify(firstBadValue)} for enum attribute ${this.attr.fullTag}`);
   }
-  matchesValue(value: readonly string[], cv: WRDDBEnumArrayConditions): boolean {
+  matchesValue(value: readonly string[], cv: WRDDBEnumArrayConditions<Options>): boolean {
     if (cv.condition === "contains") {
       return value.includes(cv.value);
     }
     throw new Error(`Condition ${cv.condition} not yet implemented for enumarray`);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumArrayConditions): AddToQueryResponse<O> {
-    return { needaftercheck: true, query };
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Array<GetEnumArrayAllowedValues<Options>> {
@@ -1305,63 +1300,20 @@ class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRD
   }
 }
 
-// FIXME: add wildcard support
+/* Statusrecords are deprecated and TS support is allowed to be minimal. At most we may want to support WRD Syncing these
+   fields for some compatibility with newsletter-using modules. No need to validate them any further */
 type GetStatusRecordValues<Options extends { allowedValues: string; type: object }, Required extends boolean> = (Options extends { allowedValues: infer V; type: infer T extends object } ? { status: V } & T : never) | (Required extends true ? never : null);
 
-class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions> {
+class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions<Options, Required>> {
   getDefaultValue(): GetStatusRecordValues<Options, Required> | null { return null; }
   isSet(value: object | null) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBEnumConditions) {
-    if (condition === "mentions" && !value)
-      throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
-    if (value === "")
-      throw new Error(`Use null instead of "" for enum compares`);
+  checkFilter({ condition, value }: WRDDBEnumConditions<Options, Required>) {
   }
-  matchesValue(value: { status: string } | null, cv: WRDDBEnumConditions): boolean {
-    if (cv.condition === "in") {
-      return cv.value.includes(value?.status ?? null);
-    }
-    const valueStatus = value?.status || "";
-    if (cv.condition === "mentionsany") {
-      return cv.value.includes(valueStatus);
-    }
-    if (cv.condition === "like") {
-      return isLike(valueStatus, cv.value);
-    }
-    return cmp(valueStatus, cv.condition === "mentions" ? "=" : cv.condition, cv.value || "");
-  }
+  matchesValue(value: { status: string } | null, cv: WRDDBEnumConditions<Options, Required>): boolean {
+    if (cv.condition === "=" || cv.condition === "!=")
+      return cmp(value?.status || "", cv.condition, cv.value || "");
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
-    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
-
-    // Rewrite like query to PostgreSQL LIKE mask format
-    let db_cv = { ...cv };
-    if (db_cv.condition === "like") {
-      db_cv.value = db_cv.value.replaceAll(/[\\%_]/g, "\\$&").replaceAll("*", "%").replaceAll(".", "_");
-    }
-
-    // rewrite mentions and mentionsany to supported conditions
-    if (db_cv.condition === "mentions")
-      db_cv = { ...db_cv, condition: "=" };
-    else if (db_cv.condition === "mentionsany")
-      db_cv = { ...db_cv, condition: "in" };
-
-    // Eliminate nulls
-    if (db_cv.condition === "=" || db_cv.condition === "!=")
-      db_cv = { ...db_cv, value: db_cv.value ?? "" };
-    if (db_cv.condition === "in")
-      db_cv = { ...db_cv, value: db_cv.value.map(v => v ?? "") };
-
-    if (db_cv.condition === "in" && !db_cv.value.length)
-      return null; // no results!
-
-    // copy to a new variable to satisfy TypeScript type inference
-    const filtered_cv = db_cv;
-    query = addQueryFilter2(query, this.attr.id, defaultmatches, b => b(sql`SPLIT_PART(rawdata, '\t', 1)`, filtered_cv.condition, filtered_cv.value));
-    return {
-      needaftercheck: false,
-      query
-    };
+    throw new Error(`Unsupported condition type '${cv.condition}' for statusrecords in TS`);
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): GetStatusRecordValues<Options, Required> {
@@ -1425,10 +1377,6 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
       return false;
     }
     return cmp(value, cv.condition, cv.value);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    return { needaftercheck: true, query };
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
@@ -1548,10 +1496,6 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
       return false;
     }
     return cmp(value, cv.condition, cv.value);
-  }
-
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    return { needaftercheck: true, query };
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {

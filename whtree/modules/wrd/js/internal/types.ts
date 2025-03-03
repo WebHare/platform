@@ -428,7 +428,7 @@ export type UpsertMatchQueryable<T extends TypeDefinition> = Pick<WRDUpdatable<T
    will result in O being inferred to be 'Contract' in that case. If Contract has only optional parameters, the array will conform to the contract */
 export type EnsureExactForm<O extends object, Contract extends object> = O & Contract & Record<Exclude<keyof O, keyof Contract>, never>;
 
-type AnyCondition = { field: string; condition: AllowedFilterConditions; value: unknown; options?: { matchCase?: boolean } };
+type AnyCondition = { field: string; condition: AllowedFilterConditions; value: unknown; options?: { matchCase?: boolean; ignoreAllowedValues?: boolean } };
 
 type ListConditionsSimple<T extends TypeDefinition, Field extends keyof T & string, Base extends string, Filter extends object> = Field extends keyof T & string ?
   (WRDAttributeTypeId extends T[Field] ? // test for 'any'

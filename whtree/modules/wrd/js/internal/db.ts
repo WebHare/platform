@@ -1,7 +1,7 @@
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDMetaTypeId } from "./types";
+import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDGender, WRDMetaTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
 const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract", "keephistorydays"] as const;
@@ -70,7 +70,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     attrs.push({ ...baseEmptyAttrRec, tag: "wrdRightEntity", fullTag: "wrdRightEntity", attributetype: WRDBaseAttributeTypeId.Base_Domain, required: true, domain: type.requiretype_right });
   if (type.tag === "wrdPerson") {
     attrs.push(...[
-      { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender },
+      { ...baseEmptyAttrRec, tag: "wrdGender", fullTag: "wrdGender", attributetype: WRDBaseAttributeTypeId.Base_Gender, allowedvalues: Object.values(WRDGender).join('\t') },
       { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", fullTag: "wrdSaluteFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString },
       { ...baseEmptyAttrRec, tag: "wrdAddressFormal", fullTag: "wrdAddressFormal", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdFullName", fullTag: "wrdFullName", attributetype: WRDBaseAttributeTypeId.Base_GeneratedString, isreadonly: true },
