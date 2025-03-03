@@ -15,7 +15,7 @@ RECORD FUNCTION GetFolderSummary(RECORD datasummary, INTEGER whichfolder)
 {
   RECORD ARRAY localfiles := SELECT published
                                   , outputsize := lastpublishsize
-                                  , inputsize := Length(data)
+                                  , inputsize := Length64(data)
                                FROM system.fs_objects
                               WHERE isfolder=FALSE AND parent=whichfolder;
   RECORD ARRAY localfolders := SELECT id FROM system.fs_objects WHERE isfolder=TRUE AND parent=whichfolder;

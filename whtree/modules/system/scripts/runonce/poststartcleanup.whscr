@@ -113,3 +113,6 @@ DeleteDiskFile(MergePath(dataroot, "system.last-shrinkwrap-var"));
 
 //5.7 Obsolete assetpack state
 DeleteDiskDirectoryRecursive(MergePath(dataroot, "storage/platform/assetpacks"));
+
+//5.7 Obsolete eslintrc.json
+DeleteDiskFile(MergePath(dataroot, ".eslintrc.json"));
