@@ -33,7 +33,7 @@ type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build 
 
 type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> }) & {
   [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
-};
+} & { link?: string; target?: "_blank" };
 
 export type RTDBlock = RTDBaseBlock<false>;
 export type RTDBlockItem = RTDBaseBlockItem;

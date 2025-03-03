@@ -5,6 +5,7 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import type { RTDBlockItem } from "@webhare/services/src/richdocument";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const hs = await exportAsHareScriptRTD(doc);
@@ -56,6 +57,16 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 }
 
 async function testBuilder() {
+  // eslint-disable-next-line no-constant-condition -- TS API type tests
+  if (false) {
+    ({ text: "A text", bold: true }) satisfies RTDBlockItem;
+    ///@ts-expect-error kabooya is not valid
+    ({ text: "A text", bold: true, kabooya: true }) satisfies RTDBlockItem;
+    ({ text: "text-me", link: "https://webhare.dev/" }) satisfies RTDBlockItem;
+    ({ text: "text-me", link: "https://webhare.dev/", target: "_blank" }) satisfies RTDBlockItem;
+    ({ text: "text-me", target: "_blank" }) satisfies RTDBlockItem;
+  }
+
   {
     const emptydoc = new RichTextDocument;
     test.eq(emptydoc.blocks, (await buildRTD([])).blocks);
@@ -110,6 +121,51 @@ async function testBuilder() {
     ]);
 
     test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p></body></html>`, await doc.__getRawHTML());
+    await verifyRoundTrip(doc);
+  }
+
+  { //test a-href merging (can't roundtrip that as it's fixed by the parser)
+    const doc = await buildRTD([
+      {
+        "p": [
+          { text: "This is a " },
+          { text: "hyper", link: "https://webhare.dev/" },
+          { text: "link", link: "https://webhare.dev/" },
+          { text: "y", link: "https://webhare.dev/", bold: true }
+        ]
+      }
+    ]);
+
+    test.eq(`<html><body>`
+      + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink<b>y</b></a></p>`
+      + `</body></html>`, await doc.__getRawHTML());
+  }
+
+  { //test a-href and not being broken up by substyle changes
+    const doc = await buildRTD([
+      {
+        "p": [
+          { text: "This is a " },
+          { text: "hyperlink", link: "https://webhare.dev/" },
+          { text: "y", link: "https://webhare.dev/2" },
+          { text: "thing", bold: true, link: "https://webhare.dev/2" },
+          { text: "y", link: "https://webhare.dev/2" },
+          { text: "doo", italic: true, link: "https://webhare.dev/2" },
+          { text: "dle", italic: true },
+        ]
+      }, {
+        "p": [
+          { text: "This is a " },
+          { text: "new window", link: "https://webhare.dev/", target: "_blank" },
+          { text: "-link", link: "https://webhare.dev/" }
+        ]
+      }
+    ]);
+
+    test.eq(`<html><body>`
+      + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink</a><a href="https://webhare.dev/2">y<b>thing</b>y<i>doo</i></a><i>dle</i></p>`
+      + `<p class="normal">This is a <a href="https://webhare.dev/" target="_blank">new window</a><a href="https://webhare.dev/">-link</a></p>`
+      + `</body></html>`, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
 
