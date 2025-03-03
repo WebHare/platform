@@ -22,6 +22,7 @@ export interface AssetPackManifest {
     subpath: string;
     compressed: boolean;
     sourcemap: boolean;
+    sha384?: string; //pre-5.8 WHs may not have sha384 and for subresource/skipping we don't need to calculate these for compressed files
   }>;
 }
 

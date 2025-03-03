@@ -13,7 +13,7 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { listDirectory, storeDiskFile } from '@webhare/system-tools';
 import { makeAssetPack, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
-import { stringify } from '@webhare/std';
+import { appendToArray, stringify } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
@@ -21,6 +21,11 @@ import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhar
 import type { ValidationMessageWithType } from '../devsupport/validation';
 import { getAssetPackBase } from '../concepts/frontend';
 import { loadJSFunction } from '@webhare/services';
+
+// Files with these extensions should be maximally compressed as all clients need them
+const compressExtensions = [".js", ".css", ".mjs", ".svg", ".ttf", ".otf"]; //Note that EOT and WOFF fonts already come compressed
+// Files with these extensions we'll only do a fast pass
+const compressExtensionsFast = [".map"];
 
 const compressGz = promisify(zlib.gzip);
 const compressBrotli = promisify(zlib.brotliCompress);
@@ -266,6 +271,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   let buildresult;
   const start = new Date;
+  const verbose = ["verbose", "debug"].includes(esbuild_configuration.logLevel || '');
 
   try {
     if (bundle.config.esBuildSettings)
@@ -335,6 +341,15 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   if (haserrors)
     return assetPackState;
 
+  const previousassets: AssetPackManifest["assets"] = [];
+  try {
+    const previousoverview = JSON.parse(await fs.readFile(path.join(bundle.outputpath, "apmanifest.json"), 'utf8')) as AssetPackManifest;
+    if (previousoverview?.assets)
+      appendToArray(previousassets, previousoverview.assets);
+  } catch (e) {
+    //ignore
+  }
+
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview: AssetPackManifest = {
     version: 1,
@@ -344,7 +359,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   if (!buildresult.outputFiles)
     throw new Error(`No errors but no outputfiles either?`);
 
-  const finalpack = new Map<string, Uint8Array>();
+  const finalpack = new Map<string, Uint8Array | null>();
 
   const expected_css_path = path.join(outdir, "ap.css");
   //Ensure ap.css exists in the outputFiles set (we want it to be in the manifest too, so we'll append it there)
@@ -361,26 +376,55 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   for (const file of buildresult.outputFiles) {
     const subpath = file.path.substring(esbuild_configuration.outdir.length + 1);
-    finalpack.set(subpath, file.contents);
+    const sha384 = crypto.createHash('sha384').update(file.contents).digest('base64');
+    //do we already have it on disk? if so, we don't need to write and/or compress it again
+    const previousIsOk = previousassets.find(_ => _.subpath === subpath && _.sha384 === sha384 && existsSync(path.join(bundle.outputpath, _.subpath)));
+    if (verbose)
+      console.log(`[assetpack] ${subpath} ${previousIsOk ? "unchanged" : "changed"}`);
+
+    finalpack.set(subpath, previousIsOk ? null : file.contents);
     assetoverview.assets.push({
       subpath: subpath,
       compressed: false,
-      sourcemap: subpath.endsWith(".map")
+      sourcemap: subpath.endsWith(".map"),
+      sha384
     });
 
-    if (!bundle.isdev) {
-      finalpack.set(subpath + '.gz', await compressGz(file.contents));
+    if (!bundle.isdev) { //only compress in production mode
+      const compressFast = compressExtensionsFast.includes(path.extname(subpath));
+      if (!compressFast && !compressExtensions.includes(path.extname(subpath)))
+        continue;
+
+      if (previousIsOk && existsSync(path.join(bundle.outputpath, subpath + '.gz'))) {
+        if (verbose)
+          console.log(`[assetpack] ${subpath}.gz can be re-used`);
+        finalpack.set(subpath + '.gz', null);
+      } else {
+        const gzipped = await compressGz(file.contents, { level: compressFast ? zlib.constants.Z_BEST_SPEED : zlib.constants.Z_DEFAULT_COMPRESSION });
+        finalpack.set(subpath + '.gz', gzipped);
+      }
+
       assetoverview.assets.push({
         subpath: subpath + '.gz',
         compressed: true,
-        sourcemap: subpath.endsWith(".map")
+        sourcemap: subpath.endsWith(".map"),
       });
 
-      finalpack.set(subpath + '.br', await compressBrotli(file.contents));
+      if (compressFast) //only gzip please
+        continue;
+
+      if (previousIsOk && existsSync(path.join(bundle.outputpath, subpath + '.br'))) {
+        if (verbose)
+          console.log(`[assetpack] ${subpath}.br can be re-used`);
+        finalpack.set(subpath + '.br', null);
+      } else {
+        const brotlied = await compressBrotli(file.contents);
+        finalpack.set(subpath + '.br', brotlied);
+      }
       assetoverview.assets.push({
         subpath: subpath + '.br',
         compressed: true,
-        sourcemap: subpath.endsWith(".map")
+        sourcemap: subpath.endsWith(".map"),
       });
     }
   }
@@ -392,7 +436,10 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
   //Write all files to disk in a temp location
   await fs.mkdir(esbuild_configuration.outdir, { recursive: true });
   for (const [name, filedata] of finalpack.entries())
-    await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
+    if (filedata !== null)
+      await fs.writeFile(path.join(esbuild_configuration.outdir, name), filedata);
+    else
+      await fs.utimes(path.join(bundle.outputpath, name), new Date(), new Date()); //touch the file to update the mtime so we won't delete it too fast later ons
 
   //Move them in place. Also fix the casing in this final step
   const removefiles = new Set<string>();
@@ -402,21 +449,31 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     else
       removefiles.add(file.fullPath); //add to the cleanup list
 
-  for (const [name] of finalpack.entries()) {
+  for (const [name, filedata] of finalpack.entries()) {
     const outputname = name.toLowerCase();
-    await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
+    if (filedata !== null)
+      await fs.rename(path.join(esbuild_configuration.outdir, name), path.join(bundle.outputpath, outputname)); //always lowercase on disk (but original case in manifest)
     removefiles.delete(path.join(bundle.outputpath, outputname));
   }
 
-  const cutoff = Date.now() - 86400 * 1000; //delete files older than one day. but gz files should go away immediately *iff* we're building for dev mode
+  const cutoff = Date.now() - 86400 * 1000; //delete files older than one day
   for (const removeFile of removefiles) {
-    const props = await fs.lstat(removeFile).catch(_ => null);
-    if (props && (props?.mtime.getTime() < cutoff || (bundle.isdev && (removeFile.endsWith('.gz') || removeFile.endsWith('.br'))))) {
-      if (props?.isDirectory())
-        await fs.rm(removeFile, { recursive: true });
-      else
-        await fs.unlink(removeFile);
+    const iscompressed = removeFile.endsWith('.gz') || removeFile.endsWith('.br');
+    let deleteIt = false;
+    if (iscompressed) {
+      const basename = removeFile.slice(0, removeFile.length - 3); //strips gz | br
+      if (!finalpack.has(basename)) //if the base version doesn't exist, delete the compressed version immediately to avoid confusion (server still serving compressed versions)
+        deleteIt = true;
     }
+
+    if (!deleteIt) { //see if the file is old enough where we assume it to be safely deletable (visitors with 'old' JS/CSS files might otherwise still refer to old chunks)
+      const props = await fs.lstat(removeFile).catch(_ => null);
+      if (props && (props?.mtime.getTime() < cutoff))
+        deleteIt = true;
+    }
+
+    if (deleteIt)
+      await fs.rm(removeFile, { recursive: true });
   }
 
   await storeDiskFile(statspath + "metafile.json", JSON.stringify(buildresult.metafile || null, null, 2), { overwrite: true });
