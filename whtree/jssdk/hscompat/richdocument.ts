@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { rtdParagraphTypes, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -98,13 +98,13 @@ class HSRTDImporter {
     return widget;
   }
 
-  async processInlineWidget(node: Element, state: BlockItemStack, outlist: RTDBuildBlockItems) {
+  async processInlineWidget(node: Element, state: BlockItemStack, outlist: RTDBlockItems) {
     const widget = await this.reconstructWidget(node);
     if (widget)
       outlist.push({ widget, ...state });
   }
 
-  async processBlockItems(node: Node, state: BlockItemStack, outlist: RTDBuildBlockItems) {
+  async processBlockItems(node: Node, state: BlockItemStack, outlist: RTDBlockItems) {
     for (let child = node.firstChild; child; child = child!.nextSibling) {
       if (isElement(child)) {
         const tag = child.tagName.toLowerCase();
@@ -151,11 +151,13 @@ class HSRTDImporter {
         continue;
       }
 
+      const useTag: RTDBlockType = (rtdBlockTypes as readonly string[]).includes(tag) ? tag as RTDBlockType : 'p';
       const setClass = classNames.length && isValidRTDClassName(classNames[0]) ? classNames[0] : '';
-      if (rtdParagraphTypes.includes(tag)) {
-        const outputtag = setClass ? `${tag}.${setClass}` : tag;
-        blocks.push({ [outputtag]: await this.getBlockItems(child) });
-      }
+      const newblock: RTDBlock = { tag: useTag, items: await this.getBlockItems(child) };
+      if (setClass && setClass !== rtdBlockDefaultClass[useTag]) //only set if not default
+        newblock.className = setClass;
+
+      blocks.push(newblock);
     }
     return blocks;
   }
@@ -231,9 +233,8 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
       continue;
     }
 
-    const key = Object.keys(block)[0] as `${string}.${string}`;
-    const [tag, className] = key.split('.');
-    htmltext += `<${tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block[key]!)}</${tag}>`;
+    const className = block.className || rtdBlockDefaultClass[block.tag];
+    htmltext += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block.items)}</${block.tag}>`;
   }
 
   return {

@@ -78,15 +78,17 @@ async function testBuilder() {
   {
     const doc = await buildRTD([
       { h1: ["Heading 1"] },
-      { "p.normal": [{ text: "Hi <> everybody!" }] }
+      { "p.superpara": [{ text: "Hi <> everybody!" }] },
+      { "p.normal": [{ text: "default p" }] }
     ]);
     test.assert(!doc.isEmpty());
 
     test.eq([
-      { "h1.heading1": [{ text: "Heading 1" }] },
-      { "p.normal": [{ text: "Hi <> everybody!" }] }
+      { tag: "h1", items: [{ text: "Heading 1" }] },
+      { tag: "p", className: "superpara", items: [{ text: "Hi <> everybody!" }] },
+      { tag: "p", items: [{ text: "default p" }] }
     ], doc.blocks);
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal">Hi &lt;&gt; everybody!</p></body></html>', await doc.__getRawHTML());
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
 
     await verifyRoundTrip(doc);
   }
@@ -97,7 +99,7 @@ async function testBuilder() {
       //we're still going to retry a blocklevel tag .. having to do a `p:` doesn't seem that bad and otherwise we really start making it ambiguous?
     ]);
 
-    test.eq([{ "p.normal": [{ text: "Line 1" }] }], doc.blocks);
+    test.eq([{ tag: "p", items: [{ text: "Line 1" }] }], doc.blocks);
     await verifyRoundTrip(doc);
   }
 
@@ -188,7 +190,8 @@ async function testBuilder() {
 
     test.eq([
       {
-        "p.normal": [
+        tag: "p",
+        items: [
           { text: "Bold", bold: true },
           { text: ", " },
           { text: "Italic", italic: true },
@@ -202,8 +205,6 @@ async function testBuilder() {
       }
     ], doc.blocks);
 
-    //this assert is mostly here to comfort typescript
-    test.assert(doc.blocks[0] && "p.normal" in doc.blocks[0] && 'widget' in doc.blocks[1]);
     test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
@@ -224,7 +225,7 @@ async function testBuilder() {
 
       test.assert('widget' in d.blocks[0]);
       const widget = d.blocks[0].widget.data as { rtdleft: RichTextDocument | null; rtdright: RichTextDocument | null };
-      test.eq([{ "p.normal": [{ text: "Left column" }] }], widget.rtdleft?.blocks);
+      test.eq([{ tag: "p", items: [{ text: "Left column" }] }], widget.rtdleft?.blocks);
       test.eq(null, widget.rtdright);
     }
 
@@ -316,7 +317,8 @@ async function testRegressions() {
   const parseResult = await buildRTDFromHareScriptRTD({ htmltext: WebHareBlob.from(htmlWithBadClass), instances: [], embedded: [], links: [] });
   test.eqPartial([
     {
-      "p.normal": [{ text: 'The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.' }]
+      tag: "p",
+      items: [{ text: 'The TechMed\nCentre, formerly the Technohal, houses the institute of the same name and\nseveral research groups in the Health area. The building also contains several\nresearch labs and the educational programmes Biomedical Technology, Health\nSciences and Technical Medicine.' }]
     }
   ], parseResult.blocks);
 }

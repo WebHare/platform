@@ -5,9 +5,9 @@ import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
 
 /** Paragraph types supported by us */
-export const rtdParagraphTypes: string[] = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
+export const rtdBlockTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
 /** Maps h1 etc to a default class if we're building RTDs wthout an explicit RTDType (needed for consistent output) */
-export const RTDParagraphDefaults: Record<RTDParagraphType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal" } as const;
+export const rtdBlockDefaultClass: Record<RTDBlockType[number], string> = { "h1": "heading1", "h2": "heading2", "h3": "heading3", "h4": "heading4", "h5": "heading5", "p": "normal" } as const;
 /** Simple text styles and their order */
 export const rtdTextStyles = { //Note that a-href is higher than all these styles. See also this.textstyletags in structurededitor
   "i": "italic",
@@ -19,17 +19,28 @@ export const rtdTextStyles = { //Note that a-href is higher than all these style
 } as const;
 
 
-export type RTDParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
+export type RTDBlockType = typeof rtdBlockTypes[number];
+type RTDBuildBlockType = `${typeof rtdBlockTypes[number]}.${string}`;
 
 /* The 'Build' flag indicates whether its a RTDBlock we will still parse and validate (building) or use as is (returned by RichTextDocument.blocks).
    The non-build version is generally stricter */
 
 type RTDBaseBlock<Build extends boolean> = {
-  [key in (Build extends true ? RTDBuildParagraphType : RTDParagraphType)]?: RTDBaseBlockItems<Build> | (Build extends true ? string : never);
-} | { widget: Readonly<WidgetInterface> };
+  /** Element type */
+  tag: RTDBlockType;
+  className?: string;
+  items: RTDBaseBlockItems<Build>;
+}
+  |
+{
+  widget: Readonly<WidgetInterface>;
+} | (Build extends true ? //When building also allow a simpler h1: [items] or "h1.heading1": [items] syntax
+  {
+    [key in RTDBlockType | RTDBuildBlockType]?: RTDBaseBlockItems<Build>;
+  } : never);
 
 /** The contents of text blocks */
-type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)>;
+type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)> | (Build extends true ? string : never);
 
 type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> }) & {
   [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
@@ -37,15 +48,20 @@ type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> 
 
 export type RTDBlock = RTDBaseBlock<false>;
 export type RTDBlockItem = RTDBaseBlockItem;
-export type RTDBlockItems = RTDBlockItem[];
+export type RTDBlockItems = RTDBaseBlockItems<false>;
 
-export type RTDBuildParagraphType = "h1.heading1" | "h2.heading2" | "h3.heading3" | "h4.heading4" | "h5.heading5" | "h6.heading6" | "p.normal" | typeof rtdParagraphTypes[number] | RTDParagraphType;
+export type RTDBuildParagraphType = "h1.heading1" | "h2.heading2" | "h3.heading3" | "h4.heading4" | "h5.heading5" | "h6.heading6" | "p.normal" | typeof rtdBlockTypes[number] | RTDBlockType;
 export type RTDBuildBlock = RTDBaseBlock<true>;
 export type RTDBuildBlockItem = RTDBaseBlockItem;
-export type RTDBuildBlockItems = RTDBuildBlockItem[];
+export type RTDBuildBlockItems = RTDBaseBlockItems<true>;
 
 export function isValidRTDClassName(className: string): boolean {
   return className === "" || /^[a-z0-9]+$/.test(className);
+}
+
+function validateTagName(tag: string): asserts tag is RTDBlockType {
+  if (!rtdBlockTypes.includes(tag as RTDBlockType))
+    throw new Error(`Invalid tag name '${tag}'`);
 }
 
 
@@ -87,39 +103,6 @@ export class RichTextDocument {
     return this.#blocks.length === 0;
   }
 
-  // //TODO if this becomes public, add proper option arg. and remember that textasblob only affects subrichdocs, not ourselves
-  // async #buildWidget(source: RTDBuildWidget): Promise<RTDWidget> {
-  //   const typeinfo = await describeWHFSType(source.whfsType);
-  //   if (typeinfo.metaType !== "widgetType") //TODO have describeWHFSType learn about widgetType - it can already enforce fileType/folderType selection
-  //     throw new Error(`Type ${source.whfsType} is not a widget type`); //without this check we'd just be buildWHFSInstance - and maybe we should be?
-
-  //   const widgetvalue: RTDWidget = {
-  //     whfsType: typeinfo.namespace,
-  //     whfsInstanceId: source.whfsInstanceId || generateRandomId()
-  //   };
-
-  //   for (const [key, value] of Object.entries(source)) {
-  //     if (key.startsWith('whfs'))
-  //       continue;
-
-  //     const matchMember = typeinfo.members.find((m) => m.name === key);
-  //     if (!matchMember)
-  //       throw new Error(`Member '${key}' not found in ${source.whfsType}`);
-
-  //     //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-  //     // if (matchMember.type === 'richDocument')
-  //     //   widgetvalue[key] = await buildRTD(value as RTDBlock[]);
-  //     // else
-  //     widgetvalue[key] = value;
-  //   }
-
-  //   if (this.#instances.get(widgetvalue.whfsInstanceId))
-  //     throw new Error(`Duplicate whfsInstanceId ${widgetvalue.inswhfsInstanceIdtanceId}`);
-
-  //   this.#instances.set(widgetvalue.whfsInstanceId, widgetvalue);
-  //   return widgetvalue;
-  // }
-
   async #buildBlockItems(blockitems: RTDBuildBlockItems | string): Promise<RTDBlockItems> {
     if (typeof blockitems === 'string')
       blockitems = [{ text: blockitems }];
@@ -131,18 +114,34 @@ export class RichTextDocument {
         continue;
       }
 
-      // if ('widget' in item) {
-      //   outitems.push({ ...item, widget: await this.#buildWidget(item.widget) });
-      // } else {
       outitems.push(item);
-      // }
     }
     return outitems;
+  }
+
+  async addBlock(tag: string, className: string | undefined, items: RTDBuildBlockItems) {
+    validateTagName(tag);
+
+    const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
+    if (!isValidRTDClassName(useclass))
+      throw new Error(`Invalid class name '${className}'`);
+
+    const newblock: RTDBlock = { tag, items: await this.#buildBlockItems(items) };
+    if (useclass !== rtdBlockDefaultClass[tag]) {
+      newblock.className = useclass;
+    }
+    this.#blocks.push(newblock);
   }
 
   async addBlocks(blocks: RTDBuildBlock[]): Promise<void> {
     //TODO validate, import disk objects etc
     for (const block of blocks) {
+      if ("tag" in block) {
+        //Normal block (tag:), not a build block (eg h2:)
+        await this.addBlock(block.tag, block.className, block.items);
+        continue;
+      }
+
       const entries = Object.entries(block);
       if (entries.length === 0)
         throw new Error(`Block is empty`);
@@ -152,10 +151,7 @@ export class RichTextDocument {
       const key: string = entries[0][0];
       const data = entries[0][1];
       if (key === 'widget') {
-        // const subdoc = await this.#buildWidget(data as RTDBuildWidget);
         this.#blocks.push({ widget: data });
-        // rdoc.htmltext += subdoc.htmltext;
-        // rdoc.instances.push(...subdoc.instances);
         continue;
       }
 
@@ -163,22 +159,9 @@ export class RichTextDocument {
       const [tag, className, extra] = key.split('.');
       if (extra !== undefined)
         throw new Error(`Invalid tag name '${key}'`);
-      if (!['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p'].includes(tag))
-        throw new Error(`Invalid tag name '${key}'`);
 
-      const useclass = className || RTDParagraphDefaults[tag] || throwError(`No default class for tag '${tag}'`);
-      if (!isValidRTDClassName(useclass))
-        throw new Error(`Invalid class name '${className}'`);
-
-      this.#blocks.push(({ [`${tag}.${useclass}`]: await this.#buildBlockItems(data!) }));
+      await this.addBlock(tag, className, data);
     }
-    //   rdoc.htmltext += `<${tag} class="${encodeString(className || defaultClass[tag], 'attribute')}">`;
-    //   addToDoc(rdoc, await encodeContent(data, textasblob));
-    //   rdoc.htmltext += `</${tag}>`;
-    // }
-    // rdoc.htmltext += '</body></html>';
-    // if (textasblob)
-    //   rdoc.htmltext = WebHareBlob.from(rdoc.htmltext as string);
   }
 
   /** @deprecated Use exportRTDToRawHTML in hscompat */

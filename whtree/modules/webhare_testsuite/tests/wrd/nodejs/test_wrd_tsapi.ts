@@ -749,7 +749,7 @@ async function testNewAPI() {
       testArray: [
         {
           testArray2: [{ testInt2: 2 }],
-          testRTD: (rtd: any) => rtd.blocks[0]["p.normal"][0].text === "test 2",
+          testRTD: (rtd: any) => rtd.blocks[0].items[0].text === "test 2",
           testImage: null,
         },
         {
