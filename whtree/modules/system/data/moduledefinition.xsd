@@ -667,7 +667,6 @@
         <xs:documentation>Tag for this task type. Is combined with the module name (eg `mymodule:mytag)`</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="library" /> <!-- deprecated ... library running was used for ephemeral tasks -->
     <xs:attribute name="objectname">
       <xs:annotation>
         <xs:documentation>Object implementing HareScript task</xs:documentation>

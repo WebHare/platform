@@ -615,7 +615,7 @@ false = authentication is only necessary for users not matching the IP access ru
         <d:documentation>When the task was finished</d:documentation>
       </d:datetime>
       <d:integer name="workertype">
-        <d:documentation>Required worker type - 0 = harescript, 1 = javascript</d:documentation>
+        <d:documentation>Not used (was 0 for HS, 1 for TS, broke somewhere and noone noticed)</d:documentation>
       </d:integer>
       <d:varchar name="tasktype" maxlength="400" />
       <d:varchar name="taskdata" maxlength="4096">

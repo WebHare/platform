@@ -121,7 +121,6 @@ PUBLIC SCHEMA
     , DATETIME nextattempt
     , DATETIME finished
     , STRING tasktype
-    , INTEGER workertype
     , STRING taskdata
     , BLOB auxdata
     , STRING lasterrors
