@@ -10,6 +10,7 @@ import { getScriptName } from "@webhare/system-tools/src/node";
 import { updateDebugConfig } from "@webhare/env/src/envbackend";
 import { throwError } from "@webhare/std";
 import * as semver from "semver";
+import type { TasksExtract } from "./generation/gen_extract_tasks";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -136,6 +137,7 @@ export function isInvalidWebHareUpgrade(from: string, to: string): string | null
 
 export function getExtractedConfig(which: "assetpacks"): AssetPack[];
 export function getExtractedConfig(which: "services"): Services;
+export function getExtractedConfig(which: "tasks"): TasksExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {
