@@ -123,7 +123,6 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
 {
   RECORD executeinfo := [ queueid :=        taskdata.queueid
                         , isephemeral :=    taskdata.isephemeral
-                        , library :=        taskinfo.library
                         , tasktype :=       taskdata.tasktype
                         , objectname :=     taskinfo.objectname
                         , profile :=        taskinfo.profile

@@ -243,14 +243,6 @@ PUBLIC RECORD FUNCTION ParseWebServiceDefinitionNode(STRING modulename, OBJECT s
   STRING prefix := servicenode->GetAttribute("prefix");
 
   STRING libpath := MakeAbsoluteResourcePath("mod::" || modulename || "/", servicenode->GetAttribute("library"));
-  IF(NOT RecordExists(RetrieveWebHareResource(libpath, [ allowmissing := TRUE])))
-  {
-    STRING altlibpath := (modulename != "" ? "module::" || modulename || "/" : "") || servicenode->GetAttribute("library");
-    IF(RecordExists(RetrieveWebHareResource(altlibpath, [ allowmissing := TRUE])))
-    {
-      libpath := altlibpath;
-    }
-  }
 
   RECORD servicedef :=
       [ name :=               servicename

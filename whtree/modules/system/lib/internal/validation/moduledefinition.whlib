@@ -139,9 +139,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         STRING startmacro := appnode->GetAttribute("startmacro");
         IF(appnode->HasAttribute("library"))
         {
-          this->AddWarningForLine(appnode->linenum, "The use of library= has been deprecated. (combine into startmacro=, dev:rewite can fix this!)");
-          IF(startmacro != "")
-            startmacro := appnode->GetAttribute("library") || "#" || startmacro;
+          this->AddError(appnode, `library= is no longer supported (combine into startmacro=, dev:rewite can fix this!`);
+          CONTINUE;
         }
 
         IF(startmacro != "" AND startmacro NOT LIKE "*#*")
@@ -157,15 +156,11 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
           {
             STRING trylib := "module::" || this->modulename || "/" || Tokenize(startmacro,'#')[0];
             IF(RecordExists(RetrieveWebHareResource(trylib, [ allowmissing := TRUE ])))
-            {
-              this->AddWarning(appnode, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path - dev:rewrite can fix this!)");
-              startmacro := trylib || "#" || Tokenize(startmacro,'#')[1];
-            }
+              this->AddError(appnode, `Cannot find '${lib}' but it may be in the module:: namespace - dev:rewrite can fix this!)`);
             ELSE
-            {
               this->AddError(appnode, `Cannot find '${lib}'`);
-              CONTINUE;
-            }
+
+            CONTINUE;
           }
           this->VerifyFunctionExistence(appnode, MakeAbsoluteResourcePath(this->respath, startmacro));
         }
@@ -186,7 +181,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
         IF(lib != "" AND NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
         {
           IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
-            this->AddWarning(webservice, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path - dev:rewrite can fix this!)");
+            this->AddError(webservice, `Cannot find '${lib}' but it may be in the module:: namespace - dev:rewrite can fix this!)`);
           ELSE
             this->AddError(webservice, `Cannot find '${lib}'`);
         }
@@ -200,7 +195,9 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
           STRING lib := MakeAbsoluteResourcePath(this->respath, webservice->GetAttribute("library"));
           IF(NOT RecordExists(RetrieveWebHareResource(lib, [ allowmissing := TRUE ])))
             IF(RecordExists(RetrieveWebHareResource("module::" || this->modulename || "/" || webservice->GetAttribute("library"), [ allowmissing := TRUE ])))
-              this->AddWarningForLine(webservice->linenum, "This is a legacy library= path (assumes a module:: namespace although it looks like a relative path (dev:rewrite can fix this!)");
+              this->AddError(webservice, `Cannot find '${lib}' but it may be in the module:: namespace - dev:rewrite can fix this!)`);
+            ELSE
+              this->AddError(webservice, `Cannot find '${lib}'`);
         }
       }
 

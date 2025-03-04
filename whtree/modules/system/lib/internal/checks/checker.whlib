@@ -404,11 +404,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   FOREVERY(RECORD check FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "check"))
   {
     STRING ARRAY issues;
-    STRING objectname := check.node->GetAttribute("objectname");
-    IF(check.node->HasAttribute("library"))
-      objectname := "module::" || check.module || "/" || check.node->GetAttribute("library") || "#" || objectname;
-    ELSE
-      objectname := MakeAbsoluteResourcePath(check.resource, objectname);
+    STRING objectname :=  MakeAbsoluteResourcePath(check.resource, check.node->GetAttribute("objectname"));
 
     TRY
     {

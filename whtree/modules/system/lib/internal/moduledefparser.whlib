@@ -733,7 +733,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     }
     ELSE IF(node->HasAttribute("startmacro"))
     {
-      IF(node->HasAttribute("library")) //classic synta, separate path
+      IF(node->HasAttribute("library")) //classic syntax, separate path
       {
         STRING applib := node->GetAttribute("library");
         IF(applib != "" AND applib NOT LIKE "*::*")
@@ -1026,7 +1026,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                   {
                     CASE "describer"
                     {
-                      objectrec.describer := "module::" || modulename || "/" || ToLowercase(subsubchild->GetAttribute("library")) || "#" || ToLowercase(subsubchild->GetAttribute("objectname"));
+                      objectrec.describer := "mod::" || modulename || "/lib/" || ToLowercase(subsubchild->GetAttribute("library")) || "#" || ToLowercase(subsubchild->GetAttribute("objectname"));
                       this->AddError(subsubchild, "<describer> will be removed in from WebHare, use <objecttype describer=…> (dev:rewrite can fix this!)");
                     }
                   }
@@ -1396,12 +1396,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         }
         CASE "webdesignplugin"
         {
-          RECORD plugin;
-          IF(subchild->HasAttribute("library"))
-            plugin := MakePluginRecord("module::" || this->moduledef.name || "/" || ToLowercase(subchild->GetAttribute("library")) || "#" || subchild->GetAttribute("objectname"));
-          ELSE
-            plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname")));
-
+          RECORD plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname")));
           plugin.name := subchild->GetAttribute("name");
           plugin.namespace := subchild->GetAttribute("namespace");
           plugin.hooksfeatures := ParseXSList(subchild->GetAttribute("hooksfeatures"));
