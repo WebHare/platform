@@ -1,4 +1,6 @@
 #!/bin/bash
+# shellcheck disable=SC2129
+# disable complaints about >> on two lines in a row
 
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
@@ -21,7 +23,7 @@ version=""
 CONTAINERS=()
 ORIGINALOPTIONS=()
 ORIGINALPARAMS=()
-BASEDIR=$(get_absolute_path $(dirname $0)/../..)
+BASEDIR=$(get_absolute_path "$(dirname "$0")/../..")
 ALLOWSTARTUPERRORS=""
 DOCKERARGS=
 TERSE=--terse
@@ -99,15 +101,15 @@ create_container()
 
   NR=$1
 
-  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
+  echo "$(date) Creating container$NR (using image $WEBHAREIMAGE)"
 
   #######################
   #
   # Create the environment file
-  > ${TEMPBUILDROOT}/env-file
+  true > "${TEMPBUILDROOT}/env-file"
 
   # Switch to DTAP development - most test refuse to run without this option for safety reasons
-  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
+  echo "WEBHARE_DTAPSTAGE=development" >> "${TEMPBUILDROOT}/env-file"
 
   # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
   echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
@@ -116,7 +118,7 @@ create_container()
   fi
 
   # Allow whdata to be mounted on ephemeral (overlayfs) storage. This parameter is needed for WH 4.25 - WH 5.5
-  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
+  echo "WEBHARE_ALLOWEPHEMERAL=1" >> "${TEMPBUILDROOT}/env-file"
 
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
   set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
@@ -246,14 +248,14 @@ finalize_tests()
 
   # Can't use docker cp due to the volume at /opt/whdata/
   mkdir -p $ARTIFACTS/whdata
-  RunDocker exec $TESTENV_CONTAINER1 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata/
-  RunDocker exec $TESTENV_CONTAINER1 tar -c -C / tmp | tar -x -C $ARTIFACTS/
+  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/ output log tmp | tar -x -C "$ARTIFACTS/whdata/"
+  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C / tmp | tar -x -C "$ARTIFACTS/"
   # For consistency we should probably get everyone inside the container to dump any artifacts in $TESTFW_OUTPUT
-  RunDocker exec $TESTENV_CONTAINER1 tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
+  RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
   if is_atleast_version 5.7.0 ; then
-    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo $ARTIFACTS/buildinfo
+    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo "$ARTIFACTS/buildinfo"
   else
-    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo $ARTIFACTS/buildinfo
+    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo "$ARTIFACTS/buildinfo"
   fi
 
   if [ -n "$TESTFW_EXPORTMODULE" ]; then
@@ -267,21 +269,21 @@ finalize_tests()
   fi
 
   if [ -n "$COVERAGE" ]; then
-    RunDocker exec $TESTENV_CONTAINER1 wh run mod::system/scripts/debug/analyze_coverage.whscr
-    RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
+    RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/analyze_coverage.whscr
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
     echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
   fi
 
   if [ -n "$WEBHARE_PROFILE" ]; then
-    RunDocker exec $TESTENV_CONTAINER1 tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
     echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
   fi
 
-  if [ "`RunDocker ps -q -f id=$TESTENV_CONTAINER1`" == "" ]; then
+  if [ "$(RunDocker ps -q -f id=$TESTENV_CONTAINER1)" == "" ]; then
     echo "Container1 exited early!"
     RunDocker logs $TESTENV_CONTAINER1
   fi
-  if [ -n "$TESTFW_TWOHARES" -a "`RunDocker ps -q -f id=$TESTENV_CONTAINER2`" == "" ]; then
+  if [ -n "$TESTFW_TWOHARES" -a "$(RunDocker ps -q -f id=$TESTENV_CONTAINER2)" == "" ]; then
     echo "Container2 exited early!"
     RunDocker logs $TESTENV_CONTAINER2
   fi
@@ -483,7 +485,7 @@ fi
 
 TESTLIST="$@"
 BUILDDIR="$PWD"
-cd `dirname $0`
+cd "$(dirname "$0")" || die "Cannot change to script directory"
 
 if [ -n "$TESTSECRET_SECRETSURL" ]; then
   DOWNLOADPATH=`mktemp`
@@ -649,7 +651,7 @@ elif [ -n "$ISMODULETEST" ]; then
 
   if [ ! -d "$TESTINGMODULEDIR" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then #doesn't appear to be CI, so give wh a shot to expand to the full module name
-      TESTINGMODULEDIR="$(../../whtree/bin/wh getmoduledir $TESTINGMODULE)"
+      TESTINGMODULEDIR="$(../../whtree/bin/wh getmoduledir "$TESTINGMODULE")"
     fi
     if [ ! -d "$TESTINGMODULEDIR" ]; then
       echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
@@ -753,7 +755,7 @@ do
     continue #already one this module
   fi
 
-  mkdir -p $(dirname $TARGETDIR)
+  mkdir -p "$(dirname "$TARGETDIR")"
 
   GITOPTIONS=""
   CLONEINFO=""
@@ -878,7 +880,7 @@ if [ -z "$FATALERROR" ]; then
   # core tests should come with precompiled assetpacks so we only need to wait for module tests
   # the assetpack check may be obsolete soon now as fixmodules now implies it (since 4.35, but testdocker will also run for older versions!)
   echo "$(date) Check assetpacks"
-  RunDocker exec $TESTENV_CONTAINER1 wh assetpack check "*:*"
+  RunDocker exec "$TESTENV_CONTAINER1" wh assetpack check "*:*"
   RETVAL="$?"
   if [ "$RETVAL" != "0" ]; then  #NOTE: wait for ALL assetpacks. might be nicer to wait only for dependencies, but we can't wait for just our own
     testfail "wait assetpacks failed (errorcode $RETVAL)"
@@ -886,18 +888,18 @@ if [ -z "$FATALERROR" ]; then
 fi
 
 if [ -n "$GENERATEXMLTESTS" ] && [ -z "$FATALERROR" ]; then
-  echo "`date` Generate XML tests"
-  RunDocker exec $TESTENV_CONTAINER1 wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
+  echo "$(date) Generate XML tests"
+  RunDocker exec "$TESTENV_CONTAINER1" wh run mod::webhare_testsuite/scripts/tests/createxmldomtestscripts.whscr
 fi
 
-echo "`date` --- container1 servicemanager log ---"
-RunDocker logs $TESTENV_CONTAINER1
-echo "`date` ^^^ container1 servicemanager log ^^^"
+echo "$(date) --- container1 servicemanager log ---"
+RunDocker logs "$TESTENV_CONTAINER1"
+echo "$(date) ^^^ container1 servicemanager log ^^^"
 
 if [ -n "$TESTFW_TWOHARES" ]; then
-  echo "`date` --- container2 servicemanager log ---"
-  RunDocker logs $TESTENV_CONTAINER2
-  echo "`date` ^^^ container2 servicemanager log ^^^"
+  echo "$(date) --- container2 servicemanager log ---"
+  RunDocker logs "$TESTENV_CONTAINER2"
+  echo "$(date) ^^^ container2 servicemanager log ^^^"
 fi
 
 if [ -z "$FATALERROR" ]; then
