@@ -120,6 +120,9 @@ create_container()
   # Allow whdata to be mounted on ephemeral (overlayfs) storage. This parameter is needed for WH 4.25 - WH 5.5
   echo "WEBHARE_ALLOWEPHEMERAL=1" >> "${TEMPBUILDROOT}/env-file"
 
+  # Set artifact dir
+  echo "TESTFW_OUTDIR=/output" >> "${TEMPBUILDROOT}/env-file"
+
   # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
   set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
 
@@ -690,7 +693,11 @@ if [ -n "$ISJSPACKAGETEST" ]; then
   tar "${HOSTTAROPTIONS[@]}" -C "${TESTINGMODULE}" -c . | RunDocker exec -i "$TESTENV_CONTAINER1" tar -C "$DESTCOPYDIR" -x || exit_failure_sh "Module copy failed!"
   unblock_containers
   wait_for_poststarts
-  RunDocker exec "$TESTENV_CONTAINER1" wh devkit:testjspackage "$DESTCOPYDIR"
+  if is_atleast_version 5.7.0 ; then # only 5.7.0+ ships with useful testscripts
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh devkit:testjspackage "$DESTCOPYDIR" ; then
+      testfail "testjspackage failed"
+    fi
+  fi
   finalize_tests # should exit with 0 or 1 depending on the test results
 
   # shellcheck disable=SC2317  # Don't warn about unreachable commands in this file - it's here just in case until we have.. expect-shellcheck-error?
@@ -919,7 +926,7 @@ if [ -z "$FATALERROR" ]; then
   else
     # When module testing, only run runtest if there actually appear to be any tests
     if [ -n "$ISPLATFORMTEST" ] || [ -f "$TESTINGMODULEDIR/tests/testinfo.xml" ]; then
-      if ! RunDocker exec --env TESTFW_OUTDIR=/output "$TESTENV_CONTAINER1" wh runtest --outputdir /output --autotests $TERSE "${RUNTESTARGS[@]}" $TESTLIST; then
+      if ! RunDocker exec "$TESTENV_CONTAINER1" wh runtest --outputdir /output --autotests $TERSE "${RUNTESTARGS[@]}" $TESTLIST; then
         testfail "One or more tests failed"
       fi
     fi
