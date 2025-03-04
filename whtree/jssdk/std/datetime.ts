@@ -1,4 +1,5 @@
 import { isDate } from "./quacks";
+import type { Temporal } from "temporal-polyfill"; //we need an explicit include for separate @webhare/std publication
 
 /** A tolerant JS date parameter */
 export type FlexibleInstant = Date | Temporal.Instant | Temporal.ZonedDateTime;
