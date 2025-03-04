@@ -15,7 +15,7 @@ STRING FUNCTION DescribePayment(RECORD paymentrecord, RECORD paymentattr, OBJECT
   RETURN `Payment #${paymentrecord.id} for ${ToLowercase(wrdschema->tag || "." || paymentattr.wrdtypetag)} entity #${paymentrecord.paymententity} (${paymentrecord.paymentdata.paymentref})`;
 }
 
-PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD ARRAY FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
     [ recheckinterval := 5*60*1000
@@ -23,13 +23,10 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
     , debug := FALSE
     ], options);
 
-  BOOLEAN allok := TRUE;
+  RECORD ARRAY issues;
   STRING ARRAY block_payments := SELECT AS STRING ARRAY uuid FROM wrd.pendingpayments GROUP BY uuid HAVING COUNT(*)>1;
   IF(Length(block_payments)>0)
-  {
-    PrintTo(2, `There are ${Length(block_payments)} duplicate payments - they cannot be polled for status. Maybe you need to remove a .bak schema?\n`);
-    allok := FALSE;
-  }
+    INSERT [ message := `There are ${Length(block_payments)} duplicate payments - they cannot be polled for status. Maybe you need to remove a .bak schema?` ] INTO issues AT END;
 
   RECORD ARRAY paymentgroups := SELECT payments := GroupedValues(pendingpayments)
                                      , providerattr
@@ -88,7 +85,7 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
         CATCH(OBJECT e)
         {
           LogHarescriptException(e);
-          seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}\n`;
+          seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}`;
         }
 
         IF(seterror = "")
@@ -113,7 +110,7 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
             CATCH(OBJECT e)
             {
               LogHarescriptException(e);
-              seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}\n`;
+              seterror := `${DescribePayment(paymentrecord, paymentattr, wrdschema)} triggered an exception during check: ${e->what}`;
             }
           }
         }
@@ -135,10 +132,7 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
   }
 
   FOREVERY(RECORD failpay FROM SELECT error FROM wrd.pendingpayments WHERE paymentattr IN relevant_attrs AND error != "" AND (options.id = 0 ? TRUE : id = options.id))
-  {
-    PrintTo(2, failpay.error || "\n"); //TODO after an import, the ids in the error might be incorrect
-    allok := FALSE;
-  }
+    INSERT [ message := failpay.error ] INTO issues AT END;
 
   IF(delete_threshold < MAX_DATETIME)
   {
@@ -147,5 +141,5 @@ PUBLIC BOOLEAN FUNCTION PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_th
     GetPrimary()->CommitWork();
   }
 
-  RETURN allok;
+  RETURN issues;
 }

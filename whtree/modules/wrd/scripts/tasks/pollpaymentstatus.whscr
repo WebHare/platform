@@ -23,6 +23,13 @@ IF (NOT RecordExists(args))
 //we'll keep the transactions for at least 30 days as we can still receive updates
 INTEGER deletedays := ReadRegistryKey("wrd.globalconfig.keeppaymentsdays");
 DATETIME delete_threshold := AddDaysToDate(-deletedays, GetCurrentDatetime());
-IF(NOT PollPaymentStatuses(FALSE //running for live wrd schemas
-                          , delete_threshold, CELL[ args.debug, id := ToInteger(args.id,0) ]))
+RECORD ARRAY issues := PollPaymentStatuses(
+    FALSE, //running for live wrd schemas
+    delete_threshold,
+    CELL[ args.debug, id := ToInteger(args.id,0) ]);
+
+IF(Length(issues) > 0) {
+  FOREVERY(RECORD issue FROM issues)
+    PrintTo(2, issue.message || '\n');
   SetConsoleExitCode(1);
+}
