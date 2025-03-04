@@ -12,6 +12,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "wh::regex.whlib";
+LOADLIB "wh::ipc.whlib";
 
 RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
 
@@ -158,6 +159,7 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
 }
 
 OBJECT invokeservice;
+OBJECT calljseventmgr;
 
 /** Invoke a specific JavaScript function. Through a central service in Native mode and
     directly in WASM mode (with reentrancy disallowed)
@@ -178,6 +180,17 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
     RETURN EM_SyncSyscall("jsCall", CELL[ lib, name, args ]);
   }
 
+  IF(NOT ObjectExists(calljseventmgr)) {
+    calljseventmgr := NEW EventManager; //RegisterEventCallback won't do, that one waits for microtasks but CallJS avoids running those
+    calljseventmgr->RegisterInterest("system:webhareservice.system:invokeservice.start");
+  } ELSE IF(calljseventmgr->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"]) {
+    //calljs has restarted, reconnect it
+    invokeservice->CloseService();
+    invokeservice := DEFAULT OBJECT;
+
+    WHILE(calljseventmgr->ReceiveEvent(DEFAULT DATETIME).status NOT IN ["timeout","gone"])
+      /* Flush any other pending events */;
+  }
   IF(NOT ObjectExists(invokeservice))
     invokeservice := __OpenSynchronousWebHareService("system:invokeservice");
 
