@@ -9,6 +9,7 @@ import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
+import { rm } from "node:fs/promises";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -476,6 +477,7 @@ async function testLogs() {
   test.eq(hsline.value["@id"], (await logreader2.next()).value["@id"], "ContinueAfter should have started after 'hardlogline'");
 
   // Historic files reading. First write two lines:
+  await rm(services.backendConfig.dataroot + "log/betatest.20241205.log");
   await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241204.log",
     `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });
 
