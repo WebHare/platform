@@ -12,6 +12,8 @@ import { db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { tagToJS } from "./wrdsupport";
+import { wrdFinishHandler } from "@mod-wrd/js/internal/finishhandler";
+import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
 export { WRDSchema, type WRDAttributeType, type WRDMetaType };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
@@ -62,9 +64,18 @@ export async function listSchemas() {
 /** Open a schema by id
  * @returns WRDSchema object or null if the schema does not exist
  */
-export async function openWRDSchemaById(id: number) {
+export async function openSchemaById(id: number) {
   const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["name"]).where("id", "=", id).executeTakeFirst();
   if (!dbschema || dbschema.name.startsWith("$wrd$deleted"))
     return null; //because this is a rarely used API we won't bother with throws/allowMissing etc
   return new WRDSchema(dbschema.name);
+}
+
+export async function deleteSchema(id: number) {
+  //NOTE 'pinning' is being deprecated (want to check DTAP stage instead, combined with module ownership, as pinning is often forgotten) so not checking it here
+  await db<PlatformDB>().updateTable("wrd.schemas").set("name", "$wrd$deleted$" + id).where("id", "=", id).execute();
+  await scheduleTask("wrd:deletetask", { id });
+  await scheduleTimedTask("wrd:scanforissues"); //clear out any associated errors
+
+  wrdFinishHandler().schemaNameChanged(id);
 }

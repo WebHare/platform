@@ -303,7 +303,7 @@ PUBLIC RECORD FUNCTION GeneratePDFFromFile(RECORD wrappedfile, RECORD options DE
 }
 
 // https://pdfbox.apache.org/2.0/commandline.html
-RECORD FUNCTION RunPDFBox(STRING ARRAY instructions)
+PUBLIC RECORD FUNCTION __RunPDFBox(STRING ARRAY instructions)
 {
   RETURN RunJavaServiceApp([GetInstallationRoot() || "/libexec/pdfbox-app.jar", ...instructions]);
 }
@@ -316,7 +316,7 @@ PUBLIC RECORD ARRAY FUNCTION ExportPDFToImages(BLOB inpdf)
   STRING pdftemp := GenerateTemporaryPathname();
   StoreDiskFile(pdftemp, inpdf, [ exclusive := TRUE ]);
   STRING outputbase := GenerateTemporaryPathname() || "-";
-  RECORD res := RunPDFBox(["PDFToImage", "-dpi", "96", "-outputPrefix", outputbase, pdftemp]);
+  RECORD res := __RunPDFBox(["PDFToImage", "-dpi", "96", "-outputPrefix", outputbase, pdftemp]);
 
   RECORD ARRAY diskfiles := ReadDiskDirectory(GetDirectoryFromPath(outputbase), GetNameFromPath(outputbase) || "*");
   //order by the number between '-' and '.extension' (first take everything behind the last '-', then remove the dot)
@@ -353,7 +353,7 @@ PUBLIC BLOB FUNCTION ApplyOverlayToPDF(BLOB inputpdf, BLOB overlaypdf)
   StoreDiskFile(overlaypdfpath, overlaypdf, [ exclusive := TRUE ]);
 
   STRING outputpath := GenerateTemporaryPathname();
-  RECORD res := RunPDFBox(["OverlayPDF", inputpdfpath, "-position", "background", overlaypdfpath, outputpath]);
+  RECORD res := __RunPDFBox(["OverlayPDF", inputpdfpath, "-position", "background", overlaypdfpath, outputpath]);
   BLOB result;
 
   IF(res.exitcode = 0)
@@ -389,7 +389,7 @@ PUBLIC BLOB FUNCTION ConcatenatePDFs(BLOB ARRAY pdfs)
   }
 
   STRING outputpath := GenerateTemporaryPathname();
-  RECORD res := RunPDFBox(["PDFMerger", ...inpaths, outputpath]);
+  RECORD res := __RunPDFBox(["PDFMerger", ...inpaths, outputpath]);
   BLOB result;
 
   IF(res.exitcode = 0)

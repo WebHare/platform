@@ -23,8 +23,8 @@ BOOLEAN FUNCTION IsAnonymousConfKey(STRING confkey)
 
 INTEGER FUNCTION FindModuleColon(STRING confkey)
 {
-  INTEGER firstdot := SearchSubstring(confkey, '.');
   INTEGER firstcolon := SearchSubstring(confkey, ':', confkey LIKE "<wrd:*" ? 5 : 0);
+  INTEGER firstdot := SearchSubstring(confkey, '.', confkey LIKE "<wrd:*" ? 39 : 0); //skip over <wrd:00001111222233334444555566667777>. - especially that dot
   RETURN firstcolon >= 0 AND (firstcolon < firstdot OR firstdot = -1) ? firstcolon : -1;
 }
 
