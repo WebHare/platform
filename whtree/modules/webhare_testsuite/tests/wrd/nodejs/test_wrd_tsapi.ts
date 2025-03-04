@@ -2,7 +2,7 @@ import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
-import { WRDSchema, describeEntity, listSchemas, openWRDSchemaById, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
+import { WRDSchema, describeEntity, listSchemas, openSchemaById, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
 import { type ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
@@ -233,10 +233,10 @@ type Extensions = {
 
 async function testNewAPI() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
-  const schemaById = await openWRDSchemaById(await schema.getId());
+  const schemaById = await openSchemaById(await schema.getId());
   test.assert(schemaById);
   test.eq(schema.tag, schemaById.tag);
-  test.eq(null, await openWRDSchemaById(999999999));
+  test.eq(null, await openSchemaById(999999999));
 
   test.eqPartial([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag === testSchemaTag));
 
