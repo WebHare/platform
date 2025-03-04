@@ -16,7 +16,7 @@ import { debugFlags } from "@webhare/env";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext, setScopedResource } from "@webhare/services/src/codecontexts";
 import type { HSVM_HSVMSource } from "./machinewrapper";
-import { decodeTransferredIPCEndPoint, encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { mapHareScriptPath, HSVMSymbol, parseHSException } from "./wasm-support";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { HSVMRunContext, HSVMRunPermissionSystem } from "./runcontext";
@@ -171,26 +171,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
   readonly proxies = new Map<string, HSVMMarshallableOpaqueObject>(); //TODO this should go in to the VM object
   permissionSystem = new HSVMRunPermissionSystem(this);
   rootRunPermission = this.permissionSystem.allocRootContext();
-
-  /// Unique id counter
-  syscallPromiseIdCounter = 0;
-  /// List of JS Promises that have resolved and now need their results communicated back to HS
-  pendingPromiseResults = new Array<{
-    id: number;
-    isResolve: boolean;
-    result: unknown;
-  }>;
-  /// List of HS function calls that need to be execute
-  pendingFunctionRequests = new Array<{
-    id: number;
-    resolve: (result: unknown | undefined) => void;
-    reject: (result: Error) => void;
-    functionref: string;
-    params: HSVMVar[];
-    object: HSVMHeapVar | null;
-    retvalStore: HSVMHeapVar | undefined;
-    sent: boolean;
-  }>;
   runContextStore = new AsyncLocalStorage<HSVMRunContext>();
 
   constructor(module: WASMModule, startupoptions: StartupOptions) {
@@ -429,15 +409,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     return curType;
   }
 
-  /** Resolve a promise returnd by EM_Syscall */
-  resolveSyscalledPromise(id: number, isResolve: boolean, result: unknown) {
-    if (!isResolve)
-      result = encodeIPCException(result as Error).__exception;
-
-    this.pendingPromiseResults.push({ id, isResolve, result: result === undefined ? false : result });
-    this.injectEvent("system:wasm-promises", null);
-  }
-
   /// Inject an event directly into this HSVM
   injectEvent(name: string, data: unknown) {
     if (this.isShutdown())
@@ -611,10 +582,16 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
   }
 
-  /** @param functionref - Function to call
-      @param isfunction - Whether to call a function or macro
+  /** Call a function (or an object method) in the HSVM
+   *  @param functionref - Function to call
+   *  @param params - Parameters
+   *  @param objectid - Object to call the function on
+   *  @param retvalStore - Variable to store the return value
+   *  @param options - Additional options for the call (such as skipAccess)
+   *  @returns If retvalStore was set, the return value is whether the called function was a function (true) or a macro
+   * (false). If retvalStore was not set, the return value is the return value of the function.
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar, options?: { skipAccess?: boolean }): Promise<unknown> {
     if (this.inSyncSyscall)
       throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
 
@@ -631,7 +608,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         for (const [idx, param] of params.entries())
           this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
 
-        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, objectid, colid!, 0, 1); //allow macro=1
+        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, objectid, colid!, options?.skipAccess ? 1 : 0, 1); //allow macro=1
         //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
         wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
       } else {

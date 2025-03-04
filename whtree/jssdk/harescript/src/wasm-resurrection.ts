@@ -3,6 +3,8 @@ import type { HSVMVar } from "./wasm-hsvmvar";
 import type { HareScriptVM } from "./wasm-hsvm";
 import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { parseHSException } from "./wasm-support";
+import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { parseTrace } from "@webhare/js-api-tools";
 
 export function resurrectBuffer(obj: HSVMVar) {
   /* resurrects
@@ -18,12 +20,20 @@ export function resurrectBuffer(obj: HSVMVar) {
 }
 
 let promises: Map<number, PromiseWithResolvers<unknown>> | undefined;
+let localPromises: Map<number, WeakRef<Promise<unknown>>> | undefined;
 let promisesCtr = 0;
 
 export function resurrectPromise(obj: HSVMVar) {
-  promises ??= new Map();
   const tsPromiseRef = obj.getMemberRef("TSPROMISE");
   let tsPromiseId = tsPromiseRef.getInteger();
+  const localPromiseWeakRef = localPromises?.get(tsPromiseId);
+  if (localPromiseWeakRef) {
+    const localPromise = localPromiseWeakRef.deref();
+    if (localPromise)
+      return localPromise;
+    localPromises!.delete(tsPromiseId);
+  }
+  promises ??= new Map();
   if (tsPromiseId) {
     const pobj = promises.get(tsPromiseId);
     if (!pobj)
@@ -78,4 +88,60 @@ export function resurrect(type: string, obj: HSVMVar) {
   if (resurrectmap[type])
     return resurrectmap[type](obj);
   throw new Error(`Unrecognized WASM type '${type}'`);
+}
+
+let js_promise_id_counter = 0;
+
+export function createHSPromise(obj: HSVMVar) {
+  obj.setNewEmptyObject();
+  if (!obj.extendObject("wh::promise.whlib#PromiseBase"))
+    throw new Error("Could not extend object with PromiseBase");
+
+  // Constructor code
+  obj.getMemberRef("^$WASMTYPE").setString("Promise");
+  // Use negative numbers for promise constructed in JS
+  obj.getMemberRef("PROMISE_ID").setInteger64(--js_promise_id_counter);
+}
+
+export async function resolveHSPromise(promise: HSVMVar, status: string, resolveValue: unknown) {
+  const varGen = promise.vm.allocateVariable();
+  const varStatus = promise.vm.allocateVariable();
+  const varResult = promise.vm.allocateVariable();
+  const varOriginPromise = promise.vm.allocateVariable();
+  varGen.setInteger(0);
+  varStatus.setString(status);
+  if (status === "rejected" && resolveValue instanceof Error)
+    setHSException(varResult, resolveValue);
+  else
+    varResult.setJSValue(resolveValue);
+  varOriginPromise.setDefault(VariableType.Object);
+  await promise.vm.callWithHSVMVars("RESOLVEINTERNAL", [varGen, varStatus, varResult, varOriginPromise], promise.id, undefined, { skipAccess: true });
+}
+
+export function setHSPromiseProxy(orgPromise: HSVMVar, jsPromise: Promise<unknown>) {
+  createHSPromise(orgPromise);
+  const promise = orgPromise.vm.allocateVariableCopy(orgPromise.id);
+
+  const tsPromiseId = -(++promisesCtr);
+  promise.getMemberRef("TSPROMISE").setInteger(tsPromiseId);
+  (localPromises ??= new Map()).set(tsPromiseId, new WeakRef(jsPromise));
+  jsPromise.then(async (value) => {
+    await resolveHSPromise(promise, "resolved", value);
+    promise.dispose();
+  }, async (reason) => {
+    await resolveHSPromise(promise, "rejected", reason);
+    promise.dispose();
+  });
+}
+
+export function setHSException(obj: HSVMVar, e: Error) {
+  obj.setNewEmptyObject();
+  if (!obj.extendObject("wh::system.whlib#Exception"))
+    throw new Error("Could not extend object with Exception");
+
+  obj.getMemberRef("WHAT").setString(e.message);
+  const trace = obj.getMemberRef("PVT_TRACE");
+  trace.setDefault(VariableType.RecordArray);
+  for (const item of parseTrace(e))
+    trace.arrayAppend().setJSValue(item);
 }

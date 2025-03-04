@@ -65,7 +65,7 @@ PUBLIC MACRO RunWasmtest()
       ]));
 
   //verify a promise not returning anything doesn't break the VM
-  TestEq(FALSE, WaitForPromise(EM_Syscall("executeInline",
+  TestEq(DEFAULT RECORD, WaitForPromise(EM_Syscall("executeInline",
       [ func := "return await new Promise(r => setTimeout(() => r(), 1));"
       ])));
 

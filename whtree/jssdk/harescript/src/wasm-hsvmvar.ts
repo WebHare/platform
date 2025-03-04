@@ -292,6 +292,31 @@ export class HSVMVar {
     return this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, columnid) !== 0;
   }
 
+  setNewEmptyObject(): void {
+    this.vm.wasmmodule._HSVM_ObjectInitializeEmpty(this.vm.hsvm, this.id);
+  }
+
+  extendObject(objectTypeRef: string): boolean {
+    const [library, name, extra] = objectTypeRef.split("#");
+    if (extra !== undefined)
+      throw new Error(`Illegal reference to object`);
+    let libraryAlloced, nameAlloced;
+    try {
+      const libraryLen = this.vm.wasmmodule.lengthBytesUTF8(library);
+      libraryAlloced = this.vm.wasmmodule._malloc(libraryLen + 1);
+      this.vm.wasmmodule.stringToUTF8(library, libraryAlloced, libraryLen + 1);
+      const nameLen = this.vm.wasmmodule.lengthBytesUTF8(name);
+      nameAlloced = this.vm.wasmmodule._malloc(nameLen + 1);
+      this.vm.wasmmodule.stringToUTF8(name, nameAlloced, nameLen + 1);
+      return this.vm.wasmmodule._HSVM_ObjectExtend(this.vm.hsvm, this.id, libraryAlloced, nameAlloced) === 1;
+    } finally {
+      if (libraryAlloced)
+        this.vm.wasmmodule._free(libraryAlloced);
+      if (nameAlloced)
+        this.vm.wasmmodule._free(nameAlloced);
+    }
+  }
+
   /** Get and copy an object member, resolve property calls */
   async getMember(name: string, options?: { allowMissing: false }): Promise<HSVMHeapVar>;
   async getMember(name: string, options?: { allowMissing: boolean }): Promise<HSVMHeapVar | undefined>;
@@ -359,7 +384,7 @@ export class HSVMVar {
       if (forcetype !== HareScriptType.Variant && forcetype !== value.getType())
         throw new Error(`Cannot use a ${HareScriptType[value.getType()]} here, a ${HareScriptType[forcetype]} is required`);
 
-      this.copyFrom(value as HSVMVar);
+      this.copyFrom(value);
       return;
     }
 

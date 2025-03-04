@@ -275,7 +275,6 @@ PUBLIC                  MACRO    __HS_INTERNAL_RemoveAsyncContext() __ATTRIBUTES
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
 PUBLIC RECORD           FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 PUBLIC RECORD           FUNCTION __EM_SYNCSYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-PUBLIC                  MACRO    __EM_SYSCALL_RESOLVE(INTEGER requestid, INTEGER mode, VARIANT param) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 /** Returns the call stack for asynchronous functions
     @topic harescript-core/builtins

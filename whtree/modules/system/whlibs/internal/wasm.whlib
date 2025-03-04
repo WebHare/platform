@@ -4,7 +4,6 @@
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/callbacks.whlib";
 
 RECORD ARRAY pendingpromises;
 
@@ -28,83 +27,6 @@ PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
         ];
   }
 >;
-
-MACRO HandleCatch(INTEGER requestid, OBJECT exc)
-{
-  __EM_SYSCALL_RESOLVE(requestid, -1, exc->EncodeForIPC());
-}
-
-MACRO RunFunctionRequest(RECORD request)
-{
-  TRY
-  {
-    FUNCTION PTR target;
-    IF(TYPEID(request."object") = TYPEID(OBJECT))
-    {
-      IF(NOT MemberExists(request."object", request.functionref)) //need to check ourselves, as GetObjectMethodPtr would generate an uncatchable HS error
-        THROW NEW Exception(`No such object member '${request.functionref}'`);
-
-      target := GetObjectMethodPtr(request."object", request.functionref);
-    }
-    ELSE
-    {
-      target := MakeFunctionPtr(request.functionref);
-    }
-
-    BOOLEAN ismacro := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(target).returntype IN [0,2];
-    VARIANT result := CallAnyPtrVA(target, request.params);
-    TRY
-    {
-      IF(TYPEID(result) = TYPEID(OBJECT) AND result EXTENDSFROM PromiseBase)
-      { //Await in our context (we used to bounce the promise back to TS which would then wrap it in WaitForPromise, hanging the HSVM)
-        result->Then(PTR __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, #1), PTR HandleCatch(request.id, #1));
-      }
-      ELSE
-      {
-        __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
-      }
-    }
-    CATCH (OBJECT e)
-    {
-      ABORT("Exception while attempting to return a function result back to JavaScript: " || e->what);
-    }
-  }
-  CATCH(OBJECT e)
-  {
-    __EM_SYSCALL_RESOLVE(request.id, -1, e->EncodeForIPC());
-  }
-}
-
-OBJECT FUNCTION DecodeException(RECORD exc)
-{
-  IF (exc.type != "exception")
-    RETURN NEW Exception(`Unrecognized IPC exception type '${exc.type}'`);
-
-  OBJECT e := NEW EXCEPTION(exc.what);
-  e->trace := RECORD ARRAY(exc.trace);
-  RETURN e;
-}
-
-PUBLIC MACRO PromiseReceiver(STRING event, RECORD ARRAY msg)
-{
-  RECORD grp := __EM_SYSCALL("getActionQueue", DEFAULT RECORD).value;
-  FOREVERY(RECORD result FROM grp.promiseresults)
-  {
-    INTEGER matchpos := (SELECT AS INTEGER #pendingpromises + 1 FROM pendingpromises WHERE pendingpromises.id = result.id) - 1;
-    IF(matchpos < 0)
-      CONTINUE;
-
-    //Don't want to synchronously deal with followup exceptions, so let microtasks deal with 'm
-    IF(result.isresolve)
-      ScheduleMicroTask(PTR CallAnyPtrVA(pendingpromises[matchpos].resolve, VARIANT[result.result]));
-    ELSE
-      ScheduleMicroTask(PTR CallAnyPtrVA(pendingpromises[matchpos].reject, VARIANT[DecodeException(result.result)]));
-    DELETE FROM pendingpromises AT matchpos;
-  }
-
-  FOREVERY(RECORD request FROM grp.functionrequests)
-    ScheduleMicroTask(PTR RunFunctionRequest(request));
-}
 
 //The 'low level' API to use, but with JSON wrapping so we can hopefully optimize a JSON/STRING pass away someday
 PUBLIC VARIANT FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT RECORD)
@@ -139,12 +61,6 @@ PUBLIC VARIANT FUNCTION EM_SyncSyscall(STRING call, RECORD data DEFAULTSTO DEFAU
 
 
 RECORD emstate := EM_SYSCALL("init") ?? [ iswasm := FALSE ];
-
-PUBLIC MACRO SetupWasmEventLoop()
-{
-  RegisterMultiEventCallback("system:wasm-promises", PTR PromiseReceiver);
-  PromiseReceiver("",RECORD[]); //handle already queued events
-}
 
 /** Are we running in a WASM (__EMSCRIPTEN__) environment?
     @loadlib wh::javascript.whlib

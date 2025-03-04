@@ -430,11 +430,12 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   /// Whether an unhandled reject has been signalled
   BOOLEAN have_signalled_unhandledreject;
 
-  /// Promise ID (for logging purposes)
+  /// Promise ID (for logging purposes). Negative means constructed from JS
   INTEGER64 promise_id;
 
   STRING "^$WASMTYPE";
 
+  // TypeScript promise id (negative when this is a proxy for a TypeScript promise)
   INTEGER tspromise;
 
   // ---------------------------------------------------------------------------
@@ -463,6 +464,7 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   */
   MACRO NEW(FUNCTION PTR func)
   {
+    // Keep the JS constructor in wasm-resurrection.ts in sync!
     this->"^$WASMTYPE" := "Promise";
 
     promise_counter := promise_counter + 1;
@@ -702,8 +704,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
       this->status := status;
       this->keeper := [ value := value ];
 
-      IF (this->tspromise != 0)
-        __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, value ]);
+      IF (this->tspromise > 0)
+        __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, this->keeper.value ]);
       this->ExecuteCallbacks(TRUE);
       RETURN;
     }
@@ -717,6 +719,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
       {
         this->status := "rejected";
         this->keeper := [ value := NEW Exception("Cannot resolve a promise with itself") ]; // FIXME: trace?
+        IF (this->tspromise > 0)
+          __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, this->keeper.value ]);
         this->ExecuteCallbacks(TRUE);
         RETURN;
       }
@@ -746,7 +750,7 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
     this->status := status;
     this->keeper := [ value := value ];
 
-    IF (this->tspromise != 0)
+    IF (this->tspromise > 0)
       __EM_SyncSyscall("fulfillResurrectedPromise", CELL[ id := this->tspromise, this->status, this->keeper.value ]);
 
     this->ExecuteCallbacks(TRUE);

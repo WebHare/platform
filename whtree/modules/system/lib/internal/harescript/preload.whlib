@@ -5,7 +5,6 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/debug.whlib";
-LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::system.whlib";
 
@@ -289,6 +288,3 @@ __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
 __GetDatabaseRuntimeConfig := PTR GetDatabaseRuntimeConfig;
-
-IF(IsWasm())
-  ScheduleMicroTask(PTR SetupWasmEventLoop);
