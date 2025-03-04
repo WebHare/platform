@@ -1,31 +1,52 @@
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { loadlib } from "@webhare/harescript";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode } from "@webhare/services";
-import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask } from "@webhare/services/src/registry";
+import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
-import { beginWork, commitWork, db, rollbackWork } from "@webhare/whdb";
+import { beginWork, commitWork, db } from "@webhare/whdb";
 
-async function doKeyTests(basename: string) {
+function testLowLevel() {
+  test.eq({
+    userprefix: "<overrideuser>.", module: "system", sep: ":", subnode: "node.subnode.", subkey: "subkey",
+    storenode: "<overrideuser>.system.node.subnode."
+  }, splitRegistryKey("<overrideuser>.system:node.subnode.subkey"));
+  test.eq({
+    userprefix: "<overrideuser>.", module: "tollium", sep: ".", subnode: "savestate.", subkey: "150995d2891cb9d2982c8a82b5756ff6",
+    storenode: "<overrideuser>.tollium.savestate."
+  }, splitRegistryKey("<overrideuser>.tollium.savestate.150995d2891cb9d2982c8a82b5756ff6"));
+  test.eq({
+    userprefix: "", module: "webhare_testsuite_base_node", sep: ".", subnode: "", subkey: "stupidvalue",
+    storenode: "webhare_testsuite_base_node."
+  }, splitRegistryKey("webhare_testsuite_base_node.stupidvalue"));
+
+  test.throws(/Invalid registry key name/, () => splitRegistryKey("system.servicemanager.runonce.consilio:migrate_indices_v3"));
+  test.eq({
+    userprefix: "", module: "system", sep: ".", subnode: "servicemanager.runonce.", subkey: "consilio:migrate_indices_v3",
+    storenode: "system.servicemanager.runonce."
+  }, splitRegistryKey("system.servicemanager.runonce.consilio:migrate_indices_v3", { acceptInvalidKeyNames: true }));
+}
+
+async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = {}) {
   const foruser = basename.startsWith("<");
   //Read&Write have different responses to non existing keys whether is system or user registry, as one requires values to exist and the other requires fallback values to be provided
-  await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue"));
-  test.eq(43, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
+  await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue", undefined, { acceptInvalidKeyNames }));
+  test.eq(43, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
   await test.throws(foruser ? /Writing a user registry requires/ : /No such registry key/, () => writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
   await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 44, { createIfNeeded: true });
-  test.eq(44, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
+  test.eq(44, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
   await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 45, { createIfNeeded: true });
-  test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
+  test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
   await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 46, { initialCreate: true });
-  test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
+  test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
 
   test.eq([{ name: basename + "webhare_testsuite_base_node.stupidvalue", value: 45 }], await readRegistryKeysByMask(basename + "webhare_testsuite_base_node.stupidvalue"));
 
   await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!"), { createIfNeeded: true });
-  test.eq("Hello, World!", await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""))).text());
+  test.eq("Hello, World!", await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
 
   await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!".repeat(1000)), { createIfNeeded: true });
-  test.eq("Hello, World!".repeat(1000), await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""))).text());
+  test.eq("Hello, World!".repeat(1000), await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
 
   {
     const node = (await readRegistryNode(basename + "webhare_testsuite_base_node")).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname));
@@ -37,13 +58,13 @@ async function doKeyTests(basename: string) {
   }
 
   await deleteRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue");
-  await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue"));
+  await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue", undefined, { acceptInvalidKeyNames }));
   test.eqPartial([
     {
       fullname: basename + "webhare_testsuite_base_node.blobvalue", subkey: "blobvalue"
     }
   ], (await readRegistryNode(basename + "webhare_testsuite_base_node")).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname)));
-  test.eq(47, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 47));
+  test.eq(47, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 47, { acceptInvalidKeyNames }));
 
   await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 48, { initialCreate: true });
   await deleteRegistryNode(basename + "webhare_testsuite_base_node");
@@ -58,6 +79,7 @@ async function testRegistry() {
   test.eq(['system:registry.webhare_testsuite.x3', 'system:registry.webhare_testsuite.y1'], getRegistryKeyEventMasks(["webhare_testsuite:y1.testkey", "webhare_testsuite.y1.testkey2", "webhare_testsuite:x3.testkey"]));
   test.eq(['system:registry.webhare_testsuite'], getRegistryKeyEventMasks(["webhare_testsuite:topkey"]));
   test.throws(/Invalid registry key name/, () => getRegistryKeyEventMasks(["webhare_testsuite"]));
+  await test.throws(/Invalid registry key name/, () => readRegistryKey("<anonymous>", 42));
 
   await beginWork();
 
@@ -66,7 +88,7 @@ async function testRegistry() {
 
   await doKeyTests("webhare_testsuite.");
   await doKeyTests("webhare_testsuite:");
-  await doKeyTests("webhare_testsuite.withdeepcolon:"); //eg ensure 'system.servicemanager.runonce.consilio:migrate_indices_v3' - works
+  await doKeyTests("webhare_testsuite.withdeepcolon:", { acceptInvalidKeyNames: true }); //eg ensure 'system.servicemanager.runonce.consilio:migrate_indices_v3' - works
   await doKeyTests("<wrd:00001111222233334444555566667777>.webhare_testsuite.");
   await doKeyTests("<wrd:00001111222233334444555566667777>.webhare_testsuite:");
   await test.throws(/Invalid registry key name/, () => readRegistryKey("<someuser>:webhare_testsuite.key", true));
@@ -101,16 +123,6 @@ async function testRegistry() {
   //NOTE: Mocking registry keys (MockRegistryKey/MockRegistryKey) was rarely used so we won't port that to TS.
 }
 
-async function testAnonymousRegistry() {
-  await beginWork();
-
-  test.eq([], await db<PlatformDB>().selectFrom("system.flatregistry").select("id").where("name", "like", "%webhare_testsuite_base_node%").execute());
-  await doKeyTests("<anonymous>.");
-  test.eq([], await db<PlatformDB>().selectFrom("system.flatregistry").select("id").where("name", "like", "%webhare_testsuite_base_node%").execute());
-
-  await rollbackWork();
-}
-
 async function testModuleDefs() {
   await beginWork();
   await writeRegistryKey("webhare_testsuite:registrytests.removekey", 42, { initialCreate: true });
@@ -127,7 +139,7 @@ async function testModuleDefs() {
 }
 
 test.runTests([
+  testLowLevel,
   testRegistry,
-  testAnonymousRegistry,
   testModuleDefs
 ]);
