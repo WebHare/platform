@@ -9,7 +9,7 @@ export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringif
 export { generateRandomId, isLikeRandomId } from "./platformbased";
 export { shuffle, emplace, pick, omit, isTruthy, appendToArray, type EmplaceHandler, type DistributedKeys, type DistributedOmit, type DistributedPick } from "./collections";
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
-export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, isValidDate, isValidTime, type Duration, type WaitPeriod } from "./datetime";
+export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, isValidDate, isValidTime, convertFlexibleInstantToDate, type Duration, type WaitPeriod, type FlexibleInstant } from "./datetime";
 export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime } from "./quacks";
 export { type AddressValue } from "./address";
 

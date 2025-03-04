@@ -26,6 +26,7 @@ import { WHDBPgClient } from './connection';
 import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
+import type { BackendEvents } from '@webhare/services';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -587,6 +588,11 @@ export function onFinishWork<T extends FinishHandler>(handler: T | (() => T), op
 }
 
 /** Broadcast event on a succesful commit */
+export function broadcastOnCommit<EventName extends keyof BackendEvents>(event: EventName, data: BackendEvents[EventName]): void;
+export function broadcastOnCommit<EventName extends keyof BackendEvents>(event: EventName & (BackendEvents[EventName] extends null ? string : "Event requires parameter")): void;
+export function broadcastOnCommit<EventName extends string>(event: EventName & (EventName extends keyof BackendEvents ? "Event requires parameter" : string), data?: BackendEventData): void;
+export function broadcastOnCommit<EventName extends string>(event: EventName & (EventName extends keyof BackendEvents ? "Event requires parameter" : string)): void;
+
 export function broadcastOnCommit(event: string, data?: BackendEventData) {
   getConnection().broadcastOnCommit(event, data);
 }

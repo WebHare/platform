@@ -1,8 +1,11 @@
 import { isDate } from "./quacks";
+import type { Temporal } from "temporal-polyfill"; //we need an explicit include for separate @webhare/std publication
+
+/** A tolerant JS date parameter */
+export type FlexibleInstant = Date | Temporal.Instant | Temporal.ZonedDateTime;
 
 /** A relative (up to a week) or absolute wait period. Use 0 for 'polling' and Infinity to indicate an endless waits. Numbers are interpreted to be in milliseconds, a string is interpreted as a ISO8601 duration */
-export type WaitPeriod = 0 | number | string | Date;
-
+export type WaitPeriod = 0 | number | string | FlexibleInstant;
 export interface Duration {
   sign: "+" | "-";
   years: number;
@@ -51,12 +54,13 @@ export function parseDuration(duration: string): Duration {
  * @param startingdate - Date to start from
  * @param duration - Duration to add (as object or as ISO8601 duration string, eg "P1Y2M3DT4H5M6S")
  */
-export function addDuration(startingdate: Date, duration: Partial<Duration> | string): Date {
+export function addDuration(startingdate: Date | Temporal.Instant, duration: Partial<Duration> | string): Date {
+  //we cannot take timezones (flexible instant) yet? as we do not timezone correct day/week/month calculations
   if (typeof duration === "string")
     duration = parseDuration(duration);
 
   const direction = duration.sign === "-" ? -1 : 1;
-  const date = new Date(startingdate);
+  const date = new Date("epochMilliseconds" in startingdate ? startingdate.epochMilliseconds : startingdate.getTime());
   if (duration.years)
     date.setUTCFullYear(date.getUTCFullYear() + direction * duration.years);
   if (duration.months)
@@ -83,15 +87,27 @@ export function subtractDuration(startingdate: Date, duration: Partial<Duration>
   return addDuration(startingdate, { ...duration, sign: duration?.sign === "-" ? "+" : "-" });
 }
 
+/** Convert a flexible instant to a date
+ * @param input - Date, Temporal.Instant or Temporal.ZonedDateTime value to convert
+ * @returns The converted date (or null if the input is null)
+ */
+export function convertFlexibleInstantToDate(input: FlexibleInstant): Date;
+export function convertFlexibleInstantToDate(input: null | undefined): null;
+export function convertFlexibleInstantToDate(input: FlexibleInstant | null | undefined): Date | null;
+
+export function convertFlexibleInstantToDate(input: FlexibleInstant | null | undefined): Date | null {
+  return input ? "epochMilliseconds" in input ? new Date(input.epochMilliseconds) : input : null;
+}
+
 /** Convert a WaitPeriod parameter to a Date
  * @param wait - Wait time as milliseconds or a Date
  * @param relativeTo - Date to use as a reference for relative waits
 */
-export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }: { relativeTo?: Date | null } = {}): Date {
+export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }: { relativeTo?: Date | Temporal.Instant | null } = {}): Date {
   if (isDate(wait)) {
     return wait;
   } else if (typeof wait === "string") {
-    return addDuration(relativeTo ?? new Date(), wait);
+    return addDuration(relativeTo ?? new Date(), wait); //NOTE that "P1D" here adds "24 hours" which is *not* correct for a TimeZonedDate - which is why convertWaitPeriodToDate cannot yet accept these
   } else if (typeof wait === "number") {
     if (wait === 0)
       return new Date(-864000 * 1000 * 10000000);
@@ -100,7 +116,9 @@ export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }:
     if (wait > 7 * 86400 * 1000)
       throw new Error("Invalid wait duration - a wait may not be longer than a week"); //prevents you from passing in Date.now() based values
     if (wait > 0)
-      return new Date((relativeTo?.getTime() ?? Date.now()) + wait);
+      return new Date((relativeTo ? "epochMilliseconds" in relativeTo ? relativeTo.epochMilliseconds : relativeTo.getTime() : Date.now()) + wait);
+  } else if (wait && "epochMilliseconds" in wait) { //Instant or ZonedDateTime
+    return new Date(wait.epochMilliseconds);
   }
 
   throw new Error("Invalid wait duration - it must either be an absolute date, 0, a number of milliseconds or Infinity");
