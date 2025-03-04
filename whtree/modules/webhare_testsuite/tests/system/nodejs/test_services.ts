@@ -476,8 +476,12 @@ async function testLogs() {
   const logreader2 = services.readLogLines("webhare_testsuite:test", { start: test.startTime, continueAfter: hardlogline.value["@id"] });
   test.eq(hsline.value["@id"], (await logreader2.next()).value["@id"], "ContinueAfter should have started after 'hardlogline'");
 
+  try { //if betatest.20241205.log exists (ie you ran this test before) it will interfere with the logreader, so delete it
+    await rm(services.backendConfig.dataroot + "log/betatest.20241205.log");
+  } catch (ignore) {
+  }
+
   // Historic files reading. First write two lines:
-  await rm(services.backendConfig.dataroot + "log/betatest.20241205.log");
   await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241204.log",
     `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });
 
