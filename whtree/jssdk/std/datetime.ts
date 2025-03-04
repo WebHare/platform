@@ -54,7 +54,7 @@ export function parseDuration(duration: string): Duration {
  * @param duration - Duration to add (as object or as ISO8601 duration string, eg "P1Y2M3DT4H5M6S")
  */
 export function addDuration(startingdate: Date | Temporal.Instant, duration: Partial<Duration> | string): Date {
-  //we canot take timezones (flexiable instant) yet? as we do not timezone correct day/week/month calculations
+  //we cannot take timezones (flexible instant) yet? as we do not timezone correct day/week/month calculations
   if (typeof duration === "string")
     duration = parseDuration(duration);
 
