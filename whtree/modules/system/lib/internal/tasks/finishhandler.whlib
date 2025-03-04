@@ -27,7 +27,7 @@ PUBLIC ASYNC MACRO AsyncExecuteEphemeralTasks(RECORD ARRAY tohandle)
       DELETE CELL auxdata FROM task.options;
     }
 
-    taskservice->RunEphemeralTask(task.tasktype, data, task.workertype, task.priority, task.options)->Then(task.resolve, task.reject);
+    taskservice->RunEphemeralTask(task.tasktype, data, task.priority, task.options)->Then(task.resolve, task.reject);
   }
 
   CreatePromiseAllSettled(SELECT AS OBJECT ARRAY promise FROM tohandle)->Then(PTR taskservice->CloseService());
@@ -60,7 +60,6 @@ STATIC OBJECTTYPE TasksFinishHandler EXTEND TransactionFinishHandlerBase
       @param task Task data
       @cell task.tasktype Type of the task
       @cell task.taskdata Task data
-      @cell task.workertype Worker type
       @cell task.priority Task priority
       @cell task.options @includecelldef mod::system/scripts/internal/managedqueuemgr.whscr#QueueMgrClientConnection::RunEphemeralTask.options
       @cell task.resolve Called with result
@@ -82,4 +81,3 @@ PUBLIC OBJECT FUNCTION GetTasksFinishHandler()
   }
   RETURN handler;
 }
-

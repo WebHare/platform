@@ -24,7 +24,6 @@ LOADLIB "mod::system/lib/resources.whlib";
     @cell return.library Name of the library that runs this task
     @cell return.objectname Name of the object that runs this task
     @cell return.isnode Whether this is a task run by Node.js
-    @cell return.workertype Whether this is a task run by Node.js
     @cell return.applyerror Apply error (task may only run if this is empty)
     @cell return.cluster Name of the taskcluster this task should run in
 */
@@ -67,7 +66,6 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
              , objectname :=   objectname = "" ? "" : objectname LIKE "*#*" ? objectname : libname || "#" || objectname
              , tasktype :=     mod || ":" || type
              , isnode :=       isnode
-             , workertype :=   isnode ? 1 : 0
              , applyerror :=   applyerror
              , cluster
              , ephemeral :=    options.ephemeral
@@ -98,7 +96,7 @@ PUBLIC RECORD FUNCTION ParseModuleTasks(STRING modulename, STRING resname, OBJEC
         [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
         , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
         , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
-        , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
+        , javascriptworkers :=    0 //ToInteger(clusternode->GetAttribute("javascriptworkers"), 0) DISABLED - no longer supporting runepehmeraltask.es and we may never have managed TS workers...
         ] INTO clusters AT END;
   }
 

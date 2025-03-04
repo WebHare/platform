@@ -93,33 +93,6 @@ RECORD FUNCTION ParseOutputForStackTrace(STRING output)
 MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal, RECORD status)
 {
   // Log javascript exceptions here, javascript runner does not have access to logs
-  // Errors such as no-such-task do not have executeinfo
-  IF (CellExists(item->taskdata, "EXECUTEINFO") AND GetExtensionFromPath(item->taskdata.executeinfo.library) IN whconstant_javascript_extensions)
-  {
-    STRING mainscript := GetModuleInstallationRoot("system") || "js/internal/runephemeraltask.ts";
-
-    UPDATE trace SET filename := mainscript WHERE filename = "runephemeraltask.ts";
-    UPDATE trace SET filename := item->taskdata.executeinfo.library WHERE filename = GetNameFromPath(item->taskdata.executeinfo.library);
-
-    RECORD details :=
-        [ script :=     mainscript
-        , trace :=     (SELECT filename
-                             , line :=          line
-                             , "column" :=      col
-                             , functionname :=  func
-                          FROM trace)
-        , message :=    error
-        , browser :=    [ name := "nodejs" ]
-        , info :=       CELL
-                        [ item->tasktype
-                        , item->queueid
-                        , item->isephemeral
-                        , item->id
-                        ]
-        ];
-
-    LogNoticeScriptErrorFromRecord("system:managedqueuemgr", details);
-  }
 
   IF (item->stage = "finished")
   {
@@ -762,7 +735,6 @@ STATIC OBJECTTYPE QueueMgr
 
   /** Cache for the unfinished managed tasks in the database
       @cell id Managed task id
-      @cell workertype Worker type
       @cell tasktype Task type
       @cell cluster Cluster
       @cell priority Priority
@@ -842,7 +814,6 @@ STATIC OBJECTTYPE QueueMgr
 
     RECORD ARRAY currenttasks :=
         SELECT id
-             , workertype
              , tasktype
              , nextattempt
              , priority
@@ -898,7 +869,7 @@ STATIC OBJECTTYPE QueueMgr
   {
     // new task
     RECORD taskinfo := CELL
-        [ queuename :=      rec.cluster || ":" || rec.workertype
+        [ queuename :=      rec.cluster
         , rec.priority
         , scheduledate :=   MAX[](DATETIME[ rec.nextattempt, rec.notbefore ])
         , rec.tasktype
@@ -1215,7 +1186,7 @@ STATIC OBJECTTYPE QueueMgr
       IF (NOT worker->IsAvailableForWork())
         CONTINUE;
 
-      STRING queuename := `${worker->cluster}:${worker->GetWorkerType()}`;
+      STRING queuename := worker->cluster;
 
       OBJECT item := this->queue->GetNextRunnable(queuename);
       IF (NOT ObjectExists(item))
@@ -1278,14 +1249,13 @@ OBJECTTYPE QueueMgrClientConnection
   /** Schedules a new ephemeral task
       @param tasktype Type of the task
       @param taskdata Task data
-      @param workertype Worker type
       @param priority Task priority
       @param options Options
       @cell(string) options.persistentcachekey Key for the persistent cache of the task (available via `taskcontext.persistentcache`)
       @cell(integer) options.timeout Task timeout override (0 for no timeout, omit for keeping default)
       @return Promise for task result
   */
-  PUBLIC OBJECT FUNCTION RunEphemeralTask(STRING tasktype, RECORD taskdata, INTEGER workertype, INTEGER priority, RECORD options)
+  PUBLIC OBJECT FUNCTION RunEphemeralTask(STRING tasktype, RECORD taskdata, INTEGER priority, RECORD options)
   {
     nextephemeralid := nextephemeralid + 1;
     RECORD defer := CreateDeferredPromise();
@@ -1301,7 +1271,7 @@ OBJECTTYPE QueueMgrClientConnection
       THROW NEW Exception("WebHare is running in 'restore' mode and this task isn't allowed to run (allowifrestore)");
 
     RECORD taskinfo :=
-       [ queuename :=       tasktypeinfo.cluster || ":" || workertype
+       [ queuename :=       tasktypeinfo.cluster
        , scheduledate :=    now
        , priority :=        priority
        , tasktype :=        tasktype

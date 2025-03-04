@@ -470,7 +470,6 @@ PUBLIC INTEGER ARRAY FUNCTION ScheduleManagedTasks(STRING tasktype, RECORD ARRAY
            , tasktype := tasktype
            , taskdata := EncodeHSON(taskdata)
            , auxdata := auxdata
-           , workertype := taskinfo.workertype
            , priority := options.priority = "" ? taskinfo.priority : ParseManagedTaskPriority(options.priority)
            , timeout := CellExists(options, "timeout") ? options.timeout : taskinfo.timeout
            , notbefore := options.notbefore
@@ -642,7 +641,7 @@ PUBLIC OBJECT FUNCTION ScheduleEphemeralTask(STRING tasktype, RECORD taskdata, R
   DELETE CELL priority FROM options;
 
   RECORD promise := CreateDeferredPromise();
-  RECORD task := CELL[ tasktype, taskdata, taskinfo.workertype, options, promise.promise, promise.resolve, promise.reject, priority ];
+  RECORD task := CELL[ tasktype, taskdata, options, promise.promise, promise.resolve, promise.reject, priority ];
 
   IF(GetPrimary()->IsWorkOpen())
     GetTasksFinishHandler()->AddEphemeralTask(task);

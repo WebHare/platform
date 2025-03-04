@@ -63,7 +63,6 @@
                  taskrunner="tests/system/queues/data/testtasks.ts#doubleScheduleTaskJS" />
 
     <ephemeraltask type="ping" objectname="lib/internal/tasks.whlib#ephpingtask" />
-    <ephemeraltask type="nodetask" library="js/task.es" />
   </servicemanager>
 
   <portal>
