@@ -10,6 +10,9 @@ import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
 import { throwError } from "@webhare/std";
+import { deleteSchema, listSchemas } from "@webhare/wrd";
+import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 
 /// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)
 export async function getTestSiteHSTemp() {
@@ -44,10 +47,21 @@ export interface TestUserDetails extends TestUserConfig {
 }
 
 export interface ResetOptions {
-  users: Record<string, TestUserConfig>;
+  users?: Record<string, TestUserConfig>;
+  wrdschema?: boolean;
+  schemaresource?: string;
 }
 
 const users: Record<string, TestUserDetails> = {};
+
+async function cleanupWRDTestSchemas() {
+  for (const schema of await listSchemas())
+    if (schema.tag === whconstant_wrd_testschema
+      || schema.tag === whconstant_wrd_testschema + ".bak"
+      || schema.tag.startsWith(whconstant_wrd_testschema + ".bak (")
+      || schema.tag.startsWith("webhare_testsuite:"))
+      await deleteSchema(schema.id);
+}
 
 /** Reset the test framework */
 export async function reset(options?: ResetOptions) {
@@ -58,7 +72,7 @@ export async function reset(options?: ResetOptions) {
       testusers: Object.entries(options?.users || []).map(([login, config]) => ({ login, grantrights: config.grantRights || [] })),
     };
 
-    const testframeworkLib = await loadlib("mod::system/lib/testframework.whlib");
+    const testframeworkLib = loadlib("mod::system/lib/testframework.whlib");
     const testfw = await testframeworkLib.RunTestframework([], hstestoptions);
 
     for (const [name, config] of Object.entries(options?.users || [])) {
@@ -70,6 +84,21 @@ export async function reset(options?: ResetOptions) {
   }
 
   await using work = await beginWork();
+
+  if (!setupWrdAuth) { //as setupWRDAuth still delegates to the HS testframwork
+    await cleanupWRDTestSchemas();
+
+    await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema(whconstant_wrd_testschema, {
+      initialize: true,
+      schemaresource: options?.schemaresource || "",
+      usermgmt: setupWrdAuth,
+      description: "The webhare_testsuite WRD schema"
+    });
+
+    if (!setupWrdAuth) { //mark unit as not-required for compatibility with all existing tests
+      await wrdTestschemaSchema.getType("wrdPerson").updateAttribute("whuserUnit", { isRequired: false });
+    }
+  }
 
   for (const tmpfoldername of ["site::webhare_testsuite.testsite/tmp", "site::webhare_testsuite.testsitejs/tmp"]) {
     const tmpfolder = await openFolder(tmpfoldername, { allowMissing: true });

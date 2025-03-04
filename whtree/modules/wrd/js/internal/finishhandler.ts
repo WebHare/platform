@@ -1,4 +1,5 @@
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { emplace } from "@webhare/std";
 import { type FinishHandler, broadcastOnCommit } from "@webhare/whdb";
 import { finishHandlerFactory } from "@webhare/whdb/src/impl";
 
@@ -15,6 +16,10 @@ class WRDFinishHandler implements FinishHandler {
     num: number;
     allinvalidated?: boolean;
   }>;
+  schemaChanges = new Map<number, {
+    metadata?: boolean;
+    name?: boolean;
+  }>;
 
   onBeforeCommit() {
     this.autoChangeSets.clear();
@@ -28,19 +33,16 @@ class WRDFinishHandler implements FinishHandler {
         deleted: getTypedArray(VariableType.IntegerArray, typeRec.allinvalidated ? [] : [...typeRec.deleted || []].sort()),
       });
     }
-    /*
+
     let anyListChange = false;
-    for (const schemaRec of this.schemaChanges.values()) {
-      if (schemaRec.metadatachanged)
-        broadcastOnCommit(`wrd:schema.${schemaRec.wrdschema}.change`, { metadatachanged: true });
-      if (schemaRec.namechanged)
+    for (const [id, changes] of this.schemaChanges) {
+      if (changes.metadata)
+        broadcastOnCommit(`wrd:schema.${id}.change`, { metadatachanged: true });
+      if (changes.name)
         anyListChange = true;
-      if (schemaRec.settingschanged)
-        broadcastOnCommit(`wrd:schema.${schemaRec.wrdschema}.settingschange`);
     }
     if (anyListChange)
       broadcastOnCommit(`wrd:schema.list`);
-    */
   }
 
   getTypeRecord(wrdTypeId: number) {
@@ -66,6 +68,12 @@ class WRDFinishHandler implements FinishHandler {
     }
 
     (typeRec[type] ??= new Set).add(entityId);
+  }
+
+  schemaNameChanged(wrdSchemaId: number) {
+    const changes = emplace(this.schemaChanges, wrdSchemaId, { insert: () => ({}) });
+    changes.metadata = true;
+    changes.name = true;
   }
 
   entityCreated(wrdSchemaId: number, wrdTypeId: number, entityId: number): void {

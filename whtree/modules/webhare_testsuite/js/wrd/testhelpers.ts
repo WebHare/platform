@@ -1,7 +1,6 @@
 import { WRDSchema } from "@webhare/wrd";
-import { loadlib } from "@webhare/harescript";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import type { WRDAttributeTypeId, Combine, WRDAttr, IsRequired, WRDTypeBaseSettings, WRDBaseAttributeTypeId, IsNonUpdatable, SchemaTypeDefinition, AnySchemaTypeDefinition } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -287,7 +286,7 @@ export async function createWRDTestSchema(options?: {
     ...options
   };
 
-  await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], { wrdauth: false });
+  await test.reset();
 
   // FIXME here we're assuming whdb work to be global but that's just asking for conflicts in real code. See webharedev_jsbridges#4
   const schemaobj = await getWRDSchema();
