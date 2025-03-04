@@ -258,7 +258,7 @@ async function testInstanceData() {
       { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
       { aSubArray: [] },
       {
-        aSubArray: [{ subIntMember: 52 }, { subIntMember: 0 }, (row: any) => row.subRichMember.blocks[0]["p.normal"][0].text === "Hello, Moon!"]
+        aSubArray: [{ subIntMember: 52 }, { subIntMember: 0 }, (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"]
       }
     ]
   }, await testtype.get(testfile.id));

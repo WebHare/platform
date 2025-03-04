@@ -1,11 +1,11 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { rtdParagraphTypes, RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, type RTDBuildBlockItems, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName } from "@webhare/services/src/richdocument";
-import { encodeString, generateRandomId } from "@webhare/std";
+import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes } from "@webhare/services/src/richdocument";
+import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { DOMParser, Node, type Element } from "@xmldom/xmldom";
 
-type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough">;
+type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -37,6 +37,29 @@ export type HareScriptRTD = {
 
 function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
+}
+
+function groupByLink(items: Readonly<RTDBlockItems>): ReadonlyArray<{
+  link?: string;
+  target?: "_blank";
+  items: readonly RTDBlockItem[];
+}> {
+  const blocks = [];
+  for (const item of items) {
+    if (blocks.length && blocks.at(-1)!.link === item.link && blocks.at(-1)!.target === item.target) {
+      blocks.at(-1)!.items.push(item);
+    } else {
+      blocks.push({ link: item.link, target: item.target, items: [item] });
+    }
+  }
+  return blocks;
+}
+
+function parseXSList(input: string | null): string[] {
+  if (!input)
+    return [];
+
+  return input.replaceAll(/\s+/g, ' ').split(' ').filter(isTruthy);
 }
 
 async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], data: Record<string, unknown>) {
@@ -75,17 +98,25 @@ class HSRTDImporter {
     return widget;
   }
 
-  async processInlineWidget(node: Element, state: BlockItemStack, outlist: RTDBuildBlockItems) {
+  async processInlineWidget(node: Element, state: BlockItemStack, outlist: RTDBlockItems) {
     const widget = await this.reconstructWidget(node);
     if (widget)
       outlist.push({ widget, ...state });
   }
 
-  async processBlockItems(node: Node, state: BlockItemStack, outlist: RTDBuildBlockItems) {
+  async processBlockItems(node: Node, state: BlockItemStack, outlist: RTDBlockItems) {
     for (let child = node.firstChild; child; child = child!.nextSibling) {
       if (isElement(child)) {
         const tag = child.tagName.toLowerCase();
-        if (tag in rtdTextStyles) {
+        if (tag === 'a' && child.getAttribute('href')) {
+          const toSet: Pick<BlockItemStack, "link" | "target"> = {
+            link: child.getAttribute('href') || ''
+          };
+          if (child.getAttribute('target') === '_blank')
+            toSet.target = '_blank';
+
+          await this.processBlockItems(child, { ...state, ...toSet }, outlist);
+        } else if (tag in rtdTextStyles) {
           await this.processBlockItems(child, { ...state, [(rtdTextStyles as Record<string, string>)[tag]]: true }, outlist);
         } else if (tag === 'span' && child.hasAttribute("data-instanceid")) {
           await this.processInlineWidget(child, state, outlist);
@@ -111,22 +142,22 @@ class HSRTDImporter {
         continue;
 
       const tag = child.tagName.toLowerCase();
+      const classNames = parseXSList(child.getAttribute("class"));
 
-      if (tag === "div") { //FIXNE only enter this pasth if it's actually an object
+      if (tag === "div" && classNames.includes("wh-rtd-embeddedobject")) { //FIXME only enter this path if it's actually an object
         const widget = await this.reconstructWidget(child);
         if (widget)
           blocks.push({ widget });
         continue;
       }
 
-      let className = child.getAttribute("class") || '';
-      if (!isValidRTDClassName(className))
-        className = '';
+      const useTag: RTDBlockType = (rtdBlockTypes as readonly string[]).includes(tag) ? tag as RTDBlockType : 'p';
+      const setClass = classNames.length && isValidRTDClassName(classNames[0]) ? classNames[0] : '';
+      const newblock: RTDBlock = { tag: useTag, items: await this.getBlockItems(child) };
+      if (setClass && setClass !== rtdBlockDefaultClass[useTag]) //only set if not default
+        newblock.className = setClass;
 
-      if (rtdParagraphTypes.includes(tag)) {
-        const outputtag = className ? `${tag}.${className}` : tag;
-        blocks.push({ [outputtag]: await this.getBlockItems(child) });
-      }
+      blocks.push(newblock);
     }
     return blocks;
   }
@@ -174,14 +205,23 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
 
   async function buildBlockItems(items: Readonly<RTDBlockItems>) {
     let output = '';
-    for (const item of items) {
-      let part: string = 'widget' in item ? await exportWidgetForHS(item.widget, false) : encodeString(item.text, 'html');
-      //FIXME put in standard RTD render ordering
-      for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
-        if (item[tag])
-          part = `<${style}>${part}</${style}>`;
+    for (const linkitem of groupByLink(items)) {
+      let linkpart = '';
+      for (const item of linkitem.items) {
+        let part: string = 'widget' in item ? await exportWidgetForHS(item.widget, false) : encodeString(item.text, 'html');
+        //FIXME put in standard RTD render ordering
+        for (const [style, tag] of Object.entries(rtdTextStyles).reverse()) {
+          if (item[tag])
+            part = `<${style}>${part}</${style}>`;
+        }
+
+        linkpart += part;
       }
-      output += part;
+
+      if (linkitem.link)
+        linkpart = `<a href="${encodeString(linkitem.link, 'attribute')}"${linkitem.target ? ` target="${encodeString(linkitem.target, 'attribute')}"` : ""}>${linkpart}</a>`;
+
+      output += linkpart;
     }
     return output;
   }
@@ -193,9 +233,8 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
       continue;
     }
 
-    const key = Object.keys(block)[0] as `${string}.${string}`;
-    const [tag, className] = key.split('.');
-    htmltext += `<${tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block[key]!)}</${tag}>`;
+    const className = block.className || rtdBlockDefaultClass[block.tag];
+    htmltext += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block.items)}</${block.tag}>`;
   }
 
   return {
