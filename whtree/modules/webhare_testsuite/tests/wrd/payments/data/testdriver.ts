@@ -56,6 +56,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
       returnurl: request.returnUrl,
       expires: request.extraPspData?.expires as Date || null,
       lastname: request.lastName || '',
+      crashpoll: Boolean(request.extraPspData?.crashpoll)
     });
     await commitWork();
 
@@ -129,6 +130,8 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
     const sessinfo = await getServerSession("wrd:testpayment", paymeta.paymentSession);
     if (!sessinfo || (sessinfo.expires && sessinfo.expires < new Date))
       return { setStatus: "failed" };
+    if (sessinfo.crashpoll)
+      throw new Error("Crash requested");
 
     return this.#translateStatus(paymeta, sessinfo);
   }

@@ -309,6 +309,22 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq("pending", pd2e->GetField("DATA").status);
   paymentapi->CancelPendingPayment(pd2e->id);
   TestEq("failed", pd2e->GetField("DATA").status);
+
+  // Create a payment that will throw when polled
+  testfw->BeginWork();
+  OBJECT pd2throw := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD2TRHOW"]);
+  testfw->CommitWork();
+  paymentapi->StartPayment(pd2throw->id, 15.13m, [ paymentprovider := pm2->id, paymentoptiontag := "M1", returnurl := "https://www.example.net/", userdata := [ x := 43 ], orderid := "ORDER-4", extraPspData := [crashpoll := TRUE ]]);
+
+  TestEq("pending", pd2throw->GetField("DATA").status);
+  RECORD ARRAY issues := PollPaymentStatuses(TRUE, testfw->starttime);
+  TestEq(1,Length(issues));
+  TestEqLike("Payment*exception*Crash requested", issues[0].message);
+  TestEq("pending", pd2throw->GetField("DATA").status);
+
+  testfw->BeginWork();
+  paymentapi->paymenttype->DeleteEntity(pd2throw->id); //prevent a throwing payment from interfering with other tests
+  testfw->CommitWork();
 }
 
 MACRO TestPaymentBrokenMethodTest()
@@ -559,7 +575,7 @@ MACRO TestPaymentPersonEntity()
   TestEqLike("?*", payment.paymentref);
   TestEq(13.28m, payment.amountpayable);
 
-  TestEq(TRUE, PollPaymentStatuses(TRUE, testfw->starttime));
+  TestEq(RECORD[], PollPaymentStatuses(TRUE, testfw->starttime));
 
   //Test a rejection
   STRING gotourl := StartWRDTestPayment(paymentapi, pde1->id, 13.28m, [ paymentprovider := pm2->id, paymentoptiontag := "M2", wrdpersonentity := testperson, wrdpersonfields := [ wrd_contact_email := "okay@beta.webhare.net" ], orderid := "PDE1"  ]);
