@@ -620,6 +620,16 @@ int HSVM_WeakObjectExists (struct HSVM *vm, HSVM_VariableId id)
         return 0;
 }
 
+const char * HSVM_ObjectGetWasmType(struct HSVM *vm, HSVM_VariableId object_id)
+{
+        START_CATCH_VMEXCEPTIONS
+        auto ptr = VM.GetObjectWasmType(object_id);
+        return ptr ? ptr->c_str() : nullptr;
+        END_CATCH_VMEXCEPTIONS
+        return nullptr;
+}
+
+
 int HSVM_TestMustAbort(struct HSVM *vm)
 {
         return TestMustAbort(vm);
@@ -2877,6 +2887,12 @@ int HSVM_HasSystemRedirect(HSVM *vm)
         return VM.HasSystemRedirect();
         END_CATCH_VMEXCEPTIONS
         return 0;
+}
+
+HSVM_PUBLIC void HSVM_DebugShowStackState(HSVM *vm) {
+        START_CATCH_VMEXCEPTIONS
+        VM.ShowStackState(false);
+        END_CATCH_VMEXCEPTIONS
 }
 
 } // End of "C" linkage

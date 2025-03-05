@@ -511,6 +511,7 @@ void CodeLibraryWriter::AddCodedFunctions(HareScript::WrappedLibrary &wrapper, H
                 PrepareSymbolDef(wrapper, &objtypedef, *symbol);
                 objtypedef.resulttype = VariableTypes::Object;
                 objtypedef.name_index = wrapper.linkinfo.SetName(symbol->name);
+                objtypedef.wasmtype_name_index = wrapper.linkinfo.SetName(symbol->objectdef->wasmtype);
                 objtypedef.constructor = functions[symbol->objectdef->constructor];
                 objtypedef.has_base = symbol->objectdef->base != 0;
                 objtypedef.base = -1;

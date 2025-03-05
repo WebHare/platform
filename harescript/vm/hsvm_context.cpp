@@ -2889,6 +2889,15 @@ std::string VirtualMachine::GetObjectTypeName(VarId obj)
         return (*(type->objdefs.end() - 1))->name;
 }
 
+std::string const * VirtualMachine::GetObjectWasmType(VarId obj)
+{
+        ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(stackmachine.ObjectGetTypeDescriptor(obj));
+        if (!type)
+            return nullptr;
+
+        return &(*(type->objdefs.end() - 1))->wasmtype;
+}
+
 void VirtualMachine::GetObjectExtendNames(VarId obj, std::vector< std::string > *objecttypelist)
 {
         objecttypelist->clear();

@@ -755,6 +755,20 @@ void Parser::P_ObjectType_Declaration(bool is_public, bool is_static)
                                         NextToken();
                                 }
                         }
+                        else if (Blex::StrCaseCompare(curattr,"WASMTYPE") == 0)
+                        {
+                                NextToken();
+                                if (TokenType() != Lexer::ConstantString)
+                                {
+                                        lexer.AddError(Error::InvalidAttributes);
+                                        break;
+                                }
+                                else
+                                {
+                                        obj->objectdef->wasmtype = Blex::Lexer::ParseTokenString(lexer.GetTokenSTLString()) ;
+                                        NextToken();
+                                }
+                        }
                         else
                         {
                                 lexer.AddError(Error::InvalidAttributes);

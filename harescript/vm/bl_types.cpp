@@ -1117,6 +1117,12 @@ void GetObjectExtendNames(VarId id_set,VirtualMachine *vm)
         }
 }
 
+void GetObjectWasmType(VarId id_set,VirtualMachine *vm)
+{
+        std::string const *name = vm->GetObjectWasmType(HSVM_Arg(0));
+        vm->GetStackMachine().SetSTLString(id_set, name ? *name : "");
+}
+
 void GetObjectMethodPtr(VarId id_set, VirtualMachine *vm)
 {
         // PUBLIC FUNCTION PTR FUNCTION GetObjectMethodPtr(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -1588,6 +1594,7 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("MEMBERUPDATE:::OSV", ObjectSetMember));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETOBJECTTYPENAME::S:O", GetObjectTypeName));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETOBJECTEXTENDNAMES::SA:O", GetObjectExtendNames));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETOBJECTWASMTYPE::S:O", GetObjectWasmType));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WEAKOBJECTEXISTS::B:W",WeakObjectExists));
 

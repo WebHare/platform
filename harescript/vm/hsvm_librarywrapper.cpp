@@ -710,6 +710,7 @@ void WrappedLibrary::ReadSectionObjectTypes(Blex::RandomStream *stream, unsigned
                 o.has_base = stream->ReadLsb<uint8_t>() != 0;
                 o.base = stream->ReadLsb<int32_t>();
                 o.flags = (ObjectTypeFlags::Type)stream->ReadLsb<int32_t>();
+                o.wasmtype_name_index = stream->ReadLsb<int32_t>();
                 o.constructor = stream->ReadLsb<uint32_t>();
 
                 uint32_t uid_count = stream->ReadLsb<uint32_t>();
@@ -778,6 +779,7 @@ unsigned WrappedLibrary::WriteSectionObjectTypes(Blex::RandomStream *stream, uns
                 stream->WriteLsb<uint8_t>(it->has_base ? 1 : 0);
                 stream->WriteLsb<int32_t>(it->base);
                 stream->WriteLsb<uint32_t>(it->flags);
+                stream->WriteLsb<uint32_t>(it->wasmtype_name_index);
                 stream->WriteLsb<uint32_t>(it->constructor);
 
                 stream->WriteLsb<uint32_t>(it->uid_indices.size());

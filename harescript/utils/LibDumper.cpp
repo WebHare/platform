@@ -340,6 +340,8 @@ int UTF8Main(std::vector<std::string> const &args)
                 if (it->symbolflags & SymbolFlags::Deprecated) std::cout << "DEPRECATED ";
                 if (it->symbolflags & SymbolFlags::Imported)
                         std::cout << "IMPORTED from '"<<LibraryPath(wlib, it->library)<<"' (lib:"<<it->library<<")";
+                if (it->wasmtype_name_index)
+                        std::cout << "WASMTYPE " << wlib.linkinfo.GetNameStr(it->wasmtype_name_index) << " ";
                 std::cout << std::endl;
                 std::cout << "   Constructor: ";
                 std::cout << "function "<<it->constructor<<": "<<wlib.linkinfo.GetNameStr(wlib.linkinfo.functions[it->constructor].name_index)<<std::endl;

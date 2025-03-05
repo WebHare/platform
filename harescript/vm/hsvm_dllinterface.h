@@ -707,6 +707,12 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberRef(struct HSVM *vm, HSVM_Variable
     @return 1 if the object exists */
  HSVM_PUBLIC int HSVM_WeakObjectExists (struct HSVM *vm, HSVM_VariableId id);
 
+/** Get the wasmtype of the toplevel objecttype
+ * @param vm Virtual machine
+ * @param object_id Id of the object
+ * @return Name of the wasmtype of the toplevel objecttype */
+ HSVM_PUBLIC const char * HSVM_ObjectGetWasmType(struct HSVM *vm, HSVM_VariableId object_id);
+
 /*****************************************************************************
 
     Virtual machine interface: RECORDs
