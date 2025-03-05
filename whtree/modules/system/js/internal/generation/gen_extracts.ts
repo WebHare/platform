@@ -10,6 +10,7 @@ import { generateWebDesigns } from "./webdesigns";
 import * as crypto from "node:crypto";
 import { stringify, throwError } from "@webhare/std";
 import type { Document } from "@xmldom/xmldom";
+import { generateTasks } from "./gen_extract_tasks";
 
 export interface AssetPack {
   name: string; //full name
@@ -288,6 +289,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extract",
       generator: (context: GenerateContext) => generateServices(context)
+    },
+    {
+      path: `extract/tasks.json`,
+      module: "platform",
+      type: "extract",
+      generator: (context: GenerateContext) => generateTasks(context)
     }
   ];
 }

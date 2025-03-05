@@ -23,8 +23,6 @@ LOADLIB "mod::system/lib/resources.whlib";
     @cell return.ephemeral Whether this is an ephemeral task
     @cell return.library Name of the library that runs this task
     @cell return.objectname Name of the object that runs this task
-    @cell return.isnode Whether this is a task run by Node.js
-    @cell return.workertype Whether this is a task run by Node.js
     @cell return.applyerror Apply error (task may only run if this is empty)
     @cell return.cluster Name of the taskcluster this task should run in
 */
@@ -33,11 +31,9 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   STRING applyerror := GetApplicabilityError(GetMyApplicabilityInfo(), ReadApplicableToWebHareNode(tasknode));
 
   STRING type := tasknode->GetAttribute("type");
-  STRING library := tasknode->GetAttribute("library");
-  STRING objectname := tasknode->GetAttribute("objectname");
+  STRING objectname := MakeAbsoluteResourcePath(resourcename, tasknode->GetAttribute("objectname"));
   STRING cluster := tasknode->GetAttribute("cluster");
   INTEGER timeout := ToInteger(tasknode->GetAttribute("timeout"), 0);
-  BOOLEAN isnode := GetExtensionFromPath(library) IN whconstant_javascript_extensions;
   INTEGER maxfailures := tasknode->HasAttribute("maxfailures") ? ParseXSInt(tasknode->GetAttribute("maxfailures")) : -1;
   INTEGER failreschedule := ToInteger(tasknode->GetAttribute("failreschedule"), whconstant_default_failreschedule);
   BOOLEAN allowifrestore := ParseXSBoolean(tasknode->GetAttribute("allowifrestore"));
@@ -47,27 +43,9 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
     cluster := `${mod}:${cluster}`;
 
   INTEGER priority := ParseManagedTaskPriority(tasknode->GetAttribute("priority"));
-  IF(isnode)
-  {
-    libname := GetWebHareResourceDiskPath(`mod::${mod}/${library}`);
-  }
-  ELSE IF(library != "")
-  {
-    IF(RecordExists(RetrieveWebHareResource(`module::${mod}/${library}`, [ allowmissing := TRUE ])))
-      libname := `module::${mod}/${library}`; //ADDME moduledef parser should give a warning on these
-    ELSE
-      libname := `mod::${mod}/${library}`;
-  }
-  ELSE IF(objectname != "") //library not set but object name is.. resolve
-  {
-    objectname := MakeAbsoluteResourcePath(resourcename, objectname);
-  }
 
-  RETURN CELL[ library :=      objectname = "" ? libname : ""
-             , objectname :=   objectname = "" ? "" : objectname LIKE "*#*" ? objectname : libname || "#" || objectname
+  RETURN CELL[ objectname
              , tasktype :=     mod || ":" || type
-             , isnode :=       isnode
-             , workertype :=   isnode ? 1 : 0
              , applyerror :=   applyerror
              , cluster
              , ephemeral :=    options.ephemeral
@@ -98,7 +76,7 @@ PUBLIC RECORD FUNCTION ParseModuleTasks(STRING modulename, STRING resname, OBJEC
         [ tag :=                  `${modulename}:${clusternode->GetAttribute("tag")}`
         , harescriptworkers :=    ToInteger(clusternode->GetAttribute("harescriptworkers"), 1)
         , harescriptworkerthreads := ToInteger(clusternode->GetAttribute("harescriptworkerthreads"), 1)
-        , javascriptworkers :=    ToInteger(clusternode->GetAttribute("javascriptworkers"), 0)
+        , javascriptworkers :=    0 //ToInteger(clusternode->GetAttribute("javascriptworkers"), 0) DISABLED - no longer supporting runepehmeraltask.es and we may never have managed TS workers...
         ] INTO clusters AT END;
   }
 
@@ -145,7 +123,6 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
 {
   RECORD executeinfo := [ queueid :=        taskdata.queueid
                         , isephemeral :=    taskdata.isephemeral
-                        , library :=        taskinfo.library
                         , tasktype :=       taskdata.tasktype
                         , objectname :=     taskinfo.objectname
                         , profile :=        taskinfo.profile

@@ -44,10 +44,6 @@ ASYNC MACRO TestEphemeralTasks()
   TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
   ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
   TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
-
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:nodetask", [ nodeping := 42 ]);
-  val := WaitForPromise(ephtask);
-  TestEq([nodepong := 42],val);
 }
 
 ASYNC MACRO TestWaitableAction(BOOLEAN javascript)

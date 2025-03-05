@@ -230,7 +230,7 @@ BLOB moduledefissues := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
     </d:table>
   </databaseschema>
   <servicemanager>
-    <managedtask type="pdfmailflow" library="formcomponents/pdfmailflow.whlib" objectname="PDFMailFlowTask"/>
+    <managedtask type="pdfmailflow" objectname="formcomponents/pdfmailflow.whlib#PDFMailFlowTask"/>
   </servicemanager>
   <portal>
     <application name="nosuchapp" screen="yyy/filemanager/main.xml"><accesscheck/></application>

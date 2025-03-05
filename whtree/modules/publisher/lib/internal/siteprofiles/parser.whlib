@@ -133,8 +133,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
     IF(val LIKE "module::*" OR val LIKE "modulescript::*" OR val LIKE "moduledata::*" OR val LIKE "moduleroot::*")
     {
-      this->AddWarning(node, `Old module resource namespaces (eg, module::, moduledata::) are deprecated`);
-      RETURN MakeAbsoluteResourcePath("",val);
+      this->AddError(node, `Old module resource namespaces (eg, module::, moduledata::) are no longer supported`);
+      RETURN "";
     }
     IF(val LIKE "site::*" OR val LIKE "mod::*")
       RETURN MakeAbsoluteResourcePath("",val);

@@ -30,7 +30,7 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
       [ [ tag :=                    "system:default"
         , harescriptworkers :=      1
         , harescriptworkerthreads := 1
-        , javascriptworkers :=      2
+        , javascriptworkers :=      0 //DISABLED - no longer supporting runepehmeraltask.es and we may never have managed TS workers...
         , profile := FALSE
         ]
       ];
@@ -98,5 +98,3 @@ PUBLIC RECORD FUNCTION GetAllTaskTypeInfo()
 {
   RETURN GetAdhocCached(CELL[ "tasktypes" ], PTR GetCacheableAllTaskTypeInfo());
 }
-
-

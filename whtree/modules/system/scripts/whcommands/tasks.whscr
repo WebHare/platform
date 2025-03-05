@@ -73,7 +73,6 @@ MACRO ImportTask(STRING ARRAY params)
            , tasktype := task.tasktype
            , taskdata := task.taskdata
            , auxdata := auxdata
-           , workertype := taskinfo.workertype
            , priority := taskinfo.priority
            , timeout := taskinfo.timeout
            ] INTO system.managedtasks;
