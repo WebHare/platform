@@ -14,8 +14,6 @@ import * as std from "@webhare/std";
 import { Money } from "@webhare/std";
 import "@webhare/deps/temporal-polyfill"; //required to run in the frontend
 
-export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-
 function testEnv() {
   test.eq(false, env.isLive);
   test.eq("development", env.dtapstage);
@@ -381,9 +379,18 @@ async function testStrings() {
 
   test.eq(/^[0-9a-f]{8}$/, std.generateRandomId("hex", 4));
 
+  test.assert(std.isValidUUID("f81d4fae-1234-11d0-a765-00a0c91e6bf6"));
+  test.assert(std.isValidUUID("f81d4fae-1234-4444-a765-00a0c91e6bf6"));
+  test.assert(std.isValidUUID("f81d4fae-1234-4444-a765-00a0c91e6bf6", "v4"));
+  test.assert(!std.isValidUUID("f81d4fae-1234-4444-7765-00a0c91e6bf6", "v4"));
+  test.assert(!std.isValidUUID("f81d4fae-1234-1111-a765-00a0c91e6bf6", "v4"));
+
+  //@ts-expect-error TS knows v9 isn't supported
+  test.throws(/Unsupported format.*v9/, () => std.isValidUUID("f81d4fae-1234-1111-a765-00a0c91e6bf6", "v9"));
+
   for (let i = 0; i < 100; ++i) {
     const id = std.generateRandomId("uuidv4", 16);
-    test.eq(uuid4regex, id, `Failed: ${id}`);
+    test.assert(std.isValidUUID(id, 'v4'), `Failed: ${id}`);
   }
 
   test.throws(/16 bytes/, () => std.generateRandomId("uuidv4", 15));
@@ -795,7 +802,7 @@ function testCaseChanging() {
 function testUUIDFallback() {
   //@ts-ignore - we explicitly want to break stuff so we can verify generateRandomId works without crypto.randomUUID (which is only available in secure contexts)
   crypto.randomUUID = undefined;
-  test.eq(uuid4regex, std.generateRandomId("uuidv4", 16));
+  test.assert(std.isValidUUID(std.generateRandomId("uuidv4", 16)));
 }
 
 

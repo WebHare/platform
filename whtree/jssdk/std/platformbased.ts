@@ -1,6 +1,21 @@
 /** Test whether a string looks like a valid random id */
-export function isLikeRandomId(input: string) { //TODO add encoding parameter/bytes support ?
-  return input.match(/^[A-Za-z0-9_-]{22}$/);
+export function isLikeRandomId(input: string): boolean { //TODO add encoding parameter/bytes support ?
+  return Boolean(input.match(/^[A-Za-z0-9_-]{22}$/));
+}
+
+/** Test whether a string is a valid hex UUID
+ * @param string - uuid in hex format to verify. you may need to lowercase the uuid first
+ * @param format - optional, if set to "v4" it will only accept UUIDv4 format
+*/
+export function isValidUUID(input: string, format?: "v4"): boolean {
+  //we'll require you to lowercase the uuid first to increase the chance that you'll actually be storing/matching it in lowercase too
+
+  if (format === "v4")
+    return Boolean(input.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/));
+  else if (format !== undefined)
+    throw new Error(`Unsupported format '${format}'`);
+  else
+    return Boolean(input.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/));
 }
 
 /** Generate a configurable random id (the default settings, base64url and 16 bytes, match HareScript's GenerateUFS128BitId)
