@@ -61,4 +61,9 @@ export function returnObject(o: TestObject) {
   return o;
 }
 
+export function crash() {
+  console.error("crash() invoked!");
+  process.exit(0);
+}
+
 export { isWorkOpen };
