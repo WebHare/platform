@@ -28,6 +28,18 @@ export interface FrontendDataTypes {
 export interface PxlDataTypes {
 }
 
+/** Test whether the current page is being iframed in the WebHare test framework */
+export function isInTestFramework(): boolean {
+  if (window.top !== window) { //in a frame
+    try {
+      if (window.top?.__testframework)
+        return true;//we're inside a testframe, pretend to be the parent
+    } catch (ignore) {
+    }
+  }
+  return false;
+}
+
 function postRenderChecks() {
   const log = document.getElementById("wh-console-log");
   if (log) {
