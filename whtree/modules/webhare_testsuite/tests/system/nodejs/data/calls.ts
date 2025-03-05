@@ -25,3 +25,8 @@ export function runVoid(): void {
 export async function runAsyncVoid(): Promise<void> {
   return;
 }
+
+export function crash() {
+  console.error("crash() invoked!");
+  process.exit(0);
+}

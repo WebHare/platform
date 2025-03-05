@@ -1,8 +1,14 @@
 <?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 
@@ -54,3 +60,19 @@ CallJS("./data/calls.ts#runVoid");
 CallJS("./data/calls.ts#runAsyncVoid");
 
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));
+
+IF(NOT IsWasm()) { //Test crash resistance
+  STRING startrandom := CallJS("./data/calls.ts#getOnceRandom");
+
+  OBJECT eventmgr := NEW EventManager;
+  eventmgr->RegisterInterest("system:webhareservice.system:invokeservice.start");
+
+  //We need a low level connection to request a crash - and also because the 'CallJS' cached connection must remain in working order
+  OBJECT service := WaitForPromise(OpenWebHareService("system:invokeservice"));
+  STRING servicerandom := WaitForPromise(service->Invoke(Resolve("./data/calls.ts"), "getOnceRandom", VARIANT[]));
+  TestEq(servicerandom, startrandom, "Verify it's the same connection");
+  service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[]); //DISCARD the result as we expect a crash
+  TestEqMembers([ status := "ok" ], eventmgr->ReceiveEvent(MAX_DATETIME), "*");
+
+  TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");
+}
