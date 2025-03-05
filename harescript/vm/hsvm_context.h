@@ -441,6 +441,7 @@ class ColumnNameCache
 
         ColumnNameId col_allowcomments;
         ColumnNameId col_alltostring;
+        ColumnNameId col_asyncjscode;
         ColumnNameId col_authenticationrecord;
         ColumnNameId col_baseptr;
         ColumnNameId col_casesensitive;

@@ -4364,6 +4364,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
 {
         col_allowcomments = columnnamemapper.GetMapping("ALLOWCOMMENTS");
         col_alltostring = columnnamemapper.GetMapping("ALLTOSTRING");
+        col_asyncjscode = columnnamemapper.GetMapping("ASYNCJSCODE");
         col_authenticationrecord = columnnamemapper.GetMapping("AUTHENTICATIONRECORD");
         col_baseptr = columnnamemapper.GetMapping("BASEPTR");
         col_casesensitive = columnnamemapper.GetMapping("CASESENSITIVE");

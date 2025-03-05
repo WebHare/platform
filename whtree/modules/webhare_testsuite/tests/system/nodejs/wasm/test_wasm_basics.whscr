@@ -77,20 +77,19 @@ PUBLIC MACRO RunWasmtest()
   TestRejectedLike("ASYNC inline exception", EM_Syscall("executeInline", [ func := "return (async function(){ throw new Error(`ASYNC inline exception`); })()"]));
 
   //Test reentrant syscalls
-  PRINT(`start reentrant syscall test\n`);
   TestEq(2, WaitForPromise(EM_Syscall("executeInline", [ func := `return 1 + await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall();`, param := DEFAULT RECORD ])));
-  PRINT(`done reentrant syscall test\n`);
 
   // Not allowed to reenter the HSVM while running a synchronous syscall
   TestThrowsLike("Not allowed *SyncSyscall", PTR EM_SyncSyscall("executeInline", [ func := `return 1 + await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall();`, param := DEFAULT RECORD ]));
 
   // Test extending empty objects
   OBJECT t := NEW TObject;
+  STRING currentlib := GetStackTrace()[0].filename;
   VARIANT res := EM_Syscall("executeInline", [ func :=
   `
     const r = vm.wasmmodule._HSVM_ObjectMemberRef(vm.hsvm, param.$obj.id, vm.getColumnId("VAL"), 1);
     vm.wasmmodule._HSVM_ObjectInitializeEmpty(vm.hsvm, r);
-    const libbuf = vm.wasmmodule.stringToNewUTF8("mod::webhare_testsuite/tests/system/nodejs/wasm/test_wasm_basics.whscr");
+    const libbuf = vm.wasmmodule.stringToNewUTF8(${EncodeJSON(currentlib)});
     const namebuf = vm.wasmmodule.stringToNewUTF8("TTOCREATE");
     try {
       return vm.wasmmodule._HSVM_ObjectExtend(vm.hsvm, r, libbuf, namebuf);
@@ -102,6 +101,21 @@ PUBLIC MACRO RunWasmtest()
   TestEQ(1, res);
   TestEQ(TRUE, t->val EXTENDSFROM TToCreate);
   TestEQ(0, t->val->v);
+
+  // Test that bare WaitForMultiple doesn't let reentering happen, and honours its timeout
+  {
+    OBJECT p := EM_SysCall("executeInline", [ func := `
+      await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).IncreaseCounter();`, param := DEFAULT RECORD
+    ]);
+    FUNCTION PTR getresetcounter := MakeFunctionPtr(Resolve("testwasmlib.whlib#GetResetCounter"));
+    getresetcounter();
+    DATETIME deadline := AddTimeToDate(50, GetCurrentDateTime());
+    TestEQ(-1, WaitForMultipleUntil(INTEGER[], INTEGER[], deadline));
+    TestEQ(TRUE, GetCurrentDateTime() >= deadline);
+    TestEQ(0, getresetcounter());
+    WaitForPromise(p);
+    TestEQ(1, getresetcounter());
+  }
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

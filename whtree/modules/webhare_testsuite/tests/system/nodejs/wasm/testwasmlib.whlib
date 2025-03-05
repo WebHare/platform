@@ -128,3 +128,15 @@ PUBLIC OBJECTTYPE TestCallObj <
     ABORT(`Unknown property '${name}'`);
   }
 >;
+
+INTEGER counter;
+
+PUBLIC INTEGER FUNCTION GetResetCounter() {
+  INTEGER retval := counter;
+  counter := 0;
+  RETURN retval;
+}
+
+PUBLIC MACRO IncreaseCounter() {
+  counter := counter + 1;
+}

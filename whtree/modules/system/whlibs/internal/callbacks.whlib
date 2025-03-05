@@ -578,7 +578,7 @@ PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleEventCallbackEvents(INTEGER handle, STR
       IF (IsDefaultValue(check_readhandles) AND IsDefaultValue(check_writehandles))
         BREAK;
 
-      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(check_readhandles, check_writehandles, DEFAULT DATETIME);
+      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(check_readhandles, check_writehandles, DEFAULT DATETIME, TRUE);
       IF (IsValueSet(rec.read))
       {
         handle := rec.read[0];

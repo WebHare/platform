@@ -214,7 +214,7 @@ PUBLIC INTEGER FUNCTION WriteTo(INTEGER outputid, STRING data) __ATTRIBUTES__(EX
     @return A handle that is signalled, or -1 when a time-out has occurred */
 PUBLIC INTEGER FUNCTION WaitForMultipleUntil(INTEGER ARRAY reads, INTEGER ARRAY writes, DATETIME until)
 {
-  RECORD rec := __HS_WAITFORMULTIPLEUNTIL(reads, writes, until);
+  RECORD rec := __HS_WAITFORMULTIPLEUNTIL(reads, writes, until, FALSE);
   INTEGER ARRAY handles := rec.read CONCAT rec.write;
   RETURN LENGTH(handles) != 0 ? handles[0] : -1;
 }
