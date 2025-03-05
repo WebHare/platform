@@ -117,7 +117,7 @@ export async function scheduledTasks(tasktype: string, taskdatas: IPCMarshallabl
 
   const taskinfo = getExtractedConfig("tasks").tasktypes[tasktype] ?? throwError(`No such task type '${tasktype}' registered`);
 
-  //TODO need to move to a key/value system where the TaskType knows which keys are expected, which keys must go to aux and pehaps also which keys are updateable
+  //TODO need to move to a key/value system where the TaskType knows which keys are expected, which keys must go to aux and perhaps also which keys are updateable
   const auxdata = options?.auxdata ? WebHareBlob.from(encodeHSON(options.auxdata)) : null;
   const now = new Date;
   const taskids: number[] = [...options?.taskIds ?? []];
@@ -225,8 +225,6 @@ async function waitForTimedTask(taskname: string, deadline: WaitPeriod, options?
 
     @param taskname - module:tag of the task
     @param options - when: When to run the task (if not set, asap)
-                     allowMissing: Don't fail if the task isn't registered (yet)
-                     onComplete: Callback to call when the task is completed. (remember to commit or the callback will never fire)
     @returns An object with taskDone(), which returns a promise that resolves when the task is completed
 */
 export async function scheduleTimedTask(taskname: string, options?: { when?: FlexibleInstant/*; allowMissing?: boolean*/ }): Promise<{
@@ -245,12 +243,12 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Fle
     throw new Error(`No such timed task '${taskname}' registered`);
   }
 
-  /* TODO HS used a finish handler to dedupe schedledtasks 9which also unexpectedly separate reschedules from the original commit)
+  /* TODO HS used a finish handler to dedupe schedledtasks (which also unexpectedly separate reschedules from the original commit)
      but i'd rather avoid that and bet on having unique managed tasks first, and handle scheduledtasks through those tasks */
   const queuedat = new Date;
   const when = options?.when ? convertFlexibleInstantToDate(options?.when) : queuedat;
   const updateTask = (taskinfo.nexttime.getTime() === defaultDateTime.getTime() || taskinfo.nexttime.getTime() > when.getTime())
-    //inaplicable tasks? move time forward when in the past, easier when developing - you can see times change)
+    //inapplicable tasks? move time forward when in the past, easier when developing - you can see times change)
     || (taskinfo.inapplicable && taskinfo.nexttime.getTime() < Date.now());
 
   if (updateTask) {
