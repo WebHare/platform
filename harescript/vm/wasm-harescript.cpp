@@ -16,6 +16,7 @@
 #include <harescript/vm/baselibs.h>
 #include <harescript/vm/outputobject.h>
 #include <harescript/vm/hsvm_environment.h>
+#include <harescript/vm/wasm-harescript.h>
 
 using namespace WebHare::WASM;
 
@@ -38,8 +39,6 @@ EM_JS(char*, supportGetInstallationRoot, (), {
 EM_JS(char*, supportGetCompileCache, (), {
   return stringToNewUTF8(Module.getCompileCache());
 });
-
-typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength, bool local);
 
 class WASMEventListener : public Blex::NotificationEventReceiver
 {

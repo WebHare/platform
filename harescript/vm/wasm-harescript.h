@@ -26,9 +26,9 @@ void EMSCRIPTEN_KEEPALIVE SetWASMOutputObjectWriteSignalled(HSVM *vm, int id, bo
 
 void EMSCRIPTEN_KEEPALIVE CloseWASMOutputObject(HSVM *vm, int id);
 
-void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *vm, const char *name, const char *payloadstart, const char *payloadend);
+void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *vm, const char *name, uint8_t const *payloadstart, int32_t payloadlen);
 
-typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
+typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength, bool local);
 
 void EMSCRIPTEN_KEEPALIVE SetEventCallback(EventCallback callback);
 

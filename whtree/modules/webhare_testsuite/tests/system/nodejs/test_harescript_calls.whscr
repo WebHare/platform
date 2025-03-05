@@ -68,12 +68,28 @@ CallJS("./data/calls.ts#runAsyncVoid");
 
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));
 
+OBJECTTYPE ThrowingGetterSetter <
+  PUBLIC PROPERTY p(ThrowingGetter, ThrowingSetter);
+  INTEGER FUNCTION ThrowingGetter() {
+    THROW NEW Exception("throwing getter");
+  }
+  MACRO ThrowingSetter(INTEGER value) {
+    THROW NEW Exception("throwing setter");
+  }
+>;
+
 IF(IsWasm()) { //Support opaque object marshalling
   OBJECT jsobj_11 := CallJS("./data/calls.ts#getObject", 11);
   TestEq(11, CallJS("./data/calls.ts#getObjectValue", jsobj_11));
   OBJECT jsobj_11_b := CallJS("./data/calls.ts#returnObject", jsobj_11);
   TestEq(11, CallJS("./data/calls.ts#getObjectValue", jsobj_11_b));
   TestAssert(jsobj_11_b != jsobj_11, "Objects on the HS side don't yet have the same identity. Would have been nice...");
+
+  // Correct handling of calling throwing setters on JS objects when using calljs
+  PRINT(`test throwing setter\n`);
+  TestThrowsLike("throwing setter", PTR CallJS("./data/calls.ts#setThrowingProperty", NEW ThrowingGetterSetter));
+  PRINT(`test throwing getter\n`);
+  TestThrowsLike("throwing getter", PTR CallJS("./data/calls.ts#getThrowingProperty", NEW ThrowingGetterSetter));
 }
 
 IF(NOT IsWasm()) { //Test crash resistance

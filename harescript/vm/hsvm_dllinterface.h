@@ -658,13 +658,22 @@ HSVM_PUBLIC void*  HSVM_ObjectContext(struct HSVM *vm, HSVM_VariableId object_id
     @param id Id of the object to initialize */
  HSVM_PUBLIC void HSVM_ObjectInitializeEmpty (struct HSVM *vm, HSVM_VariableId id) ;
 
-/** Copies content of an object member (for properties, the return value of the getter function) to another variable (BETA, may change)
+ /** Extends an existing with an objecttype definition, without running the constructor (BETA, may change)
+     @param vm Virtual machine
+     @param id Id of the object to extend
+     @param libraryuri Library that contains the objecttype definition
+     @param objecttype Name of the objecttype definition
+     @return 1 on success, 0 if the function failed (objecttype didn't exist, dynamic members added that overlap the objecttype members) */
+ HSVM_PUBLIC int HSVM_ObjectExtend(struct HSVM *vm, HSVM_VariableId id, const char *libraryuri, const char *objecttype);
+
+/** Copies content of an object member (for properties, the return value of the getter function) to another variable. Can
+    run code (and is async in WASM mode). (BETA, may change)
     @param vm Virtual machine
     @param object_id Id of the object
     @param name_id The name of the member to return the contents of
     @param storeto The contents will be stored in this variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return Returns the storeto variable, or 0 if the function failed (member didn't exists, memeber was a method, getter function failed) */
+    @return Returns the storeto variable, or 0 if the function failed (member didn't exist, member was a method, getter function failed) */
 HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberCopy(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId storeto, int skip_access);
 
 /** Returns the variable that contains the value of a simple member variable. Fails for properties!(BETA, may change)
@@ -673,16 +682,16 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberCopy(struct HSVM *vm, HSVM_Variabl
     @param name_id The name of the member to return the contents of
     @param storeto The contents will be stored in this variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return Returns the variable, or 0 if the function failed (member didn't exists, memeber wasn't a simple member) */
+    @return Returns the variable, or 0 if the function failed (member didn't exist, member wasn't a simple member) */
 HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberRef(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, int skip_access);
 
-/** Sets the content of an object member (for properties, calls the setter function) (BETA, may change)
+/** Sets the content of an object member (for properties, calls the setter function). Can run code (and is async in WASM mode). (BETA, may change)
     @param vm Virtual machine
     @param object_id Id of the object
     @param name_id The name of the member to return the contents of
     @param value The new value of the variable
     @param skip_access If false, access to PRIVATE members is disallowed
-    @return 1 on success, or 0 if the function failed (member didn't exists, memeber was a method, setter function failed) */
+    @return 1 on success, or 0 if the function failed (member didn't exist, member was a method, setter function failed) */
  HSVM_PUBLIC int HSVM_ObjectMemberSet(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId storeto, int skip_access);
 
 /** Returns the type of an object member (BETA, may change)
@@ -695,7 +704,7 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ObjectMemberRef(struct HSVM *vm, HSVM_Variable
 /** Returns whether a weak object exists
     @param vm Virtual machine
     @param id Id of the object
-    @return 1 if the opject exists */
+    @return 1 if the object exists */
  HSVM_PUBLIC int HSVM_WeakObjectExists (struct HSVM *vm, HSVM_VariableId id);
 
 /*****************************************************************************
@@ -1087,8 +1096,9 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
 
 /** Prepares for function call, allocates parameters. After this function is
     invoked, HSVM_CloseFunctionCall or HSVM_CancelFunctionCall MUST be called
-    before returning to the VM. */
- HSVM_PUBLIC void HSVM_OpenFunctionCall(struct HSVM *vm, unsigned param_count) ;
+    before returning to the VM.
+    @return Stackpointer before opening call, pass to HSVM_CloseFunctionCall */
+ HSVM_PUBLIC int HSVM_OpenFunctionCall(struct HSVM *vm, unsigned param_count) ;
 
 /** Access for individual parameters
     @param vm Virtual machine
@@ -1137,6 +1147,12 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_CallObjectMethod(struct HSVM *vm, HSVM_Variabl
     before you have done an actual function call using HSVM_CallFunction(ptr)
     @param vm Virtual Machine */
  HSVM_PUBLIC void HSVM_CloseFunctionCall(struct HSVM *vm) ;
+
+/** Performs cleanup after function (ptr) call. This destroys the return variable
+    offered by HSVM_CallFunction's return value. This function may NOT be called
+    before you have done an actual function call using HSVM_CallFunction(ptr)
+    @param vm Virtual Machine */
+ HSVM_PUBLIC void HSVM_CloseFunctionCall2(struct HSVM *vm, int orgstackpointer);
 
 /** Performs cleanup after function (ptr) call. This function MUST be called
     if you wish to rollback from a HSVN_OpenFunctionCall

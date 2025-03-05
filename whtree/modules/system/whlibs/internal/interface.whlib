@@ -254,6 +254,7 @@ PUBLIC DATETIME         FUNCTION __HS_CREATEDATETIMEFROMDM(INTEGER days, INTEGER
 PUBLIC RECORD           FUNCTION __HS_OPENLOCALLOCK(STRING name, INTEGER maxconcurrent, BOOLEAN fail_if_queued) __ATTRIBUTES__(EXTERNAL);
 PUBLIC                  MACRO    __HS_CLOSELOCALLOCK(INTEGER lockid) __ATTRIBUTES__(EXTERNAL);
 PUBLIC STRING           FUNCTION __HS_GetCurrentGroupID()  __ATTRIBUTES__(EXTERNAL);
+PUBLIC BOOLEAN          FUNCTION __INTERNAL_RUNASYNCJSCODE() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 PUBLIC RECORD           FUNCTION __INTERNAL_DEBUGFUNCTIONPTRTORECORD(FUNCTION PTR fptr) __ATTRIBUTES__(EXTERNAL);
 
@@ -270,6 +271,10 @@ PUBLIC STRING           FUNCTION __HS_TCPIP_GetPeerCertificateChain(INTEGER conn
 
 PUBLIC                  MACRO    __HS_INTERNAL_AddAsyncContext(OBJECT ctx, INTEGER skipframes) __ATTRIBUTES__(EXTERNAL);
 PUBLIC                  MACRO    __HS_INTERNAL_RemoveAsyncContext() __ATTRIBUTES__(EXTERNAL);
+
+//This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
+PUBLIC RECORD           FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+PUBLIC RECORD           FUNCTION __EM_SYNCSYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 /** Returns the call stack for asynchronous functions
     @topic harescript-core/builtins

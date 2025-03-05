@@ -1000,10 +1000,10 @@ class BLEXLIB_PUBLIC VirtualMachine
         /** Prepare a function ptr call. Put first values then functionptr on stack, leaves return value
             @return Virtual machine to switch to (only filled when @a suspendable is true)
         */
-        void PrepareCallFunctionPtr(bool suspendable, bool allow_macro);
+        void PrepareCallFunctionPtr(bool suspendable, bool allow_macro, bool initmacroretval);
 
         /** Prepare a function ptr call. Put first values then functionptr on stack, leaves return value */
-        void PrepareObjMethodCall(ColumnNameId nameid, unsigned parameters, bool this_access, bool allow_macro);
+        void PrepareObjMethodCall(ColumnNameId nameid, signed parameters, bool this_access, bool allow_macro);
 
         /** Starts execution of the code. Runs until it finds a return to C++
             stack frame (it will still pop that frame), or must switch to another VM

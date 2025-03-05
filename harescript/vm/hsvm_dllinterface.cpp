@@ -496,6 +496,54 @@ void HSVM_ObjectInitializeEmpty (struct HSVM *vm, HSVM_VariableId id)
         END_CATCH_VMEXCEPTIONS
 }
 
+int HSVM_ObjectExtend(struct HSVM *vm, HSVM_VariableId id, const char *libraryuri, const char *objecttype)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        std::string toloadlib = libraryuri;
+        std::string toloadobjecttype = objecttype;
+        Blex::ToUppercase(toloadobjecttype);
+
+        Library const *lib = VM.GetLibraryLoader().GetWHLibrary(toloadlib);
+        if (!lib)
+            ThrowInternalError(("Library " + toloadlib + " has not been loaded yet").c_str());
+
+        LinkedLibrary::LinkedObjectDef const *def = 0;
+        for (LinkedLibrary::LinkedObjectDefs::const_iterator it = lib->GetLinkedLibrary().localobjects.begin();
+                it != lib->GetLinkedLibrary().localobjects.end(); ++it)
+        {
+                if (it->name == toloadobjecttype && !(it->def->symbolflags & SymbolFlags::Imported))
+                {
+                        def = &*it;
+                        break;
+                }
+        }
+
+        if (!def)
+            ThrowInternalError(("Cannot find object type definition for object type " + toloadobjecttype).c_str());
+
+        ObjectTypeDefinition const *type = static_cast< ObjectTypeDefinition const * >(STACKMACHINE.ObjectGetTypeDescriptor(id));
+        if (type && !type->objdefs.empty() && type->objdefs.back()->def->flags & ObjectTypeFlags::InternalProtected)
+            ThrowVMRuntimeError(Error::CannotAccessProtectedObjectType);
+
+        ObjectTypeDefinition *newtype = VM.ExtendObjectType(type, def);
+        if (STACKMACHINE.ObjectHasDeletableMembers(id))
+        {
+                for (auto &itr: newtype->new_entries)
+                    if (STACKMACHINE.ObjectMemberExists(id, itr.nameid))
+                        throw VMRuntimeError(Error::CannotOverrideDynamicMember, VM.columnnamemapper.GetReverseMapping(itr.nameid).stl_str());
+        }
+
+        for (auto &itr: newtype->new_entries)
+            if (itr.type == ObjectCellType::Member)
+                STACKMACHINE.ObjectMemberInsertDefault(id, itr.nameid, true, itr.is_private, false, itr.var_type);
+
+        STACKMACHINE.ObjectSetTypeDescriptor(id, newtype);
+        return 1;
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
 int HSVM_ObjectMemberInsert(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, HSVM_VariableId value, int is_private, int skip_access)
 {
         START_CATCH_VMEXCEPTIONS
@@ -1689,12 +1737,15 @@ int HSVM_FunctionPtrExists(HSVM *vm, HSVM_VariableId fptr)
         return false;
 }
 
-void HSVM_OpenFunctionCall(HSVM *vm, unsigned param_count)
+int HSVM_OpenFunctionCall(HSVM *vm, unsigned param_count)
 {
         START_CATCH_VMEXCEPTIONS
+        auto retval = STACKMACHINE.StackPointer();
         STACKMACHINE.PushVariables(param_count + 1);
         STACKMACHINE.SetInteger(STACKMACHINE.StackPointer() - 1, param_count);
+        return retval;
         END_CATCH_VMEXCEPTIONS
+        return 0;
 }
 
 void HSVM_CloseFunctionCall(HSVM *vm)
@@ -1702,6 +1753,17 @@ void HSVM_CloseFunctionCall(HSVM *vm)
         START_CATCH_VMEXCEPTIONS
         // Remove result value
         STACKMACHINE.PopVariablesN(VM.is_unwinding ? 0 : 1);
+        END_CATCH_VMEXCEPTIONS
+}
+
+HSVM_PUBLIC void HSVM_CloseFunctionCall2(struct HSVM *vm, int orgstackpointer)
+{
+        START_CATCH_VMEXCEPTIONS
+        auto toremove = static_cast<int>(STACKMACHINE.StackPointer()) - orgstackpointer;
+        if (toremove < 0)
+            ThrowInternalError("HSVM_CloseFunctionCall2: orgstackpointer is higher than current stackpointer");
+        // Remove excess variables
+        STACKMACHINE.PopVariablesN(toremove);
         END_CATCH_VMEXCEPTIONS
 }
 
@@ -1792,7 +1854,7 @@ HSVM_VariableId HSVM_CallFunctionPtrInternal(HSVM *vm, HSVM_VariableId fptr, int
            stackm.PopDeepVariables(param_count, 2);
 
         // Call function pointer
-        VM.PrepareCallFunctionPtr(false, allow_macro);
+        VM.PrepareCallFunctionPtr(false, allow_macro, true);
 
         if (TestMustAbort(vm))
             return 0;
@@ -1844,7 +1906,9 @@ HSVM_VariableId HSVM_CallObjectMethod(struct HSVM *vm, HSVM_VariableId object_id
             return 0;
 
         VarId last = STACKMACHINE.StackPointer() - 1;
-        unsigned param_count = STACKMACHINE.GetInteger(last);
+        signed param_count = STACKMACHINE.GetInteger(last);
+        if (param_count < 0)
+            param_count = 0;
         ++param_count;
 
         STACKMACHINE.CopyFrom(last, object_id);

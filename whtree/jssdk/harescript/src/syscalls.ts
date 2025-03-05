@@ -3,13 +3,12 @@ import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
 import { lockMutex as servicesLockMutex } from '@webhare/services/src/mutex.ts';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
-import { setHareScriptType } from "@webhare/hscompat/hson";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { loadJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
+export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -147,28 +146,4 @@ export function startSeparatePrimary() {
 }
 export function stopSeparatePrimary() {
   stashes.pop()?.restore();
-}
-
-export function getActionQueue(hsvm: HareScriptVM) {
-  const functionrequests = [];
-  for (const req of hsvm.pendingFunctionRequests) {
-    if (req.sent)
-      continue;
-
-    setHareScriptType(req.params, VariableType.VariantArray);
-    functionrequests.push({
-      id: req.id,
-      functionref: req.functionref,
-      params: req.params,
-      object: req.object
-    });
-    req.sent = true;
-  }
-
-  return {
-    ///Promises resolved in JS that can now be resolved in the HSVM
-    promiseresults: hsvm.pendingPromiseResults.splice(0, hsvm.pendingPromiseResults.length),
-    ///Function calls the JS code wants the HSVM to execute
-    functionrequests
-  };
 }

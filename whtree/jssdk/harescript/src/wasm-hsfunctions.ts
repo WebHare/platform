@@ -14,7 +14,7 @@ import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
 import * as geoip from "@webhare/geoip";
-import { type IPCEncodedException, type IPCEndPoint, type IPCMessagePacket, type IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { type IPCEndPoint, type IPCMessagePacket, type IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
@@ -26,6 +26,7 @@ import type { AdhocCacheService } from "./wasm-adhoccacheservice";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { isatty } from "node:tty";
 import * as path from "node:path";
+import { setHSPromiseProxy } from "./wasm-resurrection";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -489,14 +490,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (value === undefined)
       value = false;
     if (isPromise(value)) { //looks like a promise
-      const id = ++vm.syscallPromiseIdCounter;
+      using hsPromise = vm.allocateVariable();
+      setHSPromiseProxy(hsPromise, value);
 
-      //TODO keep weak references, promises may stick around a long time
-      value.then(
-        result => vm.resolveSyscalledPromise(id, true, result),
-        result => vm.resolveSyscalledPromise(id, false, result));
-
-      id_set.setJSValue({ result: "ok", promiseid: id });
+      id_set.setJSValue({ result: "ok", value: hsPromise, promiseid: 0 });
       return;
     }
     id_set.setJSValue({
@@ -529,34 +526,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       vm.inSyncSyscall = false;
     }
   });
-  wasmmodule.registerExternalMacro("__EM_SYSCALL_RESOLVE:::IIV", (vm, var_requestid, var_mode, var_param) => {
-    const requestid = var_requestid.getInteger();
-    const reqidx = vm.pendingFunctionRequests.findIndex(_ => _.id === requestid);
-    if (reqidx === -1) //already resolved
-      return;
-
-    const req = vm.pendingFunctionRequests.splice(reqidx, 1)[0];
-    const mode = var_mode.getInteger();
-    if (mode === 1) { //resolves a macro
-      //when receiving a store, we return a boolean whether or not we were a function
-      req.resolve(req.retvalStore ? false : undefined);
-      return;
-    }
-
-    if (mode === 2) { //resolves a function
-      if (req.retvalStore) {
-        req.retvalStore.copyFrom(var_param);
-        req.resolve(true); //it was a function!
-      } else
-        req.resolve(var_param.getJSValue());
-
-      return;
-    }
-
-    //we be rejecting!
-    req.reject(parseIPCException({ __exception: var_param.getJSValue() as IPCEncodedException }));
-  });
-
   wasmmodule.registerExternalFunction("__ICU_GETTIMEZONEIDS::SA:", (vm, id_set) => {
     //@ts-ignore -- MDN says it is supported everywhere we need it to be
     const list = Intl.supportedValuesOf('timeZone');
@@ -1399,6 +1368,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     // eslint-disable-next-line no-debugger
     debugger;
     id_set.setJSValue([]);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__INTERNAL_RUNASYNCJSCODE::B:", async (vm, id_set) => {
+    const runCtxt = vm.runContextStore.getStore();
+    if (!runCtxt)
+      throw new Error("No run context store available");
+    id_set.setBoolean(await runCtxt.runPendingRequests());
   });
 }
 

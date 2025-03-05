@@ -275,6 +275,7 @@ export class WASMModule extends WASMModuleBase {
     }
 
     const alloced = this.stringToNewUTF8(message);
+    vm.assertRunPermission();
     await this._HSVM_ThrowException(vm.hsvm, alloced);
     this._free(alloced);
 
@@ -524,6 +525,38 @@ export class WASMModule extends WASMModuleBase {
     };
   }
 
+  activeRunBreakLocks = new Map<number, { [Symbol.dispose]: () => Promise<void> }>();
+  activeRunBreakLockCounter = 0;
+
+  breakPipeWaiterOnRequest() {
+    const id = ++this.activeRunBreakLockCounter;
+    const borrow = this.itf!.breakPipeWaiterOnRequest();
+    this.activeRunBreakLocks.set(id, borrow);
+    return id;
+  }
+
+  async releaseBreakPipeWaiterOnRequest(id: number) {
+    const lock = this.activeRunBreakLocks.get(id);
+    if (!lock)
+      throw new Error(`No borrow with id ${id} found`);
+    this.activeRunBreakLocks.delete(id);
+    await lock[Symbol.dispose]();
+  }
+
+  anyPendingPermissionRequests() {
+    return this.itf!.anyPendingPermissionRequests();
+  }
+
+  /** Print debuginfo from C++ (javascript stack trace and VM stack trace)
+   * Usage:
+   * ```
+   * EM_ASM({ Module.debugPoint("show this text") }, 0);
+   * ```
+   */
+  debugPoint(str: string) {
+    console.trace(`debugPoint ${this.itf!.currentgroup}: ${str}`);
+    console.log(`VM stack trace:`, this.itf!.getStackTraceString());
+  }
 }
 
 export enum SocketError {
