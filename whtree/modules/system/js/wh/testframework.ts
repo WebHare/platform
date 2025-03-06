@@ -54,7 +54,7 @@ export type { TestWaitItem };
 //basic test functions
 let testfw: TestFramework | undefined;
 if (typeof window !== 'undefined') {
-  testfw = (window.parent ? window.parent.__testframework : null)!;
+  testfw = window.top?.__testframework;
   whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw!.log(...args); } });
 }
 

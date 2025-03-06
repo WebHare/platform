@@ -82,8 +82,7 @@ export type AuthApi = typeof authApi;
 */
 export function expose<T>(name: string, api: T): T {
   try {
-    if (window.top?.__testframework)
-      window.top.__testframework.expose(name, api);
+    window.top?.__testframework?.expose(name, api);
   } catch (e) {
     console.log(`Failed to register exposed API ${name}`, e);
   }

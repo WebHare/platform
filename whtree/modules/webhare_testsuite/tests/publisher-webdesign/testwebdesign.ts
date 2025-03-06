@@ -1,5 +1,6 @@
 import * as test from '@webhare/test-frontend';
 import type { BaseTestApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/frontend/frontend";
+import { isInTestFramework } from '@webhare/frontend';
 
 
 test.runTests(
@@ -7,6 +8,10 @@ test.runTests(
     async function () {
       await test.load(test.getTestSiteRoot());
       const baseTestApi = test.importExposed<BaseTestApi>("baseTestApi");
+
+      test.eq("true", test.getDoc().documentElement.dataset.inTestFramework);
+      test.eq(true, isInTestFramework());
+      test.eq(test.getTestSiteRoot(), test.getDoc().documentElement.dataset.siteRoot);
 
       const tids = baseTestApi.getTidTest();
       test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);

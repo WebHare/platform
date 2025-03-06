@@ -4,7 +4,7 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { compare, type ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -69,7 +69,7 @@ export function encodeWRDGuid(guid: Buffer) {
 
 }
 export function decodeWRDGuid(wrdGuid: string) {
-  if (!wrdGuid.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/))  //TODO or should we be case insensitive ?
+  if (!isValidUUID(wrdGuid))
     throw new Error("Invalid wrdGuid: " + wrdGuid);
 
   return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");

@@ -10,7 +10,7 @@ import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlId
 import { buildRTD, ResourceDescriptor, toResourcePath, subscribeToEventStream, type BackendEvent, IntExtLink } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
-import { generateRandomId } from "@webhare/std/platformbased";
+import { generateRandomId, isValidUUID } from "@webhare/std/platformbased";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { isChange, type WRDTypeMetadata } from "@mod-wrd/js/internal/schema";
 import * as util from "node:util";
@@ -358,7 +358,7 @@ async function testNewAPI() {
       testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") },
       testJsonRequired: { mixedCase: [1, "yes!"] },
       name: { first: "first", last: "lastname" },
-      guid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+      guid: (guid: string) => isValidUUID(guid)
     }
   ], selectres);
 

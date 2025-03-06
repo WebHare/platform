@@ -10,7 +10,7 @@ declare module "@webhare/frontend" {
 
 import { onDomReady } from "@webhare/dompack";
 import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere post WH5.6!
-export { frontendConfig, getFrontendData } from "./init";
+export { frontendConfig, getFrontendData, getSiteRoot } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, setupFormAnalytics, type PxlData } from "./pxl";
@@ -26,6 +26,18 @@ export interface FrontendDataTypes {
 
 /** Registry for expected PXL formats */
 export interface PxlDataTypes {
+}
+
+/** Test whether the current page is being iframed in the WebHare test framework */
+export function isInTestFramework(): boolean {
+  if (window.top !== window) { //in a frame
+    try {
+      if ((window.top as { __testframework?: unknown })?.__testframework)
+        return true;//we're inside a testframe, pretend to be the parent
+    } catch (ignore) {
+    }
+  }
+  return false;
 }
 
 function postRenderChecks() {
