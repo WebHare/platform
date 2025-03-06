@@ -3319,7 +3319,8 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                                     break;
 #endif
 
-                                if (nextwait == until || HSVM_TestMustAbort(hsvm))
+                                now = Blex::DateTime::Now();
+                                if (now >= until || HSVM_TestMustAbort(hsvm))
                                 {
 #ifdef __EMSCRIPTEN__
                                         // Don't break other pipewaiter waits anymore
@@ -3328,8 +3329,6 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                                         HSVM_BooleanSet(hsvm, var_timeout, true);
                                         return;
                                 }
-
-                                now = Blex::DateTime::Now();
                         }
                 }
 
