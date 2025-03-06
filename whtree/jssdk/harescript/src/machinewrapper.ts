@@ -20,10 +20,12 @@ export interface HSVM_HSVMSource {
    initfunction has completed) */
 export class HSVMWrapper implements HSVM_HSVMSource {
   vm: WeakRef<HareScriptVM> | null;
+  currentgroup: string;
   done: Promise<void>;
 
   constructor(vm: HareScriptVM, script: string) {
     this.vm = new WeakRef(vm);
+    this.currentgroup = vm.currentgroup;
     if (debugFlags.vmlifecycle) //also report whether this VM's mainloop will block
       console.log(`[${vm.currentgroup}] HSVMWrapper created, mainloop: ${vm.__unrefMainTimer ? "non-blocking" : "retaining"}`);
     vmfinalizer.register(this, vm, this);
@@ -39,6 +41,8 @@ export class HSVMWrapper implements HSVM_HSVMSource {
 
   ///Signal the VM to shutdown, invalidating the HSVMWrapper
   async dispose() {
+    if (debugFlags.vmlifecycle)
+      console.trace(`[${this.currentgroup}] HSVMWrapper disposed`);
     vmfinalizer.unregister(this);
     this.vm?.deref()?.shutdown();
     await this.done;
