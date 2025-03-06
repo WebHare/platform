@@ -308,8 +308,8 @@ export function parse<
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
-    if (arg.startsWith("-") && !gotOptionTerminator) {
-      // got an option
+    if (arg.startsWith("-") && arg.length > 1 && !gotOptionTerminator) {
+      // got an option (single '-' is treated as argument)
       if (arg.startsWith("--")) {
         if (arg === "--") {
           gotOptionTerminator = true;
