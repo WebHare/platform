@@ -11,6 +11,7 @@ test.runTests(
 
       test.eq("true", test.getDoc().documentElement.dataset.inTestFramework);
       test.eq(true, isInTestFramework());
+      test.eq(test.getTestSiteRoot(), test.getDoc().documentElement.dataset.siteRoot);
 
       const tids = baseTestApi.getTidTest();
       test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);

@@ -10,7 +10,7 @@ declare module "@webhare/frontend" {
 
 import { onDomReady } from "@webhare/dompack";
 import "../styling/reset.css"; // Reset CSS - this will be dropped somewhere post WH5.6!
-export { frontendConfig, getFrontendData } from "./init";
+export { frontendConfig, getFrontendData, getSiteRoot } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, setupFormAnalytics, type PxlData } from "./pxl";
@@ -32,7 +32,7 @@ export interface PxlDataTypes {
 export function isInTestFramework(): boolean {
   if (window.top !== window) { //in a frame
     try {
-      if (window.top?.__testframework)
+      if ((window.top as { __testframework?: unknown })?.__testframework)
         return true;//we're inside a testframe, pretend to be the parent
     } catch (ignore) {
     }
