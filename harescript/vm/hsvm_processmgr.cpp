@@ -1991,8 +1991,10 @@ void DoWaitForMultiple(VarId id_set, VirtualMachine *vm, Blex::DateTime until)
         HSVM_VariableId var_read = HSVM_RecordCreate(*vm, id_set, vm->cn_cache.col_read);
         HSVM_VariableId var_timeout = HSVM_RecordCreate(*vm, id_set, vm->cn_cache.col_timeout);
         HSVM_VariableId var_write = HSVM_RecordCreate(*vm, id_set, vm->cn_cache.col_write);
+        HSVM_VariableId var_asyncjscode = HSVM_RecordCreate(*vm, id_set, vm->cn_cache.col_asyncjscode);
         HSVM_SetDefault(*vm, var_read, HSVM_VAR_IntegerArray);
         HSVM_SetDefault(*vm, var_write, HSVM_VAR_IntegerArray);
+        HSVM_BooleanSet(*vm, var_asyncjscode, false);
 
         /* First, we do an immediate signalled check - if the objects are signalled NOW.
            If any object can't determine that (it needs a select/poll or so), we go into a PipeWaiter loop
@@ -2909,7 +2911,7 @@ void InitJobManager(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TRYCANCELJOB::B:I", TryCancelJob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_GETJOBERRORS::RA:I", GetJobErrors));
         //bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORMULTIPLE::I:IAIAI",WaitForMultiple));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",WaitForMultipleUntil));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIADB",WaitForMultipleUntil));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CAPTUREJOBOUTPUT::I:I",CaptureJobOutput));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SETJOBARGUMENTS:::ISA", SetArguments));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_GETJOBEXITCODE::I:I", GetExitCode));

@@ -12,6 +12,7 @@ LOADLIB "wh::internal/callbacks.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -2641,9 +2642,13 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
       __HS_SetRunningStatus(FALSE);
       // See if client connects - it must be handled first!
-      INTEGER handle := WaitForMultipleUntil(commhandles, DEFAULT INTEGER ARRAY, DEFAULT DATETIME);
+      RECORD waitresult := __HS_WAITFORMULTIPLEUNTIL(commhandles, DEFAULT INTEGER ARRAY, DEFAULT DATETIME, FALSE);
+      INTEGER handle := IsValueSet(waitresult.read) ? waitresult.read[0] : -1;
       IF (handle = -1)
-        handle := WaitForMultipleUntil(commhandles CONCAT extra_read_handles, extra_write_handles, waitend);
+      {
+        waitresult := __HS_WAITFORMULTIPLEUNTIL(commhandles CONCAT extra_read_handles, extra_write_handles, waitend, TRUE);
+        handle := INTEGER[ ...waitresult.read, ...waitresult.write, -1 ][0];
+      }
       __HS_SetRunningStatus(TRUE);
 
       IF (handle = this->ipcport->handle)
@@ -2673,6 +2678,9 @@ PUBLIC OBJECTTYPE TolliumControllerBase
             , success :=  FALSE
             ];
       }
+
+      IF (waitresult.asyncjscode)
+        RETURN [ status := "asyncjscode", success := FALSE ];
 
       IF (now >= this->pvt_nextgc)
       {
@@ -2886,87 +2894,96 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
   RECORD FUNCTION WaitForEvent(DATETIME async_callbacks_start, DATETIME wait_until)
   {
-    INTEGER ARRAY extra_read_handles, extra_write_handles;
-
-    IF(debug_logcontroller)
-      LogDebug("tollium:controller", "WaitForEvent enter ", wait_until);
-
-
-    // Add the async callback stuff - but only if we're not
-    DATETIME now := GetCurrentDateTime();
-    DATETIME cbtimeout := MAX_DATETIME;
-    IF (async_callbacks_start > now)
+    WHILE (TRUE)
     {
-      IF (wait_until > async_callbacks_start)
-        wait_until := async_callbacks_start;
+      INTEGER ARRAY extra_read_handles, extra_write_handles;
+
+      IF(debug_logcontroller)
+        LogDebug("tollium:controller", "WaitForEvent enter ", wait_until);
+
+
+      // Add the async callback stuff - but only if we're not
+      DATETIME now := GetCurrentDateTime();
+      DATETIME cbtimeout := MAX_DATETIME;
+      IF (async_callbacks_start > now)
+      {
+        IF (wait_until > async_callbacks_start)
+          wait_until := async_callbacks_start;
+      }
+      ELSE
+      {
+        __INTERNAL_RunAsyncJSCode();
+        extra_read_handles := __INTERNAL_GetEventCallBackHandles();
+        extra_write_handles := __INTERNAL_GetEventCallBackWriteHandles();
+        cbtimeout := __INTERNAL_GetEventCallBackTimeout();
+        IF (wait_until > cbtimeout)
+          wait_until := cbtimeout;
+      }
+
+      DATETIME noforwardprogresstimeout := MAX_DATETIME;
+      IF (this->__onnoforwardprogress != DEFAULT FUNCTION PTR AND wait_until > AddTimeToDate(no_forward_progress_longloop, now)) // no quick timeout to exit the loop?
+      {
+        noforwardprogresstimeout := AddTimeToDate(no_forward_progress_wait, now); // wait a little time for forward progress ADDME: configurable?
+        IF (wait_until > noforwardprogresstimeout)
+          wait_until := noforwardprogresstimeout;
+      }
+
+      //LogWebserverError("Going to accept SynchronousRequest");
+      //ABORT("Unintended crash!");
+
+      this->StopAnyProfiler();
+
+      // Wait for a client to contact, or events to come in
+      INTEGER signalledeventhandle := -1;
+      BOOLEAN signalledeventhandlewrite := FALSE;
+      RECORD response := this->AcceptEvents(wait_until, extra_read_handles, extra_write_handles);
+      now := GetCurrentDateTime();
+
+      IF (response.status = "timeout" AND now >= noforwardprogresstimeout)
+        this->__onnoforwardprogress(this->windowstack[END-1], DEFAULT OBJECT);
+
+      this->StartAnyProfiler();
+
+      //LogWebserverError("SynchronousRequest response:\n" || AnyToString(response, "tree"));
+
+      SWITCH (response.status)
+      {
+      CASE "disp"
+        {
+          IF(debug_logcontroller)
+            LogDebug("ng-ctrlr-link", "Linkdispatcher signalled, handle: " || response.handle);
+          this->linkdispatcher->ProcessSignalledHandle(response.handle);
+        }
+      CASE "link"
+        {
+          IF(debug_logcontroller)
+            LogDebug("ng-ctrlr-link", "Link " || response.handle || " signalled");
+          this->ProcessLinkMessage(response.handle);
+        }
+      CASE "timeout"
+        {
+  //        IF (now >= required_contact)
+  //          this->TerminateAfterConnectionLoss();
+        }
+      CASE "fail"
+        {
+          // ADDME: handle failure? Ignoring it for now
+        }
+      CASE "asyncjscode"
+        {
+          // Javascript wants to run HS code. Run it, then repeat the wait.
+          __INTERNAL_RunAsyncJSCode();
+          CONTINUE;
+        }
+      DEFAULT
+        {
+          IF(debug_logcontroller)
+            LogDebug("tollium:controller", "Unknown response status", response);
+        }
+      }
+
+      RETURN response;
     }
-    ELSE
-    {
-      __INTERNAL_RunAsyncJSCode();
-      extra_read_handles := __INTERNAL_GetEventCallBackHandles();
-      extra_write_handles := __INTERNAL_GetEventCallBackWriteHandles();
-      cbtimeout := __INTERNAL_GetEventCallBackTimeout();
-      IF (wait_until > cbtimeout)
-        wait_until := cbtimeout;
-    }
-
-    DATETIME noforwardprogresstimeout := MAX_DATETIME;
-    IF (this->__onnoforwardprogress != DEFAULT FUNCTION PTR AND wait_until > AddTimeToDate(no_forward_progress_longloop, now)) // no quick timeout to exit the loop?
-    {
-      noforwardprogresstimeout := AddTimeToDate(no_forward_progress_wait, now); // wait a little time for forward progress ADDME: configurable?
-      IF (wait_until > noforwardprogresstimeout)
-        wait_until := noforwardprogresstimeout;
-    }
-
-    //LogWebserverError("Going to accept SynchronousRequest");
-    //ABORT("Unintended crash!");
-
-    this->StopAnyProfiler();
-
-    // Wait for a client to contact, or events to come in
-    INTEGER signalledeventhandle := -1;
-    BOOLEAN signalledeventhandlewrite := FALSE;
-    RECORD response := this->AcceptEvents(wait_until, extra_read_handles, extra_write_handles);
-    now := GetCurrentDateTime();
-
-    IF (response.status = "timeout" AND now >= noforwardprogresstimeout)
-      this->__onnoforwardprogress(this->windowstack[END-1], DEFAULT OBJECT);
-
-    this->StartAnyProfiler();
-
-    //LogWebserverError("SynchronousRequest response:\n" || AnyToString(response, "tree"));
-
-    SWITCH (response.status)
-    {
-    CASE "disp"
-      {
-        IF(debug_logcontroller)
-          LogDebug("ng-ctrlr-link", "Linkdispatcher signalled, handle: " || response.handle);
-        this->linkdispatcher->ProcessSignalledHandle(response.handle);
-      }
-    CASE "link"
-      {
-        IF(debug_logcontroller)
-          LogDebug("ng-ctrlr-link", "Link " || response.handle || " signalled");
-        this->ProcessLinkMessage(response.handle);
-      }
-    CASE "timeout"
-      {
-//        IF (now >= required_contact)
-//          this->TerminateAfterConnectionLoss();
-      }
-    CASE "fail"
-      {
-        // ADDME: handle failure? Ignoring it for now
-      }
-    DEFAULT
-      {
-        IF(debug_logcontroller)
-          LogDebug("tollium:controller", "Unknown response status", response);
-      }
-    }
-
-    RETURN response;
   }
 
   RECORD ARRAY messages;

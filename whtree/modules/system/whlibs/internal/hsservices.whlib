@@ -1097,7 +1097,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
 
       INTEGER ARRAY waithandles := __INTERNAL_GetEventCallBackHandles();
       INTEGER ARRAY waitwritehandles := __INTERNAL_GetEventCallBackWriteHandles();
-      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(readhandles CONCAT waithandles, writehandles CONCAT waitwritehandles, timeout);
+      RECORD rec := __HS_WAITFORMULTIPLEUNTIL(readhandles CONCAT waithandles, writehandles CONCAT waitwritehandles, timeout, TRUE);
 
 
       IF (LENGTH(rec.read) != 0)

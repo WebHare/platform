@@ -3125,11 +3125,14 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
         Blex::DateTime until = vm->GetStackMachine().GetDateTime(HSVM_Arg(2));
         unsigned num_reads = HSVM_ArrayLength(hsvm, HSVM_Arg(0));
         unsigned num_writes = HSVM_ArrayLength(hsvm, HSVM_Arg(1));
-
+#ifdef __EMSCRIPTEN__
+        bool breakonasyncjscode = vm->GetStackMachine().GetBoolean(HSVM_Arg(3));
+#endif
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
         HSVM_VariableId var_read = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_read);
         HSVM_VariableId var_timeout = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_timeout);
         HSVM_VariableId var_write = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_write);
+        HSVM_VariableId var_asyncjscode = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_asyncjscode);
         HSVM_SetDefault(hsvm, var_read, HSVM_VAR_IntegerArray);
         HSVM_SetDefault(hsvm, var_write, HSVM_VAR_IntegerArray);
 
@@ -3147,6 +3150,7 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
         // Do we have immediate timeout?
         bool have_timeout = until <= now;
         HSVM_BooleanSet(hsvm, var_timeout, have_timeout);
+        HSVM_BooleanSet(hsvm, var_asyncjscode, false);
 
         WFM_PRINT("Start, have timeout: " << have_timeout);
 
@@ -3285,18 +3289,17 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
         }
 
 #ifdef __EMSCRIPTEN__
-        auto lock = supportGetTimerBreakLock();
+        auto lock = breakonasyncjscode ? supportGetTimerBreakLock() : 0;
 #endif
         while (run_waitloop)
         {
-#ifdef __EMSCRIPTEN__
-                bool pendingrequests = false;
-#endif
+                bool have_pendingrequests = false;
                 if (have_signal)
                 {
                         waitlist.Wait(now);
 #ifdef __EMSCRIPTEN__
-                        pendingrequests = supportGetAnyPendingPermissionRequests();
+                        if (breakonasyncjscode)
+                            have_pendingrequests = supportGetAnyPendingPermissionRequests();
 #endif
                 }
                 else
@@ -3309,13 +3312,15 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                                 if (have_signalled_waiter)
                                         break;
 #ifdef __EMSCRIPTEN__
-                                pendingrequests = supportGetAnyPendingPermissionRequests();
-                                WFM_PRINT("waitloop pipewaiter loop pendingrequests " << pendingrequests);
-                                if (pendingrequests)
-                                   break;
+                                if (breakonasyncjscode)
+                                    have_pendingrequests = supportGetAnyPendingPermissionRequests();
+                                WFM_PRINT("waitloop pipewaiter loop have_pendingrequests " << have_pendingrequests);
+                                if (have_pendingrequests)
+                                    break;
 #endif
 
-                                if (nextwait == until || HSVM_TestMustAbort(hsvm))
+                                now = Blex::DateTime::Now();
+                                if (now >= until || HSVM_TestMustAbort(hsvm))
                                 {
 #ifdef __EMSCRIPTEN__
                                         // Don't break other pipewaiter waits anymore
@@ -3324,8 +3329,6 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                                         HSVM_BooleanSet(hsvm, var_timeout, true);
                                         return;
                                 }
-
-                                now = Blex::DateTime::Now();
                         }
                 }
 
@@ -3362,18 +3365,15 @@ void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
                 }
 
 #ifdef __EMSCRIPTEN__
-                if (!have_timeout && !have_signal && pendingrequests)
+                if (have_pendingrequests)
                 {
-                        WFM_PRINT("  Have pending run permission requests, return as timeout");
-
-                        // Make it seem like a timeout
-                        have_timeout = true;
-                        HSVM_BooleanSet(hsvm, var_timeout, true);
+                        WFM_PRINT("  Have pending run permission requests");
+                        HSVM_BooleanSet(hsvm, var_asyncjscode, true);
                 }
 #endif
 
                 // At this moment, we have checked ALL outputobjects, so we can return now
-                if (have_timeout || have_signal)
+                if (have_timeout || have_signal || have_pendingrequests)
                 {
 #ifdef __EMSCRIPTEN__
                         // Don't break other pipewaiter waits anymore
@@ -3538,7 +3538,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__INTERNAL_RUNASYNCJSCODE::B:", EM_HandleRunRequests));
 
 #ifdef __EMSCRIPTEN__
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",EM_WaitForMultipleUntil));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIADB",EM_WaitForMultipleUntil));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETSOCKETTIMEOUT::I:I",EM_HS_TCPIP_GetSocketTimeout));
 #endif // __EMSCRIPTEN__
 }
