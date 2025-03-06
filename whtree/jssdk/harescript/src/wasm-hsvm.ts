@@ -599,10 +599,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
       let retvalid: HSVM_VariableId | undefined;
       let wasfunction = false;
       let stackptr = 0;
-      let colid: HSVM_ColumnId | undefined;
 
       if (objectid) {
-        colid = this.getColumnId(functionref);
+        const colid = this.getColumnId(functionref);
         stackptr = this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
 
         for (const [idx, param] of params.entries())
@@ -693,7 +692,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const parsederrors = this.quickParseVariable(errorlist) as MessageList;
     const trace = parsederrors.filter(e => e.istrace).map(e =>
       `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-    throw new Error((parsederrors[0]?.message ?? "Unknown error") + trace);
+    // If no errors are found, the abort flag must have been set to 1 - silent abort.
+    throw new Error((parsederrors[0]?.message ?? "VM has been disposed") + trace);
   }
 
   async call(functionref: string, ...params: unknown[]): Promise<unknown> {
