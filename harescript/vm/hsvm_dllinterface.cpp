@@ -366,6 +366,9 @@ namespace
 int TestMustAbort(struct HSVM *vm)
 {
         bool must_abort = VM.GetVMGroup()->TestMustAbort() || VM.GetErrorHandler().AnyErrors() || VM.is_unwinding;
+        // Add errors for abort flags
+        if (must_abort && (!VM.GetErrorHandler().AnyErrors() && !VM.is_unwinding))
+            VM.HandleAbortFlagErrors();
         return must_abort;
 }
 

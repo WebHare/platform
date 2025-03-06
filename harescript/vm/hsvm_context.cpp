@@ -21,11 +21,14 @@
 #endif // __EMSCRIPTEN__
 #include <iomanip>
 
-//#define SHOWBYTECODES
-//#define SHOWSTACK
-//#define SHOWCALLSTACK
+#define SHOWBYTECODES
+#define SHOWSTACK
+#define SHOWCALLSTACK
 //#define LIMITCALLSTACK
 //#define INDENTBYTECODES
+
+// Show the stack state at every executed instruction
+//#define TRACEEXECUTION
 
 // Trace creation of vmgroups & virtualmachines
 //#define TRACECREATION
@@ -40,7 +43,7 @@
 #define ASYNC_STACK_DEPTH 10
 
 
-#if defined(WHBUILD_DEBUG) && (defined(SHOWSTACK) || defined(SHOWCALLSTACK) || defined(SHOWBYTECODES))
+#if defined(WHBUILD_DEBUG) && defined(TRACEEXECUTION) && (defined(SHOWSTACK) || defined(SHOWCALLSTACK) || defined(SHOWBYTECODES))
  #define SHOWSTATE ShowStackState(debug);
 #else
  #define SHOWSTATE ;
