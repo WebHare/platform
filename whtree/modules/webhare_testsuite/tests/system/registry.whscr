@@ -53,9 +53,13 @@ MACRO TestRegistry()
   DELETE FROM system.flatregistry WHERE name LIKE "*__webhare_testsuite_base_node__*";
 
   DoKeyTests("webhare_testsuite","webhare_testsuite");
-  DoKeyTests("<someuser>","<someuser>");
+  DoKeyTests("<wrd:00001111222233334444555566667a7a>","<wrd:00001111222233334444555566667a7a>");
+
   TestThrowsLike("Invalid registry key name *", PTR DoKeyTests("modules.webhare_testsuite","webhare_testsuite"));
   TestThrowsLike("Invalid registry key name *", PTR DoKeyTests("system.modules.webhare_testsuite","webhare_testsuite"));
+  TestThrowsLike("Invalid userprefix *", PTR DoKeyTests("<someuser>","<someuser>"));
+  //registry APIs require lowercase wrd guids
+  TestThrowsLike("Invalid userprefix *", PTR DoKeyTests("<wrd:00001111222233334444555566667A7A>","<wrd:00001111222233334444555566667A7A>"));
 
   TestThrowsLike("No such registry*", PTR ReadRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue"));
   WriteRegistryKey("webhare_testsuite.__webhare_testsuite_base_node__.stupidvalue", 43, [createifneeded:=TRUE]);

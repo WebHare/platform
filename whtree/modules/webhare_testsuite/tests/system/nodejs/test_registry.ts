@@ -91,7 +91,13 @@ async function testRegistry() {
   await doKeyTests("webhare_testsuite.withdeepcolon:", { acceptInvalidKeyNames: true }); //eg ensure 'system.servicemanager.runonce.consilio:migrate_indices_v3' - works
   await doKeyTests("<wrd:00001111222233334444555566667777>.webhare_testsuite.");
   await doKeyTests("<wrd:00001111222233334444555566667777>.webhare_testsuite:");
+  await doKeyTests("<wrd:00001111222233334444555566667a7a>.webhare_testsuite:");
+  await doKeyTests("<wrd:00001111222233334444555566667a7a>.webhare_testsuite:");
+
   await test.throws(/Invalid registry key name/, () => readRegistryKey("<someuser>:webhare_testsuite.key", true));
+  await test.throws(/Invalid registry key name/, () => readRegistryKey("<wrd:00001111222233334444555566667A7A>:webhare_testsuite.key", true));
+  await test.throws(/Invalid registry key name/, () => readRegistryKey("<someuser>.webhare_testsuite.key", true));
+  await test.throws(/Invalid registry key name/, () => readRegistryKey("<wrd:00001111222233334444555566667A7A>.webhare_testsuite.key", true));
 
   await test.throws(/Invalid registry key name/, () => writeRegistryKey("modules.webhare_testsuite", true));
   await test.throws(/Invalid registry key name/, () => writeRegistryKey("system.modules.webhare_testsuite", true));
