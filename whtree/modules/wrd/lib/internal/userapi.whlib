@@ -174,7 +174,8 @@ STATIC OBJECTTYPE WHUserApi
 
     RECORD fields := entity->GetFields(GetSortedSet([ "wrd_fullname", "wrd_contact_email", ToLowercase(this->wrdschema->accountlogintag) ]));
 
-    OBJECT user := NEW TolliumUser(this, entity, 0, `<${entity->guid}>`);
+    //We need to use lowercase userkeys otherwise the key won't match with list-registry APIs
+    OBJECT user := NEW TolliumUser(this, entity, 0, ToLowercase(`<${entity->guid}>`));
     user->realname := fields.wrd_fullname;
     user->login := GetCell(fields, this->wrdschema->accountlogintag);
     user->emailaddress := fields.wrd_contact_email;
@@ -1348,7 +1349,8 @@ STATIC OBJECTTYPE WHUserApi
 
   OBJECT FUNCTION GetTolliumUserObject(OBJECT userentity, INTEGER authobjectid, STRING login, STRING usertitle)
   {
-    OBJECT user := NEW TolliumUser(this, userentity, authobjectid, "<" || userentity->guid || ">");
+    //We need to use lowercase userkeys otherwise the key won't match with list-registry APIs
+    OBJECT user := NEW TolliumUser(this, userentity, authobjectid, ToLowercase("<" || userentity->guid || ">"));
     this->SetAuthorizedUser(userentity->id);
 
     user->realname := usertitle;

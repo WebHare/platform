@@ -38,12 +38,15 @@ PUBLIC STRING FUNCTION FixupRegKey(STRING confkey)
        TODO also prevent double dots in the regex, incorrect trailing dots etc
        */
     IF(NOT ObjectExists(regkeyregex))
-      regkeyregex := NEW JSRegEx("^(<overrideuser>\\.|<wrd:[a-f0-9]{32}>\\.)?[a-z0-9][-a-z0-9_]*[a-z0-9]:[a-z0-9_\\.]+$");
+      regkeyregex := NEW JSRegEx("^(<overrideuser>\\.|<anonymous>\\.|<wrd:[a-f0-9]{32}>\\.)?[a-z0-9][-a-z0-9_]*[a-z0-9]:[a-z0-9_\\.]+$");
     IF(NOT regkeyregex->Test(confkey))
       THROW NEW Exception(`Invalid registry key name '${confkey}' - you should use the format '(<userprefix>.)module:key.name'`);
 
     confkey := Left(confkey, usescolon) || '.' || Substring(confkey, usescolon+1); //in the database we'll keep it as a '.'
   }
+
+  IF(confkey LIKE "<*" AND NOT NEW JSRegEx("^(<overrideuser>\\.|<anonymous>\\.|<wrd:[a-f0-9]{32}>\\.)")->Test(confkey))
+    THROW NEW Exception(`Invalid userprefix on registry key name '${confkey}'`);
 
   confkey := ToLowercase(confkey);
   IF(confkey NOT LIKE "system.modules.*" AND confkey NOT LIKE "modules.*")
