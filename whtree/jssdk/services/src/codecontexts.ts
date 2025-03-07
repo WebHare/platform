@@ -116,10 +116,18 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
     if (retval === undefined) {
       retval = createcb(this);
       this.storage.set(key, {
-        resource: retval, dispose: dispose as (x: unknown) => void | Promise<void>
+        resource: retval,
+        dispose: dispose as (x: unknown) => void | Promise<void>
       });
     }
     return retval;
+  }
+
+  async releaseScopedResource(key: string | symbol): Promise<void> {
+    const res = this.storage.get(key);
+    this.storage.delete(key);
+    if (res?.dispose)
+      await res?.dispose(res.resource);
   }
 
   run<R>(callback: () => R): R {
@@ -191,7 +199,9 @@ export function setScopedResource<ValueType>(key: string | symbol, value: ValueT
 export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void | Promise<void>): ValueType {
   return getCodeContext().ensureScopedResource(key, createcb, dispose);
 }
-
+export function releaseScopedResource(key: string | symbol): Promise<void> {
+  return getCodeContext().releaseScopedResource(key);
+}
 
 type ActiveCodeContext = {
   /// Stack trace where this context was allocated (only filled when debug flag 'async' is enabled)

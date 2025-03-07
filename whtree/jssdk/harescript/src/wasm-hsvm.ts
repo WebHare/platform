@@ -46,6 +46,26 @@ export type MessageList = Array<{
   message: string;
 }>;
 
+export class HareScriptLibraryOutOfDateError extends Error {
+}
+
+function throwFirstError(message: string, parsederrors: MessageList): never {
+  const prefix = message ? `${message}: ` : "";
+  if (parsederrors.length) {
+    const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
+    const trace = parsederrors.filter(e => e.istrace).map(e =>
+      `\n    at ${e.func} (${mapHareScriptPath(e.filename)}:${e.line}:${e.col})`).join("");
+
+    if (errors.length)
+      if (parsederrors[0].code === 170)
+        throw new HareScriptLibraryOutOfDateError(`${prefix}${errors.join("\n") + trace}`);
+      else
+        throw new Error(`${prefix}${errors.join("\n") + trace}`);
+  }
+  throw new Error(`${prefix}Unknown HSVM error`);
+}
+
+
 // interface TraceElement {
 //   filename: string;
 //   line: number;
@@ -471,7 +491,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     return new HSVMVar(this, id);
   }
 
-  quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
+  quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData { //TODO see if getJSValue can be used instead
     let value;
     const type = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
     switch (type) {
@@ -525,7 +545,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
       this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
       const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-      throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
+      throwFirstError(`Error loading library ${lib}`, parsederrors);
     } finally {
       this.wasmmodule._free(lib_str);
     }
@@ -547,13 +567,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-    if (parsederrors.length) {
-      const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
-      const trace = parsederrors.filter(e => e.istrace).map(e =>
-        `\n    at ${e.func} (${mapHareScriptPath(e.filename)}:${e.line}:${e.col})`).join("");
-      throw new Error(`Error executing script: ${errors.join("\n") + trace}`);
-    } else
-      throw new Error(`Error executing script`);
+    throwFirstError(`Error executing script`, parsederrors);
   }
 
   async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<void> {
@@ -570,8 +584,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
             this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
             parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
           }
-          console.error(parsederrors);
-          throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
+          throwFirstError(`Error loading library ${lib}`, parsederrors);
         } break;
         case -1: throw new Error(`No such function ${lib}#${name}`);
         case 1: return;
@@ -690,10 +703,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.wasmmodule._HSVM_SetDefault(this.hsvm, errorlist, VariableType.RecordArray as HSVM_VariableType);
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
     const parsederrors = this.quickParseVariable(errorlist) as MessageList;
-    const trace = parsederrors.filter(e => e.istrace).map(e =>
-      `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
+
     // If no errors are found, the abort flag must have been set to 1 - silent abort.
-    throw new Error((parsederrors[0]?.message ?? "VM has been disposed") + trace);
+    if (parsederrors.length === 0)
+      throw new Error("VM has been disposed");
+    throwFirstError("", parsederrors);
   }
 
   async call(functionref: string, ...params: unknown[]): Promise<unknown> {

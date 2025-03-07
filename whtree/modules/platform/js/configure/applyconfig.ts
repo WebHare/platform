@@ -123,10 +123,11 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       //Update WRD schemas (TODO limit ourselves based on module mask)
       if (options.verbose)
         console.log("Updating WRD schemas based on their schema definitions");
+
       const applyupdates = loadlib("mod::wrd/lib/internal/metadata/applyupdates.whlib");
       const schemamasks = options?.modules ? options?.modules.map(_ => `${_}:*`) : [];
-      if (!await applyupdates.UpdateAllModuleSchemas({ schemamasks, reportupdates: true, reportskips: verbose, force: options.force }))
-        process.exitCode = 1;
+      //FIXME if some schemas fail, report this. but we're still missing a 'warning' channel back to the 'wh apply wrd' caller
+      await applyupdates.UpdateAllModuleSchemas({ schemamasks, reportupdates: true, reportskips: verbose, force: options.force });
 
       await beginWork();
       await scheduleTimedTask("wrd:scanforissues");

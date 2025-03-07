@@ -1,4 +1,4 @@
-import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, releaseScopedResource } from "@webhare/services/src/codecontexts";
 import { type HSVMCallsProxy, type HSVMObject, invokeOnVM } from "./wasm-proxies";
 import type { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { type HSVMWrapper, createVM } from "./machinewrapper";
@@ -18,6 +18,11 @@ export function ensureCodeContextHSVM(): Promise<HSVMWrapper> {
   return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
     return (await vm).dispose();
   });
+}
+
+/** Get rid of any running contet HSVM (the one used for global loadlib and MakeObject) */
+export function releaseCodeContextHSVM() {
+  releaseScopedResource(HSVMSymbol).then(() => { }, () => { });
 }
 
 class ContextLibraryProxy {
