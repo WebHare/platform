@@ -56,8 +56,15 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
   cd "$WEBHARE_DIR/modules" ;
   # shellcheck disable=SC2207,SC2010
   COREMODULES=( $(ls | grep -v webhare_testsuite) )
+
   logWithTime "Precompiling HareScript code"
-  if ! wh compile --quiet --onlyerrors "${COREMODULES[@]}" ; then
+
+  trap "" INT  #Ignore CTRL+C to allow ctrlc+ to abort just this step. Not documenting it as it may cause the rest of finalize-webhare to fail
+  exitcode=0
+  wh compile --quiet --onlyerrors "${COREMODULES[@]}" || exitcode="$?"
+  trap - INT
+
+  if [ "$exitcode" != "0" ] && [ "$exitcode" != "194" ]; then
     if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
       # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
       echo "Ignoring failed compilation as WebHare may have been running during compilation"
