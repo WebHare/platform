@@ -96,7 +96,7 @@ PUBLIC OBJECTTYPE StoreResultsHandler EXTEND FormHandlerBase
     // Check if we have a logged in WRD user
     OBJECT wrdauthplugin := form->GetWRDAuthPlugin();
     STRING wrdguid;
-    IF (ObjectExists(wrdauthplugin) AND wrdauthplugin->IsLoggedIn())
+    IF (ObjectExists(wrdauthplugin) AND NOT wrdauthplugin->HasFailed() AND wrdauthplugin->IsLoggedIn())
       wrdguid := wrdauthplugin->GetLoggedinEntityFields([ "WRD_GUID" ]).wrd_guid;
 
     // Other user properties
