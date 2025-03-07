@@ -20,7 +20,7 @@ export function ensureCodeContextHSVM(): Promise<HSVMWrapper> {
   });
 }
 
-/** Get rid of any running contet HSVM (the one used for global loadlib and MakeObject) */
+/** Get rid of any running context HSVM (the one used for global loadlib and MakeObject) */
 export function releaseCodeContextHSVM() {
   releaseScopedResource(HSVMSymbol).then(() => { }, () => { });
 }
