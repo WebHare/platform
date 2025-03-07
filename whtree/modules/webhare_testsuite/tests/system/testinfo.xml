@@ -4,24 +4,24 @@
   <test name="testfw" path="testfw/" />
   <test name="dompack" path="dompack/" />
   <test name="email" path="email/" />
-  <test script="asynctools.whscr" />
-  <test script="registry.whscr" />
-  <test script="virtualfs.whscr" />
-  <test script="adhoccache.whscr" runmode="process" engine="native" /> <!-- Needs isolation because adhoccache is per-process -->
-  <test script="adhoccache.whscr" runmode="process" engine="wasm" /> <!-- Needs isolation because adhoccache is per-process -->
-  <test script="adhoccache_wasm.ts" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="test_asynctools.whscr" />
+  <test script="test_registry.whscr" />
+  <test script="test_virtualfs.whscr" />
+  <test script="test_adhoccache.whscr" runmode="process" engine="native" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="test_adhoccache.whscr" runmode="process" engine="wasm" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="test_adhoccache_wasm.ts" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
   <test script="testunifiedcache.whscr" />
-  <test script="ipc.whscr" />
-  <test script="promises.whscr" />
-  <test script="promises2.whscr" />
-  <test script="ipcremoter.whscr" />
-  <test script="statskeeper.whscr" />
-  <test script="dba.whscr" ifenvironset="WEBHARE_DBASENAME" />
+  <test script="test_ipc.whscr" />
+  <test script="test_promises.whscr" />
+  <test script="test_promises2.whscr" />
+  <test script="test_ipcremoter.whscr" />
+  <test script="test_statskeeper.whscr" />
+  <test script="test_dba.whscr" ifenvironset="WEBHARE_DBASENAME" />
   <test name="userrights" path="userrights/" />
   <test name="whfs" path="whfs/" />
   <test name="queues" path="queues/" />
   <test name="twohare" path="twohare/" />
-  <test script="logfile.whscr" />
+  <test script="test_logfile.whscr" />
   <test script="testwebhareservice.whscr" />
   <test script="testresources.whscr" />
   <test name="testresources-wasm" script="testresources.whscr" engine="wasm" />
