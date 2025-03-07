@@ -1311,6 +1311,9 @@ HSVM_PUBLIC unsigned  HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned ro
 /** Returns whether the script has a system redirect script property */
  HSVM_PUBLIC int HSVM_HasSystemRedirect(HSVM *hsvm);
 
+/** Show the stack state */
+ HSVM_PUBLIC void HSVM_DebugShowStackState(HSVM *hsvm);
+
 #ifdef __cplusplus
 } /* End of "C" linkage */
 
