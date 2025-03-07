@@ -370,7 +370,15 @@ void BlexSignalHandler(int sig)
                 return; //consider signal handled
 
         RestoreConsoleEcho();
-        _exit(0);
+
+        /* Ideally we would do this, but a signal is ignored when the handler is still running
+        signal(sig, SIG_DFL); // restore the signal handler so we 'look' like we were properly killed by the signal
+        kill(getpid(), sig); // resend it
+        */
+
+        // if the signal didn't kill us, do it ourselves.
+        // for users searching what exit codes mean: 193 will be SIGHUP, 194 will be SIGINT, 207 will be SIGTERM
+        _exit(192 + sig);
 }
 
 int InvokeMyMain(int _argc, char *_argv[],int (*utf8main)(std::vector<std::string> const &args))
