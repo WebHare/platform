@@ -14,13 +14,13 @@ async function testRouterAPIs() {
   {
     const redirect = createRedirectResponse("https://www.webhare.dev/");
     test.eq(303, redirect.status);
-    test.eq("https://www.webhare.dev/", redirect.getHeader("location"));
+    test.eq("https://www.webhare.dev/", redirect.headers.get("location"));
   }
 
   {
     const redirect = createRedirectResponse({ type: "redirect", url: "https://www.webhare.dev/" });
     test.eq(303, redirect.status);
-    test.eq("https://www.webhare.dev/", redirect.getHeader("location"));
+    test.eq("https://www.webhare.dev/", redirect.headers.get("location"));
   }
 
   //Test getOriginURL
@@ -68,7 +68,7 @@ async function testHSWebserver() {
   const testsuiteresources = services.backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/";
   let result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml"));
   test.eq(200, result.status);
-  test.eq("application/x-hson", result.getHeader("content-type"));
+  test.eq("application/x-hson", result.headers.get("content-type"));
 
   let response = decodeHSON(await result.text()) as unknown as GetRequestDataResponse;
   test.eq("GET", response.method);
@@ -80,11 +80,17 @@ async function testHSWebserver() {
   }));
 
   test.eq(200, result.status);
-  test.eq("application/json", result.getHeader("content-type"));
+  test.eq("application/json", result.headers.get("content-type"));
+
+  const clonedResult = result.clone();
 
   response = await result.json() as GetRequestDataResponse;
   test.eq("POST", response.method);
   test.eqPartial([{ name: 'a', value: '1' }, { name: 'b', value: '2' }], response.webvars);
+
+  const response2 = await clonedResult.json() as GetRequestDataResponse;
+  test.eq("POST", response2.method);
+  test.eqPartial([{ name: 'a', value: '1' }, { name: 'b', value: '2' }], response2.webvars);
 
   //Get a binary file
   result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "rangetestfile.jpg"));

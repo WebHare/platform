@@ -25,7 +25,7 @@ export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthoriz
 
 export async function reset() {
   await createWRDTestSchema();
-  return createJSONResponse(HTTPSuccessCode.NoContent, {});
+  return createJSONResponse(HTTPSuccessCode.NoContent, null);
 }
 
 export async function getUsers(req: MyRestRequest): Promise<WebResponse> {

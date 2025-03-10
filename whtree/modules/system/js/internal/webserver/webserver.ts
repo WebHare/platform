@@ -80,11 +80,11 @@ class WebServerPort {
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
       const webreq = this.buildWebRequest(req, body.buffer);
       const response = await coreWebHareRouter(webreq);
-      for (const [key, value] of response.getHeaders())
+      for (const [key, value] of response.headers.entries())
         if (key !== 'set-cookie')
           res.setHeader(key, value);
 
-      const cookies = response.getSetCookie();
+      const cookies = response.headers.getSetCookie();
       if (cookies)
         res.setHeader("set-cookie", cookies);
 

@@ -132,7 +132,7 @@ export class RestService extends services.BackendServiceConnection {
     if (env.debugFlags.openapi) {
       services.log("system:debug", {
         request: { method: req.method, headers: Object.fromEntries(req.headers.entries()), url: req.url.toString() },
-        response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.getHeaders()) },
+        response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.headers.entries()) },
         trace: result.trace || null
       });
     }
