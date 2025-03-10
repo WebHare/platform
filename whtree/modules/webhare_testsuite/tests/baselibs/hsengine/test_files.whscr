@@ -98,7 +98,7 @@ MACRO CSVCreateTest()
   DATETIME sometime := makeDatetime(2011,11,9,6,6,6);
   RECORD ARRAY rows :=
       [ [ title := "Title 1", bool := TRUE, date := now, int := 17,    time:=now, time2 := GetMsecondCount(now), moneyfield := 1.5 ]
-      , [ title := "Title 2", bool := FALSE, date := sometime, int := 666, time:=sometime, time2 := MakeTime(6, 6, 6), moneyfield := 2.5 ]
+      , [ title := "=file:///etc/passwd", bool := FALSE, date := sometime, int := 666, time:=sometime, time2 := MakeTime(6, 6, 6), moneyfield := 2.5 ]
       ];
 
   RECORD ARRAY columns :=
@@ -120,13 +120,13 @@ MACRO CSVCreateTest()
   csvout->languagecode := "NL";
   csvout->WriteRows(rows);
 
-  TestEq('\"Col 1:title\";\"Col 2:bool\";\"Col 3:date\";\"Col 4:int\";\"Col 5:time\";\"Col 6:time2\";\"Col 7:moneyfield\"\r\n\"Title 1\";\"ja\";\"08-12-2011\";\"17\";\"8:58:12\";\"7:58:12\";\"1.5\"\r\n\"Title 2\";\"nee\";\"09-11-2011\";\"666\";\"7:06:06\";\"6:06:06\";\"2.5\"\r\n'
+  TestEq('\"Col 1:title\";\"Col 2:bool\";\"Col 3:date\";\"Col 4:int\";\"Col 5:time\";\"Col 6:time2\";\"Col 7:moneyfield\"\r\n\"Title 1\";\"ja\";\"08-12-2011\";\"17\";\"8:58:12\";\"7:58:12\";\"1.5\"\r\n\"\'=file:///etc/passwd\";\"nee\";\"09-11-2011\";\"666\";\"7:06:06\";\"6:06:06\";\"2.5\"\r\n'
   , BlobToString(csvout->MakeOutputFile(),-1));
 
   //Also test the auto-detect
   csvout := NEW CSVColumnFileWriter;
   csvout->WriteRows(rows);
-  TestEq('\"TITLE\";\"BOOL\";\"INT\";\"MONEYFIELD\";\"DATE\";\"TIME\";\"TIME2\"\r\n\"Title 1\";\"true\";\"17\";\"1.5\";\"08-12-2011 7:58:12\";\"08-12-2011 7:58:12\";\"28692000\"\r\n\"Title 2\";\"false\";\"666\";\"2.5\";\"09-11-2011 6:06:06\";\"09-11-2011 6:06:06\";\"21966000\"\r\n'
+  TestEq('\"TITLE\";\"BOOL\";\"INT\";\"MONEYFIELD\";\"DATE\";\"TIME\";\"TIME2\"\r\n\"Title 1\";\"true\";\"17\";\"1.5\";\"08-12-2011 7:58:12\";\"08-12-2011 7:58:12\";\"28692000\"\r\n\"\'=file:///etc/passwd\";\"false\";\"666\";\"2.5\";\"09-11-2011 6:06:06\";\"09-11-2011 6:06:06\";\"21966000\"\r\n'
         , BlobToString(csvout->MakeOutputFile(),-1));
 
 }

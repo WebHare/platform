@@ -15,8 +15,29 @@ LOADLIB "wh::util/stringparser.whlib";
     @long This function encodes a string for excel CSV format, by adding double quotes around the text and escaping double quotes with double-double quotes
     @param unquoted Unquoted string to quote
     @return Quoted string */
-PUBLIC STRING FUNCTION EncodeExcelCSV(STRING unquoted)
-{
+PUBLIC STRING FUNCTION EncodeExcelCSV(STRING unquoted) {
+  /* Defend against CSV injections (https://owasp.org/www-community/attacks/CSV_Injection)
+     Ensure that no cells begin with any of the following characters:
+
+     - Equals to (=)
+     - Plus (+)
+     - Minus (-)
+     - At (@)
+     - Tab (0x09)
+     - Carriage return (0x0D)
+
+     nccgroup suggested:
+     When performing a CSV Export, for any cell that starts with an =, -, ", @, or +,
+     add a space to the beginning and remove any tab characters (0x09) in the cell.
+     Alternatively, prepend each cell field with a single quote, so that their content
+     will be read as text by the spreadsheet editor.
+
+     Whatever we do, or don't do, someone isn't going to like it. But then anyone automating
+     these things really should be using either JSON or XLSX for any automated interchange.
+  */
+  IF(Left(unquoted,1) IN ["=","+","-","@","\t","\r"])
+    unquoted := "'" || unquoted;
+
   RETURN '"' || Substitute(unquoted, '"', '""') || '"';
 }
 
