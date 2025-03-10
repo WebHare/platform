@@ -1238,6 +1238,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       }
     }
     if (!isFormFieldLike(field)) {
+      /* Can't fail on these, weird embeddings do weird things. Eg google's recaptcha v2 triggers this because it assigns a random name=
+         to the iframe it injects and then we pick that up.. (may need to move this error behind a debugflag if that's the only likely cause) */
       console.error(`Cannot get value on non-FormControl`, field);
       return undefined; //TODO throw? but wasn't currently fatal
     }
