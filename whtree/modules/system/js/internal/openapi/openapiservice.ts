@@ -151,7 +151,7 @@ const cache: Record<string, RestService> = {};
 /** Initialize service
  * @param apispec - The openapi yaml spec resource
  * */
-export async function getServiceInstance(servicename: string) {
+export async function getServiceInstance(servicename: string): Promise<RestService> {
   if (cache[servicename])
     return cache[servicename];
 

@@ -1,86 +1,129 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { WebHareBlob } from "@webhare/services";
+import { getDirectOpenAPIFetch, type OpenAPIClientFetch } from "@webhare/openapi-service";
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
-import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
+import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import type * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
+import { OpenAPIAuthtestsClient } from "wh:openapi/webhare_testsuite/authtests";
+import { debugFlags } from "@webhare/env";
 
 let userapiroot = '', authtestsroot = '';
 
 const pietje = { email: "openapi@beta.webhare.net", firstName: "pietje" };
-const jsonheader = { "Content-Type": "application/json" };
-const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: WebHareBlob.from(""), headers: {} };
 
 async function testService() {
+  //verify native fetch is a valid OpenAPIClientFetch
+  fetch satisfies OpenAPIClientFetch;
+
   //whitebox try the service directly for more useful traces etc
-  using instance = await getServiceInstance("webhare_testsuite:testservice");
-  using instanceNoValidation = await getServiceInstance("webhare_testsuite:testservice_novalidation");
+  using serviceFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice");
+  const service = new OpenAPITestserviceClient(serviceFetch);
 
-  let res = await instance.APICall({ ...basecall, url: "http://localhost/unknownapi" }, "unknownapi");
-  test.eq(HTTPErrorCode.NotFound, res.status);
+  using serviceNoValidationFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice_novalidation");
+  const serviceNoValidation = new OpenAPITestserviceClient(serviceNoValidationFetch);
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/users" }, "users");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq([
-    { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
-    { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
-  ], JSON.parse(await res.body.text()));
-  test.eq("application/json", res.headers["content-type"]);
+  {
+    //@ts-expect-error TS knowns /unknownapi is invalid
+    const res = await service.get("/unknownapi");
+    test.eq(HTTPErrorCode.NotFound, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/reset" }, "reset");
-  test.eq(HTTPSuccessCode.NoContent, res.status);
+  {
+    const res = await service.get("/users");
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq([
+      { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
+      { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
+    ], res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/users/1" }, "users/1");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, JSON.parse(await res.body.text()));
+  {
+    const res = await service.post("/reset", {});
+    test.eq(HTTPSuccessCode.NoContent, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.DELETE, url: "http://localhost/users" }, "users");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  {
+    const res = await service.get("/users/{userid}", { params: { userid: 1 } });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/users?searchFor=Br" }, "users");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
-    JSON.parse(await res.body.text()));
+  {
+    const res = await service.delete("/users", {});
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from("hi!") }, "users");
-  test.eq(HTTPErrorCode.BadRequest, res.status);
+  {
+    const res = await service.get("/users", { params: { searchFor: "Br" } });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }], res.body);
+  }
 
-  res = await instanceNoValidation.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from("hi!") }, "users");
-  test.eq(HTTPErrorCode.InternalServerError, res.status);
+  {
+    const res = await service.invoke("POST", "/users", "hi!");
+    test.eq(HTTPErrorCode.BadRequest, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify(pietje)) }, "users");
-  test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
+  {
+    const res = await serviceNoValidation.invoke("POST", "/users", "hi!");
+    test.eq(HTTPErrorCode.InternalServerError, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify(pietje)), headers: jsonheader }, "users");
-  test.eq(HTTPSuccessCode.Created, res.status);
+  {
+    const res = await service.invoke("POST", "/users", JSON.stringify(pietje), { contentType: null });
+    test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
+  }
 
-  const resbody = JSON.parse(await res.body.text());
-  test.eqPartial({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
-  test.assert(resbody.id > 0);
+  {
+    const res = await service.post("/users", pietje);
+    test.eq(HTTPSuccessCode.Created, res.status);
+    test.eqPartial({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, res.body);
+    //@ts-expect-error TODO can we fix TS not properly inferring it's a succesful body? Perhaps due to '201 Created' instead of '200'?
+    test.assert(res.body.id > 0);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify({ firstName: "Klaasje" })), headers: jsonheader }, "users");
-  test.eq(HTTPErrorCode.BadRequest, res.status);
+  {
+    //@ts-expect-error TS also detects the missing 'email' field
+    const res = await service.post("/users", { firstName: "Klaasje" });
+    test.eq(HTTPErrorCode.BadRequest, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=ok", headers: jsonheader }, "validateoutput");
-  test.eq(HTTPSuccessCode.Ok, res.status);
+  {
+    const res = await service.get("/validateoutput", { params: { test: "ok" } });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=unknownStatusCode", headers: jsonheader }, "validateoutput");
-  test.eq(HTTPErrorCode.InternalServerError, res.status);
+  {
+    const res = await service.get("/validateoutput", { params: { test: "unknownStatusCode" } });
+    test.eq(HTTPErrorCode.InternalServerError, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=illegalData", headers: jsonheader }, "validateoutput");
-  test.eq(HTTPErrorCode.InternalServerError, res.status);
+  {
+    const res = await service.get("/validateoutput", { params: { test: "illegalData" } });
+    test.eq(HTTPErrorCode.InternalServerError, res.status);
+  }
 
-  res = await instanceNoValidation.APICall({ ...basecall, url: "http://localhost/validateoutput?test=illegalData", headers: jsonheader }, "validateoutput");
-  test.eq(HTTPSuccessCode.Ok, res.status);
+  {
+    const res = await serviceNoValidation.get("/validateoutput", { params: { test: "illegalData" } });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=with%2F", headers: jsonheader }, "validateoutput");
-  test.eq(HTTPErrorCode.BadRequest, res.status);
-  test.eq(`Illegal type: "with/"`, JSON.parse(await res.body.text()).error);
+  {
+    const res = await service.get("/validateoutput", { params: { test: "with/" } });
+    test.eq(HTTPErrorCode.BadRequest, res.status);
+    //@ts-expect-error TODO can TS infer body has to have error?
+    test.eq(`Illegal type: "with/"`, res.body.error);
+  }
 
-  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput/with%2F", headers: jsonheader }, "validateoutput/with%2F");
-  test.eq(HTTPErrorCode.BadRequest, res.status);
-  test.eq(`Illegal path type: "with/"`, JSON.parse(await res.body.text()).error);
+
+  {
+    //@ts-expect-error TS also detects the invalid url
+    const res = await service.get("/validateoutput/with%2F");
+    test.eq(HTTPErrorCode.BadRequest, res.status);
+    //@ts-expect-error TODO can TS infer body has to have error?
+    test.eq(`Illegal path type: "with/"`, res.body.error);
+  }
 }
 
 function enumRefs(obj: unknown, result: string[] = []): string[] {
@@ -101,186 +144,238 @@ function enumRefs(obj: unknown, result: string[] = []): string[] {
 
 async function testAuthorization() {
   //whitebox try the service directly for more useful traces etc
-  using instance = await getServiceInstance("webhare_testsuite:authtests");
-  void instance;
+  using authFetch = await getDirectOpenAPIFetch("webhare_testsuite:authtests");
+  const authService = new OpenAPIAuthtestsClient(authFetch);
+  const authServiceWithToken = new OpenAPIAuthtestsClient(authFetch, { bearertoken: "secret" });
 
-  let res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/other" }, "other");
-  test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
+  {
+    const res = await authService.get("/other");
+    test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy" }, "dummy");
-  test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
-  test.eq({ error: "Dude where's my key?" }, JSON.parse(await res.body.text()));
+  {
+    const res = await authService.get("/dummy");
+    test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
+    test.eq({ error: "Dude where's my key?" }, res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret"', await res.body.text());
+  {
+    const res = await authServiceWithToken.get("/dummy");
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("Bearer secret", res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret"', await res.body.text());
+  { //NOTE not sure why this test was doubled previously?
+    const res = await authServiceWithToken.get("/dummy");
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("Bearer secret", res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "authorization": "secret2" } }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret2"', await res.body.text());
+  {
+    const authServiceWithToken2 = new OpenAPIAuthtestsClient(authFetch, { bearertoken: "secret2" });
+    const res = await authServiceWithToken2.get("/dummy");
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("Bearer secret2", await res.body);
+  }
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "authorization": "secret" } }, "dummy");
-  test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
-  test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(await res.body.text()));
+  {
+    const res = await authServiceWithToken.post("/dummy", {});
+    test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
+    test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, res.body);
+  }
 }
 
+
 async function testCORS() {
-  using instance = await getServiceInstance("webhare_testsuite:authtests");
-  void instance;
+  { //lowlevel tests
+    using instance = await getServiceInstance("webhare_testsuite:authtests");
+    // Test if crossdomain origins are read from the service definition
+    test.eq(["example.*", "https://webhare.dev:1234"], instance.restapi.crossdomainOrigins);
 
-  // Test if crossdomain origins are read from the service definition
-  test.eq(["example.*", "https://webhare.dev:1234"], instance.restapi.crossdomainOrigins);
+  }
 
-  // Fake preflight requests
-  let res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "DELETE", // invalid method
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "http://localhost",
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match request method 'DELETE'/, res.headers["X-WebHare-CORS-Error"]);
+  using authFetch = await getDirectOpenAPIFetch("webhare_testsuite:authtests", { baseUrl: "http://localhost" });
+  const authService = new OpenAPIAuthtestsClient(authFetch);
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "My-Custom-Header", // invalid header
-      "Origin": "http://localhost",
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match request header 'My-Custom-Header'/, res.headers["X-WebHare-CORS-Error"]);
+  { // Fake preflight requests
+    debugFlags.wrq = true;
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "DELETE", // invalid method
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "http://localhost",
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match request method 'DELETE'/, res.headers.get("X-WebHare-CORS-Error"));
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "http://webhare.nl", // invalid origin
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match origin 'http:\/\/webhare.nl'/, res.headers["X-WebHare-CORS-Error"]);
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "My-Custom-Header", // invalid header
+        "Origin": "http://localhost",
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match request header 'My-Custom-Header'/, res.headers.get("X-WebHare-CORS-Error"));
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "http://webhare.dev:1234", // invalid protocol
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match origin 'http:\/\/webhare.dev:1234'/, res.headers["X-WebHare-CORS-Error"]);
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "http://webhare.nl", // invalid origin
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match origin 'http:\/\/webhare.nl'/, res.headers.get("X-WebHare-CORS-Error"));
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "https://webhare.dev", // invalid port
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match origin 'https:\/\/webhare.dev'/, res.headers["X-WebHare-CORS-Error"]);
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "http://webhare.dev:1234", // invalid protocol
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match origin 'http:\/\/webhare.dev:1234'/, res.headers.get("X-WebHare-CORS-Error"));
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "https://webhare.dev:1234",
-      "Authorization": "secreta",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq("https://webhare.dev:1234", res.headers["Access-Control-Allow-Origin"]);
-  test.eq(/GET/, res.headers["Access-Control-Allow-Methods"]); // preflight header
-  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "https://webhare.dev", // invalid port
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match origin 'https:\/\/webhare.dev'/, res.headers.get("X-WebHare-CORS-Error"));
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "POST",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "http://example.org", // protocol and tld don't matter for example.*
-      "Authorization": "secretb",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq("http://example.org", res.headers["Access-Control-Allow-Origin"]);
-  test.eq(/POST/, res.headers["Access-Control-Allow-Methods"]); // preflight header
-  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "https://webhare.dev:1234",
+        "Authorization": "secreta",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("https://webhare.dev:1234", res.headers.get("Access-Control-Allow-Origin"));
+    test.eq(/GET/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq('', res.body); // dummy service not actually executed, only preflight
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "https://example.com", // protocol and tld don't matter for example.*
-      "Authorization": "secretc",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq("https://example.com", res.headers["Access-Control-Allow-Origin"]);
-  test.eq(/authorization/, res.headers["Access-Control-Allow-Headers"]); // preflight header
-  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "http://example.org", // protocol and tld don't matter for example.*
+        "Authorization": "secretb",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("http://example.org", res.headers.get("Access-Control-Allow-Origin"));
+    test.eq(/POST/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq('', res.body); // dummy service not actually executed, only preflight
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "https://www.example.com", // subdomain not allowed for example.*
-      "Authorization": "secretd",
-    }
-  }, "dummy");
-  test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
-  test.eq(/Cannot match origin 'https:\/\/www.example.com'/, res.headers["X-WebHare-CORS-Error"]);
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "https://example.com", // protocol and tld don't matter for example.*
+        "Authorization": "secretc",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("https://example.com", res.headers.get("Access-Control-Allow-Origin"));
+    test.eq(/authorization/, res.headers.get("Access-Control-Allow-Headers")); // preflight header
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq('', res.body); // dummy service not actually executed, only preflight
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.OPTIONS, url: "http://localhost/dummy", headers: {
-      "Access-Control-Request-Method": "GET",
-      "Access-Control-Request-Headers": "Authorization",
-      "Origin": "http://localhost", // requested url matches origin, so it's allowed
-      "Authorization": "secrete",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq("http://localhost", res.headers["Access-Control-Allow-Origin"]);
-  test.eq('', await res.body.text()); // dummy service not actually executed, only preflight
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "https://www.example.com", // subdomain not allowed for example.*
+        "Authorization": "secretd",
+      }
+    });
+    test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+    test.eq(/Cannot match origin 'https:\/\/www.example.com'/, res.headers.get("X-WebHare-CORS-Error"));
 
-  // Direct calls
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: {
-      "Origin": "http://localhost", // requested url matches origin, so it's allowed
-      "Authorization": "secretf",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq("http://localhost", res.headers["Access-Control-Allow-Origin"]);
-  test.assert(res.headers["Access-Control-Allow-Methods"] === undefined); // direct call doesn't contain preflight headers
-  test.assert(res.headers["Access-Control-Allow-Headers"] === undefined); // direct call doesn't contain preflight headers
-  test.eq('"secretf"', await res.body.text());
+  }
 
-  res = await instance.APICall({
-    ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: {
-      "Origin": "http://webhare.nl", // invalid origin
-      "Authorization": "secretg",
-    }
-  }, "dummy");
-  test.eq(HTTPSuccessCode.Ok, res.status);
-  test.assert(res.headers["Access-Control-Allow-Origin"] === undefined);
-  test.eq('"secretg"', await res.body.text());
+  {
+    const res = await authService.invoke("OPTIONS", "/dummy", null, {
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "Authorization",
+        "Origin": "http://localhost", // requested url matches origin, so it's allowed
+        "Authorization": "secrete",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq('', res.body); // dummy service not actually executed, only preflight
+
+
+  }
+
+  { // Direct calls
+    const res = await authService.invoke("GET", "/dummy", null, {
+      headers: {
+        "Origin": "http://localhost", // requested url matches origin, so it's allowed
+        "Authorization": "bearer secretf",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
+    test.eq(null, res.headers.get("Access-Control-Allow-Methods")); // direct call doesn't contain preflight headers
+    test.eq(null, res.headers.get("Access-Control-Allow-Headers")); // direct call doesn't contain preflight headers
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq("bearer secretf", res.body);
+
+  }
+
+  {
+    const res = await authService.invoke("GET", "/dummy", null, {
+      headers: {
+        "Origin": "http://webhare.nl", // invalid origin
+        "Authorization": "bearer secretg",
+      }
+    });
+    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.eq(null, res.headers.get("Access-Control-Allow-Origin"));
+    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    test.eq("bearer secretg", res.body);
+  }
 }
 
 async function testOverlappingCalls() {
-  using instance = await getServiceInstance("webhare_testsuite:testservice");
-  void instance;
+  using serviceFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice");
+  const service = new OpenAPITestserviceClient(serviceFetch);
 
   //TODO also test overlapping authorization calls so they can write to the database too (eg. audit)
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
 
-  const respromise1 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify({ ...pietje, email: "user1@beta.webare.net" })), headers: jsonheader }, "users");
-  const respromise2 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: WebHareBlob.from(JSON.stringify({ ...pietje, email: "user2@beta.webare.net" })), headers: jsonheader }, "users");
+  const respromise1 = service.post("/users", { ...pietje, email: "user1@beta.webare.net" });
+  const respromise2 = service.post("/users", { ...pietje, email: "user2@beta.webare.net" });
 
   test.eq("still waiting", await Promise.race([
     test.sleep(200).then(() => "still waiting"),
@@ -470,7 +565,7 @@ async function testLogFile() {
   ], authtestcalls, "Ensure all 9 calls had an authorized (even if we cache in the future!");
 }
 
-async function testGeneratedClient() {
+async function testGeneratedClient() { //test the client online
   const client = new OpenAPITestserviceClient(userapiroot);
 
   {

@@ -3,6 +3,7 @@ import type { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOp
 import type { JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, type RestService } from "@mod-system/js/internal/openapi/openapiservice";
 import { WebHareBlob } from "@webhare/services";
+import type { OpenAPIClientFetch } from "@webhare/openapi-service";
 
 
 type OpenAPIResponse<BodyType> = {
@@ -62,25 +63,37 @@ type MethodOptions<Paths extends object, Path extends keyof Paths, Method extend
 /** Typed OpenAPI client
  */
 export class TypedOpenAPIClient<Paths extends object, Components extends ComponentsBase> {
-  readonly baseurl: string;
+  readonly service: string | OpenAPIClientFetch;
   defaultheaders: Record<string, string> = {};
   private viaservice: string | undefined;
   private serviceinstance: RestService | undefined;
 
-  constructor(baseurl: string, options: { bearertoken?: string; __viaservice?: string } = {}) {
-    this.baseurl = baseurl;
+  /** Build a new typed OpenAPI client
+   * @param service - How to invoke the service - either a URL passed to fetch as a base url, or a fetch() like function accepting the subroute
+   */
+  constructor(service: string | OpenAPIClientFetch, options: { bearertoken?: string; __viaservice?: string } = {}) {
+    this.service = service;
     this.viaservice = options.__viaservice;
     if (options?.bearertoken)
       this.defaultheaders["Authorization"] = "Bearer " + options.bearertoken;
   }
 
-  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string, options?: { params?: ParamsBaseType; encoding?: ParameterEncoding }): Promise<OpResponseTypes<Paths, Components, Path, Method>> {
+  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {
+    headers?: Record<string, string>;
+    contentType?: string | null;
+    params?: ParamsBaseType;
+    encoding?: ParameterEncoding;
+  }): Promise<OpResponseTypes<Paths, Components, Path, Method>> {
     const fetchoptions = {
       method,
-      headers: this.defaultheaders,
+      headers: { ...this.defaultheaders, ...options?.headers },
       ...(requestbody ? { body: requestbody } : null)
     } satisfies RequestInit;
-    if (requestbody) {
+
+    if (options?.contentType !== undefined) {
+      if (options?.contentType === "string")
+        fetchoptions.headers["Content-Type"] = options?.contentType;
+    } else if (requestbody) {
       fetchoptions.headers["Content-Type"] = "application/json";
     }
     const used_pathelts: string[] = [];
@@ -99,7 +112,8 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       route = route.slice(1);
 
     // add unused params to the url as query parameters
-    const url = new URL(this.baseurl + route);
+    const prefix = "https://example.net/";
+    const url = new URL(prefix + route);
     if (options?.params) {
       for (const [key, value] of Object.entries(options.params)) {
         if (!used_pathelts.includes(key)) {
@@ -116,17 +130,18 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
     }
 
     let retval;
+    const finalroute = url.toString().substring(prefix.length);
     if (this.viaservice) {
       this.serviceinstance ??= await getServiceInstance(this.viaservice);
       const res = await this.serviceinstance.APICall({
-        sourceip: "127.0.0.1", method: method.toUpperCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody), headers: fetchoptions.headers
-      }, url.toString().slice(this.baseurl.length));
+        sourceip: "127.0.0.1", method: method.toUpperCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody || ''), headers: fetchoptions.headers
+      }, finalroute);
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
       const responsebody = contenttype.split(';')[0] === "application/json" ? JSON.parse(await res.body.text()) : res.body;
       retval = { status: res.status, headers, contenttype, body: responsebody };
     } else {
-      const call = await fetch(url.toString(), fetchoptions);
+      const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
       const contenttype = call.headers.get("Content-Type") || "";
       const responsebody = contenttype.split(';')[0] === "application/json" ? await call.json() : await call.text();
       retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };

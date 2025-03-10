@@ -26,9 +26,11 @@ export abstract class WebHareBlob implements Blob {
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
-  static from(str: string | Buffer): WebHareBlob {
+  static from(str: string | Buffer | ArrayBufferLike): WebHareBlob {
     if (str instanceof Buffer)
       return new WebHareMemoryBlob(str);
+    if (ArrayBuffer.isView(str))
+      return new WebHareMemoryBlob(new Uint8Array(str));
     return new WebHareMemoryBlob(new TextEncoder().encode(str as string)); //'as string' is a TS 5.7 workaround, TODO can we undo this?
   }
 
