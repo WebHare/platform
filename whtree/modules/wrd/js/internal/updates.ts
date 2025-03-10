@@ -878,14 +878,6 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
           if (isSame((splitData.entity as Record<string, unknown>)[key], (orgentityrec as Record<string, unknown>)[key]))
             delete (splitData.entity as Record<string, unknown>)[key];
       }
-
-      if (Object.keys(splitData.entity).length) //avoid updating moddate if we update nothing else
-        await db<PlatformDB>()
-          .updateTable("wrd.entities")
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .set({ modificationdate: now, ...splitData.entity } as any)
-          .where("id", "=", result.entityId)
-          .execute();
     }
 
     const reusedIds = new Array<number>(); //will receive actually reused IDs
@@ -940,6 +932,15 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     else
       wrdFinishHandler().entityUpdated(schemadata.schema.id, typeRec.id, entityId);
     wrdFinishHandler().addLinkCheckedSettings(updateres.linkCheckSettings);
+
+    if (!isNew) { //when updating an existing entity we won't have updated the base record yet
+      await db<PlatformDB>()
+        .updateTable("wrd.entities")
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .set({ modificationdate: now, ...splitData.entity } as any)
+        .where("id", "=", result.entityId)
+        .execute();
+    }
 
     if (isTemp)
       return result; //Updates are done, no history for temporaries
