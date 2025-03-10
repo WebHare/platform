@@ -517,7 +517,7 @@ async function testNewAPI() {
     await whdb.beginWork();
     await schema.update("wrdPerson", secondperson, { wrdLimitDate: now });
     await whdb.commitWork();
-    const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"], {historyMode:"all"})).wrdModificationDate;
+    const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"], { historyMode: "all" })).wrdModificationDate;
     test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "Modification date should be updated after the change");
   }
 

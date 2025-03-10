@@ -2,7 +2,6 @@
 declare module "@webhare/js-api-tools" {
 }
 
-export { checkPromiseErrorsHandled } from "./async";
 export { parseTrace, getStackTrace, prependStackTrace } from "./stacktracing";
 export { getBestMatch, addBestMatch } from "./levenshtein";
 export type { StackTrace, StackTraceItem } from "./stacktracing";

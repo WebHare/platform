@@ -3,7 +3,6 @@ import { db, nextVal } from "@webhare/whdb";
 import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
-import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { tagToHS, tagToJS, type WRDAttributeConfiguration, type WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, type SchemaData } from "./db";
@@ -432,7 +431,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
   /** Reserve a wrdId */
   getNextId<T extends keyof S & string>(type: T): Promise<number> {
-    return checkPromiseErrorsHandled(nextVal("wrd.entities.id"));
+    return nextVal("wrd.entities.id");
   }
 
   /** Reserve a wrdGuid */
@@ -445,7 +444,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number>;
 
   insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
-    return checkPromiseErrorsHandled(this.getType(type).createEntity(value, options));
+    return this.getType(type).createEntity(value, options);
   }
 
   /** Updates fields of a specific entity
@@ -459,7 +458,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * ```
    */
   update<T extends keyof S & string>(type: T, entity: number | MatchObjectQueryable<S[T]>, value: WRDUpdatable<S[T]>, options?: { importMode?: boolean }): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).updateEntity(entity, value, options));
+    return this.getType(type).updateEntity(entity, value, options);
   }
 
   /** Insert an entity, or update if it exists */
@@ -469,7 +468,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
        Expected 4 arguments, but got 3.ts(2554)
        Arguments for the rest parameter 'options' were not provided.
     */
-    return checkPromiseErrorsHandled(this.getType(type).upsert(query, value, ...options));
+    return this.getType(type).upsert(query, value, ...options);
   }
 
   /** Returns the wrdId of an entity that has a field with a specific value, or null if not found.
@@ -483,7 +482,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * ```
    */
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">["value"], options?: GetOptionsIfExists<WhereValueOptions<S[T], F, WhereConditions<S[T], F> & "=">, object> & { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
-    return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
+    return this.getType(type).search(field, value, options);
   }
 
   /** Returns the wrdId of the entity that matches the properties of the query object.
@@ -492,7 +491,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
    * @param options - Options for the search
    */
   find<T extends keyof S & string>(type: T, query: MatchObjectQueryable<S[T]>, options?: { historyMode?: SimpleHistoryMode | HistoryModeData }): Promise<number | null> {
-    return checkPromiseErrorsHandled(this.getType(type).find(query, options));
+    return this.getType(type).find(query, options);
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
@@ -530,15 +529,15 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       historyMode?: SimpleHistoryMode | HistoryModeData;
     } = {}
   ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
-    return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
+    return this.getType(type).enrich(data, field, mapping, options);
   }
 
   close<T extends keyof S & string>(type: T, ids: number | number[], options?: EntityCloseOptions): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).close(ids, options));
+    return this.getType(type).close(ids, options);
   }
 
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return checkPromiseErrorsHandled(this.getType(type).close(ids, { mode: "delete" }));
+    return this.getType(type).close(ids, { mode: "delete" });
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -1194,27 +1193,27 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   }
 
   execute(): Promise<QueryReturnArrayType<S, T, O>> {
-    return checkPromiseErrorsHandled(this.executeInternal());
+    return this.executeInternal();
   }
 
   executeRequireExactlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
     if (this._limit === null)
       return this.limit(2).executeRequireExactlyOne();
-    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+    return this.executeInternal().then(res => {
       if (res.length !== 1)
         throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
-    }));
+    });
   }
 
   executeRequireAtMostOne(): Promise<QueryReturnArrayType<S, T, O>[number] | null> {
     if (this._limit === null)
       return this.limit(2).executeRequireAtMostOne();
-    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+    return this.executeInternal().then(res => {
       if (res.length > 1)
         throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
       return res[0] ?? null;
-    }));
+    });
   }
 
   async getEventMasks(): Promise<string[]> {
@@ -1275,23 +1274,23 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
   }
 
   execute(): Promise<O[]> {
-    return checkPromiseErrorsHandled(this.executeInternal());
+    return this.executeInternal();
   }
 
   executeRequireExactlyOne(): Promise<O> {
-    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+    return this.executeInternal().then(res => {
       if (res.length !== 1)
         throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
-    }));
+    });
   }
 
   executeRequireAtMostOne(): Promise<O | null> {
-    return checkPromiseErrorsHandled(this.executeInternal().then(res => {
+    return this.executeInternal().then(res => {
       if (res.length > 1)
         throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
       return res[0] ?? null;
-    }));
+    });
   }
 
   async getEventMasks(): Promise<string[]> {

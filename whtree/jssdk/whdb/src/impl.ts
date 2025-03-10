@@ -19,7 +19,6 @@ import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/se
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';
 import { type Mutex, lockMutex } from '@webhare/services/src/mutex.ts';
 import { debugFlags } from '@webhare/env/src/envbackend';
-import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource, getScopedResource, setScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
@@ -534,26 +533,26 @@ export function isWorkOpen() {
 /** Get the next primary key value for a specific table
 */
 export function nextVal(table: string) {
-  return checkPromiseErrorsHandled(getConnection().nextVal(table));
+  return getConnection().nextVal(table);
 }
 
 /** Get multiple primary key values for a specific table
 */
 export function nextVals(table: string, howMany: number) {
-  return checkPromiseErrorsHandled(getConnection().nextVals(table, howMany));
+  return getConnection().nextVals(table, howMany);
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress
  * @returns An AsyncDisposable work object that can be used with 'await using' to automatically rollback the work if not yet committed
 */
 export function beginWork(options?: WorkOptions): Promise<WorkObject> {
-  return checkPromiseErrorsHandled(getConnection().beginWork(options));
+  return getConnection().beginWork(options);
 }
 
 /** Commits the current transaction
 */
 export function commitWork() {
-  return checkPromiseErrorsHandled(getConnection().commitWork());
+  return getConnection().commitWork();
 }
 
 export function query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
@@ -561,13 +560,13 @@ export function query<R>(sqlquery: string, parameters?: readonly unknown[]): Pro
 
 export function query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
   ///@ts-ignore -- We don't really care about the arguments, just delegating it to the actual implementation
-  return checkPromiseErrorsHandled(getConnection().query<R>(sqlquery, parameters));
+  return getConnection().query<R>(sqlquery, parameters);
 }
 
 /** Rollbacks the transaction
 */
 export function rollbackWork() {
-  return checkPromiseErrorsHandled(getConnection().rollbackWork());
+  return getConnection().rollbackWork();
 }
 
 /** Upload a blob to the database
