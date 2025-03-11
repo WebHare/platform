@@ -1,4 +1,4 @@
-/** Library to test and impplement WebHare-based OpenAPI services */
+/** Library to test and implement WebHare-based OpenAPI services */
 
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { debugFlags } from "@webhare/env";
@@ -22,7 +22,7 @@ async function convertBody(body: BodyInit | null | undefined): Promise<WebHareBl
   return WebHareBlob.from(extract);
 }
 
-//TODO: Like PSPWebResponse extend the subset until we just have Response. But especiaally here internally it doens't matter much
+//TODO: Like PSPWebResponse extend the subset until we just have Response. But especially here internally it doesn't matter much
 export type OpenAPIWebResponse = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
 /** The fetch API expected by an OpenAPICall - a subset of the actual fetch() API to allow mocking/direct connections */

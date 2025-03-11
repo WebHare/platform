@@ -24,7 +24,7 @@ async function testService() {
   const serviceNoValidation = new OpenAPITestserviceClient(serviceNoValidationFetch);
 
   {
-    //@ts-expect-error TS knowns /unknownapi is invalid
+    //@ts-expect-error TS knows /unknownapi is invalid
     const res = await service.get("/unknownapi");
     test.eq(HTTPErrorCode.NotFound, res.status);
   }
