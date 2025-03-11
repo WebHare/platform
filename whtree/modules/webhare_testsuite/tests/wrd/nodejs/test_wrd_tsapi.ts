@@ -512,9 +512,14 @@ async function testNewAPI() {
   test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "first"));
 
   const now = new Date();
-  await whdb.beginWork();
-  await schema.update("wrdPerson", secondperson, { wrdLimitDate: now });
-  await whdb.commitWork();
+  {
+    const moddateBefore = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"])).wrdModificationDate;
+    await whdb.beginWork();
+    await schema.update("wrdPerson", secondperson, { wrdLimitDate: now });
+    await whdb.commitWork();
+    const moddateAfter = (await schema.getFields("wrdPerson", secondperson, ["wrdModificationDate"], { historyMode: "all" })).wrdModificationDate;
+    test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "Modification date should be updated after the change");
+  }
 
   // wait 1 millisecond
   await new Promise(r => setTimeout(r, 1));
@@ -554,7 +559,10 @@ async function testNewAPI() {
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", null));
   test.eq([{ wrdId: newperson, testSingleDomain: null }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
 
+  const moddateBefore = (await schema.getFields("wrdPerson", newperson, ["wrdModificationDate"])).wrdModificationDate;
   await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: domain1value1 });
+  const moddateAfter = (await schema.getFields("wrdPerson", newperson, ["wrdModificationDate"])).wrdModificationDate;
+  test.assert(moddateBefore.getTime() < moddateAfter.getTime(), "changing a non-base field should modify wrdModificationDate too");
 
   test.eq([], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", null).execute());
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value1).execute());

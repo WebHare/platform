@@ -1,6 +1,5 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
-import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 
@@ -391,7 +390,7 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
     //If we got a function, execute it
     const potentialpromise = typeof func_or_promise === "function" ? func_or_promise() : func_or_promise;
     if (isPromise(potentialpromise))
-      return checkPromiseErrorsHandled(throwsAsync(expect, potentialpromise as Promise<unknown>, annotation));
+      return throwsAsync(expect, potentialpromise as Promise<unknown>, annotation);
 
     retval = potentialpromise;
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
