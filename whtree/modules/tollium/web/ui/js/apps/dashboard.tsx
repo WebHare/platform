@@ -179,7 +179,7 @@ class DashboardApp {
     // Single menu item with an app
     const AppMenuItem = ({ section, app }) =>
       <li class="dashboard__app" propApp={app} propSection={section}
-        on={{ click: e => this._onMenuClick(e, app.instr) }} >
+        on={{ click: (e: MouseEvent) => this._onMenuClick(e, app.instr) }} >
         <a href={app.link} class={{ "dashboard__applink": true, "dashboard__app--hasicon": app.icon }}>
           {app.icon ? toddImages.createImage(app.icon, 16, 16, 'w', { className: "dashboard__appicon" }) : null}
           <span class="dashboard__apptitle">{app.title}</span>
@@ -262,7 +262,7 @@ class DashboardApp {
       dompack.qSA<HTMLAnchorElement>(contentdiv, 'a').forEach(link => link.target = "_blank");
     });
   }
-  _onMenuClick(event, instr) {
+  _onMenuClick(event: MouseEvent, instr) {
     dompack.stop(event);
     if (!instr)
       return;

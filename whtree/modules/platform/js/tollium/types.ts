@@ -1,3 +1,13 @@
+export type MenuAppGroup = {
+  title: string;
+  apps: Array<{
+    icon: string;
+    instr: AppLaunchInstruction;
+    link: string;
+    title: string;
+  }>;
+};
+
 export type AppLaunchInstruction = {
   type: "appmessage";
   app: string;
