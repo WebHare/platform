@@ -7,7 +7,7 @@ const finishHandlerSymbol = Symbol("ApplyConfig FinishHandler");
 
 type RemoteApplyConfigOptions = ApplyConfigurationOptions & Required<Pick<ApplyConfigurationOptions, "source">>;
 
-/** Apply configuation changes */
+/** Apply configuration changes */
 export async function applyConfiguration(toApply: RemoteApplyConfigOptions) {
   if (!toApply.source)
     throw new Error("applyConfiguration requires a source");
