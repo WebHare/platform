@@ -141,7 +141,7 @@ export function createWebResponse(body: string | ArrayBuffer | undefined, option
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody: T, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
+export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
   const headers = new Headers(options?.headers);
 
   //TODO can we have TS already fail force a null type for 204?
