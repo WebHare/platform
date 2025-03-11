@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@xmldom/xmldom": "^0.8.10",
-    "undici": "^6.6.0"
+    "@xmldom/xmldom": "^0.9.8",
+    "undici": "^7.4.0"
   }
 }

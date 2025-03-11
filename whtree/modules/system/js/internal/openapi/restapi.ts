@@ -349,7 +349,7 @@ export class WorkerRestAPIHandler {
 
   async handleRequest(reqTransferData: WebRequestTransferData, relurl: string, logger: LogInfo): Promise<ReturnValueWithTransferList<{ response: WebResponseForTransfer; logger: LogInfo }>> {
     const res = await this.handleRequestInternal(reqTransferData, relurl, logger);
-    const encoded = res.encodeForTransfer();
+    const encoded = await res.encodeForTransfer(); //TODO should be freestanding API? only user and keep a pretty internal encoding out of the API
     return createReturnValueWithTransferList({ response: encoded.value, logger }, encoded.transferList);
   }
 
@@ -381,7 +381,7 @@ export class WorkerRestAPIHandler {
         let responseschema;
         if (response.status.toString() in endpoint.responses) {
           const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
-          const contentType = response.getHeader("content-type") || "application/json";
+          const contentType = response.headers.get("content-type") || "application/json";
           responseschema = responsedef?.content?.[contentType]?.schema;
         }
         // Fallback to 'defaulterror' for errors, if specified in components.schemas
@@ -391,7 +391,7 @@ export class WorkerRestAPIHandler {
         if (responseschema) {
           const start = performance.now();
           const validator = this.getValidator(responseschema);
-          const success = validator(await response.json());
+          const success = validator(await response.clone().json());
           logger.timings.responsevalidation = performance.now() - start;
 
           if (!success) {

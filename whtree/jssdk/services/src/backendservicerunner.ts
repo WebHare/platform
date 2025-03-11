@@ -14,7 +14,7 @@ export interface BackendServiceController {
 }
 
 /** Base class for service connections */
-export class BackendServiceConnection {
+export class BackendServiceConnection implements Disposable {
   #link?: LinkState;
   #eventQueue?: Array<{ event: string; data: unknown }>;
 

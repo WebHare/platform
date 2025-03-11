@@ -71,7 +71,7 @@ async function testSiteResponse() {
   test.eq("en", doc.documentElement?.getAttribute("lang"));
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
-  test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
+  test.eq("text/html;charset=utf-8", response.headers.get("content-type"));
 
   //Verify the GTM plugin is present
   const config = getWHConfig(doc);

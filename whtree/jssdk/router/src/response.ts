@@ -3,6 +3,7 @@ import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
 import type { TransferListItem } from "worker_threads";
+import { encodeString } from "@webhare/std";
 
 export enum HTTPErrorCode {
   BadRequest = 400,
@@ -60,118 +61,47 @@ export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 export type WebResponseForTransfer = {
   status: HTTPStatusCode;
   bodybuffer: ArrayBuffer | null;
-  headers: Headers;
+  headers: Record<string, string>;
   trace: string | undefined;
 };
 
 //TODO ideally we'll support the full Response interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Response instead of WebResponse
 export type SupportedResponseSubset = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
-class WebResponse implements SupportedResponseSubset {
-  private _status: HTTPStatusCode;
-  private _bodybuffer: ArrayBuffer | null = null;
+class WebResponse extends Response {
   private _trace: string | undefined;
 
-  headers: Headers;
-
-  constructor(status: HTTPStatusCode, headers: Record<string, string> | Headers, options: { trace?: string | undefined } = {}) {
-    this._status = status;
-    this.headers = new Headers(headers);
-    if ("trace" in options)
-      this._trace = options.trace;
+  constructor(body?: BodyInit, init?: ResponseInit & { trace?: string }) {
+    super(body || null, init);
+    if (init && "trace" in init)
+      this._trace = init.trace;
     else if (debugFlags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
       this._trace = getCallStackAsText(1);
     }
-  }
-
-  get ok() {
-    //The ok read-only property of the Response interface contains a Boolean stating whether the response was successful (status in the range 200-299) or not.
-    return this._status >= 200 && this._status >= 299;
-  }
-
-  get status() {
-    return this._status;
-  }
-
-  /* TODO if body() returns - it should be a ReadableStream!
-  get body() {
-    return this._bodystring;
-  }*/
-
-  /** Get the body as an arraybuffer */
-  async arrayBuffer(): Promise<ArrayBuffer> {
-    if (this._bodybuffer)
-      return this._bodybuffer;
-    return new ArrayBuffer(0);
-  }
-
-  /** Get the body as a JavaScript string */
-  async text(): Promise<string> {
-    return new TextDecoder().decode(await this.arrayBuffer());
-  }
-
-  /** Parse the body as JSON */
-  async json(): Promise<unknown> {
-    //FIXME validate content type?
-    return JSON.parse(await this.text());
   }
 
   get trace() {
     return this._trace;
   }
 
-  /** Set the body */
-  setBody(text: string | ArrayBuffer) {
-    if (text instanceof ArrayBuffer)
-      this._bodybuffer = text;
-    else
-      this._bodybuffer = new TextEncoder().encode(text).buffer as ArrayBuffer; //'as ArrayBuffer' is a TS 5.7 workaround, TODO can we undo this?
-  }
-
-  getHeader(header: string): string | null {
-    return this.headers.get(header);
-  }
-
-  /** Get all headers */
-  getHeaders(): string[][] {
-    return [...this.headers.entries()];
-  }
-
-  /** Get all setCookie headers */
-  getSetCookie(): string[] {
-    //https://fetch.spec.whatwg.org/#dom-headers-getsetcookie
-    interface HeadersWithSetSookie extends Headers {
-      getSetCookie(): string[];
-    }
-    return (this.headers as HeadersWithSetSookie).getSetCookie();
-  }
-
-  setHeader(header: string, value: string) {
-    this.headers.set(header, value);
-  }
-
-  setStatus(status: HTTPStatusCode) {
-    this._status = status;
-  }
-
   /// Convert result to WebResponseInfo often used when marshalling. API will be removed when JS webserver has replaced the C++ webserver
   async asWebResponseInfo(): Promise<WebResponseInfo> {
-    const headers = this.getHeaders();
-    return { status: this.status, headers: Object.fromEntries(headers), body: WebHareBlob.from(Buffer.from(await this.arrayBuffer())) };
+    return { status: this.status, headers: Object.fromEntries(this.headers.entries()), body: WebHareBlob.from(Buffer.from(await this.arrayBuffer())) };
   }
 
-  encodeForTransfer(): {
+  async encodeForTransfer(): Promise<{
     value: WebResponseForTransfer;
     transferList: TransferListItem[];
-  } {
+  }> {
+    const bodybuffer = this.body ? await this.arrayBuffer() : null;
     return {
       value: {
         status: this.status,
-        headers: Object.fromEntries(this.getHeaders()),
-        bodybuffer: this._bodybuffer,
+        headers: Object.fromEntries(this.headers.entries()),
+        bodybuffer,
         trace: this._trace
       },
-      transferList: this._bodybuffer ? [this._bodybuffer] : []
+      transferList: bodybuffer ? [bodybuffer] : []
     };
   }
 }
@@ -185,10 +115,11 @@ export async function createResponseInfoFromResponse(response: SupportedResponse
 }
 
 export function createWebResponseFromTransferData(data: WebResponseForTransfer): WebResponse {
-  const result = new WebResponse(data.status, data.headers, { trace: data.trace });
-  if (data.bodybuffer)
-    result.setBody(data.bodybuffer);
-  return result;
+  return new WebResponse(data.bodybuffer ?? undefined, {
+    status: data.status,
+    headers: data.headers,
+    trace: data.trace
+  });
 }
 
 /** Create a webresponse
@@ -198,25 +129,37 @@ export function createWebResponseFromTransferData(data: WebResponseForTransfer):
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string | ArrayBuffer, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
-  const resp = new WebResponse(options?.status || HTTPSuccessCode.Ok, options?.headers || {});
-  if (body && !resp.getHeader("content-type"))
-    resp.setHeader("content-type", "text/html; charset=utf-8");
+export function createWebResponse(body: string | ArrayBuffer | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
+  const headers = new Headers(options?.headers);
+  if (!headers.get("content-type") && body !== undefined)
+    headers.set("content-type", body instanceof ArrayBuffer ? "application/octet-stream" : "text/html;charset=utf-8");
 
-  resp.setBody(body);
-  return resp;
+  return new WebResponse(body, { status: options?.status ?? HTTPSuccessCode.Ok, headers });
 }
 
 /** Create a webresponse returning a JSON body
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody: T, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
-  const resp = new WebResponse(status, options?.headers || {});
-  if (!resp.getHeader("content-type"))
-    resp.setHeader("content-type", "application/json");
+export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
+  const headers = new Headers(options?.headers);
 
-  resp.setBody(JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined));
+  //TODO can we have TS already fail force a null type for 204?
+  let sendbody: undefined | string;
+  if (status === HTTPSuccessCode.NoContent) {
+    if (jsonbody)
+      throw new Error("HTTP 204 No Content should not have a body");
+    sendbody = undefined;
+  } else {
+    sendbody = JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined);
+    if (!headers.get("content-type"))
+      headers.set("content-type", "application/json");
+  }
+
+  const resp = new WebResponse(sendbody, {
+    headers: headers,
+    status: status
+  });
   return resp;
 }
 
@@ -226,13 +169,18 @@ export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody
  */
 export function createRedirectResponse(location: string | NavigateInstruction, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
   if (typeof location === "string") {
-    const resp = new WebResponse(status, { "location": location, ...options?.headers });
-    if (!resp.getHeader("content-type"))
-      resp.setHeader("content-type", "text/html");
-    resp.setBody(options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${location}">Click here to continue</a></body></html>`);
+    const body = options?.body ?? `<html><head><title>Redirecting</title></head><body><a href="${encodeString(location, "attribute")}">Click here to continue</a></body></html>`;
+    const resp = new WebResponse(body, {
+      headers: options?.headers,
+      status: status
+    });
+    if (!resp.headers.get("location"))
+      resp.headers.set("location", location);
+    if (!resp.headers.get("content-type"))
+      resp.headers.set("content-type", "text/html");
     return resp;
   } else {
-    //TODO implement and test the rest of HareScript ExecuteSubmitInstruction and properly allow some createRedirectResponse optins to override where it makes sense?
+    //TODO implement and test the rest of HareScript ExecuteSubmitInstruction and properly allow some createRedirectResponse options to override where it makes sense?
     if (location.type === "redirect")
       return createRedirectResponse(location.url, status, options);
     else

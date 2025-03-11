@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/openapi-service",
+  "version": "",
+  "description": "",
+  "main": "src/openapi-service.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/openapi-service.ts"
+    ]
+  },
+  "private": true
+}

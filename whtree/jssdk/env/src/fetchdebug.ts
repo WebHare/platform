@@ -15,7 +15,7 @@ function sanitizeBody(body: unknown) {
   return body;
 }
 
-function getResponseSummary(response: Response) {
+function getResponseSummary(response: Pick<Response, "headers">) {
   const toks = [];
   if (response.headers.get("Content-Type"))
     toks.push(response.headers.get("Content-Type"));
@@ -33,37 +33,43 @@ function headersToString(headers: Headers) {
   return JSON.stringify(Object.fromEntries(headers.entries()));
 }
 
-async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
-  if (!debugFlags.wrq)
-    return originalfetch(input, init);
-
-  const method = (init?.method || (input as Request)?.method || "GET").padEnd(7);
+export function extractRequestInfo(input: RequestInfo | URL, init?: RequestInit) {
+  const method = (init?.method || (input as Request)?.method || "GET");
   const url = input instanceof URL ? input.toString() : typeof input === "string" ? input : input.url;
   const headers = new Headers(typeof input === "object" && !(input instanceof URL) ? input.headers : init?.headers);
-  let body = typeof input === "object" && !(input instanceof URL) ? input.body : init?.body;
+  const body = typeof input === "object" && !(input instanceof URL) ? input.body : init?.body;
+  return { method, url, headers, body };
+}
+
+export async function extractRequestBody(body: BodyInit): Promise<XMLHttpRequestBodyInit> {
+  if (!(body instanceof ReadableStream))
+    return body;
+
+  //convert the ReadableStream to ArrayBuffer so we can print AND send it (TODO ideally 'tee' the stream and just grab the first 5K bytes)
+  const reader = body.getReader();
+  const chunks = [];
+  for (; ;) {
+    const { done, value } = await reader.read();
+    if (done)
+      break;
+    chunks.push(value);
+  }
+  return await new Blob(chunks).arrayBuffer();
+}
+
+export function logWrqRequest(method: string, url: string, headers: Headers, body: XMLHttpRequestBodyInit | undefined | null) {
   const debugrequestid = generateRandomId();
 
-  console.log(`[wrq] ${debugrequestid} ${method} ${url}`);
-  if (headers)
-    console.log(`[wrq] ${debugrequestid} headers ${headersToString(headers)}`);
+  console.log(`[wrq] ${debugrequestid} ${method.padEnd(7)} ${url}`);
+  console.log(`[wrq] ${debugrequestid} headers ${headersToString(headers)}`);
   if (body) {
-    if (body instanceof ReadableStream) {
-      //convert the ReadableStream to ArrayBuffer so we can print AND send it (TODO ideally 'tee' the stream and just grab the first 5K bytes)
-      const reader = body.getReader();
-      const chunks = [];
-      for (; ;) {
-        const { done, value } = await reader.read();
-        if (done)
-          break;
-        chunks.push(value);
-      }
-      body = await new Blob(chunks).arrayBuffer();
-      init = { ...init, body };
-    }
     console.log(`[wrq] ${debugrequestid} body    ${sanitizeBody(body)}`);
   }
 
-  const fetchresult = await originalfetch(input, init); //TODO log responses as well (if safe/applicable, eg not binary or Very Long... and we probably should wait for the first json()/text()/body() call? but at least log the status and time!)
+  return debugrequestid;
+}
+
+export async function logWrqResponse(debugrequestid: string, fetchresult: Pick<Response, "ok" | "status" | "statusText" | "headers" | "json" | "text" | "arrayBuffer" | "clone">) {
   console.log(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statusText} ${getResponseSummary(fetchresult)}`);
   console.log(`[wrq] ${debugrequestid} headers ${headersToString(fetchresult.headers)}`);
 
@@ -72,6 +78,22 @@ async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo |
     const responsebody = await fetchresult.clone().text();
     console.log(`[wrq] ${debugrequestid} body    ${sanitizeBody(responsebody)}`);
   }
+}
+
+async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
+  if (!debugFlags.wrq)
+    return originalfetch(input, init);
+
+  let { method, url, headers, body } = extractRequestInfo(input, init);
+  if (body) {
+    body = await extractRequestBody(body);
+    init = { ...init, body };
+  }
+
+  const debugrequestid = logWrqRequest(method, url, headers, body);
+
+  const fetchresult = await originalfetch(input, init); //TODO log responses as well (if safe/applicable, eg not binary or Very Long... and we probably should wait for the first json()/text()/body() call? but at least log the status and time!)
+  await logWrqResponse(debugrequestid, fetchresult);
 
   return fetchresult;
 }
