@@ -26,7 +26,7 @@
     "@types/semver": "^7.5.8",
     "@types/ws": "^8.5.13",
     "@typescript-eslint/parser": "^8.15.0",
-    "@xmldom/xmldom": "^0.9.7",
+    "@xmldom/xmldom": "^0.9.8",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "commander": "^12.0.0",
@@ -62,7 +62,7 @@
     "typescript-eslint": "^8.24.1",
     "typescript-formatter": "^7.2.2",
     "typescript-json-schema": "^0.62.0",
-    "undici": "^7.3.0",
+    "undici": "^7.4.0",
     "ws": "^8.18.1",
     "yaml": "^2.7.0"
   },
