@@ -102,13 +102,13 @@ esac
 
 # If we haven't found WEBHARE_DATAROOT that way, discover it
 if [ -z "$WEBHARE_DATAROOT" ] ; then
-  echo "WEBHARE_DATAROOT must be set. If you're running a source installation, set up WebHare runkit"
+  echo "WEBHARE_DATAROOT must be set. If you're running a source installation, set up WebHare runkit" >&2
   exit 1
 elif [[ $WEBHARE_DATAROOT == $WEBHARE_DIR* ]]; then # Test if WEBHARE_DATAROOT is inside WEBHARE_DIR
   echo "WEBHARE_DATAROOT ($WEBHARE_DATAROOT) must not be inside the WebHare installation directory ($WEBHARE_DIR)" >&2
   if [ -n "$WHRUNKIT_TARGETSERVER" ]; then #we're started through runkit..
     # Do not recommend rm -r .. rm will safely delete a symlink but not a directory
-    echo "Suggested fix: mv $WEBHARE_DATAROOT $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/whdata && rm $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/dataroot"
+    echo "Suggested fix: mv $WEBHARE_DATAROOT $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/whdata && rm $WHRUNKIT_DATADIR/$WHRUNKIT_TARGETSERVER/dataroot" >&2
   fi
   exit 1
 elif [ "${WEBHARE_DATAROOT:0:1}" != "/" ]; then
@@ -119,7 +119,7 @@ elif [ "${WEBHARE_DATAROOT: -1}" != "/" ]; then #ensure it ends with a slash
 fi
 
 if [ -f "${WEBHARE_DATAROOT}dbase/translog.whdb" ]; then
-  echo "The dbserver is no longer suppported by WebHare 5.0 and up. Downgrade and convert first!"
+  echo "The dbserver is no longer supported by WebHare 5.0 and up. Downgrade and convert first!" >&2
   exit 1
 fi
 

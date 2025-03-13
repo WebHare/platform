@@ -2,7 +2,7 @@
 watch mode: wh devkit:generate-sdk-docs -w
 */
 
-import * as TypeDoc from "typedoc";
+import type * as TypeDoc from "typedoc";
 
 import { uploadGeneratedDocumentation } from "@mod-devkit/js/sdk-docs/upload";
 import { renderDocsProject } from "@mod-devkit/js/sdk-docs/rendering";

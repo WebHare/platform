@@ -35,6 +35,7 @@ ADDMODULES=
 ISMODULETEST=
 ISJSPACKAGETEST=
 ISPLATFORMTEST=
+NOAUTOMODULEDIR=
 TESTFAIL=0
 FATALERROR=
 ARTIFACTS=
@@ -402,6 +403,9 @@ while true; do
   elif [ "$1" == "-m" ] || [ "$1" == "--module" ]; then
     ISMODULETEST=1
     shift
+  elif [ "$1" == "--noautomoduledir" ]; then
+    NOAUTOMODULEDIR=1
+    shift
   elif [ "$1" == "--jspackage" ]; then
     ISJSPACKAGETEST=1
     export TESTFW_WEBHARE_ENABLE_DEVKIT=1 #The actual test logic is in the devkit
@@ -429,13 +433,13 @@ done
 IMPLICITARGS=()
 if [ -n "$ISMODULETEST" ]; then
   [ -z "$ISPACKAGETEST" ] || die "Cannot specify both --jspackage and --m"
-  if [ -n "$CI_PROJECT_DIR" ]; then
+  if [ -n "$CI_PROJECT_DIR" ] && [ -z "$NOAUTOMODULEDIR" ]; then
     TESTINGMODULE="$CI_PROJECT_DIR"
     TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
     IMPLICITARGS+=("$TESTINGMODULENAME")
   else
     TESTINGMODULE="${1%%.*}"
-    TESTINGMODULENAME="$TESTINGMODULE"
+    TESTINGMODULENAME="$(basename "$TESTINGMODULE")"
     shift
     if [ -z "$TESTINGMODULE" ]; then
       echo "Please specify a testmodule to run"
@@ -655,6 +659,7 @@ elif [ -n "$ISMODULETEST" ]; then
   if [ ! -d "$TESTINGMODULEDIR" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then #doesn't appear to be CI, so give wh a shot to expand to the full module name
       TESTINGMODULEDIR="$(../../whtree/bin/wh getmoduledir "$TESTINGMODULE")"
+      echo TESTINGMODULEDIR=$TESTINGMODULEDIR
     fi
     if [ ! -d "$TESTINGMODULEDIR" ]; then
       echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
@@ -707,12 +712,16 @@ fi
 # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
 RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
 
-if ! [ -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then
-  exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
+if [ -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then
+  echo "$(date) Pulling dependency information for module $TESTINGMODULE"
+  MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
+  ERRORCODE="$?"
+elif [ -f "$TESTINGMODULEDIR/moduledefinition.yml" ]; then
+  # TODO we need a YML dep scanner - and probably learn to look if the 'yml' contains a 'dependencies' section before we decide to scan the XML file
+  ERRORCODE="0"
+else
+  exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml/yml"
 fi
-echo "$(date) Pulling dependency information for module $TESTINGMODULE"
-MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
-ERRORCODE="$?"
 
 if [ "$ERRORCODE" != "0" ]; then
   exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"

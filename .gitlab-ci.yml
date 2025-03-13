@@ -140,7 +140,9 @@ testjscomponents:
 testdevkit:
   stage: test
   script:
-    - TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testdocker.sh --nocheckmodule devkit
+      #We need --noautomodiledir to prevent testmodule just using CI_PROJECT_DIR (which takes precedence over $1)
+      #We need --webhareimage because --module makes webhareimage default to 'main'
+    - TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testdocker.sh --noautomoduledir --webhareimage "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" --module $(pwd)/whtree/modules/devkit
 
 testexternal:
   stage: test
