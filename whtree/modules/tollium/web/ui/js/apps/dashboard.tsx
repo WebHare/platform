@@ -141,28 +141,27 @@ class DashboardApp {
   _getCurrentlyFocusedItem() {
     if (!document.activeElement)
       return null;
-    return document.activeElement.closest('.dashboard__app');
+    return document.activeElement.closest('.dashboard__app') as HTMLElement | null;
   }
-  _navigateApps(evt, step) { //focus next or previous app (step explains direction)
+  _navigateApps(evt: KeyboardEvent | null, step: 1 | -1) { //focus next or previous app (step explains direction)
     if (evt)
       dompack.stop(evt);
 
-    const current = this._getCurrentlyFocusedItem();
-    if (!current)
-      return;
-
     const allappnodes = dompack.qSA(this.dashboardappsnode, '.dashboard__app');
-    let curpos = allappnodes.findIndex(node => node === current);
-    if (curpos < 0)
-      return;
+    let curpos = step === 1 ? -1 : allappnodes.length; //initially set it above or afer the list (if there's no selection)
 
+    const current = this._getCurrentlyFocusedItem();
+    if (current)  //we've got a selection! update position
+      curpos = allappnodes.indexOf(current);
+
+    //move in 'step' direction to find an active item
     for (curpos += step; curpos >= 0 && curpos < allappnodes.length; curpos += step) {
-      if (allappnodes[curpos].classList.contains('dashboard__menuitem--hidden'))
-        continue;//skip hidden entries
-
-      dompack.focus(allappnodes[curpos].querySelector('a'));
-      break;
+      if (!allappnodes[curpos].classList.contains('dashboard__menuitem--hidden'))
+        break;//skip hidden entries
     }
+
+    if (allappnodes[curpos])
+      dompack.qR(allappnodes[curpos], 'a').focus();
   }
 
   createDashboardFooter() {
@@ -179,7 +178,7 @@ class DashboardApp {
     // Single menu item with an app
     const AppMenuItem = ({ section, app }) =>
       <li class="dashboard__app" propApp={app} propSection={section}
-        on={{ click: e => this._onMenuClick(e, app.instr) }} >
+        on={{ click: (e: MouseEvent) => this._onMenuClick(e, app.instr) }} >
         <a href={app.link} class={{ "dashboard__applink": true, "dashboard__app--hasicon": app.icon }}>
           {app.icon ? toddImages.createImage(app.icon, 16, 16, 'w', { className: "dashboard__appicon" }) : null}
           <span class="dashboard__apptitle">{app.title}</span>
@@ -262,7 +261,7 @@ class DashboardApp {
       dompack.qSA<HTMLAnchorElement>(contentdiv, 'a').forEach(link => link.target = "_blank");
     });
   }
-  _onMenuClick(event, instr) {
+  _onMenuClick(event: MouseEvent, instr) {
     dompack.stop(event);
     if (!instr)
       return;

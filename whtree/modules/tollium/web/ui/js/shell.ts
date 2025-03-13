@@ -57,7 +57,7 @@ import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
 
 import TolliumShell from "@mod-tollium/shell/platform/shell";
-import type { AppLaunchInstruction, ShellInstruction } from '@mod-platform/js/tollium/types';
+import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup } from '@mod-platform/js/tollium/types';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
 function preventNavigation(event) {
@@ -76,40 +76,38 @@ declare global {
   }
 }
 
-
-interface ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
-  lang: string;
-  eventgroups: string[];
-  now: string;
-  apps: unknown[];
-  newsitems: unknown[];
-  dashboard: boolean;
-  dashboardbg: unknown | null; //TODO WrapCachedImage result
-  loginbg: unknown | null; //TODO WrapCachedImage result
-  allowpasswordreset: boolean;
-  displayimage: string;
-  displayname: string;
-  personalsettings: AppLaunchInstruction;
-  userdisplayname: string;
-  browsertitleprefix: string;
-  allowlogout: boolean;
-  openinfo: string;
-  checkinterval: number;
-  issysop: boolean;
-  notificationslocation: "none" | "browser" | "desktop";
-  feedbacktoken: string;
-  initialinstructions: AppLaunchInstruction[];
+class ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
+  lang = 'en';
+  eventgroups: string[] = [];
+  now: string = ''; //TODO why not a Instant ?
+  apps: MenuAppGroup[] = [];
+  newsitems: unknown[] = [];
+  dashboard: boolean = false;
+  dashboardbg: unknown | null = null; //TODO WrapCachedImage result
+  loginbg: unknown | null = null; //TODO WrapCachedImage result
+  allowpasswordreset: boolean = false;
+  displayimage: string = '';
+  displayname: string = '';
+  personalsettings: AppLaunchInstruction | null = null;
+  userdisplayname: string = '';
+  browsertitleprefix: string = '';
+  allowlogout: boolean = false;
+  openinfo: string = '';
+  checkinterval: number = 0;
+  issysop: boolean = false;
+  notificationslocation: "none" | "browser" | "desktop" = "browser";
+  feedbacktoken: string = "";
+  initialinstructions: AppLaunchInstruction[] = [];
 }
 
 class IndyShell extends TolliumShell {
-  settings: Partial<ShellSettings> = {};
+  settings = new ShellSettings;
   wrdauth = WRDAuth.getDefaultAuth();
   isloggingoff = false;
   istodd = false;
   eventsconnection = new EventServerConnection({ url: "/wh_events/" });
-  broadcaststart = null; //start of broadcasts. used to filter old messages
+  broadcaststart: number | null = null; //start of broadcasts. used to filter old messages
   isloggedin = false;
-  checkinterval = 0;
   offlinenotification = false;
 
   frontendids = [];
@@ -470,9 +468,10 @@ class IndyShell extends TolliumShell {
     this.towl.setNotificationLocation(settings.notificationslocation);
 
     dompack.dispatchCustomEvent(window, 'tollium:settingschange', { bubbles: true, cancelable: false });
-    if (document.getElementById('openinfo')) {
-      document.getElementById('openinfo').style.display = settings.openinfo ? "block" : "none";
-      document.getElementById('openinfo').textContent = settings.openinfo;
+    const openinfo = dompack.qS("#openinfo");
+    if (openinfo) {
+      openinfo.style.display = settings.openinfo ? "block" : "none";
+      openinfo.textContent = settings.openinfo;
     }
 
     const curapp = $todd.applicationstack.at(-1);
@@ -488,9 +487,9 @@ class IndyShell extends TolliumShell {
     if (typeof reuse_instance !== "string")
       reuse_instance = reuse_instance ? "always" : "never";
 
-    //FIXME: Send actual mesage and data
+    //FIXME: Send actual message and data
     if (reuse_instance !== "never") {
-      for (var i = 0; i < $todd.applications.length; ++i) {
+      for (let i = 0; i < $todd.applications.length; ++i) {
         //console.log('Compare with ' + i + ' app:' + $todd.applications[i].appname + ' target:', $todd.applications[i].apptarget);
 
         if ($todd.applications[i].appname === app && JSON.stringify($todd.applications[i].apptarget) === JSON.stringify(target)) {
