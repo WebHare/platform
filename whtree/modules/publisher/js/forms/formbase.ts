@@ -768,7 +768,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
             if (pagestate.curpage > 0)
               this.gotoPage(this._getDestinationPage(pagestate, -1));
             else if (this.node.dataset.whFormBacklink)
-              location.href = this.node.dataset.whFormBacklink;
+              navigateTo({ type: "redirect", url: this.node.dataset.whFormBacklink });
           }
           return;
         }

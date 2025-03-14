@@ -7,7 +7,6 @@ let debuglayer: HTMLDivElement | undefined;
 
 async function clearCache() {
   await maintenance.clearCache(settings.getAppName());
-  //location.reload(true);
 }
 async function restartApp() {
   location.reload();

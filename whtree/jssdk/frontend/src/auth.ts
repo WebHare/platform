@@ -60,7 +60,8 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
   const loginresult = await login(username, password, { persistent: persistentlogin, site });
   if (loginresult.loggedIn) {
     //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
-    location.reload();
+    console.log("Reloading to process the new loggedIn status");
+    navigateTo({ type: "reload" });
   } else {
     //FIXME restore the code & data members from old wrdauth
     failLogin(loginresult.error, { code: "unknown", data: "" }, node);
@@ -82,7 +83,8 @@ export function setupWRDAuth() {
     async function handleLogoutClick(event: Event) {
       dompack.stop(event);
       await logout();
-      location.reload(); //TODO put this behind a 'login state change' event
+      console.log("Reloading to process the new logged out status");
+      navigateTo({ type: "reload" }); //TODO put this behind a 'login state change' event
     }
 
     node.addEventListener("click", event => void handleLogoutClick(event));
