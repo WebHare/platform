@@ -204,10 +204,6 @@ div#openinfo
   bottom: 0;
   width: 100%;
 }
-/* line 198, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
-html.frontendmode #mainarea {
-  top: 0;
-}
 
 /* line 261, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
 #desktop {

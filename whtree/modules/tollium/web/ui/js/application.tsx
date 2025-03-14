@@ -956,11 +956,6 @@ export class BackendApplication extends ApplicationBase {
         this.applyAppUpdate(instr);
       } else if (instrname === "grabactivation") {
         grabactivation = 1;
-      } else if (instrname === "redirect") {
-        if (whintegration.config.tollium.frontendmode)
-          window.parent.location.href = instr.url;
-        else
-          console.warn("Ignoring redirection instruction, they are only accepted in frontend mode");
       } else if (instrname === "sendformstate") {
         if (sendformstate < instr.id)
           sendformstate = instr.id;

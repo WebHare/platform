@@ -246,7 +246,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
   //Root for assets that should remain as static as possible, even without allow jscache
   PUBLIC STRING toddstaticroot;
   PUBLIC RECORD appserviceparams;
-  PUBLIC BOOLEAN frontendmode;
 
   PUBLIC BOOLEAN debugging;
   PUBLIC BOOLEAN profiling;
@@ -288,7 +287,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
       , shortunknowntids := IsWHDebugOptionSet('sut')
       , profiling        := this->profiling
       , memoryprofiling  := this->memoryprofiling
-      , frontendmode     := this->frontendmode
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
       , this->config.allowinframe
@@ -300,7 +298,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
       , title            := this->title
       , tolliumconfig    := EncodeJSON(config)
       , config := config
-      , frontendmode     := this->frontendmode
 
       , addedheaders     := this->addedheaders
       , version          := GetWebhareVersion()

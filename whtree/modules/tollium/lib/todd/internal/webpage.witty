@@ -11,19 +11,17 @@
   </script>
 
   <div class="wh-shell__root" spellcheck="false">
-    [if not frontendmode]
-      <div class="t-apptabs" id="t-apptabs">
-        <div id="openinfo"></div>
-        <div class="t-apptabs__fixed"></div>
-        <div class="t-apptabs__dynamic">
-          <div class="t-apptabs__content"></div>
-          <span class="t-apptabs__leftscroll"></span>
-          <span class="t-apptabs__rightscroll"></span>
-          <span class="t-apptabs__navtab"></span>
-          <div class="t-apptabs__optionaltext" id="dashboard-display-name"></div>
-        </div>
+    <div class="t-apptabs" id="t-apptabs">
+      <div id="openinfo"></div>
+      <div class="t-apptabs__fixed"></div>
+      <div class="t-apptabs__dynamic">
+        <div class="t-apptabs__content"></div>
+        <span class="t-apptabs__leftscroll"></span>
+        <span class="t-apptabs__rightscroll"></span>
+        <span class="t-apptabs__navtab"></span>
+        <div class="t-apptabs__optionaltext" id="dashboard-display-name"></div>
       </div>
-    [/if]
+    </div>
     <div id="mainarea">
       <div id="desktop"></div>
     </div>
