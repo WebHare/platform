@@ -118,8 +118,10 @@ export function setConsent(newsetting: string[]) {
   // Revoked consent may need a reload to take effect.
   // This is because it's not worth the effort for most websites to implement on-the-fly disabling
   // of functionality. It might even be impossible if 3rd party scripts are already loaded.
-  if (consent_revoked)
-    window.location.reload();
+  if (consent_revoked) {
+    console.log("[cst] Reloading to handle revoked consent");
+    location.reload();
+  }
 
   updateConsent();
 }
