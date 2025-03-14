@@ -1053,18 +1053,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN trylogin;
   }
 
-
-
-  //not for direct use, public only for tolliumu se
-  PUBLIC RECORD FUNCTION __CompleteLogin(RECORD logindata)
-  {
-    this->CheckNotFailed();
-    RECORD trylogin := this->__GetWRDAuthIntegration()->__CompleteLogin(logindata, TRUE);
-    IF(trylogin.success)
-      this->UpdateUserInfo();
-    RETURN trylogin;
-  }
-
   /** @short Log a custom audit event
       @param type The event type (e.g. "MYSITE:MYEVENT")
       @param options @includecelldef #WRDAuth::WriteAuditEvent.options

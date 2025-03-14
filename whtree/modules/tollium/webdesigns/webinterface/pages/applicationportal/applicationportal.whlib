@@ -940,16 +940,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     RETURN BootApp(app, invoke);
   }
 
-  PUBLIC RECORD FUNCTION WCS_CompleteLogin(STRING data)
-  {
-    this->SetupPortal();
-    RECORD logindata := DecryptForThisServer("tollium:applicationportal", data);
-    RECORD result := this->wrdauthplugin->__CompleteLogin(logindata);
-    IF(result.success)
-      RETURN [ success := TRUE ];
-    THROW NEW Exception("Login failed: " || anytostring(result,'tree'));
-  }
-
   PUBLIC RECORD FUNCTION WCS_GetCheckResult()
   {
     this->SetupPortal();
