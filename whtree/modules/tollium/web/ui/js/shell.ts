@@ -9,7 +9,6 @@
 
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
-import LinkEndPoint from './comm/linkendpoint';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
@@ -56,7 +55,7 @@ import TowlNotifications from './shell/towl';
 import { getTid } from "@mod-tollium/js/gettid";
 require("../common.lang.json");
 
-import TolliumShell from "@mod-tollium/shell/platform/shell";
+import TolliumShell, { type AppStartResponse } from "@mod-tollium/shell/platform/shell";
 import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup } from '@mod-platform/js/tollium/types';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
@@ -110,7 +109,6 @@ class IndyShell extends TolliumShell {
   isloggedin = false;
   offlinenotification = false;
 
-  frontendids = [];
   feedbackhandler: TolliumFeedbackAPI | null = null;
 
   appmgr = new AppMgr(this);
@@ -213,27 +211,6 @@ class IndyShell extends TolliumShell {
   editPersonalSettings() {
     if (this.settings.personalsettings)
       this.executeInstruction(this.settings.personalsettings);
-  }
-  getApplicationById(id: string) {
-    for (let i = 0; i < $todd.applications.length; ++i)
-      if ($todd.applications[i].whsid === id)
-        return $todd.applications[i];
-    return null;
-  }
-
-  registerApplicationFrontendLink(data) {
-    // Register the frontend id
-    const seenfrontend = this.frontendids.includes(data.frontendid);
-    if (!seenfrontend)
-      this.frontendids.push(data.frontendid);
-
-    if (!seenfrontend) //FIXME should we register an endpoint if it wasn't an appstart? (what else could it be)? Decided to do it anyway, as the original code _did_ include the frontendid into $tdod.frontendids no matter what..
-    {
-      const metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
-      metacomm.onmessage = this._gotMetaMessage.bind(this);
-      metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
-      metacomm.register(this.transportmgr);
-    }
   }
 
   checkDirtyState() {
@@ -593,23 +570,13 @@ class IndyShell extends TolliumShell {
     app.handleMetaMessage(data);
   }
 
-  _gotMetaClose(frontendid) {
-    $todd.DebugTypedLog('communication', frontendid, 'connection closed');
+  onFrontendClose() {
+  }
 
-    let openapps = false;
-    $todd.applications.forEach(function (app) {
-      // Do we have any (non-crashed) applications open? Close them now.
-      if (app.frontendid === frontendid && !app.appisclosing) {
-        app.handleMetaClose();
-        openapps = true;
-      }
-    });
-
-    this.frontendids = this.frontendids.filter(id => id !== frontendid); //erase
-
+  gotMetaClose(linkid: string, openapps: boolean) {
+    super.gotMetaClose(linkid, openapps);
     if (openapps) {
-      const notification =
-      {
+      const notification = {
         id: "tollium:shell.frontendclose",
         icon: "tollium:messageboxes/warning",
         title: getTid("tollium:shell.frontendclose"),
@@ -620,7 +587,6 @@ class IndyShell extends TolliumShell {
 
       this.towl.showNotification(notification);
     }
-
     this.checkVersion();
   }
 
@@ -628,8 +594,7 @@ class IndyShell extends TolliumShell {
     //    console.warn("Went offline, showing notification");
 
     if (!this.offlinenotification) {
-      const notification =
-      {
+      const notification = {
         id: "tollium:shell.offline",
         icon: this.offlinenotificationicon,
         title: getTid("tollium:shell.offline"),
@@ -665,9 +630,9 @@ class IndyShell extends TolliumShell {
 }
 
 
-export async function handleApplicationErrors(app: ApplicationBase, data) {
+export async function handleApplicationErrors(app: ApplicationBase, data: AppStartResponse) {
   const $shell = getIndyShell();
-  if (data.error) { //An error code from StartApp
+  if ("error" in data && data.error) { //An error code from StartApp
     switch (data.error) {
       case "notloggedin": {
         await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
@@ -678,28 +643,27 @@ export async function handleApplicationErrors(app: ApplicationBase, data) {
       case "unexpectedprotocolversion": {
         await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
         if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-          location.reload(true);
+          location.reload();
         return;
       }
       default: {
         // TODO unexpectedprotocolversion is being updated to transmit an errormessage.. once rolled out sufficiently we can rely on that and remove the case above
         await runSimpleScreen(app, { text: data.errormessage || data.error, buttons: [{ name: 'ok', title: getTid("~ok") }] });
         if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-          location.reload(true);
+          location.reload();
         return;
       }
     }
   }
 
-  if (data.type === "expired") //StartApp error
-  {
+  if ("type" in data && data.type === "expired") { //StartApp error
     await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
     app.__startAppClose();
-    location.reload(true);
+    location.reload();
     return;
   }
 
-  if (!data.errors?.length) {
+  if (!("errors" in data) || !data.errors?.length) {
     //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
     app.terminateApplication();
     return;
@@ -714,8 +678,6 @@ export async function handleApplicationErrors(app: ApplicationBase, data) {
       messages += data.errors[i].message + "\n";
       messages += "At " + data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ")\n";
     } else {
-      if (data.errors[i].async_origin)
-        trace += data.errors[i].async_origin + "\n";
       trace += data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ") " + data.errors[i].func + "\n";
     }
   }
@@ -724,7 +686,7 @@ export async function handleApplicationErrors(app: ApplicationBase, data) {
 }
 
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
-function reportApplicationError(app, data, messages, trace) {
+function reportApplicationError(app, data: AppStartResponse, messages, trace) {
   //Set up a crash handler dialog
   let buttons = [{ item: "restartbutton" }, { item: "closebutton" }];
   if (data.debugtimeout > 0)

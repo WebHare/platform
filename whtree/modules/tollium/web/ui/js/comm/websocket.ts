@@ -97,17 +97,16 @@ export default class WebSocketTransport extends TransportBase {
     //    console.log('endpoint signalled', endpoint.options.linkid, this.socket ? this.socket.readyState : 'n/a');
     if (!this.signalled.includes(endpoint))
       this.signalled.push(endpoint);
-    if (this.socket && this.socket.readyState === 1)
+    if (this.socket && this.socket.readyState === WebSocket.OPEN)
       this.handleSignalledEndpoints();
   }
 
   updateListenLinks() {
-    if (!this.socket || this.socket.readyState !== 1)
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN)
       return;
 
     const links: string[] = [];
     const frontendids: string[] = [];
-
     this.endpoints.forEach(function (endpoint) {
       if (!links.includes(endpoint.options.linkid))
         links.push(endpoint.options.linkid);

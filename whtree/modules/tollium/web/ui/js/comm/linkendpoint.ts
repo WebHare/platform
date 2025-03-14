@@ -8,14 +8,17 @@ interface LinkEndpointOptions {
   frontendid: string;
 }
 
-
-export interface LinkWireMessage {
+export interface BaseWireMessage {
   linkid: string;
   messages: Array<{
     seqnr: number;
     data: unknown;
   }>;
   ack: number;
+
+}
+
+export interface LinkWireMessage extends BaseWireMessage {
   frontendid: string;
   needack: boolean;
   status?: "gone";
@@ -23,7 +26,7 @@ export interface LinkWireMessage {
 
 /** Implements the todd end of a reliable communication link
 */
-export default class LinkEndpoint {
+export class LinkEndpoint {
   // Current sequence nr for messages
   msgcounter = 0;
 
@@ -191,3 +194,5 @@ export default class LinkEndpoint {
     this.unregister();
   }
 }
+
+export default LinkEndpoint;

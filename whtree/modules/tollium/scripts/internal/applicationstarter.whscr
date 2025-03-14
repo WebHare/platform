@@ -455,6 +455,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         , linkid :=     linkid
         , frontendid := frontendid
         , appdata :=    rec.msg
+        , appid :=      appid
         ], replyid);
 
     RETURN DEFAULT RECORD;
