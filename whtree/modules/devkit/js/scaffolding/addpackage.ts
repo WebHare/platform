@@ -1,7 +1,7 @@
 import { backendConfig } from "@webhare/services";
 import { existsSync, mkdirSync, readFileSync, rmdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
-import { fixJSPackages, type PackageJson } from "@mod-platform/scripts/jspackages/jspackages";
+import { fixJSPackages, type PackageJson } from "@mod-platform/js/devsupport/jspackages";
 import { simpleGit } from "simple-git";
 
 interface PackageRef {

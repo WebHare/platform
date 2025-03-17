@@ -19,6 +19,7 @@ import { isMainThread, type TransferListItem, workerData } from "node:worker_thr
 import { formatLogObject, type LoggableRecord } from "@webhare/services/src/logmessages";
 import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
 import { getScriptName } from "@webhare/system-tools";
+import type { Socket } from "node:net";
 
 export type { IPCMessagePacket, IPCLinkType } from "./ipc";
 export type { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -1443,7 +1444,7 @@ function hookConsoleLog() {
     if (key !== "Console" && key !== "trace") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
-        if (source.method) {
+        if (source.method) { //we already captured log location info, don't overwrite it
           return (func as (...args: unknown[]) => unknown).apply(console, args);
         } else {
           source.method = key;
@@ -1456,7 +1457,7 @@ function hookConsoleLog() {
           try {
             return (func as (...args: unknown[]) => unknown).apply(console, args);
           } finally {
-            source.method = "";
+            source.method = ""; //reset captured state
             source.location = undefined;
           }
         }
@@ -1465,13 +1466,13 @@ function hookConsoleLog() {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+  function interceptConsoleLog(data: string | Uint8Array, encoding: any, cb: ((err?: Error) => void) | undefined, oldcall: Socket["write"], oldstream: NodeJS.WriteStream) {
     if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.workerid})` : ``;
-      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}:${source.method === "table" ? "\n" : " "}`, "utf-8");
+      oldcall.call(oldstream, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}:${source.method === "table" ? "\n" : " "}`, "utf-8");
       source.loggedlocation = true;
     }
-    const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
+    const retval = oldcall.call(oldstream, data, encoding, cb);
     const tolog: string = typeof data === "string" ? data : Buffer.from(data).toString("utf-8");
     const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
     consoledata.push(consoleLogItem);
@@ -1483,26 +1484,16 @@ function hookConsoleLog() {
         getCodeContext().consoleLog.shift();
     }
     return retval;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    return interceptConsoleLog(data, encoding, cb, old_std_writes.stdout, process.stdout);
   };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.debugFlags.conloc && source.location && !source.loggedlocation) {
-      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.workerid})` : ``;
-      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}#${source.codeContextId || "root"}: `, "utf-8");
-      source.loggedlocation = true;
-    }
-    const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
-    const tolog: string = typeof data === "string" ? data : Buffer.from(data).toString("utf-8");
-    const consoleLogItem = { method: source.method, data: tolog, when: source.when, ...(source.location ? { location: source.location } : null) };
-    consoledata.push(consoleLogItem);
-    if (consoledata.length > 100)
-      consoledata.shift();
-    if (envbackend.debugFlags.etr) {
-      getCodeContext().consoleLog.push(consoleLogItem);
-      if (getCodeContext().consoleLog.length > 100)
-        getCodeContext().consoleLog.shift();
-    }
-    return retval;
+    return interceptConsoleLog(data, encoding, cb, old_std_writes.stderr, process.stderr);
   };
 }
 

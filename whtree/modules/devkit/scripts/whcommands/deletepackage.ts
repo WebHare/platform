@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { simpleGit } from "simple-git";
 import { isTruthy } from "@webhare/std";
 import { backendConfig, parseResourcePath, toResourcePath } from "@webhare/services";
-import { fixJSPackages, type PackageJson } from "@mod-platform/scripts/jspackages/jspackages";
+import { fixJSPackages, type PackageJson } from "@mod-platform/js/devsupport/jspackages";
 import { storeDiskFile } from "@webhare/system-tools";
 
 run({
