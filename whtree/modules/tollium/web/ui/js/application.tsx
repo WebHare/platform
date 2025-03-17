@@ -20,6 +20,7 @@ import type IndyShell from './shell';
 import { getIndyShell, handleApplicationErrors } from './shell';
 import { getFocusableComponents } from 'dompack/browserfix/focus';
 import { debugFlags } from "@webhare/env";
+import type { AppStartResponse } from '@mod-tollium/shell/platform/shell';
 
 require("../common.lang.json");
 
@@ -86,7 +87,7 @@ export class ApplicationBase {
   lang = 'en';
 
   //Is the app closing?
-  private appIsClosing = false;
+  protected appIsClosing = false;
 
   //Is the app currently showing a lock (or in the pre-spinner phase, but intending to show a spinner)
   private appShowsLocked = false;
@@ -357,7 +358,7 @@ export class ApplicationBase {
   }
 
   __startAppClose() { //should be private but shell needs it
-    return; //disabled for now. we don't seem to need it? enabling it causes tollium.comm.testappstart to hang on Exception screen
+    return; //disabled for now. we don't seem to need it? enabling it causes tollium.comm.testappstart to hang on Exception screen. TODO: or was this triggered by shell.ts referring to it in lowercase, ie 'appisclosing' ?
     this.appIsClosing = true;
     this.notifyTopScreenChange();
   }
@@ -759,9 +760,12 @@ export class BackendApplication extends ApplicationBase {
     }
   }
 
-  handleMetaClose() {
+  handleMetaClose(): boolean {
+    if (this.appIsClosing)
+      return false;
     this.deferred_metamessage.resolve(null);
     setTimeout(this.deferred_close.resolve, 5000); // wait max 5 secs for link close
+    return true; //we had something to close!
   }
 
   start(frontendid) {
@@ -1129,11 +1133,11 @@ export class BackendApplication extends ApplicationBase {
       this.terminateApplication();
     }
   }
-  gotApplication(data) {
+  gotApplication(data: AppStartResponse) {
     //ADDME dealing with subapps?
 
     //destroy any screens - FIXME why??
-    if (data.status !== 'ok') {
+    if (!("status" in data) || data.status !== 'ok') {
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
       handleApplicationErrors(this, data);
@@ -1141,7 +1145,7 @@ export class BackendApplication extends ApplicationBase {
       return;
     }
 
-    this.shell.registerApplicationFrontendLink({ ...data, commhost: location.origin });
+    this.shell.registerApplicationFrontendLink(this, data, location.origin);
 
     const appstartmsg = data.appdata;
     if (appstartmsg.type === 'appstart') {
