@@ -1,9 +1,12 @@
 import { backendConfig, resolveResource, toFSPath } from "@webhare/services";
 import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
-import { type ServiceDefinition, Stage } from './smtypes';
+import { type ServiceDefinition, Stage, type WebHareVersionFile } from './smtypes';
 import type { ManagedServices } from "@mod-platform/generated/schema/moduledefinition";
 import { matchesThisServer } from "@mod-system/js/internal/generation/shared";
-import { pick } from "@webhare/std";
+import { isLikeRandomId, pick } from "@webhare/std";
+import { readFileSync } from "node:fs";
+import { getVersionFile } from "@mod-system/js/internal/configuration";
+import { spawnSync } from "node:child_process";
 
 const defaultServices: Record<string, ServiceDefinition> = {
   /* Bootup stage. Here we bring up all passive services that WebHare scripts will need
@@ -132,4 +135,19 @@ export async function gatherManagedServices(): Promise<Record<string, ServiceDef
 
 export async function getAllServices() {
   return { ...await gatherManagedServices(), ...defaultServices };
+}
+
+export async function getServiceManagerChildPids(): Promise<number[]> {
+  try {
+    const versioninfo = JSON.parse(readFileSync(getVersionFile(), 'utf8')) as WebHareVersionFile;
+    if (!isLikeRandomId(versioninfo.servicemanagerid)) //unsafe to embed in a shell call otherwise
+      return [];
+
+    //The empty group () is there to prevent us from matching ourselves in the process list
+    const output = spawnSync(`ps ewwax|grep -E ' WEBHARE_SERVICEMANAGERID()=${versioninfo.servicemanagerid}' | cut -d' ' -f1`, { shell: true }).output.toString().split('\n');
+    const pids = output.map((line) => parseInt(line.trim())).filter((pid) => !isNaN(pid));
+    return pids.filter(_ => _ !== process.pid);
+  } catch (e) {
+    return [];
+  }
 }

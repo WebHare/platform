@@ -1,13 +1,12 @@
-import { getAllServices, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
-import type { ServiceDefinition, WebHareVersionFile } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
+import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
+import type { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
-import { getExtractedConfig, getVersionFile } from '@mod-system/js/internal/configuration';
+import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import type { BackendServiceDescriptor } from '@mod-system/js/internal/generation/gen_extracts';
 import { openBackendService, type GetBackendServiceInterface } from '@webhare/services';
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { spawn, spawnSync } from 'child_process';
-import { readFileSync } from 'fs';
-import { isLikeRandomId } from '@webhare/std';
+import { spawn } from 'child_process';
+import { kill } from 'process';
 
 //short: Control the WebHare service manager
 // @webhare/cli: allowautocomplete
@@ -143,12 +142,19 @@ run({
       description: "Terminate or kill all child processes of this service manager",
       flags: { "kill": { description: "Use kill instead of terminate" } },
       main: async ({ opts, args }) => {
-        const versioninfo = JSON.parse(readFileSync(getVersionFile(), 'utf8')) as WebHareVersionFile;
-        if (!isLikeRandomId(versioninfo.servicemanagerid))
-          throw new Error("Not a valid servicemanager id");
+        const pids = await getServiceManagerChildPids();
+        if (pids.length === 0) {
+          console.error("No child processes found");
+          return;
+        }
 
-        const flags = opts.kill ? "-9" : "";
-        spawnSync(`kill ${flags} $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=${versioninfo.servicemanagerid}' | cut -d' ' -f1)`, { shell: true });
+        for (const pid of pids) {
+          try {
+            kill(pid, opts.kill ? "SIGKILL" : "SIGTERM");
+          } catch (e) {
+            //ignore
+          }
+        }
       }
     }
   }
