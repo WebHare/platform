@@ -56,8 +56,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     this->frame->title := GetTid("system:userrights.edituser.changeownsettings");
 
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
-    ^authenticationsettings->LoadEntityField(this->contexts->user->entity, this->contexts->userapi->wrdschema->accountpasswordtag);
-    ^authenticationsettings->allowsecondfactor := TRUE;
+    ^authenticationsettings->cellname := this->contexts->userapi->wrdschema->accountpasswordtag;
 
     ^entitylistener->masks := this->contexts->userapi->wrdschema->accounttype->GetEventMasks();
 

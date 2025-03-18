@@ -86,15 +86,15 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     this->LoadScreenExtensions();
 
     ^userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0);
+    ^authenticationsettings->cellname := this->contexts->wrdschema->accountpasswordtag;
+
     IF(NOT ObjectExists(this->pvt_user))
     {
       ^wrd_guid->value := this->contexts->userapi->wrdschema->accounttype->GetNewEntityGUID();
       ^language->SetValueIfValid(ReadRegistryKey("system.userrights.newuserdefaults_language"));
-      ^authenticationsettings->visible := FALSE;
     }
     ELSE
     {
-      ^authenticationsettings->LoadEntityField(this->pvt_user->entity, this->contexts->wrdschema->accountpasswordtag);
       ^language->SetValueIfValid(this->pvt_user->GetLocale().language);
       IF (ObjectExists(this->pvt_user->entity))
       {

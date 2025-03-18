@@ -20,7 +20,10 @@
             <textedit composition="userobj" cellname="wrd_infix" name="wrd_infix" />
             <textedit composition="userobj" cellname="wrd_lastname" name="wrd_lastname" />
             <passwordfield name="password" entercurrentpassword="false" />
-            <authenticationsettings name="authenticationsettings" />
+            <authenticationsettings composition="userobj"
+                                    cellname=""
+                                    name="authenticationsettings"
+                                    tid=".authenticationsettings" />
             <select name="language" type="pulldown" width="1pr" tid="userrights.edituser.prefslang" />
             <select composition="userobj"
                     cellname="whuser_disable_type"

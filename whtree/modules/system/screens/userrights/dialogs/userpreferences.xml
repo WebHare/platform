@@ -33,7 +33,7 @@
             <!-- <text  composition="userobj" cellname="wrd_fullname"/> -->
             <textedit composition="userobj" cellname="wrd_title" name="fullname" readonly="true" tid=".fullname" />
             <textedit name="username" tid=".username" />
-            <authenticationsettings name="authenticationsettings" />
+            <authenticationsettings composition="userobj" cellname="" name="authenticationsettings" tid=".authenticationsettings" />
             <text name="appaccounts" action="openapppasswords" title="" valuetid=".appaccountstab" />
           </tab>
           <tab name="preferences">
