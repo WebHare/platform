@@ -9,8 +9,15 @@ import { getFrontendData } from '@webhare/frontend/src/init';
 import { cleanCookieName } from "@webhare/wrd/src/concepts";
 import { parseTyped, stringify } from "@webhare/std";
 
+/** WRDAuth configuration */
+export interface WRDAuthOptions {
+  /** Callback that is invoked after a succesful login. If not set the page will be reloaded. */
+  onLogin?: () => Promise<void> | void;
+}
+
 interface AuthLocalData {
   expires: Temporal.Instant | Date; //Future WH will changes this to Temporal.Instant (but we don't want to force the polyfill yet)
+  userInfo?: object | null;
 }
 
 declare module "@webhare/frontend" {
@@ -34,6 +41,10 @@ export type LoginResult = {
   /** Error message */
   error: string;
 };
+
+/** Current authoptions. undefined if setupWRDAuth hasn't been invoked yet */
+let authOptions: WRDAuthOptions | undefined;
+
 
 function getCookieName() {
   const settings = getFrontendData("wrd:auth", { allowMissing: true });
@@ -62,9 +73,13 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
 
   const loginresult = await login(username, password, { persistent: persistentlogin, site });
   if (loginresult.loggedIn) {
-    //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
-    console.log("Reloading to process the new loggedIn status");
-    navigateTo({ type: "reload" });
+    if (authOptions?.onLogin) {
+      await authOptions.onLogin();
+    } else {
+      //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
+      console.log("Reloading to process the new loggedIn status");
+      navigateTo({ type: "reload" });
+    }
   } else {
     //FIXME restore the code & data members from old wrdauth
     failLogin(loginresult.error, { code: "unknown", data: "" }, node);
@@ -81,7 +96,12 @@ export function isLoggedIn(): boolean {
 }
 
 /** Setup WRDAuth frontend integration */
-export function setupWRDAuth() {
+export function setupWRDAuth(options?: WRDAuthOptions) {
+  if (authOptions)
+    throw new Error(`Duplicate setupWRDAuth call`);
+
+  authOptions = { ...options };
+
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
     node.addEventListener("submit", evt => void submitLoginForm(node, evt));
   });
@@ -121,6 +141,10 @@ function failLogin(message: string, response: { code: string; data: string }, fo
   }
 }
 
+/** Retrieve userinfo if set by onFrontendUserInfo in your WRDAuth customizer */
+export function getUserInfo<T extends object = object>(): T | null {
+  return dompack.getLocal<AuthLocalData>(getStorageKeyName())?.userInfo as T | null;
+}
 
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
@@ -137,7 +161,10 @@ export async function login(username: string, password: string, options: LoginOp
     return { loggedIn: false, error: result.error };
 
   //we've logged in!
-  dompack.setLocal<AuthLocalData>(getStorageKeyName(), { expires: result.expires });
+  dompack.setLocal<AuthLocalData>(getStorageKeyName(), {
+    expires: result.expires,
+    userInfo: result.userInfo || null
+  });
   return { loggedIn: true };
 }
 

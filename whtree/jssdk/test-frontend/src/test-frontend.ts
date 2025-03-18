@@ -119,7 +119,7 @@ export function importExposed<T>(name: string): T {
    - waitUI - Wait for the UI to be ready (default: true)
    - urlParams - URL parameters to add to the URL
  */
-export async function load(page: string, options?: { waitUI?: boolean; urlParams: Record<string, string> }): Promise<void> {
+export async function load(page: string | URL, options?: { waitUI?: boolean; urlParams: Record<string, string> }): Promise<void> {
   const cururl = getWin().location.href;
   const gotourl = new URL(page, cururl === 'about:blank' ? window.location.href : cururl);
   if (options?.urlParams)

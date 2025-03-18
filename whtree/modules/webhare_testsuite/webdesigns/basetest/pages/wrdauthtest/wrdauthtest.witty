@@ -42,6 +42,7 @@
               <input name="password" id="password" placeholder="password" type="password"><br>
               <input type="submit" id="loginbutton" value="Login">
             </form>
+            <div id="loginform_response"></div>
           </div>
           [if multisite]
             <div style="flex:1">

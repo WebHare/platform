@@ -20,4 +20,9 @@ export class AuthCustomizer implements WRDAuthCustomizer {
   onOpenIdUserInfo(params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
     userinfo.answer = 43;
   }
+
+  async onFrontendUserInfo(user: number) {
+    const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", user, ["wrdFirstName"]);
+    return { firstName: userinfo.wrdFirstName, aDate: new Date("2025-03-18") };
+  }
 }

@@ -1,9 +1,10 @@
 import * as dompack from "@webhare/dompack";
 import * as test from "@webhare/test-frontend";
 import { qR } from "@webhare/dompack";
-import { setupWRDAuth, isLoggedIn, login, logout } from "@webhare/frontend";
+import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo } from "@webhare/frontend";
 import type { TestNoAuthJS } from "@mod-webhare_testsuite/js/jsonrpc/service";
 import { createClient } from "@webhare/jsonrpc-client/src/jsonrpc-client";
+import { stringify } from "@webhare/std";
 
 const noAuthJSService = createClient<TestNoAuthJS>("webhare_testsuite:testnoauthjs");
 
@@ -25,4 +26,13 @@ dompack.register(".wrdauthtest", container => {
   qR<HTMLInputElement>('#js_isloggedin').checked = isLoggedIn();
 });
 
-setupWRDAuth();
+function onNavLessLogin() {
+  qR("#loginform_response").textContent = stringify({ userInfo: getUserInfo() }, { typed: true });
+}
+
+const params = new URL(location.href).searchParams;
+const authopts: Parameters<typeof setupWRDAuth>[0] = {};
+if (params.get("navlesslogin") === "1")
+  authopts.onLogin = onNavLessLogin;
+
+setupWRDAuth(authopts);
