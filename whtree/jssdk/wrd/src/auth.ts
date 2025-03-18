@@ -155,7 +155,7 @@ export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "i
 type LoginResult = {
   loggedIn: true;
   accessToken: string;
-  expires: Date;
+  expires: Temporal.Instant;
 } | {
   loggedIn: false;
   error: string;
@@ -836,12 +836,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Create an access token for WRD's local use */
-  async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Date }> {
+  async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Temporal.Instant }> {
     //FIXME adopt expiry settings from HS WRDAuth
     const tokens = await this.createTokens(userid, null, "P1D", [], null, null, customizer);
     return {
       accessToken: tokens.access_token,
-      expires: new Date(tokens.expires * 1000)
+      expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
     };
   }
 

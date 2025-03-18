@@ -15,7 +15,7 @@ import { cleanCookieName } from "@webhare/wrd/src/concepts";
 
 export type FrontendLoginResult = {
   loggedIn: true;
-  expires: string; //ISO8601 date
+  expires: Date; //TODO Temporal.Instant but that forces us to import the Temporal polyfill in @ewbhare/fronternd
 } | {
   error: string;
   code: LoginErrorCodes;
@@ -102,7 +102,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
         return createJSONResponse(200, {
           loggedIn: true,
-          expires: response.expires.toISOString()
+          expires: new Date(response.expires.epochMilliseconds)
         } satisfies FrontendLoginResult, {
           headers: {
             "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
@@ -112,7 +112,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
               sameSite: "Lax",
               expires: response.expires
             })
-          }
+          }, typed: true
         });
       } else
         return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);

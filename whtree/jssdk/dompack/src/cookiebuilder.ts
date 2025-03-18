@@ -1,7 +1,7 @@
 export type CookieOptions = {
   path?: string;
   domain?: string | null;
-  expires?: Date | null;
+  expires?: Date | Temporal.Instant | null;
   duration?: number | null;
   secure?: boolean;
   sameSite?: "Strict" | "Lax" | "None";
@@ -17,7 +17,7 @@ export function buildCookieHeader(name: string, value: string, options?: Servers
     value += ';domain=' + options?.domain;
   value += ';path=' + (options?.path || '/');
   if (options?.expires)
-    value += ';expires=' + options?.expires.toUTCString();
+    value += ';expires=' + ("toUTCString" in options.expires ? options.expires.toUTCString() : options.expires.toString());
   else if (options?.duration) {
     const date = new Date();
     date.setTime(date.getTime() + options?.duration * 24 * 60 * 60 * 1000);
