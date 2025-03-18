@@ -6,6 +6,7 @@ import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
+import { cleanCookieName } from "@webhare/wrd/src/concepts";
 
 interface AuthLocalData {
   expires: Date;
@@ -37,7 +38,8 @@ function getCookieName() {
   const settings = getFrontendData("wrd:auth", { allowMissing: true });
   if (!settings?.cookiename)
     throw new Error("No authsettings.cookiename set, wrd:auth not available");
-  return settings.cookiename;
+
+  return cleanCookieName(settings.cookiename);
 }
 
 function getStorageKeyName() {

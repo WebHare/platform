@@ -13,7 +13,7 @@
       <xs:attribute name="wrdschema" type="xs:string"/>
       <xs:attribute name="cookiename" type="xs:string">
         <xs:annotation>
-          <xs:documentation>The cookie name. Must start with `webharelogin-` and not contain any underscores</xs:documentation>
+          <xs:documentation>The cookie name. Must contain `webharelogin`</xs:documentation>
         </xs:annotation>
       </xs:attribute>
       <xs:attribute name="cookiedomain" type="xs:string">

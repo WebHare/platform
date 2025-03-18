@@ -258,12 +258,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       config.supportobjectname := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, config.supportobjectname);
     }
 
-    IF (config.cookiename NOT IN ["", "webharelogin"])
-    {
-      OBJECT cookie_regex := NEW RegEx("^webharelogin-([0-9a-z\\-]*|\\[siteslug\\])$");
-      IF(NOT RecordExists(cookie_regex->Exec(config.cookiename)))
-        THROW NEW Exception(`Invalid wrdauth cookie name '${config.cookiename}', must match regex 'webharelogin-[0-9a-z\\-]*'`);
-    }
+    IF (config.cookiename != "" AND config.cookiename NOT LIKE "*webharelogin*")
+      THROW NEW Exception(`Invalid wrdauth cookie name '${config.cookiename}', must contain 'webharelogin'`);
 
     RETURN config;
   }
