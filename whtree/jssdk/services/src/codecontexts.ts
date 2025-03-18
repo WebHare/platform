@@ -98,7 +98,7 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   //TODO/FIXME? a '(WebHare) Resource' is a file inside module/on disk/in WHFS in WebHare. scopedResource might be overloading the term Resource
   getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
     if (this.closed)
-      throw new Error(`Cannot get scoped resources from a closed CodeContext`);
+      throw new Error(`Cannot get scoped resources from closed CodeContext '${this.id}'`);
     return this.storage.get(key)?.resource as ValueType | undefined;
   }
 
