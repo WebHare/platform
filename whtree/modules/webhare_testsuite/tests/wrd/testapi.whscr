@@ -2961,10 +2961,9 @@ MACRO TestWHFSMapper()
   TestEQ(destlink->id, rec3.richie.instances[0].data.fsref);
 
   // test payment method
-  RECORD keypair := testfw->GenerateKeyPair("payments");
   OBJECT entity_paymentmethod := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test", [ keypair := keypair.id, requirekeypair := TRUE ])
+    , method := MakePaymentProviderValue("wrd:test")
     ]);
 
   RECORD pmrec := testfw->GetWRDSchema()->^payprov->RunQuery(CELL
@@ -2974,8 +2973,6 @@ MACRO TestWHFSMapper()
       , whfsmapper
       ]);
 
-  TestEQ("whfs::" || OpenWHFSObject(keypair.id)->whfspath, pmrec.method.__paymentprovider.meta.keypair);
-
   entity_paymentmethod->UpdateEntity(pmrec, CELL[ whfsmapper ]);
 
   RECORD pmrec2 := testfw->GetWRDSchema()->^payprov->RunQuery(CELL
@@ -2984,8 +2981,6 @@ MACRO TestWHFSMapper()
                    ]
       , whfsmapper
       ]);
-
-  TestEQ("whfs::" || OpenWHFSObject(keypair.id)->whfspath, pmrec2.method.__paymentprovider.meta.keypair);
 
   // Store a richdoc with instances. This directly triggers RTD overflow to WHFS
   RECORD basertd := GetTestRTD();

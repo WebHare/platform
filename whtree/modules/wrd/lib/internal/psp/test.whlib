@@ -19,8 +19,6 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
   MACRO NEW(RECORD settings)
   : WRDPaymentProviderBase("wrd:test", "redirect", settings)
   {
-    IF(settings.requirekeypair AND this->settings.keypair = 0)
-      THROW NEW Exception("Where's my keypair ?");
     this->needspaymentref := TRUE;
   }
 

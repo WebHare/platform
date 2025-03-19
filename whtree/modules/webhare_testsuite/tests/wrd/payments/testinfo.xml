@@ -5,7 +5,6 @@
   <test script="test_payment_forms.whscr" />
   <jstest file="test_payment_online.ts" tags="forms" />
   <test script="test_js.whscr" />
-  <test script="test_ingenico.whscr" />
   <test script="test_mollie.whscr" tags="external"/>
   <test script="test_multisafepay.whscr" tags="external"/>
   <test script="test_afterpay.whscr" tags="external"/>

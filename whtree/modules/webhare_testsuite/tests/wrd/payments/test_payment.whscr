@@ -153,10 +153,9 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 {
   testfw->BeginWork();
 
-  RECORD keypair := testfw->GenerateKeyPair("payments");
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test", [ keypair := keypair.id, requirekeypair := TRUE ])
+    , method := MakePaymentProviderValue("wrd:test")
     ]);
   pm2_guidprefix := "__" || ToUppercase(Substring(pm2->guid,4));
 

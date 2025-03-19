@@ -61,10 +61,9 @@ MACRO PrepareSchemaContent()
   testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata", testfw->wrdschema->id, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
 
   // Add a payment
-  RECORD keypair := testfw->GenerateKeyPair("payments");
   OBJECT pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakePaymentProviderValue("wrd:test", [ keypair := keypair.id, requirekeypair := TRUE ])
+    , method := MakePaymentProviderValue("wrd:test")
     ]);
 
   OBJECT pd2b := paymentapi->paymenttype->CreateEntity([ wrd_tag := "PD2B" ]);

@@ -1049,31 +1049,6 @@
       <textgroup gid="external">   <!-- tolliumapps.payments.external -->
         <text tid="methodtitle">External</text>
       </textgroup>
-      <textgroup gid="ingenico">   <!-- tolliumapps.payments.ingenico -->
-        <text tid="apipassword">API Password</text>
-        <text tid="apiuser">API User</text>
-        <text tid="brand">Brand</text>
-        <text tid="directhttpurl">Direct HTTP url</text>
-        <text tid="expiry_minutes">Expire after</text>
-        <text tid="methods">Payment method</text>
-        <text tid="mode">Mode</text>
-        <text tid="mode-prod">Production (payment gets processed)</text>
-        <text tid="mode-test">Test</text>
-        <text tid="ncerror">Error</text>
-        <text tid="norebranding">None (direct account with Ingenico)</text>
-        <text tid="noregisteredstatus">No status appears to be registered</text>
-        <text tid="orderid">Order ID</text>
-        <text tid="payinfo">Ingenico payment information</text>
-        <text tid="paymentid">Ingenico payment ID</text>
-        <text tid="paymentmethod">Pay method</text>
-        <text tid="pspid">PSP ID</text>
-        <text tid="rebranded">Rebranding</text>
-        <text tid="result">Result</text>
-        <text tid="sha1_in">SHA-1-IN signature</text>
-        <text tid="sha1_in_directlink">SHA-1-IN directlink</text>
-        <text tid="sha1_out">SHA-1-OUT signature</text>
-        <text tid="status">State</text>
-      </textgroup>
       <textgroup gid="js">   <!-- tolliumapps.payments.js -->
         <text tid="configuration">Configuration</text>
         <text tid="driver">Driver</text>

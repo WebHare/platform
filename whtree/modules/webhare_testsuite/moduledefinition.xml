@@ -283,7 +283,7 @@
 
   <moduleregistry>
     <node name="tests">
-      <string name="ingenicomode" />
+      <obsoletekey name="ingenicomode" />
       <string name="response" />
       <string name="alttestsitehost" />
       <string name="hashedpassword" />

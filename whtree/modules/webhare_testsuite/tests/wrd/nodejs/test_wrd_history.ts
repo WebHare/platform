@@ -454,27 +454,17 @@ async function testChanges() { //  tests
     testfw->BeginWork();
 
     OBJECT pm1 := schemaobj->^payprov->CreateEntity(
-        [ wrd_title := "Ingenico test"
-        , method := MakePaymentProviderValue("wrd:ingenico",
-                        [ methods := ["ideal","creditcard","deletedmethod"]
-                        , rebranded := "webhare_testsuite"
-                        , pspid := "PSPID"
-                        , sha1_in := "SHA1IN"
-                        , sha1_out := "SHA1OUT"
-                        , keypair := OpenKeyPairByName("fallback")->id
+        [ wrd_title := "PSP test"
+        , method := MakePaymentProviderValue("wrd:js",
+                        [ driver := "test:psp"
                         ])
         ]);
 
     RECORD initfields := pm1->GetFields([ "wrd_title", "method", "wrd_id", "wrd_creationdate", "wrd_guid", "wrd_limitdate", "wrd_modificationdate" ]);
 
     pm1->UpdateEntity(
-        [ method := MakePaymentProviderValue("wrd:ingenico",
-                        [ methods := ["ideal","creditcard","deletedmethod"]
-                        , rebranded := "webhare_testsuite"
-                        , pspid := "PSPID"
-                        , sha1_in := "SHA1IN"
-                        , sha1_out := "SHA1OUT"
-                        , keypair := 0
+        [ method := MakePaymentProviderValue("wrd:js",
+                        [ driver := "test:psp2"
                         ])
         ]);
 
