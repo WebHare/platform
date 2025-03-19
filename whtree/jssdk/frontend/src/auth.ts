@@ -103,6 +103,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
   authOptions = { ...options };
 
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
+    node.setAttribute("data-wh-wrdauth-attached", "");
     node.addEventListener("submit", evt => void submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
