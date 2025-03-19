@@ -296,16 +296,18 @@ BOOLEAN FUNCTION IsStillPublishing(INTEGER ARRAY folderids, INTEGER onlyfileid, 
 
   IF(NOT accepterrors)
   {
-    BOOLEAN anyerrors;
+    STRING firsterror;
     FOREVERY (RECORD o FROM objects)
       IF(o.id NOT IN expecterrorsfor AND GetErrorFromPublished(o.published) != 0)
       {
-        Print(`Publication error for #${o.id} (${o.whfspath}): errorcode ${GetErrorFromPublished(o.published)}${o.errordata != "" ? ","||o.errordata:""}\n`);
-        anyerrors := TRUE;
+        STRING error := `Publication error for #${o.id} (${o.whfspath}): errorcode ${GetErrorFromPublished(o.published)}${o.errordata != "" ? ","||o.errordata:""}`;
+        Print(`${error}\n`);
+        IF(firsterror = "")
+          firsterror := error;
       }
 
-    IF(anyerrors)
-      THROW NEW Exception(`Unexpected publication errors - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
+    IF(firsterror != "")
+      THROW NEW Exception(`${firsterror} - you may need to pass accepterrors := TRUE to WaitForPublishCompletion if this was intentional\n`);
   }
 
   RETURN isscheduled;
@@ -398,4 +400,3 @@ PUBLIC BOOLEAN FUNCTION WaitForPublishCompletion(INTEGER startingpoint, RECORD o
     eventmgr->Close();
   }
 }
-

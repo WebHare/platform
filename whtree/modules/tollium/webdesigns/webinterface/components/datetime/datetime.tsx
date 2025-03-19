@@ -258,7 +258,7 @@ export default class ObjDateTime extends ComponentBase {
 
       this.timehandler = new TimeField(this.timefield!, {
         baseclass: "tollium__datetime",
-        placeholders: this.owner.hostapp.lang?.startsWith('nl') ? { hour: "h", minute: "m", second: "s", msec: "ms" } : { hour: "u", minute: "m", second: "s", msec: "ms" }
+        placeholders: this.owner.hostapp.lang?.startsWith('nl') ? { hour: "u", minute: "m", second: "s", msec: "ms" } : { hour: "h", minute: "m", second: "s", msec: "ms" }
       });
     }
   }
