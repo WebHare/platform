@@ -2206,10 +2206,11 @@ To change a <xs:attribute /> for adding descriptions
                               placement="inline" />
       </xs:appinfo>
     </xs:annotation>
-    <xs:attributeGroup ref="ComponentBase" />
+    <xs:attributeGroup ref="ComposableComponentBase" />
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attributeGroup ref="Required" />
     <xs:attributeGroup ref="sc:Errorlabel" />
+
     <xs:attribute name="validationchecks">
       <xs:annotation>
         <xs:documentation>

@@ -24,7 +24,7 @@ import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import { BackendServiceConnection, runBackendService } from "@webhare/services/src/backendservicerunner";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
-import { getAllServices, getSpawnSettings } from './gatherservices';
+import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from './gatherservices';
 import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService, type WebHareVersionFile } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 
@@ -519,6 +519,16 @@ async function verifyUpgrade() {
   }
 }
 
+async function verifyStrayProcesses() {
+  const strayprocs = await getServiceManagerChildPids();
+  if (strayprocs.length) {
+    console.error("There are still processes running from a previous WebHare instance.");
+    console.error("You can try to terminate them using `wh service force-terminate-all` or force it with `wh service force-terminate-all --kill`");
+    console.error(`PIDs: ${strayprocs.join(", ")}`);
+    process.exit(1);
+  }
+}
+
 async function setConfigAndVersion() {
   await updateWebHareConfigFile({ debugSettings: null, nodb: true });
   const fullconfig = getFullConfigFile();
@@ -560,6 +570,7 @@ run({
     logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
 
     if (!opts.secondary) { //verify we're allowed to run
+      await verifyStrayProcesses();
       await verifyUpgrade();
     }
 

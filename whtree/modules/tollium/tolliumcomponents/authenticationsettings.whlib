@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
+LOADLIB "mod::wrd/lib/components/entity.whlib";
 
 /// Keeps anonymous authentication settings
 STATIC OBJECTTYPE AuthenticationSettingValue
@@ -88,6 +89,10 @@ STATIC OBJECTTYPE LiveAuthenticationSettingValue EXTEND AuthenticationSettingVal
     this->_value := this->GetOriginalValue();
   }
 
+  PUBLIC BOOLEAN FUNCTION IsEntityTag(OBJECT entity, STRING attrtag) {
+    RETURN this->_entity = entity AND this->_attrtag = attrtag;
+  }
+
   UPDATE PUBLIC RECORD FUNCTION GetExclusiveLogTag()
   {
     RETURN CELL[ tag := "system:user.setuptotp", this->_entity->id ];
@@ -125,8 +130,8 @@ STATIC OBJECTTYPE LiveAuthenticationSettingValue EXTEND AuthenticationSettingVal
 
 
 
-PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -169,6 +174,15 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   MACRO NEW()
   {
     this->_allowsecondfactor := TRUE;
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE MACRO SetVisible(BOOLEAN newvisible) {
+    IF(this->pvt_visible = newvisible)
+      RETURN; //nothing changed
+
+    this->pvt_visible := newvisible;
+    this->Reload();
   }
 
   /** Initialize from XML description
@@ -180,6 +194,8 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
 
     this->managementmode := description.managementmode;
     this->allowsecondfactor := description.allowsecondfactor;
+    IF(ObjectExists(this->composition))
+      this->Reload();
   }
 
   UPDATE MACRO SetTitle(STRING newtitle)
@@ -203,6 +219,7 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
 
   UPDATE MACRO PreInitComponent()
   {
+    this->Reload();
     this->title := this->title;
     ^passwordfield->lengthmeasure := "characters";
   }
@@ -224,9 +241,26 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   //
   // Display updates
   //
+  MACRO ReconnectCompositionIfNeeded() {
+    OBJECT linktoentity;
+    IF(ObjectExists(this->composition)) {
+      IF(NOT (this->composition EXTENDSFROM TolliumWRDEntity))
+        THROW NEW Exception(`Composition passed to authenticationsettings is not a WRD entity`);
+      linktoentity := this->composition->wrdentity;
 
-  MACRO Reload()
-  {
+      IF(NOT ObjectExists(linktoentity) AND ObjectExists(this->_valuekeeper)) {
+        this->_valuekeeper := DEFAULT OBJECT;
+      }
+      ELSE IF(ObjectExists(linktoentity) AND (NOT ObjectExists(this->_valuekeeper) OR NOT this->_valuekeeper->IsEntityTag(linktoentity, this->cellname))) {
+        this->_valuekeeper := NEW LiveAuthenticationSettingValue(linktoentity, this->cellname);
+      }
+    }
+  }
+
+  MACRO Reload() {
+    this->ReconnectCompositionIfNeeded();
+
+    BOOLEAN canshow := ObjectExists(this->_valuekeeper) AND this->pvt_visible;
     RECORD value := this->value;
 
     BOOLEAN have_password := RecordExists(value) AND IsValueSet(value.passwords) AND value.passwords[END-1].passwordhash NOT IN [ "", "*" ];
@@ -236,6 +270,12 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
     ^secondfactorstatus->value := have_secondfactor
         ? this->GetTid(".active")
         : this->GetTid(".inactive");
+
+    ^heading->visible := canshow;
+    ^passwordfield->visible := canshow;
+    ^btn_changepassword->visible := canshow;
+    ^secondfactorstatus->visible := canshow;
+    ^btn_managesecondfactor->visible := canshow;
   }
 
   // ---------------------------------------------------------------------------
@@ -243,21 +283,17 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
   // Getters / setters
   //
 
-  RECORD FUNCTION GetValue()
-  {
+  RECORD FUNCTION GetValue() {
+    this->ReconnectCompositionIfNeeded();
     IF (NOT ObjectExists(this->_valuekeeper))
-      THROW NEW Exception(`Not connected to a entity yet`);
+      RETURN DEFAULT RECORD;
+
     RETURN this->_valuekeeper->GetStoreValue();
   }
 
-  MACRO SetValue(RECORD newvalue)
-  {
-    IF (NOT ObjectExists(this->_valuekeeper))
-      THROW NEW Exception(`Not connected to a entity yet`);
-
-    // setting through code also counts as setting
-    this->_valuekeeper->IntegrateValueUpdate(newvalue);
-
+  MACRO SetValue(RECORD newvalue) {
+    //We ignore the value we received directly, we'll still check the entity
+    this->ReconnectCompositionIfNeeded();
     this->Reload();
   }
 
@@ -344,18 +380,24 @@ PUBLIC STATIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase
       @param(object %WRDEntity2017) entity WRD entity
       @param attrtag Attribute containing the authentication settings
   */
-  PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag)
-  {
+  PUBLIC MACRO LoadEntityField(OBJECT entity, STRING attrtag) {
+    IF(ObjectExists(this->composition))
+      THROW NEW Exception(`Already linked to a composition`);
     IF(NOT (entity EXTENDSFROM WRDEntity2017))
       THROW NEW Exception(`Entity passed to LoadEntityField is not a WRDEntity2017 (retrieved by eg. GetEntity) but a ${GetObjectTypeName(entity)}`);
+
     this->_valuekeeper := NEW LiveAuthenticationSettingValue(entity, attrtag);
+    this->Reload();
+  }
+
+  PUBLIC UPDATE MACRO CompositionMetadataIsUpdated() {
+    //invoked when composition= is received
     this->Reload();
   }
 >;
 
 
-PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase <
   BOOLEAN pvt_requirepassword;
   STRING pvt_validationchecks;
 

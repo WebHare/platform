@@ -5,13 +5,11 @@ let gotHooks = false;
 
 export function setGetTidHooksFactory(newHookFactory: () => GetTidHooks) {
   if (gotHooks)
-    throw new Error(`Hooks have already been retrieved`);
+    throw new Error(`The call to setGetTidHooksFactory was too late - hooks have already been retrieved once`);
   hookFactory = newHookFactory;
 }
 
 export function getGetTidHooks() {
-  if (gotHooks)
-    throw new Error(`Hooks cannot be retrieved twice`);
   gotHooks = true;
   return hookFactory?.();
 }

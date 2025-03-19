@@ -1,10 +1,11 @@
 import { getState, activateHMR } from "@webhare/services/src/hmrinternal";
 import { registerTexts } from "@mod-tollium/js/gettid";
-import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, setTidLanguage } from "@webhare/gettid";
+import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, getTidLanguage, setTidLanguage } from "@webhare/gettid";
 import { loadlib } from "@webhare/harescript";
 import { WittyEncodingStyle, backendConfig, loadWittyResource } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as test from "@webhare/test";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 async function tidCompilerTest() {
   // Do as much tests as possible before we install the module...
@@ -156,10 +157,26 @@ async function getTidHMRTest() {
   test.eq("v1", getTid("webhare_testsuite_temp:testhmrregister"));
 }
 
+async function testCodeContextTids() {
+  setTidLanguage("nl");
+  test.eq("nl", getTidLanguage());
+
+  const cc = new CodeContext("gettid1");
+  test.eq("en", cc.run(getTidLanguage));
+  const cc2 = new CodeContext("gettid2");
+  test.eq("en", cc2.run(getTidLanguage));
+  cc2.run(() => setTidLanguage("de"));
+
+  test.eq("nl", getTidLanguage());
+  test.eq("en", cc.run(getTidLanguage));
+  test.eq("de", cc2.run(getTidLanguage));
+}
+
 test.runTests([
   tidCompilerTest,
   setupTestModule_LanguageFiles,
   getTidTest,
   fallbackLanguageTest,
   getTidHMRTest,
+  testCodeContextTids
 ]);
