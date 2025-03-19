@@ -1,4 +1,5 @@
 import * as dompack from '@webhare/dompack';
+import { navigateTo } from '@webhare/env';
 import { debugFlags } from '@webhare/env/src/envbackend';
 
 declare global {
@@ -118,8 +119,10 @@ export function setConsent(newsetting: string[]) {
   // Revoked consent may need a reload to take effect.
   // This is because it's not worth the effort for most websites to implement on-the-fly disabling
   // of functionality. It might even be impossible if 3rd party scripts are already loaded.
-  if (consent_revoked)
-    window.location.reload();
+  if (consent_revoked) {
+    console.log("[cst] Reloading to handle revoked consent");
+    navigateTo({ type: "reload" });
+  }
 
   updateConsent();
 }
@@ -217,5 +220,6 @@ window.whResetConsent = function () {
     throw new Error("Consent handler is not handling storage");
 
   dompack.deleteCookie(cookiename);
-  location.reload();
+  console.log("Reloading for whResetConsent");
+  navigateTo({ type: "reload" });
 };

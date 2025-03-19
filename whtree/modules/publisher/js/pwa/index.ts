@@ -6,6 +6,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import './internal/debugmenu';
 import * as settings from './internal/settings';
 import { getAssetPackBase } from "@mod-platform/js/concepts/frontend";
+import { navigateTo } from "@webhare/env";
 
 const appbase = location.href.indexOf("?") > -1 ? location.href.split('?')[0] : location.href.split('#')[0];
 let didinit = false;
@@ -61,7 +62,8 @@ export async function downloadUpdate() {
 }
 //install downloaded update now
 export async function updateApplication() {
-  location.reload();
+  console.log("Reloading to update application");
+  navigateTo({ type: "reload" });
   return new Promise((resolve, reject) => setTimeout(() => reject(new Error("The update failed")), 20000)); //timeout 20 sec...
 }
 
@@ -150,7 +152,8 @@ async function precheckExistingWorkers() {
 
 function onServiceWorkerMessage(event: MessageEvent) {
   if (event.data.type === 'forceRefresh') {
-    location.reload();
+    console.log("Reloading because forced by the serice worker");
+    navigateTo({ type: "reload" });
     return;
   }
   if (event.data.type === "log") {

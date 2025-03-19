@@ -9,7 +9,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
-import { navigateTo } from '@webhare/env/src/navigation';
+import { navigateTo } from '@webhare/env';
 
 let defaultauth: WRDAuthenticationProvider | null = null;
 
@@ -219,7 +219,8 @@ export class WRDAuthenticationProvider {
       }
 
       //The user has succesfully logged in
-      location.reload(true);
+      console.log("Reloading after succesfull login");
+      navigateTo({ type: "reload" });
       return;
     }
 
