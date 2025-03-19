@@ -18,15 +18,15 @@ test.runTests([
     test.click(test.qR('#loginbutton'));
     await test.waitForUI();
     test.eq('login failed', test.qR('#status').textContent);
-  },
-  async function () {
+    test.eq(false, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
+
     test.assert(!test.qR('#isloggedin').checked);
     test.assert(!test.qR('#js_isloggedin').checked);
     test.fill(test.qR('#password'), 'secret$');
     test.click(test.qR('#loginbutton'));
     await test.waitForLoad();
-  },
-  async function () {
+
+    test.eq(true, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
     test.assert(test.qR('#isloggedin').checked);
     test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
     const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
@@ -56,6 +56,7 @@ test.runTests([
     goto.searchParams.set('navlesslogin', '1');
     await test.load(goto);
 
+    test.eq(false, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
     test.assert(!test.qR('#isloggedin').checked);
     test.assert(!test.qR('#js_isloggedin').checked);
     test.fill(test.qR('#login'), 'pietje-js@beta.webhare.net');
@@ -68,5 +69,6 @@ test.runTests([
     test.assert(resultText, "onNavLessLogin should have filled loginform_response");
     const result = parseTyped(resultText);
     test.eq({ userInfo: { firstName: "Pietje", aDate: new Date("2025-03-18") } }, result);
+    test.eq(true, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
   }
 ]);

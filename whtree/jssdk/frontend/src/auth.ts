@@ -73,6 +73,7 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
 
   const loginresult = await login(username, password, { persistent: persistentlogin, site });
   if (loginresult.loggedIn) {
+    refreshLoginStatus();
     if (authOptions?.onLogin) {
       await authOptions.onLogin();
     } else {
@@ -84,6 +85,11 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
     //FIXME restore the code & data members from old wrdauth
     failLogin(loginresult.error, { code: "unknown", data: "" }, node);
   }
+}
+
+function refreshLoginStatus() {
+  const loggedIn = isLoggedIn();
+  document.documentElement.classList.toggle("wh-wrdauth--isloggedin", loggedIn);
 }
 
 /** Return whether a user's currently logged in */
@@ -119,9 +125,11 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
 
   dompack.onDomReady(() => {
     if ("$wh$wrdauth" in window) {
-      console.error("Both @webhare/wrdauth and @mod-wrd/js/auth are present in this page. Mixing these is not supported!");
+      console.error("Both setupWRDAuth from @webhare/frontend and @mod-wrd/js/auth are present in this page. Mixing these is not supported!");
     }
   });
+
+  refreshLoginStatus();
 }
 
 function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement | null) {
