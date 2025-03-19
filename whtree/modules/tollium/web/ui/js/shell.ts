@@ -252,19 +252,6 @@ class IndyShell extends TolliumShell {
     throw new Error(`Unrecognized component type '${type}'`);
   }
 
-  completeLogin(data, lock) {
-    this.tolliumservice.completeLogin(data).then(
-      function (response) //onsuccess
-      {
-        location.reload(true);
-      },
-      function (err) //onfail
-      {
-        console.error(err);
-        lock.release();
-      });
-  }
-
   /****************************************************************************************************************************
    * Internal functions: framework bootup
    */

@@ -863,13 +863,6 @@ export default class Frame extends ToddCompBase {
 
   processIncomingMessage(type: string, data: any) {
     switch (type) {
-      case "completelogin":
-        {
-          const block = this.lockScreen();
-          getIndyShell().completeLogin(data.data, block);
-          return;
-        }
-
       case "requestpermission":
         {
           switch (data.type) {
