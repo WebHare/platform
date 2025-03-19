@@ -1,6 +1,6 @@
 # okay, not impressive but maybe we will be at one point (eg to look up connection settings?)
 
-source $WEBHARE_DIR/lib/wh-functions.sh
+source "${BASH_SOURCE%/*}/../../../../lib/postgres-functions.sh"
 load_postgres_settings
 
 if [ -z "$WEBHARE_DBASENAME" ]; then

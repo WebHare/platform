@@ -1,18 +1,19 @@
 #!/bin/bash
 set -eo pipefail
 
-# shellcheck source=../lib/wh-functions.sh
-source "$WEBHARE_DIR/lib/wh-functions.sh"
+source "${BASH_SOURCE%/*}/../lib/postgres-functions.sh"
+[ -z "$WEBHARE_DATAROOT" ] && die "WEBHARE_DATAROOT not set"
+
+# do any pending switch before analyzing version numbers
+if [ -d "${WEBHARE_DATAROOT}postgresql/db.switchto" ]; then
+  echo "Switching to NEW postgresql database!"
+  mv "${WEBHARE_DATAROOT}postgresql/db" "${WEBHARE_DATAROOT}postgresql/db.bak.$(date +%Y%m%dT%H%M%S)"
+  mv "${WEBHARE_DATAROOT}postgresql/db.switchto" "${WEBHARE_DATAROOT}postgresql/db"
+fi
+
 load_postgres_settings
 
-cd "${BASH_SOURCE%/*}/../etc/"
-if [ -z "$WEBHARE_PGCONFIGFILE" ]; then
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-docker.conf"
-  else
-    WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-sourceinstall.conf"
-  fi
-fi
+cd "${BASH_SOURCE%/*}/../etc/" # this allows PG when running to find the pg_hba-XXX.conf file
 
 [ -z "$PGHOST" ] && die "PGHOST is not set"
 [ -z "$PGPORT" ] && die "PGPORT is not set"
@@ -22,15 +23,6 @@ fi
 mkdir -p "$PGHOST" "$PSROOT"
 [ -n "$WEBHARE_IN_DOCKER" ] && chown postgres:root "$PGHOST"
 
-function generateConfigFile()
-{
-  echo "include '$WEBHARE_PGCONFIGFILE'"
-  # include_if_exists generates noise if the file doesn't exist
-  if [ -f "$WEBHARE_DATAROOT/etc/postgresql-custom.conf" ]; then
-    echo "include '$WEBHARE_DATAROOT/etc/postgresql-custom.conf'"
-  fi
-}
-
 if [ ! -d "$PSROOT/db" ]; then
 
   # remove previous initialization attempt
@@ -39,45 +31,11 @@ if [ ! -d "$PSROOT/db" ]; then
     rm -rf "$PSROOT/tmp_initdb"
   fi
 
-  mkdir "$PSROOT/tmp_initdb/"
+  init_webhare_pg_db "$PSROOT/tmp_initdb" "$WEBHARE_PGBIN"
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    chown postgres "$PSROOT" "$PSROOT/tmp_initdb"
-  fi
-
-  echo "Prepare PostgreSQL database in $PSROOT"
-  if ! $RUNAS $WEBHARE_PGBIN/initdb -U postgres -D "$PSROOT/tmp_initdb" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
-    echo DB initdb failed
-    exit 1
-  fi
-
-  # Set the configuration file
-  generateConfigFile > "$PSROOT/tmp_initdb/postgresql.conf"
-
-  # CREATE DATABASE cannot be combined with other commands
-  # log in to 'postgres' database so we can create our own
-  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS $WEBHARE_PGBIN/postgres --single -D "$PSROOT/tmp_initdb" postgres ; then
-    echo DB create db failed
-    exit 1
-  fi
-  DOCKERGRANTS=
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    DOCKERGRANTS="GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;"
-  fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS $WEBHARE_PGBIN/postgres --single -D "$PSROOT/tmp_initdb" "$WEBHARE_DBASENAME" ; then
-    echo DB create user failed
-    exit 1
-  fi
   mv "$PSROOT/tmp_initdb/" "$PSROOT/db/"
 else
-
-  if [ -d "$PSROOT/db.switchto" ]; then
-    echo "Switching to NEW postgresql database!"
-    mv "$PSROOT/db" "$PSROOT/db.bak.$(date +%Y%m%dT%H%M%S)"
-    mv "$PSROOT/db.switchto" "$PSROOT/db"
-  fi
-
-  generateConfigFile > "$PSROOT/db/postgresql.conf"
+  generate_config_file > "$PSROOT/db/postgresql.conf"
 
   if [ -f "$PSROOT/db/pg_hba.conf" ]; then
     # previous webhares created this file, remove it because it is now unused

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source "$WEBHARE_DIR/lib/wh-functions.sh"
+source "${BASH_SOURCE%/*}/../../../../lib/postgres-functions.sh"
 load_postgres_settings
 
 BACKUPDEST="$1"
