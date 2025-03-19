@@ -155,7 +155,8 @@ export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "i
 type LoginResult = {
   loggedIn: true;
   accessToken: string;
-  expires: Date;
+  expires: Temporal.Instant;
+  userInfo?: object;
 } | {
   loggedIn: false;
   error: string;
@@ -346,6 +347,8 @@ export interface WRDAuthCustomizer {
   onOpenIdToken?: (params: OpenIdRequestParameters, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
   onOpenIdUserInfo?: (params: OpenIdRequestParameters, userinfo: ReportedUserInfo) => Promise<void> | void;
+  /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
+  onFrontendUserInfo?: (user: number) => Promise<object> | object;
 }
 
 export interface JWKS {
@@ -836,12 +839,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Create an access token for WRD's local use */
-  async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Date }> {
+  async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Temporal.Instant }> {
     //FIXME adopt expiry settings from HS WRDAuth
     const tokens = await this.createTokens(userid, null, "P1D", [], null, null, customizer);
     return {
       accessToken: tokens.access_token,
-      expires: new Date(tokens.expires * 1000)
+      expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
     };
   }
 
@@ -879,6 +882,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
 
-    return { loggedIn: true, ...await this.createFirstPartyToken(userid, customizer) };
+    const retval: LoginResult = { loggedIn: true, ...await this.createFirstPartyToken(userid, customizer) };
+    if (customizer?.onFrontendUserInfo)
+      retval.userInfo = await customizer.onFrontendUserInfo(userid);
+    return retval;
   }
 }

@@ -11,10 +11,11 @@ import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
 import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
 import { loadJSObject } from "@webhare/services";
+import { cleanCookieName } from "@webhare/wrd/src/concepts";
 
 export type FrontendLoginResult = {
   loggedIn: true;
-  expires: string; //ISO8601 date
+  expires: Date; //TODO Temporal.Instant but that forces us to import the Temporal polyfill in @ewbhare/fronternd
 } | {
   error: string;
   code: LoginErrorCodes;
@@ -85,8 +86,8 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
       const body = await req.json() as { username: string; password: string; cookieName: string; options?: LoginRemoteOptions };
       if (typeof body?.username !== "string" || typeof body?.password !== "string")
         return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
-      if (body?.cookieName !== settings.cookieName) {
-        //Where to log? onsole.error);
+
+      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
@@ -101,7 +102,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
         return createJSONResponse(200, {
           loggedIn: true,
-          expires: response.expires.toISOString()
+          expires: new Date(response.expires.epochMilliseconds)
         } satisfies FrontendLoginResult, {
           headers: {
             "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
@@ -111,14 +112,14 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
               sameSite: "Lax",
               expires: response.expires
             })
-          }
+          }, typed: true
         });
       } else
         return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);
     }
     case "logout": {
       const body = await req.json() as { cookieName: string };
-      if (body?.cookieName !== settings.cookieName) {
+      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: logout offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLogoutResult);
       }
 

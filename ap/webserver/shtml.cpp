@@ -668,22 +668,7 @@ bool Shtml::TrySession(WebServer::Connection *webcon, Session &sess, WebServer::
 namespace
 {
 
-static const char webharelogin_prefix[] = "webharelogin";
-
-inline bool StartsWithWebhareLoginPrefix(std::string const &str)
-{
-        if (str.size() < sizeof(webharelogin_prefix) - 1)
-            return false;
-
-        bool is_match = Blex::StrCompare(
-                      str.c_str(),
-                      str.c_str() + str.size(),
-                      webharelogin_prefix,
-                      webharelogin_prefix + sizeof(webharelogin_prefix) - 1,
-                      sizeof(webharelogin_prefix) - 1) == 0;
-
-        return is_match;
-}
+static const std::string webharelogin = "webharelogin";
 
 } // End of anonymous namespace
 
@@ -703,31 +688,23 @@ void Shtml::WebHareAccessHandler(WebServer::Connection *webcon, WebServer::Acces
 
                 LockedSUCache::WriteRef lock(context->shtml->sucache);
 
-                // Process all cookies that start with "webharelogin"
-                auto itr = cookies.lower_bound(webharelogin_prefix);
-                for (; itr != cookies.end() && StartsWithWebhareLoginPrefix(itr->first); ++itr)
+                // Process all cookies containing "webharelogin" (simplifying because we also need __Host-webharelogin *and* should just get rid of mismatches)
+                for (auto const &itr : cookies)
                 {
-                        // see if the cookie matches (very rough filter, matches at least 'webharelogin' and 'webharelogin-<nr>_e')
-                        auto sit = itr->first.begin() + sizeof(webharelogin_prefix) - 1;
-                        while (sit != itr->first.end() && ((*sit >= '0' && *sit <= '9') || *sit == '-' || (*sit >= 'a' && *sit <= 'z')))
-                            ++sit;
-                        if(sit != itr->first.end() && sit[0]=='_' && sit+1 != itr->first.end() && sit[1]=='e')
-                        {
-                            ++sit;
-                            ++sit;
-                        }
-                        if (sit != itr->first.end())
-                             continue;
+                        if(itr.first.find(webharelogin) == std::string::npos)
+                                continue;
 
                         // Contents looks like "sessionid%20moredata" (url encoded). Cut at first encoded character.
-                        auto cit = std::find(itr->second.begin(), itr->second.end(), '%');
-                        std::string cleanedwebharelogin(itr->second.begin(), cit);
+                        auto cit = std::find(itr.second.begin(), itr.second.end(), '%');
+                        std::string cleanedwebharelogin(itr.second.begin(), cit);
+                        if(cleanedwebharelogin.size() != 22)
+                                continue; //a valid sessionid is always 128bit ufs encoded == 22bytes
 
                         Session *sess = lock->OpenSessionNochecks(cleanedwebharelogin, true);
                         if (sess && context->shtml->TrySession(webcon, *sess, rule))
                         {
                                 if (webcon->GetRequest().header_debugging)
-                                    webcon->AddHeader("X-WH-AccessRule-Auth", "rule " + Blex::AnyToString(rule.id) + " authenticated by cookie " + itr->first + " with session " + cleanedwebharelogin, true);
+                                    webcon->AddHeader("X-WH-AccessRule-Auth", "rule " + Blex::AnyToString(rule.id) + " authenticated by cookie " + itr.first + " with session " + cleanedwebharelogin, true);
                                 return;
                         }
                 }

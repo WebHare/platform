@@ -256,6 +256,15 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
   test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
+  const customizerUserInfo: WRDAuthCustomizer = {
+    onFrontendUserInfo(user: number) {
+      if (!user)
+        throw new Error("No such user - shouldn't be invoked for failed logins");
+      return { userId: user, firstName: "Josie" };
+    }
+  };
+  test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", customizerUserInfo));
+
   //Test the frontend login with customizer setting up multisite support
   const multisiteCustomizer: WRDAuthCustomizer = {
     lookupUsername(params: LookupUsernameParameters): number | null {

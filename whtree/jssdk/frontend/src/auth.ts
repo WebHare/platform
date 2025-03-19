@@ -6,9 +6,11 @@ import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
+import { cleanCookieName } from "@webhare/wrd/src/concepts";
+import { parseTyped, stringify } from "@webhare/std";
 
 interface AuthLocalData {
-  expires: Date;
+  expires: Temporal.Instant | Date; //Future WH will changes this to Temporal.Instant (but we don't want to force the polyfill yet)
 }
 
 declare module "@webhare/frontend" {
@@ -37,7 +39,8 @@ function getCookieName() {
   const settings = getFrontendData("wrd:auth", { allowMissing: true });
   if (!settings?.cookiename)
     throw new Error("No authsettings.cookiename set, wrd:auth not available");
-  return settings.cookiename;
+
+  return cleanCookieName(settings.cookiename);
 }
 
 function getStorageKeyName() {
@@ -70,7 +73,10 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
 /** Return whether a user's currently logged in */
 export function isLoggedIn(): boolean {
   const data = dompack.getLocal<AuthLocalData>(getStorageKeyName());
-  return Boolean(data?.expires && data.expires > new Date());
+  if (data?.expires && "toUTCString" in data.expires) //WH5.6 compatibility
+    return Boolean(data.expires > new Date());
+
+  return Boolean(data?.expires && (data.expires as Temporal.Instant).epochMilliseconds > Date.now());
 }
 
 /** Setup WRDAuth frontend integration */
@@ -117,19 +123,19 @@ function failLogin(message: string, response: { code: string; data: string }, fo
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
   const data = { username, password, cookieName: getCookieName(), options };
-  const result = await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)}`, {
+  const result = parseTyped(await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)}`, {
     method: "post",
     headers: {
       "content-type": "application/json"
     },
-    body: JSON.stringify(data)
-  })).json() as FrontendLoginResult;
+    body: stringify(data, { typed: true })
+  })).text()) as FrontendLoginResult;
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
 
   //we've logged in!
-  dompack.setLocal<AuthLocalData>(getStorageKeyName(), { expires: new Date(result.expires) });
+  dompack.setLocal<AuthLocalData>(getStorageKeyName(), { expires: result.expires });
   return { loggedIn: true };
 }
 
