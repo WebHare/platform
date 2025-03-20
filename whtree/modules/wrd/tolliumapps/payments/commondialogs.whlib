@@ -141,9 +141,11 @@ PUBLIC OBJECTTYPE PaymentProvider EXTEND TolliumScreenBase
     IF(data.id!=0 AND ObjectExists(this->paymentextension))
     {
       RECORD paymentprovider := this->provider->wrdentity->GetField(this->paymentapi->providerattribute);
-      paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
-      DELETE CELL __discard FROM paymentprovider;
-      this->paymentextension->SetPaymentProviderValue(paymentprovider);
+      IF(RecordExists(paymentprovider)) {
+        paymentprovider := ValidateOptions(this->pspinfo.metadataoptions, paymentprovider.__paymentprovider.meta, [ passthroughin := "__discard" ] );
+        DELETE CELL __discard FROM paymentprovider;
+        this->paymentextension->SetPaymentProviderValue(paymentprovider);
+      }
     }
 
     ^providertabs->RunExtensionsPostInit();

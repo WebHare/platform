@@ -42,7 +42,7 @@ export interface PSPPrecheckRequest {
   method: string;
 
   billingAddress?: PSPAddressFormat;
-  shippingaddress?: PSPAddressFormat;
+  shippingAddress?: PSPAddressFormat;
   /** User's language code, eg 'nl' or 'en-US */
   lang?: string;
   /** User's IP address */
@@ -96,10 +96,23 @@ export interface PSPPayResult<PayMetaType = unknown> extends PSPPrecheckResult {
 
 export type PSPRequirement = "ipAddress" | "wrdLastName" | "billingAddress";
 
+/** A method supported by this PSP */
 export type PSPMethod = {
+  /** A non-changing reference to the payment method */
   rowkey: string;
+  /** The display title for the method */
   title: string;
+  /** Requirements for a startPayment call */
   requirements: PSPRequirement[];
+  /** Minimum amount supported by this payment method */
+  minAmount?: Money;
+  /** Maximum amount supported by this payment method */
+  maxAmount?: Money;
+  /** Image supplied, sorted from best quality */
+  images?: Array<{
+    mimeType: "image/png" | "image/svg+xml";
+    link: string;
+  }>;
 };
 
 export interface PSPSetup {
