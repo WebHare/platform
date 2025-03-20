@@ -1217,6 +1217,9 @@
         <text tid="refreshbutton">Nu verversen</text>
         <text tid="softreset">Soft reset</text>
         <text tid="togglerefreshbutton">Automatisch verversen</text>
+        <textgroup gid="statistics">   <!-- tolliumapps.dashboard.dashboard.statistics -->
+          <text tid="webserverusagestats">Exporteer webserver gebruiksstatistieken</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->
         <text tid="css">CSS</text>
