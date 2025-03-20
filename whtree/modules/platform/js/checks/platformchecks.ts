@@ -1,6 +1,22 @@
+import { dtapStage } from "@webhare/env";
 import { backendConfig, type CheckResult } from "@webhare/services";
 import { listDirectory } from "@webhare/system-tools";
 import { query } from "@webhare/whdb";
+import { readFile } from "node:fs/promises";
+
+async function readPlatformConf(): Promise<Record<string, string>> {
+  const source = await readFile(backendConfig.installationroot + "etc/platform.conf", "utf8");
+  const result: Record<string, string> = {};
+  for (const line of source.split("\n")) {
+    const [key, value] = line.split("=");
+    if (key.trim().startsWith("#") || !value || !value.trim())
+      continue;
+
+    result[key.trim()] = value.trim();
+  }
+
+  return result;
+}
 
 async function checkPostgres(): Promise<CheckResult[]> {
   const issues: CheckResult[] = [];
@@ -31,7 +47,16 @@ async function checkPostgres(): Promise<CheckResult[]> {
     });
   }
 
-  for (const unusedDb of await listDirectory(backendConfig.dataroot + "/postgresql", { mask: "db.*" })) {
+  const curVersion = parseInt(await readFile(backendConfig.dataroot + "postgresql/db/PG_VERSION", "utf8"));
+  const expectVersion = (await readPlatformConf());
+  if (curVersion < parseInt(expectVersion["postgres_major"]) && dtapStage === "development") { //TODO stop limiting to developmet
+    issues.push({
+      type: "system:checker.pg.oldversion",
+      messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion["postgres_major"]} is recommended, you should upgrade soon`,
+    });
+  }
+
+  for (const unusedDb of await listDirectory(backendConfig.dataroot + "postgresql", { mask: "db.*" })) {
     if (unusedDb.name === "db.switchto") {
       issues.push({
         type: "system:checker.pg.switchto",
@@ -54,3 +79,4 @@ export async function checkPlatform(): Promise<CheckResult[]> {
 }
 
 // checkPlatform().then(issues => console.log({ issues }));
+// readPlatformConf().then(console.log);
