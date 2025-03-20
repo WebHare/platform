@@ -31,7 +31,7 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
   UpdateSystemConfigurationRecord();
 
   // Rebuild the webhare config file
-  ApplyWebHareConfiguration([ subsytems := ["config"], source := "SetSystemServerType" ]);
+  ApplyWebHareConfiguration([ subsystems := ["config"], source := "SetSystemServerType" ]);
 
   BroadcastEvent("system:config.servertype", DEFAULT RECORD);
   //ADDME access rules should listen to servertype themselves?
