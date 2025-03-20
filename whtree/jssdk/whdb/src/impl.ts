@@ -310,11 +310,16 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   query<R extends object>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
   query<R extends object>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
-    if (typeof sqlquery === "string") {
-      const lock = this.reftracker.getLock("query lock");
-      return super.query<R>(sqlquery, parameters).finally(() => lock.release());
-    }
-    return super.query(sqlquery);
+    if (typeof sqlquery !== "string")
+      return super.query(sqlquery);
+
+    return (async () => { //lock until the query starts returning or we may just abort the nodejs main loop.
+      using lock = this.reftracker.getLock("query lock");
+      void (lock);
+
+      await this.connectpromise;
+      return await super.query<R>(sqlquery, parameters);
+    })();
   }
 
   /// Releases the PostgresPoolClient
