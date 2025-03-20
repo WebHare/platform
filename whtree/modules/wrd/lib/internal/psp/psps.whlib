@@ -22,25 +22,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
           , metadataoptions := DEFAULT RECORD
           , metadataoptionsoptions := [ passthrough := TRUE ]
           ]
-         ,[ tag := "wrd:ingenico"
-          , title := ":Ingenico"
-          , objectname := "mod::wrd/lib/internal/psp/ingenico.whlib#IngenicoPaymentProvider"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/ingenico.xml#payinfo"
-          , manual := "wrd:ogone"
-          , manuallanguages := ["en"]
-          , configextensions := "mod::wrd/tolliumapps/payments/ingenico.xml#configingenico"
-          , metadataoptions := [ sha1_in := ""
-                               , sha1_out := ""
-                               , sha1_in_directlink := ""
-                               , apiuser := ""
-                               , apipassword := ""
-                               , pspid := ""
-                               , mode := "test"
-                               , methods := DEFAULT STRING ARRAY
-                               , rebranded := ""
-                               , expiry_minutes := 7*1440  //expiry of incomplete payments in minutes
-                               ]
-          ]
          ,[ tag := "wrd:mollie"
           , title := ":Mollie"
           , objectname := "mod::wrd/lib/internal/psp/mollie.whlib#MolliePaymentProvider"
@@ -117,23 +98,15 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
           , metadataoptions := [ disablewithissuer := FALSE
                                , disablenoissuer := FALSE
                                , interactiontype := "redirect"
-                               , requirekeypair := FALSE
                                , sleep := 0
                                ]
           ]
          ];
 }
 
-STRING FUNCTION GetTruePSPName(STRING type) //supports aliassing/old names
-{
-  IF(type = "wrd:ogone")
-    type := "wrd:ingenico";
-  RETURN type;
-}
-
 PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
 {
-  STRING searchtype := GetTruePSPName(createtype);
+  STRING searchtype := createtype;
 
   RECORD methodinfo := SELECT * FROM GetAvailablePSPs() WHERE ToUppercase(tag) = ToUppercase(VAR searchtype);
   IF(NOT RecordExists(methodinfo))
@@ -143,7 +116,6 @@ PUBLIC RECORD FUNCTION GetPSPInfo(STRING createtype)
              , manuallanguages := ["en"]
              , manualaccesstoken := ""
              , ...methodinfo
-             , metadataoptions := CELL[...methodinfo.metadataoptions, keypair := 0 ]
              ];
 }
 

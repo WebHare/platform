@@ -3798,15 +3798,8 @@ STATIC OBJECTTYPE WRDDBPaymentProviderValue EXTEND WRDDBRecordValue
   {
     RECORD val := WRDDBRecordValue::GetFromRecord(entity_settings, settings_start, settings_limit);
     IF(RecordExists(val))
-    {
-      VARIANT keypair := ObjectExists(this->linkgetter)
-          ? this->linkgetter->GetLink(entity_settings[settings_start].id)
-          : SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = entity_settings[settings_start].id;
-      IF (NOT IsDefaultValue(this->whfsmapper))
-        keypair := this->whfsmapper->MapWHFSRef(keypair);
-      val.meta := CELL[...val.meta, keypair ];
       RETURN [ __paymentprovider := val ];
-    }
+
     RETURN val;
   }
 >;

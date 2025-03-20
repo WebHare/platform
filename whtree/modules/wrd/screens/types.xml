@@ -228,7 +228,8 @@
                 height="7x"
                 emptytid=".nosuitablefields"
                 openaction="manageproviders"
-                selectmode="single">
+                selectmode="single"
+                rowkeytype="entityid">
             <column name="providerfield" type="text" />
           </list>
         </cell>

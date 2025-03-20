@@ -2,10 +2,10 @@
 The linkhandler is a simple JS library shipped with WebHare to open all external links in a new tab/window
 
 ```javascript
-   import { openLinksInNewWindow } from '@mod-publisher/js/linkhandler';
-   openLinksInNewWindow();
+   import { setupLinksInNewWindow } from '@webhare/frontend';
+   setupLinksInNewWindow();
 
-   openLinksInNewWindow( { options... } );
+   setupLinksInNewWindow( { options... } );
 ```
 
 Supported options are:

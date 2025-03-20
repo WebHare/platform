@@ -66,11 +66,8 @@ test.throws(/Missing .*notactuallyset/, () => getFrontendData("webhare_testsuite
 test.eq(null, getFrontendData("webhare_testsuite:notactuallyset", { allowMissing: true }));
 
 /* Commonly used:
-
-// open external links in new window - see https://code.webhare.com/publisher/utilities/linkhandler/
-import { openLinksInNewWindow } from '@mod-publisher/js/linkhandler';
-openLinksInNewWindow();
-
+import { setupLinksInNewWindow } from '@webwhare/frontend';
+setupLinksInNewWindow();
 */
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
