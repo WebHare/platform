@@ -82,6 +82,15 @@ run({
         console.table(state.availableServices);
       }
     },
+    "relaunch": {
+      description: "Relaunch the service manager",
+      main: async ({ opts, args }) => {
+        const smservice = await openBackendService("platform:servicemanager");
+        try {
+          await smservice.relaunch();
+        } catch (ignore) { } //Our connection will crash due to bridge reboot. TODO if we ever switch to direct IPC connections we should be able to stay alive!
+      }
+    },
     "reload": {
       description: "Tell the servicemanager to reload the module list",
       main: async ({ opts, args }) => {

@@ -132,11 +132,5 @@ if [ -z "$NOMODE" ]; then
   # wh db setserver readwrite
 
   # To be honest - it's safer to restart all of WebHare. See also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/200
-  # We can easily do that in docker but we actually *should* teach the servicemanager (wh console) to relaunch all processes (and itself?)
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    sv restart webhare
-  else
-    wh service restart platform:database
-    wh db setserver readwrite
-  fi
+   wh service relaunch
 fi

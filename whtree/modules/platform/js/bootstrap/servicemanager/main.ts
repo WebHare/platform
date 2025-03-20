@@ -27,6 +27,7 @@ import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from './gatherservices';
 import { defaultShutDownStage, type ServiceDefinition, Stage, shouldRestartService, type WebHareVersionFile } from './smtypes';
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
+import { kill } from "node:process";
 
 
 export let currentstage = Stage.Bootup;
@@ -37,6 +38,7 @@ const MinimumRunTime = 60000;
 const MaxStartupDelay = 60000;
 const MaxLineLength = 512;
 let verbose = false;
+let startedBackendService = false;
 const serviceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
 
 const setProcessTitles = os.platform() === "linux";
@@ -285,7 +287,7 @@ function unlinkServicestateFiles() {
 */
 
 class ServiceManagerClient extends BackendServiceConnection {
-  constructor(public servicemgr: ServiceManager) {
+  constructor() {
     super();
   }
 
@@ -312,8 +314,10 @@ class ServiceManagerClient extends BackendServiceConnection {
       return { errorMessage: `No such service '${service}'` };
     if (processes.get(service))
       return { errorMessage: `Service '${service}' is already running` };
+    if (!metaMgr.mgr)
+      return { errorMessage: `Service manager is not currently running` };
 
-    new ProcessManager(this.servicemgr, service, serviceinfo);
+    new ProcessManager(metaMgr.mgr, service, serviceinfo);
     return { ok: true };
   }
   async stopService(service: string) {
@@ -335,16 +339,37 @@ class ServiceManagerClient extends BackendServiceConnection {
     if (process?.running)
       await process.stop();
 
-    new ProcessManager(this.servicemgr, service, serviceinfo);
+    if (!metaMgr.mgr)
+      return { errorMessage: `Service manager is not currently running` };
+    new ProcessManager(metaMgr.mgr, service, serviceinfo);
     return { ok: true };
   }
 
   async reload() {
-    await this.servicemgr.loadServiceList("ServiceMangerClient.reload"); //we block this so the service will be visible in the next getWebhareState from this client
-    void this.servicemgr.updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
+    if (!metaMgr.mgr)
+      return { errorMessage: `Service manager is not currently running` };
+
+    await metaMgr.mgr.loadServiceList("ServiceMangerClient.reload"); //we block this so the service will be visible in the next getWebhareState from this client
+    void metaMgr.mgr.updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
+  }
+
+  async relaunch() {
+    await metaMgr.relaunch();
   }
 }
 
+async function startBackendService(name: string) {
+  for (; ;) {
+    try {
+      //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
+      await runBackendService(name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
+      break;
+    } catch (e) {
+      smLog(`Service manager backend service failed with error: ${e}`);
+      await sleep(1000);
+    }
+  }
+}
 
 class ServiceManager {
   keepAlive: NodeJS.Timeout | null = setInterval(() => { }, 1000 * 60 * 60 * 24); //keep us alive
@@ -408,24 +433,32 @@ class ServiceManager {
       process.kill(process.pid, "SIGSTOP");
   };
 
-  async shutdown() {
+  async shutdown(): Promise<void> {
     if (this.shuttingDown)
       return;
     if (this.keepAlive)
       clearTimeout(this.keepAlive);
 
     this.shuttingDown = true;
-    await this.startStage(Stage.Terminating);
-    await this.startStage(Stage.ShuttingDown);
-    updateTitle('');
-
-    if (!this.isSecondaryManager) {
+    return await (async () => { //we handle our own async as we handle our own exceptions
       try {
-        fs.unlinkSync(backendConfig.dataroot + ".webhare.pid");
+        await this.startStage(Stage.Terminating);
+        await this.startStage(Stage.ShuttingDown);
+        updateTitle('');
+
+        if (!this.isSecondaryManager) {
+          try {
+            fs.unlinkSync(backendConfig.dataroot + ".webhare.pid");
+          } catch (e) {
+            console.error("Failed to remove webhare.pid file", e);
+          }
+        }
       } catch (e) {
-        console.error("Failed to remove webhare.pid file", e);
+        smLog("Exception during shutdown", { error: String(e) });
+        console.error("Exception during shutdown", e);
+        process.exit(1);
       }
-    }
+    })();
   }
 
   /// Move to a new stage
@@ -436,18 +469,6 @@ class ServiceManager {
     return await this.updateForCurrentStage();
   }
 
-  async startBackendService() {
-    for (; !this.shuttingDown;) {
-      try {
-        //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
-        await runBackendService(this.name, () => new ServiceManagerClient(this), { autoRestart: false, dropListenerReference: true });
-        break;
-      } catch (e) {
-        smLog(`Service manager backend service failed with error: ${e}`);
-        await sleep(1000);
-      }
-    }
-  }
   /// Actually apply the current stage. Also used when configurationchanges
   async updateForCurrentStage(): Promise<void> {
     updateVisibleState();
@@ -495,10 +516,7 @@ class ServiceManager {
   }
 }
 
-const argv = process.argv.slice(2);
-if (argv.at(-1)?.match(/^ +$/))  // To allow us to rewrite our name in the process tree, we're invoked with a dummy space argument.
-  argv.pop(); //strip the spaces argument from the parsed list
-
+/* Read webhare.version, check whether we are compatible with whatever ran before */
 async function verifyUpgrade() {
   let config: WebHareVersionFile;
   try {
@@ -547,6 +565,89 @@ async function setConfigAndVersion() {
   await storeDiskFile(getVersionFile(), stringify(versionInfo, { stable: true, space: 2 }) + '\n', { overwrite: true });
 }
 
+class ServiceManagerManager {
+  bridgeListener: number | null = null;
+  mgr: ServiceManager | null = null;
+
+  public relaunching = false;
+
+  constructor(public name: string, public secondary: boolean, public include: string, public exclude: string) {
+  }
+
+  async start() {
+    this.relaunching = false; //reset relaunch flag
+
+    const mgr = new ServiceManager(this.name, this.secondary, this.include, this.exclude);
+    this.mgr = mgr;
+    await mgr.loadServiceList("");
+
+    this.bridgeListener = bridge.on("event", event => {
+      if (event.name === "system:configupdate")
+        setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
+      if (event.name === "system:modulesupdate") {
+        mgr.loadServiceList("system:modulesupdate").then(() => mgr.updateForCurrentStage()).catch(e => logError(e));
+      }
+    });
+
+    smLog(`Starting WebHare ${backendConfig.buildinfo.version} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
+
+    if (!this.secondary) {
+      // Update configuration, clear debug settings
+      await setConfigAndVersion();
+
+      //remove old servicestate files
+      unlinkServicestateFiles();
+      await storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+    }
+
+    await mgr.startStage(Stage.Bootup);
+    if (!this.secondary)
+      await mgr.waitForCompileServer();
+
+    if (!startedBackendService) {
+      startedBackendService = true;
+      void startBackendService(this.name); // async start the backend service
+    }
+
+    if (!mgr.shuttingDown)
+      await mgr.startStage(Stage.StartupScript);
+    if (!mgr.shuttingDown)
+      await mgr.startStage(Stage.Active); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
+  }
+
+  async relaunch() {
+    if (this.relaunching)
+      return; //alreday relaunching
+
+    this.relaunching = true;
+    if (this.bridgeListener) {
+      bridge.off(this.bridgeListener);
+      this.bridgeListener = null;
+    }
+
+    smLog("Relaunching service manager");
+    await this.mgr?.shutdown();
+
+    const strayprocs = await getServiceManagerChildPids();
+    if (strayprocs.length) {
+      smLog("Killing stray processes", { strayprocs });
+      for (const proc of strayprocs) {
+        try {
+          kill(proc, "SIGKILL");
+        } catch (ignore) { }
+      }
+    }
+
+    await this.start();
+  }
+}
+
+let metaMgr: ServiceManagerManager;
+
+const argv = process.argv.slice(2);
+if (argv.at(-1)?.match(/^ +$/))  // To allow us to rewrite our name in the process tree, we're invoked with a dummy space argument.
+  argv.pop(); //strip the spaces argument from the parsed list
+
 run({
   flags: {
     "s,secondary": { description: "Mark us as a secondary service manager" },
@@ -574,39 +675,9 @@ run({
       await verifyUpgrade();
     }
 
-    const mgr = new ServiceManager(opts.name, opts.secondary, opts.include, opts.exclude);
-    await mgr.loadServiceList("");
-    bridge.on("event", event => {
-      if (event.name === "system:configupdate")
-        setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
-      if (event.name === "system:modulesupdate") {
-        mgr.loadServiceList("system:modulesupdate").then(() => mgr.updateForCurrentStage()).catch(e => logError(e));
-      }
-    });
-
-    smLog(`Starting WebHare ${backendConfig.buildinfo.version} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
-
-    if (!opts.secondary) {
-      // Update configuration, clear debug settings
-      await setConfigAndVersion();
-
-      //remove old servicestate files
-      unlinkServicestateFiles();
-      await storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
-    }
-
-    await mgr.startStage(Stage.Bootup);
-    if (!opts.secondary)
-      await mgr.waitForCompileServer();
-
-    void mgr.startBackendService(); // async start the backend service
-
-    if (!mgr.shuttingDown)
-      await mgr.startStage(Stage.StartupScript);
-    if (!mgr.shuttingDown)
-      await mgr.startStage(Stage.Active); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
-
-    return 0;
+    metaMgr = new ServiceManagerManager(opts.name, opts.secondary, opts.include, opts.exclude);
+    await metaMgr.start(); //this awaits the first start
+    return 0; //main() simply ends but the running processes will keep themselves alive
   }
 }, { argv });
 

@@ -16,9 +16,5 @@ if [ -e "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
   exit 1
 fi
 
-if [ -z "$WEBHARE_IN_DOCKER" ]; then
-  echo "webhare.restoremode has been removed, you should restart this WebHare to exit restore mode"
-else
-  echo "webhare.restoremode has been removed, restarting WebHare to finally exit restore mode"
-  sv restart webhare
-fi
+echo "webhare.restoremode has been removed, restarting WebHare to finally exit restore mode"
+wh service relaunch
