@@ -8,7 +8,7 @@ export interface CheckResult {
   /** Check type, a modulescoped:name */
   type: string;
   /** Check specific metadata */
-  metadata: object | null;
+  metadata?: object | null;
   /** Textual message */
   messageText: string;
   /** Message text */
@@ -16,8 +16,8 @@ export interface CheckResult {
     tid: string;
     params: string[];
   };
-  jumpTo: object | null;
-  scopes: CheckScopes[];
+  jumpTo?: object | null;
+  scopes?: CheckScopes[];
 }
 
 export type CheckFunction = () => CheckResult[] | Promise<CheckResult[]>;

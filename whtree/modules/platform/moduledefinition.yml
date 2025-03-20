@@ -35,6 +35,7 @@ backendServices:
 
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
+  - checker: js/checks/platformchecks.ts#checkPlatform
   - checker: js/assetpacks/checks.ts#checkAssetPacks
 
 assetPacks:

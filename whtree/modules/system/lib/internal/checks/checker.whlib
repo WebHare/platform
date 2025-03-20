@@ -279,27 +279,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     INSERT [ msg := `:Debugging flags enabled: ${tags}`
            ] INTO messages AT END;
   }
-
-  //warn if the transaction range shows vacuuming not working. you can also manually check this using `wh psql -c 'SELECT max(age(datfrozenxid)) FROM pg_database'`
-  INTEGER maxxidage := SendPostgreSQLCommand(GetPrimary()->id, "SELECT max(age(datfrozenxid)) FROM pg_database").max;
-  IF(maxxidage >= 5000000000) //500 million is a good indication something is wrong
-    INSERT [ msg := `:PostgreSQL reports ${maxxidage} transaction ids in range, it may not be properly vacuuming`
-           , messagetag := [ type := "system:checker.pg.toomanytransactionids" ]
-           ] INTO messages AT END;
-
-  RECORD collation := SendPostgreSQLCommand(GetPrimary()->id, `select datcollate from pg_database where datname=${PostgreSQLEscapeLiteral(GetEnvironmentVariable("WEBHARE_DBASENAME"))}`);
-  IF(collation.datcollate != "C")
-    INSERT [ msg := `:PostgreSQL reports it's in the '${collation.datcollate}' collation, you need to 'wh recreate-postgresql-database' as soon as possible`
-           ] INTO messages AT END;
-
-  VARIANT connections := INTEGER(SendPostgreSQLCommand(GetPrimary()->id, "SELECT COUNT(*) FROM pg_stat_activity").count);
-  VARIANT max_connections := ToInteger(SendPostgreSQLCommand(GetPrimary()->id, "SHOW max_connections").max_connections, 0);
-
-  IF (connections >= max_connections / 2)
-    INSERT [ msg := `:PostgreSQL reports ${connections}/${max_connections} active connections, it might be running out of connections soon`
-           , messagetag := CELL[ type := "system:checker.pg.toomanyconnections", max_connections ] // reset snooze when max_connections is changed
-           ] INTO messages AT END;
-
   IF(ReadRegistryKey("system.webserver.global.locking.sysoponly"))
   {
     INSERT [ msg := ":Logins for normal users have been closed"
@@ -368,15 +347,6 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
         [ msg := ":Mail error rate is " || (numfailed * 100 / Length(recentmail)) || "% over the last hour"
         , messagetag := [ type := "system:checker.mailerrorrate" ]
         ] INTO messages AT END;
-  }
-
-  //Legacy database directory
-  FOREVERY(RECORD unused_db FROM ReadDiskDirectory(MergePath(GetWebhareConfiguration().basedataroot,"postgresql"),"db.*"))
-  {
-    IF(unused_db.name="db.switchto")
-      INSERT [ msg := `:Your database server needs to be restarted to activate a restored/migrated database in ${unused_db.path}` ]INTO messages AT END;
-    ELSE
-      INSERT [ msg := `:It looks like a previous migration backup can be removed in ${unused_db.path} - use \`wh remove-old-databases\` to clean up` ]INTO messages AT END;
   }
 
   FOREVERY(STRING issue FROM GetModuleObjectTypes().issues)
