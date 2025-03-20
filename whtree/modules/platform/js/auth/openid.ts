@@ -16,6 +16,7 @@ import { cleanCookieName } from "@webhare/wrd/src/concepts";
 export type FrontendLoginResult = {
   loggedIn: true;
   expires: Date; //TODO Temporal.Instant but that forces us to import the Temporal polyfill in @ewbhare/fronternd
+  userInfo?: object;
 } | {
   error: string;
   code: LoginErrorCodes;
@@ -100,10 +101,15 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too (but probably not inside the plugin)
         //generateRandomId is prefixed to support C++ webserver webharelogin caching
         const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
-        return createJSONResponse(200, {
+        const responseBody: FrontendLoginResult = {
           loggedIn: true,
           expires: new Date(response.expires.epochMilliseconds)
-        } satisfies FrontendLoginResult, {
+        };
+
+        if (response.userInfo)
+          responseBody.userInfo = response.userInfo;
+
+        return createJSONResponse(200, responseBody, {
           headers: {
             "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
               httpOnly: true,
