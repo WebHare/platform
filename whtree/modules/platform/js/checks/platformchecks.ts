@@ -49,7 +49,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
 
   const curVersion = parseInt(await readFile(backendConfig.dataroot + "postgresql/db/PG_VERSION", "utf8"));
   const expectVersion = (await readPlatformConf());
-  if (curVersion < parseInt(expectVersion["postgres_major"]) && dtapStage === "development") { //TODO stop limiting to developmet
+  if (curVersion < parseInt(expectVersion["postgres_major"]) && dtapStage === "development") { //TODO stop limiting to development
     issues.push({
       type: "system:checker.pg.oldversion",
       messageText: `You are running PostgreSQL ${curVersion} but version ${expectVersion["postgres_major"]} is recommended, you should upgrade soon`,
