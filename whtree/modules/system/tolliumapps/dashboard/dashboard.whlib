@@ -21,12 +21,12 @@ LOADLIB "mod::system/lib/resources.whlib";
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   PUBLIC STRING ARRAY screenparams; // optionally used in child panels
-  
+
   RECORD ARRAY allgroups;
   RECORD ARRAY allpanels;
   RECORD originalspacers;
   STRING originaltitle;
-  
+
   MACRO NEW()
   {
     /* under extreme configuration issues, such as a 427->426 downgrade, userapi may not exist
@@ -276,5 +276,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     this->RunScreen(Resolve("../config/mailrouting.xml#mailroutes"));
   }
->;
 
+  MACRO DoExportWebserverUsageStats()
+  {
+    this->RunScreen("mod::system/tolliumapps/webservers/webservers.xml#exportusagestats");
+  }
+>;

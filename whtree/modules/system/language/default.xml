@@ -1403,6 +1403,9 @@
         <text tid="refreshbutton">Refresh now</text>
         <text tid="softreset">Soft reset</text>
         <text tid="togglerefreshbutton">Auto refresh</text>
+        <textgroup gid="statistics">   <!-- tolliumapps.dashboard.dashboard.statistics -->
+          <text tid="webserverusagestats">Export webserver usage stats</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->
         <text tid="css">CSS</text>
