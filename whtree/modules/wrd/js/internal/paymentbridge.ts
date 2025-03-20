@@ -115,7 +115,7 @@ function buildPaymentCheck(hsPaymentInfo: HsCheckInfo): PSPPrecheckRequest {
     //as we assume both sides will coordinate we're not bothering with json - you'll know if both sides support camelcase props..
     extraPspData: hsPaymentInfo.extrapspdata,
     billingAddress: mapAddress(hsPaymentInfo.billingaddress),
-    shippingaddress: mapAddress(hsPaymentInfo.shippingaddress),
+    shippingAddress: mapAddress(hsPaymentInfo.shippingaddress),
     orderLines: hsPaymentInfo.orderlines.map(line => ({
       type: line.type,
       title: line.title,
