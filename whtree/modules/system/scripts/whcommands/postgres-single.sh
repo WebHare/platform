@@ -1,6 +1,6 @@
 # short: Starts up postgres in single user mode (for error recovery)
 
-source "$WEBHARE_DIR/lib/wh-functions.sh"
+source "${BASH_SOURCE%/*}/../../../../lib/postgres-functions.sh"
 load_postgres_settings
 
 if [ ! -d "$PSROOT/db" ]; then

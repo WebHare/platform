@@ -514,55 +514,5 @@ autocomplete_print_compreply()
   fi
 }
 
-load_postgres_settings()
-{
-  # Let's start (and setup?) PostgreSQL!
-  [ -n "$WEBHARE_DBASENAME" ] || die "WEBHARE_DBASENAME name not set"
-  [ -n "$WEBHARE_DATAROOT" ] || die "WEBHARE_DATAROOT name not set"
-
-  # We put everything under a postgresql folder, so we can chown that to ourselves in the future
-  PSROOT="${WEBHARE_DATAROOT}postgresql"
-
-  if [ -z "$WEBHARE_PGBIN" ]; then
-    # Read the version of the PostgreSQL database, fall back to version 16 (as specified in webhare-deps.rb) for new databases
-    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null || true)
-    if [ -z "${PGVERSION}" ]; then
-      if [ -n "$WEBHARE_IN_DOCKER" ]; then
-        PGVERSION=11 # FIXME - production should default to 11 until we have a working upgrade path to 16
-      else
-        PGVERSION=16 # new databases should start at 16 now
-      fi
-    fi
-
-    PSNAME="PostgreSQL $PGVERSION"
-
-    if [ -n "$WEBHARE_IN_DOCKER" ]; then
-      if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
-        RUNAS="chpst -u postgres:whdata"
-      fi
-      WEBHARE_PGBIN="/usr/lib/postgresql/$PGVERSION/bin/"
-    elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-      if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postgres" ]; then
-        WEBHARE_PGBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
-      else
-        echo "This database requires PostgreSQL version ${PGVERSION}. Please install it and point the WEBHARE_PGBIN environment variable to it"
-        echo "You may be able to install it with 'brew install postgresql@${PGVERSION}' or you may need to download binaries directly"
-        exit 1
-      fi
-    else
-      WEBHARE_PGBIN="/usr/pgsql-$PGVERSION/bin/"
-    fi
-  else
-    PSNAME="PostgreSQL (from $WEBHARE_PGBIN)"
-  fi
-
-  if [ ! -x "$WEBHARE_PGBIN/postgres" ]; then
-    echo "Could not find PostgreSQL binaries in $WEBHARE_PGBIN"
-    exit 1
-  fi
-
-  export PSNAME PSROOT RUNAS PGVERSION WEBHARE_PGBIN
-}
-
 # we need to export getwhparameters because wh_runjs can't find it if externally invoked
 export -f wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters wh_getnodeconfig wh_getemscriptenversion
