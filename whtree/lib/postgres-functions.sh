@@ -40,11 +40,7 @@ load_postgres_settings()
     # Read the version of the PostgreSQL database, fall back to version 16 (as specified in webhare-deps.rb) for new databases
     PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null || true)
     if [ -z "${PGVERSION}" ]; then
-      if [ -n "$WEBHARE_IN_DOCKER" ]; then
-        PGVERSION=11 # FIXME - production should default to 11 until we have a working upgrade path to 16
-      else
-        PGVERSION=16 # new databases should start at 16 now
-      fi
+      PGVERSION="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
     fi
 
     PSNAME="PostgreSQL $PGVERSION"

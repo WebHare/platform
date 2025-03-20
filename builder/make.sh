@@ -46,6 +46,8 @@ reportVersions() {
 
 generateFormula()
 {
+  POSTGRES_MAJOR="$(grep ^postgres_major= "$WEBHARE_DIR/etc/platform.conf" | cut -d= -f2)"
+
   cat << HERE
 # typed: false
 # frozen_string_literal: true
@@ -78,8 +80,9 @@ class WebhareDeps < Formula
   depends_on "openssl"
   depends_on "pixman"
   depends_on "pkg-config"
-  depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6
-  depends_on "postgresql@16" # Newly added in 5.6
+  depends_on "postgresql@13" # The one shipped for 4.35 up to 5.6. Default for new Homebrew WebHare source installs until 5.7
+  depends_on "postgresql@16" # Newly added in 5.6. Default since 5.7
+  depends_on "postgresql@$POSTGRES_MAJOR"
   depends_on "rapidjson"
   depends_on "opensearch"
 
