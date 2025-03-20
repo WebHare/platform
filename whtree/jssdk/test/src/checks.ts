@@ -318,7 +318,7 @@ export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, annota
 */
 export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
   if (isPromise(actual))
-    throw new TestError(`You cannot assert on a promise.Did you forget to await it ? `, annotation);
+    throw new TestError(`You cannot assert on a promise.Did you forget to await it ?`, annotation);
 
   if (actual)
     return; //test passed is actual was 'true'
@@ -345,7 +345,7 @@ async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation
 //handle the failure of throws(Async)
 function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
   //If we get here, no exception occurred
-  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()} `, annotation);
+  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, annotation);
 
   onLog("Expected exception: ", expect.toString());
   if (retval === undefined)
@@ -431,7 +431,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
     case "undefined": {
       if (expect !== actual) {
         onLog({ expect, actual });
-        throw new TestError(`Mismatched value at ${path} `, annotation);
+        throw new TestError(`Mismatched value at ${path}`, annotation);
       }
       return;
     }
@@ -445,24 +445,24 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
         if (expect === null) {
           if (expect !== actual) {
             onLog({ expect, actual });
-            throw new TestError(`Mismatched value at ${path} `, annotation);
+            throw new TestError(`Mismatched value at ${path}`, annotation);
           }
           return;
         }
         const expectarray = Array.isArray(expect);
         if (expectarray !== Array.isArray(actual)) {
           onLog({ expect, actual });
-          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path} `, annotation);
+          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`, annotation);
         }
         if (expectarray) {
           if (!Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array, got object, at ${path} `, annotation);
+            throw new TestError(`Expected array, got object, at ${path}`, annotation);
           }
 
           if (expect.length !== actual.length) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path} `, annotation);
+            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`, annotation);
           }
           for (let i = 0; i < expect.length; ++i)
             eqPropsRecurse(expect[i], actual[i], `${path} [${i}]`, ignore, annotation);
@@ -470,14 +470,14 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
         } else {
           if (Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected object, got array, at ${path} `, annotation);
+            throw new TestError(`Expected object, got array, at ${path}`, annotation);
           }
 
         }
 
         if (typeof actual !== "object" || !actual) {
           onLog({ expect, actual });
-          throw new TestError(`Mismatched value at ${path} `, annotation);
+          throw new TestError(`Mismatched value at ${path}`, annotation);
         }
 
         const gotkeys = Object.keys(actual);
