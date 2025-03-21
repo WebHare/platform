@@ -6,7 +6,7 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import { callExportNowrap, describe, load } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HareScriptVM } from "./wasm-hsvm";
-import { StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
+import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { setHareScriptType } from "@webhare/hscompat/hson";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -133,13 +133,12 @@ export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: str
   return await callExportNowrap(lib, name, args);
 }
 
-const stashes = new Array<StashedWork | null>;
-
 export function startSeparatePrimary() {
-  stashes.push(isWorkOpen() ? stashWork() : null);
+  stashWork();
 }
 export function stopSeparatePrimary() {
-  stashes.pop()?.restore();
+  // Restore the stashed work, not waiting for the old connection to close
+  popWork()?.then(() => { }, () => { });
 }
 
 export function getActionQueue(hsvm: HareScriptVM) {
