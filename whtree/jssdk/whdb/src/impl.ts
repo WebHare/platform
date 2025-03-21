@@ -415,6 +415,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
 type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
+const workqueuesymbol = Symbol("WorkQueueSymbol");
 
 export function escapePGIdentifier(str: string): string {
   const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
@@ -445,40 +446,31 @@ export function getConnection() {
   return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
     if (isWorkOpen())
       await rollbackWork();
+
     return await conn.close();
   });
 }
 
-class StashedWork {
-  private stashed: WHDBConnectionImpl | null;
-
-  constructor() {
-    this.stashed = getScopedResource(connsymbol)!;
-    setScopedResource(connsymbol, undefined);
-  }
-  /** Restore this stashed work.
-   * @throws If this stashed work was already restored before
-   * @returns A stash for the work that was open before running restore, or null if there was no work open
-  */
-  restore(): StashedWork | null {
-    if (!this.stashed)
-      throw new Error(`This stashed work was already restored`);
-
-    const newstash = isWorkOpen() ? new StashedWork : null;
-    setScopedResource(connsymbol, this.stashed);
-    this.stashed = null;
-    return newstash;
-  }
+/** Stash the current work object, opening a new connection (with potential new work) */
+export function stashWork() {
+  const conn = getScopedResource<WHDBConnectionImpl>(connsymbol);
+  const stack = ensureScopedResource<Array<WHDBConnectionImpl | undefined>>(workqueuesymbol, () => new Array<WHDBConnectionImpl>, async (curstack) => {
+    for (const c of curstack)
+      await c?.close();
+  });
+  stack.push(conn);
+  setScopedResource(connsymbol, undefined);
 }
 
-/** Stash the current work object, opening a new connection (with potential new work)
- * @returns A reference to the stashed work. Invoke restore() on it to return to this work
- */
-export function stashWork(): StashedWork {
-  if (!isWorkOpen())
-    throw new Error(`You cannot stashWork if no work is open`);
+export async function popWork() {
+  const stack = getScopedResource<Array<WHDBConnectionImpl | undefined>>(workqueuesymbol);
+  if (!stack?.length)
+    throw new Error(`No work to pop`);
 
-  return new StashedWork;
+  const oldconn = getScopedResource<WHDBConnectionImpl>(connsymbol);
+  setScopedResource(connsymbol, stack.pop());
+  if (oldconn)
+    await oldconn.close();
 }
 
 /* db<T> is defined as a function so a call is made every time it is accessed.
@@ -515,7 +507,7 @@ export async function runInWork<T>(func: () => T | Promise<T>, options?: WorkOpt
  * @throws If the function throws, the work is rolled back and the exception is rethrown
  */
 export async function runInSeparateWork<T>(func: () => T | Promise<T>, options?: WorkOptions): Promise<T> {
-  const stash = isWorkOpen() ? stashWork() : null;
+  stashWork();
   try {
     await using work = await beginWork(options);
     void (work);
@@ -524,7 +516,7 @@ export async function runInSeparateWork<T>(func: () => T | Promise<T>, options?:
     await commitWork();
     return retval;
   } finally {
-    stash?.restore();
+    await popWork();
   }
 }
 
@@ -677,5 +669,3 @@ db<PlatformDB>().insertInto("wrd.entities").values(values).execute();
 ```
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;
-
-export type { StashedWork };

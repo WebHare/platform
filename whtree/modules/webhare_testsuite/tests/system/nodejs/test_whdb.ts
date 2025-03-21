@@ -1,4 +1,4 @@
-import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream } from "@webhare/services";
+import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream, writeRegistryKey } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -17,6 +17,10 @@ async function cleanup() {
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.consilio_index").execute();
   await commitWork();
+}
+
+async function getNumConnections() {
+  return (await query<{ count: number }>("SELECT COUNT(*) FROM pg_stat_activity")).rows[0].count;
 }
 
 async function testWork() {
@@ -648,6 +652,25 @@ async function testClosedConnectionHandling() {
   await worker2.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
 }
 
+async function testSeparatePrimaryLeak() {
+  //there was a bug with works not releaseing their connections
+  const startConns = await getNumConnections();
+  await beginWork();
+  for (let i = 0; i < 100; ++i) {
+    await runInSeparateWork(async () => {
+      await runInSeparateWork(async () => {
+        await writeRegistryKey("webhare_testsuite:tests.response", i + "y");
+      });
+    });
+  }
+
+  const endConns = await getNumConnections();
+  //we'll tolerate up to 40 connections as things may happen in parallel, but if the # of added connections is too high the bug is still there
+  test.assert((endConns - startConns) < 40, `${endConns - startConns} connections were added during the test!`);
+
+  await rollbackWork();
+}
+
 test.runTests([
   cleanup,
   testWork,
@@ -664,4 +687,5 @@ test.runTests([
   testHSRunInSeparatePrimary,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
+  testSeparatePrimaryLeak
 ]);
