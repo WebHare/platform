@@ -280,7 +280,7 @@
         <d:documentation>Entity for which this token was generated</d:documentation>
       </d:integer>
       <d:varchar name="type" maxlength="64" nullable="0">
-        <d:documentation>Token type. Currently we only support 'id'</d:documentation>
+        <d:documentation>Token type. 'id' for first party tokens, 'api' for tokens giving API accesss</d:documentation>
       </d:varchar>
       <d:datetime name="creationdate" nullable="false">
         <d:documentation>Token creation date</d:documentation>

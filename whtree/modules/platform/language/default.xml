@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="common">   <!-- common -->
     <textgroup gid="addressfields">   <!-- common.addressfields -->
       <text tid="city">City</text>
@@ -8,6 +8,12 @@
       <text tid="state">State</text>
       <text tid="street">Street</text>
       <text tid="zip">Zip code</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="module" limitlanguages="en nl">   <!-- module -->
+    <textgroup gid="rights">   <!-- module.rights -->
+      <text tid="api">WebHare API access</text>
+      <text tid="api-description">Has access to the WebHare Platform API</text>
     </textgroup>
   </textgroup>
 </language>

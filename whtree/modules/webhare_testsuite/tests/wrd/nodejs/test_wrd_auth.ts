@@ -116,30 +116,31 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 
   //our evil client should not be able to get the token
   const evilparams = { ...formparams, client_id: evilClient!.clientId, client_secret: evilClient!.clientSecret };
-  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(evilparams), new Headers, customizer));
+  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(evilparams), new Headers, { customizer }));
 
   const badcodeparams = { ...formparams, code: formparams.code.substring(1) };
-  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(badcodeparams), new Headers, customizer));
+  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(badcodeparams), new Headers, { customizer }));
 
   if (challenge) {
     //not supplying code_verifier when code_challenge was present is an error
-    test.eq({ error: /Missing code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer));
+    test.eq({ error: /Missing code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
 
     //invalid code_verifier (should be 43-128 characters long)
     const invalidverifierparams = { ...formparams, code_verifier: "tooshort" };
-    test.eq({ error: /Invalid code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(invalidverifierparams), new Headers, customizer));
+    test.eq({ error: /Invalid code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(invalidverifierparams), new Headers, { customizer }));
 
     //non-matching code_verifier
     const wrongverifierparams = { ...formparams, code_verifier: "1234567890123456789012345678901234567890123" };
-    test.eq({ error: /Wrong code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(wrongverifierparams), new Headers, customizer));
+    test.eq({ error: /Wrong code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(wrongverifierparams), new Headers, { customizer }));
 
     formparams.code_verifier = code_verifier;
   }
-  const tokens = await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer);
+  const tokens = await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer });
   test.assert(tokens.error === null);
-  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, customizer));
-  test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken(tokens.body.id_token!));
-  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId }, await provider.verifyAccessToken(tokens.body.access_token));
+  test.eqPartial({ id_token: /^eyJ/, access_token: /^secret-token:eyJ/ }, tokens.body);
+  test.eq({ error: /Invalid or expired/, }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
+  test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token!));
+  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId }, await provider.verifyAccessToken("api", tokens.body.access_token));
 
   const verifyresult = await provider.validateToken(tokens.body.id_token!);
   test.eqPartial({ aud: clientId, iss: "https://my.webhare.dev/testfw/issuer" }, verifyresult);
@@ -238,16 +239,16 @@ async function testAuthAPI() {
   const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
   test.assert(claimResult.idToken);
   test.eqPartial({ name: "Jon Show" }, await provider.validateToken(claimResult.idToken));
-  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken(claimResult.accessToken));
+  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken("api", claimResult.accessToken));
   test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
 
-  //Test simple login tokens
-  const login1 = await provider.createFirstPartyToken(testuser, null);
-  const login2 = await provider.createFirstPartyToken(testuser, null);
+  //Test simple login tokens. Disable prefix so we can pass 'm straight to decodeJWT
+  const login1 = await provider.createFirstPartyToken("id", testuser, { prefix: "" });
+  const login2 = await provider.createFirstPartyToken("id", testuser, { prefix: "" });
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 
-  test.eqPartial({ entity: testuser }, await provider.verifyAccessToken(login1.accessToken));
+  test.eqPartial({ entity: testuser }, await provider.verifyAccessToken("id", login1.accessToken));
 
   //FIXME test rejection when expired, different schema etc
 

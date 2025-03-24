@@ -33,6 +33,10 @@ backendServices:
   calljs:
     clientFactory: "js/nodeservices/calljs.ts#getCallJSService"
 
+openApiServices:
+  api:
+    spec: openapi/api/api.yml
+
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
   - checker: js/checks/platformchecks.ts#checkPlatform

@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="de" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="de" fallbacklanguage="en">
   <textgroup gid="common">   <!-- common -->
     <textgroup gid="addressfields">   <!-- common.addressfields -->
       <text tid="city">Stadt</text>

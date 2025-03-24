@@ -1,0 +1,53 @@
+---
+openapi: 3.1.0
+info:
+  title: WebHare API
+  version: 0.9.0 # TODO once we're official decide whether this will follow WebHare numbering or be independent
+
+x-webhare-authorization: "meta.ts#verifyUser"
+
+paths:
+  "/meta":
+    get:
+      responses:
+        "200":
+          description: Describes the connected user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/meta"
+        '401':
+          $ref: "#/components/responses/unauthorized"
+      x-webhare-implementation: "meta.ts#getMeta"
+
+components:
+  schemas:
+    meta:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/user"
+
+    user:
+      type: object
+      properties:
+        guid:
+          type: string
+          description: User's unique identifier
+          format: uuid
+        email:
+          type: string
+          description: The email address of the user
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    unauthorized:
+      description: Authorization bearer token is missing or invalid
+
+security:
+  - bearerAuth: [] # use the same name as above

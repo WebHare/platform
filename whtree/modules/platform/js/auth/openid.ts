@@ -221,7 +221,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   if (endpoint[3] === 'token') {
     const body = await req.text();
     const form = new URLSearchParams(body);
-    const response = await provider.retrieveTokens(form, req.headers, customizer);
+    const response = await provider.retrieveTokens(form, req.headers, { customizer });
     if (response.error !== null)
       return createJSONResponse(400, { error: response.error });
     else
