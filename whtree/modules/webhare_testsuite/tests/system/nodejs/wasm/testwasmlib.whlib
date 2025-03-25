@@ -140,3 +140,7 @@ PUBLIC INTEGER FUNCTION GetResetCounter() {
 PUBLIC MACRO IncreaseCounter() {
   counter := counter + 1;
 }
+
+PUBLIC VARIANT FUNCTION Echo(VARIANT input) {
+  RETURN input;
+}

@@ -1,7 +1,7 @@
 import { Marshaller, type IPCMarshallableRecord, HareScriptType, determineType, getDefaultValue } from "@webhare/hscompat/hson";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
-import { dateToParts, makeDateFromParts } from "@webhare/hscompat/datetime.ts";
+import { dateToParts, makeDateFromParts, type ValidDateTimeSources } from "@webhare/hscompat/datetime.ts";
 import { Money } from "@webhare/std";
 import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";
@@ -162,7 +162,7 @@ export class HSVMVar {
     const msecs = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "i32") as number;
     return makeDateFromParts(days, msecs);
   }
-  setDateTime(value: Date) {
+  setDateTime(value: ValidDateTimeSources) {
     const { days, msecs } = dateToParts(value);
     this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
     this.type = HareScriptType.DateTime;
@@ -429,7 +429,7 @@ export class HSVMVar {
         return;
       } break;
       case HareScriptType.DateTime: {
-        this.setDateTime(value as Date);
+        this.setDateTime(value as ValidDateTimeSources);
         return;
       } break;
       case HareScriptType.HSMoney: {

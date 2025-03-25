@@ -10,7 +10,7 @@ export { generateRandomId, isLikeRandomId, isValidUUID } from "./platformbased";
 export { shuffle, emplace, pick, omit, isTruthy, appendToArray, type EmplaceHandler, type DistributedKeys, type DistributedOmit, type DistributedPick } from "./collections";
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, isValidDate, isValidTime, convertFlexibleInstantToDate, type Duration, type WaitPeriod, type FlexibleInstant } from "./datetime";
-export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime } from "./quacks";
+export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "./quacks";
 export { type AddressValue } from "./address";
 
 /** Throw an error with the specified message. This function allows you to throw inside expressions

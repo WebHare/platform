@@ -502,6 +502,7 @@ async function testTypes() {
     { value: Temporal.Now.instant(), stdType: "Instant", quacks: [std.isTemporalInstant], typedStringify: true },
     { value: Temporal.Now.plainDate("iso8601"), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
     { value: Temporal.Now.plainDateTime("iso8601"), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
+    { value: Temporal.Now.zonedDateTime("iso8601", "Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
   ];
 
   const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);
