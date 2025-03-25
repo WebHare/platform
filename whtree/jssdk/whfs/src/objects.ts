@@ -5,9 +5,9 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PubPrio_DirectEdit } from "./support";
+import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
-import type { WebHareBlob } from "@webhare/services";
+import { readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
@@ -131,6 +131,19 @@ export function isHistoricWHFSSpace(path: string) {
   return false;
 }
 
+async function isStripExtension(type: number, name: string): Promise<boolean> {
+  const ext = extname(name);
+  if (!ext)
+    return false;
+
+  const typeinfo = await db<PlatformDB>().selectFrom("system.fs_types").select("ispublishedassubdir").where("id", "=", type).executeTakeFirst();
+  if (!typeinfo?.ispublishedassubdir)
+    return false;
+
+  const stripextensions = await readRegistryKey("publisher:publication.stripextensions");
+  return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
+}
+
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
   private readonly _typens: string;
@@ -196,22 +209,26 @@ export class WHFSObject {
     }
 
     if (this.isFile) {
+      storedata.published = this.dbrecord.published;
+
       if ((metadata as UpdateFileMetadata).firstPublishDate)
         storedata.firstpublishdate = new Date((metadata as UpdateFileMetadata).firstPublishDate!.epochMilliseconds);
       if ((metadata as UpdateFileMetadata).contentModificationDate)
         storedata.contentmodificationdate = new Date((metadata as UpdateFileMetadata).contentModificationDate!.epochMilliseconds);
-    }
 
-    if (this.isFile && (metadata as UpdateFileMetadata).publish) {
-      //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+      storedata.published = setFlagInPublished(storedata.published, PublishedFlag_StripExtension, await isStripExtension(storedata.type ?? this.dbrecord.type ?? 0, storedata.name ?? this.dbrecord.name));
 
-      const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
-      if (curfields && !isPublish(curfields.published)) {
-        storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
-        if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
-        if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
-          storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+      if ((metadata as UpdateFileMetadata).publish) {
+        //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+
+        const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
+        if (curfields && !isPublish(curfields.published)) {
+          storedata.published = convertToWillPublish(storedata.published, true, true, PubPrio_DirectEdit);
+          if (!storedata.contentmodificationdate)
+            storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
+          if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
+            storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+        }
       }
     }
 
@@ -362,6 +379,12 @@ export class WHFSFolder extends WHFSObject {
     const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
     const initialData: boolean = data ? data.size > 0 : false;
 
+    const isfolder = Boolean(type.foldertype);
+    let published = initialPublish ? PubPrio_DirectEdit : 0;
+    if (!isfolder) {
+      published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
+    }
+
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
@@ -374,7 +397,7 @@ export class WHFSFolder extends WHFSObject {
         description: metadata?.description || "",
         errordata: "",
         externallink: "",
-        isfolder: Boolean(type.foldertype),
+        isfolder,
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate
           ? new Date((metadata! as CreateFileMetadata).firstPublishDate!.epochMilliseconds)
@@ -391,7 +414,7 @@ export class WHFSFolder extends WHFSObject {
         lastpublishtime: 0,
         scandata,
         ordering: 0,
-        published: initialPublish ? PubPrio_DirectEdit : 0,
+        published,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
         data: data
