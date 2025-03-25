@@ -564,14 +564,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Create ID and Auth tokens and commit to the database as needed
-   * @param type - The type of token to create ('id' or 'api'). For OpenID, use 'id' and set the 'openid' scope in the options to receive both tokens
+   * @param type - The type of token to create ('id', 'api' or 'oidc')
    * @param subject - The subject for whom the token is created
    * @param client - The client ID
    * @param closeSessionId - The session ID to close after creating the token
    * @param nonce - A nonce value for the token
    * @param options - Additional options for token creation
    */
-  private async createTokens(type: "id" | "api", subject: number, client: number | null, closeSessionId: string | null, nonce: string | null, options?: AuthTokenOptions) {
+  private async createTokens(type: "id" | "api" | "oidc", subject: number, client: number | null, closeSessionId: string | null, nonce: string | null, options?: AuthTokenOptions) {
     /* TODO:
       - do we need an intermediate 'createJWT' that uses the schema's configuration but doesn't create the tokens in the database?
       - do we need to support an 'ephemeral' mode where we don't actually commit the tokens to the database? (more like current wrdauth which only has
@@ -585,8 +585,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }
 
     const isOIDC = options?.scopes?.includes("openid");
-    if (isOIDC && type !== "id")
-      throw new Error("OpenID scopes are only available for ID tokens, not API tokens");
+    if (isOIDC && type !== "oidc")
+      throw new Error("OpenID scopes can only be set for 'oidc' tokens");
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
     //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' type
@@ -633,7 +633,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     await beginWork();
     const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
-      type: type === "api" || isOIDC ? "api" : "id",
+      type: type,
       creationdate: new Date(atPayload.nbf! * 1000),
       expirationdate: new Date(atPayload.exp! * 1000),
       entity: subject,
@@ -659,9 +659,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
   /** Get userinfo for a token */
   async getUserInfo(token: string, customizer: WRDAuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
-    /* We do not verify the token's content currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
+    /* We do not verify the token's signature currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
        signature and just reuse it and save a bit of database churn unless othrt reasons appear to store these tokens */
-    const tokeninfo = await this.verifyAccessToken("api", token);
+    const tokeninfo = await this.verifyAccessToken("oidc", token);
     if ("error" in tokeninfo)
       return { error: tokeninfo.error };
     if (!tokeninfo.client)
@@ -708,7 +708,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param type - Expected token type
    * @param token - The token to verify
   */
-  async verifyAccessToken(type: "id" | "api", token: string): Promise<VerifyAccessTokenResult | { error: string }> {
+  async verifyAccessToken(type: "id" | "api" | "oidc", token: string): Promise<VerifyAccessTokenResult | { error: string }> {
     //TODO verify that this schema
     const hashed = hashSHA256(token);
     const matchToken = await db<PlatformDB>().
@@ -870,7 +870,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { error: "Wrong code_verifier" };
     }
 
-    const tokens = await this.createTokens("id", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
+    const tokens = await this.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
       scopes: returnInfo.scopes,
       customizer: options?.customizer,
       expires: options?.expires || this.config.expires

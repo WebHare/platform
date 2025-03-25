@@ -140,7 +140,7 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   test.eqPartial({ id_token: /^eyJ/, access_token: /^secret-token:eyJ/ }, tokens.body);
   test.eq({ error: /Invalid or expired/, }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
   test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token!));
-  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId }, await provider.verifyAccessToken("api", tokens.body.access_token));
+  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId }, await provider.verifyAccessToken("oidc", tokens.body.access_token));
 
   const verifyresult = await provider.validateToken(tokens.body.id_token!);
   test.eqPartial({ aud: clientId, iss: "https://my.webhare.dev/testfw/issuer" }, verifyresult);
@@ -239,7 +239,7 @@ async function testAuthAPI() {
   const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
   test.assert(claimResult.idToken);
   test.eqPartial({ name: "Jon Show" }, await provider.validateToken(claimResult.idToken));
-  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken("api", claimResult.accessToken));
+  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken("oidc", claimResult.accessToken));
   test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
 
   //Test simple login tokens. Disable prefix so we can pass 'm straight to decodeJWT
