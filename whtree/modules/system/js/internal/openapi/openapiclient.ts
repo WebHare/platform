@@ -15,10 +15,14 @@ export class OpenAPIClient {
   readonly baseurl: string;
   defaultheaders: Record<string, string> = {};
 
-  constructor(baseurl: string, options: { bearertoken?: string }) {
+  constructor(baseurl: string, options: {
+    bearerToken?: string;
+    /** @deprecated use bearerToken in WH5.7+  */
+    bearertoken?: string;
+  }) {
     this.baseurl = baseurl;
-    if (options?.bearertoken)
-      this.defaultheaders["Authorization"] = "Bearer " + options.bearertoken;
+    if (options?.bearerToken || options?.bearertoken)
+      this.defaultheaders["Authorization"] = "Bearer " + (options.bearerToken || options?.bearertoken);
   }
 
   async invoke<BodyType = AnyResponse>(method: string, route: string, requestbody: string): Promise<OpenAPIResponse<BodyType>> {
