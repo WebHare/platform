@@ -24,6 +24,14 @@ TestEq(imp, ImportJs("../nodejs/data/calls.ts"), "ImportJs should not require Re
 TestEq("testme! 42", ImportJs("testpackage")->testme());
 TestEq("testme! 42", ImportJs("testpackage/testpackage.js")->testme());
 
+TestEq([
+  date := MakeDateFromText("2024-01-01T12:13:14Z"),
+  instant := MakeDateFromText("2024-01-01T12:13:14Z"),
+  zoned := MakeDateFromText("2024-01-01T11:13:14Z"),
+  plaindate := MakeDateFromText("2024-01-01"),
+  plaindatetime := MakeDateFromText("2024-01-01T12:13:14Z")
+ ], CallJS("./data/calls.ts#getTimes"));
+
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
 TestEq(42, WaitForPromise(promise42));
@@ -39,6 +47,7 @@ TestEq(43, CallJS("./data/calls.ts#testSync43"));
 //We need specifically test with a TS that was *not* loaded by ImportJS yet:
 TestEq(52, CallJS("./data/calls2.ts#testAsync52"));
 TestEq(53, CallJS("./data/calls2.ts#testSync53"));
+
 
 STRING randomonce := imp->getOnceRandom();
 STRING randomtwice := imp->getOnceRandom();
