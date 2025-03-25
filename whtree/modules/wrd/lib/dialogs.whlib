@@ -5,6 +5,8 @@
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/objectapi-helpers.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
 
@@ -193,4 +195,12 @@ PUBLIC MACRO RunWRDAuthenticationSettings(OBJECT owner, RECORD options DEFAULTST
     contexts := [ wrdschema := options.wrdschema ];
 
   owner->contexts->opener->RunScreen("mod::wrd/tolliumapps/auth/settings.xml", DEFAULT RECORD, CELL[contexts]);
+}
+
+/** Manage API keys for a user */
+PUBLIC MACRO RunWRDMAnageAPIKeys(OBJECT owner, INTEGER entity, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  RECORD user := DescribeWRDEntity(entity);
+  RECORD contexts := [ wrdschema := OpenWRDSchemaById(user.wrdschema) ];
+
+  owner->contexts->opener->RunScreen("mod::wrd/tolliumapps/auth/apikeys.xml", CELL[entity], CELL[contexts]);
 }

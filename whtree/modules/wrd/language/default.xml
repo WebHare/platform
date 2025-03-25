@@ -959,6 +959,15 @@
   </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
     <textgroup gid="auth">   <!-- tolliumapps.auth -->
+      <textgroup gid="apikeys">   <!-- tolliumapps.auth.apikeys -->
+        <text tid="access_token">API Key</text>
+        <text tid="addapikey">Add API key</text>
+        <text tid="apikeys">API Keys</text>
+        <text tid="clicknext">Click 'next' to add an API key</text>
+        <text tid="confirmdelete">Are you sure you want to delete the selected API key ?</text>
+        <text tid="created">Created</text>
+        <text tid="expires">Expires</text>
+      </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
         <text tid="expire_login">Expire login after</text>
         <text tid="expire_persistentlogin">"Remember me" expires after</text>

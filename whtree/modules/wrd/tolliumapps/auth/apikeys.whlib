@@ -1,0 +1,58 @@
+<?wh
+
+LOADLIB "wh::javascript.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
+  INTEGER entity;
+
+  MACRO Init(RECORD data) {
+    this->entity := data.entity;
+  }
+
+  RECORD ARRAY FUNCTION OnGetApiKeys() {
+    RETURN SELECT rowkey := id
+                , created
+                , expires
+                , __origrow := keys
+             FROM EnforceStructure([[ created := DEFAULT DATETIME
+                                    , expires := DEFAULT DATETIME
+                                    ]
+                                   ], CallJS("./apikeys.ts#getAPIKeys", this->contexts->wrdschema->tag, this->entity)) AS keys;
+  }
+
+  MACRO OnEditApiKey(RECORD row) {
+    INTEGER newid := this->RunScreen(Resolve("apikeys.xml#addapikey"), CELL[this->entity]);
+    IF(newid != 0) {
+      ^apikeys->Invalidate();
+      ^apikeys->value := newid;
+    }
+  }
+
+  MACRO OnDeleteApiKey(RECORD row) {
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdelete")) = "yes") {
+      CallJS("./apikeys.ts#deleteAPIKey", this->contexts->wrdschema->tag, row.rowkey );
+      ^apikeys->Invalidate();
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE AddAPIKEy EXTEND TolliumScreenBase <
+  INTEGER entity;
+  INTEGER keyid;
+
+  MACRO Init(RECORD data) {
+    this->entity := data.entity;
+  }
+
+  MACRO OnInitPage2(RECORD data) {
+    RECORD result := EnforceStructure([ expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#createAPIkey", this->contexts->wrdschema->tag, this->entity));
+    ^access_token->value := result.access_token;
+    ^expires->value := result.expires;
+    this->keyid := result.id;
+  }
+  INTEGER FUNCTION Submit() {
+    RETURN this->keyid;
+  }
+>;

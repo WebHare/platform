@@ -632,7 +632,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Metadata too large, max size is 4096 bytes`);
 
     await beginWork();
-    await db<PlatformDB>().insertInto("wrd.tokens").values({
+    const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: type === "api" || isOIDC ? "api" : "id",
       creationdate: new Date(atPayload.nbf! * 1000),
       expirationdate: new Date(atPayload.exp! * 1000),
@@ -641,14 +641,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       scopes: options?.scopes?.join(" ") ?? "",
       hash: hashSHA256(access_token),
       metadata: metadata
-    }).execute();
+    }).returning("id").execute();
 
     if (closeSessionId)
       await closeServerSession(closeSessionId);
 
     await commitWork();
 
-    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null) };
+    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
   }
 
   /** An access token may be prefixed with `secret-token:`, strip it (we'll tolerate any `<...>:` prefix here */
@@ -920,13 +920,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
    * @param userid - Entity associated with this token
    */
-  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<{ accessToken: string; expires: Temporal.Instant }> {
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<{ id: number; accessToken: string; expires: Temporal.Instant }> {
     if (options?.scopes?.includes("openid"))
       throw new Error("Only third party tokens can request an openid scope");
 
     //FIXME adopt expiry settings from HS WRDAuth
     const tokens = await this.createTokens(type, userid, null, null, null, options);
     return {
+      id: tokens.tokenId,
       accessToken: tokens.access_token,
       expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
     };

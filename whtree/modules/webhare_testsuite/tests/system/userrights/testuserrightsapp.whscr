@@ -8,6 +8,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
@@ -292,6 +294,26 @@ ASYNC MACRO TestRightRoleGrants()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO TestAPIKeys() {
+  //NOTE apikeys aren't integrated into the userrights app yet so we'll go straight for the commondialog
+  AWAIT ExpectScreenChange(+1, PTR RunWRDMAnageAPIKeys(GetTestController(), testfw->GetUserWRDId("sysop")));
+
+  AWAIT ExpectScreenChange(+1, PTR TTCLick(":Add"));
+
+  AWAIT TTClick(":Next \u203A\u203A");
+  STRING apikey := TT("access_token")->value;
+  //FIXME test whether that API key is actually valid and belongs to the test user.
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Finish")) ;
+
+  TestEq(TRUE, RecordExists(TT("apikeys")->selection));
+  TestEq(1, Length(TT("apikeys")->rows));
+
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("apikeys->delete"), [ messagemask := "Are you sure you want to delete *" ]);
+  TestEq(0, Length(TT("apikeys")->rows));
+
+  AWAIT ExpectScreenChange(-1, PTR TTescape);
+}
+
 ASYNC MACRO TestExport()
 {
   testfw->BeginWork();
@@ -443,10 +465,11 @@ ASYNC MACRO TestExportSysop()
 
 RunTestframework( [ PTR Setup
                   , PTR TestRightRoleGrants
+                  , PTR TestAPIKeys
                   , PTR TestExport
                   , PTR TestExportSysop
                   , PTR EnsureUserMgmtStateClean(TRUE)
-                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop", "platform:api"] ]
                                     ,[ login := "supervisor", grantrights := ["system:supervisor"] ]
                                     ,[ login := "unitmanager" ]
                                     ,[ login := "lisa"]
