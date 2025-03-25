@@ -72,10 +72,11 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
 
   //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
   const applytester = await getApplyTesterForURL(url);
-  const settings = await applytester.getWRDAuth();
-  const customizer = settings.customizer ? await loadJSObject(settings.customizer) as WRDAuthCustomizer : null;
-  if (!settings.wrdSchema)
+  const settings = await applytester?.getWRDAuth();
+  if (!settings?.wrdSchema)
     return createJSONResponse(400, { error: "No WRD schema defined for URL " + url });
+
+  const customizer = settings.customizer ? await loadJSObject(settings.customizer) as WRDAuthCustomizer : null;
 
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);

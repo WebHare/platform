@@ -28,6 +28,14 @@ async function testWHFS() {
   test.assert(!whfs.isValidName("\u0001"));
   test.assert(whfs.isValidName(".doc"), "'dot' files are okay");
 
+  const privatefolder = await whfs.openFolder("/webhare-private/platform");
+  test.eq("platform", privatefolder.name);
+  test.eq("/webhare-private/platform/", privatefolder.whfsPath);
+  test.eq(null, privatefolder.parentSite);
+  test.eq(null, privatefolder.link);
+  test.eq(null, privatefolder.sitePath);
+  test.eq(null, await privatefolder.getBaseURL());
+
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
@@ -107,7 +115,7 @@ async function testWHFS() {
   test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfsPath)).id);
   test.eq(true, (await whfs.openFile(markdownfile.id)).publish);
 
-  test.eq("", (await whfs.openFolder("/webhare-tests/")).sitePath);
+  test.eq(null, (await whfs.openFolder("/webhare-tests/")).sitePath);
   test.eq('/', (await whfs.openFolder("site::webhare_testsuite.testsite")).sitePath);
   test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);

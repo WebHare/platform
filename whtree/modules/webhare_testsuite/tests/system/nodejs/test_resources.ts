@@ -335,10 +335,10 @@ async function testGIFs() {
 async function testFetchResource() {
   const testsitejs = await test.getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
-  const fetched = await services.fetchResource(snowbeagle.link);
+  const fetched = await services.fetchResource(snowbeagle.link!);
   test.eq(17191, fetched.resource.size);
 
-  const locinfo = await getCachePaths(snowbeagle.link);
+  const locinfo = await getCachePaths(snowbeagle.link!);
   const meta = await readCacheMetadata(locinfo.metaloc);
 
   //Verify the cleanup will also eliminate stray files later
@@ -347,7 +347,7 @@ async function testFetchResource() {
 
   //wait a tick and refetch, verify whether it looks like we got the same resource back from the cache (no metadata update)
   await test.sleep(2); //wait a tick! can't image us beating the cloc kthoug
-  const fetched2 = await services.fetchResource(snowbeagle.link);
+  const fetched2 = await services.fetchResource(snowbeagle.link!);
   const meta2 = await readCacheMetadata(locinfo.metaloc);
   test.eq(17191, fetched2.resource.size);
   test.eq(meta.lastDownload, meta2.lastDownload);

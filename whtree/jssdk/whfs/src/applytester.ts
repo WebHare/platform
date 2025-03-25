@@ -30,7 +30,10 @@ async function getSiteApplicabilityInfo(siteid: number | null): Promise<SiteAppl
   return match ? pick(match, ["siteprofileids", "roottype", "sitedesign"]) : { siteprofileids: [], roottype: 0, sitedesign: "" };
 }
 
-function matchPathRegex(pattern: string, path: string): boolean {
+function matchPathRegex(pattern: string, path: string | null): boolean {
+  if (path === null)
+    return false;
+
   const compiledpattern = new RegExp(pattern, 'i');
   return compiledpattern.test(path);
 }
@@ -112,6 +115,10 @@ async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: bool
     name,
     isNew
   };
+}
+
+function isNotLikeMask(input: string | null, mask: string): boolean {
+  return input !== null && isNotLike(input.toUpperCase(), mask.toUpperCase());
 }
 
 async function getHistoricBaseInfo(obj: WHFSObject): Promise<BaseInfo> {
@@ -287,15 +294,18 @@ export class WHFSApplyTester {
 
   private getPath(which: "whfsPath" | "sitePath") {
     if (this.objinfo.obj)
-      return this.objinfo.obj[which].toUpperCase();
+      return this.objinfo.obj[which] || null;
     // We generate a path based on the parent path and the name of the mocked object. HareScript would always use "NEW OBJECT" as a name
-    return `${(this.objinfo.parent.sitePath + this.objinfo.name).toUpperCase()}${this.objinfo.isfile ? "" : "/"}`;
+    if (this.objinfo.parent.sitePath)
+      return `${(this.objinfo.parent.sitePath + this.objinfo.name)}${this.objinfo.isfile ? "" : "/"}`;
+
+    return null;
   }
 
   testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): boolean {
-    if (rec.pathmask && isNotLike(this.getPath("sitePath"), rec.pathmask.toUpperCase()))
+    if (rec.pathmask && isNotLikeMask(this.getPath("sitePath"), rec.pathmask))
       return false;
-    if (rec.parentmask && (!parentitem || isNotLike(parentitem.sitePath.toUpperCase(), rec.parentmask.toUpperCase())))
+    if (rec.parentmask && (!parentitem || isNotLikeMask(parentitem.sitePath, rec.parentmask)))
       return false;
 
     //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
@@ -304,7 +314,7 @@ export class WHFSApplyTester {
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
-    if (rec.whfspathmask && !isNotLike(this.getPath("whfsPath"), rec.whfspathmask.toUpperCase())) //TOOD well we could 'fake'
+    if (rec.whfspathmask && !isNotLikeMask(this.getPath("whfsPath"), rec.whfspathmask)) //TOOD well we could 'fake'
       return false;
     if (rec.sitetype !== "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;

@@ -63,7 +63,7 @@ async function testOurWebserver() {
   ws.unref();
 
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  const markdowndocurl = new URL(markdowndoc.link);
+  const markdowndocurl = new URL(markdowndoc.link!);
   const testorigin = markdowndocurl.protocol + "//127.0.0.1:" + (markdowndocurl.protocol === "https:" ? port_https : port_http);
 
   //CI publishes the testsite on http, but development servers often use https with a self-signed cert

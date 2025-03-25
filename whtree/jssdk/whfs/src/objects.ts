@@ -11,6 +11,7 @@ import { readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
+import { openSite } from "./sites";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -47,7 +48,7 @@ interface ListableFsObjectRow {
   */
   indexDoc: number | null;
   /// The indexurl, is the url of the currently selected document.
-  link: string;
+  link: string | null;
   /// Whether the selected item is a folder
   isFolder: boolean;
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
@@ -153,20 +154,49 @@ export class WHFSObject {
     this._typens = typens;
   }
 
-  get id() { return this.dbrecord.id; }
-  get name() { return this.dbrecord.name; }
-  get title() { return this.dbrecord.title; }
-  get parent() { return this.dbrecord.parent; }
-  get isFile() { return !this.dbrecord.isfolder; }
-  get isFolder() { return this.dbrecord.isfolder; }
-  get isPinned() { return this.dbrecord.ispinned; }
-  get link() { return this.dbrecord.link; }
-  get sitePath() { return this.dbrecord.fullpath; }
-  get whfsPath() { return this.dbrecord.whfspath; }
-  get parentSite() { return this.dbrecord.parentsite; }
-  get type() { return this._typens; }
-  get creationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime()); }
-  get modificationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime()); }
+  get id(): number {
+    return this.dbrecord.id;
+  }
+  get name(): string {
+    return this.dbrecord.name;
+  }
+  get title(): string {
+    return this.dbrecord.title;
+  }
+  get parent(): number | null {
+    return this.dbrecord.parent;
+  }
+  get isFile(): boolean {
+    return !this.dbrecord.isfolder;
+  }
+  get isFolder(): boolean {
+    return this.dbrecord.isfolder;
+  }
+  get isPinned(): boolean {
+    return this.dbrecord.ispinned;
+  }
+  get link(): string | null {
+    return this.dbrecord.link || null;
+  }
+  get sitePath(): string | null {
+    return this.dbrecord.fullpath || null;
+  }
+  get whfsPath(): string {
+    return this.dbrecord.whfspath;
+
+  }
+  get parentSite(): number | null {
+    return this.dbrecord.parentsite;
+  }
+  get type(): string {
+    return this._typens;
+  }
+  get creationDate(): Temporal.Instant {
+    return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime());
+  }
+  get modificationDate(): Temporal.Instant {
+    return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime());
+  }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -428,6 +458,17 @@ export class WHFSFolder extends WHFSObject {
 
     return retval.id;
   }
+
+  /** Get the base URL for items in this folder if it was published. Does not follow or use the indexDoc
+   * @returns - The base URL for this folder or an empty string if its site is not published
+  */
+  async getBaseURL(): Promise<string | null> {
+    if (!this.parentSite || !this.sitePath)
+      return null;
+    const { webRoot } = await openSite(this.parentSite);
+    return webRoot ? webRoot + encodeURIComponent(this.sitePath?.substring(1)).replaceAll("%2F", "/") : null;
+  }
+
 
   async createFile(name: string, metadata?: CreateFileMetadata): Promise<WHFSFile> {
     const type = getType(metadata?.type ?? unknownfiletype, "fileType");

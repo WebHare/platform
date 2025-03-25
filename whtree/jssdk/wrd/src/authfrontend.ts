@@ -7,8 +7,8 @@ import { IdentityProvider } from "./auth";
 /** Get the user linked to a URL */
 export async function getRequestUser(req: WebRequest, pathname: string): Promise<{ wrdSchema: string; user: number } | null> {
   const info = await getApplyTesterForURL(req.getOriginURL(pathname)!);
-  const wrdauth = await info.getWRDAuth();
-  if (!wrdauth.wrdSchema)
+  const wrdauth = await info?.getWRDAuth();
+  if (!wrdauth?.wrdSchema)
     throw new Error(`WRDAuth is not configured for ${req.url}`);
 
   const logincookie = req.getCookie(wrdauth.cookieName);
