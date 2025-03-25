@@ -1608,6 +1608,8 @@ PUBLIC RECORD FUNCTION ParseModuleDefinition(STRING modulename, OBJECT xml)
   RECORD retval := parser->ParseAndValidate();
   RETURN CELL[ ...retval
               , errors := parser->errors
+              , warnings := parser->warnings
+              , hints := parser->hints
               ];
 }
 
