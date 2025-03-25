@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type VerifyOptions } from "jsonwebtoken";
 import type { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
-import { convertWaitPeriodToDate, generateRandomId, pick, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
@@ -17,6 +17,20 @@ import { HareScriptType, decodeHSON, encodeHSON, setHareScriptType } from "@webh
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
+
+/** Token creation options */
+export interface AuthTokenOptions {
+  /** Customizer object */
+  customizer?: WRDAuthCustomizer | null;
+  /** Expiration date for the token. If not set, will fallback to any configuration and eventually 1 day */
+  expires?: WaitPeriod;
+  /** Prefix for API tokens, defaults to 'secret-token:' (see RFC 8959) */
+  prefix?: string;
+  /** Scopes associated with the API token */
+  scopes?: string[];
+  /** Metadata to add */
+  metadata?: object | null;
+}
 
 interface HSONAuthenticationSettings {
   version: number;
@@ -371,12 +385,6 @@ export interface ServiceProviderInit {
   subjectField?: string;
 }
 
-export interface SessionCreationOptions {
-  expires?: WaitPeriod;
-  settings?: Record<string, unknown>;
-  scopes?: string[];
-}
-
 export interface VerifyAccessTokenResult {
   ///wrdId of the found subject
   entity: number;
@@ -385,7 +393,9 @@ export interface VerifyAccessTokenResult {
   ///client to which the token was provided
   client: number | null;
   ///expiration date
-  expires: Date | null;
+  expires: Temporal.Instant | null;
+  //id of the used token (refers to wrd.tokens table)
+  tokenId: number;
 }
 
 export interface ClientConfig {
@@ -553,19 +563,30 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { keys };
   }
 
-  /* TODO:
-     - do we need an intermediate 'createJWT' that uses the schema's configuration but doesn't create the tokens in the database?
-     - do we need to support an 'ephemeral' mode where we don't actually commit the tokens to the database? (more like current wrdauth which only has
-       password reset as a way to clear tokens)
-  */
-
-  private async createTokens(subject: number, client: number | null, expires: WaitPeriod, scopes: string[], closeSessionId: string | null, nonce: string | null, customizer: WRDAuthCustomizer | null) {
+  /** Create ID and Auth tokens and commit to the database as needed
+   * @param type - The type of token to create ('id', 'api' or 'oidc')
+   * @param subject - The subject for whom the token is created
+   * @param client - The client ID
+   * @param closeSessionId - The session ID to close after creating the token
+   * @param nonce - A nonce value for the token
+   * @param options - Additional options for token creation
+   */
+  private async createTokens(type: "id" | "api" | "oidc", subject: number, client: number | null, closeSessionId: string | null, nonce: string | null, options?: AuthTokenOptions) {
+    /* TODO:
+      - do we need an intermediate 'createJWT' that uses the schema's configuration but doesn't create the tokens in the database?
+      - do we need to support an 'ephemeral' mode where we don't actually commit the tokens to the database? (more like current wrdauth which only has
+        password reset as a way to clear tokens)
+    */
     let clientInfo;
     if (client !== null) {
       clientInfo = await this.wrdschema.getFields("wrdauthServiceProvider", client, ["wrdGuid", "subjectField"]);
       if (!clientInfo)
         throw new Error(`Unable to find serviceProvider #${client}`);
     }
+
+    const isOIDC = options?.scopes?.includes("openid");
+    if (isOIDC && type !== "oidc")
+      throw new Error("OpenID scopes can only be set for 'oidc' tokens");
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
     //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' type
@@ -575,16 +596,19 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const creationdate = new Date;
     creationdate.setMilliseconds(0); //round down
-    const validuntil = convertWaitPeriodToDate(expires, { relativeTo: creationdate });
+    const validuntil = convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
 
-    //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us (so we won't store them)
+    //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us
     let id_token: string | undefined;
-    if (client && clientInfo && scopes.includes("openid")) {
+    if (isOIDC) {
+      if (!(client && clientInfo))
+        throw new Error("Unable to create ID token without a thirdparty client");
+
       const payload = preparePayload(subjectValue, creationdate, validuntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
-      if (customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
-        await customizer.onOpenIdToken({ user: subject, scopes, client }, payload as JWTPayload);
+      if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
+        await options?.customizer.onOpenIdToken({ user: subject, scopes: options?.scopes || [], client }, payload as JWTPayload);
 
       const config = await this.getKeyConfig();
       if (!config || !config.issuer || !config.signingKeys?.length)
@@ -597,34 +621,47 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       id_token = jwt.sign(payload, signingkey, { keyid: bestsigningkey.keyId, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
     }
 
-    /* We always generate access tokens (TODO or is there ever any reason not to?) though 3rd party clients aren't sure to be able to do more with it than requesting userinfo
+    /* We always generate access tokens for OpenID requests (skippable when client only requests an id_token)
        For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not sign this as we
        don't care about signatures, our wrd.tokens table is leading. (we might need to sign at some point if we're going to support refresh tokens) */
-    const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes });
-    const access_token = jwt.sign(atPayload, null, { algorithm: "none" });
+    const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes: options?.scopes || [] });
+    const prefix = options?.prefix ?? "secret-token:"; //if undefined/null, we fall back to the default
+    const access_token = prefix + jwt.sign(atPayload, null, { algorithm: "none" });
+    const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
+    if (Buffer.from(metadata).length > 4096)
+      throw new Error(`Metadata too large, max size is 4096 bytes`);
 
     await beginWork();
-    await db<PlatformDB>().insertInto("wrd.tokens").values({
-      type: "access",
+    const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
+      type: type,
       creationdate: new Date(atPayload.nbf! * 1000),
       expirationdate: new Date(atPayload.exp! * 1000),
       entity: subject,
       client: client,
-      scopes: scopes.join(" "),
-      hash: hashSHA256(access_token)
-    }).execute();
+      scopes: options?.scopes?.join(" ") ?? "",
+      hash: hashSHA256(access_token),
+      metadata: metadata
+    }).returning("id").execute();
 
     if (closeSessionId)
       await closeServerSession(closeSessionId);
 
     await commitWork();
 
-    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null) };
+    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
+  }
+
+  /** An access token may be prefixed with `secret-token:`, strip it (we'll tolerate any `<...>:` prefix here */
+  private extractToken(token: string) {
+    const parts = token.match(/^(?<prefix>[^:]+):(?<token>.+)$/);
+    return parts?.groups?.token || throwError(`Unrecognized token format`);
   }
 
   /** Get userinfo for a token */
   async getUserInfo(token: string, customizer: WRDAuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
-    const tokeninfo = await this.verifyAccessToken(token);
+    /* We do not verify the token's signature currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
+       signature and just reuse it and save a bit of database churn unless other reasons appear to store these tokens */
+    const tokeninfo = await this.verifyAccessToken("oidc", token);
     if ("error" in tokeninfo)
       return { error: tokeninfo.error };
     if (!tokeninfo.client)
@@ -634,7 +671,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!userfields)
       return { error: "No such user" };
 
-    const decoded = jwt.decode(token, { complete: true });
+    const decoded = jwt.decode(this.extractToken(token), { complete: true });
     if (!decoded)
       return { error: "Invalid access token for userinfo" };
 
@@ -668,21 +705,29 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Verify a token we gave out ourselves. Also checks against retracted tokens
+   * @param type - Expected token type
    * @param token - The token to verify
   */
-  async verifyAccessToken(token: string): Promise<VerifyAccessTokenResult | { error: string }> {
+  async verifyAccessToken(type: "id" | "api" | "oidc", token: string): Promise<VerifyAccessTokenResult | { error: string }> {
     //TODO verify that this schema
     const hashed = hashSHA256(token);
-    const matchToken = await db<PlatformDB>().selectFrom("wrd.tokens").where("hash", "=", hashed).select(["entity", "client", "expirationdate", "scopes", "type"]).executeTakeFirst();
-    if (!matchToken || matchToken.type !== "access" || matchToken.expirationdate < new Date)
+    const matchToken = await db<PlatformDB>().
+      selectFrom("wrd.tokens").
+      where("hash", "=", hashed).
+      where("type", "=", type).
+      select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
+      executeTakeFirst();
+
+    if (!matchToken || matchToken.expirationdate < new Date)
       return { error: `Token is invalid` };
 
     //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
     return {
       entity: matchToken.entity,
+      tokenId: matchToken.id,
       scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
       client: matchToken.client,
-      expires: matchToken.expirationdate
+      expires: matchToken.expirationdate?.toTemporalInstant() ?? null
     };
   }
 
@@ -770,7 +815,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   ///Implements the oauth2/openid endpoint
-  async retrieveTokens(form: URLSearchParams, headers: Headers, customizer: WRDAuthCustomizer | null): Promise<{ error: string } | { error: null; body: TokenResponse }> {
+  async retrieveTokens(form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{ error: string } | { error: null; body: TokenResponse }> {
     let headerClientId = '', headerClientSecret = '';
     const authorization = headers.get("Authorization")?.match(/^Basic +(.+)$/i);
     if (authorization) {
@@ -825,8 +870,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { error: "Wrong code_verifier" };
     }
 
-    const expires = this.config.expires || "P1D";
-    const tokens = await this.createTokens(returnInfo.user, returnInfo.clientid, expires, returnInfo.scopes, sessionid, returnInfo.nonce, customizer);
+    const tokens = await this.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
+      scopes: returnInfo.scopes,
+      customizer: options?.customizer,
+      expires: options?.expires || this.config.expires
+    });
+
     return {
       error: null,
       body: {
@@ -838,11 +887,47 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  /** Create an access token for WRD's local use */
-  async createFirstPartyToken(userid: number, customizer: WRDAuthCustomizer | null): Promise<{ accessToken: string; expires: Temporal.Instant }> {
+  /** List active tokens */
+  async listTokens(userid: number): Promise<Array<{
+    id: number;
+    type: "id" | "api";
+    metadata: unknown;
+    created: Temporal.Instant;
+    expires: Temporal.Instant | null;
+    scopes: string[];
+  }>> {
+    const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
+      where("entity", "=", userid).
+      select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
+      execute();
+
+    return tokens.map(token => ({
+      id: token.id,
+      type: token.type as "id" | "api",
+      metadata: token.metadata ? parseTyped(token.metadata) : null,
+      created: token.creationdate.toTemporalInstant(),
+      expires: token.expirationdate?.toTemporalInstant() ?? null,
+      scopes: token.scopes ? token.scopes.split(" ") : []
+    }));
+  }
+
+  /** Delete token */
+  async deleteToken(id: number): Promise<void> {
+    await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", id).execute();
+  }
+
+  /** Create a token for use with this server
+   * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
+   * @param userid - Entity associated with this token
+   */
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<{ id: number; accessToken: string; expires: Temporal.Instant }> {
+    if (options?.scopes?.includes("openid"))
+      throw new Error("Only third party tokens can request an openid scope");
+
     //FIXME adopt expiry settings from HS WRDAuth
-    const tokens = await this.createTokens(userid, null, "P1D", [], null, null, customizer);
+    const tokens = await this.createTokens(type, userid, null, null, null, options);
     return {
+      id: tokens.tokenId,
       accessToken: tokens.access_token,
       expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
     };
@@ -882,7 +967,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
 
-    const retval: LoginResult = { loggedIn: true, ...await this.createFirstPartyToken(userid, customizer) };
+    const retval: LoginResult = { loggedIn: true, ...await this.createFirstPartyToken("id", userid, { customizer }) };
     if (customizer?.onFrontendUserInfo)
       retval.userInfo = await customizer.onFrontendUserInfo(userid);
     return retval;

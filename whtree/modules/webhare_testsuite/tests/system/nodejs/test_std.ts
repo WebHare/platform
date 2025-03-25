@@ -502,6 +502,7 @@ async function testTypes() {
     { value: Temporal.Now.instant(), stdType: "Instant", quacks: [std.isTemporalInstant], typedStringify: true },
     { value: Temporal.Now.plainDate("iso8601"), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
     { value: Temporal.Now.plainDateTime("iso8601"), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
+    { value: Temporal.Now.zonedDateTime("iso8601", "Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
   ];
 
   const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);
@@ -797,6 +798,16 @@ function testCaseChanging() {
   test.eq({ deep_array: [{ message_text: "abc" }, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23"), my_blob: verifyBlob }] }, std.toSnakeCase({ deepArray: [{ messageText: "abc" }, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23"), myBlob: blobbie }] }));
   test.eq({ messageText: "test" }, std.toCamelCase({ message_text: "test" }));
   test.eq({ deepArray: [{}, { messageText: "test", dateTime: new Date("2024-01-01"), myMoney: new Money("1.23"), myBlob: verifyBlob }] }, std.toCamelCase({ deep_array: [{}, { message_text: "test", date_time: new Date("2024-01-01"), my_money: new Money("1.23"), my_blob: blobbie }] }));
+
+  const times = {
+    date: new Date("2024-01-01T12:13:14Z"),
+    instant: Temporal.Instant.from("2024-01-01T12:13:14Z"),
+    zoned: Temporal.ZonedDateTime.from("2024-01-01T12:13:14[Europe/Amsterdam]"),
+    plainDate: Temporal.PlainDate.from("2024-01-01"),
+    plainDateTime: Temporal.PlainDateTime.from("2024-01-01T12:13:14"),
+  };
+
+  test.eq(times, std.toCamelCase(std.toSnakeCase(times)));
 }
 
 function testUUIDFallback() {

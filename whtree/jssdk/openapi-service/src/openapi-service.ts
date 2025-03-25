@@ -3,8 +3,10 @@
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { debugFlags } from "@webhare/env";
 import { extractRequestBody, extractRequestInfo, logWrqRequest, logWrqResponse } from "@webhare/env/src/fetchdebug";
-import { createWebResponse, type HTTPMethod } from "@webhare/router";
+import { createJSONResponse, createWebResponse, HTTPErrorCode, type HTTPMethod, type RestAuthorizationResult, type RestRequest } from "@webhare/router";
 import { WebHareBlob } from "@webhare/services";
+import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
+import { IdentityProvider, WRDSchema } from "@webhare/wrd";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/openapi-service" {
@@ -60,4 +62,64 @@ export async function getDirectOpenAPIFetch(service: string, options?: {
   };
   fetchCall[Symbol.dispose] = () => serviceinstance[Symbol.dispose]();
   return fetchCall;
+}
+
+/** Describes a WRD API user authenticated by verifyWRDAPIUser */
+export type AuthorizedWRDAPIUser = {
+  /** WRD schema we've authenticated to */
+  wrdSchema: string;
+  /** Authenticated WRD entity#  */
+  userId: number;
+  /** ID of the wrd.tokens row the user authenticatd with */
+  tokenId: number;
+  /** Scopes granted to this API key */
+  scopes: string[];
+};
+
+/** Craft a 401 error response. Should be used by verifyWRDAPIUser wrappers  */
+export function failWRDAPIUserAuth(error: string): RestAuthorizationResult<AuthorizedWRDAPIUser> {
+  return {
+    authorized: false,
+    response: createJSONResponse(HTTPErrorCode.Unauthorized, {
+      error
+    }, {
+      headers: { "WWW-Authenticate": "Bearer" }
+    })
+  };
+}
+
+/** Verify whether the current API call was done by a proper WRD user. Use or wrap this function to perform additional user/scope checks
+ * @param req - Received request
+ * @returns - Result of the authentication. If authorized, the result contains the WRD schema and user ID
+*/
+export async function verifyWRDAPIUser(req: RestRequest): Promise<RestAuthorizationResult<AuthorizedWRDAPIUser>> {
+  const key = req.webRequest.headers.get("authorization");
+  if (!key || !key.toLowerCase().startsWith("bearer "))
+    return failWRDAPIUserAuth("Missing 'Authorization: bearer ....' header");
+
+  const applytester = await getApplyTesterForURL(req.webRequest.url);
+  const wrdauth = await applytester?.getWRDAuth();
+  if (!wrdauth)
+    return failWRDAPIUserAuth("No authentication configured for this URL");
+  if (!wrdauth.wrdSchema)
+    return failWRDAPIUserAuth("No WRD Schema configured for this URL");
+
+  const idp = new IdentityProvider(new WRDSchema(wrdauth.wrdSchema));
+  const res = await idp.verifyAccessToken("api", key.substring(7).trim());
+  if ("error" in res)
+    return failWRDAPIUserAuth(res.error);
+
+  return {
+    authorized: true,
+    loginfo: {
+      userId: res.entity,
+      tokenId: res.tokenId
+    },
+    authorization: {
+      wrdSchema: wrdauth.wrdSchema,
+      userId: res.entity,
+      tokenId: res.tokenId,
+      scopes: res.scopes
+    }
+  };
 }

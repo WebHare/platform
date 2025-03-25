@@ -1,6 +1,6 @@
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { Money, isDate } from "@webhare/std";
+import { Money, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "./datetime";
 
 declare global {
@@ -165,7 +165,7 @@ export function determineType(value: unknown): HareScriptType {
         return HareScriptType.String;
       if (Money.isMoney(value))
         return HareScriptType.HSMoney;
-      if (isDate(value))
+      if (isDate(value) || isTemporalInstant(value) || isTemporalPlainDateTime(value) || isTemporalPlainDate(value) || isTemporalZonedDateTime(value))
         return HareScriptType.DateTime;
 
       return HareScriptType.Record;

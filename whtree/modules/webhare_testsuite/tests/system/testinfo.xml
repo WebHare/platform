@@ -19,6 +19,7 @@
   <test script="test_dba.whscr" ifenvironset="WEBHARE_DBASENAME" />
   <test name="userrights" path="userrights/" />
   <test name="whfs" path="whfs/" />
+  <test name="whapi" path="whapi/" />
   <test name="queues" path="queues/" />
   <test name="twohare" path="twohare/" />
   <test script="test_logfile.whscr" />

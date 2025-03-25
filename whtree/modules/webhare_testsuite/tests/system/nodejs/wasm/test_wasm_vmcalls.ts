@@ -95,6 +95,13 @@ async function testVarMemory() {
 
 async function testCalls() {
   const vm = await createVM();
+
+  test.eq([3, 1, 2], await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo([3, 1, 2]));
+  test.eq(new Date("2024-01-01T12:13:14Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.Instant.from("2024-01-01T12:13:14Z")));
+  test.eq(new Date("2024-01-01T11:13:14Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.ZonedDateTime.from("2024-01-01T12:13:14[Europe/Amsterdam]")));
+  test.eq(new Date("2024-01-01T00:00:00Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.PlainDate.from("2024-01-01")));
+  test.eq(new Date("2024-01-01T12:13:14Z"), await vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo(Temporal.PlainDateTime.from("2024-01-01T12:13:14")));
+
   test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
   const err = await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
   const parsed = stacktrace_parser.parse(err.stack!);

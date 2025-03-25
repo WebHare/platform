@@ -16,7 +16,7 @@ export async function getRequestUser(req: WebRequest, pathname: string): Promise
   if (accessToken) {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(wrdauth.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
-    const tokeninfo = await provider.verifyAccessToken(accessToken);
+    const tokeninfo = await provider.verifyAccessToken("id", accessToken);
     if (!("error" in tokeninfo))
       return { wrdSchema: wrdauth.wrdSchema, user: tokeninfo.entity };
   }

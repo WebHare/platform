@@ -29,6 +29,11 @@ export function isTemporalPlainDate(value: unknown): value is Temporal.PlainDate
   return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.PlainDate');
 }
 
+/** Test whether a value looks like an instance of Temporal.ZonedDateTime */
+export function isTemporalZonedDateTime(value: unknown): value is Temporal.ZonedDateTime {
+  return Boolean(value && typeof value === "object" && Symbol.toStringTag in value && value?.[Symbol.toStringTag] === 'Temporal.ZonedDateTime');
+}
+
 /** Test whether a value looks like an instance of Date (assumes no subclasses) */
 export function isDate(value: unknown): value is Date {
   return value instanceof Date || (isCrossRealm(value) && value.constructor.name === "Date");
@@ -58,7 +63,7 @@ export function isPromise<T>(e: unknown): e is Promise<T> {
  * @param value - The value to check
  * @returns The type of the value. If the value is an object but recognized as any of Money, Date, Blob, Temporal.Instant/PlainDate/PlainDateTime, that type is returned.
  */
-export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" | "Instant" | "PlainDate" | "PlainDateTime" | "File" | "Blob" {
+export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "null" | "symbol" | "bigint" | "function" | "object" | "undefined" | "Date" | "Money" | "Array" | "Instant" | "PlainDate" | "PlainDateTime" | "ZonedDateTime" | "File" | "Blob" {
   const t = typeof value;
   if (t === "object") {
     if (!value)
@@ -77,6 +82,8 @@ export function stdTypeOf(value: unknown): "string" | "number" | "boolean" | "nu
       return "PlainDate";
     if (isTemporalPlainDateTime(value))
       return "PlainDateTime";
+    if (isTemporalZonedDateTime(value))
+      return "ZonedDateTime";
   }
   return t;
 }

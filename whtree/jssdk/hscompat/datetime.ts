@@ -1,3 +1,5 @@
+export type ValidDateTimeSources = Date | Temporal.Instant | Temporal.PlainDateTime | Temporal.PlainDate | Temporal.ZonedDateTime;
+
 /* new Date(100000000 * 86400000) is also valid, but to keep parity with HS we set
    it at the very last millisecond of a day
 */
@@ -16,8 +18,12 @@ export function makeDateFromParts(days: number, msecs: number): Date {
   return new Date(totalmsecs);
 }
 
-export function dateToParts(date: Date): { days: number; msecs: number } {
-  const totalmsecs = Number(date);
+/** Convert a date to msecs/days since the HareScript epoch (1-1-0001), ie the 'DATETIME parts'
+ * @param date - The date to convert
+ * @returns - The number of days and milliseconds since the January 1st 0001 assuming a Gregorian calendar since that epoch
+ */
+export function dateToParts(date: ValidDateTimeSources): { days: number; msecs: number } {
+  const totalmsecs = "epochMilliseconds" in date ? date.epochMilliseconds : "getTime" in date ? date.getTime() : date.toZonedDateTime("UTC").epochMilliseconds;
   let days, msecs;
   if (totalmsecs >= maxDateTimeTotalMsecs) {
     days = 2147483647;

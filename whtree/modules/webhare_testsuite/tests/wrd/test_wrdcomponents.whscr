@@ -17,7 +17,8 @@ ASYNC MACRO TestRunQuery()
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="${Resolve("test_wrdcomponents.whlib")}">
   <screen name="testrunquery">
     <body>
-      <select name="select1" type="pulldown">
+      <select name="select1" type="pulldown" rowkeytype="entityid">
+        <option rowkey="0" title="None" />
         <wrd:runquery wrdschema="wrd:testschema" wrdtype="test_domain_1" />
       </select>
       <select name="select2" type="pulldown">
@@ -33,7 +34,7 @@ ASYNC MACRO TestRunQuery()
   TestEq(domvaltype->Search("WRD_TAG", "TEST_DOMAINVALUE_1_2"), browser->select1->value);
 
   //Test that we can get it sorted
-  TestEq(["Domain value 1.1", "Domain value 1.2", "Domain value 1.3"], SELECT AS STRING ARRAY title FROM browser->select1->options);
+  TestEq(["None","Domain value 1.1", "Domain value 1.2", "Domain value 1.3"], SELECT AS STRING ARRAY title FROM browser->select1->options);
   TestEq(["Domain value 1.3", "Domain value 1.2", "Domain value 1.1"], SELECT AS STRING ARRAY title FROM browser->select2->options);
 }
 

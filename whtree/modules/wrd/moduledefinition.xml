@@ -280,7 +280,13 @@
         <d:documentation>Entity for which this token was generated</d:documentation>
       </d:integer>
       <d:varchar name="type" maxlength="64" nullable="0">
-        <d:documentation>Token type. Currently we only support 'id'</d:documentation>
+        <d:documentation>
+          Token type. 'id' for first party tokens, 'api' for tokens giving API accesss, 'oidc' for OIDC API access tokens (for the userinfo/profile endpoint)
+
+          API and OIDC tokens are technically identical but we separate them to prevent the access_tokens sent to OpenID service providers from being able
+          to access OpenAPIs. OIDC tokens should generally only be used for the userinfo endpoint (but if you're a social network, there may be a usecase for
+          allowing the OIDC access token to access your generic APIs)
+        </d:documentation>
       </d:varchar>
       <d:datetime name="creationdate" nullable="false">
         <d:documentation>Token creation date</d:documentation>
@@ -293,6 +299,9 @@
       </d:integer>
       <d:varchar name="scopes" maxlength="1024">
         <d:documentation>Space separated list of scopes in this token</d:documentation>
+      </d:varchar>
+       <d:varchar name="metadata" maxlength="4096">
+        <d:documentation>App specific metadata, JSON typed encoded</d:documentation>
       </d:varchar>
       <d:bytea name="hash" maxlength="32" nullable="0" unique="true">
         <d:documentation>Hash for this token</d:documentation>

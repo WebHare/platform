@@ -164,6 +164,7 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
         case "Instant":
         case "PlainDate":
         case "PlainDateTime":
+        case "ZonedDateTime":
           value = { "$stdType": type, [type.toLowerCase()]: (origvalue as { toString: () => string }).toString() };
           break;
         case "object":
@@ -202,6 +203,7 @@ export function parseTyped(input: string) {
       case "Instant":
       case "PlainDate":
       case "PlainDateTime":
+      case "ZonedDateTime":
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we just assume/require you to have Temporal installed if you expect to receive/decode Temporal types. browsers should catch up eventually
         return (globalThis as any).Temporal[value["$stdType"]].from(value[value["$stdType"].toLowerCase()]);
       case undefined:

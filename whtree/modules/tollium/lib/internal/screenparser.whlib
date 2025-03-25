@@ -1286,7 +1286,7 @@ RECORD FUNCTION ReadListRow(OBJECT row, RECORD ARRAY cols, STRING rowkeytype, ST
     STRING rowkeyval := row->GetAttribute("rowkey");
     IF(rowkeytype="boolean")
       INSERT CELL rowkey := rowkeyval IN ["true","1"] INTO rowdata;
-    ELSE IF(rowkeytype="integer")
+    ELSE IF(rowkeytype IN ["integer","entityid","fsobjectid"])
       INSERT CELL rowkey := ToInteger(rowkeyval,0) INTO rowdata;
     ELSE
       INSERT CELL rowkey := rowkeyval INTO rowdata;
@@ -2132,7 +2132,7 @@ RECORD ARRAY FUNCTION ParseOptionSources(OBJECT nodeset, STRING rowkeytype, STRI
 
       IF(rowkeytype="boolean")
         INSERT CELL rowkey := rowkeyval IN ["true","1"] INTO subitem;
-      ELSE IF(rowkeytype="integer")
+      ELSE IF(rowkeytype IN ["integer","entityid","fsobjectid"])
         INSERT CELL rowkey := ToInteger(rowkeyval,0) INTO subitem;
       ELSE
         INSERT CELL rowkey := rowkeyval INTO subitem;

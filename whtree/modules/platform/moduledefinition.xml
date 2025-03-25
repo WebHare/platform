@@ -155,4 +155,10 @@
     <catalog tag="pxl" managed="false" suffixed="true" fieldgroups="pxlfields" /> <!-- This catalog is further extended by addPxlFieldMappings. this should become a Generic Feature once the format moves to YML -->
   </consilio>
 
+  <rights>
+    <right name="api" descriptiontid="module.rights.api-description" isrootright="true" tid="module.rights.api">
+      <impliedby right="api" />
+    </right>
+  </rights>
+
 </module>
