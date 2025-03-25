@@ -6,6 +6,7 @@ import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 //TODO we'll want a nicer name once we make this public
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { runInWork } from "@webhare/whdb";
+import { backendConfig } from "@webhare/services";
 
 let apiSysopToken;
 
@@ -66,7 +67,18 @@ async function tryWHAPI() {
   test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));
 }
 
+async function tryWHAPIUsingWeb() {
+  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  const api = new OpenAPIApiClient(apiurl, { bearerToken: apiSysopToken!.accessToken });
+  test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));
+
+  const primaryApiURL = backendConfig.backendURL + ".wh/api/v1/";
+  test.eq(200, (await fetch(primaryApiURL)).status, "Verify the API exists at " + primaryApiURL);
+  test.eq(200, (await fetch(primaryApiURL + "openapi.json")).status, "Verify the spec exists at " + primaryApiURL);
+}
+
 test.run([
   setupWHAPITest,
-  tryWHAPI
+  tryWHAPI,
+  tryWHAPIUsingWeb
 ]);

@@ -144,6 +144,7 @@
         <addheader header="Feature-Policy" value="geolocation 'none'; camera 'none'; payment 'none'; microphone 'none'"/>
         <csp policy="script-src 'self'; frame-ancestors 'self' [webhare]" />
       </webrule>
+      <openapi path="/testsuiteportal/.wh/api/v1/" service="platform:api" />
     </webruleset>
   </sitesettings>
 

@@ -52,6 +52,8 @@
         <addheader header="Referrer-Policy" value="no-referrer" />
       </webrule>
 
+      <openapi path="/.wh/api/v1/" service="platform:api" />
+
       <!-- protect the testportal page from being accessed on non-development servers -->
       <webrule path="/testportal" match="initial" allowips="" minservertype="test" />
       <webrule path="/" match="initial" maxservertype="development">
