@@ -911,6 +911,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     }));
   }
 
+  /** Delete token */
+  async deleteToken(id: number): Promise<void> {
+    await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", id).execute();
+  }
+
   /** Create a token for use with this server
    * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
    * @param userid - Entity associated with this token

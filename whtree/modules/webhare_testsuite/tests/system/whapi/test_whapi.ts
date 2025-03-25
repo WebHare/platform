@@ -5,6 +5,7 @@ import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
 //TODO we'll want a nicer name once we make this public
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
+import { runInWork } from "@webhare/whdb";
 
 let apiSysopToken;
 
@@ -47,11 +48,15 @@ async function setupWHAPITest() {
   apiSysopToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } });
   test.eq(/^secret-token:eyJ/, apiSysopToken.accessToken);
 
+  const tokens = (await provider.listTokens(test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id);
   test.eqPartial([
     { type: "id", scopes: [] },
     { type: "id", scopes: [], metadata: null },
     { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } }
-  ], (await provider.listTokens(test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id));
+  ], tokens);
+
+  await runInWork(() => provider.deleteToken(tokens[0].id));
+  test.eq(2, (await provider.listTokens(test.getUser("sysop").wrdId)).length);
 }
 
 async function tryWHAPI() {
