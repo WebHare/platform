@@ -660,7 +660,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   /** Get userinfo for a token */
   async getUserInfo(token: string, customizer: WRDAuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
     /* We do not verify the token's signature currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
-       signature and just reuse it and save a bit of database churn unless othrt reasons appear to store these tokens */
+       signature and just reuse it and save a bit of database churn unless other reasons appear to store these tokens */
     const tokeninfo = await this.verifyAccessToken("oidc", token);
     if ("error" in tokeninfo)
       return { error: tokeninfo.error };
