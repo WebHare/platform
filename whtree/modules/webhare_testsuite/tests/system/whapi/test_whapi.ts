@@ -43,8 +43,15 @@ async function setupWHAPITest() {
     }
   }
 
-  apiSysopToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId);
+  //TODO what scopes will WH really be using? eg things like `platform:whfs:/myfolder` to scope them away from openid/3rd party modules?
+  apiSysopToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } });
   test.eq(/^secret-token:eyJ/, apiSysopToken.accessToken);
+
+  test.eqPartial([
+    { type: "id", scopes: [] },
+    { type: "id", scopes: [], metadata: null },
+    { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } }
+  ], (await provider.listTokens(test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id));
 }
 
 async function tryWHAPI() {

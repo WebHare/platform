@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type VerifyOptions } from "jsonwebtoken";
 import type { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
-import { convertWaitPeriodToDate, generateRandomId, pick, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
 import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
@@ -28,6 +28,8 @@ export interface AuthTokenOptions {
   prefix?: string;
   /** Scopes associated with the API token */
   scopes?: string[];
+  /** Metadata to add */
+  metadata?: object | null;
 }
 
 interface HSONAuthenticationSettings {
@@ -625,6 +627,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes: options?.scopes || [] });
     const prefix = options?.prefix ?? "secret-token:"; //if undefined/null, we fall back to the default
     const access_token = prefix + jwt.sign(atPayload, null, { algorithm: "none" });
+    const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
+    if (Buffer.from(metadata).length > 4096)
+      throw new Error(`Metadata too large, max size is 4096 bytes`);
 
     await beginWork();
     await db<PlatformDB>().insertInto("wrd.tokens").values({
@@ -634,7 +639,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       entity: subject,
       client: client,
       scopes: options?.scopes?.join(" ") ?? "",
-      hash: hashSHA256(access_token)
+      hash: hashSHA256(access_token),
+      metadata: metadata
     }).execute();
 
     if (closeSessionId)
@@ -879,6 +885,30 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         expires_in: Math.floor(tokens.expires - (Date.now() / 1000)),
       }
     };
+  }
+
+  /** List active tokens */
+  async listTokens(userid: number): Promise<Array<{
+    id: number;
+    type: "id" | "api";
+    metadata: unknown;
+    created: Temporal.Instant;
+    expires: Temporal.Instant | null;
+    scopes: string[];
+  }>> {
+    const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
+      where("entity", "=", userid).
+      select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
+      execute();
+
+    return tokens.map(token => ({
+      id: token.id,
+      type: token.type as "id" | "api",
+      metadata: token.metadata ? parseTyped(token.metadata) : null,
+      created: token.creationdate.toTemporalInstant(),
+      expires: token.expirationdate?.toTemporalInstant() ?? null,
+      scopes: token.scopes ? token.scopes.split(" ") : []
+    }));
   }
 
   /** Create a token for use with this server

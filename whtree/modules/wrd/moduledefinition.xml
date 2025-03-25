@@ -294,6 +294,9 @@
       <d:varchar name="scopes" maxlength="1024">
         <d:documentation>Space separated list of scopes in this token</d:documentation>
       </d:varchar>
+       <d:varchar name="metadata" maxlength="4096">
+        <d:documentation>App specific metadata, JSON typed encoded</d:documentation>
+      </d:varchar>
       <d:bytea name="hash" maxlength="32" nullable="0" unique="true">
         <d:documentation>Hash for this token</d:documentation>
       </d:bytea>
