@@ -31,7 +31,7 @@ OBJECT paymentapi;
 STRING pm2_guidprefix;
 OBJECT pm2;
 
-CONSTANT STRING jstestdriver := "@mod-webhare_testsuite/tests/wrd/payments/data/testdriver.ts#TestDriver";
+CONSTANT STRING jstestdriver := "@mod-platform/packages/psp-testdriver/testdriver.ts#TestDriver";
 
 MACRO Prep()
 {
