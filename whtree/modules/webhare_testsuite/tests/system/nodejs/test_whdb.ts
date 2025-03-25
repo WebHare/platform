@@ -1,4 +1,4 @@
-import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream } from "@webhare/services";
+import { WebHareBlob, ResourceDescriptor, lockMutex, subscribeToEventStream, writeRegistryKey } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -11,13 +11,16 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
-import { stashWork } from "@webhare/whdb/src/impl";
 
 async function cleanup() {
   await beginWork();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.consilio_index").execute();
   await commitWork();
+}
+
+async function getNumConnections() {
+  return (await query<{ count: number }>("SELECT COUNT(*) FROM pg_stat_activity")).rows[0].count;
 }
 
 async function testWork() {
@@ -527,93 +530,102 @@ async function testIsolation() {
   await beginWork({ isolationLevel: "repeatable read" });
   await query("select 1"); //we need to start querying to actually establish the starting point in PG
 
-  const stash = stashWork();
-  await beginWork();
-  const nextid = await nextVal("webhare_testsuite.exporttest.id");
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "Isolationtest" }).execute();
-  test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  await commitWork();
+  const isolatedContext = new CodeContext("test_whdb: testIsolation");
+  let nextid: number;
+  await isolatedContext.run(async () => {
+    await beginWork();
+    nextid = await nextVal("webhare_testsuite.exporttest.id");
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "Isolationtest" }).execute();
+    test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+    await commitWork();
 
-  test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  stash.restore(); //back to our repeateable read tansaction
+    test.eq({ text: "Isolationtest" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  });
 
-  test.eq(undefined, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+  test.eq(undefined, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid!).executeTakeFirst());
   await commitWork();
 }
 
 async function testSeparatePrimary() {
-  test.throws(/if no work is open/, () => stashWork());
   await beginWork();
   const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "Record 1" }).execute();
   test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
 
-  const stashed1 = stashWork();
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  test.eq(false, isWorkOpen());
+  const isolatedContext1 = new CodeContext("test_whdb: testSeparatePrimary #1");
+  let nextid2: number;
+  await isolatedContext1.run(async () => {
+    test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+    test.eq(false, isWorkOpen());
 
-  await beginWork();
-  const nextid2: number = await nextVal("webhare_testsuite.exporttest.id");
-  test.eq(true, isWorkOpen());
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid2, text: "Record 2" }).execute();
+    await beginWork();
+    nextid2 = await nextVal("webhare_testsuite.exporttest.id");
+    test.eq(true, isWorkOpen());
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid2, text: "Record 2" }).execute();
+  });
 
-  const stashed2 = stashWork();
-  test.eq(false, isWorkOpen());
-  //both records are not in this stash!
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
-  await beginWork(); //let's open some work on this stash
+  const isolatedContext2 = new CodeContext("test_whdb: testSeparatePrimary #2");
+  await isolatedContext2.run(async () => {
+    test.eq(false, isWorkOpen());
+    //both records are not in this stash!
+    test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+    test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+    await beginWork(); //let's open some work on this stash
+  });
 
-  const stashed3 = stashed1.restore(); //this stashes the third transaction and brings us back into the first transacrtion where 'nextid1' lives
+  //we're back in the first transaction where 'nextid' lives
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2!).executeTakeFirst());
 
-  const stashed2b = stashed2.restore(); //this stashes the first transaction again and brings us back into the second transaction where 'nextid2' lives
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
-  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
+  await isolatedContext1.run(async () => { //brings us back into the second transaction where 'nextid2' lives
 
-  await commitWork(); //commits the second transaction
-  test.eq(false, isWorkOpen());
+    test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid2).executeTakeFirst());
 
-  test.eq(null, stashed2b!.restore()); //this brings us to the first transaction again
+    await commitWork(); //commits the second transaction
+    test.eq(false, isWorkOpen());
+  });
+
+  //back to the first transaction again
   test.eq(true, isWorkOpen());
   test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
   await commitWork(); //commits the first transaction. only the third transaction (living in stashed3) is still out there
 
-  test.eq(null, stashed3!.restore());
-  test.eq(true, isWorkOpen());
-  await rollbackWork();
-  test.eq(false, isWorkOpen());
+  await isolatedContext2.run(async () => {
+    test.eq(true, isWorkOpen());
+    await rollbackWork();
+    test.eq(false, isWorkOpen());
 
-  test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
+    test.eq({ text: "Record 1" }, await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid).executeTakeFirst());
 
-  //Now that the primitives work, test the stashing APIs
-  const id3 = await runInWork(async () => {
-    const nextid3: number = await nextVal("webhare_testsuite.exporttest.id");
-    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid3, text: "Record 3" }).execute();
-    return nextid3;
-  });
+    //Now that the primitives work, test the stashing APIs
+    const id3 = await runInWork(async () => {
+      const nextid3: number = await nextVal("webhare_testsuite.exporttest.id");
+      await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid3, text: "Record 3" }).execute();
+      return nextid3;
+    });
 
-  test.eq(false, isWorkOpen());
-  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id3).executeTakeFirst());
+    test.eq(false, isWorkOpen());
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id3).executeTakeFirst());
 
-  await beginWork();
-  const nextid4: number = await nextVal("webhare_testsuite.exporttest.id");
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid4, text: "Record 4" }).execute();
-  const id5 = await runInSeparateWork(async () => {
-    const nextid5: number = await nextVal("webhare_testsuite.exporttest.id");
-    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid5, text: "Record 5" }).execute();
+    await beginWork();
+    const nextid4: number = await nextVal("webhare_testsuite.exporttest.id");
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid4, text: "Record 4" }).execute();
+    const id5 = await runInSeparateWork(async () => {
+      const nextid5: number = await nextVal("webhare_testsuite.exporttest.id");
+      await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid5, text: "Record 5" }).execute();
+
+      test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
+      test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid5).executeTakeFirst());
+      return nextid5;
+    });
+    test.eq(true, isWorkOpen());
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
+    await rollbackWork();
 
     test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
-    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid5).executeTakeFirst());
-    return nextid5;
+    test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id5).executeTakeFirst());
   });
-  test.eq(true, isWorkOpen());
-  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
-  await rollbackWork();
-
-  test.assert(!await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", nextid4).executeTakeFirst());
-  test.assert(await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("text").where("id", "=", id5).executeTakeFirst());
 }
 
 async function testHSRunInSeparatePrimary() {
@@ -640,6 +652,25 @@ async function testClosedConnectionHandling() {
   await worker2.callRemote("@mod-webhare_testsuite/tests/system/nodejs/data/context-tests.ts#testQueryInNewContext");
 }
 
+async function testSeparatePrimaryLeak() {
+  //there was a bug with works not releaseing their connections
+  const startConns = await getNumConnections();
+  await beginWork();
+  for (let i = 0; i < 100; ++i) {
+    await runInSeparateWork(async () => {
+      await runInSeparateWork(async () => {
+        await writeRegistryKey("webhare_testsuite:tests.response", i + "y");
+      });
+    });
+  }
+
+  const endConns = await getNumConnections();
+  //we'll tolerate up to 40 connections as things may happen in parallel, but if the # of added connections is too high the bug is still there
+  test.assert((endConns - startConns) < 40, `${endConns - startConns} connections were added during the test!`);
+
+  await rollbackWork();
+}
+
 test.runTests([
   cleanup,
   testWork,
@@ -656,4 +687,5 @@ test.runTests([
   testHSRunInSeparatePrimary,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
+  testSeparatePrimaryLeak
 ]);

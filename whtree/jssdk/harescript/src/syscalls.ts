@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { lockMutex as servicesLockMutex } from '@webhare/services/src/mutex.ts';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
-import { type StashedWork, isWorkOpen, stashWork } from "@webhare/whdb/src/impl";
+import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { loadJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
@@ -139,11 +139,10 @@ export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: str
   return await func(...args);
 }
 
-const stashes = new Array<StashedWork | null>;
-
 export function startSeparatePrimary() {
-  stashes.push(isWorkOpen() ? stashWork() : null);
+  stashWork();
 }
 export function stopSeparatePrimary() {
-  stashes.pop()?.restore();
+  // Restore the stashed work, not waiting for the old connection to close
+  popWork()?.then(() => { }, () => { });
 }
