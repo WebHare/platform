@@ -129,6 +129,8 @@
       <xs:enumeration value="money" />
       <xs:enumeration value="float" />
       <xs:enumeration value="datetime" />
+      <xs:enumeration value="entityid" />
+      <xs:enumeration value="fsobjectid" />
     </xs:restriction>
   </xs:simpleType>
 
