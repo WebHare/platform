@@ -1,12 +1,11 @@
 import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
-import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType } from "./whfs";
+import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
-import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
-import { isHistoricWHFSSpace } from "./objects";
+import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
 
 export interface WebDesignInfo {
@@ -552,10 +551,11 @@ export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder
   return new WHFSApplyTester(await getBaseInfoForMockedApplyCheck(parent, isFolder, type, name, false)); //TODO root object support
 }
 
-export async function getApplyTesterForURL(url: string) {
-  const loc = await lookupPublishedTarget(url);
-  if (!loc)
-    throw new Error(`No target found for ${url}`);
+export async function getApplyTesterForURL(url: string, options?: LookupURLOptions) {
+  const lookupresult = await lookupURL(url, options);
+  if (!lookupresult || !lookupresult.folder)
+    return null;
 
-  return new WHFSApplyTester(await getBaseInfoForApplyCheck(loc.targetObject));
+  const obj = await openFileOrFolder(lookupresult.file ?? lookupresult.folder);
+  return getApplyTesterForObject(obj);
 }
