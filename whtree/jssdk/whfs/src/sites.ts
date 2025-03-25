@@ -52,9 +52,30 @@ const sites_js_to_db: Record<keyof Omit<ListableSiteRow, "webDesign" | "webFeatu
 export class Site {
   private readonly dbrow: SiteRow;
 
-  get id() { return this.dbrow.id; }
-  get name() { return this.dbrow.name; }
-  get webRoot() { return this.dbrow.webroot; }
+  /** Site primary key (matches root folder id) */
+  get id(): number {
+    return this.dbrow.id;
+  }
+
+  /** Site name */
+  get name(): string {
+    return this.dbrow.name;
+  }
+
+  /** Absolute URL where the site is published, or null if the site is not published */
+  get webRoot(): string | null {
+    return this.dbrow.webroot || null;
+  }
+
+  /** ID of the webserver to which the site is published, null if unpublished*/
+  get outputWeb(): number | null {
+    return this.dbrow.outputweb;
+  }
+
+  /** Folder inside the webserver where the site is published */
+  get outputFolder(): string {
+    return this.dbrow.outputfolder;
+  }
 
   constructor(siterecord: SiteRow) {
     this.dbrow = siterecord;

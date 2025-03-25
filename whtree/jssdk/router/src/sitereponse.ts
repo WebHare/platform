@@ -2,7 +2,7 @@ import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { createWebResponse, type WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
-import { stringify } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
@@ -205,7 +205,7 @@ export class SiteResponse<T extends object = object> {
       designroot,
       designcdnroot: designroot, //FIXME
       imgroot: designroot + "img/",
-      siteroot: this.siteRequest.targetSite.webRoot
+      siteroot: this.siteRequest.targetSite.webRoot ?? throwError("No webroot for publication?")
     };
     const wittydata = {
       //FIXME base on the supported languages or just assume we're going to build a cool proxy

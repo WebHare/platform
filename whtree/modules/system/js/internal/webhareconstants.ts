@@ -65,7 +65,7 @@ export const whconstant_autorenewed_warnexpirydays = 21;
 export const whconstant_webserver_indexbasename = "index";
 
 //All possible index pages for webservers. indexbasename + all supported extensions
-export const whconstant_webserver_indexpages = [whconstant_webserver_indexbasename || ".html", whconstant_webserver_indexbasename || ".shtml"];
+export const whconstant_webserver_indexpages = [whconstant_webserver_indexbasename + ".html", whconstant_webserver_indexbasename + ".shtml"];
 
 //Webserver type of an interface webserver
 export const whconstant_webservertype_interface = 1;

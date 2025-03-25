@@ -140,6 +140,7 @@ async function testWHFS() {
   await whdb.beginWork();
   const newFile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File", data: null });
   const openNewFile = await tmpfolder.openFile("testfile");
+  test.eq(false, newFile.isPinned);
   test.eq(newFile.id, openNewFile.id);
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
@@ -155,7 +156,8 @@ async function testWHFS() {
   test.eq(true, openNewFile_state2.publish);
 
   const goldFishId = await whfs.nextWHFSObjectId();
-  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true });
+  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true });
+  test.eq(true, goldFish.isPinned);
   test.eq(goldFishId, goldFish.id);
   test.eq("image/png", goldFish.data.mediaType);
   test.eq(385, goldFish.data.width);
@@ -165,8 +167,9 @@ async function testWHFS() {
   test.eq(goldFish.creationDate, goldFish.firstPublishDate);
   test.eq(goldFish.creationDate, goldFish.contentModificationDate);
 
-  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg") });
+  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false });
   const openedGoldFish = await openFile(goldFish.id);
+  test.eq(false, openedGoldFish.isPinned);
   test.eq("image/jpeg", openedGoldFish.data.mediaType);
   test.eq(428, openedGoldFish.data.width);
   test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);
@@ -219,6 +222,12 @@ async function testWHFS() {
 
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data.mediaType);
+
+  //test auto index doc setting
+  test.eq(null, tmpfolder.indexDoc);
+  const newindex = await tmpfolder.createFile("index.html");
+  test.eq(newindex.id, tmpfolder.indexDoc);
+  test.eq(newindex.id, (await whfs.openFolder(tmpfolder.id)).indexDoc);
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);

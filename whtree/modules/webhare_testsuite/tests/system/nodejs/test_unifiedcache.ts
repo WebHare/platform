@@ -481,7 +481,7 @@ async function testFileCache() {
   test.eq(200, odditylink_fetched.status);
   test.eq("application/octet-stream", odditylink_fetched.headers.get("content-type"));
 
-  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: testsite.webRoot });
+  odditylink = oddity.data.toLink({ allowAnyExtension: true, baseURL: testsite.webRoot! });
   test.eq(/\/bowie-space.oddity$/, odditylink);
   odditylink_fetched = await fetch(odditylink);
   test.eq(200, odditylink_fetched.status);

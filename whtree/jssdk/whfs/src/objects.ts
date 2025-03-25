@@ -10,6 +10,7 @@ import * as std from "@webhare/std";
 import type { WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
+import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -105,7 +106,9 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   contentModificationDate?: Temporal.Instant;
 }
 
-export type CreateFolderMetadata = CreateFSObjectMetadata;
+export interface CreateFolderMetadata extends CreateFSObjectMetadata {
+  indexDoc?: number | null;
+}
 
 export interface UpdateFileMetadata extends CreateFileMetadata {
   id?: never;
@@ -143,6 +146,7 @@ export class WHFSObject {
   get parent() { return this.dbrecord.parent; }
   get isFile() { return !this.dbrecord.isfolder; }
   get isFolder() { return this.dbrecord.isfolder; }
+  get isPinned() { return this.dbrecord.ispinned; }
   get link() { return this.dbrecord.link; }
   get sitePath() { return this.dbrecord.fullpath; }
   get whfsPath() { return this.dbrecord.whfspath; }
@@ -172,8 +176,16 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "isPinned", "keywords", "name"]);
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
     const moddate = Temporal.Now.instant();
+
+    if ("isPinned" in metadata)
+      storedata.ispinned = metadata.isPinned;
+    if ("indexDoc" in metadata)
+      if (this.isFile)
+        throw new Error(`indexDoc is not a valid property for files`);
+      else
+        storedata.indexdoc = metadata.indexDoc;
 
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
@@ -384,6 +396,12 @@ export class WHFSFolder extends WHFSObject {
         ispinned: metadata?.isPinned || false,
         data: data
       }).returning(['id']).executeTakeFirstOrThrow();
+
+    // If this is a file with an indexdoc name, make it the indexdoc of this folder.
+    // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
+    if (/* options.setindex OR*/ whconstant_webserver_indexpages.includes(name.toLowerCase())) {
+      await this.update({ indexDoc: retval.id });
+    }
 
     return retval.id;
   }
