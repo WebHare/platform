@@ -108,7 +108,7 @@ async function verifyRoutes() {
 
   const jwksReq = await fetch(openidconfig.jwks_uri);
   const jwks = await jwksReq.json();
-  test.eq(1, jwks.keys.length);
+  test.eq(2, jwks.keys.length);
 
   // const jwks = await jwksReq.json();
   const oauth2 = await makeObject("mod::system/lib/webapi/oauth2.whlib#Oauth2Connection",
@@ -161,7 +161,7 @@ async function verifyOpenIDClient() {
     client_secret: clientSecret,
     redirect_uris: [callbackUrl],
     response_types: ['code'],
-    // id_token_signed_response_alg (default "RS256")
+    // id_token_signed_response_alg (default "RS256") FIXME - test both!
     // token_endpoint_auth_method (default "client_secret_basic")
   }); // => Client
 

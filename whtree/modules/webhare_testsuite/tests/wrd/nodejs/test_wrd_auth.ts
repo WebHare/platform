@@ -60,7 +60,7 @@ async function testAuthSettings() {
 
 
 async function testLowLevelAuthAPIs() {
-  const key = await createSigningKey();
+  const key = await createSigningKey("ec");
 
   let token = await createJWT(key, "1234", "urn::rabbit-union", "PieterBunny", null, null);
   let decoded = await verifyJWT(key, "urn::rabbit-union", token);
@@ -169,7 +169,7 @@ async function setupOpenID() {
   await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");
 
   const jwks = await provider.getPublicJWKS();
-  test.eq(jwks.keys.length, 1);
+  test.eq(2, jwks.keys.length);
   test.eqPartial({ "use": "sig", "issuer": "https://my.webhare.dev/testfw/issuer" }, jwks.keys[0]);
   test.assert("kid" in jwks.keys[0]);
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
@@ -255,7 +255,7 @@ async function testAuthAPI() {
   //Test the frontend login
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
   const customizerUserInfo: WRDAuthCustomizer = {
     onFrontendUserInfo(user: number) {
@@ -278,7 +278,7 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
-  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
+  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
 }
 
 async function testSlowPasswordHash() {
