@@ -310,7 +310,7 @@ wh testdocker [options]
 Options:
 -m <module>             - Test the specified module
 --containername <name>  - Force this name for the CI container
---nopull                - Do not pull the image (implicit with --webhareimage local)
+--nopull                - Do not pull the image (implicit with --webhareimage localbuild)
 --webhareimage <image>  - Use this image. Image tags 'main/beta/stable' correspond to their release channels.
                           Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh builddocker'
 --nocheckmodule         - Do not run checkmodule before the actual tests
