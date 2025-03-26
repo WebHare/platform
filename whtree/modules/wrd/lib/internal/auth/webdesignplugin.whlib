@@ -324,7 +324,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       IF(GetWebCookie(this->cookiename || "_j") = "") //missing javascript state
       {
-        STRING logincookie := GetWebCookie(this->cookiename);
+        STRING logincookie := GetWebCookie("__Host-" || this->cookiename) ?? GetWebCookie("__Secure-" || this->cookiename) ?? GetWebCookie(this->cookiename);
         IF(logincookie != "" AND logincookie NOT LIKE "* accessToken:*") //don't destroy modern cookies
         {
           this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
@@ -620,7 +620,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       //Do we happen to see an ID Token in the login cookie?
       IF(IsRequest())
       {
-        STRING idcookie := GetWebCookie(this->cookiename);
+        STRING idcookie :=  GetWebCookie("__Host-" || this->cookiename) ?? GetWebCookie("__Secure-" || this->cookiename) ?? GetWebCookie(this->cookiename);
         IF(idcookie LIKE "* accessToken:*") //We're talking to the JS WRDAuth implementation ?
         {
           STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token

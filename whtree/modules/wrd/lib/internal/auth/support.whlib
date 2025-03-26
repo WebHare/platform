@@ -64,6 +64,8 @@ PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
   ELSE
   {
     UpdateWebCookie(wrdauth->cookiename, "");
+    UpdateWebCookie("__Host-" || wrdauth->cookiename, "");
+    UpdateWebCookie("__Secure-" || wrdauth->cookiename, "");
     UpdateWebCookie(wrdauth->cookiename || "_j", "", opts);
     UpdateWebCookie(wrdauth->cookiename || "_c", "", opts);
   }
