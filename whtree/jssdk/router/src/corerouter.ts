@@ -1,4 +1,3 @@
-import { loadlib } from "@webhare/harescript";
 import * as whfs from "@webhare/whfs";
 import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
@@ -7,13 +6,8 @@ import { buildSiteRequest } from "./siterequest";
 import * as undici from "undici";
 import { loadJSFunction } from "@webhare/services";
 
-export async function lookupPublishedTarget(url: string, { clientWebServer = 0 } = {}) {
-  //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
-  const opts: unknown[] = [url];
-  if (clientWebServer)
-    opts.push({ clientwebserver: clientWebServer });
-
-  const lookupresult = await loadlib("mod::publisher/lib/publisher.whlib").LookupPublisherURL(...opts) as { file: number };
+export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
+  const lookupresult = await whfs.lookupURL(url, options);
   if (!lookupresult.file)
     return null;
 

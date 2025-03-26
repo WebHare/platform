@@ -5,11 +5,13 @@ import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PubPrio_DirectEdit } from "./support";
+import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";
 import * as std from "@webhare/std";
-import type { WebHareBlob } from "@webhare/services";
+import { readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
+import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
+import { openSite } from "./sites";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -46,7 +48,7 @@ interface ListableFsObjectRow {
   */
   indexDoc: number | null;
   /// The indexurl, is the url of the currently selected document.
-  link: string;
+  link: string | null;
   /// Whether the selected item is a folder
   isFolder: boolean;
   /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
@@ -105,7 +107,9 @@ export interface CreateFileMetadata extends CreateFSObjectMetadata {
   contentModificationDate?: Temporal.Instant;
 }
 
-export type CreateFolderMetadata = CreateFSObjectMetadata;
+export interface CreateFolderMetadata extends CreateFSObjectMetadata {
+  indexDoc?: number | null;
+}
 
 export interface UpdateFileMetadata extends CreateFileMetadata {
   id?: never;
@@ -128,6 +132,19 @@ export function isHistoricWHFSSpace(path: string) {
   return false;
 }
 
+async function isStripExtension(type: number, name: string): Promise<boolean> {
+  const ext = extname(name);
+  if (!ext)
+    return false;
+
+  const typeinfo = await db<PlatformDB>().selectFrom("system.fs_types").select("ispublishedassubdir").where("id", "=", type).executeTakeFirst();
+  if (!typeinfo?.ispublishedassubdir)
+    return false;
+
+  const stripextensions = await readRegistryKey("publisher:publication.stripextensions");
+  return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
+}
+
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
   private readonly _typens: string;
@@ -137,19 +154,49 @@ export class WHFSObject {
     this._typens = typens;
   }
 
-  get id() { return this.dbrecord.id; }
-  get name() { return this.dbrecord.name; }
-  get title() { return this.dbrecord.title; }
-  get parent() { return this.dbrecord.parent; }
-  get isFile() { return !this.dbrecord.isfolder; }
-  get isFolder() { return this.dbrecord.isfolder; }
-  get link() { return this.dbrecord.link; }
-  get sitePath() { return this.dbrecord.fullpath; }
-  get whfsPath() { return this.dbrecord.whfspath; }
-  get parentSite() { return this.dbrecord.parentsite; }
-  get type() { return this._typens; }
-  get creationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime()); }
-  get modificationDate(): Temporal.Instant { return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime()); }
+  get id(): number {
+    return this.dbrecord.id;
+  }
+  get name(): string {
+    return this.dbrecord.name;
+  }
+  get title(): string {
+    return this.dbrecord.title;
+  }
+  get parent(): number | null {
+    return this.dbrecord.parent;
+  }
+  get isFile(): boolean {
+    return !this.dbrecord.isfolder;
+  }
+  get isFolder(): boolean {
+    return this.dbrecord.isfolder;
+  }
+  get isPinned(): boolean {
+    return this.dbrecord.ispinned;
+  }
+  get link(): string | null {
+    return this.dbrecord.link || null;
+  }
+  get sitePath(): string | null {
+    return this.dbrecord.fullpath || null;
+  }
+  get whfsPath(): string {
+    return this.dbrecord.whfspath;
+
+  }
+  get parentSite(): number | null {
+    return this.dbrecord.parentsite;
+  }
+  get type(): string {
+    return this._typens;
+  }
+  get creationDate(): Temporal.Instant {
+    return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.creationdate.getTime());
+  }
+  get modificationDate(): Temporal.Instant {
+    return Temporal.Instant.fromEpochMilliseconds(this.dbrecord.modificationdate.getTime());
+  }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -172,8 +219,16 @@ export class WHFSObject {
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "isPinned", "keywords", "name"]);
+    const storedata: Updateable<PlatformDB, "system.fs_objects"> = std.pick(metadata, ["title", "description", "keywords", "name"]);
     const moddate = Temporal.Now.instant();
+
+    if ("isPinned" in metadata)
+      storedata.ispinned = metadata.isPinned;
+    if ("indexDoc" in metadata)
+      if (this.isFile)
+        throw new Error(`indexDoc is not a valid property for files`);
+      else
+        storedata.indexdoc = metadata.indexDoc;
 
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
@@ -184,22 +239,26 @@ export class WHFSObject {
     }
 
     if (this.isFile) {
+      storedata.published = this.dbrecord.published;
+
       if ((metadata as UpdateFileMetadata).firstPublishDate)
         storedata.firstpublishdate = new Date((metadata as UpdateFileMetadata).firstPublishDate!.epochMilliseconds);
       if ((metadata as UpdateFileMetadata).contentModificationDate)
         storedata.contentmodificationdate = new Date((metadata as UpdateFileMetadata).contentModificationDate!.epochMilliseconds);
-    }
 
-    if (this.isFile && (metadata as UpdateFileMetadata).publish) {
-      //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+      storedata.published = setFlagInPublished(storedata.published, PublishedFlag_StripExtension, await isStripExtension(storedata.type ?? this.dbrecord.type ?? 0, storedata.name ?? this.dbrecord.name));
 
-      const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
-      if (curfields && !isPublish(curfields.published)) {
-        storedata.published = convertToWillPublish(this.dbrecord.published, true, true, PubPrio_DirectEdit);
-        if (!storedata.contentmodificationdate)
-          storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
-        if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
-          storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+      if ((metadata as UpdateFileMetadata).publish) {
+        //FIXME match type against canpublish. and otherwise REMOVE publish flag on type change if now unpublishable
+
+        const curfields = await db<PlatformDB>().selectFrom("system.fs_objects").select(["firstpublishdate", "published"]).where("id", "=", this.id).executeTakeFirst();
+        if (curfields && !isPublish(curfields.published)) {
+          storedata.published = convertToWillPublish(storedata.published, true, true, PubPrio_DirectEdit);
+          if (!storedata.contentmodificationdate)
+            storedata.contentmodificationdate = new Date(moddate.epochMilliseconds);
+          if (curfields?.firstpublishdate === defaultDateTime && !storedata.firstpublishdate)
+            storedata.firstpublishdate = new Date(moddate.epochMilliseconds);
+        }
       }
     }
 
@@ -350,6 +409,12 @@ export class WHFSFolder extends WHFSObject {
     const initialPublish: boolean = (metadata as CreateFileMetadata)?.publish || false;
     const initialData: boolean = data ? data.size > 0 : false;
 
+    const isfolder = Boolean(type.foldertype);
+    let published = initialPublish ? PubPrio_DirectEdit : 0;
+    if (!isfolder) {
+      published = setFlagInPublished(published, PublishedFlag_StripExtension, await isStripExtension(type.id, name));
+    }
+
     const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
@@ -362,7 +427,7 @@ export class WHFSFolder extends WHFSObject {
         description: metadata?.description || "",
         errordata: "",
         externallink: "",
-        isfolder: Boolean(type.foldertype),
+        isfolder,
         keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: (metadata as CreateFileMetadata)?.firstPublishDate
           ? new Date((metadata! as CreateFileMetadata).firstPublishDate!.epochMilliseconds)
@@ -379,14 +444,31 @@ export class WHFSFolder extends WHFSObject {
         lastpublishtime: 0,
         scandata,
         ordering: 0,
-        published: initialPublish ? PubPrio_DirectEdit : 0,
+        published,
         type: type.id || null, //#0 can't be stored so convert to null
         ispinned: metadata?.isPinned || false,
         data: data
       }).returning(['id']).executeTakeFirstOrThrow();
 
+    // If this is a file with an indexdoc name, make it the indexdoc of this folder.
+    // else, if the folder doesn't have an index and the new file can function as one, it becomes the index.
+    if (/* options.setindex OR*/ whconstant_webserver_indexpages.includes(name.toLowerCase())) {
+      await this.update({ indexDoc: retval.id });
+    }
+
     return retval.id;
   }
+
+  /** Get the base URL for items in this folder if it was published. Does not follow or use the indexDoc
+   * @returns - The base URL for this folder or an empty string if its site is not published
+  */
+  async getBaseURL(): Promise<string | null> {
+    if (!this.parentSite || !this.sitePath)
+      return null;
+    const { webRoot } = await openSite(this.parentSite);
+    return webRoot ? webRoot + encodeURIComponent(this.sitePath?.substring(1)).replaceAll("%2F", "/") : null;
+  }
+
 
   async createFile(name: string, metadata?: CreateFileMetadata): Promise<WHFSFile> {
     const type = getType(metadata?.type ?? unknownfiletype, "fileType");

@@ -11,3 +11,4 @@ export { isValidName } from "./support";
 export type { CreateFSObjectMetadata, CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";
 export { openFile, openFolder, openFileOrFolder, nextWHFSObjectId } from "./objects";
 export { openSite, listSites, type Site } from "./sites";
+export { lookupURL, type LookupURLOptions, type LookupURLResult } from "./lookupurl";

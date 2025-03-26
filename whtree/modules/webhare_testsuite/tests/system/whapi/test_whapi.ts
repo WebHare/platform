@@ -6,6 +6,7 @@ import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 //TODO we'll want a nicer name once we make this public
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { runInWork } from "@webhare/whdb";
+import { backendConfig } from "@webhare/services";
 
 let apiSysopToken;
 
@@ -26,7 +27,7 @@ async function setupWHAPITest() {
   test.eq(/^eyJ/, noApiSysopToken.accessToken);
 
   {  //fetch as sysop without api rights
-    const api = new OpenAPIApiClient(directFetch, { bearertoken: noApiSysopToken.accessToken });
+    const api = new OpenAPIApiClient(directFetch, { bearerToken: noApiSysopToken.accessToken });
     test.eqPartial({ status: 401, body: { error: "User is not authorized to access the WebHare API" } }, (await api.get("/meta")));
   }
 
@@ -35,11 +36,11 @@ async function setupWHAPITest() {
     const idToken = await provider.createFirstPartyToken("id", test.getUser("sysop").wrdId);
 
     {
-      const api = new OpenAPIApiClient(directFetch, { bearertoken: unprefixedIdToken.accessToken });
+      const api = new OpenAPIApiClient(directFetch, { bearerToken: unprefixedIdToken.accessToken });
       test.eqPartial({ status: 401, body: { error: "Token is invalid" } }, (await api.get("/meta")));
     }
     {
-      const api = new OpenAPIApiClient(directFetch, { bearertoken: idToken.accessToken });
+      const api = new OpenAPIApiClient(directFetch, { bearerToken: idToken.accessToken });
       test.eqPartial({ status: 401, body: { error: "Token is invalid" } }, (await api.get("/meta")));
     }
   }
@@ -62,11 +63,22 @@ async function setupWHAPITest() {
 async function tryWHAPI() {
   using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: (await test.getTestSiteJS()).webRoot + "api/" });
 
-  const api = new OpenAPIApiClient(directFetch, { bearertoken: apiSysopToken!.accessToken });
+  const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken!.accessToken });
   test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));
+}
+
+async function tryWHAPIUsingWeb() {
+  const apiurl = (await test.getTestSiteJS()).webRoot + "testsuiteportal/.wh/api/v1/";
+  const api = new OpenAPIApiClient(apiurl, { bearerToken: apiSysopToken!.accessToken });
+  test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));
+
+  const primaryApiURL = backendConfig.backendURL + ".wh/api/v1/";
+  test.eq(200, (await fetch(primaryApiURL)).status, "Verify the API exists at " + primaryApiURL);
+  test.eq(200, (await fetch(primaryApiURL + "openapi.json")).status, "Verify the spec exists at " + primaryApiURL);
 }
 
 test.run([
   setupWHAPITest,
-  tryWHAPI
+  tryWHAPI,
+  tryWHAPIUsingWeb
 ]);

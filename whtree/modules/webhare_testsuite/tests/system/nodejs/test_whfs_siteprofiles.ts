@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
-import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForMockedObject, getApplyTesterForObject, getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
 async function getApplyTester(path: string) {
   return await getApplyTesterForObject(await whfs.openFile(path));
@@ -16,6 +16,17 @@ async function testSiteProfiles() {
 
   test.eq("en", await (await getApplyTester("site::webhare_testsuite.testsitejs/testpages/markdownpage")).getSiteLanguage(), "Undefined falls back to 'en'");
   test.eq("ps-AF", await (await getApplyTester("site::webhare_testsuite.testsitejs/testpages/staticpage-ps-af")).getSiteLanguage());
+
+  {
+    const emptyfolder = await (await test.getTestSiteJS()).openFolder("testsuiteportal/empty folder");
+    test.eq([], await emptyfolder.list());
+    test.eq(null, emptyfolder.link);
+    test.eq((await test.getTestSiteJS()).webRoot + "testsuiteportal/empty%20folder/", await emptyfolder.getBaseURL());
+
+    const tester = await getApplyTesterForURL((await emptyfolder.getBaseURL())!);
+    test.assert(tester);
+    test.eqPartial({ wrdSchema: "wrd:testschema" }, await tester.getWRDAuth());
+  }
 
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();

@@ -71,11 +71,17 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
   /** Build a new typed OpenAPI client
    * @param service - How to invoke the service - either a URL passed to fetch as a base url, or a fetch() like function accepting the subroute
    */
-  constructor(service: string | OpenAPIClientFetch, options: { bearertoken?: string; __viaservice?: string } = {}) {
+  constructor(service: string | OpenAPIClientFetch, options: {
+    bearerToken?: string;
+    /** @deprecated use bearerToken in WH5.7+  */
+    bearertoken?: string;
+    /** @deprecated use getDirectOpenAPIFetch in WH5.7+ */
+    __viaservice?: string;
+  } = {}) {
     this.service = service;
     this.viaservice = options.__viaservice;
-    if (options?.bearertoken)
-      this.defaultheaders["Authorization"] = "Bearer " + options.bearertoken;
+    if (options?.bearerToken || options?.bearertoken)
+      this.defaultheaders["Authorization"] = "Bearer " + (options?.bearerToken || options?.bearertoken);
   }
 
   async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {

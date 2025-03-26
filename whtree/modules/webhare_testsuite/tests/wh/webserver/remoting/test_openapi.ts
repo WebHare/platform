@@ -146,7 +146,7 @@ async function testAuthorization() {
   //whitebox try the service directly for more useful traces etc
   using authFetch = await getDirectOpenAPIFetch("webhare_testsuite:authtests");
   const authService = new OpenAPIAuthtestsClient(authFetch);
-  const authServiceWithToken = new OpenAPIAuthtestsClient(authFetch, { bearertoken: "secret" });
+  const authServiceWithToken = new OpenAPIAuthtestsClient(authFetch, { bearerToken: "secret" });
 
   {
     const res = await authService.get("/other");
@@ -172,7 +172,7 @@ async function testAuthorization() {
   }
 
   {
-    const authServiceWithToken2 = new OpenAPIAuthtestsClient(authFetch, { bearertoken: "secret2" });
+    const authServiceWithToken2 = new OpenAPIAuthtestsClient(authFetch, { bearerToken: "secret2" });
     const res = await authServiceWithToken2.get("/dummy");
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("Bearer secret2", await res.body);

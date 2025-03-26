@@ -92,8 +92,9 @@ MACRO SetupTestSite(OBJECT testsite)
   OBJECT portal2folder  := testsite->rootobject->CreateFolder( [ name := "portal2" ] );
   portal2folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
 
-  OBJECT testsuiteportalfolder  := testsite->rootobject->CreateFolder( [ name := "testsuiteportal" ] );
+  OBJECT testsuiteportalfolder := testsite->rootobject->CreateFolder( [ name := "testsuiteportal" ] );
   testsuiteportalfolder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+  testsuiteportalfolder->CreateFolder([ name := "empty folder", description := "test siteprofile resolution in empty folders" ] );
 
   testsite->rootobject->CreateFolder([name := "staticlogin"])->CreateFile(
     [ name := "login"

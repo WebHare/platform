@@ -65,7 +65,7 @@ export const whconstant_autorenewed_warnexpirydays = 21;
 export const whconstant_webserver_indexbasename = "index";
 
 //All possible index pages for webservers. indexbasename + all supported extensions
-export const whconstant_webserver_indexpages = [whconstant_webserver_indexbasename || ".html", whconstant_webserver_indexbasename || ".shtml"];
+export const whconstant_webserver_indexpages = [whconstant_webserver_indexbasename + ".html", whconstant_webserver_indexbasename + ".shtml"];
 
 //Webserver type of an interface webserver
 export const whconstant_webservertype_interface = 1;
@@ -266,3 +266,18 @@ export const whconstant_typescript_extensions = [".ts", ".tsx"];
 export const whconstant_javascript_extensions = [...whconstant_typescript_extensions, ".js", ".es"];
 
 export const whconstant_consilio_default_suffix_mask = "-*";
+
+//confighelpers.whlib
+//an interface server generally running on http://127.0.0.1:13678/
+export const whwebserverconfig_rescueportoffset = 0;
+export const whwebserverconfig_trustedportid = -2;
+export const whwebserverconfig_trustedportid_ipv6 = -3;
+export const whwebserverconfig_hstrustedportid = -6;
+export const whwebserverconfig_rescueportid = -4;
+export const whwebserverconfig_rescuewebserverid = -5;
+
+export const whwebserverconfig_virtualportid = 0;
+
+export const whwebserverconfig_proxywebserverid = -1000; //catches any usage of webhare as a proxy
+
+export const whwebserverconfig_redirecthostoffset = -2000; //all redirecting hosts that mirror a real webserver, are offset by this index

@@ -3,7 +3,13 @@ import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
 import { openFile, openFileOrFolder } from "@webhare/whfs";
-import { ResourceDescriptor } from "@webhare/services";
+import { backendConfig, ResourceDescriptor, WebHareBlob } from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
+import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
+import { maxDateTime } from "@webhare/hscompat";
+import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import { whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
+import { getRescueOrigin } from "@mod-system/js/internal/configuration";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -21,6 +27,14 @@ async function testWHFS() {
   test.assert(!whfs.isValidName("\u0000"));
   test.assert(!whfs.isValidName("\u0001"));
   test.assert(whfs.isValidName(".doc"), "'dot' files are okay");
+
+  const privatefolder = await whfs.openFolder("/webhare-private/platform");
+  test.eq("platform", privatefolder.name);
+  test.eq("/webhare-private/platform/", privatefolder.whfsPath);
+  test.eq(null, privatefolder.parentSite);
+  test.eq(null, privatefolder.link);
+  test.eq(null, privatefolder.sitePath);
+  test.eq(null, await privatefolder.getBaseURL());
 
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
@@ -101,7 +115,7 @@ async function testWHFS() {
   test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfsPath)).id);
   test.eq(true, (await whfs.openFile(markdownfile.id)).publish);
 
-  test.eq("", (await whfs.openFolder("/webhare-tests/")).sitePath);
+  test.eq(null, (await whfs.openFolder("/webhare-tests/")).sitePath);
   test.eq('/', (await whfs.openFolder("site::webhare_testsuite.testsite")).sitePath);
   test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);
@@ -140,6 +154,7 @@ async function testWHFS() {
   await whdb.beginWork();
   const newFile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File", data: null });
   const openNewFile = await tmpfolder.openFile("testfile");
+  test.eq(false, newFile.isPinned);
   test.eq(newFile.id, openNewFile.id);
   test.eq("testfile", newFile.name);
   test.eq("My MD File", newFile.title);
@@ -155,7 +170,8 @@ async function testWHFS() {
   test.eq(true, openNewFile_state2.publish);
 
   const goldFishId = await whfs.nextWHFSObjectId();
-  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true });
+  const goldFish = await tmpfolder.createFile("goldfish.png", { id: goldFishId, data: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png"), publish: true, isPinned: true });
+  test.eq(true, goldFish.isPinned);
   test.eq(goldFishId, goldFish.id);
   test.eq("image/png", goldFish.data.mediaType);
   test.eq(385, goldFish.data.width);
@@ -165,8 +181,9 @@ async function testWHFS() {
   test.eq(goldFish.creationDate, goldFish.firstPublishDate);
   test.eq(goldFish.creationDate, goldFish.contentModificationDate);
 
-  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg") });
+  await goldFish.update({ data: await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg"), isPinned: false });
   const openedGoldFish = await openFile(goldFish.id);
+  test.eq(false, openedGoldFish.isPinned);
   test.eq("image/jpeg", openedGoldFish.data.mediaType);
   test.eq(428, openedGoldFish.data.width);
   test.eq('eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw', openedGoldFish.data.hash);
@@ -219,6 +236,12 @@ async function testWHFS() {
 
   const docxje = await tmpfolder.createFile("empty.docx", { data: await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/empty.docx") /* FIXME, publish: false*/ });
   test.eq("application/vnd.openxmlformats-officedocument.wordprocessingml.document", docxje.data.mediaType);
+
+  //test auto index doc setting
+  test.eq(null, tmpfolder.indexDoc);
+  const newindex = await tmpfolder.createFile("index.html");
+  test.eq(newindex.id, tmpfolder.indexDoc);
+  test.eq(newindex.id, (await whfs.openFolder(tmpfolder.id)).indexDoc);
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);
@@ -314,11 +337,245 @@ async function testGenerateUniqueName() {
 
   test.eq("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams.-onderzoek-naar-typen-van-samenwerking-en-bevorderende-en-belemmerende-factoren-in-data-teams-ter-verbetering-van-het-onderwijs-en-nog-een-heel-lang-verhaa"
     , await uniquenamefolder.generateName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is"));
+}
 
+async function testLookup() {
+  const testfw = await loadlib("mod::system/lib/testframework.whlib").RunTestframework([]);
+
+  const lookuptest = await testfw.CreateWebserverPort({ outputserver: true, virtualhosts: ["test-lookup.example.net"], aliases: ["test-alias.example.net", "*plein.example.net"] });
+  const lookuptest2 = await testfw.CreateWebserverPort({});
+
+  await whdb.beginWork();
+  await testfw.SetupTestWebsite(WebHareBlob.from(""));
+  const testsiteobj = await testfw.GetTestSite();
+
+  //Test with http://127.0.0.1:39124/ URLs...
+  let root = await whfs.openSite("webhare_testsuite.site");
+  test.assert(root.webRoot);
+
+  test.assert(root.outputWeb);
+  test.assert(root.outputFolder);
+  let lookupresult = await whfs.lookupURL(root.webRoot);
+  test.eq(root.id, lookupresult.site);
+  test.eq(root.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  const rootfolder = await root.openFolder("/");
+  let testfolder = await rootfolder.createFolder("testfolder");
+
+  //Now test with virtualhosted URLs
+  await testsiteobj.SetPrimaryOutput(lookuptest.webservers[0].id, "/");
+
+  root = await whfs.openSite("webhare_testsuite.site");
+  test.assert(root.webRoot);
+
+  lookupresult = await whfs.lookupURL(root.webRoot);
+  test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
+  test.eq(root.id, lookupresult.site, root.webRoot + " did not return the proper site");
+  test.eq(root.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
+
+  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/testfolder/");
+  test.eq(null, lookupresult.site);
+  test.eq(null, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/testfolder/", { matchProduction: true });
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/", { matchProduction: true });
+  test.eq(root.id, lookupresult.site);
+  test.eq(root.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  for (const shouldwork of ["test-alias.example.net", "test-alias.example.net", "test-lookup.example.net", "www.trampolineplein.example.net", "www.plein.example.net", "plein.example.net"]) {
+    const testurl = root.webRoot.replace("test-lookup.example.net", shouldwork);
+    lookupresult = await whfs.lookupURL(testurl);
+    test.eq(root.id, lookupresult.site, testurl + " should work");
+  }
+
+  for (const shouldfail of ["mytest-alias.example.net"]) {
+    const testurl = root.webRoot.replace("test-lookup.example.net", shouldfail);
+    lookupresult = await whfs.lookupURL(testurl);
+    test.eq(null, lookupresult.site, testurl + " should fail");
+  }
+
+  //any virtualhosted site should accept https versions too (ADDME: test: but only if that port# is actually being listened to by a virtualhost?)
+  lookupresult = await whfs.lookupURL(root.webRoot.replace('http:', 'https:'));
+
+  test.eq(root.id, lookupresult.site);
+  test.eq(root.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  let testfile = await testfolder.createFile("test.html", { publish: true });
+  const testfile_unpublished = await testfolder.createFile("test_unpublished.html", { publish: false });
+
+  lookupresult = await whfs.lookupURL(testfile.link!);
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  // test with ignored extension extension
+  const testfile2 = await testfolder.createFile('test-ignoreext.doc', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/mswordfile" });
+  await whdb.db<PlatformDB>().updateTable("system.fs_objects").set({ published: PublishedFlag_StripExtension }).where("id", "=", testfile2.id).execute();
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test-ignoreext.doc");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile2.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test-ignoreext");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile2.id, lookupresult.file);
+
+  // file of folder should be the indexdoc, 0 if not no indexdoc
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  const testfile3 = await testfolder.createFile('index.html', { publish: false }); // auto indexdoc
+  testfolder = await whfs.openFolder(testfolder.id);
+  test.eq(testfile3.id, testfolder.indexDoc);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile3.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder", { ifPublished: true });
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file, "index.html isn't published!");
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile3.id, lookupresult.file);
+
+  // hash ignored
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html#jo");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html#jo", { ifPublished: true });
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test_unpublished.html#jo");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile_unpublished.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test_unpublished.html#jo", { ifPublished: true });
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(null, lookupresult.file);
+
+  // parameters ignored?
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html?param");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html&param");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  // !part ignored?
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!ignored/test.html&param");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  // ! terminates
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!/test.html/");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile3.id, lookupresult.file); // should go to indexdoc of testfolder, 'test.html' must be ignored.
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html/!/ignored");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile.id, lookupresult.file);
+
+  //Test through preview link
+  const previewlink = await loadlib("mod::publisher/lib/internal/tollium-helpers.whlib").createPreviewLink(maxDateTime, "", lookupresult.file, lookupresult.file);
+  lookupresult = await whfs.lookupURL(previewlink);
+  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
+  lookupresult = await whfs.lookupURL(previewlink + "&bladiebla");
+  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
+  lookupresult = await whfs.lookupURL(previewlink + "#bladiebla");
+  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
+
+  await whfs.openType("http://www.webhare.net/xmlns/beta/test").set(testfile.id, {
+    arraytest: [
+      {
+        blobcell: await ResourceDescriptor.from("1", { fileName: "1.txt", mediaType: "text/plain" })
+      },
+      {
+        blobcell: await ResourceDescriptor.from("2", { fileName: "2.zip", mediaType: "application/zip" })
+      }
+    ]
+  });
+
+  const testdata = await whfs.openType("http://www.webhare.net/xmlns/beta/test").get(testfile.id) as any;
+  lookupresult = await whfs.lookupURL(testdata.arraytest[1].blobcell.toLink({ baseURL: root.webRoot }));
+  test.eq(root.id, lookupresult.site);
+  test.eq(testfolder.id, lookupresult.folder);
+
+  test.eq(testfile.id, lookupresult.file, "Looking up testdata.arraytest[1].blobcell.link");
+
+  testfile = await rootfolder.createFile("def.doc", { type: "http://www.webhare.net/xmlns/publisher/mswordfile", publish: true });
+  test.assert(testfile.link);
+  test.assert(!testfile.link.includes(".doc")); //shouldn't contain .doc anymore, given our strip code
+  lookupresult = await whfs.lookupURL(testfile.link);
+  test.eq(testfile.id, lookupresult.file);
+
+  //Regression
+  lookupresult = await whfs.lookupURL(new URL("/tollium_todd/download/iJTSMjXoVvWNNXrggqeq3g/", testfile.link).toString());
+  test.eq(testfile.parentSite, lookupresult.site);
+  test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
+  lookupresult = await whfs.lookupURL(new URL("/.system/dl/ec~AQLrIyEAgpvLAiE2CwCjrcACOgas/yt-g.png", testfile.link).toString());
+  test.eq(testfile.parentSite, lookupresult.site);
+  test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
+
+  const webharetestsuitesite = await whfs.openSite("webhare_testsuite.testsite");
+  lookupresult = await whfs.lookupURL(new URL("/testoutput/webhare_testsuite.testsite/testpages/formtest/", backendConfig.backendURL).toString());
+  test.eq(webharetestsuitesite.id, lookupresult.site);
+  test.eq(webharetestsuitesite.outputWeb, lookupresult.webServer);
+
+  //Now test with website hosted under an alternative backend url
+  await testsiteobj.SetPrimaryOutput(lookuptest2.webservers[0].id, "/testoutput/mytestsite");
+  root = await whfs.openSite("webhare_testsuite.site");
+  test.eq(lookuptest2.webservers[0].url + "testoutput/mytestsite/", root.webRoot);
+
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  test.eq(testfolder.id, lookupresult.folder);
+  test.eq(testfile3.id, lookupresult.file);
+
+  await whdb.rollbackWork();
+
+  //it's important for lookupURL to work with the rescue port. even if, or especially if, the backend site is not connected to a URL
+  await whdb.beginWork(); //we'll be rolling back!
+  await whdb.db<PlatformDB>().deleteFrom("system.webservers").execute();
+  test.eqPartial({ site: whconstant_whfsid_webharebackend }, await whfs.lookupURL(getRescueOrigin(), { clientWebServer: whwebserverconfig_rescuewebserverid }));
+  await whdb.rollbackWork();
 }
 
 test.runTests([
   test.reset,
   testWHFS,
-  testGenerateUniqueName
+  testGenerateUniqueName,
+  testLookup
 ]);

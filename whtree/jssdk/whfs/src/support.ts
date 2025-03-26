@@ -122,3 +122,19 @@ export function getWHFSObjRef(fsobj: WHFSObject) {
 
   return fsobj.id + "." + hash;
 }
+
+/** Change a flag in a published cell
+    @param published - A file.published cell
+    @param flag_to_set - The flag to modify (eg. PublishedFlag_OncePublished or PublishedFlag_Scheduled)
+    @param setflag - True to set the flag, false to reset the flag
+    @returns The published parameter with the requested flags modified
+*/
+export function setFlagInPublished(published: number, flag_to_set: number, setflag: boolean) {
+  const isSet = testFlagFromPublished(published, flag_to_set);
+  if (isSet === setflag)
+    return published; //nothing to do
+  else if (isSet) // remove flag
+    return published - flag_to_set;
+  else
+    return published + flag_to_set;
+}
