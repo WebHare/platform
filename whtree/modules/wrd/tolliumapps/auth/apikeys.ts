@@ -9,7 +9,7 @@ export async function getAPIKeys(wrdschema: string, entity: number) {
 
 export async function createAPIkey(wrdschema: string, entity: number): Promise<{
   access_token: string;
-  expires: Temporal.Instant;
+  expires: Temporal.Instant | null;
   id: number;
 }> {
   const idp = new IdentityProvider(new WRDSchema(wrdschema));

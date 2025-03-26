@@ -1,5 +1,6 @@
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support";
+import { runAuthMaintenance } from "@mod-platform/js/auth/support";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { getFetchResourceCacheCleanups } from "@webhare/services/src/fetchresource";
@@ -20,7 +21,6 @@ async function expireOldUsers() {
 async function cleanupOldSessions() {
   await beginWork();
   await db<PlatformDB>().deleteFrom("system.sessions").where("expires", "<", new Date).execute();
-  await db<PlatformDB>().deleteFrom("wrd.tokens").where("expirationdate", "<", new Date).execute();
   await commitWork();
 }
 
@@ -63,6 +63,7 @@ async function cleanupFetchResourceCacheCleanups() {
 async function runMaintenance() {
   //Things that may free up space always go first in case someone runs these maintenance scripts hoping to free up space fast
   await cleanupOldSessions();
+  await runAuthMaintenance();
   await cleanupOldUploads();
   await cleanupFetchResourceCacheCleanups();
   await removeObsoleteCacheFolders();

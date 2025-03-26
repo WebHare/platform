@@ -12,7 +12,7 @@ import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
-import { HareScriptType, decodeHSON, encodeHSON, setHareScriptType } from "@webhare/hscompat";
+import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -44,6 +44,15 @@ interface HSONAuthenticationSettings {
     locked?: Date;
   };
 }
+
+export type FirstPartyToken = {
+  /** Token id in database (wrd.tokens) */
+  id: number;
+  /** The access token itself */
+  accessToken: string;
+  /** Access token expiration (null if set to never expire) */
+  expires: Temporal.Instant | null;
+};
 
 export class AuthenticationSettings {
   #passwords: Array<{ hash: string; validFrom: Date }> = [];
@@ -161,7 +170,7 @@ type TokenResponse = {
   access_token: string;
   token_type: "Bearer";
   id_token?: string;
-  expires_in: number;
+  expires_in?: number;
 };
 
 export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password";
@@ -641,6 +650,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         throw new Error(`Unable to find serviceProvider #${client}`);
     }
 
+    if (options?.expires === Infinity && type !== "api")
+      throw new Error("Infinite expiration is only allowed for API tokens");
+
     const isOIDC = options?.scopes?.includes("openid");
     if (isOIDC && type !== "oidc")
       throw new Error("OpenID scopes can only be set for 'oidc' tokens");
@@ -652,8 +664,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
     const creationdate = new Date;
-    creationdate.setMilliseconds(0); //round down
-    const validuntil = convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
+    creationdate.setMilliseconds(0); //round down as the JWT fields have second precision
+    const validuntil = options?.expires === Infinity ? null : convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
 
     //Figure out signature parameters
     const config = await this.getKeyConfig();
@@ -695,7 +707,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: type,
       creationdate: new Date(atPayload.nbf! * 1000),
-      expirationdate: new Date(atPayload.exp! * 1000),
+      expirationdate: atPayload.exp ? new Date(atPayload.exp * 1000) : defaultDateTime,
       entity: subject,
       client: client,
       scopes: options?.scopes?.join(" ") ?? "",
@@ -708,7 +720,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     await commitWork();
 
-    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
+    return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
   }
 
   /** An access token may be prefixed with `secret-token:`, strip it (we'll tolerate any `<...>:` prefix here */
@@ -778,7 +790,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
       executeTakeFirst();
 
-    if (!matchToken || matchToken.expirationdate < new Date)
+    if (!matchToken || (matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
       return { error: `Token is invalid` };
 
     //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
@@ -942,7 +954,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         id_token: tokens.id_token,
         access_token: tokens.access_token,
         token_type: "Bearer",
-        expires_in: Math.floor(tokens.expires - (Date.now() / 1000)),
+        ...(tokens.expires ? { expires_in: Math.floor(tokens.expires - (Date.now() / 1000)) } : {})
       }
     };
   }
@@ -966,7 +978,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       type: token.type as "id" | "api",
       metadata: token.metadata ? parseTyped(token.metadata) : null,
       created: token.creationdate.toTemporalInstant(),
-      expires: token.expirationdate?.toTemporalInstant() ?? null,
+      expires: token.expirationdate.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
       scopes: token.scopes ? token.scopes.split(" ") : []
     }));
   }
@@ -980,7 +992,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
    * @param userid - Entity associated with this token
    */
-  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<{ id: number; accessToken: string; expires: Temporal.Instant }> {
+  async createFirstPartyToken(type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
+
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
     if (options?.scopes?.includes("openid"))
       throw new Error("Only third party tokens can request an openid scope");
 
@@ -989,7 +1004,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       id: tokens.tokenId,
       accessToken: tokens.access_token,
-      expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
+      expires: tokens.expires ? Temporal.Instant.fromEpochSeconds(tokens.expires) : null
     };
   }
 
