@@ -255,7 +255,7 @@ async function testAuthAPI() {
   //Test the frontend login
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
-  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\.$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
   const customizerUserInfo: WRDAuthCustomizer = {
     onFrontendUserInfo(user: number) {

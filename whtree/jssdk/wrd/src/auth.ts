@@ -625,7 +625,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not sign this as we
        don't care about signatures, our wrd.tokens table is leading. (we might need to sign at some point if we're going to support refresh tokens) */
     const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes: options?.scopes || [] });
-    const prefix = options?.prefix ?? "secret-token:"; //if undefined/null, we fall back to the default
+    const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
     const access_token = prefix + jwt.sign(atPayload, null, { algorithm: "none" });
     const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
     if (Buffer.from(metadata).length > 4096)
