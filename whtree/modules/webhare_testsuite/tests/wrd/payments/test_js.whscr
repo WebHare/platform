@@ -50,7 +50,12 @@ ASYNC MACRO SetupPayJS()
   TT(":Configuration")->value := EncodeJSON([ xyz := TRUE]);
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*Missing expected field*" ]);
 
-  TT(":Configuration")->value := EncodeJSON([ methods := 2, __frigginhugedata := RepeatText("X",4096) ]);
+  TT(":Configuration")->value := EncodeJSON([
+    methods := [[ rowkey := "M1", title := "Method 1" ]
+               ,[ rowkey := "M2", title := "Method 2" ]
+    ],
+     __frigginhugedata := RepeatText("X",4096)
+     ]);
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
   TestEq("Method 1, Method 2", TT(":methods")->value);
 
@@ -193,7 +198,11 @@ MACRO TestPaymentMethodTest() //test the 'test' method
 
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{
+      "methods":[{ "rowkey": "M1", "title": "Method 1" },
+                 { "rowkey": "M2", "title": "Method 2" }
+                ]
+      }`)
     ]);
   pm2_guidprefix := "__" || ToUppercase(Substring(pm2->guid,4));
 
@@ -764,13 +773,21 @@ MACRO TestPaymentOptions()
 
   OBJECT pm_2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #2"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{
+      "methods":[{ "rowkey": "M1", "title": "Method 1" },
+                 { "rowkey": "M2", "title": "Method 2" }
+                ]
+      }`)
     , wrd_ordering := 9
     ]);
 
   OBJECT pm_3 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #3"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":2}`)
+    , method := MakeJSPaymentProviderValue(jstestdriver, `{
+      "methods":[{ "rowkey": "M1", "title": "Method 1" },
+                 { "rowkey": "M2", "title": "Method 2" }
+                ]
+      }`)
     , wrd_ordering := 10
     ]);
 
@@ -799,7 +816,11 @@ ASYNC MACRO TestFailedPaymentSucceeding()
 
   OBJECT pm_4 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "test #4"
-    , method := MakeJSPaymentProviderValue(jstestdriver, `{"methods":1}`)
+    , method := MakeJSPaymentProviderValue(jstestdriver,
+    `{
+      "methods":[{ "rowkey": "M1", "title": "Method 1" }
+                ]
+      }`)
     , wrd_ordering := 11
     ]);
 
