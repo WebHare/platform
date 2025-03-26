@@ -3,7 +3,10 @@ import { createServerSession, getServerSession, updateServerSession } from "@web
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 
 interface TestDriverConfig {
-  methods: number;
+  methods: Array<{
+    rowkey: string;
+    title: string;
+  }>;
   sleep?: number;
 }
 
@@ -25,8 +28,8 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
       return { error: "Missing expected field 'methods'" };
 
     const methods = [];
-    for (let i = 1; i <= this.config.methods; i++)
-      methods.push({ rowkey: "M" + i, title: "Method " + i, requirements: [] });
+    for (const method of this.config.methods)
+      methods.push({ rowkey: method.rowkey, title: method.title, requirements: [] });
     return { methods, isLive: false };
   }
 
