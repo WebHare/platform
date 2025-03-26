@@ -14,8 +14,8 @@
     <!-- migrate_indices_v3: v5.02 database upgrade to prepare for opensearch managers -->
     <runonce script="scripts/runonce/migrate_indices.whscr" tag="migrate_indices_v3" when="afterschemacreation" />
 
-    <!-- setupopensearch: launches the initial builtin opensearch if not yet present -->
-    <runonce script="scripts/runonce/setupopensearch.whscr" tag="setupopensearch" when="poststart" />
+    <!-- setupopensearch: ensure the initial builtin opensearch is registered -->
+    <runonce script="scripts/runonce/setupopensearch.whscr" tag="setupopensearch" when="afterregistryupdate" />
 
     <task runat="*/15   * * * *" script="scripts/tasks/executeindextasks.whscr" tag="indextasks" runatstartup="true" />
     <task runat="17 */8 * * *" script="scripts/tasks/executelinkcheck.whscr" tag="linkchecker" description="Check links on indexed pages" />  <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
