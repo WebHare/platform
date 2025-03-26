@@ -7,12 +7,15 @@ import { type FrontendEmbeddedApplication, registerJSApp } from "../application"
 import "../../common.lang.json";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
 import { navigateTo, type NavigateInstruction } from '@webhare/env/src/navigation';
 import { getTid } from '@webhare/gettid';
 
-const utilerror = require('@mod-system/js/wh/errorreporting');
+import * as utilerror from '@mod-system/js/wh/errorreporting';
+import type { ObjCheckbox, ObjFrame, ObjPanel, ObjTabs, ObjText, ObjTextEdit } from '@mod-tollium/webdesigns/webinterface/components';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- there's no real way to get everything below properly typesafe, we need a TS-redesign of frontend apps. use this type to indicate you're setting up inline tollimu attributes
+type TolliumInlineAttributes = any;
 
 interface LoginMethodPassword {
   type: "password";
@@ -48,7 +51,7 @@ function shouldReveal(tag: string) {
 class LoginApp {
   private readonly loginconfig: LoginConfig;
   private app: FrontendEmbeddedApplication;
-  private topscreen: Frame | undefined;
+  private topscreen!: ObjFrame; //TODO avoid '!' - but we build it a bit late. if promiseComponentTypes could be avoided in the construtor...
   private secondfactordata;
 
   constructor(appinterface: FrontendEmbeddedApplication, callback) {
@@ -72,7 +75,7 @@ class LoginApp {
     return true;
   }
   setupScreen() {
-    let screencomponents =
+    let screencomponents: Record<string, TolliumInlineAttributes> =
     {
       frame: {
         bodynode: 'root',
@@ -238,7 +241,7 @@ class LoginApp {
       };
     }
 
-    let passwordresetlines = [];
+    let passwordresetlines: TolliumInlineAttributes[] = [];
     if (getIndyShell().settings.allowpasswordreset) {
       passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
     }
@@ -418,12 +421,12 @@ class LoginApp {
               {
                 component: "loginaction",
                 msgtype: "execute",
-                handler: (data, callback) => this.executePasswordLogin(data, callback)
+                handler: (data, callback) => void this.executePasswordLogin(data, callback)
               },
               {
                 component: "forgotaction",
                 msgtype: "execute",
-                handler: (data, callback) => this.executeForgot(data, callback)
+                handler: (data, callback) => void this.executeForgot(data, callback)
               }
             ];
           } break;
@@ -476,9 +479,9 @@ class LoginApp {
   }
 
   async executePasswordLogin(data, callback: () => void) {
-    const loginname = this.topscreen.getComponent('loginname').getSubmitValue().value;
-    const password = this.topscreen.getComponent('password').getSubmitValue().value;
-    const savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
+    const loginname = this.topscreen.getComponent<ObjTextEdit>('loginname')!.getSubmitValue().value;
+    const password = this.topscreen.getComponent<ObjTextEdit>('password')!.getSubmitValue().value;
+    const savelogin = this.topscreen.getComponent<ObjCheckbox>('savelogin')!.getSubmitValue().value;
 
     if (!loginname || !password) {
       const errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.enterusernameandpassword"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
@@ -493,9 +496,9 @@ class LoginApp {
         return;
       }
       if (result.code === "REQUIRESECONDFACTOR") {
-        const selecttab = this.topscreen.getComponent('secondfactor');
-        this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
-        this.topscreen.getComponent('frame').setFocusTo('totpcode');
+        const selecttab = this.topscreen.getComponent<ObjPanel>('secondfactor')!;
+        this.topscreen.getComponent<ObjTabs>('tabs')!.setSelected(selecttab.name, true);
+        this.topscreen.getComponent<ObjFrame>('frame')!.setFocusTo('totpcode');
 
         this.secondfactordata = result.secondfactordata;
         this._updateSecondFactorText();
@@ -503,7 +506,7 @@ class LoginApp {
         return;
       }
       if (result.code === "REQUIRESETUPSECONDFACTOR") {
-        this.topscreen.getComponent('password').setValue("");
+        this.topscreen.getComponent<ObjTextEdit>('password')!.setValue("");
         const app = getIndyShell().startBackendApplication("system:managetwofactorauth", null,
           {
             onappbar: false,
@@ -516,7 +519,7 @@ class LoginApp {
         return;
       }
       if (result.code === "FAILEDVALIDATIONCHECKS") {
-        this.topscreen.getComponent('password').setValue("");
+        this.topscreen.getComponent<ObjTextEdit>('password')!.setValue("");
         const app = getIndyShell().startBackendApplication("system:resetpassword", null,
           {
             onappbar: false,
@@ -559,46 +562,13 @@ class LoginApp {
       await frontend.startSSOLogin(tag);
     } catch (error) {
       lock.release(); //we only release the lock on the error path so we can keep the app locked while redirecting
-      this.app.showExceptionDialog(error);
+      this.app.showExceptionDialog(error as Error);
     }
   }
 
-  /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
-  handlePassiveSAMLLogin(instr) {
-    // Create off-screen iframe
-    const iframe = dompack.create("iframe",
-      {
-        style:
-        {
-          position: "absolute",
-          left: "-40px",
-          top: "-40px",
-          width: "10px",
-          height: "10px",
-          zIndex: "-1"
-        }
-      });
-
-    // Execute the submitinstruction in the iframe
-    document.body.appendChild(iframe);
-    whintegration.executeSubmitInstruction(instr, { iframe: iframe });
-
-    // The SP will send us a message with the login result
-    window.addEventListener("message", e => {
-      const data = JSON.parse(e.data);
-      console.log(data, instr, instr.requestid);
-      if (data && data.id === instr.requestid) {
-        if (data.status === "loggedin") {
-          // not logged in into shell, so reload won't trigger unload warning
-          location.reload();
-        }
-      }
-    });
-  }*/
-
   executeCancelSecondFactorLogin(data, callback) {
-    const selecttab = this.topscreen.getComponent('body');
-    this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
+    const selecttab = this.topscreen.getComponent<ObjPanel>('body')!;
+    this.topscreen.getComponent<ObjTabs>('tabs')!.setSelected(selecttab.name, true);
 
     this.secondfactordata = null;
     callback();
@@ -610,8 +580,8 @@ class LoginApp {
       this.executePasswordLogin(data, callback);
       return;
     }
-    const code = this.topscreen.getComponent('totpcode').getSubmitValue().value;
-    const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
+    const code = this.topscreen.getComponent<ObjTextEdit>('totpcode')!.getSubmitValue().value;
+    const persistent = this.topscreen.getComponent<ObjCheckbox>('savelogin')!.getSubmitValue().value;
 
     const result = await getIndyShell().wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
     if (result.submitinstruction) {
@@ -669,15 +639,15 @@ class LoginApp {
       switch (this.secondfactordata.totpattemptsleft) {
         case 6:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterauthenticatorcode"));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.enterauthenticatorcode"));
           } break;
         case 0:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterbackupcode"));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.enterbackupcode"));
           } break;
         default:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.totpattemptsleft", this.secondfactordata.totpattemptsleft.toString()));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.totpattemptsleft", this.secondfactordata.totpattemptsleft.toString()));
           }
       }
     }

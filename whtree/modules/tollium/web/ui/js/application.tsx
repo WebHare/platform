@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
-import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { getTid } from "@webhare/gettid";
@@ -50,7 +50,7 @@ export class ApplicationBase {
 
   /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
     screenstack.at(-1) is the currently active and only enabled screen */
-  screenstack: Frame[] = [];
+  screenstack: ObjFrame[] = [];
 
   dirtylisteners = new Array<DirtyListener>;
 
@@ -61,7 +61,7 @@ export class ApplicationBase {
   /** The shell starting us */
   shell: IndyShell; //(as if there would be more than one in a JS instace?)
 
-  screenmap: Record<string, Frame> = {};
+  screenmap: Record<string, ObjFrame> = {};
 
   appnodes: {
     loader: HTMLElement;
@@ -219,7 +219,7 @@ export class ApplicationBase {
     return this.appnodes.root.classList.contains('appcanvas--isbusy');
   }
 
-  getTopScreen(): Frame | null {
+  getTopScreen(): ObjFrame | null {
     return this.screenstack.at(-1) || null;
   }
 
@@ -384,7 +384,7 @@ export class ApplicationBase {
     }
   }
 
-  private getAppGlobalTopScreen(): Frame | null {
+  private getAppGlobalTopScreen(): ObjFrame | null {
     const apps = this.getAppAndChildren();
     for (let idx = apps.length - 1; idx >= 0; --idx)
       if (apps[idx].getTopScreen())
@@ -506,7 +506,7 @@ export class ApplicationBase {
   }
 
   createNewScreenObject(windowname, framename, messages) {
-    const screen = new Frame(this, {
+    const screen = new ObjFrame(this, {
       window: windowname,
       target: framename,
       specials: []

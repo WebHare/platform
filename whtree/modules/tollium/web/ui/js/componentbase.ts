@@ -2,7 +2,7 @@ import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import { type SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 import type { SelectionMatch, TolliumCondition } from './types';
 import type { BackendApplication } from './application';
@@ -60,7 +60,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
   name = '';
   componenttype = 'component';
   title = "";
-  owner: Frame;
+  owner: ObjFrame;
   /** The parent component */
   parentcomp: ToddCompBase | null;
   /**  children components that have this component as parentcomp */
@@ -122,7 +122,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
 
     // The component window's frame component
     // (This is what windowroot used to be)
-    this.owner = parentcomp ? parentcomp.owner : this as unknown as Frame;
+    this.owner = parentcomp ? parentcomp.owner : this as unknown as ObjFrame;
     // If we're on a line, the line can tell us if we're in an inline element
     this.isinline = Boolean(parentcomp && parentcomp.holdsinlineitems);
 
@@ -152,7 +152,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
 
     this.hint = data.hint ? data.hint : '';
 
-    if (this.owner !== this as unknown as Frame)
+    if (this.owner !== this as unknown as ObjFrame)
       this.owner.registerComponent(this);
     //      this.lineminheight = 0;
   }

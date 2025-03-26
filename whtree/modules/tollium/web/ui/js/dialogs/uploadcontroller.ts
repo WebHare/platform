@@ -2,7 +2,7 @@ import "../../common.lang.json";
 import * as dompack from "dompack";
 import { getTid } from "@webhare/gettid";
 import type { UploadProgressStatus } from "@webhare/upload";
-import type Frame from "@mod-tollium/webdesigns/webinterface/components/frame/frame";
+import type { ObjFrame } from "@mod-tollium/webdesigns/webinterface/components/frame/frame";
 import type ObjProgress from "@mod-tollium/webdesigns/webinterface/components/progress/progress";
 
 
@@ -13,12 +13,12 @@ export default class UploadDialogController {
   started = false;
   lastProgress?: UploadProgressStatus;
   aborter;
-  screen: Frame;
-  dialog?: Frame;
+  screen: ObjFrame;
+  dialog?: ObjFrame;
   done = false;
   busylock?;
 
-  constructor(screen: Frame, aborter: AbortController) {
+  constructor(screen: ObjFrame, aborter: AbortController) {
     this.aborter = aborter;
     this.screen = screen;
 
@@ -116,15 +116,15 @@ export default class UploadDialogController {
     if (this.dialog) {
       const texts = this.computeTexts();
       (this.dialog.getComponent('progress') as ObjProgress).onMsgSetValMax({ max: 100, value: texts.progress });
-      this.dialog.getComponent('sizestxt').setValue(texts.sizes);
-      this.dialog.getComponent('speedtxt').setValue(texts.speed);
+      this.dialog.getComponent('sizestxt')!.setValue(texts.sizes);
+      this.dialog.getComponent('speedtxt')!.setValue(texts.speed);
     }
   }
 
   gotEnd(detail: { success: boolean }) {
     if (this.dialog) {
       // Disable cancel for visual feedback
-      this.dialog.getComponent('cancelbutton').setEnabled(false);
+      this.dialog.getComponent('cancelbutton')!.setEnabled(false);
     }
 
     if (!detail.success) {
@@ -162,7 +162,7 @@ export default class UploadDialogController {
     }
   }
 
-  gotErrorDialogClose(errordialog: Frame, data: unknown, callback: () => void) {
+  gotErrorDialogClose(errordialog: ObjFrame, data: unknown, callback: () => void) {
     // Unbusy for this handler
     callback();
 

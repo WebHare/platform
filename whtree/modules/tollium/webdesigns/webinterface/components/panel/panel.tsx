@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import ObjText from '../text/text';
+import { ObjText } from '../text/text';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
@@ -81,7 +81,7 @@ export function updateNodeBackground(panel) {
  ****************************************************************************************************************************/
 
 
-export default class ObjPanel extends ComponentBase {
+export class ObjPanel extends ComponentBase {
 
   /****************************************************************************************************************************
   * Initialization

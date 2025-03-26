@@ -30,9 +30,9 @@ interface TextStyles {
  *                                                                                                                          *
  *  TEXT                                                                                                                    *
  *                                                                                                                          *
- ****************************************************************************************************************************/
+****************************************************************************************************************************/
 
-export default class ObjText extends ComponentBase {
+export class ObjText extends ComponentBase {
   componenttype = "text";
   labelfor = "";
 
