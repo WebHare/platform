@@ -40,12 +40,19 @@ PUBLIC MACRO ExecuteWebResponse(RECORD webresponse) //expects a WebResponseInfo
 {
   AddHTTPHeader("Status", ToString(webresponse.status), FALSE);
 
-  STRING ARRAY added;
-  FOREVERY(RECORD header FROM UnpackRecord(webresponse.headers))
-  {
-    BOOLEAN add := ToUppercase(header.name) IN added;
-    INSERT ToUppercase(header.name) INTO added AT END;
-    AddHTTPHeader(ToLowercase(header.name), header.value, add);
+  FOREVERY(RECORD header FROM UnpackRecord(webresponse.headers)) {
+    STRING headername := ToUppercase(header.name);
+    IF(headername = "SET-COOKIE") {
+      IF(Length(webresponse.setcookie) = 0)
+        THROW NEW Exception(`internal error: no setCookie in WebResponseInfo but there was a set-cookie header`);
+
+      CONTINUE;
+    }
+    AddHTTPHeader(ToLowercase(headername), header.value, FALSE);
   }
+
+  FOREVERY(STRING cookie FROM webresponse.setcookie)
+    AddHTTPHeader("Set-Cookie", cookie, TRUE);
+
   SendWebFile(webresponse.body);
 }
