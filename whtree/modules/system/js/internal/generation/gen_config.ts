@@ -112,7 +112,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   const anychanges = newconfigtext !== currenttext;
 
   if (anychanges) {
-    await storeDiskFile(file, newconfigtext, { overwrite: true });
+    await storeDiskFile(file, newconfigtext, { overwrite: true, mkdir: true });
     reloadBackendConfig();
 
     if (!nodb) {

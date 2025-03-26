@@ -42,7 +42,7 @@ export class HSVMWrapper implements HSVM_HSVMSource {
   ///Signal the VM to shutdown, invalidating the HSVMWrapper
   async dispose() {
     if (debugFlags.vmlifecycle)
-      console.trace(`[${this.currentgroup}] HSVMWrapper disposed`);
+      console.trace(`[${this.currentgroup}] VM terminating because of dispose()`);
     vmfinalizer.unregister(this);
     this.vm?.deref()?.shutdown();
     await this.done;
