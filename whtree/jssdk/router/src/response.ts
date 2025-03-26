@@ -62,6 +62,7 @@ export type WebResponseForTransfer = {
   status: HTTPStatusCode;
   bodybuffer: ArrayBuffer | null;
   headers: Record<string, string>;
+  setCookie: string[];
   trace: string | undefined;
 };
 
@@ -86,7 +87,12 @@ class WebResponse extends Response {
 
   /// Convert result to WebResponseInfo often used when marshalling. API will be removed when JS webserver has replaced the C++ webserver
   async asWebResponseInfo(): Promise<WebResponseInfo> {
-    return { status: this.status, headers: Object.fromEntries(this.headers.entries()), body: WebHareBlob.from(Buffer.from(await this.arrayBuffer())) };
+    return {
+      status: this.status,
+      headers: Object.fromEntries(this.headers.entries()),
+      setCookie: this.headers.getSetCookie(),
+      body: WebHareBlob.from(Buffer.from(await this.arrayBuffer()))
+    };
   }
 
   async encodeForTransfer(): Promise<{
@@ -98,6 +104,7 @@ class WebResponse extends Response {
       value: {
         status: this.status,
         headers: Object.fromEntries(this.headers.entries()),
+        setCookie: this.headers.getSetCookie(),
         bodybuffer,
         trace: this._trace
       },
@@ -110,6 +117,7 @@ export async function createResponseInfoFromResponse(response: SupportedResponse
   return {
     status: response.status,
     headers: Object.fromEntries([...response.headers.entries()]),
+    setCookie: response.headers.getSetCookie(),
     body: WebHareBlob.from(Buffer.from(await response.arrayBuffer()))
   };
 }

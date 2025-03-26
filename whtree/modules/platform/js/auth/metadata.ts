@@ -18,9 +18,16 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     throw new Error(`No WRD schema defined for this location`);
 
   const authSchema = new WRDSchema<Platform_BasewrdschemaSchemaType>(wrdSchemaTag);
-  const settings = await getSchemaSettings(authSchema, ["issuer"]);
+  const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys"]);
   if (!settings.issuer)
     throw new Error(`WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer`);
+
+  const id_token_signing_alg_values_supported: string[] = [];
+  if (settings.signingKeys.find(_ => _.privateKey.kty === "RSA"))
+    id_token_signing_alg_values_supported.push("RS256");
+  //  can't offer ES256 yet as we haven't enabled/tested generating it yet
+  // if (settings.signingKeys.find(_ => _.privateKey.kty === "EC"))
+  //   id_token_signing_alg_values_supported.push("ES256");
 
   //Encode wrd:schema as /wrd/schema/ in the URL
   const oidc_baseurl = new URL(`/.wh/openid/${encodeURIComponent(wrdSchemaTag).replace('%3A', '/')}/`, req.baseURL).toString();
@@ -31,7 +38,7 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
     authorization_endpoint: oidc_baseurl + "authorize",
     token_endpoint: oidc_baseurl + "token",
     userinfo_endpoint: oidc_baseurl + "userinfo",
-    id_token_signing_alg_values_supported: ["RS256"],
+    id_token_signing_alg_values_supported,
     token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
     scopes_supported: ["openid", "email", "profile"],
     //we many need to add various id_token/token combinations too? but they may only apply to implicit flows?

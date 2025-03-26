@@ -15,6 +15,13 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   if (searchParams.get("type") === "redirect")
     return createRedirectResponse("https://www.webhare.dev/", 301);
 
+  if (searchParams.get("type") === "cookies") {
+    const headers = new Headers;
+    headers.append("Set-Cookie", "testcookie=123");
+    headers.append("Set-Cookie", "testcookie2=456");
+    return createJSONResponse(200, { cookies: true }, { headers });
+  }
+
   return createJSONResponse(400, { error: "Invalid request" });
 }
 

@@ -97,6 +97,7 @@ export interface WebRequestInfo {
 export interface WebResponseInfo {
   status: number;
   headers: Record<string, string>;
+  setCookie: string[];
   body: WebHareBlob;
 }
 

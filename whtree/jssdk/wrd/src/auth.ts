@@ -1,18 +1,18 @@
 import * as crypto from "node:crypto";
-import jwt, { type JwtPayload, type VerifyOptions } from "jsonwebtoken";
+import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
 import type { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "./settings";
-import { beginWork, commitWork, runInWork, db } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork, db, runInSeparateWork } from "@webhare/whdb";
 import type { NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, updateServerSession } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
 import { tagToJS } from "./wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
-import { HareScriptType, decodeHSON, encodeHSON, setHareScriptType } from "@webhare/hscompat";
+import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -44,6 +44,15 @@ interface HSONAuthenticationSettings {
     locked?: Date;
   };
 }
+
+export type FirstPartyToken = {
+  /** Token id in database (wrd.tokens) */
+  id: number;
+  /** The access token itself */
+  accessToken: string;
+  /** Access token expiration (null if set to never expire) */
+  expires: Temporal.Instant | null;
+};
 
 export class AuthenticationSettings {
   #passwords: Array<{ hash: string; validFrom: Date }> = [];
@@ -161,7 +170,7 @@ type TokenResponse = {
   access_token: string;
   token_type: "Bearer";
   id_token?: string;
-  expires_in: number;
+  expires_in?: number;
 };
 
 export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password";
@@ -266,17 +275,24 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
   };
 }
 
-export async function createSigningKey(): Promise<JsonWebKey> {
-  const pvtkey = await new Promise((resolve, reject) =>
-    //generateKeyPair('ec', { namedCurve: "P-256" }, (err, publicKey, privateKey) => { // TODO optionally create EC keys, but RS256 are likely more compatible
-    generateKeyPair('rsa', {
-      modulusLength: 4096
-    }, (err, publicKey, privateKey) => {
-      if (err)
-        return reject(err);
+export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> {
+  const pvtkey = await new Promise<KeyObject>((resolve, reject) => {
+    if (type === "ec")
+      generateKeyPair("ec", { namedCurve: "P-256" }, (err, publicKey, privateKey) => {
+        if (err)
+          return reject(err);
 
-      resolve(privateKey);
-    })) as KeyObject;
+        resolve(privateKey);
+      });
+    else
+      //We're required to have support RSA (id_token_signing_alg_values_supported RS256) for openid connect
+      generateKeyPair('rsa', { modulusLength: 4096 }, (err, publicKey, privateKey) => {
+        if (err)
+          return reject(err);
+
+        resolve(privateKey);
+      });
+  });
   return pvtkey.export({ format: 'jwk' });
 }
 
@@ -502,6 +518,19 @@ function hashClientSecret(secret: string): string {
   return hashSHA256(secret).toString("base64url");
 }
 
+function haveValidKeys(keys: SigningKey[]) {
+  const valid_ec = keys.some(key => key.privateKey.kty === "EC");
+  const valid_rsa = keys.some(key => key.privateKey.kty === "RSA");
+  const valid = valid_ec && valid_rsa;
+  return { valid, valid_ec, valid_rsa };
+}
+
+type SigningKey = {
+  availableSince: Date;
+  keyId: string;
+  privateKey: JsonWebKey;
+};
+
 /** Manage JWT tokens associated with a schema
  * @param wrdschema - The schema to create the token for
 */
@@ -515,17 +544,33 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     this.config = config || {};
   }
 
-  async initializeIssuer(issuer: string): Promise<void> {
-    await updateSchemaSettings(this.wrdschema, { issuer });
+  private async ensureSigningKeys(): Promise<SigningKey[]> {
+    //FIXME this is still deadlock-prone if someone already updated the schemasettings before invoking us. consider moving this to wh apply wrd (as soon as it's in TS)
+    //FIXME readd the option to set up RSA keys if explicitly asked for by a client
+    return await runInSeparateWork(async () => {
+      const { signingKeys } = await getSchemaSettings(this.wrdschema, ["signingKeys"]);
+      const validity = haveValidKeys(signingKeys);
+      if (!validity.valid) {
+        if (!validity.valid_ec) {
+          //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
+          const primarykeyid = generateRandomId();
+          signingKeys.push({ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey("ec") });
+        }
+        if (!validity.valid_rsa) {
+          //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
+          const primarykeyid = generateRandomId();
+          signingKeys.push({ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey("rsa") });
+        }
+        await updateSchemaSettings(this.wrdschema, { signingKeys });
+      }
 
-    const cursettings = await getSchemaSettings(this.wrdschema, ["signingKeys"]);
-    if (!cursettings.signingKeys.length) { //create the first key
-      //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisions
-      const primarykeyid = generateRandomId();
-      await updateSchemaSettings(this.wrdschema, {
-        signingKeys: [{ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey() }]
-      });
-    }
+      return signingKeys;
+    }, { mutex: "wrd:authplugin.signingkeys" });
+  }
+
+  async initializeIssuer(issuer: string): Promise<void> {
+    await this.ensureSigningKeys();
+    await updateSchemaSettings(this.wrdschema, { issuer });
   }
 
   async createServiceProvider(spSettings: ServiceProviderInit): Promise<ClientConfig> {
@@ -549,7 +594,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   private async getKeyConfig() {
-    return getSchemaSettings(this.wrdschema, ["issuer", "signingKeys"]);
+    const settings = await getSchemaSettings(this.wrdschema, ["issuer", "signingKeys"]);
+    if (!haveValidKeys(settings.signingKeys).valid)
+      settings.signingKeys = await this.ensureSigningKeys();
+    return settings;
   }
 
   async getPublicJWKS(): Promise<JWKS> {
@@ -561,6 +609,24 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
     }
     return { keys };
+  }
+
+  private signJWT(payload: JwtPayload, keys: SigningKey[], restrictType: "EC" | "RSA" | null) {
+    if (restrictType)
+      keys = keys.filter(key => key.privateKey.kty === restrictType);
+
+    /** Prefer ec over non-ec, then look for most recente key */
+    keys = keys.sort((a, b) =>
+      (Number(b.privateKey.kty === "EC") - Number(a.privateKey.kty === "EC"))
+      || b.availableSince.getTime() - a.availableSince.getTime()
+    );
+
+    if (!keys.length)
+      throw new Error("No signing keys available");
+
+    const signWithKey = createPrivateKey({ key: keys[0].privateKey, format: 'jwk' }); //TODO use async variant
+    const signOptions: SignOptions = { keyid: keys[0].keyId, algorithm: signWithKey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" };
+    return jwt.sign(payload, signWithKey, signOptions);
   }
 
   /** Create ID and Auth tokens and commit to the database as needed
@@ -584,6 +650,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         throw new Error(`Unable to find serviceProvider #${client}`);
     }
 
+    if (options?.expires === Infinity && type !== "api")
+      throw new Error("Infinite expiration is only allowed for API tokens");
+
     const isOIDC = options?.scopes?.includes("openid");
     if (isOIDC && type !== "oidc")
       throw new Error("OpenID scopes can only be set for 'oidc' tokens");
@@ -595,8 +664,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
     const creationdate = new Date;
-    creationdate.setMilliseconds(0); //round down
-    const validuntil = convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
+    creationdate.setMilliseconds(0); //round down as the JWT fields have second precision
+    const validuntil = options?.expires === Infinity ? null : convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
+
+    //Figure out signature parameters
+    const config = await this.getKeyConfig();
+    if (!config || !config.signingKeys?.length)
+      throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
     //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us
     let id_token: string | undefined;
@@ -610,23 +684,21 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
         await options?.customizer.onOpenIdToken({ user: subject, scopes: options?.scopes || [], client }, payload as JWTPayload);
 
-      const config = await this.getKeyConfig();
-      if (!config || !config.issuer || !config.signingKeys?.length)
+      if (!config.issuer)
         throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
 
       payload.iss = config.issuer;
 
-      const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
-      const signingkey = createPrivateKey({ key: bestsigningkey.privateKey, format: 'jwk' }); //TODO use async variant
-      id_token = jwt.sign(payload, signingkey, { keyid: bestsigningkey.keyId, algorithm: signingkey.asymmetricKeyType === "rsa" ? "RS256" : "ES256" });
+      //FIXME use ES256 if client selected it
+      id_token = this.signJWT(payload, config.signingKeys, "RSA");
     }
 
     /* We always generate access tokens for OpenID requests (skippable when client only requests an id_token)
-       For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not sign this as we
-       don't care about signatures, our wrd.tokens table is leading. (we might need to sign at some point if we're going to support refresh tokens) */
+       For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not really care
+       about the signature yet - our wrd.tokens table is leading (and we want to be able to show active sessions anyway) */
     const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes: options?.scopes || [] });
-    const prefix = options?.prefix ?? "secret-token:"; //if undefined/null, we fall back to the default
-    const access_token = prefix + jwt.sign(atPayload, null, { algorithm: "none" });
+    const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
+    const access_token = prefix + this.signJWT(atPayload, config.signingKeys, "EC");
     const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
     if (Buffer.from(metadata).length > 4096)
       throw new Error(`Metadata too large, max size is 4096 bytes`);
@@ -635,7 +707,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: type,
       creationdate: new Date(atPayload.nbf! * 1000),
-      expirationdate: new Date(atPayload.exp! * 1000),
+      expirationdate: atPayload.exp ? new Date(atPayload.exp * 1000) : defaultDateTime,
       entity: subject,
       client: client,
       scopes: options?.scopes?.join(" ") ?? "",
@@ -648,7 +720,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     await commitWork();
 
-    return { access_token, expires: atPayload.exp!, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
+    return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
   }
 
   /** An access token may be prefixed with `secret-token:`, strip it (we'll tolerate any `<...>:` prefix here */
@@ -718,7 +790,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
       executeTakeFirst();
 
-    if (!matchToken || matchToken.expirationdate < new Date)
+    if (!matchToken || (matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
       return { error: `Token is invalid` };
 
     //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
@@ -882,7 +954,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         id_token: tokens.id_token,
         access_token: tokens.access_token,
         token_type: "Bearer",
-        expires_in: Math.floor(tokens.expires - (Date.now() / 1000)),
+        ...(tokens.expires ? { expires_in: Math.floor(tokens.expires - (Date.now() / 1000)) } : {})
       }
     };
   }
@@ -906,7 +978,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       type: token.type as "id" | "api",
       metadata: token.metadata ? parseTyped(token.metadata) : null,
       created: token.creationdate.toTemporalInstant(),
-      expires: token.expirationdate?.toTemporalInstant() ?? null,
+      expires: token.expirationdate.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
       scopes: token.scopes ? token.scopes.split(" ") : []
     }));
   }
@@ -920,7 +992,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
    * @param userid - Entity associated with this token
    */
-  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<{ id: number; accessToken: string; expires: Temporal.Instant }> {
+  async createFirstPartyToken(type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
+
+  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
     if (options?.scopes?.includes("openid"))
       throw new Error("Only third party tokens can request an openid scope");
 
@@ -929,7 +1004,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       id: tokens.tokenId,
       accessToken: tokens.access_token,
-      expires: Temporal.Instant.fromEpochSeconds(tokens.expires)
+      expires: tokens.expires ? Temporal.Instant.fromEpochSeconds(tokens.expires) : null
     };
   }
 

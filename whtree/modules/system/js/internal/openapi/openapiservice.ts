@@ -37,7 +37,8 @@ export class RestService extends services.BackendServiceConnection {
         response = {
           status: accessControl.success ? 200 : 405,
           headers: accessControl.headers,
-          body: WebHareBlob.from("")
+          body: WebHareBlob.from(""),
+          setCookie: []
         };
       } else {
         response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();

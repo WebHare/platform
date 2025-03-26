@@ -1,14 +1,16 @@
 import * as test from "@webhare/test-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { IdentityProvider } from "@webhare/wrd";
+import { IdentityProvider, type FirstPartyToken } from "@webhare/wrd";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
 //TODO we'll want a nicer name once we make this public
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
 import { runInWork } from "@webhare/whdb";
 import { backendConfig } from "@webhare/services";
+import { throwError } from "@webhare/std";
+import { runAuthMaintenance } from "@mod-platform/js/auth/support";
 
-let apiSysopToken;
+let apiSysopToken: FirstPartyToken, infiniteToken: FirstPartyToken;
 
 async function setupWHAPITest() {
   await test.reset({
@@ -21,10 +23,14 @@ async function setupWHAPITest() {
   //NOTE this doesn't test that API is actually *live* at api/ as we're shortcircuiting the fetch
   using directFetch = await getDirectOpenAPIFetch("platform:api", { baseUrl: (await test.getTestSiteJS()).webRoot + "api/" });
 
+  //Verify we have no signing keys yet
+  const wrdSettingsEntity = await wrdTestschemaSchema.search("wrdSettings", "wrdTag", "WRD_SETTINGS") ?? throwError("wrdSettings not found");
+  test.eq(0, (await wrdTestschemaSchema.getFields("wrdSettings", wrdSettingsEntity, ["signingKeys"]))?.signingKeys.length);
+
   const provider = new IdentityProvider(wrdTestschemaSchema);
   //a sysop without explicit access to the API
   const noApiSysopToken = await provider.createFirstPartyToken("api", test.getUser("noApiSysop").wrdId, { prefix: "" });
-  test.eq(/^eyJ/, noApiSysopToken.accessToken);
+  test.eq(/^eyJ[^.]*\.eyJ[^.]*\....+/, noApiSysopToken.accessToken, "verify no prefix and signature present");
 
   {  //fetch as sysop without api rights
     const api = new OpenAPIApiClient(directFetch, { bearerToken: noApiSysopToken.accessToken });
@@ -58,6 +64,18 @@ async function setupWHAPITest() {
 
   await runInWork(() => provider.deleteToken(tokens[0].id));
   test.eq(2, (await provider.listTokens(test.getUser("sysop").wrdId)).length);
+
+  infiniteToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId, { expires: Infinity });
+  test.eq(null, infiniteToken.expires);
+
+  const infiniteTokenInfo = (await provider.listTokens(test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
+  test.eq(null, infiniteTokenInfo?.expires);
+
+  await runAuthMaintenance(); //shouldn't destroy infinite tokens
+
+  const infiniteTokenInfo2 = (await provider.listTokens(test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
+  test.eq(null, infiniteTokenInfo2?.expires);
+
 }
 
 async function tryWHAPI() {
@@ -65,6 +83,9 @@ async function tryWHAPI() {
 
   const api = new OpenAPIApiClient(directFetch, { bearerToken: apiSysopToken!.accessToken });
   test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await api.get("/meta"));
+
+  const infiniteApi = new OpenAPIApiClient(directFetch, { bearerToken: infiniteToken!.accessToken });
+  test.eqPartial({ status: 200, body: { user: { email: "sysop@beta.webhare.net" } } }, await infiniteApi.get("/meta"));
 }
 
 async function tryWHAPIUsingWeb() {

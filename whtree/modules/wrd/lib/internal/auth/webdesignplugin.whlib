@@ -698,6 +698,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC INTEGER FUNCTION GetLoggedinEntity()
   {
     this->CheckNotFailed();
+
+    IF(RecordExists(this->wrdauthjs))
+      RETURN this->wrdauthjs.entity;
+
     RETURN this->__GetWRDAuthIntegration()->GetLoggedinEntity();
   }
 

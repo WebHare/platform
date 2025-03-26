@@ -291,7 +291,7 @@
       <d:datetime name="creationdate" nullable="false">
         <d:documentation>Token creation date</d:documentation>
       </d:datetime>
-      <d:datetime name="expirationdate" nullable="false">
+      <d:datetime name="expirationdate">
         <d:documentation>Date when the token will expire</d:documentation>
       </d:datetime>
       <d:integer name="client" ondelete="cascade" references=".entities">

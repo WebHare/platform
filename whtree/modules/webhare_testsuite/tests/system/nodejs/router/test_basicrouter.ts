@@ -114,6 +114,12 @@ async function testJSBackedURLs() {
   test.eq(baseURL, jsonresponse.baseURL);
   test.eq("", jsonresponse.localPath);
 
+  fetchresult = await fetch(baseURL + "?type=cookies");
+  test.eq([
+    "testcookie=123",
+    "testcookie2=456"
+  ], fetchresult.headers.getSetCookie());
+
   fetchresult = await fetch(baseURL + "Sub%20Url?type=debug");
   jsonresponse = await fetchresult.json();
 
