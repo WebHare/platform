@@ -4,7 +4,7 @@
 import ExifParser from "exif-parser";
 
 import * as whintegration from '@mod-system/js/wh/integration';
-import { getTid } from '@mod-tollium/js/gettid';
+import { getTid } from "@webhare/gettid";
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 

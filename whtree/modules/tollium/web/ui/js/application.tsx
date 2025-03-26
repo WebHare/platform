@@ -6,7 +6,7 @@ import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { loadScript } from '@webhare/dompack';
 import * as utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';

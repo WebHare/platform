@@ -1,4 +1,4 @@
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import "./__captcha.lang.json";
 
 export interface CaptchaSettings {

@@ -1,6 +1,6 @@
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from 'dompack';
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import "../../common.lang.json";
 import type { ApplicationBase } from "../application";
 

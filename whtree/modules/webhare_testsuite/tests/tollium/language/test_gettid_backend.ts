@@ -1,5 +1,5 @@
 import { getState, activateHMR } from "@webhare/services/src/hmrinternal";
-import { registerTexts } from "@mod-tollium/js/gettid";
+import { registerTexts } from "@webhare/gettid/src/internal";
 import { getHTMLTid, getTIDListForLanguage, getTid, getTidForLanguage, getTidLanguage, setTidLanguage } from "@webhare/gettid";
 import { loadlib } from "@webhare/harescript";
 import { WittyEncodingStyle, backendConfig, loadWittyResource } from "@webhare/services";

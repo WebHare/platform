@@ -1,5 +1,5 @@
 import * as dompack from "@webhare/dompack";
-import getTid from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { createImage } from "@mod-tollium/js/icons";
 import { runSimpleScreen } from "@mod-tollium/web/ui/js/dialogs/simplescreen";
 import { getActiveApplication } from "@mod-tollium/web/ui/js/support";

@@ -2,7 +2,7 @@ import * as dompack from "dompack";
 import * as movable from "dompack/browserfix/movable";
 import Keyboard from "dompack/extra/keyboard";
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type { RefPoint } from "@mod-tollium/web/ui/js/dialogs/imgeditcontroller";

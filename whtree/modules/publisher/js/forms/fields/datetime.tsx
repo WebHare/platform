@@ -6,7 +6,7 @@ import Keyboard from 'dompack/extra/keyboard';
 import DatePicker from '@mod-publisher/js/forms/internal/datepicker';
 
 import { __setUnderlyingValue, setupMyValueProperty } from "../internal/datetime-valueprops";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 export { __setUnderlyingValue } from "../internal/datetime-valueprops";
 
 /*

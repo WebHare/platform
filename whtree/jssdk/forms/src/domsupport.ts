@@ -2,7 +2,7 @@
 
 import type FormBase from '@mod-publisher/js/forms/formbase';
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { isFormControl, isHTMLElement, qSA, type FormControlElement } from "@webhare/dompack";
 import type { FormCondition } from "./types";
 import { JSFormElement, type FormFieldLike } from "./jsformelement";

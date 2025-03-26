@@ -4,7 +4,7 @@ import * as movable from "dompack/browserfix/movable";
 import SmartCrop from "./smartcrop";
 
 import { debugFlags } from "@webhare/env";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { type Toolbar, ToolbarButton } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 

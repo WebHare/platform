@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import KeyboardHandler from "dompack/extra/keyboard";
 import * as datehelpers from "./datehelpers";
 // import "./datestrings.lang.json";
-//import { getTid } from "@mod-tollium/js/gettid";
+//import { getTid } from "@webhare/gettid";
 
 // FIXME work with backend
 const langcodes =

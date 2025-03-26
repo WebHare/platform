@@ -3,7 +3,7 @@ declare module "@webhare/witty" {
 }
 
 import { encodeString, stringify } from "@webhare/std";
-import { getHTMLTid, getTid } from "@mod-tollium/js/gettid";
+import { getHTMLTid, getTid } from "@webhare/gettid";
 import * as path from "node:path";
 
 enum DataType {

@@ -2,7 +2,8 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
 import { encodeString } from "@webhare/std";
 import { WittyTemplate, WittyEncodingStyle, WittyError, WittyErrorCode, type WittyCallContext } from "@webhare/witty";
-import { registerTexts, setTidLanguage } from "@mod-tollium/js/gettid";
+import { setTidLanguage } from "@webhare/gettid";
+import { registerTexts } from "@webhare/gettid/src/internal";
 import { debugFlags } from "@webhare/env";
 
 function testPrintYZ(ctx: WittyCallContext) {

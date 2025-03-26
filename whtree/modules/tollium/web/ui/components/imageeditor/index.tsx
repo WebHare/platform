@@ -1,6 +1,6 @@
 import * as dompack from "dompack";
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { Toolbar, type ToolbarButton, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type * as $todd from "@mod-tollium/web/ui/js/support";

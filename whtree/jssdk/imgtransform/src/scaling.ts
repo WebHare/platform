@@ -1,4 +1,4 @@
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { ToolbarButton, ToolbarSeparator, type Toolbar } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 
