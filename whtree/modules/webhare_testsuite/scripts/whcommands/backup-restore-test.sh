@@ -31,15 +31,17 @@ set -e #Demand that all these commands succeed!
 docker exec "$TESTENV_CONTAINER1" wh waitfor poststartdone || die "WebHare isn't starting"
 docker exec "$TESTENV_CONTAINER1" wh users adduser "backup-reference-user@example.net" || die "Cannot create user backup-reference-user@example.net"
 docker exec "$TESTENV_CONTAINER1" wh preparebackup
-docker exec "$TESTENV_CONTAINER1" sv down webhare
+docker exec "$TESTENV_CONTAINER1" sv -w 60 stop webhare
 
 # Remove all whdata folders except for the prepared backup
 docker exec "$TESTENV_CONTAINER1" find /opt/whdata -mindepth 1 -maxdepth 1 -not -name preparedbackup -exec rm -rf {} \;
 
+# Verify that the WebHare is empty
 docker exec "$TESTENV_CONTAINER1" sv start webhare
 docker exec "$TESTENV_CONTAINER1" wh waitfor poststartdone || die "Emptied WebHare isn't starting"
 docker exec "$TESTENV_CONTAINER1" wh users getuser "backup-reference-user@example.net" && die "User backup-reference-user@example.net shouldn't exist clearing WebHare"
-docker exec "$TESTENV_CONTAINER1" sv down webhare
+# wait up to 60 seconds - we especially need postgres to be down or it will race us and still write to /opt/whdata/posgresql during the restore
+docker exec "$TESTENV_CONTAINER1" sv -w 60 stop webhare
 
 # Again, remove all whdata folders except for the prepared backup
 docker exec "$TESTENV_CONTAINER1" find /opt/whdata -mindepth 1 -maxdepth 1 -not -name preparedbackup -exec rm -rf {} \;
