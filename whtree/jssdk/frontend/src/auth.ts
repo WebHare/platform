@@ -6,7 +6,6 @@ import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
-import { cleanCookieName } from "@webhare/wrd/src/concepts";
 import { parseTyped, stringify } from "@webhare/std";
 
 /** WRDAuth configuration */
@@ -51,7 +50,7 @@ function getCookieName() {
   if (!settings?.cookiename)
     throw new Error("No authsettings.cookiename set, wrd:auth not available");
 
-  return cleanCookieName(settings.cookiename);
+  return settings.cookiename;
 }
 
 function getStorageKeyName() {

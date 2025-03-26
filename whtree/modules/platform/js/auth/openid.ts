@@ -11,7 +11,6 @@ import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { loadJSObject } from "@webhare/services";
-import { cleanCookieName } from "@webhare/wrd/src/concepts";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -100,7 +99,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
       if (typeof body?.username !== "string" || typeof body?.password !== "string")
         return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
 
-      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
+      if (body?.cookieName !== settings.cookieName) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
@@ -133,7 +132,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
     }
     case "logout": {
       const body = await req.json() as { cookieName: string };
-      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
+      if (body?.cookieName !== settings.cookieName) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: logout offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLogoutResult);
       }
 
