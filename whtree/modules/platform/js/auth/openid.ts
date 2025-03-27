@@ -11,6 +11,7 @@ import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { loadJSObject } from "@webhare/services";
+import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -80,9 +81,9 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
+  const { idCookie, ignoreCookies } = getIdCookieName(req, settings);
+
   const secure = req.url.startsWith("https:");
-  //If securly accessed, we can use the __Host- or __Secure- prefix for cookies depending on whether we need to expose the cookie to a larger domain
-  const useCookieName = (secure ? settings.cookieDomain ? "__Secure-" : "__Host-" : "") + settings.cookieName;
 
   const cookieSettings: ServersideCookieOptions = {
     httpOnly: true, //XSS protection
@@ -121,10 +122,9 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
           responseBody.userInfo = response.userInfo;
 
         const headers = new Headers;
-        headers.append("Set-Cookie", buildCookieHeader(useCookieName, logincookie, { ...cookieSettings, expires: response.expires }));
-        for (const killCookie of ["__Host-" + settings.cookieName, "__Secure-" + settings.cookieName, settings.cookieName])
-          if (killCookie !== useCookieName)
-            headers.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
+        headers.append("Set-Cookie", buildCookieHeader(idCookie, logincookie, { ...cookieSettings, expires: response.expires }));
+        for (const toClear of ignoreCookies)
+          headers.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
 
         return createJSONResponse(200, responseBody, { headers, typed: true });
       } else
@@ -137,7 +137,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
       }
 
       const headers = new Headers;
-      for (const killCookie of ["__Host-" + settings.cookieName, "__Secure-" + settings.cookieName, settings.cookieName])
+      for (const killCookie of [idCookie, ...ignoreCookies])
         headers.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
 
       return createJSONResponse(200, {

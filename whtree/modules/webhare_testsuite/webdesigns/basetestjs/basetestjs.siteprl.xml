@@ -52,12 +52,6 @@
     <uploadtypemapping mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
 
     <!-- wrdauth tests
-         experimenting with a __Host- prefix. this may become implied (ie if you don't specify a domain=) or hidden behind a setting in the future
-         CI uses http://127.0.0.1 so __Host- won't work there (not secure). Even if we attempt to switch CI to http://localhost/
-         it won't work yet - see https://issues.chromium.org/issues/40196122 (and starting our CI chromw ith -unsafely-treat-insecure-origin-as-secure
-         will break due to https://issues.chromium.org/issues/40168268)
-
-         manually set cookiename="__Host-webharelogin-wrdauthjs" to test locally
          -->
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
