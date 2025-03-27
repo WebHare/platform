@@ -201,7 +201,7 @@ PUBLIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase <
   UPDATE MACRO SetTitle(STRING newtitle)
   {
     ^heading->title := newtitle;
-    ^heading->visible := newtitle != "";
+    this->Reload();
   }
 
   MACRO SetManagementMode(BOOLEAN newmanagementmode)
@@ -271,7 +271,7 @@ PUBLIC OBJECTTYPE AuthenticationSettings EXTEND TolliumFragmentBase <
         ? this->GetTid(".active")
         : this->GetTid(".inactive");
 
-    ^heading->visible := canshow;
+    ^heading->visible := canshow AND ^heading->title != "";
     ^passwordfield->visible := canshow;
     ^btn_changepassword->visible := canshow;
     ^secondfactorstatus->visible := canshow;
