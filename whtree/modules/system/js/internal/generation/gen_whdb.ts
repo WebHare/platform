@@ -210,7 +210,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
 
   return {
     schemas,
-    library: getGeneratedFilePath(modulename, "whdb", `whdb/${modulename}.ts`),
+    library: getGeneratedFilePath(modulename, "db", `db/${modulename}.ts`),
     interface: `${generateTableTypeName(modulename)}DB`
   };
 }
@@ -256,9 +256,9 @@ ${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1
 
 export async function listAllModuleTableDefs(mods: string[]): Promise<FileToUpdate[]> {
   return mods.map(module => ({
-    path: `whdb/${module}.ts`,
+    path: `db/${module}.ts`,
     module,
-    type: "whdb",
+    type: "db",
     generator: (context: GenerateContext) => generateKyselyDefs(context, module)
   }));
 }

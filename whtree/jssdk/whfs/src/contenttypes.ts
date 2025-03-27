@@ -1,6 +1,6 @@
 import * as kysely from "kysely";
 import { db } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { openWHFSObject } from "./objects";
 import { isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";

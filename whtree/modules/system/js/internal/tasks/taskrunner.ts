@@ -1,5 +1,5 @@
 import { type TaskFunction, TaskRequest, type TaskResponse, WebHareBlob, broadcast, loadJSFunction } from "@webhare/services";
-import type { System_Managedtasks, PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { System_Managedtasks, PlatformDB } from "@mod-platform/generated/db/platform";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import bridge from "../whmanager/bridge";
 import { pick } from "@webhare/std";

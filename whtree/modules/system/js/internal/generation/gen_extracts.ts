@@ -273,27 +273,27 @@ export async function generateServices(context: GenerateContext): Promise<string
 export async function listAllExtracts(): Promise<FileToUpdate[]> {
   return [
     {
-      path: `extract/assetpacks.json`,
+      path: `extracts/assetpacks.json`,
       module: "platform",
-      type: "extract",
+      type: "extracts",
       generator: (context: GenerateContext) => generateAssetPacks(context)
     },
     {
-      path: `extract/webdesigns.json`,
+      path: `extracts/webdesigns.json`,
       module: "platform",
-      type: "extract",
+      type: "extracts",
       generator: (context: GenerateContext) => generateWebDesigns(context)
     },
     {
-      path: `extract/services.json`,
+      path: `extracts/services.json`,
       module: "platform",
-      type: "extract",
+      type: "extracts",
       generator: (context: GenerateContext) => generateServices(context)
     },
     {
-      path: `extract/tasks.json`,
+      path: `extracts/tasks.json`,
       module: "platform",
-      type: "extract",
+      type: "extracts",
       generator: (context: GenerateContext) => generateTasks(context)
     }
   ];

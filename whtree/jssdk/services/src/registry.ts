@@ -1,13 +1,13 @@
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import { stdTypeOf, throwError } from "@webhare/std";
 import { db } from "@webhare/whdb";
 import * as crypto from "node:crypto";
 import { readAnyFromDatabase } from "@webhare/whdb/src/formats";
 
-import type { RegistryKeys } from "@mod-platform/generated/registry/registry.ts";
+import type { RegistryKeys } from "@mod-platform/generated/ts/registry.ts";
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
-import type { } from "@storage-system/generated/registry/registry.ts";
+import type { } from "wh:ts/registry.ts";
 
 type KeyErrorForValueType<A> = [A] extends [never] ? { error: "Require type parameter!" } : string;
 

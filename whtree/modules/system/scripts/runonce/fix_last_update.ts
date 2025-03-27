@@ -1,5 +1,5 @@
 import { beginWork, commitWork, db } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 
 async function fixLastUpdate() {

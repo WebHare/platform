@@ -41,8 +41,8 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-CONFIGDIR="$WEBHARE_DATAROOT/storage/system/generated/config"
-CONFIGJSON="$CONFIGDIR/config.json"
+CONFIGDIR="$WEBHARE_DATAROOT/config"
+CONFIGJSON="$CONFIGDIR/platform.json"
 if [ -z "$FORCE" ] && [ -h "$WEBHARE_DATAROOT/node_modules/@webhare" ] && [ -f "$CONFIGJSON" ]; then
   [ -n "$VERBOSE" ] && echo "prepare-whdata: it looks like $WEBHARE_DATAROOT has already been prepared" 1>&2
   exit 0
@@ -58,9 +58,9 @@ for mod in consilio platform publisher system tollium wrd; do
 done
 ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
-# Update/generate whdata/storage/system/generated/config/config.json - C++ will need it too for the module mapping
-# Update/generate whdata/storage/system/generated/extract/ - core/nodesevices require the list of managed services
-if ! WEBHARE_NODE_OPTIONS= wh apply --offline --nodb "${STARTUPOPTIONS[@]}" config.extracts ; then
+# Update/generate whdata/config/platform.json - C++ will need it too for the module mapping
+# Update/generate whdata/config/extracts/ - core/nodesevices require the list of managed services
+if ! WEBHARE_NODE_OPTIONS= WEBHARE_NO_CONFIG=1 wh apply --offline --nodb "${STARTUPOPTIONS[@]}" config.extracts ; then
   echo "Failed to update the configuration file, aborting"  1>&2
   exit 1
 fi

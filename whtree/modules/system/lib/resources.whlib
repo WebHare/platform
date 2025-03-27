@@ -2,6 +2,7 @@
 /** @topic modules/resources */
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" EXPORT RetrieveResourceException;
@@ -225,5 +226,5 @@ PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
 
 PUBLIC VARIANT FUNCTION __GetExtractedConfig(STRING name)
 {
-  RETURN DecodeJSONBlob(GetWebhareResource(`storage::system/generated/extract/${name}.json`));
+  RETURN DecodeJSONBlob(GetDiskResource(MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), `config/extracts/${name}.json`)));
 }

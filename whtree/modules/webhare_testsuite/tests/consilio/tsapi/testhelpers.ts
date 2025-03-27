@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, db } from "@webhare/whdb";
 

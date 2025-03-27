@@ -14,8 +14,6 @@ import type { TasksExtract } from "./generation/gen_extract_tasks";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
-let loggederror = false;
-
 function readConfigFile() {
   let dataroot = process.env.WEBHARE_DATAROOT;
   if (!dataroot)
@@ -23,15 +21,16 @@ function readConfigFile() {
   if (!dataroot.endsWith("/"))
     dataroot += "/";
 
-  const file = `${dataroot}storage/system/generated/config/config.json`;
+  const file = `${dataroot}config/platform.json`;
   try {
     return freezeRecursive(JSON.parse(fs.readFileSync(file).toString()) as ConfigFile);
   } catch (e) {
-    if (!loggederror) {
-      console.error(`Missing configuration json when running ${getScriptName()}`);
-      loggederror = true;
-    }
-    return freezeRecursive(updateWebHareConfigWithoutDB({}));
+    if (process.env.WEBHARE_NO_CONFIG)
+      return freezeRecursive(updateWebHareConfigWithoutDB({}));
+
+    console.error(`Missing configuration json ${JSON.stringify(file)} when running ${getScriptName()}`);
+    console.error(`Set WEBHARE_NO_CONFIG=1 if you really need to run without a valid configuration`);
+    process.exit(1);
   }
 }
 
@@ -141,7 +140,7 @@ export function getExtractedConfig(which: "tasks"): TasksExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {
-  return getCacheableJSONConfig(toFSPath("storage::system/generated/extract/" + which + ".json"));
+  return getCacheableJSONConfig(`${backendConfig.dataroot}config/extracts/${which}.json`);
 }
 
 export function getExtractedHSConfig(which: "siteprofiles"): CachedSiteProfiles;

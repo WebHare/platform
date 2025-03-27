@@ -7,7 +7,7 @@ import { backendConfig, ResourceDescriptor, WebHareBlob } from "@webhare/service
 import { loadlib } from "@webhare/harescript";
 import { PublishedFlag_StripExtension } from "@webhare/whfs/src/support";
 import { maxDateTime } from "@webhare/hscompat";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
 import { getRescueOrigin } from "@mod-system/js/internal/configuration";
 

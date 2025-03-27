@@ -23,7 +23,7 @@ function stripJSTSExtension(importPath: string) {
 }
 
 export function getImportPath(diskpath: string) {
-  const generatedbase = backendConfig.dataroot + "storage/system/generated/";
+  const generatedbase = backendConfig.dataroot + "config/";
   if (diskpath.startsWith(generatedbase))
     return "wh:" + stripJSTSExtension(diskpath.slice(generatedbase.length));
 

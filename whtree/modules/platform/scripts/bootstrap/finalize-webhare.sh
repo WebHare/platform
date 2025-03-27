@@ -50,6 +50,9 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 # When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
+logWithTime "Generate minimal config to bootstrap WebHare"
+WEBHARE_NO_CONFIG=1 WEBHARE_NO_HARESCRIPT=1 wh apply --nodb --offline config.base
+
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
 rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
 (
@@ -81,11 +84,11 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
   done
 )
 
+logWithTime "Generate all config files"
+wh apply --nodb --offline config dev
+
 logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
 "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
-
-logWithTime "Update generated files"
-wh apply --nodb --offline config dev
 
 logWithTime "Precompiling TypeScript"
 rm -rf "$WEBHARE_TSBUILDCACHE" 2>/dev/null || true # ignore errors, often triggered by rebuilding while active

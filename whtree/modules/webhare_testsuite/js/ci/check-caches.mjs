@@ -101,8 +101,8 @@ async function main() {
         if (mapsto?.match(/\/installedmodules\//))
           continue; //ignore installed modules - its okay for webhare_testsuite and temp modules to be added to the cache
 
-        if (mapsto?.match(/^\/opt\/whdata\/storage\/system\/generated/))
-          continue; //ignore caches of system generated files
+        if (mapsto?.match(/^\/opt\/whdata\/config/))
+          continue; //ignore TS files in configuration
       }
 
       process.exitCode = 1;

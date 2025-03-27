@@ -4,18 +4,18 @@ import { backendConfig } from "@webhare/services";
 import { existsSync } from "node:fs";
 
 async function testDevBridge() {
-  test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "storage/system/generated/wrd/example.ts"));
-  test.eq("@mod-platform/generated/whdb/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/platform/generated/whdb/platform.ts"));
+  test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "config/wrd/example.ts"));
+  test.eq("@mod-platform/generated/db/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/platform/generated/db/platform.ts"));
 
   const test_platform_files = await devbridge.getGeneratedFiles({ module: "platform" });
-  test.eqPartial({ importPath: '@mod-platform/generated/whdb/platform' }, test_platform_files.find(_ => _.type === "whdb"));
+  test.eqPartial({ importPath: '@mod-platform/generated/db/platform' }, test_platform_files.find(_ => _.type === "db"));
 
   const platform_whdb_defs = await devbridge.getDatabaseDefs({ module: "platform" });
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
   // console.log(JSON.stringify(platform_whdb_defs, null, 2));
   test.eqPartial({
     interface: "PlatformDB",
-    importPath: '@mod-platform/generated/whdb/platform'
+    importPath: '@mod-platform/generated/db/platform'
   }, platform_whdb_defs);
   test.assert(platform_whdb_defs.schemas.consilio.tables.catalogs.columns.id);
 
@@ -35,7 +35,7 @@ async function testDevBridge() {
   const test_whts_files = await devbridge.getGeneratedFiles({ module: "webhare_testsuite" });
   // console.log(test_whts_files);
   test.eqPartial({ importPath: 'wh:wrd/webhare_testsuite' }, test_whts_files.find(_ => _.type === "wrd"));
-  test.eqPartial({ importPath: 'wh:whdb/webhare_testsuite' }, test_whts_files.find(_ => _.type === "whdb"));
+  test.eqPartial({ importPath: 'wh:db/webhare_testsuite' }, test_whts_files.find(_ => _.type === "db"));
 
   const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
   test.eq("publisher:siteprofile.shorturl", parseresult.gid);

@@ -3,7 +3,7 @@ import type { WRDType } from "./schema";
 import { type WRDInsertable, type SchemaTypeDefinition, type WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
 import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
 import type * as kysely from "kysely";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec } from "./db";
 import { type EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";

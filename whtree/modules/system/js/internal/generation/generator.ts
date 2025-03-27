@@ -4,14 +4,14 @@
    - whtree/modules/platform/generated/<type>
      - in JS/TS: @mod-platform/generated/<type>/
      - in HS/as resource: mod::platform/generated/<type>/
-   - whdata/storage/system/generated/<type>               (might become whdata/storage/<type> but we don't expose that as a resource in JS yet)
+   - whdata/config/<type>
      - in JS/TS: wh:<type>/
-      - in HS/as resource: storage::system/generated/<type>/
+     - in HS/as resource: whdata::config/<type>/
 
   Types:
   - schema: TS interfaces for shipped schemas (eg moduledefiniton.yml types)
-  - config: config.json
-  - extract: subsets of gathered moduledefinition.xml info
+  - config: platform.json
+  - extracts: subsets of gathered moduledefinition.xml info
   - whdb: database definitions
   - wrd: WRD schema definitions
   - openapi: OpenAPI definitions
@@ -37,7 +37,7 @@ import { listAllRegistryDefs } from "./gen_registry";
 import { updateTypeScriptInfrastructure } from "./gen_typescript";
 
 function getPaths() {
-  const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
+  const installedBaseDir = backendConfig.dataroot + "config/";
   const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
 
   return { installedBaseDir, builtinBaseDir };
@@ -148,29 +148,35 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
 
   //Start generating files. Finish all extracts before we start the rest, as some extracts are needed input for generators
   const extracts = fixFilePaths(await listAllExtracts());
-  if (targets.includes('extract'))
+  if (targets.includes('extracts'))
     await generateFiles(extracts, context, options);
 
   const { installedBaseDir, builtinBaseDir } = getPaths();
   const keepfiles = new Set<string>([
-    join(installedBaseDir, "config/config.json"),
+    join(installedBaseDir, "platform.json"),
     ...schemas.map(file => file.path),
     ...extracts.map(file => file.path)
   ]);
 
-  if (targets.includes('openapi') || targets.includes('whdb') || targets.includes('wrd') || targets.includes('registry')) {
-    const otherfiles = await listOtherGeneratedFiles();
-    otherfiles.forEach(file => keepfiles.add(file.path));
-    const togenerate = otherfiles.filter(file => targets.includes(file.type));
+  const otherfiles = await listOtherGeneratedFiles();
+
+  otherfiles.forEach(file => keepfiles.add(file.path));
+  //only regenerate requested files
+  const togenerate = otherfiles.filter(file => targets.includes(file.type));
+  if (togenerate.length)
     await generateFiles(togenerate, context, options);
-  }
 
   //Remove old files from subdirs that contain per-module files
-  for (const subdir of ["schema", "whdb", "wrd", "openapi"] as const)
+  for (const subdir of ["schema", "db", "wrd", "openapi"] as const)
     if (targets.includes(subdir)) {
       for (const root of [installedBaseDir, builtinBaseDir])
         await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(_.fullPath), dryRun: options.dryRun, verbose: options.verbose });
     }
+
+  //Delete pre-wh5.7 config locations. We'll do this every time for a while until we're sure noone is switching brances to pre-5.7
+  await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', { allowMissing: true });
+  await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', { allowMissing: true });
+  await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', { allowMissing: true });
   return;
 }
 

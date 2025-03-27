@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { removeObsoleteCacheFolders } from "@mod-platform/js/assetpacks/support";
 import { runAuthMaintenance } from "@mod-platform/js/auth/support";
 import { runAccountExpiration } from "@mod-system/js/internal/userrights/accountexpiration";

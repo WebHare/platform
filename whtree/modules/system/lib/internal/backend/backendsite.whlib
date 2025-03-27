@@ -11,7 +11,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 MACRO GotBackendSiteChanged(BOOLEAN committed)
 {
-  IF (committed) //we only need the config.json backend value to be updated
+  IF (committed) //we only need the platform.json backend value to be updated
     ApplyWebHareConfiguration([ subsystems := ["config.base"], source := "GotBackendSiteChanged" ]);
 }
 

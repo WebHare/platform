@@ -7,7 +7,7 @@
  * @throws If the type could not be found and allowMissing was not set
 */
 
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { FileTypeInfo, FolderTypeInfo, WHFSTypeBaseInfo, WHFSTypeInfo, WHFSTypeMember } from "./contenttypes";
 import { db, type Selectable } from "@webhare/whdb";
 import type { MemberType } from "./codecs";

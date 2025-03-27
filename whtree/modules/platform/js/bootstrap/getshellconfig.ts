@@ -1,4 +1,4 @@
-/* We will be used by 'wh' in spots where config may not exist so we can't rely on the config.json file (or on @webhare/services)
+/* We will be used by 'wh' in spots where config may not exist so we can't rely on the config/platform.json file (or on @webhare/services)
 
 */
 
