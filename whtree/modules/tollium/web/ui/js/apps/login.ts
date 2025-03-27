@@ -17,7 +17,6 @@ const utilerror = require('@mod-system/js/wh/errorreporting');
 interface LoginMethodPassword {
   type: "password";
   ordering: -1;
-  loginprompt?: string; //'?' as WDS_StartPortal doesn't set it in its fallabck path?
 }
 
 interface LoginMethodSSO {
@@ -28,7 +27,6 @@ interface LoginMethodSSO {
   title: string;
   icon: string;
   allowlogout: boolean;
-  loginprompt: string;
   visibility: "always" | "revealsso";
 }
 type LoginMethod = LoginMethodPassword | LoginMethodSSO;
@@ -263,7 +261,7 @@ class LoginApp {
                   spacers: { left: true, bottom: true }
                 },
 
-                samlheading: { type: "text", isheading: true, title: "", value: item.loginprompt || getTid("tollium:shell.login.loginidentityservices") }
+                samlheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginidentityservices") }
               };
             }
 
@@ -356,7 +354,7 @@ class LoginApp {
                 spacers: { left: true, right: true, bottom: is_only_method }
               },
 
-              loginheading: { type: "text", isheading: true, title: "", value: item.loginprompt || getTid("tollium:shell.login.loginwithwebhareaccount") },
+              loginheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginwithwebhareaccount") },
 
               loginname: { type: "textedit", required: true, width: "40x", minwidth: "20x", autocomplete: ["username"] },
               password: { type: "textedit", required: true, password: true, width: "40x", minwidth: "20x", autocomplete: ["current-password"] },

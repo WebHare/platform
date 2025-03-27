@@ -145,7 +145,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
               [ type :=       "password"
               , ordering :=   -1
               , tid :=        ":"
-              , loginprompt := loginmethod->GetAttribute("loginprompt")
               ] INTO config.loginmethods AT END;
         }
         CASE "oidc", "saml"
@@ -156,7 +155,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
             BOOLEAN isupdate;
             RECORD cursettings := SELECT * FROM config.loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
             IF(NOT RecordExists(cursettings))
-              cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", visibility := "always" ];
+              cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, visibility := "always" ];
             ELSE
               isupdate := TRUE;
 
@@ -170,8 +169,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
               cursettings.icon := loginmethod->GetAttribute("icon");
             IF(loginmethod->HasAttribute("allowlogout"))
               cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
-            IF(loginmethod->HasAttribute("loginprompt"))
-              cursettings.loginprompt := loginmethod->GetAttribute("loginprompt");
             IF(loginmethod->HasAttribute("visibility"))
               cursettings.visibility := loginmethod->GetAttribute("visibility");
 
@@ -192,7 +189,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
           [ [ type :=         "password"
             , ordering :=     -1
             , tid :=          ":"
-            , loginprompt :=  "" //has to match StartPortal structure
             ]
           ];
   }
@@ -214,7 +210,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
                                    , tid := ":" || wrd_title
                                    , icon := ""
                                    , allowlogout := FALSE
-                                   , loginprompt := ""
                                    , visibility := "always"
                                 FROM clients
                              ORDER BY wrd_ordering, ToUppercase(wrd_title));
