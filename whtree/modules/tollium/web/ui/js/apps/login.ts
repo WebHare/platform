@@ -14,7 +14,7 @@ import { getTid } from '@webhare/gettid';
 import * as utilerror from '@mod-system/js/wh/errorreporting';
 import type { ObjCheckbox, ObjFrame, ObjPanel, ObjTabs, ObjText, ObjTextEdit } from '@mod-tollium/webdesigns/webinterface/components';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- there's no real way to get everything below properly typesafe, we need a TS-redesign of frontend apps. use this type to indicate you're setting up inline tollimu attributes
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- there's no real way to get everything below properly typesafe, we need a TS-redesign of frontend apps. use this type to indicate you're setting up inline tollium attributes
 type TolliumInlineAttributes = any;
 
 interface LoginMethodSSO {
