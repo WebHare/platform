@@ -76,7 +76,7 @@ interface TextEditAttributes extends AutoSuggestableAttributes {
   buttons: string[];
 }
 
-export default class ObjTextEdit extends ObjAutoSuggestableBase {
+export class ObjTextEdit extends ObjAutoSuggestableBase {
   // ---------------------------------------------------------------------------
   //
   // Initialization

@@ -7,17 +7,15 @@ import { type FrontendEmbeddedApplication, registerJSApp } from "../application"
 import "../../common.lang.json";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
 import { navigateTo, type NavigateInstruction } from '@webhare/env/src/navigation';
 import { getTid } from '@webhare/gettid';
 
-const utilerror = require('@mod-system/js/wh/errorreporting');
+import * as utilerror from '@mod-system/js/wh/errorreporting';
+import type { ObjCheckbox, ObjFrame, ObjPanel, ObjTabs, ObjText, ObjTextEdit } from '@mod-tollium/webdesigns/webinterface/components';
 
-interface LoginMethodPassword {
-  type: "password";
-  ordering: -1;
-}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- there's no real way to get everything below properly typesafe, we need a TS-redesign of frontend apps. use this type to indicate you're setting up inline tollium attributes
+type TolliumInlineAttributes = any;
 
 interface LoginMethodSSO {
   type: "saml" | "oidc";
@@ -29,12 +27,18 @@ interface LoginMethodSSO {
   allowlogout: boolean;
   visibility: "always" | "revealsso";
 }
-type LoginMethod = LoginMethodPassword | LoginMethodSSO;
 
 interface LoginConfig {
-  methods: LoginMethod[];
+  loginmethods: LoginMethodSSO[];
+  passwordlogin: boolean;
   infotext: string;
   infotitle: string;
+}
+
+type Handler = {
+  component: string;
+  msgtype: string;
+  handler: (data: any, callback: () => void) => void;
 }
 
 function shouldReveal(tag: string) {
@@ -48,7 +52,7 @@ function shouldReveal(tag: string) {
 class LoginApp {
   private readonly loginconfig: LoginConfig;
   private app: FrontendEmbeddedApplication;
-  private topscreen: Frame | undefined;
+  private topscreen!: ObjFrame; //TODO avoid '!' - but we build it a bit late. if promiseComponentTypes could be avoided in the construtor...
   private secondfactordata;
 
   constructor(appinterface: FrontendEmbeddedApplication, callback) {
@@ -64,7 +68,7 @@ class LoginApp {
   }
 
   triggerWebHareSSO(tag: string) { //NOTE: exposing this API also recognized us as the login app
-    const matchmethod = this.loginconfig.methods.find(item => (item as LoginMethodSSO).tag?.toLowerCase() === tag.toLowerCase());
+    const matchmethod = this.loginconfig.loginmethods.find(item => item.tag?.toLowerCase() === tag.toLowerCase());
     if (!matchmethod)
       return false;
 
@@ -72,7 +76,7 @@ class LoginApp {
     return true;
   }
   setupScreen() {
-    let screencomponents =
+    let screencomponents: Record<string, TolliumInlineAttributes> =
     {
       frame: {
         bodynode: 'root',
@@ -159,7 +163,7 @@ class LoginApp {
 
     };
 
-    let handlers =
+    let handlers: Handler[] =
       [
         {
           component: "secondfactorloginaction",
@@ -238,197 +242,81 @@ class LoginApp {
       };
     }
 
-    let passwordresetlines = [];
-    if (getIndyShell().settings.allowpasswordreset) {
-      passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
-    }
 
-    const visiblemethods = this.loginconfig.methods.filter(item => !(item.visibility === "revealsso" && !shouldReveal(item.tag)));
+    const visiblemethods = this.loginconfig.loginmethods.filter(item => !(item.visibility === "revealsso" && !shouldReveal(item.tag)));
 
-    visiblemethods.forEach(item => {
-      switch (item.type) {
-        case "saml":
-        case "oidc":
-          {
-            if (!screencomponents.samlpanel) {
-              screencomponents =
-              {
-                ...screencomponents,
-                samlpanel: {
-                  type: "panel",
-                  lines: [{ layout: "left", items: [{ item: "samlheading" }] }],
-                  width: "1pr",
-                  spacers: { left: true, bottom: true }
-                },
+    if (this.loginconfig.passwordlogin)
+      this.setupPasswordLogin(screencomponents, handlers, visiblemethods.length === 0);
 
-                samlheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginidentityservices") }
-              };
-            }
+    for (const item of visiblemethods) {
+      if (!screencomponents.samlpanel) {
+        screencomponents =
+        {
+          ...screencomponents,
+          samlpanel: {
+            type: "panel",
+            lines: [{ layout: "left", items: [{ item: "samlheading" }] }],
+            width: "1pr",
+            spacers: { left: true, bottom: true }
+          },
 
-            const postfix = "_" + item.tag.toLowerCase();
-
-            screencomponents.samlpanel.lines.push(
-              {
-                layout: "left",
-                items: [{ item: 'image' + postfix }, { item: "text" + postfix }]
-              });
-
-            screencomponents["text" + postfix] =
-            {
-              type: "text",
-              title: "",
-              value: item.title,
-              wordwrap: true,
-              width: "1pr",
-              action: "action" + postfix,
-              underline: true
-            };
-            screencomponents["image" + postfix] =
-            {
-              type: "image",
-              settings: { imgname: item.icon, width: 16, height: 16 },
-              action: "action" + postfix,
-              width: "16px",
-              height: "16px",
-              imgwidth: 16,
-              imgheight: 16
-            };
-
-            screencomponents["action" + postfix] = { type: 'action', hashandler: true, unmasked_events: ['execute'] };
-
-            screencomponents.frame.specials.push('action' + postfix);
-
-            handlers.push(
-              {
-                component: "action" + postfix,
-                msgtype: "execute",
-                handler: (data, callback) => {
-                  this.runSSOLogin(item.tag);
-                  callback();
-                }
-              });
-
-            /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
-            if (item.autologin && item.type === "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
-            {
-              getIndyShell().wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
-                .then(this.handlePassiveSAMLLogin)
-                .catch(utilerror.reportException);
-            }
-            */
-          } break;
-
-        case "password":
-          {
-            const is_only_method = visiblemethods.length === 1;
-            screencomponents =
-            {
-              ...screencomponents,
-              loginpanel: {
-                type: "panel",
-                lines: [
-                  { layout: "block", items: [{ item: "logintop" }] },
-                  { layout: "block", items: [{ item: "loginfooter" }] }
-                ],
-                width: "1pr",
-                spacers: {}
-              },
-
-              logintop: {
-                type: "panel",
-                lines: [
-                  { layout: "left", items: [{ item: "loginheading" }] },
-                  { title: getTid("tollium:shell.login.username"), layout: "form", items: [{ item: "loginname" }] },
-                  { title: getTid("tollium:shell.login.password"), layout: "form", items: [{ item: "password" }] },
-                  ...passwordresetlines //only added if enabled
-                ],
-                width: "1pr",
-                spacers: { bottom: true, left: true, right: true }
-              },
-
-              loginfooter: {
-                type: "panel",
-                lines: [{ title: "", layout: "left", items: [{ item: "loginbuttongrid" }] }],
-                width: "1pr",
-                isfooter: is_only_method, // only when password is the only method
-                spacers: { left: true, right: true, bottom: is_only_method }
-              },
-
-              loginheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginwithwebhareaccount") },
-
-              loginname: { type: "textedit", required: true, width: "40x", minwidth: "20x", autocomplete: ["username"] },
-              password: { type: "textedit", required: true, password: true, width: "40x", minwidth: "20x", autocomplete: ["current-password"] },
-
-              forgotpassword: { type: "text", value: getTid("tollium:shell.login.forgotpassword"), action: "forgotaction", underline: true },
-              forgotaction: { type: "action", hashandler: true, unmasked_events: ["execute"] },
-
-              loginbutton: { type: "button", title: getTid("tollium:shell.login.loginbutton"), action: "loginaction" },
-              loginaction: { type: "action", hashandler: true, unmasked_events: ["execute"] },
-
-              savelogin: { type: "checkbox", name: "savelogin" },
-              savelogintext: { type: "text", value: getTid("tollium:shell.login.savelogin"), labelfor: "savelogin" },
-
-              loginbuttongrid: {
-                type: 'table',
-                cols: [{ "width": "1pr" }, { "width": "1pr" }],
-                rowgroups: [
-                  {
-                    "height": "1pr",
-                    rows:
-                      [
-                        {
-                          cells:
-                            [
-                              { name: "rememberpanel", colnum: 0, rownum: 0 },
-                              { name: "buttonpanel", colnum: 1, rownum: 0 }
-                            ]
-                        }
-                      ]
-                  }
-                ],
-                width: '1pr'
-              },
-
-              rememberpanel: {
-                type: 'panel',
-                lines: [
-                  {
-                    items: [
-                      { item: 'savelogin' },
-                      { item: 'savelogintext' }
-                    ],
-                    layout: 'left'
-                  }
-                ],
-                width: '1pr'
-              },
-
-              buttonpanel: {
-                type: 'panel',
-                lines: [{ items: [{ item: 'loginbutton' }], layout: 'right' }],
-                width: '1pr'
-              }
-            };
-
-            screencomponents.frame.specials.push('loginaction', 'forgotaction');
-            screencomponents.frame.defaultbutton = "loginbutton";
-
-            handlers = [
-              ...handlers,
-              {
-                component: "loginaction",
-                msgtype: "execute",
-                handler: (data, callback) => this.executePasswordLogin(data, callback)
-              },
-              {
-                component: "forgotaction",
-                msgtype: "execute",
-                handler: (data, callback) => this.executeForgot(data, callback)
-              }
-            ];
-          } break;
+          samlheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginidentityservices") }
+        };
       }
-    });
+
+      const postfix = "_" + item.tag.toLowerCase();
+
+      screencomponents.samlpanel.lines.push(
+        {
+          layout: "left",
+          items: [{ item: 'image' + postfix }, { item: "text" + postfix }]
+        });
+
+      screencomponents["text" + postfix] =
+      {
+        type: "text",
+        title: "",
+        value: item.title,
+        wordwrap: true,
+        width: "1pr",
+        action: "action" + postfix,
+        underline: true
+      };
+      screencomponents["image" + postfix] =
+      {
+        type: "image",
+        settings: { imgname: item.icon, width: 16, height: 16 },
+        action: "action" + postfix,
+        width: "16px",
+        height: "16px",
+        imgwidth: 16,
+        imgheight: 16
+      };
+
+      screencomponents["action" + postfix] = { type: 'action', hashandler: true, unmasked_events: ['execute'] };
+
+      screencomponents.frame.specials.push('action' + postfix);
+
+      handlers.push(
+        {
+          component: "action" + postfix,
+          msgtype: "execute",
+          handler: (data, callback) => {
+            this.runSSOLogin(item.tag);
+            callback();
+          }
+        });
+
+      /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
+      if (item.autologin && item.type === "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
+      {
+        getIndyShell().wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
+          .then(this.handlePassiveSAMLLogin)
+          .catch(utilerror.reportException);
+      }
+      */
+
+    }
 
     const method_panels = [];
     if (screencomponents.infopanel)
@@ -460,6 +348,113 @@ class LoginApp {
     });
   }
 
+  setupPasswordLogin(screencomponents: Record<string, TolliumInlineAttributes>, handlers: Handler[], isOnlyMethod: boolean) {
+    let passwordresetlines: TolliumInlineAttributes[] = [];
+    if (getIndyShell().settings.allowpasswordreset) {
+      passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
+    }
+
+    Object.assign(screencomponents, {
+      loginpanel: {
+        type: "panel",
+        lines: [
+          { layout: "block", items: [{ item: "logintop" }] },
+          { layout: "block", items: [{ item: "loginfooter" }] }
+        ],
+        width: "1pr",
+        spacers: {}
+      },
+
+      logintop: {
+        type: "panel",
+        lines: [
+          { layout: "left", items: [{ item: "loginheading" }] },
+          { title: getTid("tollium:shell.login.username"), layout: "form", items: [{ item: "loginname" }] },
+          { title: getTid("tollium:shell.login.password"), layout: "form", items: [{ item: "password" }] },
+          ...passwordresetlines //only added if enabled
+        ],
+        width: "1pr",
+        spacers: { bottom: true, left: true, right: true }
+      },
+
+      loginfooter: {
+        type: "panel",
+        lines: [{ title: "", layout: "left", items: [{ item: "loginbuttongrid" }] }],
+        width: "1pr",
+        isfooter: isOnlyMethod, // only when password is the only method
+        spacers: { left: true, right: true, bottom: isOnlyMethod }
+      },
+
+      loginheading: { type: "text", isheading: true, title: "", value: getTid("tollium:shell.login.loginwithwebhareaccount") },
+
+      loginname: { type: "textedit", required: true, width: "40x", minwidth: "20x", autocomplete: ["username"] },
+      password: { type: "textedit", required: true, password: true, width: "40x", minwidth: "20x", autocomplete: ["current-password"] },
+
+      forgotpassword: { type: "text", value: getTid("tollium:shell.login.forgotpassword"), action: "forgotaction", underline: true },
+      forgotaction: { type: "action", hashandler: true, unmasked_events: ["execute"] },
+
+      loginbutton: { type: "button", title: getTid("tollium:shell.login.loginbutton"), action: "loginaction" },
+      loginaction: { type: "action", hashandler: true, unmasked_events: ["execute"] },
+
+      savelogin: { type: "checkbox", name: "savelogin" },
+      savelogintext: { type: "text", value: getTid("tollium:shell.login.savelogin"), labelfor: "savelogin" },
+
+      loginbuttongrid: {
+        type: 'table',
+        cols: [{ "width": "1pr" }, { "width": "1pr" }],
+        rowgroups: [
+          {
+            "height": "1pr",
+            rows:
+              [
+                {
+                  cells:
+                    [
+                      { name: "rememberpanel", colnum: 0, rownum: 0 },
+                      { name: "buttonpanel", colnum: 1, rownum: 0 }
+                    ]
+                }
+              ]
+          }
+        ],
+        width: '1pr'
+      },
+
+      rememberpanel: {
+        type: 'panel',
+        lines: [
+          {
+            items: [
+              { item: 'savelogin' },
+              { item: 'savelogintext' }
+            ],
+            layout: 'left'
+          }
+        ],
+        width: '1pr'
+      },
+
+      buttonpanel: {
+        type: 'panel',
+        lines: [{ items: [{ item: 'loginbutton' }], layout: 'right' }],
+        width: '1pr'
+      }
+    });
+
+    screencomponents.frame.specials.push('loginaction', 'forgotaction');
+    screencomponents.frame.defaultbutton = "loginbutton";
+
+    handlers.push({
+      component: "loginaction",
+      msgtype: "execute",
+      handler: (data, callback) => void this.executePasswordLogin(data, callback)
+    }, {
+      component: "forgotaction",
+      msgtype: "execute",
+      handler: (data, callback) => void this.executeForgot(data, callback)
+    });
+  }
+
   handleSubmitInstruction(instr: NavigateInstruction, callback: () => void) {
     if (instr.type === "reload") {
       //no need to execute the submit instruction, it just redirects back to the shell..
@@ -476,9 +471,9 @@ class LoginApp {
   }
 
   async executePasswordLogin(data, callback: () => void) {
-    const loginname = this.topscreen.getComponent('loginname').getSubmitValue().value;
-    const password = this.topscreen.getComponent('password').getSubmitValue().value;
-    const savelogin = this.topscreen.getComponent('savelogin').getSubmitValue().value;
+    const loginname = this.topscreen.getComponent<ObjTextEdit>('loginname')!.getSubmitValue().value;
+    const password = this.topscreen.getComponent<ObjTextEdit>('password')!.getSubmitValue().value;
+    const savelogin = this.topscreen.getComponent<ObjCheckbox>('savelogin')!.getSubmitValue().value;
 
     if (!loginname || !password) {
       const errorscreen = runSimpleScreen(this.app, { text: getTid("tollium:shell.login.enterusernameandpassword"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
@@ -493,9 +488,9 @@ class LoginApp {
         return;
       }
       if (result.code === "REQUIRESECONDFACTOR") {
-        const selecttab = this.topscreen.getComponent('secondfactor');
-        this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
-        this.topscreen.getComponent('frame').setFocusTo('totpcode');
+        const selecttab = this.topscreen.getComponent<ObjPanel>('secondfactor')!;
+        this.topscreen.getComponent<ObjTabs>('tabs')!.setSelected(selecttab.name, true);
+        this.topscreen.getComponent<ObjFrame>('frame')!.setFocusTo('totpcode');
 
         this.secondfactordata = result.secondfactordata;
         this._updateSecondFactorText();
@@ -503,7 +498,7 @@ class LoginApp {
         return;
       }
       if (result.code === "REQUIRESETUPSECONDFACTOR") {
-        this.topscreen.getComponent('password').setValue("");
+        this.topscreen.getComponent<ObjTextEdit>('password')!.setValue("");
         const app = getIndyShell().startBackendApplication("system:managetwofactorauth", null,
           {
             onappbar: false,
@@ -516,7 +511,7 @@ class LoginApp {
         return;
       }
       if (result.code === "FAILEDVALIDATIONCHECKS") {
-        this.topscreen.getComponent('password').setValue("");
+        this.topscreen.getComponent<ObjTextEdit>('password')!.setValue("");
         const app = getIndyShell().startBackendApplication("system:resetpassword", null,
           {
             onappbar: false,
@@ -559,46 +554,13 @@ class LoginApp {
       await frontend.startSSOLogin(tag);
     } catch (error) {
       lock.release(); //we only release the lock on the error path so we can keep the app locked while redirecting
-      this.app.showExceptionDialog(error);
+      this.app.showExceptionDialog(error as Error);
     }
   }
 
-  /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
-  handlePassiveSAMLLogin(instr) {
-    // Create off-screen iframe
-    const iframe = dompack.create("iframe",
-      {
-        style:
-        {
-          position: "absolute",
-          left: "-40px",
-          top: "-40px",
-          width: "10px",
-          height: "10px",
-          zIndex: "-1"
-        }
-      });
-
-    // Execute the submitinstruction in the iframe
-    document.body.appendChild(iframe);
-    whintegration.executeSubmitInstruction(instr, { iframe: iframe });
-
-    // The SP will send us a message with the login result
-    window.addEventListener("message", e => {
-      const data = JSON.parse(e.data);
-      console.log(data, instr, instr.requestid);
-      if (data && data.id === instr.requestid) {
-        if (data.status === "loggedin") {
-          // not logged in into shell, so reload won't trigger unload warning
-          location.reload();
-        }
-      }
-    });
-  }*/
-
   executeCancelSecondFactorLogin(data, callback) {
-    const selecttab = this.topscreen.getComponent('body');
-    this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
+    const selecttab = this.topscreen.getComponent<ObjPanel>('body')!;
+    this.topscreen.getComponent<ObjTabs>('tabs')!.setSelected(selecttab.name, true);
 
     this.secondfactordata = null;
     callback();
@@ -610,8 +572,8 @@ class LoginApp {
       this.executePasswordLogin(data, callback);
       return;
     }
-    const code = this.topscreen.getComponent('totpcode').getSubmitValue().value;
-    const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
+    const code = this.topscreen.getComponent<ObjTextEdit>('totpcode')!.getSubmitValue().value;
+    const persistent = this.topscreen.getComponent<ObjCheckbox>('savelogin')!.getSubmitValue().value;
 
     const result = await getIndyShell().wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
     if (result.submitinstruction) {
@@ -669,15 +631,15 @@ class LoginApp {
       switch (this.secondfactordata.totpattemptsleft) {
         case 6:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterauthenticatorcode"));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.enterauthenticatorcode"));
           } break;
         case 0:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.enterbackupcode"));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.enterbackupcode"));
           } break;
         default:
           {
-            this.topscreen.getComponent("secondfactorattemptsleft").setValue(getTid("tollium:shell.login.totpattemptsleft", this.secondfactordata.totpattemptsleft.toString()));
+            this.topscreen.getComponent<ObjText>("secondfactorattemptsleft")!.setValue(getTid("tollium:shell.login.totpattemptsleft", this.secondfactordata.totpattemptsleft.toString()));
           }
       }
     }

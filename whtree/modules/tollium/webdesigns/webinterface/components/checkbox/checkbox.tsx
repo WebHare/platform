@@ -4,7 +4,7 @@ import * as dompack from 'dompack';
 import "./checkbox.scss";
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
-export default class ObjCheckbox extends ComponentBase { // ---------------------------------------------------------------------------
+export class ObjCheckbox extends ComponentBase { // ---------------------------------------------------------------------------
   //
   // Initialization
   //

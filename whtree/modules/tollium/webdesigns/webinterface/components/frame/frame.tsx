@@ -13,7 +13,7 @@ import type { ApplicationBase, BackendApplication } from '@mod-tollium/web/ui/js
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import { ToddCompBase, type ComponentStandardAttributes, type ComponentBaseUpdate } from '@mod-tollium/web/ui/js/componentbase';
 import { isTruthy, toCamelCase } from '@webhare/std';
-import type ObjTabs from '../tabs/tabs';
+import type { ObjTabs } from '../tabs/tabs';
 import ActionForwardBase from '../action/actionforwardbase';
 import type ObjMenuItem from '../menuitem/menuitem';
 import type { AcceptType, DropLocation, EnableOnRule, FlagSet, TolliumMessage } from '@mod-tollium/web/ui/js/types';
@@ -70,9 +70,9 @@ const screen_minheight = 20;
 /** Locks the screen. If the topmost screen of an app is locked, the app is busy. If the active app is busy, the UI is busy
 */
 class ScreenLock implements Disposable {
-  private screen: Frame | null;
+  private screen: ObjFrame | null;
 
-  constructor(screen: Frame) {
+  constructor(screen: ObjFrame) {
     this.screen = screen;
   }
   [Symbol.dispose]() {
@@ -89,7 +89,7 @@ class ScreenLock implements Disposable {
 
 export type { ScreenLock };
 
-export default class Frame extends ToddCompBase {
+export class ObjFrame extends ToddCompBase {
   node: HTMLElement;
   screenname: string;
   hostapp: ApplicationBase;
@@ -136,7 +136,7 @@ export default class Frame extends ToddCompBase {
   active = false;
   allowclose = true;
   resizable = false;
-  parentwindow: Frame | null = null;
+  parentwindow: ObjFrame | null = null;
 
   left = 0;
   top = 0;
@@ -307,7 +307,7 @@ export default class Frame extends ToddCompBase {
       // If a button was previously made default, remove its default state
       if (this.default_comp)
         this.default_comp.setDefault(false);
-      this.default_comp = newdefault;
+      this.default_comp = newdefault || null;
       // If we have a new default button, make it default
       if (this.default_comp)
         this.default_comp.setDefault(true);
@@ -449,8 +449,8 @@ export default class Frame extends ToddCompBase {
     return createdcomp;
   }
 
-  getComponent<T extends ToddCompBase>(name: string) {
-    return this.objectmap[name] as T;
+  getComponent<T extends ToddCompBase>(name: string): T | undefined {
+    return this.objectmap[name] as T | undefined;
   }
 
   registerComponent(comp: ToddCompBase) {
@@ -742,7 +742,7 @@ export default class Frame extends ToddCompBase {
         $todd.DebugTypedLog("actionenabler", `Ignoring rule #${j}, source '${enableons[j].source}' not found but must be visible`);
         continue;
       }
-      if (sourceobj && sourceobj instanceof Frame) {
+      if (sourceobj && sourceobj instanceof ObjFrame) {
         $todd.DebugTypedLog("actionenabler", `Ignoring rule #${j}, source '${enableons[j].source}' is a screen??`);
         continue;
       }
@@ -762,7 +762,7 @@ export default class Frame extends ToddCompBase {
       }
 
       // and check if it's the frame or if it's focused if there is more than one relevant source
-      if (enableon.requirefocus && !(sourceobj instanceof Frame) && !sourceobj.hasfocus()) {
+      if (enableon.requirefocus && !(sourceobj instanceof ObjFrame) && !sourceobj.hasfocus()) {
         $todd.DebugTypedLog("actionenabler", '- - Source "+enableon.source+" is not focused - skipping rule');
         continue;
       }
@@ -1058,7 +1058,7 @@ export default class Frame extends ToddCompBase {
    * DOM
    */
 
-  setParentWindow(parentwindow: Frame | null) {
+  setParentWindow(parentwindow: ObjFrame | null) {
     this.parentwindow = parentwindow;
     this.updateFrameDecoration();
     this.headerheight = this.fullscreen ? 0 : this.nodes.windowheader.getBoundingClientRect().height;
@@ -1314,7 +1314,7 @@ export default class Frame extends ToddCompBase {
   }
 
   setFocusTo(compname: string) {
-    this.innerFocus = this.getComponent(compname)?.getFocusTarget();
+    this.innerFocus = this.getComponent(compname)?.getFocusTarget() || null;
     if (debugFlags["tollium-focus"])
       console.log(`[tollium-focus] Server sets focus to %s: %o`, compname, this.innerFocus);
     if (!this.node.inert && this.innerFocus)

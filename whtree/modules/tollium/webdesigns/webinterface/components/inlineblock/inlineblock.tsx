@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import ObjText from '../text/text';
+import { ObjText } from '../text/text';
 import { updateNodeBackground, ObjPanelLine } from '../panel/panel';
 import "./inlineblock.scss";
 

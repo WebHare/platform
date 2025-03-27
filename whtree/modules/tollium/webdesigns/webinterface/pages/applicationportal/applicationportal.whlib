@@ -99,6 +99,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
     , forceapps := STRING[]
     , forceappfuncs := STRING[]
     , loginmethods := RECORD[]
+    , passwordlogin := FALSE
     ];
 
   //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
@@ -140,12 +141,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
       {
         CASE "password"
         {
-          DELETE FROM config.loginmethods WHERE loginmethods.type = "password";
-          INSERT
-              [ type :=       "password"
-              , ordering :=   -1
-              , tid :=        ":"
-              ] INTO config.loginmethods AT END;
+          config.passwordlogin := TRUE; //explicitly enabled
         }
         CASE "oidc", "saml"
         {
@@ -184,14 +180,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
 
   config.loginmethods := SELECT * FROM config.loginmethods ORDER BY type != "saml", ordering;
   IF(Length(config.loginmethods) = 0) //if not explicitly configured through siteprofile, we enable the password login (TODO: then we also need to be able to shut off password logins when completely configured through WRD)
-  {
-    config.loginmethods :=
-          [ [ type :=         "password"
-            , ordering :=     -1
-            , tid :=          ":"
-            ]
-          ];
-  }
+    config.passwordlogin := TRUE; //implicitly enabled (no methods at all)
 
   STRING ARRAY eventmasks := [ "publisher:internal.siteprofiles.recompiled" ];
   RECORD authplugin := applytester->GetPluginConfiguration("http://www.webhare.net/xmlns/wrd", "wrdauth");
@@ -214,7 +203,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
                                 FROM clients
                              ORDER BY wrd_ordering, ToUppercase(wrd_title));
     }
-    // IF(Objectexists())
   }
 
   RETURN CELL[ ttl := 30 * 60 * 1000
@@ -830,8 +818,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     RETURN this->GetCurrentShellSettings();
   }
 
-  PUBLIC RECORD FUNCTION WDS_StartPortal(RECORD options)
-  {
+  PUBLIC RECORD FUNCTION WDS_StartPortal(RECORD options) {
     this->SetupPortal();
 
     //FIXME Get the actual loginmethod and restrictions from the specified appservice
@@ -840,42 +827,23 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(CellExists(options, "params"))
       params := options.params;
 
-    IF(ObjectExists(this->wrdauthplugin) AND ObjectExists(this->wrdauthplugin->userapi) AND NOT ObjectExists(this->currentuser))
-    {
-      RECORD ARRAY methods := this->config.loginmethods;
-
-      // Move password to first in the list
-      methods :=
-          SELECT *
-               , title :=     GetTid(tid)
-            FROM methods
-        ORDER BY type != "password";
-/*
-      // SAML only functions when run on the same host as the site that hosts the SP endpoint
-      // (this disqualifies alternative interface servers)
-      IF (ResolveToAbsoluteURL(GetRequestURL(), "/") = ResolveToAbsoluteURL(webcontext->targetfolder->url, "/"))
-      {
-        INSERT
-            [ type :=         "saml"
-            , sp_tag :=       "MOE"
-            , title :=        "SAML login"
-            , autologin :=    TRUE
-            ] INTO methods AT 0;
-      }
-*/
-
-      RETURN [ isloggedin := FALSE
-             , settings := this->GetCurrentShellSettings()
-             , loginconfig := [ methods   := methods
-                              , infotext  := ReadRegistryKey("system.backend.layout.infotext")
-                              , infotitle := ReadRegistryKey("system.backend.layout.infotitle")
-                              ]
-             ];
+    IF(ObjectExists(this->wrdauthplugin) AND ObjectExists(this->wrdauthplugin->userapi) AND NOT ObjectExists(this->currentuser)) {
+      RECORD ARRAY loginmethods := SELECT *, title := GetTid(tid) FROM this->config.loginmethods;
+      RETURN CELL[
+        isloggedin := FALSE,
+        settings := this->GetCurrentShellSettings(),
+        loginconfig := CELL[
+          loginmethods,
+          this->config.passwordlogin,
+          infotext  := ReadRegistryKey("system.backend.layout.infotext"),
+          infotitle := ReadRegistryKey("system.backend.layout.infotitle")
+        ]
+      ];
+    } ELSE {
+      RETURN [ isloggedin := TRUE
+            , settings := this->GetCurrentShellSettings()
+            ];
     }
-
-    RETURN [ isloggedin := TRUE
-           , settings := this->GetCurrentShellSettings()
-           ];
   }
 
   //marking params as unused as dropping them can give JS errors when updating

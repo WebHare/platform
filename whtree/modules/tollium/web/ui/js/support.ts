@@ -3,7 +3,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 import { debugFlags } from '@webhare/env';
 import type { FlagSet, SelectionMatch, TolliumMessage } from './types';
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("../common.lang.json");
@@ -78,7 +78,7 @@ export const settings =
 export const applicationstack: ApplicationBase[] = [];
 export const applications: ApplicationBase[] = [];
 export const resourcebase = new URL(whintegration.config.obj.toddroot as string, location.href).toString();
-export const customactions: Record<string, (data: { action: string; screen: Frame }) => void> = {};
+export const customactions: Record<string, (data: { action: string; screen: ObjFrame }) => void> = {};
 
 export function getActiveApplication() {
   return applicationstack.at(-1);

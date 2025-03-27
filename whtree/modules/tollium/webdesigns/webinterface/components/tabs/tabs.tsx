@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import ObjText from '../text/text';
+import { ObjText } from '../text/text';
 
 import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
@@ -40,7 +40,7 @@ interface TabItem {
   contentnode?: HTMLElement;
 }
 
-export default class ObjTabs extends ComponentBase {
+export class ObjTabs extends ComponentBase {
   componenttype = "tabs";
   pendingselect?: TabItem;
   selected?: TabItem;

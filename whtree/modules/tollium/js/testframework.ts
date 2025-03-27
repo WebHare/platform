@@ -3,7 +3,7 @@ import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
 import { escapeRegExp } from '@webhare/std';
 import type { ApplicationBase } from '@mod-tollium/web/ui/js/application';
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import type { } from "@mod-tollium/js/internal/debuginterface";
 import type ObjList from '@mod-tollium/webdesigns/webinterface/components/list/list';
 
@@ -43,7 +43,7 @@ class AppProxy {
 }
 
 class ScreenProxy {
-  win: Frame;
+  win: ObjFrame;
 
   constructor(appproxy, idx) {
     this.appproxy = appproxy;

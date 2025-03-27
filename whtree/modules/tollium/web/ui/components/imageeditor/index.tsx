@@ -4,7 +4,7 @@ import { getTid } from "@webhare/gettid";
 import * as toddImages from "@mod-tollium/js/icons";
 import { Toolbar, type ToolbarButton, ToolbarSeparator } from "@mod-tollium/web/ui/components/toolbar/toolbars";
 import type * as $todd from "@mod-tollium/web/ui/js/support";
-import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { ObjFrame } from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import { type PhotoCrop, addImageCropButton } from "./crop";
 import { type PhotoPoint, addRefPointButton } from "./refpoint";
@@ -36,7 +36,7 @@ export type OffsetRectWithRefpoint = OffsetRect & { refPoint?: RefPoint };
 export type SetStatusCallback = (width: number, height: number, orgwidth?: number, orgheight?: number) => void;
 export type ExportImageCallback = (blob: Blob | null, settings: { refPoint: RefPoint | null }) => void;
 export type SetProgressCallback = (value: number, max: number) => void;
-export type CreateScreenCallback = (components: $todd.ComponentsForMessages) => Frame;
+export type CreateScreenCallback = (components: $todd.ComponentsForMessages) => ObjFrame;
 export type SetModalLayerOpacityCallback = (opacity: number) => void;
 
 type ImageAction = "all" | "crop" | "rotate" | "refpoint";

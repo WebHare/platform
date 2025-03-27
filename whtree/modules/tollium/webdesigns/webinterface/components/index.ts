@@ -1,24 +1,24 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+///x @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 //TODO Only after all components pass TS validation, we can allow TS validation here
 
 import action from './action/action';
 import button from './button/button';
 import buttongroup from './buttongroup/buttongroup';
-import checkbox from './checkbox/checkbox';
+import { ObjCheckbox } from './checkbox/checkbox';
 import codeedit from './codeedit/codeedit';
 import customhtml from './customhtml/customhtml';
 import datetime from './datetime/datetime';
 import dirtylistener from './frame/dirtylistener';
 import forward from './action/forward';
-import frame from './frame/frame';
+import { ObjFrame } from './frame/frame';
 import hr from './hr/hr';
 import iframe from './iframe/iframe';
 import image from './image/image';
 import inlineblock from './inlineblock/inlineblock';
 import list from './list/list';
 import menuitem from './menuitem/menuitem';
-import panel from './panel/panel';
+import { ObjPanel } from './panel/panel';
 import progress from './progress/progress';
 import proxy from './frame/proxy';
 import pulldown from './pulldown/pulldown';
@@ -28,26 +28,30 @@ import slider from './slider/slider';
 import spacer from './spacer/spacer';
 import split from './split/split';
 import table from './table/table';
-import tabs from './tabs/tabs';
+import { ObjTabs } from './tabs/tabs';
 import tagedit from './tagedit/tagedit';
-import text from './text/text';
+import { ObjText } from './text/text';
 import textarea from './textarea/textarea';
-import textedit from './textedit/textedit';
+import { ObjTextEdit } from './textedit/textedit';
 import toolbar from './toolbar/toolbar';
 
-import type { ToddCompBase, ToddCompClass } from '@mod-tollium/web/ui/js/componentbase';
+import type { ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 
-export function getComponents(): Record<string, ToddCompClass<ToddCompBase>> {
+export type { ObjCheckbox, ObjFrame, ObjPanel, ObjTabs, ObjText, ObjTextEdit };
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- quickest fix but getComponents() may be too cumbersome to keep in a TS-safe setup
+export function getComponents(): Record<string, { new(parentcomp: ToddCompBase, data: any): unknown }> {
   return {
     action,
     button,
     buttongroup,
-    checkbox,
+    checkbox: ObjCheckbox,
     codeedit,
     customhtml,
     datetime,
     dirtylistener,
-    frame,
+    //@ts-expect-error -- it's not a 'real' component
+    frame: ObjFrame,
     forward,
     hr,
     iframe,
@@ -55,7 +59,7 @@ export function getComponents(): Record<string, ToddCompClass<ToddCompBase>> {
     inlineblock,
     list,
     menuitem,
-    panel,
+    panel: ObjPanel,
     progress,
     proxy,
     pulldown,
@@ -65,11 +69,11 @@ export function getComponents(): Record<string, ToddCompClass<ToddCompBase>> {
     spacer,
     split,
     table,
-    tabs,
+    tabs: ObjTabs,
     tagedit,
-    text,
+    text: ObjText,
     textarea,
-    textedit,
+    textedit: ObjTextEdit,
     toolbar
   };
 }

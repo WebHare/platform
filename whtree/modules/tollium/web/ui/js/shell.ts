@@ -176,7 +176,7 @@ class IndyShell extends TolliumShell {
 
     return application;
   }
-  startBackendApplication(appname, parentapp, options) {
+  startBackendApplication(appname, parentapp, options?) {
     if (appname === '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
@@ -241,7 +241,7 @@ class IndyShell extends TolliumShell {
     return unloaded_components;
   }
 
-  createComponent(type, parentcomp, data) {
+  createComponent(type, parentcomp, data): ToddCompBase {
     return new (this.getComponentType(type))(parentcomp, data);
   }
 
