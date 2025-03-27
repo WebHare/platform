@@ -835,7 +835,7 @@ RECORD FUNCTION BreakConstraints(RECORD ARRAY single_constraints)
          ];
 }
 
-RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, TABLE tbl, STRING primarykey, RECORD outputcolumns)
+RECORD ARRAY FUNCTION GetTableBulkFields(VARIANT ids, BOOLEAN returnall, BOOLEAN uppercase_ignore, TABLE tbl, STRING primarykey, RECORD outputcolumns)
 {
   OBJECT query := NEW DynamicQuery;
 
@@ -848,7 +848,12 @@ RECORD ARRAY FUNCTION GetTableBulkFields(INTEGER ARRAY ids, BOOLEAN returnall, B
   query->AddDeclaredTable("tbl", tbl, cols);
 
   IF (NOT returnall)
-    query->AddConstraint(`tbl.${primarykey}`, "IN", ids);
+  {
+    IF (TypeID(ids) = TypeID(INTEGER ARRAY))
+      query->AddConstraint(`tbl.${primarykey}`, "IN", INTEGER ARRAY(ids));
+    ELSE
+      query->AddConstraint(`tbl.${primarykey}`, "IN", INTEGER64 ARRAY(ids));
+  }
 
   RECORD ARRAY queryresult := query->Execute();
 
