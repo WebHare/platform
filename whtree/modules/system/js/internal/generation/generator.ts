@@ -173,7 +173,7 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
         await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(_.fullPath), dryRun: options.dryRun, verbose: options.verbose });
     }
 
-  //Delete pre-wh5.7 config locations. We'll do this every time for a while until we're sure noone is switching brances to pre-5.7
+  //Delete pre-wh5.7 config locations. We'll do this every time for a while until we're sure noone is switching branches to pre-5.7
   await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', { allowMissing: true });
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', { allowMissing: true });
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', { allowMissing: true });
