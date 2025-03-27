@@ -9,7 +9,7 @@ import { getSchemaData, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";

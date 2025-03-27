@@ -6,7 +6,7 @@
    */
 
 import { broadcastOnCommit, db, nextVal, uploadBlob } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { convertWaitPeriodToDate, isTruthy, omit, pick, type WaitPeriod } from "@webhare/std";
 import { whconstant_consilio_catalogtype_managed, whconstant_consilio_catalogtype_unmanaged, whconstant_consilio_default_suffix_mask, whconstant_consilio_osportoffset } from "@mod-system/js/internal/webhareconstants";

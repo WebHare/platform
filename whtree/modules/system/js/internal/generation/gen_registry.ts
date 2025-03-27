@@ -85,10 +85,10 @@ export async function generateRegistryDefs(context: GenerateContext, platform: b
 
   return `${generatorBanner}
 
-declare module ${JSON.stringify(platform ? "@mod-platform/generated/registry/registry.ts" : "@storage-system/generated/registry/registry.ts")} {
+declare module ${JSON.stringify(platform ? "@mod-platform/generated/ts/registry.ts" : "wh:ts/registry.ts")} {
 }
 
-declare module "@mod-platform/generated/registry/registry.ts" {
+declare module "@mod-platform/generated/ts/registry.ts" {
 
   export interface RegistryKeys {
 ${keys.map(key => {
@@ -114,15 +114,15 @@ ${keys.map(key => {
 export async function listAllRegistryDefs(mods: string[]): Promise<FileToUpdate[]> {
   return [
     {
-      path: `registry/registry.ts`,
+      path: `ts/registry.ts`,
       module: "platform",
-      type: "registry",
+      type: "ts",
       generator: (context: GenerateContext) => generateRegistryDefs(context, true, whconstant_builtinmodules)
     }, {
 
-      path: `registry/registry.ts`,
+      path: `ts/registry.ts`,
       module: "dummy-installed",
-      type: "registry",
+      type: "ts",
       generator: (context: GenerateContext) => generateRegistryDefs(context, false, mods.filter(m => !whconstant_builtinmodules.includes(m)))
     }
   ];

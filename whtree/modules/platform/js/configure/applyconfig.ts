@@ -17,11 +17,11 @@ type SubsystemData = {
 } & SubsystemConfig;
 
 
-const generateForConfig = ["config", "extract", "wrd", "openapi"] as const;
-const generateForDev = ["whdb", "schema", "registry"] as const;
+const generateForConfig = ["config", "extracts", "wrd", "openapi"] as const;
+const generateForDev = ["db", "schema", "ts"] as const;
 
 const subsystems = {
-  assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extract"] },
+  assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extracts"] },
   /* 'wh apply config' should
       - ensure all code can run after updating a module
         - so it also needs to update any non type-only TS Files  */
@@ -32,7 +32,7 @@ const subsystems = {
     parts: {
       //config.base if you're only here to update eg. the backend URL or module map
       base: { generate: ["config"] },
-      extracts: { generate: ["config", "extract"] },
+      extracts: { generate: ["config", "extracts"] },
     }
   },
   /* 'wh apply dev' should ensure dev tooling is operable
@@ -40,7 +40,7 @@ const subsystems = {
       - it also needs to fix type-only files (whdb, schemas)
   */
   dev: { title: "Development", description: "Update development infrastructure (imports, schemas)", generate: [...generateForConfig, ...generateForDev] },
-  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["registry"] },
+  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["ts"] },
   wrd: {
     title: "WRD",
     description: "Apply wrdschema definitions and regenerate the TS definitions",

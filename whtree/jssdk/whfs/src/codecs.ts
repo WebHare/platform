@@ -1,5 +1,5 @@
 import type * as kysely from "kysely";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { uploadBlob } from "@webhare/whdb";
 import { appendToArray, isPromise, Money, omit } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";

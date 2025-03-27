@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db, nextVal } from "@webhare/whdb";
 import { type EntityPartialRec, type EntityRec, type EntitySettingsRec, type TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { isTruthy, omit } from "@webhare/std";

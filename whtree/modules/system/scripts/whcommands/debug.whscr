@@ -624,7 +624,7 @@ Executed instrs.:   ${stats.instructions}
       RECORD debugconfig := ReadDebugSetting(Detokenize(GetSortedSet(tags),','));
       // Update the configuration record (HareScript)
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
-      // Update generated config.json (TypeScript)
+      // Update generated platform.json (TypeScript)
       UpdateDebugSettings(debugconfig);
     }
     CASE "setconfig"
@@ -640,7 +640,7 @@ Executed instrs.:   ${stats.instructions}
 
       // Update the configuration record (HareScript)
       UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
-      // Update generated config.json (TypeScript)
+      // Update generated platform.json (TypeScript)
       UpdateDebugSettings(debugconfig);
     }
     CASE "listflags"

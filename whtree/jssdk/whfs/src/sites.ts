@@ -1,5 +1,5 @@
 import { db, sql, type Selectable } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type WHFSFile, type WHFSFolder, openWHFSObject, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType } from "./contenttypes";

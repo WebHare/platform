@@ -7,7 +7,7 @@ import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webha
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ResourceDescriptor } from "@webhare/services";
 import { db } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { generateRandomId, throwError } from "@webhare/std";
 import { UUIDToWrdGuid, defaultDateTime } from "@webhare/hscompat";
 

@@ -1,4 +1,4 @@
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 import { db } from "@webhare/whdb";
 

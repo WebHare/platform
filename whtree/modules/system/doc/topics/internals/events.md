@@ -15,7 +15,7 @@ Effect in C++ code: clears HareScript VM caches (TCP/IP context and any DLL call
 This event should never be directly listened to.
 
 ### `system:configupdate`
-Fired whenever the central configuration (whdata/storage/system/generated/config.json) file is updated
+Fired whenever the central configuration (whdata/config/platform.json) file is updated
 
 ### `system:config.rights`
 Fired when rights or objecttypes have appeared or been removed. This event is NOT fired after right grant/removals or role creation.

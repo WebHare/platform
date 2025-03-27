@@ -421,7 +421,7 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 {
   RECORD retval := [ warnings := DEFAULT STRING ARRAY ];
 
-  //Updates config.json, updates symlinks, regenerates dependencies for java/typescript
+  //Updates platform.json, updates symlinks, regenerates dependencies for java/typescript
   ApplyWebHareConfiguration([ subsystems := ["config"], source := "activatemodule " || modulename ]);
 
   ReconfigureLogFiles();

@@ -3,7 +3,7 @@ import { toFSPath } from "./resources.ts";
 import type { SessionScopes } from "./services.ts";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";
 import { db, isWorkOpen, onFinishWork } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { UploadInstructions, UploadManifest } from "@webhare/upload";
 import * as fs from "node:fs/promises";
 import { openAsBlob } from "node:fs";

@@ -18,7 +18,7 @@ async function main() {
 
      This step is an unavoidable XML parse */
   try {
-    await updateGeneratedFiles(["extract"], { verbose });
+    await updateGeneratedFiles(["extracts"], { verbose });
   } catch (e) {
     //this shouldn't happen, the parsers need to be robust. but we shouldn't be shutting down WebHare either
     console.error("ERROR running updateGeneratedFiles", e);

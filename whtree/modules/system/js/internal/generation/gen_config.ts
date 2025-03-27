@@ -88,8 +88,8 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   if (!dataroot)
     throw new Error("Invalid WEBHARE_DATAROOT");
 
-  const dir = dataroot + "storage/system/generated/config/";
-  const file = dir + "config.json";
+  const dir = dataroot + "config/";
+  const file = dir + "platform.json";
 
   let oldconfig = {}, currenttext: string | null = null;
   try {

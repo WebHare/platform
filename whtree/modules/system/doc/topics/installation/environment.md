@@ -95,6 +95,9 @@ If set to `node` this will enable the experimental JS webserver.
 ### WEBHARE_NO_SOURCEMAPS
 If set WebHare will not pass `--enable-source-maps` to NodeJS
 
+## WEBHARE_NO_CONFIG
+Set to 1 to not read or use the WebHare config file. This is needed to bootstrap WebHare as many commands rely on the configuration existing.
+
 ## Networking
 Changing the bindings of internal ports gives you more flexibility to route internal WebHare traffic or to access ports
 for debugging but may have serious repercussions for security. Be very careful when opening these ports and make sure

@@ -7,7 +7,7 @@ export { AuthenticationSettings, IdentityProvider, type FirstPartyToken } from "
 export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";

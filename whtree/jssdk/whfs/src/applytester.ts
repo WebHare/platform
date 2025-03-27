@@ -1,7 +1,7 @@
 import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable, sql } from "@webhare/whdb";
-import type { PlatformDB } from "@mod-platform/generated/whdb/platform";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";

@@ -57,22 +57,27 @@ function getDataRootNodeModules(): DataRootItem[] {
     {
       name: "wh:db",
       type: "symboliclink",
-      target: `${whdataroot}storage/system/generated/whdb`
+      target: `${whdataroot}config/db`
     },
     {
       name: "wh:openapi",
       type: "symboliclink",
-      target: `${whdataroot}storage/system/generated/openapi`
+      target: `${whdataroot}config/openapi`
     },
     {
       name: "wh:schema",
       type: "symboliclink",
-      target: `${whdataroot}storage/system/generated/schema`
+      target: `${whdataroot}config/schema`
+    },
+    {
+      name: "wh:ts", //misc generated ts files (eg registry.ts)
+      type: "symboliclink",
+      target: `${whdataroot}config/ts`
     },
     {
       name: "wh:wrd",
       type: "symboliclink",
-      target: `${whdataroot}storage/system/generated/wrd`
+      target: `${whdataroot}config/wrd`
     }
   );
   return items;
