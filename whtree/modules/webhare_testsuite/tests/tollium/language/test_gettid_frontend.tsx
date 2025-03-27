@@ -1,5 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
-import getTid, { registerTexts } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
+import { getHTMLTid, getTidLanguage, registerTexts, setTidLanguage } from "@webhare/gettid/src/internal";
 import * as domdebug from "dompack/src/debug";
 import { jsxcreate } from "@webhare/dompack";
 import type { RecursiveLanguageTexts } from "@webhare/gettid/src/types";
@@ -11,9 +12,9 @@ test.runTests([
   // Test language
   "Tid language",
   function () {
-    test.eq("en", getTid.tidLanguage);
-    getTid.tidLanguage = "nl";
-    test.eq("nl", getTid.tidLanguage);
+    test.eq("en", getTidLanguage());
+    setTidLanguage("nl");
+    test.eq("nl", getTidLanguage());
   },
 
   // Test registration of texts
@@ -35,8 +36,8 @@ test.runTests([
     domdebug.debugflags.sut = false;
 
     // set language
-    getTid.tidLanguage = "en";
-    test.eq(getTid.tidLanguage, "en");
+    setTidLanguage("en");
+    test.eq("en", getTidLanguage());
 
     // retrieval
     test.eq("This is a test", getTid("base:testgroup.testtext"));
@@ -79,8 +80,8 @@ test.runTests([
     registerTexts("substitute", "nl", substitute_texts);
 
     //check language
-    getTid.tidLanguage = "nl";
-    test.eq(getTid.tidLanguage, "nl");
+    setTidLanguage("nl");
+    test.eq("nl", getTidLanguage());
 
     //with param
     test.eq("aap noot mies ", getTid("substitute:param.enumerate", "aap", "noot", "mies"));
@@ -126,7 +127,7 @@ test.runTests([
 
   "Test correct merging of new texts",
   function () {
-    getTid.tidLanguage = "en";
+    setTidLanguage("en");
 
     const more_base_texts =
     {
@@ -150,7 +151,7 @@ test.runTests([
 
   "Test HTML tid's",
   function () {
-    getTid.tidLanguage = "nl";
+    setTidLanguage("nl");
 
     const html_texts: RecursiveLanguageTexts = {
       "tags": [{ t: "tag", tag: "b", subs: ["Vet!"] }],
@@ -163,13 +164,13 @@ test.runTests([
 
     registerTexts("html", "nl", html_texts);
     //check language
-    test.eq(getTid.tidLanguage, "nl");
+    test.eq("nl", getTidLanguage());
     //retrieval
-    test.eq("<b>Vet!</b>", getTid.html("html:tags"));
+    test.eq("<b>Vet!</b>", getHTMLTid("html:tags"));
     test.eq("Vet!", getTid("html:tags"));
-    test.eq("Codeer &lt;tag&gt; en &amp;lt;", getTid.html("html:encoding"));
+    test.eq("Codeer &lt;tag&gt; en &amp;lt;", getHTMLTid("html:encoding"));
     test.eq("Codeer <tag> en &lt;", getTid("html:encoding"));
-    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, getTid.html("html:params", "<hr/>\n"));
+    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, getHTMLTid("html:params", "<hr/>\n"));
     test.eq("<hr/>\n", getTid("html:params", "<hr/>\n"));
 
     console.log(`render with jsxcreate`, getTid("html:params", ["<hr/>\n"], { render: jsxcreate }));
@@ -181,6 +182,6 @@ test.runTests([
 
     // Regression: A comma would get placed between param and string within a tag
     test.eq("param suffix", getTid("html:regression.tag_param_string", "param"));
-    test.eq("<b>param suffix</b>", getTid.html("html:regression.tag_param_string", "param"));
+    test.eq("<b>param suffix</b>", getHTMLTid("html:regression.tag_param_string", "param"));
   }
 ]);

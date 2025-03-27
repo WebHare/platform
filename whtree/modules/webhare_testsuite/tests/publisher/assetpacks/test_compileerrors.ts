@@ -241,7 +241,7 @@ async function testCompileerrors() {
 
     const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/nl.xml")));
   }
@@ -260,8 +260,8 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.scss")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/nl.xml")));
     test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 

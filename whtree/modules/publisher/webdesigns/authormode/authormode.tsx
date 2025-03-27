@@ -2,7 +2,7 @@ import "typeface-roboto";
 import * as dompack from 'dompack';
 import * as dialogapi from 'dompack/api/dialog';
 import * as dialog from 'dompack/components/dialog';
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { runFeedbackReport } from "./feedback";
 
 import "./authormode.scss";

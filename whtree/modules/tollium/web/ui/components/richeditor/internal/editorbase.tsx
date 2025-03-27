@@ -6,7 +6,7 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 
 import RTEToolbar from './toolbar';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
-import getTid from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import "@mod-tollium/web/ui/components/richeditor/richeditor.lang.json";
 
 import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltoplaintext";

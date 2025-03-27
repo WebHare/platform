@@ -52,7 +52,7 @@ const toddImages = require("@mod-tollium/js/icons");
 
 import TowlNotifications from './shell/towl';
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 require("../common.lang.json");
 
 import TolliumShell, { type AppStartResponse } from "@mod-tollium/shell/platform/shell";

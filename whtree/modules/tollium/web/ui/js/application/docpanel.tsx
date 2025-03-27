@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import "./docpanel.scss";
-import getTid from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import type { ApplicationBase } from '../application';
 import { getIndyShell } from '../shell';
 

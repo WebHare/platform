@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
+import { getTid, getTidLanguage } from "@webhare/gettid";
 import { getFormService } from "@webhare/forms/src/formservice";
 import { isValidEmail } from '@webhare/std';
 import { setFieldError } from './customvalidation';

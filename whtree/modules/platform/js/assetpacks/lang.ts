@@ -75,7 +75,7 @@ async function runLangLoader(languages: string[], resourcepath: string, source: 
 
 export function generateTexts(alltexts: TextsMap) {
   // Require the general gettid library to register the language texts
-  let output = 'var registerTexts = require("@mod-tollium/js/gettid").registerTexts;\n';
+  let output = 'var registerTexts = require("@webhare/gettid/src/internal").registerTexts;\n';
   // Register the language texts for each module
   alltexts.forEach((texts, module) => {
     for (const lang of Object.keys(texts)) {

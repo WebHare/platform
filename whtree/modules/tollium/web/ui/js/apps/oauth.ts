@@ -2,11 +2,11 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
-const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp } from "../application";
 import "../../common.lang.json";
+import { getTid } from "@webhare/gettid";
 
 "use strict";
 

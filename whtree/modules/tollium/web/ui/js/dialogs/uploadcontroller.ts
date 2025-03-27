@@ -1,6 +1,6 @@
 import "../../common.lang.json";
 import * as dompack from "dompack";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import type { UploadProgressStatus } from "@webhare/upload";
 import type Frame from "@mod-tollium/webdesigns/webinterface/components/frame/frame";
 import type ObjProgress from "@mod-tollium/webdesigns/webinterface/components/progress/progress";

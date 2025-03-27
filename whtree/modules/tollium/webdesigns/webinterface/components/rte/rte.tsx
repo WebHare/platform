@@ -7,7 +7,7 @@ import { getUTF8Length } from "@mod-system/js/internal/utf8";
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
-import getTid from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import type { EditorBaseOptions } from '@mod-tollium/web/ui/components/richeditor/internal/editorbase';
 import type { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { Borders } from '../base/tools';

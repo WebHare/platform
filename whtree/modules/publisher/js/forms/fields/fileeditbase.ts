@@ -3,7 +3,7 @@
 import * as dompack from 'dompack';
 import { SingleFileUploader, requestFile } from "@webhare/upload";
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { setFieldError } from '@mod-publisher/js/forms/internal/customvalidation';
 import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
 import { JSFormElement } from '@webhare/forms/src/jsformelement';

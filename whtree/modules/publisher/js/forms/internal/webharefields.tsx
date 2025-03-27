@@ -5,7 +5,7 @@ import AddressField from '@mod-publisher/js/forms/fields/addressfield';
 import CaptchaField from '@mod-publisher/js/forms/fields/captchafield';
 import { setupValidator } from './customvalidation';
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { formatDate, parseISODate } from './datehelpers';
 import { isValidDate } from '@webhare/std';
 

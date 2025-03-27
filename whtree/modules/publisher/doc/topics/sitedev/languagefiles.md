@@ -74,7 +74,7 @@ Where `module_name` is the name of your module and the value an array of `<textg
 Import both the `gettid` library as well as your `mysite.lang.json` file, and invoke `getTid`:
 
 ```javascript
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import './path/to/mysite.lang.json';
 
 console.log(getTid('module_name:site.commontexts.text'));

@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import { getTid } from '@mod-tollium/js/gettid';
+import { getTid } from "@webhare/gettid";
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as datehelpers from "@mod-publisher/js/forms/internal/datehelpers"; //FIXME we need a 'today' function in dompack's datehelprs
 

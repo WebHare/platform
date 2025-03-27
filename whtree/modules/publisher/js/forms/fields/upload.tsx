@@ -1,5 +1,5 @@
 import * as dompack from 'dompack';
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { FileEditElement as FileEditElementBase } from './fileeditbase';
 import './upload.css';
 import { isFile } from '@webhare/std';

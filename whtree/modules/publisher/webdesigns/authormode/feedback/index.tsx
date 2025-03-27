@@ -3,7 +3,7 @@ import * as storage from 'dompack/extra/storage';
 import * as dialogapi from 'dompack/api/dialog';
 import { createClient } from "@webhare/jsonrpc-client";
 import { prepareFeedback } from "@mod-publisher/js/feedback/screenshot";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import type { PublisherFeedback, FeedbackResult, PreparedFeedback } from '@mod-publisher/js/feedback';
 
 // The RPC service used to submit feedback

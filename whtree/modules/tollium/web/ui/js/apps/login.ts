@@ -10,8 +10,8 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
 import type Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
 import { navigateTo, type NavigateInstruction } from '@webhare/env/src/navigation';
+import { getTid } from '@webhare/gettid';
 
-const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
 interface LoginMethodPassword {

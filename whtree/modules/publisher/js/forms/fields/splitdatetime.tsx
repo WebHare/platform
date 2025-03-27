@@ -4,7 +4,7 @@
 import * as dompack from "dompack";
 import * as domevents from "dompack/src/events";
 import * as whintegration from "@mod-system/js/wh/integration";
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { isLive } from "@webhare/env";
 import { isValidDate } from '@webhare/std';
 

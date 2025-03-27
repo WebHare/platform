@@ -13,7 +13,7 @@ interface JSAPIService {
 
 const client = createClient<JSAPIService>("system:jsapi");
 
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import { encodeString } from "@webhare/std";
 import type IndyShell from '@mod-tollium/web/ui/js/shell';
 import type { TowlNotification } from "./towl";

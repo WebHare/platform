@@ -1,7 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import { getTid } from "@mod-tollium/js/gettid";
+import { getTid } from "@webhare/gettid";
 import "./video.css";
 import "../internal/rtd.lang.json";
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
