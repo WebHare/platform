@@ -7,11 +7,21 @@ import { emplace, omit, pick } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
+import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 
 export interface WebDesignInfo {
   objectname: string;
   witty: string;
 }
+
+export type WRDAuthPluginSettings = {
+  wrdSchema: string | null;
+  loginPage: string | null;
+  cookieName: string;
+  customizer: string | null;
+  cookieDomain: string | null;
+  sameSite: CookieOptions["sameSite"];
+};
 
 interface PluginData extends CSPPluginBase {
   datas: CSPPluginDataRow[];
@@ -77,12 +87,14 @@ export function buildPluginData(datas: CSPPluginDataRow[]): Omit<CSPPluginDataRo
   return data;
 }
 
-export function getWRDPlugindata(data: Record<string, unknown> | null) {
+export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthPluginSettings {
   return {
     wrdSchema: data?.wrdschema as string || null,
     loginPage: data?.loginpage as string || null,
     cookieName: data?.cookiename as string || "webharelogin",
-    customizer: data?.customizer as string || null
+    customizer: data?.customizer as string || null,
+    cookieDomain: data?.cookiedomain as string || null,
+    sameSite: (data?.samesitecookie || "Lax") as CookieOptions["sameSite"],
   };
 }
 

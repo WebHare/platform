@@ -9,9 +9,9 @@ import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
-import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
+import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { loadJSObject } from "@webhare/services";
-import { cleanCookieName } from "@webhare/wrd/src/concepts";
+import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -81,6 +81,17 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
+  const { idCookie, ignoreCookies } = getIdCookieName(req, settings);
+
+  const secure = req.url.startsWith("https:");
+
+  const cookieSettings: ServersideCookieOptions = {
+    httpOnly: true, //XSS protection
+    secure, //mirror secure if the request was
+    path: "/", //we don't support limiting WRD cookies to subpaths as various helper pages are at /.wh/
+    sameSite: settings.sameSite,
+  };
+
   //FIXME validate body size and reject decoding huge bodies. but Webrequest doesn't give us quick access to the body size yet
   switch (params.get('type')) {
     case "login": {
@@ -89,7 +100,7 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
       if (typeof body?.username !== "string" || typeof body?.password !== "string")
         return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
 
-      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
+      if (body?.cookieName !== settings.cookieName) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
       }
 
@@ -110,39 +121,28 @@ async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
         if (response.userInfo)
           responseBody.userInfo = response.userInfo;
 
-        return createJSONResponse(200, responseBody, {
-          headers: {
-            "Set-Cookie": buildCookieHeader(settings.cookieName, logincookie, {
-              httpOnly: true,
-              secure: new URL(req.url).protocol === "https:",
-              path: "/",
-              sameSite: "Lax",
-              expires: response.expires
-            })
-          }, typed: true
-        });
+        const headers = new Headers;
+        headers.append("Set-Cookie", buildCookieHeader(idCookie, logincookie, { ...cookieSettings, expires: response.expires }));
+        for (const toClear of ignoreCookies)
+          headers.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
+
+        return createJSONResponse(200, responseBody, { headers, typed: true });
       } else
         return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);
     }
     case "logout": {
       const body = await req.json() as { cookieName: string };
-      if (body?.cookieName !== cleanCookieName(settings.cookieName)) {
+      if (body?.cookieName !== settings.cookieName) {
         return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: logout offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLogoutResult);
       }
 
+      const headers = new Headers;
+      for (const killCookie of [idCookie, ...ignoreCookies])
+        headers.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
+
       return createJSONResponse(200, {
         success: true
-      } satisfies FrontendLogoutResult, {
-        headers: {
-          "Set-Cookie": buildCookieHeader(settings.cookieName, '', {
-            httpOnly: true,
-            path: "/",
-            sameSite: "Lax",
-            expires: new Date
-          })
-        }
-      });
-
+      } satisfies FrontendLogoutResult, { headers });
     }
   }
 
