@@ -111,3 +111,7 @@ pxlEvents:
   event: {}
   testevent:
     includeFields: aa
+
+rpcServices:
+  testapi:
+    api: js/rpcservice.ts#testAPI

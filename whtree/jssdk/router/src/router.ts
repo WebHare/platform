@@ -6,12 +6,11 @@ import type { WebRequest } from './request';
 import type { WebResponse } from './response';
 import type { SiteRequest } from './siterequest';
 
-export { HTTPMethod } from './request';
-export type { WebRequest } from './request';
+export { HTTPMethod, type WebRequest, type RPCContext } from './request';
 export {
-  createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode
+  createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
+  type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { WebResponse, HTTPStatusCode, HTTPRedirectCode } from './response';
 export type { SiteRequest, WebDesignFunction } from './siterequest';
 export {
   RestRequest

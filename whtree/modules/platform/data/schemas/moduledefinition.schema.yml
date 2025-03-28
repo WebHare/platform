@@ -18,6 +18,9 @@ properties:
   openApiServices:
     description: OpenAPI services
     $ref: "#/$defs/OpenApiServices"
+  rpcServices:
+    description: RPC services
+    $ref: "#/$defs/RPCServices"
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/$defs/AssetPacks"
@@ -210,6 +213,21 @@ $defs:
             items:
               type: string
               description: "Host to permit ('*' is supported as a wildcard)"
+
+  RPCServices:
+    description: Specifies a RPC service using typed JSON as ts data format
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Service name
+        type: object
+        additionalProperties: false
+        required:
+          - api
+        properties:
+          api:
+            description: "Path to the API object"
+            type: string
 
   # Filter where backend hooks are applied
   ContextFilter:

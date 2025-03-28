@@ -2,6 +2,8 @@
   <test script="test_whremoting_encoding.whscr" />
   <test script="test_jsonrpc.whscr" />
   <test script="test_jsonrpc2.ts" />
+  <test script="test-rpc-backend.ts" />
+  <jstest file="test-rpc-frontend.ts" />
   <test script="test_restapi.whscr" />
   <test script="test_openapi.ts" />
   <test script="test_openapi_types.ts" />

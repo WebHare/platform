@@ -26,6 +26,10 @@ export type WebRequestTransferData = {
   localPath: string;
 };
 
+export type RPCContext = {
+  request: WebRequest;
+};
+
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
 export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;
 
