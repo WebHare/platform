@@ -96,14 +96,12 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
   } catch (e) {
     if (e instanceof JSONRPCError)
       return createJSONRPCError(id, e.status, e.errorCode, e.message);
-    else {
-      services.logError(e as Error);
-      const showerrors = debugFlags.etr || servicedef.service.startsWith("mod::webhare_testsuite/"); //test_jsonrpc2.ts has no way to (temporarily) enable etr
-      if (showerrors)
-        return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, (e as Error).message, parseTrace(e as Error));
-      else
-        return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error");
-    }
+
+    services.logError(e as Error);
+    if (debugFlags.etr)
+      return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, (e as Error).message, parseTrace(e as Error));
+    else
+      return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error");
   }
 }
 
