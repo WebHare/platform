@@ -209,15 +209,3 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
   result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
   return;
 }
-
-export function formatValidationMessage(msg: ValidationMessageWithType): string {
-  return `${msg.resourcename}:${msg.line}:${msg.col}: ${msg.type[0].toUpperCase()}${msg.type.substring(1)}: ${msg.message}`;
-}
-
-export function logValidationMessagesToConsole(messages: ValidationMessageWithType[]): void {
-  const msgs = messages.toSorted((lhs, rhs) => lhs.resourcename.localeCompare(rhs.resourcename) || lhs.line - rhs.line || lhs.col - rhs.col);
-  for (const msg of msgs) {
-    //TODO ANSI Color?
-    console.log(formatValidationMessage(msg));
-  }
-}

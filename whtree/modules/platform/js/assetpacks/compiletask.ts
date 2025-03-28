@@ -13,7 +13,7 @@ import * as zlib from 'zlib';
 import { debugFlags } from '@webhare/env';
 import { listDirectory, storeDiskFile } from '@webhare/system-tools';
 import { makeAssetPack, type AssetPack } from '@mod-system/js/internal/generation/gen_extracts';
-import { appendToArray, stringify } from '@webhare/std';
+import { appendToArray, stringify, toSnakeCase, type ToSnakeCase } from '@webhare/std';
 import { getBundleMetadataPath, getBundleOutputPath, type BundleSettings } from './support';
 import type { AssetPackManifest, AssetPackState, Bundle, RecompileSettings } from './types';
 import { buildRPCLoaderPlugin } from './rpcloader';
@@ -481,7 +481,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 }
 
 /** Generate a bundle without it being managed by assetpack control. Used by tests */
-export async function recompileAdhoc(entrypoint: string, compatibility: string): Promise<AssetPackState> {
+export async function recompileAdhoc(entrypoint: string, compatibility: string): Promise<ToSnakeCase<AssetPackState>> {
   /* map to a unqiue foldername for this configuration (entrypoint + compatibility). we won't actually track
      it in assetpackcontrol but rely on executeMaintenance to eventually delete it */
   const hash = crypto
@@ -511,5 +511,5 @@ export async function recompileAdhoc(entrypoint: string, compatibility: string):
   };
 
   const recompileres = await recompile(settings);
-  return recompileres;
+  return toSnakeCase(recompileres);
 }
