@@ -3,7 +3,7 @@ import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { loadlib } from "@webhare/harescript";
 import { debugFlags } from "@webhare/env";
-import { updateDebugConfig } from "@webhare/env/src/envbackend";
+import { registerDebugConfigChangedCallback, updateDebugConfig, type DebugFlags } from "@webhare/env/src/envbackend";
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { spawnSync } from "child_process";
 
@@ -11,6 +11,9 @@ const nonExistingDebugFlag = `nonexisting-flag-${crypto.randomUUID()}`;
 const nonExistingGlobalFlag = `nonexisting-global-${crypto.randomUUID()}`;
 
 async function testContextSetup() {
+  const callbacks = new Array<DebugFlags>;
+  registerDebugConfigChangedCallback(() => callbacks.push({ ...debugFlags }));
+
   test.eq('root', getCodeContext().title);
   test.eq(true, isRootCodeContext());
 
@@ -34,8 +37,11 @@ async function testContextSetup() {
   //@ts-ignore TS 5.5 incorrectly infers debugFlags[nonExistingDebugFlag] to be true. 5.4 shows it as undefined | boolean
   test.eq(undefined, debugFlags[nonExistingDebugFlag]);
   test.eq(false, Object.keys(debugFlags).includes(nonExistingDebugFlag));
+
+  callbacks.splice(0, callbacks.length); //clear callbacks
   debugFlags[nonExistingDebugFlag] = true;
   test.eq(true, Object.keys(debugFlags).includes(nonExistingDebugFlag));
+  test.eqPartial([{ [nonExistingDebugFlag]: true }], callbacks);
 
   const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });

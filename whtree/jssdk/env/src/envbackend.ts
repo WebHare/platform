@@ -75,6 +75,8 @@ class DebugFlagsProxyHandler implements ProxyHandler<DebugFlags> {
       toModify[p] = newValue;
     else
       delete toModify[p];
+
+    runSettingsCallbacks();
     return true;
   }
   deleteProperty(target: DebugFlags, p: string): boolean {
@@ -96,6 +98,17 @@ function formatForConsoleLogs() {
   return `DebugFlags [${[...Object.keys(debugFlags)].filter(key => debugFlags[key]).join(", ")}]`;
 }
 
+function runSettingsCallbacks() {
+  for (const cb of [...settingschangedcallbacks]) {
+    try {
+      cb();
+    } catch (e) {
+      console.error("Error invoking settings change callback", cb?.name, e);
+      //ignore, debugFlags can change due to external updates so they're basically signal handlers and there's no real point in crashing whatever was really running
+    }
+  }
+}
+
 /** Update the debugconfig as present in the system configuration record
     @param settings - debugconfig cell of the system configuration record
 */
@@ -109,10 +122,8 @@ export function updateDebugConfig(settings: DebugConfig | null) {
     for (const flag of oldenabledflags)
       if (!newenabledflags.includes(flag))
         delete globalDebugFlags[flag];
-    for (const cb of [...settingschangedcallbacks]) {
-      // ignore throws here, we can't do anything in this lowlevel code
-      try { cb(); } catch (e) { }
-    }
+
+    runSettingsCallbacks();
   }
   if (debugFlags.async && Error.stackTraceLimit < 100)
     Error.stackTraceLimit = 100;
