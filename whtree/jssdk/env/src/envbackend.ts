@@ -82,6 +82,8 @@ class DebugFlagsProxyHandler implements ProxyHandler<DebugFlags> {
   deleteProperty(target: DebugFlags, p: string): boolean {
     const toModify = this.getRecordList()[0];
     delete toModify[p];
+
+    runSettingsCallbacks();
     return true;
   }
   getOwnPropertyDescriptor(target: DebugFlags, p: string): PropertyDescriptor | undefined {
