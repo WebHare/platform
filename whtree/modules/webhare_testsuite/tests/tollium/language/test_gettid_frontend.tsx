@@ -1,6 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
-import { getTid } from "@webhare/gettid";
-import { getHTMLTid, getTidLanguage, registerTexts, setTidLanguage } from "@webhare/gettid/src/internal";
+import { getTid, getHTMLTid, getTidLanguage, setTidLanguage } from "@webhare/gettid";
+import { registerTexts } from "@webhare/gettid/src/internal";
 import * as domdebug from "dompack/src/debug";
 import { jsxcreate } from "@webhare/dompack";
 import type { RecursiveLanguageTexts } from "@webhare/gettid/src/types";

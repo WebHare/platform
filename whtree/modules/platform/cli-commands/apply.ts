@@ -3,7 +3,6 @@
 
 import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigurationOptions, executeApply, type ConfigurableSubsystemPart } from '@mod-platform/js/configure/applyconfig';
 import { run } from "@webhare/cli";
-import { applyConfiguration } from '@webhare/services';
 import { CLISyntaxError } from '@webhare/cli/src/run';
 
 run({
@@ -11,7 +10,7 @@ run({
     "v,verbose": { description: "Verbose mode" },
     "f,force": { description: "Force updates even if no changes detected" },
     "nodb": { description: "Do not access the database" },
-    "offline": { description: "Do not use the apply backend service (dangerous if WebHare is running!)" },
+    "offline": { description: "Do not block the apply backend service (dangerous if WebHare is running!)" },
   }, options: {
     "modules": { description: "Limit to these modules (comma separated, not supported by all updates)" }
   }, arguments:
@@ -28,18 +27,13 @@ run({
       subsystems: args.subsystems as ConfigurableSubsystemPart[],
       verbose: opts.verbose,
       force: opts.force,
+      offline: opts.offline,
       nodb: opts.nodb,
       source: "wh apply"
     };
-
     if (opts.modules)
       toApply.modules = opts.modules.split(',');
-    if (opts.offline)
-      await executeApply({ ...toApply, offline: true });
-    else { //use the service
-      if (opts.verbose) //until we get some sort of console-events back from the service:
-        console.log("Please note that 'wh apply' verbose info is usually logged to the servicemanager.log");
-      await applyConfiguration(toApply);
-    }
+
+    await executeApply(toApply);
   }
 });

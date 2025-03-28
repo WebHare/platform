@@ -67,16 +67,19 @@ export interface ApplyConfigurationOptions {
   force?: boolean;
   nodb?: boolean;
   source: string;
+  /** If set, do not block the apply backend service (dangerous if WebHare is running!) */
+  offline?: boolean;
 }
 
 export async function executeApply(options: ApplyConfigurationOptions & { offline?: boolean }) {
-  using mutex = options.offline ? null : await lockMutex("platform:setup");
+  // The mutex prevents 'wh apply' and backend service from aplying configuration at the same time
+  using mutex = options.offline ? null : await lockMutex("platform:applyconfig");
   void (mutex);
 
   const start = Date.now();
   const verbose = Boolean(options.verbose);
   const togenerate = new Set<GeneratorType>;
-  logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: options.subsystems, source: options.source });
+  logDebug("platform:configuration", { type: "apply", ...options });
 
   const todoList = (options.subsystems.includes('all') ? Object.keys(configurableSubsystems) : options.subsystems) as ConfigurableSubsystem[];
   for (const todoItem of todoList) {
