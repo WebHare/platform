@@ -38,9 +38,7 @@ async function testRPCCaller() {
   callres = await getJSONApiCaller().runJSONAPICall(servicedef, request);
   test.eq(500, callres.status);
 
-  //TODO - *with* `etr` debugflag, the error message should be revealed. But we can't set that flag yet in JS tests
-  //test.eq({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
-  test.eqPartial({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
+  test.eqPartial({ id: 77, error: { code: -32000, message: `Internal error` }, result: null }, JSON.parse(await callres.body.text()));
 
   const debugCookieData = getSignedWHDebugOptions({ debugFlags: { etr: true } });
   test.assert(debugCookieData);
@@ -81,11 +79,15 @@ async function testTypedClient() {
   test.eq(true, await myservice2.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice2.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const err = await test.throws(/this is a server crash/, myservice1.withOptions({ silent: true }).serverCrash());
-  const trace = parseTrace(err);
-  //verify I can see client and server side
-  test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));
-  test.assert(trace.find(t => t.func.includes("testTypedClient")));
+  for (const withError of [false, true]) {
+    const urlappend = withError ? `?wh-debug=${encodeURIComponent(getSignedWHDebugOptions({ debugFlags: { etr: true } }))}` : '';
+    const err = await test.throws(withError ? /this is a server crash/ : /Internal error/, myservice1.withOptions({ silent: true, urlappend }).serverCrash());
+
+    //verify I can see client side always, but server side ONLY if etr is enabled
+    const trace = parseTrace(err);
+    test.eq(withError, trace.some(t => t.func === "TestNoAuthJS.serverCrash"));
+    test.eq(true, trace.some(t => t.func.includes("testTypedClient")));
+  }
 
   const serviceWithHeaders = myservice1.withOptions({ headers: { "Authorization": "grizzly bearer" } });
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
