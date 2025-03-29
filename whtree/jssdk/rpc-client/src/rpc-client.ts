@@ -128,7 +128,7 @@ class ControlledCall {
       if (jsonresponse.consoleLog) {
         for (const logitem of jsonresponse.consoleLog) {
           //should we log 'when'? it's getting more and more noisy then though....
-          //TODO should we match the remote's method (after validating) or just keep eveyrthing at 'log' ?
+          //TODO should we match the remote's method (after validating) or just keep everything at 'log' ?
           console.log(`[remote:${logitem.method}] ${logitem.location ? `${logitem.location.filename.split("/").at(-1)}:${logitem.location.line}: ` : ''}${logitem.data}`);
         }
       }

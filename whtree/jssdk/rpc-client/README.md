@@ -1,7 +1,7 @@
 # WebHare RPC client
 [Webhare RPC services](https://www.webhare.dev/manuals/typescript/rpcservice/) are built to integrate into WebHare front- and backend apps
 
-`@webhare/typed-rpc` library exposes a `createRPCClient` function which takes a service name (which is resolved to a URL using WebHare's service
+`@webhare/rpc-client` library exposes a `createRPCClient` function which takes a service name (which is resolved to a URL using WebHare's service
 naming conventions) or the full URL to the typed RPC service to invoke. You can then directly invoke any API offered by the
 service direcly on the returned client object. Internally the service is implemented as a
 [Proxy](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Proxy) which will construct a function to
