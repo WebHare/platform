@@ -1,0 +1,78 @@
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
+import { debugFlags } from "@webhare/env";
+import type { RPCContext, WebRequest, WebResponse } from "@webhare/router";
+import { createRPCResponse, HTTPErrorCode, HTTPSuccessCode, RPCError } from "@webhare/router/src/response";
+import { loadJSExport } from "@webhare/services/src/resourcetools";
+import { parseTyped } from "@webhare/std";
+import type { RPCResponse } from "@webhare/rpc-client";
+import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
+import { logError } from "@webhare/services";
+import type { TypedServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
+
+function getDebugData(error?: unknown) {
+  const trace: StackTrace = error && typeof error === "object" && "stack" in error ? parseTrace(error as Error) : [];
+  return {
+    consoleLog: getCodeContext().consoleLog.map(log => ({ ...log, when: log.when.toISOString() })),
+    // TODO reenable as soon as we have a practical use case (not too fond of spamming servicemanager.log with even more data)
+    // context: {
+    //   id: getCodeContext().id,
+    //   metadata: getCodeContext().metadata,
+    // },
+    trace: trace?.length ? trace : undefined
+  };
+}
+
+export async function RPCRouter(req: WebRequest): Promise<WebResponse> {
+  const { 1: module, 2: service, 3: method } = req.url.match(/https?:\/\/[^:]+\/\.wh\/rpc\/([^/?]+)\/([^/>]+)\/([^/?]+)/) || [];
+  if (!module || !service || !method)
+    return createRPCResponse(HTTPErrorCode.BadRequest, { error: "Invalid request" });
+
+  const serviceName = `${module}:${service}`;
+  const matchservice = getExtractedConfig("services").rpcServices.find((s) => s.name === serviceName);
+  if (!matchservice)
+    return createRPCResponse(HTTPErrorCode.NotFound, { error: `Service '${serviceName}' not found` });
+
+  await using context = new CodeContext("rpc", {
+    module, service, method
+  });
+
+  context.applyDebugSettings(req.getDebugSettings());
+
+  return await context.run(() => runCall(req, matchservice, method));
+}
+
+async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, method: string) {
+  const showerrors = debugFlags.etr;
+
+  let params;
+  try {
+    params = parseTyped(await req.text()) as unknown[];
+    if (!Array.isArray(params))
+      return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Request body must be an array` });
+  } catch (e) {
+    return createRPCResponse(HTTPErrorCode.BadRequest, { error: "Invalid request body" });
+  }
+
+  try {
+    const api = await loadJSExport(matchservice.api) as Record<string, (context: RPCContext, ...args: unknown[]) => unknown | Promise<unknown>>;
+    if (!api[method])
+      throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
+
+    const context = {
+      request: req
+    };
+
+    const result = await api[method](context, ...params);
+    const retval: RPCResponse = { result, ...(showerrors ? getDebugData() : {}) };
+    return createRPCResponse(HTTPSuccessCode.Ok, retval);
+  } catch (e) {
+    const debug = showerrors ? getDebugData(e) : undefined;
+    if (e instanceof RPCError)
+      return createRPCResponse(e.status, { error: e.message, ...debug } satisfies RPCResponse);
+    else {
+      logError(e as Error);
+      return createRPCResponse(HTTPErrorCode.InternalServerError, (showerrors ? { error: (e as Error).message, ...debug } : { error: "Internal server error" }) satisfies RPCResponse);
+    }
+  }
+}

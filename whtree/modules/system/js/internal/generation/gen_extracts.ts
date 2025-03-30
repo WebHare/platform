@@ -49,10 +49,16 @@ export interface OpenAPIDescriptor {
   crossdomainOrigins?: string[];
 }
 
+export interface TypedServiceDescriptor {
+  name: string;
+  api: string;
+}
+
 export interface Services {
   backendServices: BackendServiceDescriptor[];
   openAPIServices: OpenAPIDescriptor[];
   openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
+  rpcServices: TypedServiceDescriptor[];
 }
 
 export function makeAssetPack(pack: Omit<AssetPack, "baseCompileToken">): AssetPack {
@@ -200,7 +206,8 @@ export async function generateServices(context: GenerateContext): Promise<string
   const retval: Services = {
     backendServices: [],
     openAPIServices: [],
-    openAPIClients: []
+    openAPIClients: [],
+    rpcServices: []
   };
 
   for (const mod of context.moduledefs) {
@@ -221,6 +228,13 @@ export async function generateServices(context: GenerateContext): Promise<string
         ...(servicedef.handlerInitHook ? { handlerInitHook: resolveResource(mod.resourceBase, servicedef.handlerInitHook) } : {}),
         merge: (servicedef.merge?.length ?? 0) > 1 ? throwError("Multiple merges not supported yet") : servicedef?.merge?.[0],
         crossdomainOrigins: servicedef.crossDomainOrigins || [],
+      });
+    }
+
+    for (const [servicename, servicedef] of Object.entries(mod.modYml?.rpcServices ?? [])) {
+      retval.rpcServices.push({
+        name: `${mod.name}:${servicename}`,
+        api: resolveResource(mod.resourceBase, servicedef.api)
       });
     }
 

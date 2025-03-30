@@ -4,6 +4,7 @@ import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
 import type { TransferListItem } from "worker_threads";
 import { encodeString, stringify } from "@webhare/std";
+import type { RPCResponse } from "@webhare/rpc-client";
 
 export enum HTTPErrorCode {
   BadRequest = 400,
@@ -69,6 +70,28 @@ export type WebResponseForTransfer = {
 //TODO ideally we'll support the full Response interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Response instead of WebResponse
 export type SupportedResponseSubset = Pick<Response, "ok" | "status" | "headers" | "json" | "text" | "arrayBuffer">;
 
+export type RPCErrorCodes = HTTPErrorCode.BadRequest | HTTPErrorCode.NotFound | HTTPErrorCode.InternalServerError;
+export class RPCError extends Error {
+  constructor(public readonly status: RPCErrorCodes, message: string) {
+    super(message);
+  }
+}
+
+/** Create a webresponse returning a typed RPC body. Not a public API, only needed for the RPC router (which cannot use WebResponse directly)
+ * @param body - The body to return
+ * @param status - Statuscode
+   @param headers - Headers
+ */
+export function createRPCResponse(status: RPCErrorCodes | HTTPSuccessCode.Ok, body: RPCResponse, options?: { headers?: Record<string, string> | Headers }): WebResponse {
+  const headers = new Headers(options?.headers);
+  const sendbody = stringify(body, { typed: true });
+  if (!headers.get("content-type"))
+    headers.set("content-type", "application/json");
+
+  return new WebResponse(sendbody, { headers, status });
+}
+
+//TODO consider just using Response object - or at least hiding the WebResponse type to external users and have them just use Response
 class WebResponse extends Response {
   private _trace: string | undefined;
 
