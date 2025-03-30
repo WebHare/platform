@@ -30,7 +30,8 @@ export const testAPI = {
       baseURL: context.request.baseURL,
       url: context.request.url.toString(),
       requestHeaders: Object.fromEntries(context.request.headers.entries()),
-      debugFlags: Object.keys(debugFlags).filter((flag) => debugFlags[flag])
+      debugFlags: Object.keys(debugFlags).filter((flag) => debugFlags[flag]),
+      originURL: context.getOriginURL()
     };
   },
   async doConsoleLog(context: RPCContext) {

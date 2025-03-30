@@ -6,7 +6,7 @@ import type { WebRequest } from './request';
 import type { WebResponse } from './response';
 import type { SiteRequest } from './siterequest';
 
-export { HTTPMethod, type WebRequest, type RPCContext } from './request';
+export { HTTPMethod, getOriginURL, type WebRequest, type RPCContext } from './request';
 export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes

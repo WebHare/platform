@@ -204,9 +204,12 @@ class RPCClient {
       body: stringify(params, { typed: true }),
     };
 
+    if (typeof location !== "undefined")
+      callurl.searchParams.set("pathname", location.pathname);
+
     if (this.debug) {
       requestStack = parseTrace(new Error);
-      console.log(`[rpc] Invoking '${method}'`, params, callurl);
+      console.log(`[rpc] Invoking '${method}'`, params);
     }
 
     this.options.onBeforeRequest?.(callurl, fetchoptions);

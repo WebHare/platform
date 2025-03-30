@@ -39,6 +39,9 @@ test.runTests(
 
       //test a crash
       await test.throws(/^RPC Error: /, () => testAPIService.withOptions({ silent: true }).serverCrash());
+
+      //test origin url
+      test.eq(location.href, (await testAPIService.describeMyRequest()).originURL);
     },
 
     /* FIXME rate limits

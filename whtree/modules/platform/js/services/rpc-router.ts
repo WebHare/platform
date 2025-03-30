@@ -1,7 +1,7 @@
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env";
-import type { RPCContext, WebRequest, WebResponse } from "@webhare/router";
+import { getOriginURL, type RPCContext, type WebRequest, type WebResponse } from "@webhare/router";
 import { createRPCResponse, HTTPErrorCode, HTTPSuccessCode, RPCError } from "@webhare/router/src/response";
 import { loadJSExport } from "@webhare/services/src/resourcetools";
 import { parseTyped } from "@webhare/std";
@@ -60,7 +60,8 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 
     const context = {
-      request: req
+      request: req,
+      getOriginURL: () => getOriginURL(req, new URL(req.url).searchParams.get("pathname") ?? "/") || null,
     };
 
     const result = await api[method](context, ...params);

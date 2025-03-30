@@ -28,10 +28,32 @@ export type WebRequestTransferData = {
 
 export type RPCContext = {
   request: WebRequest;
+  /** Get the URL of the caller */
+  getOriginURL: () => string | null;
 };
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
 export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;
+
+/** Reconstruct the client's URL based on a pathname and unforgable headers (Origin or Referer) and on requesturl otherwise (if it's not a browser invoking us)
+  @param req - Request object
+  @param pathname - Local path as specified by app. Browsers should pass `location.pathname`. The URL may or may not start with a slash but may not be a full url.
+  @returns The pathname rebased to the actual origin URL or null if we couldn't safely determine it */
+export function getOriginURL(req: SupportedRequestSubset, pathname: string): string | null {
+  if (pathname.match(/^[a-zA-Z-0-9]*:/) || pathname.startsWith("//"))
+    return null; //looks like a full url, not good
+
+  let origin = req.headers.get("origin");
+  if (!origin) {
+    const referrer = req.headers.get("referer");
+    if (referrer)
+      origin = new URL(referrer).origin;
+  }
+  if (!origin) //still not found
+    origin = new URL(req.url).origin;
+
+  return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
+}
 
 export interface WebRequest extends SupportedRequestSubset {
   ///HTTP Method, eg "get", "post"
@@ -74,9 +96,6 @@ export interface WebRequest extends SupportedRequestSubset {
   */
   getDebugSettings(): { flags: DebugFlags };
 
-  /** Reconstruct the client's URL based on a pathname and unforgable headers (Origin or Referer) and on requesturl otherwise (if it's not a browser invoking us)
-    @param pathname - Local path as specified by app. Browsers should pass `location.pathname`. The URL may or may not start with a slash but may not be a full url.
-    @returns The pathname rebased to the actual origin URL or null if we couldn't safely determine it */
   getOriginURL(pathname: string): string | null;
 
   encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] };
@@ -159,19 +178,7 @@ export class IncomingWebRequest implements WebRequest {
   }
 
   getOriginURL(pathname: string): string | null {
-    if (pathname.match(/^[a-zA-Z-0-9]*:/) || pathname.startsWith("//"))
-      return null; //looks like a full url, not good
-
-    let origin = this.headers.get("origin");
-    if (!origin) {
-      const referrer = this.headers.get("referer");
-      if (referrer)
-        origin = new URL(referrer).origin;
-    }
-    if (!origin) //still not found
-      origin = new URL(this.url).origin;
-
-    return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
+    return getOriginURL(this, pathname);
   }
 
   encodeForTransfer(): { value: WebRequestTransferData; transferList: TransferListItem[] } {
