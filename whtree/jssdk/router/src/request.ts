@@ -30,6 +30,8 @@ export type RPCContext = {
   request: WebRequest;
   /** Get the URL of the caller */
   getOriginURL: () => string | null;
+  /** Response headers */
+  responseHeaders: Headers;
 };
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest

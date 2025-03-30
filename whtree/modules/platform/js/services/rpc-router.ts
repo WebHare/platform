@@ -59,14 +59,16 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
     if (!api[method])
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 
+    const responseHeaders = new Headers();
     const context = {
       request: req,
       getOriginURL: () => getOriginURL(req, new URL(req.url).searchParams.get("pathname") ?? "/") || null,
+      responseHeaders
     };
 
     const result = await api[method](context, ...params);
     const retval: RPCResponse = { result, ...(showerrors ? getDebugData() : {}) };
-    return createRPCResponse(HTTPSuccessCode.Ok, retval);
+    return createRPCResponse(HTTPSuccessCode.Ok, retval, { headers: responseHeaders });
   } catch (e) {
     const debug = showerrors ? getDebugData(e) : undefined;
     if (e instanceof RPCError)

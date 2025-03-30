@@ -47,5 +47,10 @@ export const testAPI = {
     }
 
     return { user: "" };
+  },
+  async setCookies(context: RPCContext) {
+    context.responseHeaders.append("Set-Cookie", "testcookie=124");
+    context.responseHeaders.append("Set-Cookie", "testcookie2=457");
+    return { cookiesSet: true };
   }
 };

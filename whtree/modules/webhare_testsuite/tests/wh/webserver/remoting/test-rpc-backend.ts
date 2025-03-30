@@ -61,6 +61,19 @@ async function testRPCCaller() {
   test.eq(200, call.status);
   res = parseTyped(await call.text()) as RPCResponse;
   test.eq(true, res.consoleLog?.some((item: any) => item.method === "log" && item.data === "This log statement was generated on the server by the TestNoAuthJS service\n"));
+
+  // Set some cookies
+  request.url = `${servicebaseurl}setCookies`;
+  call = await RPCRouter(await newWebRequestFromInfo(request));
+  test.eq(200, call.status);
+  res = parseTyped(await call.text()) as RPCResponse;
+  test.assert(!("error" in res));
+
+  test.eq(true, (res.result as any).cookiesSet);
+  test.eq([
+    "testcookie=124",
+    "testcookie2=457"
+  ], call.headers.getSetCookie());
 }
 
 async function testTypedClient() {
