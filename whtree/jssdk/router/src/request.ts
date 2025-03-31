@@ -27,9 +27,12 @@ export type WebRequestTransferData = {
 };
 
 export type RPCContext = {
-  request: WebRequest;
+  /** The RPC request */
+  request: SupportedRequestSubset; //reduced to SupportedRequestSubset so we can move towards Response without users expecting any WebResponse-unique fields
   /** Get the URL of the caller */
   getOriginURL: () => string | null;
+  /** Get the WRDAuth verified user that made the call (based on either login cookie or authorization header ) */
+  getRequestUser: () => Promise<number | null>;
   /** Response headers */
   responseHeaders: Headers;
 };
