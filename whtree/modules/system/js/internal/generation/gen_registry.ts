@@ -111,7 +111,7 @@ ${keys.map(key => {
 `;
 }
 
-export async function listAllRegistryDefs(mods: string[]): Promise<FileToUpdate[]> {
+export async function listAllRegistryTS(mods: string[]): Promise<FileToUpdate[]> {
   return [
     {
       path: `ts/registry.ts`,

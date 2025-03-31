@@ -33,8 +33,9 @@ import { listAllExtracts } from "./gen_extracts";
 import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
 import { listAllSchemas } from "./gen_schema";
 import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
-import { listAllRegistryDefs } from "./gen_registry";
+import { listAllRegistryTS } from "./gen_registry";
 import { updateTypeScriptInfrastructure } from "./gen_typescript";
+import { listAllServiceTS } from "./gen_services";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "config/";
@@ -50,13 +51,21 @@ function fixFilePaths(files: FileToUpdate[]) {
   }));
 }
 
+async function listAllGeneratedTypeScript(mods: string[]): Promise<FileToUpdate[]> {
+  return [
+    ...await listAllServiceTS(mods),
+    ...await listAllRegistryTS(mods)
+  ];
+}
+
+
 async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
   const allmods = ["platform", ...Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m))];
   return fixFilePaths([
     ...await listAllModuleTableDefs(allmods),
     ...await listAllModuleWRDDefs(),
     ...await listAllModuleOpenAPIDefs(),
-    ...await listAllRegistryDefs(allmods)
+    ...await listAllGeneratedTypeScript(allmods)
   ]);
 }
 

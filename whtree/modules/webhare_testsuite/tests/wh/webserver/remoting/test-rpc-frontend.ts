@@ -9,7 +9,7 @@ test.runTests(
   [
     "Basic rpc",
     async function () {
-      const testAPIService = createRPCClient<typeof testAPI>("webhare_testsuite:testapi");
+      const testAPIService = createRPCClient("webhare_testsuite:testapi");
       let controller = new AbortController;
       let call;
 

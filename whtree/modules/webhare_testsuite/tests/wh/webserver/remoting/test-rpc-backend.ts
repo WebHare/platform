@@ -7,7 +7,7 @@ import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
 import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
 import { backendBase, initEnv } from '@webhare/env/src/envbackend';
 import { DTAPStage } from '@webhare/env';
-import { createRPCClient, type RPCResponse } from "@webhare/rpc-client";
+import { createRPCClient, type GetRPCClientInterface, type RPCResponse } from "@webhare/rpc-client";
 import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
 import { parseTyped } from '@webhare/std';
@@ -77,7 +77,9 @@ async function testRPCCaller() {
 }
 
 async function testTypedClient() {
-  const testAPIService = createRPCClient<typeof testAPI>("webhare_testsuite:testapi");
+  const testAPIService = createRPCClient("webhare_testsuite:testapi");
+  test.typeAssert<test.Equals<GetRPCClientInterface<"webhare_testsuite:testapi">, typeof testAPIService>>();
+  test.typeAssert<test.Equals<GetRPCClientInterface<typeof testAPI>, typeof testAPIService>>();
 
   //These normally work out-of-the box as @webhare/env should be configured by the bootstrap
   test.eq(true, await testAPIService.validateEmail("nl", "pietje@webhare.dev"));
@@ -95,6 +97,7 @@ async function testTypedClient() {
   test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
 
   const myservice2 = createRPCClient<typeof testAPI>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
+  test.typeAssert<test.Equals<typeof testAPIService, typeof myservice2>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.lockWork>>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.serverCrash>>>(); //TODO this only works now because serverCrash is defined as :void but implicitly it would be :never
 

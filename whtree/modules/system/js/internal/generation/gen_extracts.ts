@@ -179,7 +179,7 @@ function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
   return addto;
 }
 
-export async function generateAssetPacks(context: GenerateContext): Promise<string> {
+export async function generateAssetPacks(context: GenerateContext) {
   const assetpacks = new Array<AssetPack>();
   const addto = [];
 
@@ -202,7 +202,7 @@ export async function generateAssetPacks(context: GenerateContext): Promise<stri
   return JSON.stringify(assetpacks, null, 2) + "\n";
 }
 
-export async function generateServices(context: GenerateContext): Promise<string> {
+export async function gatherServices(context: GenerateContext) {
   const retval: Services = {
     backendServices: [],
     openAPIServices: [],
@@ -281,7 +281,11 @@ export async function generateServices(context: GenerateContext): Promise<string
       });
     }
   }
-  return JSON.stringify(retval, null, 2) + "\n";
+  return retval;
+}
+
+export async function generateServices(context: GenerateContext): Promise<string> {
+  return JSON.stringify(await gatherServices(context), null, 2) + "\n";
 }
 
 export async function listAllExtracts(): Promise<FileToUpdate[]> {
