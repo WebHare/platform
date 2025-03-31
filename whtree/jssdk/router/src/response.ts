@@ -172,7 +172,7 @@ export function createWebResponse(body: string | ArrayBuffer | undefined, option
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, options?: { headers?: Record<string, string> | Headers; indent?: boolean; typed?: boolean }): WebResponse {
+export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
   const headers = new Headers(options?.headers);
 
   //TODO can we have TS already fail force a null type for 204?
@@ -182,9 +182,7 @@ export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, op
       throw new Error("HTTP 204 No Content should not have a body");
     sendbody = undefined;
   } else {
-    sendbody = options?.typed ?
-      stringify(jsonbody, { typed: true, space: options.indent ? 2 : 0 })
-      : JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined);
+    sendbody = JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined);
     if (!headers.get("content-type"))
       headers.set("content-type", "application/json");
   }
