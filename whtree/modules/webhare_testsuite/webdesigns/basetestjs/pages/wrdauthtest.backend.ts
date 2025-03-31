@@ -1,5 +1,5 @@
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import type { LookupUsernameParameters, WRDAuthCustomizer } from "@webhare/wrd/src/auth";
+import type { LookupUsernameParameters, WRDAuthCustomizer } from "@webhare/auth/src/identity";
 
 import type { WRDAttributeTypeId, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "@webhare/wrd";

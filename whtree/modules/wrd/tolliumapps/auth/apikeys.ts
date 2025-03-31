@@ -1,6 +1,8 @@
 import { toSnakeCase } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
-import { IdentityProvider, WRDSchema } from "@webhare/wrd";
+import { IdentityProvider } from "@webhare/auth/src/identity";
+import { WRDSchema } from "@webhare/wrd";
+
 
 export async function getAPIKeys(wrdschema: string, entity: number) {
   const idp = new IdentityProvider(new WRDSchema(wrdschema));

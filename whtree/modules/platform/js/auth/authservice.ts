@@ -5,7 +5,7 @@ import { loadJSObject } from "@webhare/services";
 import { generateRandomId, pick, throwError } from "@webhare/std";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
-import { IdentityProvider, type LoginRemoteOptions, type WRDAuthCustomizer } from "@webhare/wrd/src/auth";
+import { IdentityProvider, type LoginRemoteOptions, type WRDAuthCustomizer } from "@webhare/auth/src/identity";
 import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
 
@@ -65,7 +65,12 @@ export const authService = {
     return responseBody;
   },
 
+  /** Logout current user, reset session
+   * @param cookieName - The name of the session cookie used
+  */
   async logout(context: RPCContext, cookieName: string): Promise<void> {
+    //FOIXME e
+    //FIXME DESTROY THE SESSION
     const { idCookie, ignoreCookies, cookieSettings } = await prepAuth(context, cookieName);
     for (const killCookie of [idCookie, ...ignoreCookies])
       context.responseHeaders.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));

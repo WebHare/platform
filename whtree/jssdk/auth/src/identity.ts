@@ -4,12 +4,12 @@ import type { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schem
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
-import { getSchemaSettings, updateSchemaSettings } from "./settings";
+import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork } from "@webhare/whdb";
 import type { NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, updateServerSession } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { tagToJS } from "./wrdsupport";
+import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";

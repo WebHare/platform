@@ -6,7 +6,8 @@ import { extractRequestBody, extractRequestInfo, logWrqRequest, logWrqResponse }
 import { createJSONResponse, createWebResponse, HTTPErrorCode, type HTTPMethod, type RestAuthorizationResult, type RestRequest } from "@webhare/router";
 import { WebHareBlob } from "@webhare/services";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
-import { IdentityProvider, WRDSchema } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
+import { IdentityProvider } from "@webhare/auth/src/identity";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/openapi-service" {

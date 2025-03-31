@@ -8,7 +8,7 @@ import { joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { IdentityProvider, type LoginErrorCodes } from "@webhare/wrd/src/auth";
+import { IdentityProvider, type LoginErrorCodes } from "@webhare/auth/src/identity";
 import { loadJSObject } from "@webhare/services";
 
 export type FrontendLoginResult = {

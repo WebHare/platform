@@ -5,7 +5,7 @@ import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { IdentityProvider, compressUUID } from '@webhare/wrd/src/auth';
+import { IdentityProvider, compressUUID } from "@webhare/auth/src/identity";
 import { getSchemaSettings } from '@webhare/wrd/src/settings';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';

@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { IdentityProvider, type FirstPartyToken } from "@webhare/wrd";
+import { IdentityProvider, type FirstPartyToken } from "@webhare/auth/src/identity";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
 //TODO we'll want a nicer name once we make this public

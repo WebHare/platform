@@ -3,8 +3,8 @@ declare module "@webhare/wrd" {
 }
 
 import { WRDSchema, type WRDSchemaTypeOf } from "@mod-wrd/js/internal/schema";
-export { AuthenticationSettings, IdentityProvider, type FirstPartyToken } from "./auth";
-export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "./auth";
+export { AuthenticationSettings, type FirstPartyToken } from "@webhare/auth/src/identity";
+export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "@webhare/auth/src/identity";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
