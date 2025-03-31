@@ -71,7 +71,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 
     const responseHeaders = new Headers();
-    const context = {
+    const context: RPCContext = {
       request: req,
       getOriginURL: () => getOriginURL(req, new URL(req.url).searchParams.get("pathname") ?? "/") || null,
       getRequestUser: async () => (await getRequestUser(req, new URL(req.url).searchParams.get("pathname") ?? "/"))?.user || null,

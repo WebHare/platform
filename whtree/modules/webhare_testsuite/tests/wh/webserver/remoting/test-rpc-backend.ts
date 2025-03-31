@@ -1,4 +1,4 @@
-import * as test from '@webhare/test';
+import * as test from '@webhare/test-backend';
 import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
@@ -12,6 +12,8 @@ import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
 import { parseTyped } from '@webhare/std';
 import { getTypedStringifyableData } from '@mod-webhare_testsuite/js/ci/testdata';
+import { wrdTestschemaSchema } from '@mod-platform/generated/wrd/webhare';
+import { createFirstPartyToken } from '@webhare/auth';
 
 async function testRPCCaller() {
   const servicebaseurl = "http://127.0.0.1/.wh/rpc/webhare_testsuite/testapi/";
@@ -90,6 +92,13 @@ async function testTypedClient() {
   await test.throws(/Request body too large/, () => testAPIService.echo({ huge: "Huge!".repeat(65536 / "Huge!".length) }));
   await test.throws(/Too many arguments/, () => testAPIService.echo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17));
 
+  //Verify login/authorization
+  test.eq({ user: "" }, await testAPIService.validateLoggedinUser());
+  const idToken = await createFirstPartyToken(wrdTestschemaSchema, "id", test.getUser("caller").wrdId);
+
+  const authService = testAPIService.withOptions({ headers: { "authorization": "bearer " + idToken.accessToken } });
+  test.eq({ user: "Caller McTestsuite" }, await authService.validateLoggedinUser());
+
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
   initEnv(DTAPStage.Development, "http://127.0.0.1:65500/");
@@ -132,6 +141,11 @@ async function testTypedClient() {
 }
 
 test.runTests([
+  () => test.reset({
+    users: {
+      caller: {}
+    }
+  }),
   testRPCCaller,
   testTypedClient
 ]);
