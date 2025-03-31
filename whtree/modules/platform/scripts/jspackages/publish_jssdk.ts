@@ -43,7 +43,7 @@ run({
     const axioms = await readAxioms();
 
     /* We can't publish from any folder inside whdata/(tmp/) as the whdata/node_module will confuse the build process
-       And tmpfs does funny things to npm... (it dies trying to invoke an esbuild which hasn't beeln downloaded yet)
+       And tmpfs does funny things to npm... (it dies trying to invoke an esbuild which hasn't been downloaded yet)
        so on docker we'll use /var/tmp/ instead
     */
     const inDocker = process.env["WEBHARE_IN_DOCKER"] === "1";

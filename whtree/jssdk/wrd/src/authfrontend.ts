@@ -28,7 +28,7 @@ export async function getRequestUser(req: WebRequest, pathname: string): Promise
   //We prefer Authorization above cookie because Auth header is specific request state, cookie may just be cached
   let accessToken = req.headers.get("Authorization")?.match(/Bearer *(.+)$/i)?.[1];
   if (!accessToken) { /* try the cookie header, but only the one we're configured for
-    oterwise we'd still check unprefixed headers, breaking the whole point of __Host-/__Secure- (being unsettable by JS) */
+    otherwise we'd still check unprefixed headers, breaking the whole point of __Host-/__Secure- (being unsettable by JS) */
     const { idCookie } = getIdCookieName(req, wrdauth);
     const logincookie = req.getCookie(idCookie);
     accessToken = logincookie?.match(/ accessToken:(.+)$/)?.[1];

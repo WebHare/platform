@@ -1,7 +1,7 @@
 {
   "name": "@webhare/auth",
   "version": "",
-  "description": "WebHare auth(entic|horiz)ation library",
+  "description": "WebHare auth(entic|oriz)ation library",
   "main": "src/auth.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
