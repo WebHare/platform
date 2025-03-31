@@ -1,5 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test-backend";
+import { createFirstPartyToken } from "@webhare/auth";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
 import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
@@ -243,8 +244,8 @@ async function testAuthAPI() {
   test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
 
   //Test simple login tokens. Disable prefix so we can pass 'm straight to decodeJWT
-  const login1 = await provider.createFirstPartyToken("id", testuser, { prefix: "" });
-  const login2 = await provider.createFirstPartyToken("id", testuser, { prefix: "" });
+  const login1 = await createFirstPartyToken(wrdTestschemaSchema, "id", testuser, { prefix: "" });
+  const login2 = await createFirstPartyToken(wrdTestschemaSchema, "id", testuser, { prefix: "" });
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 

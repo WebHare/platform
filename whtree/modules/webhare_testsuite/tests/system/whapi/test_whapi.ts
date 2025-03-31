@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { IdentityProvider, type FirstPartyToken } from "@webhare/auth/src/identity";
+import { createFirstPartyToken, listTokens, deleteToken, type FirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
 //TODO we'll want a nicer name once we make this public
@@ -27,9 +27,8 @@ async function setupWHAPITest() {
   const wrdSettingsEntity = await wrdTestschemaSchema.search("wrdSettings", "wrdTag", "WRD_SETTINGS") ?? throwError("wrdSettings not found");
   test.eq(0, (await wrdTestschemaSchema.getFields("wrdSettings", wrdSettingsEntity, ["signingKeys"]))?.signingKeys.length);
 
-  const provider = new IdentityProvider(wrdTestschemaSchema);
   //a sysop without explicit access to the API
-  const noApiSysopToken = await provider.createFirstPartyToken("api", test.getUser("noApiSysop").wrdId, { prefix: "" });
+  const noApiSysopToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("noApiSysop").wrdId, { prefix: "" });
   test.eq(/^eyJ[^.]*\.eyJ[^.]*\....+/, noApiSysopToken.accessToken, "verify no prefix and signature present");
 
   {  //fetch as sysop without api rights
@@ -38,8 +37,8 @@ async function setupWHAPITest() {
   }
 
   {  //fetch with the wrong token
-    const unprefixedIdToken = await provider.createFirstPartyToken("id", test.getUser("sysop").wrdId, { prefix: "" });
-    const idToken = await provider.createFirstPartyToken("id", test.getUser("sysop").wrdId);
+    const unprefixedIdToken = await createFirstPartyToken(wrdTestschemaSchema, "id", test.getUser("sysop").wrdId, { prefix: "" });
+    const idToken = await createFirstPartyToken(wrdTestschemaSchema, "id", test.getUser("sysop").wrdId);
 
     {
       const api = new OpenAPIApiClient(directFetch, { bearerToken: unprefixedIdToken.accessToken });
@@ -52,28 +51,28 @@ async function setupWHAPITest() {
   }
 
   //TODO what scopes will WH really be using? eg things like `platform:whfs:/myfolder` to scope them away from openid/3rd party modules?
-  apiSysopToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } });
+  apiSysopToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } });
   test.eq(/^secret-token:eyJ/, apiSysopToken.accessToken);
 
-  const tokens = (await provider.listTokens(test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id);
+  const tokens = (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id);
   test.eqPartial([
     { type: "id", scopes: [] },
     { type: "id", scopes: [], metadata: null },
     { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } }
   ], tokens);
 
-  await runInWork(() => provider.deleteToken(tokens[0].id));
-  test.eq(2, (await provider.listTokens(test.getUser("sysop").wrdId)).length);
+  await runInWork(() => deleteToken(wrdTestschemaSchema, tokens[0].id));
+  test.eq(2, (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).length);
 
-  infiniteToken = await provider.createFirstPartyToken("api", test.getUser("sysop").wrdId, { expires: Infinity });
+  infiniteToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("sysop").wrdId, { expires: Infinity });
   test.eq(null, infiniteToken.expires);
 
-  const infiniteTokenInfo = (await provider.listTokens(test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
+  const infiniteTokenInfo = (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
   test.eq(null, infiniteTokenInfo?.expires);
 
   await runAuthMaintenance(); //shouldn't destroy infinite tokens
 
-  const infiniteTokenInfo2 = (await provider.listTokens(test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
+  const infiniteTokenInfo2 = (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
   test.eq(null, infiniteTokenInfo2?.expires);
 
 }

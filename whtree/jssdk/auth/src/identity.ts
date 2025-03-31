@@ -637,7 +637,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
    * @param nonce - A nonce value for the token
    * @param options - Additional options for token creation
    */
-  private async createTokens(type: "id" | "api" | "oidc", subject: number, client: number | null, closeSessionId: string | null, nonce: string | null, options?: AuthTokenOptions) {
+  async createTokens(type: "id" | "api" | "oidc", subject: number, client: number | null, closeSessionId: string | null, nonce: string | null, options?: AuthTokenOptions) {
     /* TODO:
       - do we need an intermediate 'createJWT' that uses the schema's configuration but doesn't create the tokens in the database?
       - do we need to support an 'ephemeral' mode where we don't actually commit the tokens to the database? (more like current wrdauth which only has
@@ -959,55 +959,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  /** List active tokens */
-  async listTokens(userid: number): Promise<Array<{
-    id: number;
-    type: "id" | "api";
-    metadata: unknown;
-    created: Temporal.Instant;
-    expires: Temporal.Instant | null;
-    scopes: string[];
-  }>> {
-    const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
-      where("entity", "=", userid).
-      select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
-      execute();
-
-    return tokens.map(token => ({
-      id: token.id,
-      type: token.type as "id" | "api",
-      metadata: token.metadata ? parseTyped(token.metadata) : null,
-      created: token.creationdate.toTemporalInstant(),
-      expires: token.expirationdate.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
-      scopes: token.scopes ? token.scopes.split(" ") : []
-    }));
-  }
-
-  /** Delete token */
-  async deleteToken(id: number): Promise<void> {
-    await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", id).execute();
-  }
-
-  /** Create a token for use with this server
-   * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
-   * @param userid - Entity associated with this token
-   */
-  async createFirstPartyToken(type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
-  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
-
-  async createFirstPartyToken(type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
-    if (options?.scopes?.includes("openid"))
-      throw new Error("Only third party tokens can request an openid scope");
-
-    //FIXME adopt expiry settings from HS WRDAuth
-    const tokens = await this.createTokens(type, userid, null, null, null, options);
-    return {
-      id: tokens.tokenId,
-      accessToken: tokens.access_token,
-      expires: tokens.expires ? Temporal.Instant.fromEpochSeconds(tokens.expires) : null
-    };
-  }
-
   private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: WRDAuthCustomizer | null, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
@@ -1042,9 +993,70 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
 
-    const retval: LoginResult = { loggedIn: true, ...await this.createFirstPartyToken("id", userid, { customizer }) };
+    const retval: LoginResult = { loggedIn: true, ...await createFirstPartyToken(this.wrdschema, "id", userid, { customizer }) };
     if (customizer?.onFrontendUserInfo)
       retval.userInfo = await customizer.onFrontendUserInfo(userid);
     return retval;
   }
+}
+
+/** Create a token for use with this server
+ * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
+ * @param userid - Entity associated with this token
+ */
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken & { expires: Temporal.Instant }>; //id tokens always expire
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken>;
+
+export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, type: "id" | "api", userid: number, options?: AuthTokenOptions): Promise<FirstPartyToken> {
+  if (options?.scopes?.includes("openid"))
+    throw new Error("Only third party tokens can request an openid scope");
+
+  //FIXME adopt expiry settings from HS WRDAuth
+  const prov = new IdentityProvider(wrdSchema);
+  const tokens = await prov.createTokens(type, userid, null, null, null, options);
+  return {
+    id: tokens.tokenId,
+    accessToken: tokens.access_token,
+    expires: tokens.expires ? Temporal.Instant.fromEpochSeconds(tokens.expires) : null
+  };
+}
+
+
+export type ListedToken = {
+  id: number;
+  type: "id" | "api";
+  metadata: unknown;
+  created: Temporal.Instant;
+  expires: Temporal.Instant | null;
+  scopes: string[];
+};
+
+/** List active tokens
+ * @param wrdSchema - The schema to list tokens for
+ * @param entityId - The entity id to list tokens for
+ * @returns A list of tokens
+*/
+export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, entityId: number): Promise<ListedToken[]> {
+  const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
+    where("entity", "=", entityId).
+    select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
+    execute();
+
+  return tokens.map(token => ({
+    id: token.id,
+    type: token.type as "id" | "api",
+    metadata: token.metadata ? parseTyped(token.metadata) : null,
+    created: token.creationdate.toTemporalInstant(),
+    expires: token.expirationdate.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
+    scopes: token.scopes ? token.scopes.split(" ") : []
+  }));
+}
+
+/** Delete token
+* @param wrdSchema - The schema to list tokens for
+* @param tokenId - The token id to delete
+* @returns A list of tokens
+*/
+export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+  await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }

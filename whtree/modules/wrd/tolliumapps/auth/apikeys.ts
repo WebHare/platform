@@ -1,12 +1,11 @@
 import { toSnakeCase } from "@webhare/std";
 import { runInWork } from "@webhare/whdb";
-import { IdentityProvider } from "@webhare/auth/src/identity";
+import { createFirstPartyToken, deleteToken, listTokens } from "@webhare/auth";
 import { WRDSchema } from "@webhare/wrd";
 
 
 export async function getAPIKeys(wrdschema: string, entity: number) {
-  const idp = new IdentityProvider(new WRDSchema(wrdschema));
-  return toSnakeCase(await idp.listTokens(entity));
+  return toSnakeCase(await listTokens(new WRDSchema(wrdschema), entity));
 }
 
 export async function createAPIkey(wrdschema: string, entity: number): Promise<{
@@ -14,12 +13,10 @@ export async function createAPIkey(wrdschema: string, entity: number): Promise<{
   expires: Temporal.Instant | null;
   id: number;
 }> {
-  const idp = new IdentityProvider(new WRDSchema(wrdschema));
-  const tok = await idp.createFirstPartyToken("api", entity);
+  const tok = await createFirstPartyToken(new WRDSchema(wrdschema), "api", entity);
   return toSnakeCase(tok);
 }
 
 export async function deleteAPIKey(wrdschema: string, keyId: number) {
-  const idp = new IdentityProvider(new WRDSchema(wrdschema));
-  return await runInWork(() => idp.deleteToken(keyId));
+  return await runInWork(() => deleteToken(new WRDSchema(wrdschema), keyId));
 }
