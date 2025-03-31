@@ -1,23 +1,22 @@
 import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse, createRedirectResponse } from "@webhare/router";
-import { getApplyTesterForObject, getApplyTesterForURL } from "@webhare/whfs/src/applytester";
+import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema, type WRDAuthCustomizer } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
-import { generateRandomId, joinURL, pick } from "@webhare/std";
+import { joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { IdentityProvider, type LoginErrorCodes, type LoginRemoteOptions } from "@webhare/wrd/src/auth";
-import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
+import { IdentityProvider, type LoginErrorCodes } from "@webhare/wrd/src/auth";
 import { loadJSObject } from "@webhare/services";
-import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 
 export type FrontendLoginResult = {
   loggedIn: true;
   expires: Date; //TODO Temporal.Instant but that forces us to import the Temporal polyfill in @ewbhare/fronternd
   userInfo?: object;
 } | {
+  loggedIn: false;
   error: string;
   code: LoginErrorCodes;
 };
@@ -64,95 +63,8 @@ async function findLoginPageForSchema(schema: string) {
   return { loginPage, cookieName: candidates[0].cookieName, customizer: candidates[0].customizer };
 }
 
-async function handleFrontendService(req: WebRequest): Promise<WebResponse> {
-  const params = new URL(req.url).searchParams;
-  const url = req.getOriginURL(params.get('pathname') || '');
-  if (!url)
-    return createJSONResponse(400, { error: "Cannot determine origin URL" });
-
-  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
-  const applytester = await getApplyTesterForURL(url);
-  const settings = await applytester?.getWRDAuth();
-  if (!settings?.wrdSchema)
-    return createJSONResponse(400, { error: "No WRD schema defined for URL " + url });
-
-  const customizer = settings.customizer ? await loadJSObject(settings.customizer) as WRDAuthCustomizer : null;
-
-  const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
-  const provider = new IdentityProvider(wrdschema);
-
-  const { idCookie, ignoreCookies } = getIdCookieName(req, settings);
-
-  const secure = req.url.startsWith("https:");
-
-  const cookieSettings: ServersideCookieOptions = {
-    httpOnly: true, //XSS protection
-    secure, //mirror secure if the request was
-    path: "/", //we don't support limiting WRD cookies to subpaths as various helper pages are at /.wh/
-    sameSite: settings.sameSite,
-  };
-
-  //FIXME validate body size and reject decoding huge bodies. but Webrequest doesn't give us quick access to the body size yet
-  switch (params.get('type')) {
-    case "login": {
-      //TODO? could move this API closer to OAUTH username/password flow https://datatracker.ietf.org/doc/html/rfc6749#section-4.3
-      const body = await req.json() as { username: string; password: string; cookieName: string; options?: LoginRemoteOptions };
-      if (typeof body?.username !== "string" || typeof body?.password !== "string")
-        return createJSONResponse(400, { code: "internal-error", error: "Invalid body" } satisfies FrontendLoginResult);
-
-      if (body?.cookieName !== settings.cookieName) {
-        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: login offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLoginResult);
-      }
-
-      const response = await provider.handleFrontendLogin(body.username, body.password, customizer, pick(body.options || {}, ["persistent", "site"]));
-      if (response.loggedIn === true) {
-        /* FIXME return expiry info etc to user. set expiry in cookie too
-            have createJSONResponse supply us with a proper cookie header builder. get SameSite= from WRD settings. set Secure if request is secure. set domain if WRD settings say so
-            */
-
-        //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too (but probably not inside the plugin)
-        //generateRandomId is prefixed to support C++ webserver webharelogin caching
-        const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
-        const responseBody: FrontendLoginResult = {
-          loggedIn: true,
-          expires: new Date(response.expires.epochMilliseconds)
-        };
-
-        if (response.userInfo)
-          responseBody.userInfo = response.userInfo;
-
-        const headers = new Headers;
-        headers.append("Set-Cookie", buildCookieHeader(idCookie, logincookie, { ...cookieSettings, expires: response.expires }));
-        for (const toClear of ignoreCookies)
-          headers.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
-
-        return createJSONResponse(200, responseBody, { headers, typed: true });
-      } else
-        return createJSONResponse(400, { code: response.code, error: response.error } satisfies FrontendLoginResult);
-    }
-    case "logout": {
-      const body = await req.json() as { cookieName: string };
-      if (body?.cookieName !== settings.cookieName) {
-        return createJSONResponse(400, { code: "internal-error", error: `WRDAUTH: logout offered a different cookie name than expected: ${body.cookieName} instead of ${settings.cookieName}` } satisfies FrontendLogoutResult);
-      }
-
-      const headers = new Headers;
-      for (const killCookie of [idCookie, ...ignoreCookies])
-        headers.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
-
-      return createJSONResponse(200, {
-        success: true
-      } satisfies FrontendLogoutResult, { headers });
-    }
-  }
-
-  return createJSONResponse(400, { code: "internal-error", error: "Invalid frontend request" });
-}
-
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   const pathname = new URL(req.url).pathname;
-  if (pathname === "/.wh/openid/frontendservice")
-    return handleFrontendService(req);
 
   const endpoint = pathname.match(/^\/.wh\/openid\/([^/]+)\/([^/]+)\/([^/?]+)/);
   if (!endpoint)

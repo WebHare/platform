@@ -1,12 +1,11 @@
 import { createClient } from "@webhare/jsonrpc-client";
 import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
-import type { FrontendLoginResult, FrontendLogoutResult } from "@mod-platform/js/auth/openid";
 import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
+import { createRPCClient } from "@webhare/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
-import { parseTyped, stringify } from "@webhare/std";
 
 /** WRDAuth configuration */
 export interface WRDAuthOptions {
@@ -156,14 +155,8 @@ export function getUserInfo<T extends object = object>(): T | null {
 
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
-  const data = { username, password, cookieName: getCookieName(), options };
-  const result = parseTyped(await (await fetch(`/.wh/openid/frontendservice?type=login&pathname=${encodeURIComponent(location.pathname)}`, {
-    method: "post",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: stringify(data, { typed: true })
-  })).text()) as FrontendLoginResult;
+  const service = createRPCClient("platform:authservice");
+  const result = await service.login(username, password, getCookieName(), options);
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
@@ -177,19 +170,8 @@ export async function login(username: string, password: string, options: LoginOp
 }
 
 export async function logout() {
-  const data = { cookieName: getCookieName() };
-  const result = await (await fetch(`/.wh/openid/frontendservice?type=logout&pathname=${encodeURIComponent(location.pathname)}`, {
-    method: "post",
-    headers: {
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(data)
-  })).json() as FrontendLogoutResult;
-  if ("error" in result) {
-    console.error("Logout failed", result.error);
-    return { success: false, error: result.error };
-  }
-
+  const service = createRPCClient("platform:authservice");
+  await service.logout(getCookieName());
   dompack.setLocal(getStorageKeyName(), null);
   return { success: true };
 }
