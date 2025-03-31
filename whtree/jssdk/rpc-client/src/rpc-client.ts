@@ -161,8 +161,16 @@ class ControlledCall {
         }
       }
 
-      if (!this.options.silent)
-        this.client._tryLogError(requestStack, err);
+      if (this.options.debug) {
+        console.group();
+        console.warn("RPC failed:", err);
+        if (requestStack) {
+          console.warn("Stack at calling point");
+          console.log(requestStack);
+        }
+        console.groupEnd();
+      }
+
       throw err;
     }
 
@@ -188,13 +196,6 @@ class RPCClient {
   }
 
   _tryLogError(requestStack: StackTrace | null, error: Error) {
-    console.group();
-    console.warn("RPC failed:", error);
-    if (requestStack) {
-      console.warn("Stack at calling point");
-      console.log(requestStack);
-    }
-    console.groupEnd();
   }
 
   invoke(method: string, params: unknown[]) {

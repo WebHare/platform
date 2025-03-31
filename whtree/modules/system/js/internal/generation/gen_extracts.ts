@@ -12,6 +12,7 @@ import { stringify, throwError } from "@webhare/std";
 import type { Document } from "@xmldom/xmldom";
 import { generateTasks } from "./gen_extract_tasks";
 
+const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
   name: string; //full name
   entryPoint: string;
@@ -52,6 +53,7 @@ export interface OpenAPIDescriptor {
 export interface TypedServiceDescriptor {
   name: string;
   api: string;
+  maxBodySize: number;
 }
 
 export interface Services {
@@ -234,7 +236,8 @@ export async function gatherServices(context: GenerateContext) {
     for (const [servicename, servicedef] of Object.entries(mod.modYml?.rpcServices ?? [])) {
       retval.rpcServices.push({
         name: `${mod.name}:${servicename}`,
-        api: resolveResource(mod.resourceBase, servicedef.api)
+        api: resolveResource(mod.resourceBase, servicedef.api),
+        maxBodySize: servicedef.maxBodySize || DefaultMaxBodySize
       });
     }
 

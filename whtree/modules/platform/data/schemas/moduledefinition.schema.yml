@@ -228,6 +228,10 @@ $defs:
           api:
             description: "Path to the API object"
             type: string
+          maxBodySize:
+            description: "Maximum body size for the request in bytes. Defaults to 64KB" #DefaultMaxBodySize
+            type: integer
+            minimum: 0
 
   # Filter where backend hooks are applied
   ContextFilter:

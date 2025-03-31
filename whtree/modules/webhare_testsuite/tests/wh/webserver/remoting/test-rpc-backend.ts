@@ -87,6 +87,9 @@ async function testTypedClient() {
 
   test.eq([getTypedStringifyableData()], await testAPIService.echo(getTypedStringifyableData()));
 
+  await test.throws(/Request body too large/, () => testAPIService.echo({ huge: "Huge!".repeat(65536 / "Huge!".length) }));
+  await test.throws(/Too many arguments/, () => testAPIService.echo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17));
+
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
   initEnv(DTAPStage.Development, "http://127.0.0.1:65500/");

@@ -10,6 +10,8 @@ import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts"
 import { logError } from "@webhare/services";
 import type { TypedServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
 
+const MaxRPCArguments = 16;
+
 function getDebugData(error?: unknown) {
   const trace: StackTrace = error && typeof error === "object" && "stack" in error ? parseTrace(error as Error) : [];
   return {
@@ -47,9 +49,17 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
 
   let params;
   try {
-    params = parseTyped(await req.text()) as unknown[];
+    const text = await req.text(); //TODO can we stream this so we won't even attempt to allocate over maxBodySize
+    // We'll do the more expensive check (Buffer.byteLength) only if you might be close
+    if (text.length > matchservice.maxBodySize || (text.length > matchservice.maxBodySize / 2 && Buffer.byteLength(text) > matchservice.maxBodySize))
+      return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Request body too large` });
+
+    params = parseTyped(text) as unknown[];
     if (!Array.isArray(params))
       return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Request body must be an array` });
+    if (params.length > MaxRPCArguments)
+      return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Too many arguments` });
+
   } catch (e) {
     return createRPCResponse(HTTPErrorCode.BadRequest, { error: "Invalid request body" });
   }
