@@ -1,5 +1,5 @@
 import * as test from "@webhare/test-backend";
-import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
+import { systemUsermgmtSchema, wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { createFirstPartyToken, listTokens, deleteToken, type FirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
@@ -61,12 +61,15 @@ async function setupWHAPITest() {
     { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } }
   ], tokens);
 
+  await test.throws(/does not belong to schema system:usermgmt/, () => deleteToken(systemUsermgmtSchema, tokens[0].id));
   await runInWork(() => deleteToken(wrdTestschemaSchema, tokens[0].id));
   test.eq(2, (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).length);
 
+  await test.throws(/No such .* system:usermgmt/, () => createFirstPartyToken(systemUsermgmtSchema, "id", test.getUser("sysop").wrdId));
   infiniteToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("sysop").wrdId, { expires: Infinity });
   test.eq(null, infiniteToken.expires);
 
+  await test.throws(/does not belong to schema system:usermgmt/, () => listTokens(systemUsermgmtSchema, test.getUser("sysop").wrdId));
   const infiniteTokenInfo = (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).find(_ => _.id === infiniteToken.id);
   test.eq(null, infiniteTokenInfo?.expires);
 

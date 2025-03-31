@@ -1037,6 +1037,17 @@ export type ListedToken = {
  * @returns A list of tokens
 */
 export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, entityId: number): Promise<ListedToken[]> {
+  const entity =
+    await db<PlatformDB>().selectFrom("wrd.entities").
+      where("wrd.entities.id", "=", entityId).
+      fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
+      fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
+      select("wrd.schemas.name").
+      executeTakeFirst();
+
+  if (entity?.name !== wrdSchema.tag)
+    throw new Error(`Entity #${entityId} does not belong to schema ${wrdSchema.tag}`);
+
   const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
     where("entity", "=", entityId).
     select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
@@ -1058,5 +1069,17 @@ export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDS
 * @returns A list of tokens
 */
 export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+  const token =
+    await db<PlatformDB>().selectFrom("wrd.tokens").
+      where("wrd.tokens.id", "=", tokenId).
+      fullJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
+      fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
+      fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
+      select("wrd.schemas.name").
+      executeTakeFirst();
+
+  if (token?.name !== wrdSchema.tag)
+    throw new Error(`Token #${tokenId} does not belong to schema ${wrdSchema.tag}`);
+
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }
