@@ -28,10 +28,10 @@ export async function generateServicesDefs(context: GenerateContext, mods: strin
 
   return `${generatorBanner}
 
-import type { } from "@webhare/rpc-client";
+import type { } from "@webhare/rpc";
 ${imports.join("\n")}
 
-declare module "@webhare/rpc-client" {
+declare module "@webhare/rpc" {
   interface KnownRPCServices {
 ${types.join("\n")}
   }

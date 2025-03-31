@@ -1,5 +1,5 @@
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
-declare module "@webhare/rpc-client" {
+declare module "@webhare/rpc" {
   export interface KnownRPCServices {
     /* Filled by generated services.ts files */
   }
@@ -247,7 +247,7 @@ class ServiceProxy<Service extends keyof KnownRPCServices | object> {
           ...options,
           headers: { ...this.client.options.headers, ...options.headers }
         };
-        return createRPCClient(this.client.url as (Service extends keyof KnownRPCServices ? Service : string), newoptions);
+        return rpc(this.client.url as (Service extends keyof KnownRPCServices ? Service : string), newoptions);
       };
     }
 
@@ -275,10 +275,10 @@ export type GetRPCClientInterface<Service extends (keyof KnownRPCServices) | obj
 /** Create a WebHare RPC client
   @param service - URL (https://<ORIGIN>/.wh/rpc/module/service/) or service name (module:service) to invoke
 */
-export function createRPCClient<Service extends keyof KnownRPCServices>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
-export function createRPCClient<Service extends object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+export function rpc<Service extends keyof KnownRPCServices>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+export function rpc<Service extends object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
 
-export function createRPCClient<Service extends keyof KnownRPCServices | object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service> {
+export function rpc<Service extends keyof KnownRPCServices | object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service> {
   //NOTE: needed the separate overloads to get Intellisense to list the known services for createRPClient's first argument
 
   if (!service)

@@ -2,7 +2,7 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import type { LoginRemoteOptions } from "@webhare/wrd/src/auth";
-import { createRPCClient } from "@webhare/rpc-client";
+import { rpc } from "@webhare/rpc/src/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
@@ -155,8 +155,7 @@ export function getUserInfo<T extends object = object>(): T | null {
 
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
-  const service = createRPCClient("platform:authservice");
-  const result = await service.login(username, password, getCookieName(), options);
+  const result = await rpc("platform:authservice").login(username, password, getCookieName(), options);
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
@@ -170,8 +169,7 @@ export async function login(username: string, password: string, options: LoginOp
 }
 
 export async function logout() {
-  const service = createRPCClient("platform:authservice");
-  await service.logout(getCookieName());
+  await rpc("platform:authservice").logout(getCookieName());
   dompack.setLocal(getStorageKeyName(), null);
   return { success: true };
 }

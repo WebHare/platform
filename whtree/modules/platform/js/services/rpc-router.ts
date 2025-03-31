@@ -5,7 +5,7 @@ import { getOriginURL, type RPCContext, type WebRequest, type WebResponse } from
 import { createRPCResponse, HTTPErrorCode, HTTPSuccessCode, RPCError } from "@webhare/router/src/response";
 import { loadJSExport } from "@webhare/services/src/resourcetools";
 import { parseTyped } from "@webhare/std";
-import type { RPCResponse } from "@webhare/rpc-client";
+import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { logError } from "@webhare/services";
 import type { TypedServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";

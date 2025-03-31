@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-frontend";
 import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
-import { createRPCClient } from "@webhare/rpc-client";
+import { rpc } from "@webhare/rpc";
 import { getTypedStringifyableData } from "@mod-webhare_testsuite/js/ci/testdata";
 
 import "@webhare/deps/temporal-polyfill";
@@ -9,7 +9,7 @@ test.runTests(
   [
     "Basic rpc",
     async function () {
-      const testAPIService = createRPCClient("webhare_testsuite:testapi");
+      const testAPIService = rpc("webhare_testsuite:testapi");
       let controller = new AbortController;
       let call;
 
@@ -60,9 +60,9 @@ test.runTests(
 
     "Use real URLS",
     async function () {
-      test.throws(/end in a slash/, () => createRPCClient<typeof testAPI>(location.origin + "/.wh/rpc//webhare_testsuite/testapi"));
-      const rpc = createRPCClient<typeof testAPI>(location.origin + "/.wh/rpc/webhare_testsuite/testapi/");
-      test.eq(['Hi'], await rpc.echo('Hi'));
+      test.throws(/end in a slash/, () => rpc<typeof testAPI>(location.origin + "/.wh/rpc//webhare_testsuite/testapi"));
+      const client = rpc<typeof testAPI>(location.origin + "/.wh/rpc/webhare_testsuite/testapi/");
+      test.eq(['Hi'], await client.echo('Hi'));
     }
 
   ]);
