@@ -6,7 +6,6 @@ declare module "@webhare/rpc" {
 }
 
 import { debugFlags, backendBase } from "@webhare/env";
-import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { type StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 import { omit, parseTyped, stringify } from "@webhare/std";
 
@@ -47,18 +46,34 @@ export interface RPCClientOptions {
 }
 
 /** RPC Response format */
-export type RPCResponse = {
+export type RPCResponse = ({
   /** Result. Not present if the function didn't return anything */
   result?: unknown;
-  /** Captured console log entries (if 'etr' debugFlag is set) */
-  consoleLog?: Serialized<ConsoleLogItem[]>;
 } | {
   /** Error message */
   error: string;
-  /** Captured console log entries (if 'etr' debugFlag is set) */
-  consoleLog?: Serialized<ConsoleLogItem[]>;
   /** Captured stack trace (if 'etr' debugFlag is set) */
   trace?: StackTrace;
+}) & {
+  /** Captured console log entries (if 'etr' debugFlag is set) */
+  consoleLog?: Array<{
+    //TODO this is Serialized<ConsoleLogItem[]> - should probably rename it to SerializedToJSON and move to std or env ?
+    /** Date when console function was called */
+    when: string;
+    /** `console` method that was called (eg 'log') */
+    method: string;
+    /** Logged data */
+    data: string;
+    /** Location of caller */
+    location?: {
+      filename: string;
+      line: number;
+      col: number;
+      func: string;
+    };
+    /** Codecontext */
+    codeContextId?: string;
+  }>;
 };
 
 class ControlledCall {

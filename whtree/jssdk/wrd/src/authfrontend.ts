@@ -1,11 +1,11 @@
-import type { WebRequest } from "@webhare/router/src/request";
+import type { SupportedRequestSubset, WebRequest } from "@webhare/router/src/request";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { IdentityProvider } from "./auth";
 
 /** Get cookie names to use AND which ones to ignore */
-export function getIdCookieName(req: WebRequest, wrdauth: WRDAuthPluginSettings) {
+export function getIdCookieName(req: SupportedRequestSubset, wrdauth: WRDAuthPluginSettings) {
   const secure = req.url.startsWith("https:");
   //If securely accessed, we can use the __Host- or __Secure- prefix for cookies depending on whether we need to expose the cookie to a larger domain
   const useprefix = (secure ? wrdauth.cookieDomain ? "__Secure-" : "__Host-" : "");

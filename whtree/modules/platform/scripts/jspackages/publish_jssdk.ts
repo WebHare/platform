@@ -15,11 +15,12 @@ wh run mod::platform/scripts/jspackages/publish_jssdk.ts --publish-alpha --verbo
 import { run } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { type StdioOptions, spawnSync } from "child_process";
-import { cp, mkdir, rm, readFile, writeFile } from "fs/promises";
+import { cp, mkdir, rm, readFile, writeFile, mkdtemp } from "fs/promises";
 import { join } from "path";
 import { pick } from '@webhare/std';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
 import type { PackageJson } from "../../js/devsupport/jspackages";
+import { tmpdir } from "os";
 
 run({
   description: "Validate/lint the WebHaer JSSDK packages",
@@ -27,6 +28,9 @@ run({
     "v,verbose": { description: "Verbose log level" },
     "publish-alpha": { description: "Publish alpha packages" },
     "publish-prod": { description: "Publish production packages" },
+  },
+  options: {
+    "work-dir": { description: "Override directory where packages are temporarily built" }
   },
   main: async ({ opts }) => {
     const { verbose, publishAlpha, publishProd } = opts;
@@ -38,9 +42,13 @@ run({
 
     const axioms = await readAxioms();
 
-    const workdir = join(backendConfig.dataroot, "tmp", "publish_jssdk");
-    if (verbose)
-      console.log(`Work dir: ${workdir}`);
+    /* We can't publish from any folder inside whdata/(tmp/) as the whdata/node_module will confuse the build process
+       And tmpfs does funny things to npm... (it dies trying to invoke an esbuild which hasn't beeln downloaded yet)
+       so on docker we'll use /var/tmp/ instead
+    */
+    const inDocker = process.env["WEBHARE_IN_DOCKER"] === "1";
+    const workdir = opts.workDir || await mkdtemp(join(inDocker ? "/var/tmp/" : tmpdir(), "publish_jssdk."));
+    console.log(`Work dir: ${workdir}`);
     const [majorText, minorText] = backendConfig.buildinfo.version.split(".");
     const major = parseInt(majorText);
     const minor = parseInt(minorText);
@@ -120,6 +128,26 @@ run({
       const readme = `${(await readFile(join(pkgroot, "README.md"), "utf8")).trim()}\n\n## Publication source\nThe [source code for @webhare/${pkgname}](${sourcelink}) is part of the WebHare Platform\n`;
       await writeFile(join(pkgroot, "README.md"), readme, "utf8");
 
+      //Prepare tsconfig.json
+      const tsconfig = {
+        include: [packagejson.main],
+        compilerOptions: {
+          target: "es2024",
+          lib: ["es2024", "dom", "dom.iterable"],
+          noEmit: false,
+          declaration: true,
+          strict: true,
+          module: "commonjs",
+          types: [join(backendConfig.installationroot, "node_modules/@types/node")],
+          paths: { ["@webhare/" + pkgname]: ["."] } as Record<string, string[]>
+        }
+      };
+
+      //Add paths as we don't want to link packages together through node_modules
+      for (const [key] of [...Object.entries(packagejson.dependencies || {}), ...Object.entries(packagejson.devDependencies || {})])
+        if (key.startsWith("@webhare/"))
+          tsconfig.compilerOptions.paths[key] = ["../" + key.split('/')[1]];
+
       //Install it. Must be done before running TSC so external dependencies are added
       //Write a package json without external dependencies so as not to confuse npm install
       const depfree = structuredClone(packagejson);
@@ -136,30 +164,19 @@ run({
         throw new Error(`Failed to pack ${pkgname} (use --verbose for more info)`);
 
       //If TS, compile it and update the src
-      const src = packagejson.main;
-      if (src?.endsWith(".ts") || src?.endsWith(".tsx")) {
+      if (packagejson.main?.endsWith(".ts") || packagejson.main?.endsWith(".tsx")) {
         //Do not extend from whtree/tsconfig.json - we'll pick up all the paths and not properly keep dependencies external
-        await writeFile(join(pkgroot, "tsconfig.json"), JSON.stringify({
-          include: [src],
-          compilerOptions: {
-            target: "es2024",
-            lib: ["es2024", "dom", "dom.iterable"],
-            noEmit: false,
-            declaration: true,
-            strict: true,
-            module: "commonjs",
-            types: [join(backendConfig.installationroot, "node_modules/@types/node")],
-            paths: { ["@webhare/" + pkgname]: ["."] }
-          }
-        }, null, 2), "utf8");
+        await writeFile(join(pkgroot, "tsconfig.json"), JSON.stringify(tsconfig, null, 2), "utf8");
 
         /* NOTE
             add --showConfig to dump final configuration
             add --traceResolution to debug import lookups
         */
         const result = spawnSync(join(backendConfig.installationroot, "node_modules/.bin/tsc"), ["--outDir", "dist/"], { cwd: pkgroot, stdio });
-        if (result.status)
+        if (result.status) {
+          console.error(`${pkgname} in ${pkgroot} failed`);
           throw new Error(`Failed to compile ${pkgname} (use --verbose for more info)`);
+        }
 
         packagejson.main = "dist/" + pkgname + ".js";
       }
@@ -215,5 +232,8 @@ run({
           throw new Error(`Failed to pack ${pkgname} (use --verbose for more info)`);
       }
     }
+
+    if (inDocker)
+      await rm(workdir, { recursive: true, force: true }); //clean up the build dir so it doesn't stay in the layer
   }
 });
