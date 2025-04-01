@@ -1,4 +1,4 @@
-/* wts-backend extends @webhare/test-backend with resources that only exist in webhare_testsuite, eg the wevhare_testsuite.testsite* sites */
+/* wts-backend extends @webhare/test-backend with resources that only exist in webhare_testsuite, eg the webhare_testsuite.testsite* sites */
 import * as test from "@webhare/test-backend";
 export * from "@webhare/test-backend";
 
