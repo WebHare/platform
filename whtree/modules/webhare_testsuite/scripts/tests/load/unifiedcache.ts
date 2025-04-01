@@ -1,6 +1,6 @@
 /* Load test the image cache */
 
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { run } from "@webhare/cli";
 import { backendConfig } from "@webhare/services";
 import { rmSync } from "node:fs";

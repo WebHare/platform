@@ -1,6 +1,6 @@
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, RichTextDocument, WebHareBlob, type Widget } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
-import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";

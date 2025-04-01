@@ -1,4 +1,4 @@
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { getApplyTesterForMockedObject, getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { openFile, openFolder } from "@webhare/whfs";
 import { describeMetaTabs, remapForHs } from "@mod-publisher/lib/internal/siteprofiles/metatabs";

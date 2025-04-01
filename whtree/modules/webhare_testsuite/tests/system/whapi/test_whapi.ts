@@ -1,4 +1,4 @@
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { systemUsermgmtSchema, wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { createFirstPartyToken, listTokens, deleteToken, type FirstPartyToken, updateToken, getToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";

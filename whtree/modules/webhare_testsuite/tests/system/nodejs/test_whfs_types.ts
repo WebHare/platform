@@ -1,4 +1,4 @@
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";

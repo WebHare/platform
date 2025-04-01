@@ -4,7 +4,8 @@
 
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import { loadlib, makeObject } from "@webhare/harescript";
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
+
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";

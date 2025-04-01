@@ -1,5 +1,5 @@
 import * as whdb from "@webhare/whdb";
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer } from "@webhare/auth";
 import { AuthenticationSettings } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";

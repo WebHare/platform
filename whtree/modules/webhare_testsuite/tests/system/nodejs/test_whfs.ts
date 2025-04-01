@@ -1,4 +1,4 @@
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
@@ -574,7 +574,7 @@ async function testLookup() {
 }
 
 test.runTests([
-  test.reset,
+  test.resetWTS,
   testWHFS,
   testGenerateUniqueName,
   testLookup

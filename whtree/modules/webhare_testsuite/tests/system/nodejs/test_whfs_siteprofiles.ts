@@ -1,4 +1,4 @@
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { getApplyTesterForMockedObject, getApplyTesterForObject, getApplyTesterForURL } from "@webhare/whfs/src/applytester";
