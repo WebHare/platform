@@ -1,4 +1,4 @@
-//@ts-ignore -- Dynamically generated so ignore anay errors
+//@ts-ignore -- Dynamically generated so ignore any errors
 import { interfaceServers } from "wh:ts/public-config";
 import { isHTMLElement } from "@webhare/dompack";
 
