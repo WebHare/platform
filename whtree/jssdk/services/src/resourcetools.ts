@@ -84,20 +84,28 @@ export async function importJSExport<T = unknown>(name: string): Promise<T> {
   }
 }
 
-export async function importJSObject(objectname: string, ...args: unknown[]): Promise<object> {
-  const obj = await importJSExport<AnyConstructor>(objectname);
-  return new obj(...args);
+/** Import an object dynamically from a library.
+ * @typeParam ObjectType - the type of the object expected
+ * @param objectname - the `library#name` of the object to import. If it's a constructor it will be invoked with the provided arguments
+ * @returns The requested object
+ */
+export async function importJSObject<ObjectType extends object>(objectname: string, ...args: unknown[]): Promise<ObjectType> {
+  const obj = await importJSExport<object | AnyConstructor>(objectname);
+  if (typeof obj === "function")
+    return new (obj as AnyConstructor)(...args) as ObjectType;
+  else
+    return obj as ObjectType;
 }
 
 export async function importJSFunction<F extends (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need any for wide compatibility with function signatures
   (...args: any[]) => unknown) //accepts functions
-  | AnyConstructor //accepts constructors. workers want this (TODO unsure why they can't just standardize on a factory like all other code?)
   | void = void> //'void' is only there to trigger an error
   (funcname: string & (F extends void ? "You must provide a callback type" : unknown)): Promise<F> {
   const func = await importJSExport<F>(funcname);
+
   if (typeof func !== "function") {
-    throw new Error(`Imported symbol ${funcname} is not a function, but a ${typeof func}`);
+    throw new Error(`Imported symbol ${funcname} is not a function but of type ${typeof func}`);
   }
 
   return func;

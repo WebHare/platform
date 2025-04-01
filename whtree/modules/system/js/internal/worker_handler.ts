@@ -25,9 +25,7 @@ export class WorkerHandler {
       case "instantiateServiceRequest": {
         try {
           const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>("WorkerHandler " + message.func);
-          const serviceclass = message.isfactory ?
-            await (await importJSFunction<ServiceRequestFactoryFunction>(message.func))(...message.params) as object :
-            new (await importJSFunction<ServiceRequestConstructor>(message.func))(...message.params) as object;
+          const serviceclass = await (await importJSFunction<ServiceRequestFactoryFunction>(message.func))(...message.params);
           if (!serviceclass || typeof serviceclass !== "object")
             throw new Error(`Factory did not return an object`);
           const description = describePublicInterface(serviceclass);

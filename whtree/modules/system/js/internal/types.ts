@@ -106,7 +106,6 @@ export type WorkerControlLinkRequest = {
   func: string;
   params: unknown[];
   id: number;
-  isfactory: boolean;
 } | WorkerServiceLinkRequest;
 
 export type WorkerControlLinkResponse = {
