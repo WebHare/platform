@@ -306,12 +306,6 @@ export interface JWTVerificationOptions {
   audience?: string | RegExp | Array<string | RegExp>;
 }
 
-export interface ServiceProviderInit {
-  title: string;
-  callbackUrls?: string[];
-  subjectField?: string;
-}
-
 export interface VerifyAccessTokenResult {
   ///wrdId of the found subject
   entity: number;
@@ -323,12 +317,6 @@ export interface VerifyAccessTokenResult {
   expires: Temporal.Instant | null;
   //id of the used token (refers to wrd.tokens table)
   tokenId: number;
-}
-
-export interface ClientConfig {
-  wrdId: number;
-  clientId: string;
-  clientSecret: string;
 }
 
 /** Configuring the WRDAuth provider */
@@ -425,7 +413,7 @@ function hashSHA256(secret: string): Buffer {
   return hasher.digest();
 }
 
-function hashClientSecret(secret: string): string {
+export function hashClientSecret(secret: string): string {
   return hashSHA256(secret).toString("base64url");
 }
 
@@ -455,7 +443,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     this.config = config || {};
   }
 
-  private async ensureSigningKeys(): Promise<SigningKey[]> {
+  async ensureSigningKeys(): Promise<SigningKey[]> {
     //FIXME this is still deadlock-prone if someone already updated the schemasettings before invoking us. consider moving this to wh apply wrd (as soon as it's in TS)
     //FIXME readd the option to set up RSA keys if explicitly asked for by a client
     return await runInSeparateWork(async () => {
@@ -477,31 +465,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       return signingKeys;
     }, { mutex: "wrd:authplugin.signingkeys" });
-  }
-
-  async initializeIssuer(issuer: string): Promise<void> {
-    await this.ensureSigningKeys();
-    await updateSchemaSettings(this.wrdschema, { issuer });
-  }
-
-  async createServiceProvider(spSettings: ServiceProviderInit): Promise<ClientConfig> {
-    const clientId = generateRandomId("uuidv4");
-    const clientSecret = generateRandomId("base64url", 24);
-    const wrdId = await this.wrdschema.insert("wrdauthServiceProvider", {
-      wrdTitle: spSettings.title || "Client " + clientId,
-      wrdGuid: clientId,
-      clientSecrets:
-        [
-          {
-            created: new Date,
-            secretHash: hashClientSecret(clientSecret)
-          }
-        ],
-      callbackUrls: spSettings.callbackUrls?.map(url => ({ url })) ?? [],
-      subjectField: spSettings.subjectField || ""
-    });
-
-    return { wrdId, clientId: compressUUID(clientId), clientSecret };
   }
 
   private async getKeyConfig() {

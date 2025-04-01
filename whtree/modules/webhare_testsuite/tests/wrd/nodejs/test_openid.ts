@@ -8,7 +8,8 @@ import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
-import { IdentityProvider, createCodeVerifier } from "@webhare/auth/src/identity";
+import { createServiceProvider, initializeIssuer } from "@webhare/auth";
+import { createCodeVerifier } from "@webhare/auth/src/identity";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";
@@ -76,11 +77,10 @@ async function setupOIDC() {
     });
 
     const schema = new WRDSchema("wrd:testschema");
-    const provider = new IdentityProvider(schema);
-    await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");
+    await initializeIssuer(schema, "https://my.webhare.dev/testfw/issuer");
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
-    ({ wrdId: clientWrdId, clientId, clientSecret } = await provider.createServiceProvider({ title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
+    ({ wrdId: clientWrdId, clientId, clientSecret } = await createServiceProvider(schema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
 
     //Also register it ourselves for later use
     const testsite = await test.getTestSiteJS();

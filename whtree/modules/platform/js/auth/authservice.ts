@@ -5,7 +5,8 @@ import { importJSObject } from "@webhare/services";
 import { generateRandomId, pick, throwError } from "@webhare/std";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
-import { IdentityProvider, type LoginRemoteOptions, type WRDAuthCustomizer } from "@webhare/auth/src/identity";
+import type { AuthCustomizer } from "@webhare/auth";
+import { IdentityProvider, type LoginRemoteOptions } from "@webhare/auth/src/identity";
 import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
 
@@ -18,7 +19,7 @@ async function prepAuth(context: RPCContext, cookieName: string) {
   if (cookieName !== settings.cookieName)
     throw new RPCError(HTTPErrorCode.BadRequest, `WRDAUTH: login offered a different cookie name than expected: ${cookieName} instead of ${settings.cookieName}`);
 
-  const customizer = settings.customizer ? await importJSObject(settings.customizer) as WRDAuthCustomizer : null;
+  const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null;
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
