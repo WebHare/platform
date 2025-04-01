@@ -1916,7 +1916,7 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
 }
 
 //TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
-class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<ResourceDescriptor | null | { data: Buffer }, ResourceDescriptor | null, ResourceDescriptor | null> {
+class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUncomparableValueBase<ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>, ResourceDescriptor | null, ResourceDescriptor | NullIfNotRequired<Required>> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
@@ -1926,7 +1926,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
 
   isSet(value: ResourceDescriptor | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[], cc: number): ResourceDescriptor | NullIfNotRequired<Required> {
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
@@ -1942,7 +1942,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     return new ResourceDescriptor(blob, meta);
   }
 
-  validateInput(value: ResourceDescriptor | null | { data: Buffer }, checker: ValueQueryChecker, attrPath: string): void {
+  validateInput(value: ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
@@ -1969,9 +1969,9 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
   }
 }
 
-class WRDDBFileValue extends WHDBResourceAttributeBase { }
+class WRDDBFileValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
-class WRDDBImageValue extends WHDBResourceAttributeBase { }
+class WRDDBImageValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
 class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null> {
   getDefaultValue(): RichTextDocument | null {
@@ -2364,8 +2364,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.DomainArray]: WRDDBDomainArrayValue;
   [WRDAttributeTypeId.Address]: WRDDBAddressValue<Required>;
   [WRDAttributeTypeId.Password]: WRDDBPasswordValue;
-  [WRDAttributeTypeId.Image]: WRDDBImageValue;
-  [WRDAttributeTypeId.File]: WRDDBFileValue;
+  [WRDAttributeTypeId.Image]: WRDDBImageValue<Required>;
+  [WRDAttributeTypeId.File]: WRDDBFileValue<Required>;
   [WRDAttributeTypeId.Money]: WRDDBMoneyValue;
   [WRDAttributeTypeId.RichDocument]: WRDDBRichDocumentValue;
   [WRDAttributeTypeId.Integer64]: WRDDBInteger64Value;
@@ -2429,8 +2429,8 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Password: return new WRDDBPasswordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Image: return new WRDDBImageValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.File: return new WRDDBFileValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Image: return new WRDDBImageValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.File: return new WRDDBFileValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.RichDocument: return new WRDDBRichDocumentValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(attrinfo) as AccessorType<T>;
