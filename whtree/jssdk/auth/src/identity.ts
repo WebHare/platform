@@ -5,7 +5,7 @@ import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generat
 import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
-import { beginWork, commitWork, runInWork, db, runInSeparateWork } from "@webhare/whdb";
+import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import type { NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, updateServerSession } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -29,9 +29,28 @@ export interface AuthTokenOptions {
   prefix?: string;
   /** Scopes associated with the API token */
   scopes?: string[];
+  /** Title, for the key owner to recognize the specific key */
+  title?: string;
   /** Metadata to add */
   metadata?: object | null;
 }
+
+export type ListedToken = {
+  /** Database id (table wrd.tokens primary key) */
+  id: number;
+  /** Title, for the key owner to recognize the specific key */
+  title: string;
+  /** Token type  */
+  type: "id" | "api";
+  /** Metadata - as decided by the creation application */
+  metadata: unknown;
+  /** Token creation date */
+  created: Temporal.Instant;
+  /** Token expiration date, null if infinite */
+  expires: Temporal.Instant | null;
+  /** Scopes available to this token */
+  scopes: string[];
+};
 
 interface HSONAuthenticationSettings {
   version: number;
@@ -586,7 +605,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       client: client,
       scopes: options?.scopes?.join(" ") ?? "",
       hash: hashSHA256(access_token),
-      metadata: metadata
+      metadata: metadata,
+      title: options?.title ?? ""
     }).returning("id").execute();
 
     if (closeSessionId)
@@ -895,15 +915,35 @@ export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdS
   };
 }
 
+async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number | null, entityId: number | null): Promise<ListedToken[]> {
+  const tokens =
+    await db<PlatformDB>().selectFrom("wrd.tokens").
+      where(qb => tokenId !== null ? qb("wrd.tokens.id", "=", tokenId) : qb("wrd.tokens.entity", "=", entityId)).
+      fullJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
+      fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
+      fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
+      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title"]).
+      execute();
 
-export type ListedToken = {
-  id: number;
-  type: "id" | "api";
-  metadata: unknown;
-  created: Temporal.Instant;
-  expires: Temporal.Instant | null;
-  scopes: string[];
-};
+  if (tokens.length && tokens[0]?.name !== wrdSchema.tag)
+    throw new Error(entityId !== null ?
+      `Requested entity does not belong to schema ${wrdSchema.tag}` :
+      `Requested token does not belong to schema ${wrdSchema.tag}`);
+
+  return tokens.map(token => ({
+    id: token.id || 0,
+    type: token.type as "id" | "api",
+    metadata: token.metadata ? parseTyped(token.metadata) : null,
+    created: token.creationdate!.toTemporalInstant(),
+    expires: token.expirationdate!.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
+    scopes: token.scopes ? token.scopes.split(" ") : [],
+    title: token.title || ''
+  }));
+}
+
+export async function getToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<ListedToken | null> {
+  return (await getDBTokens(wrdSchema, tokenId, null))[0] || null;
+}
 
 /** List active tokens
  * @param wrdSchema - The schema to list tokens for
@@ -911,38 +951,10 @@ export type ListedToken = {
  * @returns A list of tokens
 */
 export async function listTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, entityId: number): Promise<ListedToken[]> {
-  const entity =
-    await db<PlatformDB>().selectFrom("wrd.entities").
-      where("wrd.entities.id", "=", entityId).
-      fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
-      fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
-      select("wrd.schemas.name").
-      executeTakeFirst();
-
-  if (entity?.name !== wrdSchema.tag)
-    throw new Error(`Entity #${entityId} does not belong to schema ${wrdSchema.tag}`);
-
-  const tokens = await db<PlatformDB>().selectFrom("wrd.tokens").
-    where("entity", "=", entityId).
-    select(["id", "type", "creationdate", "expirationdate", "scopes", "metadata"]).
-    execute();
-
-  return tokens.map(token => ({
-    id: token.id,
-    type: token.type as "id" | "api",
-    metadata: token.metadata ? parseTyped(token.metadata) : null,
-    created: token.creationdate.toTemporalInstant(),
-    expires: token.expirationdate.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
-    scopes: token.scopes ? token.scopes.split(" ") : []
-  }));
+  return await getDBTokens(wrdSchema, null, entityId);
 }
 
-/** Delete token
-* @param wrdSchema - The schema to list tokens for
-* @param tokenId - The token id to delete
-* @returns A list of tokens
-*/
-export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+async function verifyToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
   const token =
     await db<PlatformDB>().selectFrom("wrd.tokens").
       where("wrd.tokens.id", "=", tokenId).
@@ -954,6 +966,36 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
 
   if (token?.name !== wrdSchema.tag)
     throw new Error(`Token #${tokenId} does not belong to schema ${wrdSchema.tag}`);
+}
+
+/** Update token
+* @param wrdSchema - The schema to list tokens for
+* @param tokenId - The token id to delete
+* @returns A list of tokens
+*/
+export async function updateToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number, update: {
+  title?: string;
+  expires?: Temporal.Instant | null;
+}): Promise<void> {
+  await verifyToken(wrdSchema, tokenId);
+
+  const updates: Updateable<PlatformDB, "wrd.tokens"> = {};
+  if (update?.title !== undefined)
+    updates.title = update.title;
+  if (update?.expires !== undefined)
+    updates.expirationdate = update.expires ? new Date(update.expires.epochMilliseconds) : defaultDateTime;
+
+  if (Object.keys(updates).length)
+    await db<PlatformDB>().updateTable("wrd.tokens").where("id", "=", tokenId).set(updates).execute();
+}
+
+/** Delete token
+* @param wrdSchema - The schema to list tokens for
+* @param tokenId - The token id to delete
+* @returns A list of tokens
+*/
+export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<S>, tokenId: number): Promise<void> {
+  await verifyToken(wrdSchema, tokenId);
 
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }

@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-backend";
 import { systemUsermgmtSchema, wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { createFirstPartyToken, listTokens, deleteToken, type FirstPartyToken } from "@webhare/auth";
+import { createFirstPartyToken, listTokens, deleteToken, type FirstPartyToken, updateToken, getToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 
 //TODO we'll want a nicer name once we make this public
@@ -51,14 +51,18 @@ async function setupWHAPITest() {
   }
 
   //TODO what scopes will WH really be using? eg things like `platform:whfs:/myfolder` to scope them away from openid/3rd party modules?
-  apiSysopToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } });
+  apiSysopToken = await createFirstPartyToken(wrdTestschemaSchema, "api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Finite Token" });
   test.eq(/^secret-token:eyJ/, apiSysopToken.accessToken);
+
+  test.eqPartial({ title: "Finite Token", expires: apiSysopToken.expires }, await getToken(wrdTestschemaSchema, apiSysopToken.id));
+  await runInWork(() => updateToken(wrdTestschemaSchema, apiSysopToken.id, { title: "Infinity Token", expires: null }));
+  test.eqPartial({ title: "Infinity Token", expires: null }, await getToken(wrdTestschemaSchema, apiSysopToken.id));
 
   const tokens = (await listTokens(wrdTestschemaSchema, test.getUser("sysop").wrdId)).sort((a, b) => a.id - b.id);
   test.eqPartial([
     { type: "id", scopes: [] },
     { type: "id", scopes: [], metadata: null },
-    { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") } }
+    { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Infinity Token" }
   ], tokens);
 
   await test.throws(/does not belong to schema system:usermgmt/, () => deleteToken(systemUsermgmtSchema, tokens[0].id));
