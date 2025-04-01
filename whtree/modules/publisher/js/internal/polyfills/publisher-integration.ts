@@ -1,5 +1,5 @@
-//@ts-ignore -- Dynamically generated based on actual interface URLs, 'faked' by esbuild. TODO use wh-generated like namespaces instead just like whdb/wrd/...
-import publicconfig from "@storage-system/js/publicconfig.json";
+//@ts-ignore -- Dynamically generated so ignore any errors
+import { interfaceServers } from "wh:ts/public-config";
 import { isHTMLElement } from "@webhare/dompack";
 
 function forwardPublisherNavigation(event: Event) {
@@ -14,7 +14,7 @@ function forwardPublisherNavigation(event: Event) {
 
   const desturl = navaction.href;
   if (desturl.split('#')[0] !== location.href.split('#')[0]) { //it's actual navigation...
-    for (const origin of publicconfig.interfaces) {
+    for (const origin of interfaceServers) {
       try {
         window.top?.postMessage({ type: "webhare-navigation", location: desturl }, origin);
       } catch (ignore) {

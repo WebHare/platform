@@ -19,7 +19,6 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/disk.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/modules/publicconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/internal/modules/moduleregistry.whlib";
 
@@ -236,7 +235,6 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   EnsureCreatedMagicSysop("<overrideuser>");
   GetPrimary()->CommitWork();
   EnsureModuleStorageFolders(FALSE);
-  UpdatePublicConfig();
 
   //then the rest
   STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;

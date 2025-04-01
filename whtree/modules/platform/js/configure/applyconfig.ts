@@ -1,5 +1,5 @@
 import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
-import type { GeneratorType } from '@mod-system/js/internal/generation/shared';
+import { generateForConfig, generateForDev, type GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
@@ -16,9 +16,6 @@ type SubsystemData = {
   parts?: Record<string, SubsystemConfig>;
 } & SubsystemConfig;
 
-
-const generateForConfig = ["config", "extracts", "wrd", "openapi"] as const;
-const generateForDev = ["db", "schema", "ts"] as const;
 
 const subsystems = {
   assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extracts"] },
@@ -40,7 +37,7 @@ const subsystems = {
       - it also needs to fix type-only files (whdb, schemas)
   */
   dev: { title: "Development", description: "Update development infrastructure (imports, schemas)", generate: [...generateForConfig, ...generateForDev] },
-  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["ts"] },
+  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["ts-dev"] },
   wrd: {
     title: "WRD",
     description: "Apply wrdschema definitions and regenerate the TS definitions",

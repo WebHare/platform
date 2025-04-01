@@ -105,32 +105,55 @@ class WebServerPort {
     const destreq = http.request(targeturl, { headers, method: fetchmethod });
     destreq.end();
     destreq.on('upgrade', (res, nextsocket, upgradeHead) => {
-      //We need to return the headers, or at minimum: sec-websocket-accept
-      //TODO accesslog something about this connection. or just at the end/termination ?
-      socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
-        Object.entries(res.headers).map(([key, value]) => `${key}: ${value}\r\n`).join('') + "\r\n");
-      socket.write(upgradeHead);
-      nextsocket.write(head);
-      nextsocket.pipe(socket);
-      socket.pipe(nextsocket);
+      try {
+        //Handle ECONNRESET errors. Just disconnect
+        socket.on("error", err => {
+          console.error("Socket error", err.message);
+          socket.destroy();
+          nextsocket.destroy();
+        });
+        nextsocket.on("error", err => {
+          console.error("NextSocket error", err.message);
+          socket.destroy();
+          nextsocket.destroy();
+        });
+        //We need to return the headers, or at minimum: sec-websocket-accept
+        //TODO accesslog something about this connection. or just at the end/termination ?
+        socket.write('HTTP/1.1 101 Web Socket Protocol Handshake\r\n' +
+          Object.entries(res.headers).map(([key, value]) => `${key}: ${value}\r\n`).join('') + "\r\n");
+        socket.write(upgradeHead);
+        nextsocket.write(head,);
+        nextsocket.pipe(socket);
+        socket.pipe(nextsocket);
+      } catch (e) {
+        console.error("Exception forwarding websocket", (e as Error).message);
+        socket.destroy();
+        nextsocket.destroy();
+      }
     });
   }
 
   handleException(e: unknown, req: http.IncomingMessage, res: http.ServerResponse) {
-    //TODO log error
-    res.statusCode = 500;
-    if (!env.debugFlags.etr) {
-      res.setHeader("content-type", "text/html");
-      res.end("<p>Internal server error");
-      return; //and that's all you need to know without 'etr' ...
-    }
+    try {
+      //TODO log error
+      res.statusCode = 500;
+      if (!env.debugFlags.etr) {
+        res.setHeader("content-type", "text/html");
+        res.end("<p>Internal server error");
+        return; //and that's all you need to know without 'etr' ...
+      }
 
-    res.setHeader("content-type", "text/plain");
-    if (e instanceof Error) {
-      console.log(`Exception handling ${req.url}: `, e.message);
-      res.end(`500 Internal server error\n\n${e.message}\n${e.stack}`);
-    } else {
-      res.end(`500 Internal server error\n\nDid not receive a proper Error`);
+      res.setHeader("content-type", "text/plain");
+      if (e instanceof Error) {
+        console.log(`Exception handling ${req.url}: `, e.message);
+        res.end(`500 Internal server error\n\n${e.message}\n${e.stack}`);
+      } else {
+        res.end(`500 Internal server error\n\nDid not receive a proper Error`);
+      }
+    } catch (e2) {
+      //without this handler, I/O errors during finishing will crash the server with uncaught exception
+      console.error("Exception handling exception", e2);
+      req.socket.destroy();
     }
   }
 }

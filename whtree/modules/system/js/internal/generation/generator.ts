@@ -36,6 +36,8 @@ import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduled
 import { listAllRegistryTS } from "./gen_registry";
 import { updateTypeScriptInfrastructure } from "./gen_typescript";
 import { listAllServiceTS } from "./gen_services";
+import { listMiscTS } from "./gen_misc_ts";
+import { rm } from "node:fs/promises";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "config/";
@@ -54,7 +56,8 @@ function fixFilePaths(files: FileToUpdate[]) {
 async function listAllGeneratedTypeScript(mods: string[]): Promise<FileToUpdate[]> {
   return [
     ...await listAllServiceTS(mods),
-    ...await listAllRegistryTS(mods)
+    ...await listAllRegistryTS(mods),
+    ...await listMiscTS(mods)
   ];
 }
 
@@ -186,6 +189,7 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
   await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', { allowMissing: true });
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', { allowMissing: true });
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', { allowMissing: true });
+  await rm(backendConfig.dataroot + 'storage/system/js/publicconfig.json', { force: true });
   return;
 }
 
