@@ -102,6 +102,23 @@ async function testOurWebserver() {
   })).body.json() as GetRequestDataResponse;
   test.eq("POST", grd.method);
 
+
+  { //Verify redirect
+    const res = await (await undici.request(testsuiteresources + "webserver.shtml?type=redirect&status=301", {
+      headers: {
+        host: markdowndocurl.host,
+        accept: "application/json",
+        "content-type": "application/x-www-form-urlencoded"
+      },
+      body: "a=1&b=2",
+      method: "POST",
+      dispatcher: insecureagent
+    }));
+
+    test.eq(301, res.statusCode);
+    test.eq("http://www.test.invalid/301", res.headers.location);
+  }
+
   //Verify cookie processing
   fetcher = await undici.request(testsuiteresources + "cookies.shtml?type=setcookie3", {
     headers: { host: markdowndocurl.host, accept: "application/json" },
