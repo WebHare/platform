@@ -1,11 +1,20 @@
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
-declare module "@webhare/rpc-client" {
+declare module "@webhare/rpc" {
+  export interface KnownRPCServices {
+    /* Filled by generated services.ts files */
+  }
 }
 
 import { debugFlags, backendBase } from "@webhare/env";
-import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { type StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 import { omit, parseTyped, stringify } from "@webhare/std";
+
+//Preload interface definitions. To solve this cleaner we would have to do some sort of auto-inject but how to robustly do that accross IDEs/Tscs ?
+
+//@ts-ignore Ignore if it doesn't exist
+import type { } from "@mod-platform/generated/ts/services.ts";
+//@ts-ignore Ignore if it doesn't exist
+import type { } from "wh:ts/services.ts";
 
 function isAbsolute(url: string) {
   return url.startsWith("http:") || url.startsWith("https:");
@@ -37,18 +46,34 @@ export interface RPCClientOptions {
 }
 
 /** RPC Response format */
-export type RPCResponse = {
+export type RPCResponse = ({
   /** Result. Not present if the function didn't return anything */
   result?: unknown;
-  /** Captured console log entries (if 'etr' debugFlag is set) */
-  consoleLog?: Serialized<ConsoleLogItem[]>;
 } | {
   /** Error message */
   error: string;
-  /** Captured console log entries (if 'etr' debugFlag is set) */
-  consoleLog?: Serialized<ConsoleLogItem[]>;
   /** Captured stack trace (if 'etr' debugFlag is set) */
   trace?: StackTrace;
+}) & {
+  /** Captured console log entries (if 'etr' debugFlag is set) */
+  consoleLog?: Array<{
+    //TODO this is Serialized<ConsoleLogItem[]> - should probably rename it to SerializedToJSON and move to std or env ?
+    /** Date when console function was called */
+    when: string;
+    /** `console` method that was called (eg 'log') */
+    method: string;
+    /** Logged data */
+    data: string;
+    /** Location of caller */
+    location?: {
+      filename: string;
+      line: number;
+      col: number;
+      func: string;
+    };
+    /** Codecontext */
+    codeContextId?: string;
+  }>;
 };
 
 class ControlledCall {
@@ -151,8 +176,16 @@ class ControlledCall {
         }
       }
 
-      if (!this.options.silent)
-        this.client._tryLogError(requestStack, err);
+      if (this.options.debug) {
+        console.group();
+        console.warn("RPC failed:", err);
+        if (requestStack) {
+          console.warn("Stack at calling point");
+          console.log(requestStack);
+        }
+        console.groupEnd();
+      }
+
       throw err;
     }
 
@@ -178,13 +211,6 @@ class RPCClient {
   }
 
   _tryLogError(requestStack: StackTrace | null, error: Error) {
-    console.group();
-    console.warn("RPC failed:", error);
-    if (requestStack) {
-      console.warn("Stack at calling point");
-      console.log(requestStack);
-    }
-    console.groupEnd();
   }
 
   invoke(method: string, params: unknown[]) {
@@ -204,9 +230,12 @@ class RPCClient {
       body: stringify(params, { typed: true }),
     };
 
+    if (typeof location !== "undefined")
+      callurl.searchParams.set("pathname", location.pathname);
+
     if (this.debug) {
       requestStack = parseTrace(new Error);
-      console.log(`[rpc] Invoking '${method}'`, params, callurl);
+      console.log(`[rpc] Invoking '${method}'`, params);
     }
 
     this.options.onBeforeRequest?.(callurl, fetchoptions);
@@ -218,7 +247,7 @@ type ServiceBase<T> = {
   withOptions(options: RPCClientOptions): T & ServiceBase<T>;
 };
 
-class ServiceProxy<T> {
+class ServiceProxy<Service extends keyof KnownRPCServices | object> {
   client: RPCClient;
 
   constructor(client: RPCClient) {
@@ -233,7 +262,7 @@ class ServiceProxy<T> {
           ...options,
           headers: { ...this.client.options.headers, ...options.headers }
         };
-        return createRPCClient<T>(this.client.url, newoptions);
+        return rpc(this.client.url as (Service extends keyof KnownRPCServices ? Service : string), newoptions);
       };
     }
 
@@ -253,22 +282,29 @@ type ConvertToRPCInterface<ServiceType> = {
   [K in keyof ServiceType as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<OmitFirstArg<ServiceType[K]>> : never;
 };
 
+type ExtractInterface<Service extends object> = ConvertToRPCInterface<Service> & ServiceBase<ConvertToRPCInterface<Service>>;
+
 /** Get the client interface type as would be returned by createClient */
-export type GetRPCClientInterface<Service> = ConvertToRPCInterface<Service> & ServiceBase<ConvertToRPCInterface<Service>>;
+export type GetRPCClientInterface<Service extends (keyof KnownRPCServices) | object> = Service extends keyof KnownRPCServices ? ExtractInterface<KnownRPCServices[Service]> : Service extends object ? ExtractInterface<Service> : never;
 
 /** Create a WebHare RPC client
   @param service - URL (https://<ORIGIN>/.wh/rpc/module/service/) or service name (module:service) to invoke
 */
-export function createRPCClient<Service>(service: string, options?: RPCClientOptions): GetRPCClientInterface<Service> {
+export function rpc<Service extends keyof KnownRPCServices>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+export function rpc<Service extends object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service>;
+
+export function rpc<Service extends keyof KnownRPCServices | object>(service: Service extends keyof KnownRPCServices ? Service : string, options?: RPCClientOptions): GetRPCClientInterface<Service> {
+  //NOTE: needed the separate overloads to get Intellisense to list the known services for createRPClient's first argument
+
   if (!service)
     throw new Error(`You must specify either a WebHare rpcService name or a full URL`);
 
   const servicematch = service.match(/^([a-z0-9_]+):([a-z0-9_]+)$/);
   if (servicematch)
-    service = `/.wh/rpc/${servicematch[1]}/${servicematch[2]}/`;
+    service = `/.wh/rpc/${servicematch[1]}/${servicematch[2]}/` as (Service extends keyof KnownRPCServices ? Service : string);
   else if (!service.endsWith('/'))
     throw new Error(`Service URL must end in a slash`);
 
   const rpcclient = new RPCClient(service, options);
-  return new Proxy({}, new ServiceProxy<Service>(rpcclient)) as GetRPCClientInterface<Service>;
+  return new Proxy({}, new ServiceProxy<GetRPCClientInterface<Service>>(rpcclient)) as GetRPCClientInterface<Service>;
 }

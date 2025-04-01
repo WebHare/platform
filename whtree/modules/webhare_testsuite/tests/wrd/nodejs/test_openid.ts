@@ -8,7 +8,7 @@ import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
-import { IdentityProvider, createCodeVerifier } from "@webhare/wrd/src/auth";
+import { IdentityProvider, createCodeVerifier } from "@webhare/auth/src/identity";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast } from "@webhare/services";

@@ -12,6 +12,7 @@ import { stringify, throwError } from "@webhare/std";
 import type { Document } from "@xmldom/xmldom";
 import { generateTasks } from "./gen_extract_tasks";
 
+const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
   name: string; //full name
   entryPoint: string;
@@ -52,6 +53,7 @@ export interface OpenAPIDescriptor {
 export interface TypedServiceDescriptor {
   name: string;
   api: string;
+  maxBodySize: number;
 }
 
 export interface Services {
@@ -179,7 +181,7 @@ function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
   return addto;
 }
 
-export async function generateAssetPacks(context: GenerateContext): Promise<string> {
+export async function generateAssetPacks(context: GenerateContext) {
   const assetpacks = new Array<AssetPack>();
   const addto = [];
 
@@ -202,7 +204,7 @@ export async function generateAssetPacks(context: GenerateContext): Promise<stri
   return JSON.stringify(assetpacks, null, 2) + "\n";
 }
 
-export async function generateServices(context: GenerateContext): Promise<string> {
+export async function gatherServices(context: GenerateContext) {
   const retval: Services = {
     backendServices: [],
     openAPIServices: [],
@@ -234,7 +236,8 @@ export async function generateServices(context: GenerateContext): Promise<string
     for (const [servicename, servicedef] of Object.entries(mod.modYml?.rpcServices ?? [])) {
       retval.rpcServices.push({
         name: `${mod.name}:${servicename}`,
-        api: resolveResource(mod.resourceBase, servicedef.api)
+        api: resolveResource(mod.resourceBase, servicedef.api),
+        maxBodySize: servicedef.maxBodySize || DefaultMaxBodySize
       });
     }
 
@@ -281,7 +284,11 @@ export async function generateServices(context: GenerateContext): Promise<string
       });
     }
   }
-  return JSON.stringify(retval, null, 2) + "\n";
+  return retval;
+}
+
+export async function generateServices(context: GenerateContext): Promise<string> {
+  return JSON.stringify(await gatherServices(context), null, 2) + "\n";
 }
 
 export async function listAllExtracts(): Promise<FileToUpdate[]> {

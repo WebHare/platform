@@ -3,7 +3,6 @@ declare module "@webhare/jsonrpc-client" {
 }
 
 import { debugFlags, backendBase } from "@webhare/env";
-import type { ConsoleLogItem, Serialized } from "@webhare/env/src/concepts";
 import { type StackTrace, parseTrace, prependStackTrace, type PromisifyFunctionReturnType } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
@@ -40,7 +39,24 @@ export type RequestID = number | string | null;
 export interface JSONRPCBaseResponse {
   id: RequestID;
   debug?: {
-    consoleLog: Serialized<ConsoleLogItem[]>;
+    consoleLog: Array<{
+      //TODO this is Serialized<ConsoleLogItem[]> - should probably rename it to SerializedToJSON and move to std or env ?
+      /** Date when console function was called */
+      when: string;
+      /** `console` method that was called (eg 'log') */
+      method: string;
+      /** Logged data */
+      data: string;
+      /** Location of caller */
+      location?: {
+        filename: string;
+        line: number;
+        col: number;
+        func: string;
+      };
+      /** Codecontext */
+      codeContextId?: string;
+    }>;
   };
 }
 

@@ -1,15 +1,12 @@
-import * as dompack from "@webhare/dompack";
 import * as test from "@webhare/test-frontend";
+import * as dompack from "@webhare/dompack";
 import { qR } from "@webhare/dompack";
 import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo } from "@webhare/frontend";
-import type { TestNoAuthJS } from "@mod-webhare_testsuite/js/jsonrpc/service";
-import { createClient } from "@webhare/jsonrpc-client/src/jsonrpc-client";
 import { stringify } from "@webhare/std";
-
-const noAuthJSService = createClient<TestNoAuthJS>("webhare_testsuite:testnoauthjs");
+import { rpc } from "@webhare/rpc";
 
 async function validateLoggedinUser() {
-  return await noAuthJSService.validateLoggedinUser(location.pathname);
+  return await rpc("webhare_testsuite:testapi").validateLoggedinUser();
 }
 
 const frontendAuthApi = test.expose("frontendAuthApi", { isLoggedIn, login, logout, validateLoggedinUser });
@@ -18,7 +15,7 @@ export type FrontendAuthApi = typeof frontendAuthApi;
 
 dompack.register(".wrdauthtest", container => {
   // window.rpc = new JSONRPC({ url: '/wh_services/webhare_testsuite/formservice' });
-  document.addEventListener('wh:wrdauth-loginfailed', event => {
+  document.addEventListener('wh:wrdauth-loginfailed', event => { //TODO is this still part of the new api, and is the approach desirable?
     event.preventDefault();
     qR('#status').textContent = 'login failed';
   });

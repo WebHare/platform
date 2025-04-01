@@ -1,0 +1,16 @@
+{
+  "name": "@webhare/auth",
+  "version": "",
+  "description": "WebHare auth(entic|oriz)ation library",
+  "main": "src/auth.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/auth.ts"
+    ]
+  },
+  "dependencies": {},
+  "private": true
+}

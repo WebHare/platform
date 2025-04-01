@@ -1,5 +1,5 @@
 {
-  "name": "@webhare/rpc-client",
+  "name": "@webhare/rpc",
   "version": "",
   "description": "A typed JSON based RPC client built for WebHare client/service communication",
   "main": "src/rpc-client.ts",

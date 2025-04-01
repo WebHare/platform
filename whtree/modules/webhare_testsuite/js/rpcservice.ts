@@ -1,6 +1,5 @@
 import { debugFlags } from "@webhare/env";
 import type { RPCContext } from "@webhare/router";
-import { getRequestUser } from "@webhare/wrd";
 import { beginWork } from "@webhare/whdb";
 
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
@@ -27,24 +26,29 @@ export const testAPI = {
   },
   async describeMyRequest(context: RPCContext) {
     return {
-      baseURL: context.request.baseURL,
       url: context.request.url.toString(),
       requestHeaders: Object.fromEntries(context.request.headers.entries()),
-      debugFlags: Object.keys(debugFlags).filter((flag) => debugFlags[flag])
+      debugFlags: Object.keys(debugFlags).filter((flag) => debugFlags[flag]),
+      originURL: context.getOriginURL()
     };
   },
   async doConsoleLog(context: RPCContext) {
     console.log(`This log statement was generated on the server by the TestNoAuthJS service`);
     return null;
   },
-  async validateLoggedinUser(context: RPCContext, pathname: string): Promise<{ user: string }> {
-    const userinfo = await getRequestUser(context.request, pathname);
-    if (userinfo) {
-      const user = await wrdTestschemaSchema.getFields("wrdPerson", userinfo.user, ["wrdFullName"]);
+  async validateLoggedinUser(context: RPCContext): Promise<{ user: string }> {
+    const userId = await context.getRequestUser();
+    if (userId) {
+      const user = await wrdTestschemaSchema.getFields("wrdPerson", userId, ["wrdFullName"]);
       if (user)
         return { user: user.wrdFullName };
     }
 
     return { user: "" };
+  },
+  async setCookies(context: RPCContext) {
+    context.responseHeaders.append("Set-Cookie", "testcookie=124");
+    context.responseHeaders.append("Set-Cookie", "testcookie2=457");
+    return { cookiesSet: true };
   }
 };

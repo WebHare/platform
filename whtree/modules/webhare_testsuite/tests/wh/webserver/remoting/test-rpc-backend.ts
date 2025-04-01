@@ -1,4 +1,4 @@
-import * as test from '@webhare/test';
+import * as test from '@webhare/test-backend';
 import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
@@ -7,11 +7,13 @@ import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
 import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
 import { backendBase, initEnv } from '@webhare/env/src/envbackend';
 import { DTAPStage } from '@webhare/env';
-import { createRPCClient, type RPCResponse } from "@webhare/rpc-client";
+import { rpc, type GetRPCClientInterface, type RPCResponse } from "@webhare/rpc";
 import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
 import { parseTyped } from '@webhare/std';
 import { getTypedStringifyableData } from '@mod-webhare_testsuite/js/ci/testdata';
+import { wrdTestschemaSchema } from '@mod-platform/generated/wrd/webhare';
+import { createFirstPartyToken } from '@webhare/auth';
 
 async function testRPCCaller() {
   const servicebaseurl = "http://127.0.0.1/.wh/rpc/webhare_testsuite/testapi/";
@@ -61,16 +63,41 @@ async function testRPCCaller() {
   test.eq(200, call.status);
   res = parseTyped(await call.text()) as RPCResponse;
   test.eq(true, res.consoleLog?.some((item: any) => item.method === "log" && item.data === "This log statement was generated on the server by the TestNoAuthJS service\n"));
+
+  // Set some cookies
+  request.url = `${servicebaseurl}setCookies`;
+  call = await RPCRouter(await newWebRequestFromInfo(request));
+  test.eq(200, call.status);
+  res = parseTyped(await call.text()) as RPCResponse;
+  test.assert(!("error" in res));
+
+  test.eq(true, (res.result as any).cookiesSet);
+  test.eq([
+    "testcookie=124",
+    "testcookie2=457"
+  ], call.headers.getSetCookie());
 }
 
 async function testTypedClient() {
-  const testAPIService = createRPCClient<typeof testAPI>("webhare_testsuite:testapi");
+  const testAPIService = rpc("webhare_testsuite:testapi");
+  test.typeAssert<test.Equals<GetRPCClientInterface<"webhare_testsuite:testapi">, typeof testAPIService>>();
+  test.typeAssert<test.Equals<GetRPCClientInterface<typeof testAPI>, typeof testAPIService>>();
 
   //These normally work out-of-the box as @webhare/env should be configured by the bootstrap
   test.eq(true, await testAPIService.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await testAPIService.validateEmail("en", "klaasje@beta.webhare.net"));
 
   test.eq([getTypedStringifyableData()], await testAPIService.echo(getTypedStringifyableData()));
+
+  await test.throws(/Request body too large/, () => testAPIService.echo({ huge: "Huge!".repeat(65536 / "Huge!".length) }));
+  await test.throws(/Too many arguments/, () => testAPIService.echo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17));
+
+  //Verify login/authorization
+  test.eq({ user: "" }, await testAPIService.validateLoggedinUser());
+  const idToken = await createFirstPartyToken(wrdTestschemaSchema, "id", test.getUser("caller").wrdId);
+
+  const authService = testAPIService.withOptions({ headers: { "authorization": "bearer " + idToken.accessToken } });
+  test.eq({ user: "Caller McTestsuite" }, await authService.validateLoggedinUser());
 
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
@@ -81,7 +108,8 @@ async function testTypedClient() {
   test.eq(true, await myservice1.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const myservice2 = createRPCClient<typeof testAPI>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
+  const myservice2 = rpc<typeof testAPI>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
+  test.typeAssert<test.Equals<typeof testAPIService, typeof myservice2>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.lockWork>>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.serverCrash>>>(); //TODO this only works now because serverCrash is defined as :void but implicitly it would be :never
 
@@ -113,6 +141,11 @@ async function testTypedClient() {
 }
 
 test.runTests([
+  () => test.reset({
+    users: {
+      caller: {}
+    }
+  }),
   testRPCCaller,
   testTypedClient
 ]);

@@ -19,5 +19,7 @@
     ]
   },
   "private": true,
-  "dependencies": {}
+  "dependencies": {
+    "@webhare/js-api-tools": ""
+  }
 }

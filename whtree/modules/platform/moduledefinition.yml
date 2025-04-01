@@ -107,3 +107,7 @@ pxlEvents:
     includeFields: form_nextpage
   form_submitted:
     includeFields: form_started
+
+rpcServices:
+  authservice:
+    api: js/auth/authservice.ts#authService
