@@ -19,20 +19,14 @@ type DataRootItem = {
 function getDataRootNodeModules(): DataRootItem[] {
   const installationroot = backendConfig.installationroot;
   const whdataroot = backendConfig.dataroot;
-  const storageroot = `${backendConfig.dataroot}storage`;
 
   const items: DataRootItem[] = Object.entries(backendConfig.module).
-    flatMap(([name, settings]) => [
+    map(([name, settings]) => (
       {
         name: `@mod-${name}`,
         type: "symboliclink",
         target: settings.root
-      }, {
-        name: `@storage-${name}`,
-        type: "symboliclink",
-        target: `${storageroot}/${name}`
-      }
-    ]);
+      }));
 
   items.push(
     {
