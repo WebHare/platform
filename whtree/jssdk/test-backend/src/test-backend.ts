@@ -5,29 +5,13 @@
 declare module "@webhare/test-backend" {
 }
 
-import * as test from "@webhare/test";
 import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
-import { openFileOrFolder, openFolder, openSite } from "@webhare/whfs";
+import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import { throwError } from "@webhare/std";
 import { deleteSchema, listSchemas } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-
-/// Get the dedicated 'tmp' folder from the webhare_testsuite test site (prepared by webhare_testsuite reset)
-export async function getTestSiteHSTemp() {
-  return await openFolder("site::webhare_testsuite.testsite/tmp");
-}
-export async function getTestSiteJSTemp() {
-  return await openFolder("site::webhare_testsuite.testsitejs/tmp");
-}
-
-export async function getTestSiteHS() {
-  return await openSite("webhare_testsuite.testsite");
-}
-export async function getTestSiteJS() {
-  return await openSite("webhare_testsuite.testsitejs");
-}
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -111,18 +95,7 @@ export async function reset(options?: ResetOptions) {
     }
   }
 
-  //reset testsitejs to well known feature set (Some tests may modify it but crash and not restore it)
-  const testsitejs = await getTestSiteJS();
-  test.assert(testsitejs, "We need the JS testsite to exist");
-
-  let updateres;
-  if (JSON.stringify(await testsitejs.getWebFeatures()) !== JSON.stringify(["platform:identityprovider"]) || await testsitejs.getWebDesign() !== "webhare_testsuite:basetestjs") {
-    updateres = await testsitejs.update({ webFeatures: ["platform:identityprovider"], webDesign: "webhare_testsuite:basetestjs" });
-  }
-
   await work.commit();
-  if (updateres)
-    await updateres.applied();
 }
 
 /** Describe a created test user */
