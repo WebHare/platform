@@ -966,7 +966,10 @@
         <text tid="clicknext">Klik op 'volgende' om een API sleutel toe te voegen</text>
         <text tid="confirmdelete">Weet je zeker dat je de geselecteerde API sleutel wil verwijderen?</text>
         <text tid="created">Aangemaakt</text>
+        <text tid="editapikey">Wijzig API sleutel</text>
         <text tid="expires">Verloopt</text>
+        <text tid="title">Sleutelnaam</text>
+        <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
         <text tid="expire_login">Login verloopt na</text>

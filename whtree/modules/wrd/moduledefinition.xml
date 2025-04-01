@@ -300,6 +300,9 @@
       <d:varchar name="scopes" maxlength="1024">
         <d:documentation>Space separated list of scopes in this token</d:documentation>
       </d:varchar>
+       <d:varchar name="title" maxlength="256">
+        <d:documentation>Token title</d:documentation>
+      </d:varchar>
        <d:varchar name="metadata" maxlength="4096">
         <d:documentation>App specific metadata, JSON typed encoded</d:documentation>
       </d:varchar>

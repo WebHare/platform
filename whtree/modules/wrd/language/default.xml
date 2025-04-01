@@ -966,7 +966,10 @@
         <text tid="clicknext">Click 'next' to add an API key</text>
         <text tid="confirmdelete">Are you sure you want to delete the selected API key ?</text>
         <text tid="created">Created</text>
+        <text tid="editapikey">Edit API key</text>
         <text tid="expires">Expires</text>
+        <text tid="title">Key name</text>
+        <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
         <text tid="expire_login">Expire login after</text>

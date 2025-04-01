@@ -15,6 +15,7 @@ PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
     RETURN SELECT rowkey := id
                 , created
                 , expires
+                ,title
                 , __origrow := keys
              FROM EnforceStructure([[ created := DEFAULT DATETIME
                                     , expires := DEFAULT DATETIME
@@ -23,10 +24,15 @@ PUBLIC STATIC OBJECTTYPE ApiKeys EXTEND TolliumScreenBase <
   }
 
   MACRO OnEditApiKey(RECORD row) {
-    INTEGER newid := this->RunScreen(Resolve("apikeys.xml#addapikey"), CELL[this->entity]);
-    IF(newid != 0) {
+    IF(RecordExists(row)) {
+      this->RunScreen(Resolve("apikeys.xml#editapikey"), CELL[row]);
       ^apikeys->Invalidate();
-      ^apikeys->value := newid;
+    } ELSE {
+      INTEGER newid := this->RunScreen(Resolve("apikeys.xml#addapikey"), CELL[this->entity]);
+      IF(newid != 0) {
+        ^apikeys->Invalidate();
+        ^apikeys->value := newid;
+      }
     }
   }
 
@@ -46,13 +52,38 @@ PUBLIC STATIC OBJECTTYPE AddAPIKEy EXTEND TolliumScreenBase <
     this->entity := data.entity;
   }
 
+  BOOLEAN FUNCTION OnNextPage1() {
+    OBJECT work := this->BeginUnvalidatedFeedback();
+    work->Validate(^page1);
+    RETURN work->Finish();
+  }
+
   MACRO OnInitPage2(RECORD data) {
-    RECORD result := EnforceStructure([ expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#createAPIkey", this->contexts->wrdschema->tag, this->entity));
+    RECORD result := EnforceStructure([ expires := DEFAULT DATETIME ], CallJS("./apikeys.ts#createAPIkey", this->contexts->wrdschema->tag, this->entity, ^expires->value, ^title->value));
     ^access_token->value := result.access_token;
     ^expires->value := result.expires;
     this->keyid := result.id;
   }
+
   INTEGER FUNCTION Submit() {
     RETURN this->keyid;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditAPIKey EXTEND TolliumScreenBase <
+  INTEGER keyid;
+
+  MACRO Init(RECORD data) {
+    this->keyid := data.row.rowkey;
+
+    RECORD tokeninfo := EnforceStructure([expires := DEFAULT DATETIME], CallJS("./apikeys.ts#getAPIKey", this->contexts->wrdschema->tag, this->keyid));
+    ^title->value := tokeninfo.title;
+    ^expires->value := tokeninfo.expires;
+  }
+
+  BOOLEAN FUNCTION Submit() {
+    OBJECT work := this->BeginUnvalidatedFeedback();
+    CallJS("./apikeys.ts#updateAPIKey", this->contexts->wrdschema->tag, this->keyid, ^expires->value, ^title->value);
+    RETURN work->Finish();
   }
 >;

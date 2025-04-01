@@ -1,14 +1,14 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.auth.apikeys" library="apikeys.whlib">
 
-  <screen name="apikeys" footerbuttons="ok cancel" width="70x" height="12gr">
+  <screen name="apikeys" width="90x" height="12gr" footerbuttons="ok cancel">
     <body>
       <listedit name="apikeys"
                 height="1pr"
-                buttons="add delete"
+                minwidth="40x"
                 ongetrows="ongetapikeys"
                 onrowdelete="ondeleteapikey"
-                onrowedit="oneditapikey"
-                minwidth="40x">
+                onrowedit="oneditapikey">
+        <column name="title" type="text" width="2pr" />
         <column name="created" type="datetime" />
         <column name="expires" type="datetime" />
       </listedit>
@@ -18,14 +18,23 @@
   <screen name="addapikey">
     <body spacers="none">
       <wizard name="wizard">
-        <page name="page1">
-        <text valuetid=".clicknext"/>
+        <page name="page1" onnext="onnextpage1">
+          <textedit name="title" placeholdertid=".title-placeholder" required="true" />
+          <date name="expires" />
+          <text valuetid=".clicknext" />
         </page>
         <page name="page2" isfinish="true" oninit="oninitpage2">
           <textedit name="access_token" enabled="false" />
-          <datetime name="expires" storeutc="true" readonly="true" type="datetime" />
+          <datetime name="expires_final" type="datetime" readonly="true" storeutc="true" tid=".expires" />
         </page>
       </wizard>
+    </body>
+  </screen>
+
+  <screen name="editapikey" footerbuttons="ok cancel">
+    <body>
+      <textedit name="title" placeholdertid=".title-placeholder" required="true" />
+      <date name="expires" />
     </body>
   </screen>
 

@@ -299,14 +299,29 @@ ASYNC MACRO TestAPIKeys() {
   AWAIT ExpectScreenChange(+1, PTR RunWRDMAnageAPIKeys(GetTestController(), testfw->GetUserWRDId("sysop")));
 
   AWAIT ExpectScreenChange(+1, PTR TTCLick(":Add"));
+  TT(":Key name")->value := "key1";
 
   AWAIT TTClick(":Next \u203A\u203A");
   STRING apikey := TT("access_token")->value;
   //FIXME test whether that API key is actually valid and belongs to the test user.
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Finish")) ;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Finish"));
 
   TestEq(TRUE, RecordExists(TT("apikeys")->selection));
-  TestEq(1, Length(TT("apikeys")->rows));
+  RECORD ARRAY rows := TT("apikeys")->rows;
+  TestEqMembers([[ title := "key1", expires := DEFAULT DATETIME]], rows, "*");
+
+  AWAIT ExpectScreenChange(+1, PTR TTCLick(":Edit"));
+  TT(":Key name")->value := "keytje";
+  TT(":Expires")->value := MakeDate(2099,1,1);
+  AWAIT ExpectScreenChange(-1, PTR TTCLick(":OK"));
+
+  AWAIT ExpectScreenChange(+1, PTR TTCLick(":Edit"));
+  TestEq("keytje", TT(":Key name")->value);
+  TestEq(MakeDate(2099,1,1), TT(":Expires")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTCLick(":OK"));
+
+  rows := TT("apikeys")->rows;
+  TestEqMembers([[ title := "keytje", expires := MakeDate(2099,1,1)]], rows, "*");
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("apikeys->delete"), [ messagemask := "Are you sure you want to delete *" ]);
   TestEq(0, Length(TT("apikeys")->rows));
