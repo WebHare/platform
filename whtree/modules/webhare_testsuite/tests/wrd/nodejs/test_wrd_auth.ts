@@ -259,10 +259,10 @@ async function testAuthAPI() {
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
   const customizerUserInfo: WRDAuthCustomizer = {
-    onFrontendUserInfo(user: number) {
-      if (!user)
+    onFrontendUserInfo({ entityId }) {
+      if (!entityId)
         throw new Error("No such user - shouldn't be invoked for failed logins");
-      return { userId: user, firstName: "Josie" };
+      return { userId: entityId, firstName: "Josie" };
     }
   };
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", customizerUserInfo));

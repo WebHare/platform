@@ -301,6 +301,10 @@ export interface LookupUsernameParameters extends LoginUsernameLookupOptions {
   username: string;
 }
 
+export interface FrontendUserInfoParameters {
+  entityId: number;
+}
+
 export interface OpenIdRequestParameters {
   /// ID of the client requesting the token
   client: number;
@@ -378,7 +382,7 @@ export interface WRDAuthCustomizer {
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
   onOpenIdUserInfo?: (params: OpenIdRequestParameters, userinfo: ReportedUserInfo) => Promise<void> | void;
   /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
-  onFrontendUserInfo?: (user: number) => Promise<object> | object;
+  onFrontendUserInfo?: (params: FrontendUserInfoParameters) => Promise<object> | object;
 }
 
 export interface JWKS {
@@ -995,7 +999,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const retval: LoginResult = { loggedIn: true, ...await createFirstPartyToken(this.wrdschema, "id", userid, { customizer }) };
     if (customizer?.onFrontendUserInfo)
-      retval.userInfo = await customizer.onFrontendUserInfo(userid);
+      retval.userInfo = await customizer.onFrontendUserInfo({ entityId: userid });
     return retval;
   }
 }
