@@ -1,5 +1,5 @@
 import { type ToSnakeCase, toSnakeCase } from "@webhare/hscompat";
-import { loadJSFunction, resolveResource } from "@webhare/services";
+import { importJSFunction, resolveResource } from "@webhare/services";
 import { type ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 
 type CheckScopes = "gdpr" | "policy";
@@ -32,7 +32,7 @@ export async function runIntervalChecks(): Promise<HS_CheckResult[]> {
       checks.push({ checker: resolveResource(modyml.baseResourcePath, check.checker) });
 
   const results: Array<Promise<CheckResult[]>> = checks.map(check =>
-    loadJSFunction<CheckFunction>(check.checker).then(func => func()).catch(error => [
+    importJSFunction<CheckFunction>(check.checker).then(func => func()).catch(error => [
       {
         type: "platform:checkfailed",
         metadata: { check: check.checker },

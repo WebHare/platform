@@ -2,7 +2,7 @@ import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { PSPAddressFormat, PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { createResponseInfoFromResponse } from "@webhare/router/src/response";
-import { loadJSObject } from "@webhare/services";
+import { importJSObject } from "@webhare/services";
 import { parseTyped, stringify, type Money } from "@webhare/std";
 
 type HsAddressFormat = {
@@ -83,7 +83,7 @@ async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver 
     return { error: "Invalid configuration: " + (e as Error)?.message };
   }
 
-  return await loadJSObject(driver, config) as PSPDriver;
+  return await importJSObject(driver, config) as PSPDriver;
 }
 
 export async function connectPSP(driver: string, configAsJSON: string) {

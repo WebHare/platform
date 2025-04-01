@@ -1,7 +1,7 @@
 /** This script is invoked by mod::system/lib/internal/tasks/callasync.whlib to implement native ImportJS */
 
 import bridge, { type IPCLinkType, type IPCMessagePacket } from "@mod-system/js/internal/whmanager/bridge";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 import { activateHMR } from "@webhare/services/src/hmr";
 
 interface InvokeTask {
@@ -21,7 +21,7 @@ type CallRunnerLinkType = IPCLinkType<InvokeResponse, InvokeTask>;
 export type InvokeFunction = (...args: unknown[]) => unknown;
 
 async function runInvoke(task: InvokeTask): Promise<unknown> {
-  return await (await loadJSFunction<InvokeFunction>(task.func))(...task.args);
+  return await (await importJSFunction<InvokeFunction>(task.func))(...task.args);
 }
 
 function connectIPC(name: string) {

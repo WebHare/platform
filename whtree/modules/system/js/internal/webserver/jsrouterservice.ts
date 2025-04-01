@@ -1,12 +1,12 @@
 import type { WebRequestInfo, WebResponseInfo } from "../types";
 import { newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
 import { type WebHareRouter, createWebResponse } from "@webhare/router/src/router";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 import { BackendServiceConnection } from "@webhare/services/src/backendservicerunner";
 
 class JSRouter extends BackendServiceConnection {
   async routerCall(routerfunc: string, req: WebRequestInfo, localbaseurl: string): Promise<WebResponseInfo> {
-    const router = await loadJSFunction<WebHareRouter>(routerfunc);
+    const router = await importJSFunction<WebHareRouter>(routerfunc);
     let webreq;
     try {
       webreq = newForwardedWebRequest(await newWebRequestFromInfo(req), localbaseurl.substring(1));

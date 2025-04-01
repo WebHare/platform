@@ -3,7 +3,7 @@ import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env";
 import { getOriginURL, type RPCContext, type WebRequest, type WebResponse } from "@webhare/router";
 import { createRPCResponse, HTTPErrorCode, HTTPSuccessCode, RPCError } from "@webhare/router/src/response";
-import { loadJSExport } from "@webhare/services/src/resourcetools";
+import { importJSExport } from "@webhare/services/src/resourcetools";
 import { parseTyped } from "@webhare/std";
 import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
@@ -66,7 +66,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
   }
 
   try {
-    const api = await loadJSExport(matchservice.api) as Record<string, (context: RPCContext, ...args: unknown[]) => unknown | Promise<unknown>>;
+    const api = await importJSExport(matchservice.api) as Record<string, (context: RPCContext, ...args: unknown[]) => unknown | Promise<unknown>>;
     if (!api[method])
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 

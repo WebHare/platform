@@ -1,9 +1,9 @@
 /** This script contains the APIs to build ImportJS on top of callasync-runner */
 
-import { JSLibraryLoader } from "@webhare/services";
+import { JSLibraryImporter } from "@webhare/services";
 import { isPromise } from "@webhare/std";
 
-const cache = new JSLibraryLoader;
+const cache = new JSLibraryImporter;
 const promises: Array<Promise<unknown> | null> = [];
 
 /* Invoked by javascript.whlib#ImportJS */

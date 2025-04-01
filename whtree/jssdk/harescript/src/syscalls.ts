@@ -6,7 +6,7 @@ import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
@@ -135,7 +135,7 @@ export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: strin
 }
 
 export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
-  const func = await loadJSFunction<(...args: unknown[]) => unknown>(`${lib}#${name}`);
+  const func = await importJSFunction<(...args: unknown[]) => unknown>(`${lib}#${name}`);
   return await func(...args);
 }
 

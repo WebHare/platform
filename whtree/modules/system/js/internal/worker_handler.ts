@@ -4,7 +4,7 @@ import { describePublicInterface } from "@webhare/services/src/backendservicerun
 import { encodeIPCException } from "./whmanager/ipc";
 import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { ReturnValueWithTransferList } from "@webhare/services/src/localservice";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 import { activateHMR } from "@webhare/services/src/hmr";
 
 export type ServiceRequestFactoryFunction = (...params: unknown[]) => Promise<object> | object;
@@ -26,8 +26,8 @@ export class WorkerHandler {
         try {
           const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>("WorkerHandler " + message.func);
           const serviceclass = message.isfactory ?
-            await (await loadJSFunction<ServiceRequestFactoryFunction>(message.func))(...message.params) as object :
-            new (await loadJSFunction<ServiceRequestConstructor>(message.func))(...message.params) as object;
+            await (await importJSFunction<ServiceRequestFactoryFunction>(message.func))(...message.params) as object :
+            new (await importJSFunction<ServiceRequestConstructor>(message.func))(...message.params) as object;
           if (!serviceclass || typeof serviceclass !== "object")
             throw new Error(`Factory did not return an object`);
           const description = describePublicInterface(serviceclass);
@@ -49,7 +49,7 @@ export class WorkerHandler {
       } break;
       case "callRequest": {
         try {
-          let result = await (await loadJSFunction<CallRequestFunction>(message.func))(...message.params);
+          let result = await (await importJSFunction<CallRequestFunction>(message.func))(...message.params);
           let transferList = new Array<TransferListItem>;
           if (result && typeof result === "object" && result instanceof ReturnValueWithTransferList) {
             transferList = result.transferList;
