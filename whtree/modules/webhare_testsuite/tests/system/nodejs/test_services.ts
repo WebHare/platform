@@ -3,13 +3,14 @@ import * as services from "@webhare/services";
 import type { GenericLogLine } from "@webhare/services/src/logging";
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
-import { loadJSFunction, runBackendService } from "@webhare/services";
+import { importJSFunction, runBackendService } from "@webhare/services";
 import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
 import { sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
+import type { TestClass } from "./data/calls2";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -52,15 +53,21 @@ async function testServices() {
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
 
   //@ts-expect-error Verify invoking LoadJSFunction without a type signature is a TS error
-  await loadJSFunction("@webhare/services#log");
+  await importJSFunction("@webhare/services#log");
 
-  test.eq(53, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#testSync53"))());
-  test.eq(58, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#default"))());
-  test.eq(58, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts"))());
-  test.eq(63, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js#default"))());
-  test.eq(63, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js"))());
-  test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs#default"))());
-  test.eq(67, (await loadJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs"))());
+  test.eq(53, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#testSync53"))());
+  test.eq(58, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#default"))());
+  test.eq(58, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts"))());
+  test.eq(63, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js#default"))());
+  test.eq(63, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-js.js"))());
+  test.eq(67, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs#default"))());
+  test.eq(67, (await importJSFunction<() => number>("mod::webhare_testsuite/tests/system/nodejs/data/calls-cjs.cjs"))());
+
+  await test.throws(/is not a function but of type object/, () => importJSFunction<any>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#testInstance"));
+
+  test.eq(44, (await services.importJSObject<TestClass>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#TestClass")).get44());
+  test.eq(45, (await services.importJSObject<TestClass>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#TestClass", 45)).getArg());
+  test.eq(59, (await services.importJSObject<TestClass>("mod::webhare_testsuite/tests/system/nodejs/data/calls2.ts#testInstance")).getArg());
 
   const runoncekey = await services.readRegistryKey("webhare_testsuite:tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);

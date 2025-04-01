@@ -11,7 +11,7 @@ function normalizeJSLibPath(lib: string) {
 }
 
 /** Wraps a loaded library */
-class LoadedJSLibrary {
+class ImportedJSLibrary {
   constructor(private readonly originalName: string, private readonly lib: Record<string, unknown>) {
   }
   describe() {
@@ -39,31 +39,31 @@ class LoadedJSLibrary {
 }
 
 /** A JS library loader */
-export class JSLibraryLoader {
-  private readonly libmap = new Map<string, LoadedJSLibrary>();
+export class JSLibraryImporter {
+  private readonly libmap = new Map<string, ImportedJSLibrary>();
 
   /** Get the requested library, load if needed */
-  async load(name: string): Promise<LoadedJSLibrary> {
+  async load(name: string): Promise<ImportedJSLibrary> {
     name = normalizeJSLibPath(name);
     const got = this.libmap.get(name);
     if (got)
-      return got as LoadedJSLibrary;
+      return got as ImportedJSLibrary;
 
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const lib = require(name);
-    const loadedLib = new LoadedJSLibrary(name, lib);
+    const loadedLib = new ImportedJSLibrary(name, lib);
     this.libmap.set(name, loadedLib);
-    return loadedLib as LoadedJSLibrary;
+    return loadedLib as ImportedJSLibrary;
   }
 
   /** Get the requested library if it is loaded*/
-  getIfExists(name: string): LoadedJSLibrary | null {
+  getIfExists(name: string): ImportedJSLibrary | null {
     name = normalizeJSLibPath(name);
-    return (this.libmap.get(name) as LoadedJSLibrary | null) || null;
+    return (this.libmap.get(name) as ImportedJSLibrary | null) || null;
   }
 }
 
-export async function loadJSExport<T = unknown>(name: string): Promise<T> {
+export async function importJSExport<T = unknown>(name: string): Promise<T> {
   let libraryuri = name.split("#")[0];
   if (libraryuri.startsWith("mod::"))
     libraryuri = "@mod-" + libraryuri.substring(5);
@@ -84,20 +84,28 @@ export async function loadJSExport<T = unknown>(name: string): Promise<T> {
   }
 }
 
-export async function loadJSObject(objectname: string, ...args: unknown[]): Promise<object> {
-  const obj = await loadJSExport<AnyConstructor>(objectname);
-  return new obj(...args);
+/** Import an object dynamically from a library.
+ * @typeParam ObjectType - the type of the object expected
+ * @param objectname - the `library#name` of the object to import. If it's a constructor it will be invoked with the provided arguments
+ * @returns The requested object
+ */
+export async function importJSObject<ObjectType extends object>(objectname: string, ...args: unknown[]): Promise<ObjectType> {
+  const obj = await importJSExport<object | AnyConstructor>(objectname);
+  if (typeof obj === "function")
+    return new (obj as AnyConstructor)(...args) as ObjectType;
+  else
+    return obj as ObjectType;
 }
 
-export async function loadJSFunction<F extends (
+export async function importJSFunction<F extends (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we need any for wide compatibility with function signatures
   (...args: any[]) => unknown) //accepts functions
-  | AnyConstructor //accepts constructors. workers want this (TODO unsure why they can't just standardize on a factory like all other code?)
   | void = void> //'void' is only there to trigger an error
   (funcname: string & (F extends void ? "You must provide a callback type" : unknown)): Promise<F> {
-  const func = await loadJSExport<F>(funcname);
+  const func = await importJSExport<F>(funcname);
+
   if (typeof func !== "function") {
-    throw new Error(`Imported symbol ${funcname} is not a function, but a ${typeof func}`);
+    throw new Error(`Imported symbol ${funcname} is not a function but of type ${typeof func}`);
   }
 
   return func;
@@ -105,4 +113,4 @@ export async function loadJSFunction<F extends (
 
 registerAsDynamicLoadingLibrary(module);
 
-export type { LoadedJSLibrary };
+export type { ImportedJSLibrary };

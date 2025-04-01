@@ -9,7 +9,7 @@ import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider, type LoginErrorCodes } from "@webhare/auth/src/identity";
-import { loadJSObject } from "@webhare/services";
+import { importJSObject } from "@webhare/services";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -79,7 +79,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
-  const customizer = login.customizer ? await loadJSObject(login.customizer) as WRDAuthCustomizer : null;
+  const customizer = login.customizer ? await importJSObject(login.customizer) as WRDAuthCustomizer : null;
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])

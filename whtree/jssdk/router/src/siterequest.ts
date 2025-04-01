@@ -8,7 +8,7 @@ import { type SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { WebRequest } from "./request";
 import { buildPluginData, getApplyTesterForObject, type WHFSApplyTester } from "@webhare/whfs/src/applytester";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 
 export type WebDesignFunction<T extends object> = (request: SiteRequest, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
 export type ComposerHookFunction<PluginDataType = Record<string, unknown>, T extends object = object> = (plugindata: PluginDataType, composer: SiteResponse<T>) => Promise<void> | void;
@@ -57,13 +57,13 @@ class SiteRequest {
     settings.supportedlanguages = publicationsettings.supportedLanguages;
     settings.lang = lang;
 
-    const factory = await loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
+    const factory = await importJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
     const composer = await factory(this, settings);
 
     for (const plugin of publicationsettings.plugins) //apply plugins
       if (plugin.composerhook) {
         const plugindata = buildPluginData(plugin.datas);
-        await (await loadJSFunction<ComposerHookFunction>(plugin.composerhook))(plugindata, composer);
+        await (await importJSFunction<ComposerHookFunction>(plugin.composerhook))(plugindata, composer);
       }
 
     return composer;

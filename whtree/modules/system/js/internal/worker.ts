@@ -88,7 +88,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
       throw this.error;
   }
 
-  private async newReturningObject<T extends object>(isfactory: boolean, func: FunctionRef, ...params: unknown[]): Promise<ConvertLocalServiceInterfaceToClientInterface<T>> {
+  private async newReturningObject<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertLocalServiceInterfaceToClientInterface<T>> {
     this.checkClosed();
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
@@ -100,8 +100,7 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
         type: "instantiateServiceRequest",
         id,
         func: options.ref,
-        params,
-        isfactory
+        params
       }, options.transferList ?? []);
       const result = await deferred.promise;
       if (result.type === "instantiateServiceError")
@@ -121,12 +120,8 @@ export class AsyncWorker extends EventSource<AsyncWorkerEvents> {
     }
   }
 
-  async newRemoteObject<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertLocalServiceInterfaceToClientInterface<T>> {
-    return this.newReturningObject(false, func, ...params);
-  }
-
   async callFactory<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertLocalServiceInterfaceToClientInterface<T>> {
-    return this.newReturningObject(true, func, ...params);
+    return this.newReturningObject(func, ...params);
   }
 
   async callRemote<T = unknown>(func: FunctionRef, ...params: unknown[]): Promise<T> {

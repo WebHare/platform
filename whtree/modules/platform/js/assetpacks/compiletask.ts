@@ -20,7 +20,7 @@ import { buildRPCLoaderPlugin } from './rpcloader';
 import { whconstant_javascript_extensions } from '@mod-system/js/internal/webhareconstants';
 import type { ValidationMessageWithType } from '../devsupport/validation';
 import { getAssetPackBase } from '../concepts/frontend';
-import { loadJSFunction } from '@webhare/services';
+import { importJSFunction } from '@webhare/services';
 
 // Files with these extensions should be maximally compressed as all clients need them
 const compressExtensions = [".js", ".css", ".mjs", ".svg", ".ttf", ".otf"]; //Note that EOT and WOFF fonts already come compressed
@@ -202,7 +202,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
 
   const userPlugins: esbuild.Plugin[] = [];
   for (const plugin of data.bundle.config.esBuildPlugins) {
-    const func = await loadJSFunction<((...args: unknown[]) => esbuild.Plugin | Promise<esbuild.Plugin>)>(plugin.plugin);
+    const func = await importJSFunction<((...args: unknown[]) => esbuild.Plugin | Promise<esbuild.Plugin>)>(plugin.plugin);
     userPlugins.push(await func(...plugin.pluginOptions));
   }
 

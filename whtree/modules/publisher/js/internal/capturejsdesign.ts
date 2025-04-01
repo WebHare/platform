@@ -6,7 +6,7 @@ import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { setTidLanguage } from "@webhare/gettid";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 
 export async function captureJSDesign(obj: number) {
   //Create a SiteRequest so we have context for a SiteResponse
@@ -34,7 +34,7 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
 
     const contentObject = usecontent && usecontent !== obj ? await whfs.openFile(usecontent) : target.targetObject;
 
-    const renderer: WebHareWHFSRouter = await loadJSFunction<WebHareWHFSRouter>(target.renderer);
+    const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
     const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
     setTidLanguage(await whfsreq.getSiteLanguage());
     const response = await renderer(whfsreq);

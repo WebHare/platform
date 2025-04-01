@@ -67,22 +67,21 @@ async function runWorkerTest() {
   const worker = new AsyncWorker;
 
   // Test async calls
-  const r = await worker.newRemoteObject<myTestClass>(`${__filename}#myTestClass`, 10);
-  test.eq(14, await r.returnAplusB(4));
-  test.eq(15, await r.returnAplusBAsync(5));
   test.eq(18, await worker.callRemote(`${__filename}#myTestFunc`, 11, 7));
   test.eq(20, await worker.callRemote(`${__filename}#myTestFuncAsync`, 12, 8));
   test.eq(22, await worker.callRemote(`${__filename}#myRecursiveTest`, 13, 9));
 
-  const r2 = await worker.callFactory<myTestClass>(`${__filename}#myFactory`, 16);
-  test.eq(21, await r2.returnAplusB(5));
+  const r2 = await worker.callFactory<myTestClass>(`${__filename}#myFactory`, 10);
+  test.eq(13, await r2.returnAplusB(3));
+  test.eq(14, await r2.returnAplusBAsync(4));
+  test.eq(15, await r2.returnAplusB(5));
 
   const r3 = await worker.callFactory<myTestClass>(`${__filename}#myAsyncFactory`, 17);
   test.eq(23, await r3.returnAplusB(6));
 
   const channel = new MessageChannel;
   // Call portTest, transfer port2 to it
-  const res = r.portTest.callWithTransferList([channel.port2], channel.port2);
+  const res = r2.portTest.callWithTransferList([channel.port2], channel.port2);
   channel.port1.postMessage("test");
   signalPortClosed = new Promise(resolve => channel.port1.addListener("close", resolve));
   // Wait for message to return

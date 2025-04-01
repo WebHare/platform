@@ -3,7 +3,7 @@ import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestPar
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
-import { loadJSFunction, resolveResource, toFSPath } from "@webhare/services";
+import { importJSFunction, resolveResource, toFSPath } from "@webhare/services";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
@@ -175,7 +175,7 @@ export class RestAPI {
 
     // Activate hooks (FIXME how to flush them?)
     if (initHook) {
-      const tocall = await loadJSFunction<OpenAPIInitHookFunction>(initHook);
+      const tocall = await importJSFunction<OpenAPIInitHookFunction>(initHook);
       await tocall({ name: name, spec: bundled });
     }
 
@@ -307,7 +307,7 @@ export class WorkerRestAPIHandler {
   /// Build error responses for errors other than operation result errors (method not found, validation failures, etc)
   private async buildErrorResponse(status: HTTPErrorCode, error: string): Promise<WebResponse> {
     if (this.defaultErrorMapper) {
-      const mapperFunction = await loadJSFunction<(data: { status: HTTPErrorCode; error: string }) => WebResponse>(this.defaultErrorMapper);
+      const mapperFunction = await importJSFunction<(data: { status: HTTPErrorCode; error: string }) => WebResponse>(this.defaultErrorMapper);
       return mapperFunction({ status, error });
     }
     return createJSONResponse(status, { status, error });
@@ -322,7 +322,7 @@ export class WorkerRestAPIHandler {
     const handlerInitHook = this.handlerInitHook;
     if (handlerInitHook) {
       await (this.calledHandlerInitHook ??= (async () => {
-        const initFunction = await loadJSFunction<OpenAPIInitHandlerHookFunction>(handlerInitHook!);
+        const initFunction = await importJSFunction<OpenAPIInitHandlerHookFunction>(handlerInitHook!);
         await initFunction({ name: this.serviceName, ajv: this.ajv });
       })());
     }
@@ -515,7 +515,7 @@ export class WorkerRestAPIHandler {
       try {
         // Load the authorizer outside of the code context, so the loaded library won't inherit the context of the first caller
         const authorizationfunction = endpoint.authorization;
-        const authorizer = await loadJSFunction<RestAuthorizationFunction>(authorizationfunction);
+        const authorizer = await importJSFunction<RestAuthorizationFunction>(authorizationfunction);
 
         authresult = await authcontext.run(async () => {
           // Run the authorizer first
@@ -550,7 +550,7 @@ export class WorkerRestAPIHandler {
         const handler = endpoint.handler;
 
         // FIXME should we cache the resolved handler or will that break auto reloading?
-        const resthandler = await loadJSFunction<RestImplementationFunction>(handler);
+        const resthandler = await importJSFunction<RestImplementationFunction>(handler);
 
         // Need to await here, otherwise handlercontext.close will run immediately
         return await handlercontext.run(async () => {

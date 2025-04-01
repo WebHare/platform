@@ -3,13 +3,13 @@ import { registerAsNonReloadableLibrary } from "../../../../../jssdk/services/sr
 import type { TypedMessagePort } from "./transport";
 import type { LocalServiceHandlerBase, LocalServiceRequest, LocalServiceResponse } from "@webhare/services/src/localservice";
 import { localServiceHandlerAddPort } from "@webhare/services/src/symbols";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 
 export type LocalServiceFactory = () => Promise<LocalServiceHandlerBase> | LocalServiceHandlerBase;
 
 export async function openLocalServiceForBridge(factoryRef: string, port: TypedMessagePort<LocalServiceResponse, LocalServiceRequest>): Promise<string> {
   try {
-    const factory = await loadJSFunction<LocalServiceFactory>(factoryRef);
+    const factory = await importJSFunction<LocalServiceFactory>(factoryRef);
     const handler = await factory();
     if (typeof handler !== "object" || !(localServiceHandlerAddPort in handler))
       throw new Error(`Factory ${JSON.stringify(factoryRef)} did not return a valid LocalServiceHandlerBase`);

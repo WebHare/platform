@@ -4,7 +4,7 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
 import * as undici from "undici";
-import { loadJSFunction } from "@webhare/services";
+import { importJSFunction } from "@webhare/services";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(url, options);
@@ -83,7 +83,7 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
     return await routeThroughHSWebserver(request);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-  const renderer: WebHareWHFSRouter = await loadJSFunction<WebHareWHFSRouter>(target.renderer);
+  const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildSiteRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }

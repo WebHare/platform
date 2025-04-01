@@ -1,16 +1,16 @@
 import type { BackendServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { loadJSFunction, runBackendService } from "@webhare/services";
+import { importJSFunction, runBackendService } from "@webhare/services";
 import type { ServiceClientFactoryFunction, ServiceControllerFactoryFunction, WebHareService } from "@webhare/services/src/backendservicerunner";
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
-  const client = await (await loadJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
+  const client = await (await importJSFunction<ServiceClientFactoryFunction>(service.clientFactory))(...args);
   return client;
 }
 
 export async function launchService(service: BackendServiceDescriptor): Promise<WebHareService | null> {
   try {
     if (service.controllerFactory) {
-      const servicecontroller = await (await loadJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))();
+      const servicecontroller = await (await importJSFunction<ServiceControllerFactoryFunction>(service.controllerFactory))();
       return runBackendService(service.name, (...args) => servicecontroller.createClient(...args));
     } else if (service.clientFactory)
       return runBackendService(service.name, (...args) => createServiceClient(service, args));

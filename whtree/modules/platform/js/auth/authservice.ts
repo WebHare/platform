@@ -1,7 +1,7 @@
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
-import { loadJSObject } from "@webhare/services";
+import { importJSObject } from "@webhare/services";
 import { generateRandomId, pick, throwError } from "@webhare/std";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
@@ -18,7 +18,7 @@ async function prepAuth(context: RPCContext, cookieName: string) {
   if (cookieName !== settings.cookieName)
     throw new RPCError(HTTPErrorCode.BadRequest, `WRDAUTH: login offered a different cookie name than expected: ${cookieName} instead of ${settings.cookieName}`);
 
-  const customizer = settings.customizer ? await loadJSObject(settings.customizer) as WRDAuthCustomizer : null;
+  const customizer = settings.customizer ? await importJSObject(settings.customizer) as WRDAuthCustomizer : null;
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 

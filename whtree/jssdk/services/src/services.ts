@@ -31,7 +31,7 @@ export { fetchResource } from "./fetchresource";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
-export { loadJSFunction, loadJSObject, JSLibraryLoader, type LoadedJSLibrary } from "./resourcetools.ts";
+export { importJSFunction, importJSObject, JSLibraryImporter, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
 export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";

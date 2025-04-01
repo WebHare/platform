@@ -4,7 +4,7 @@
    wh runwasm mod::system/scripts/whcommands/validate.whscr --tids mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml
 */
 
-import { loadJSFunction, resolveResource, ResourceDescriptor, type WebHareBlob } from "@webhare/services";
+import { importJSFunction, resolveResource, ResourceDescriptor, type WebHareBlob } from "@webhare/services";
 import { pick } from "@webhare/std";
 import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
@@ -200,7 +200,7 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
     }
 
     if (validator.contentValidator) {
-      const contentValidator = await loadJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
+      const contentValidator = await importJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
       await contentValidator(resource, yamldata, result);
     }
     return;
