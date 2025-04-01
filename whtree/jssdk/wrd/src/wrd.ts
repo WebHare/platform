@@ -4,7 +4,6 @@ declare module "@webhare/wrd" {
 
 import { WRDSchema, type WRDSchemaTypeOf } from "@mod-wrd/js/internal/schema";
 export { AuthenticationSettings, type FirstPartyToken } from "@webhare/auth/src/identity";
-export type { WRDAuthCustomizer, LookupUsernameParameters, OpenIdRequestParameters, JWTPayload, ReportedUserInfo, createCodeVerifier } from "@webhare/auth/src/identity";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -17,6 +16,18 @@ import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
 export { WRDSchema, type WRDAttributeType, type WRDMetaType };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
+
+import type * as customizer from "@webhare/auth/src/customizer";
+/** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
+export type WRDAuthCustomizer = customizer.AuthCustomizer;
+/** @deprecated WH5.7 splits the WRDAuthCustomizer & friends off to \@webhare/auth - please use that library instead */
+export type LookupUsernameParameters = customizer.LookupUsernameParameters;
+/** @deprecated WH5.7 splits the WRDAuthCustomizer & friends off to \@webhare/auth - please use that library instead */
+export type OpenIdRequestParameters = customizer.OpenIdRequestParameters;
+/** @deprecated WH5.7 splits the WRDAuthCustomizer & friends off to \@webhare/auth - please use that library instead */
+export type JWTPayload = customizer.JWTPayload;
+/** @deprecated WH5.7 splits the WRDAuthCustomizer & friends off to \@webhare/auth - please use that library instead */
+export type ReportedUserInfo = customizer.ReportedUserInfo;
 
 export interface DescribedEntity {
   /** Entity's tag */

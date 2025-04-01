@@ -1,8 +1,8 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test-backend";
-import { createFirstPartyToken } from "@webhare/auth";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/auth";
+import { AuthenticationSettings } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
-import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
@@ -88,7 +88,7 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: WRDAuthCustomizer | null) {
+async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: AuthCustomizer | null) {
   const state = generateRandomId();
   const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
@@ -210,7 +210,7 @@ async function testAuthAPI() {
   test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser, null));
 
   // Test the openid session apis
-  const blockingcustomizer: WRDAuthCustomizer = {
+  const blockingcustomizer: AuthCustomizer = {
     onOpenIdReturn(params: OpenIdRequestParameters): NavigateInstruction | null {
       if (params.client === robotClient!.wrdId)
         return { type: "redirect", url: "https://www.webhare.dev/blocked" };
@@ -221,7 +221,7 @@ async function testAuthAPI() {
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
   // Test modifying the claims
-  const claimCustomizer: WRDAuthCustomizer = {
+  const claimCustomizer: AuthCustomizer = {
     async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload) {
       test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
       const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
@@ -258,7 +258,7 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
-  const customizerUserInfo: WRDAuthCustomizer = {
+  const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ entityId }) {
       if (!entityId)
         throw new Error("No such user - shouldn't be invoked for failed logins");
@@ -268,7 +268,7 @@ async function testAuthAPI() {
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", customizerUserInfo));
 
   //Test the frontend login with customizer setting up multisite support
-  const multisiteCustomizer: WRDAuthCustomizer = {
+  const multisiteCustomizer: AuthCustomizer = {
     lookupUsername(params: LookupUsernameParameters): number | null {
       if (params.username === "jonny" && params.site === "site2")
         return testuser;

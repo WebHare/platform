@@ -33,7 +33,7 @@ async function testSiteProfiles() {
   test.eq("wrd:testschema", wrdauth.wrdSchema);
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
-  test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#AuthCustomizer', wrdauth.customizer);
+  test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#TestAuthCustomizer', wrdauth.customizer);
 
   const wrdauthFromMock = await (await getApplyTesterForMockedObject(await testsitefile.openParent(), true, testsitefile.type)).getWRDAuth();
   test.eq(wrdauth, wrdauthFromMock);
