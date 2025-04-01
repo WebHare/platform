@@ -137,8 +137,19 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
     const response = await provider.retrieveTokens(form, req.headers, { customizer });
     if (response.error !== null)
       return createJSONResponse(400, { error: response.error });
-    else
-      return createJSONResponse(200, response.body);
+    else {
+
+      /* https://datatracker.ietf.org/doc/html/rfc6749#section-5.1
+        The authorization server MUST include the HTTP "Cache-Control" response header field [RFC2616] with a value of "no-store" in any
+        response containing tokens, credentials, or other sensitive information, as well as the "Pragma" response header field [RFC2616]
+        with a value of "no-cache" */
+      return createJSONResponse(200, response.body, {
+        headers: {
+          "cache-control": "no-store",
+          "pragma": "no-cache",
+        }
+      });
+    }
   }
 
   return createJSONResponse(404, { error: `Unrecognized openid endpoint '${endpoint[3]}'` });

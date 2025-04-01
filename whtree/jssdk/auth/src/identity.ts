@@ -13,6 +13,7 @@ import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
+import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -21,7 +22,7 @@ type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string
 /** Token creation options */
 export interface AuthTokenOptions {
   /** Customizer object */
-  customizer?: WRDAuthCustomizer | null;
+  customizer?: AuthCustomizer | null;
   /** Expiration date for the token. If not set, will fallback to any configuration and eventually 1 day */
   expires?: WaitPeriod;
   /** Prefix for API tokens, defaults to 'secret-token:' (see RFC 8959) */
@@ -154,11 +155,6 @@ export class AuthenticationSettings {
 
     return await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash);
   }
-}
-
-export interface LoginUsernameLookupOptions {
-  /** Login to a specific site */
-  site?: string;
 }
 
 export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
@@ -296,91 +292,6 @@ export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> 
   return pvtkey.export({ format: 'jwk' });
 }
 
-export interface LookupUsernameParameters extends LoginUsernameLookupOptions {
-  /** Username to look up */
-  username: string;
-}
-
-export interface OpenIdRequestParameters {
-  /// ID of the client requesting the token
-  client: number;
-  /// Requested scopes
-  scopes: string[];
-  /// ID of the WRD user that has authenticated
-  user: number;
-}
-
-export type JWTPayload = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
-  [key: string]: any;
-  sub: string;
-  aud: string | string[];
-  nbf: number;
-  iat: number;
-
-  //Not allowed to touch these variables;
-  iss: never;
-  jti: never;
-  exp: never;
-
-  // Commonly set claims (see https://www.iana.org/assignments/jwt/jwt.xhtml#claims for the full list)
-  // https://openid.net/specs/openid-connect-core-1_0.html
-
-  /** End-User's full name in displayable form including all name parts, possibly including titles and suffixes, ordered according to the End-User's locale and preferences. */
-  name?: string;
-
-  /** Given name(s) or first name(s) of the End-User. Note that in some cultures, people can have multiple given names; all can be present, with the names being separated by space characters. */
-  given_name?: string;
-
-  /** Surname(s) or last name(s) of the End-User. Note that in some cultures, people can have multiple family names or no family name; all can be present, with the names being separated by space characters. */
-  family_name?: string;
-
-  /** Middle name(s) of the End-User. Note that in some cultures, people can have multiple middle names; all can be present, with the names being separated by space characters. Also note that in some cultures, middle names are not used. */
-  middle_name?: string;
-
-  /** Casual name of the End-User that may or may not be the same as the given_name. For instance, a nickname value of Mike might be returned alongside a given_name value of Michael. */
-  nickname?: string;
-
-  /** Shorthand name by which the End-User wishes to be referred to at the RP, such as janedoe or j.doe. This value MAY be any valid JSON string including special characters such as \@, /, or whitespace. The RP MUST NOT rely upon this value being unique, as discussed in Section 5.7. */
-  preferred_username?: string;
-
-  /** URL of the End-User's profile page. The contents of this Web page SHOULD be about the End-User. */
-  profile?: string;
-
-  /** URL of the End-User's profile picture. This URL MUST refer to an image file (for example, a PNG, JPEG, or GIF image file), rather than to a Web page containing an image. Note that this URL SHOULD specifically reference a profile photo of the End-User suitable for displaying when describing the End-User, rather than an arbitrary photo taken by the End-User. */
-  picture?: string;
-
-  /** URL of the End-User's Web page or blog. This Web page SHOULD contain information published by the End-User or an organization that the End-User is affiliated with. */
-  website?: string;
-
-  /** End-User's preferred e-mail address. Its value MUST conform to the RFC 5322 [RFC5322] addr-spec syntax. The RP MUST NOT rely upon this value being unique, as discussed in Section 5.7. */
-  email?: string;
-
-  /** True if the End-User's e-mail address has been verified; otherwise false. When this Claim Value is true, this means that the OP took affirmative steps to ensure that this e-mail address was controlled by the End-User at the time the verification was performed. The means by which an e-mail address is verified is context specific, and dependent upon the trust framework or contractual agreements within which the parties are operating. */
-  email_verified?: boolean;
-
-  /** End-User's gender. Values defined by this specification are female and male. Other values MAY be used when neither of the defined values are applicable. */
-  gender?: "male" | "female" | string;
-
-  /** End-User's birthday, represented as an ISO 8601-1 [ISO8601‑1] YYYY-MM-DD format. The year MAY be 0000, indicating that it is omitted. To represent only the year, YYYY format is allowed. Note that depending on the underlying platform's date related function, providing just year can result in varying month and day, so the implementers need to take this factor into account to correctly process the dates. */
-  birthdate?: string;
-};
-
-export type ReportedUserInfo = Omit<Record<string, unknown>, "error">;
-
-export interface WRDAuthCustomizer {
-  /** Invoked to look up a login name */
-  lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
-  /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
-  onOpenIdReturn?: (params: OpenIdRequestParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
-  /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
-  onOpenIdToken?: (params: OpenIdRequestParameters, payload: JWTPayload) => Promise<void> | void;
-  /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
-  onOpenIdUserInfo?: (params: OpenIdRequestParameters, userinfo: ReportedUserInfo) => Promise<void> | void;
-  /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
-  onFrontendUserInfo?: (user: number) => Promise<object> | object;
-}
-
 export interface JWKS {
   keys: JsonWebKey[];
 }
@@ -395,12 +306,6 @@ export interface JWTVerificationOptions {
   audience?: string | RegExp | Array<string | RegExp>;
 }
 
-export interface ServiceProviderInit {
-  title: string;
-  callbackUrls?: string[];
-  subjectField?: string;
-}
-
 export interface VerifyAccessTokenResult {
   ///wrdId of the found subject
   entity: number;
@@ -412,12 +317,6 @@ export interface VerifyAccessTokenResult {
   expires: Temporal.Instant | null;
   //id of the used token (refers to wrd.tokens table)
   tokenId: number;
-}
-
-export interface ClientConfig {
-  wrdId: number;
-  clientId: string;
-  clientSecret: string;
 }
 
 /** Configuring the WRDAuth provider */
@@ -514,7 +413,7 @@ function hashSHA256(secret: string): Buffer {
   return hasher.digest();
 }
 
-function hashClientSecret(secret: string): string {
+export function hashClientSecret(secret: string): string {
   return hashSHA256(secret).toString("base64url");
 }
 
@@ -544,7 +443,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     this.config = config || {};
   }
 
-  private async ensureSigningKeys(): Promise<SigningKey[]> {
+  async ensureSigningKeys(): Promise<SigningKey[]> {
     //FIXME this is still deadlock-prone if someone already updated the schemasettings before invoking us. consider moving this to wh apply wrd (as soon as it's in TS)
     //FIXME readd the option to set up RSA keys if explicitly asked for by a client
     return await runInSeparateWork(async () => {
@@ -566,31 +465,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       return signingKeys;
     }, { mutex: "wrd:authplugin.signingkeys" });
-  }
-
-  async initializeIssuer(issuer: string): Promise<void> {
-    await this.ensureSigningKeys();
-    await updateSchemaSettings(this.wrdschema, { issuer });
-  }
-
-  async createServiceProvider(spSettings: ServiceProviderInit): Promise<ClientConfig> {
-    const clientId = generateRandomId("uuidv4");
-    const clientSecret = generateRandomId("base64url", 24);
-    const wrdId = await this.wrdschema.insert("wrdauthServiceProvider", {
-      wrdTitle: spSettings.title || "Client " + clientId,
-      wrdGuid: clientId,
-      clientSecrets:
-        [
-          {
-            created: new Date,
-            secretHash: hashClientSecret(clientSecret)
-          }
-        ],
-      callbackUrls: spSettings.callbackUrls?.map(url => ({ url })) ?? [],
-      subjectField: spSettings.subjectField || ""
-    });
-
-    return { wrdId, clientId: compressUUID(clientId), clientSecret };
   }
 
   private async getKeyConfig() {
@@ -730,7 +604,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Get userinfo for a token */
-  async getUserInfo(token: string, customizer: WRDAuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
+  async getUserInfo(token: string, customizer: AuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
     /* We do not verify the token's signature currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
        signature and just reuse it and save a bit of database churn unless other reasons appear to store these tokens */
     const tokeninfo = await this.verifyAccessToken("oidc", token);
@@ -758,7 +632,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (customizer?.onOpenIdUserInfo)
       await customizer?.onOpenIdUserInfo({ client: tokeninfo.client, scopes: tokeninfo.scopes, user: tokeninfo.entity }, userinfo);
 
-    return userinfo;
+    return { ...userinfo } as ReportedUserInfo;
   }
 
   /** Validate a token (not considering retractions). Note that wrdauth doesn't need to validate tokens it gave out itself - its own token db is considered authorative */
@@ -809,7 +683,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Start an oauth2/openid authorization flow */
-  async startAuthorizeFlow(url: string, loginPage: string, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+  async startAuthorizeFlow(url: string, loginPage: string, customizer: AuthCustomizer | null): Promise<NavigateOrError> {
     const searchParams = new URL(url).searchParams;
     const clientid = searchParams.get("client_id") || '';
     const scopes = searchParams.get("scope")?.split(" ") || [];
@@ -854,7 +728,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { type: "redirect", url: target.toString(), error: null };
   }
 
-  async returnAuthorizeFlow(url: string, user: number, customizer: WRDAuthCustomizer | null): Promise<NavigateOrError> {
+  async returnAuthorizeFlow(url: string, user: number, customizer: AuthCustomizer | null): Promise<NavigateOrError> {
     const searchParams = new URL(url).searchParams;
     const sessionid = searchParams.get("tok") || '';
     const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
@@ -959,7 +833,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: WRDAuthCustomizer | null, options?: LoginUsernameLookupOptions): Promise<number | null> {
+  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: AuthCustomizer | null, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
 
@@ -970,7 +844,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async handleFrontendLogin(username: string, password: string, customizer: WRDAuthCustomizer | null, options?: LoginRemoteOptions): Promise<LoginResult> {
+  async handleFrontendLogin(username: string, password: string, customizer: AuthCustomizer | null, options?: LoginRemoteOptions): Promise<LoginResult> {
     const authsettings = await getAuthSettings(this.wrdschema);
     if (!authsettings.passwordAttribute)
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
@@ -995,7 +869,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const retval: LoginResult = { loggedIn: true, ...await createFirstPartyToken(this.wrdschema, "id", userid, { customizer }) };
     if (customizer?.onFrontendUserInfo)
-      retval.userInfo = await customizer.onFrontendUserInfo(userid);
+      retval.userInfo = await customizer.onFrontendUserInfo({ entityId: userid });
     return retval;
   }
 }

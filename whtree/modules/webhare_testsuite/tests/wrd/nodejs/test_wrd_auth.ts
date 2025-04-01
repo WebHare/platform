@@ -1,14 +1,15 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test-backend";
-import { createFirstPartyToken } from "@webhare/auth";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, type ClientConfig, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
-import { AuthenticationSettings, type LookupUsernameParameters, type OpenIdRequestParameters, type WRDAuthCustomizer, type JWTPayload, type ReportedUserInfo } from "@webhare/wrd";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer } from "@webhare/auth";
+import { AuthenticationSettings } from "@webhare/wrd";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import { rpc } from "@webhare/rpc";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -88,7 +89,7 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: WRDAuthCustomizer | null) {
+async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: AuthCustomizer | null) {
   const state = generateRandomId();
   const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
@@ -167,7 +168,7 @@ async function setupOpenID() {
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
   await whdb.beginWork();
   const provider = new IdentityProvider(wrdTestschemaSchema);
-  await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");
+  await initializeIssuer(wrdTestschemaSchema, "https://my.webhare.dev/testfw/issuer");
 
   const jwks = await provider.getPublicJWKS();
   test.eq(2, jwks.keys.length);
@@ -175,11 +176,11 @@ async function setupOpenID() {
   test.assert("kid" in jwks.keys[0]);
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
-  peopleClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts people testclient" });
+  peopleClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts people testclient" });
   test.assert(isLikeRandomId(peopleClient.clientId), "verify clientid is not a UUID");
 
-  robotClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
-  evilClient = await provider.createServiceProvider({ title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  robotClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  evilClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
 
   await whdb.commitWork();
 }
@@ -210,7 +211,7 @@ async function testAuthAPI() {
   test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser, null));
 
   // Test the openid session apis
-  const blockingcustomizer: WRDAuthCustomizer = {
+  const blockingcustomizer: AuthCustomizer = {
     onOpenIdReturn(params: OpenIdRequestParameters): NavigateInstruction | null {
       if (params.client === robotClient!.wrdId)
         return { type: "redirect", url: "https://www.webhare.dev/blocked" };
@@ -221,7 +222,7 @@ async function testAuthAPI() {
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
   // Test modifying the claims
-  const claimCustomizer: WRDAuthCustomizer = {
+  const claimCustomizer: AuthCustomizer = {
     async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload) {
       test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
       const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
@@ -258,17 +259,17 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
-  const customizerUserInfo: WRDAuthCustomizer = {
-    onFrontendUserInfo(user: number) {
-      if (!user)
+  const customizerUserInfo: AuthCustomizer = {
+    onFrontendUserInfo({ entityId }) {
+      if (!entityId)
         throw new Error("No such user - shouldn't be invoked for failed logins");
-      return { userId: user, firstName: "Josie" };
+      return { userId: entityId, firstName: "Josie" };
     }
   };
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", customizerUserInfo));
 
   //Test the frontend login with customizer setting up multisite support
-  const multisiteCustomizer: WRDAuthCustomizer = {
+  const multisiteCustomizer: AuthCustomizer = {
     lookupUsername(params: LookupUsernameParameters): number | null {
       if (params.username === "jonny" && params.site === "site2")
         return testuser;
@@ -280,6 +281,22 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
   test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
+
+  //Test the frontend login RPC - do we see the proper cache headers
+  const testsiteurl = new URL((await test.getTestSiteJS()).webRoot!);
+  let seenheaders = false;
+  await rpc("platform:authservice", {
+    onBeforeRequest(url, requestInit) {
+      url.searchParams.set("pathname", testsiteurl.pathname);
+      requestInit.headers.set("origin", testsiteurl.origin);
+    },
+    onResponse(response) {
+      test.eq("no-store", response.headers.get("cache-control"));
+      test.eq("no-cache", response.headers.get("pragma"));
+      seenheaders = true;
+    }
+  }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
+  test.assert(seenheaders, "verify onResponse isn't skipped");
 }
 
 async function testSlowPasswordHash() {

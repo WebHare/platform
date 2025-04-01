@@ -1,5 +1,5 @@
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import type { LookupUsernameParameters, WRDAuthCustomizer } from "@webhare/auth/src/identity";
+import type { LookupUsernameParameters, AuthCustomizer } from "@webhare/auth";
 
 import type { WRDAttributeTypeId, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "@webhare/wrd";
@@ -12,7 +12,7 @@ type TestSchema = WRD_TestschemaSchemaType & {
   } & WRDTypeBaseSettings;
 };
 
-export class MultisiteCustomizer implements WRDAuthCustomizer {
+export class MultisiteCustomizer implements AuthCustomizer {
   async lookupUsername(params: LookupUsernameParameters): Promise<number | null> {
     if (!params.site)
       return null;

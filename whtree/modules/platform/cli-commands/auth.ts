@@ -5,12 +5,13 @@ import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { IdentityProvider, compressUUID } from "@webhare/auth/src/identity";
+import { compressUUID } from "@webhare/auth/src/identity";
 import { getSchemaSettings } from '@webhare/wrd/src/settings';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { isValidWRDTag } from '@webhare/wrd/src/wrdsupport';
 import { run } from "@webhare/cli";
+import { createServiceProvider, initializeIssuer } from '@webhare/auth';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -65,9 +66,8 @@ run({
         if (settings.issuer)
           throw new Error(`Identity provider already set up for schema ${wrdSchema} with issuer: ${settings.issuer}`);
 
-        const prov = new IdentityProvider(schema);
         await beginWork();
-        await prov.initializeIssuer(opts.issuer || backendConfig.backendURL);
+        await initializeIssuer(schema, opts.issuer || backendConfig.backendURL);
         await commitWork();
 
         if (opts.json) {
@@ -149,9 +149,8 @@ run({
         const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
 
-        const prov = new IdentityProvider(schema);
         await beginWork();
-        const newSp = await prov.createServiceProvider({ title: args.name, callbackUrls: [args.callbackurl] });
+        const newSp = await createServiceProvider(schema, { title: args.name, callbackUrls: [args.callbackurl] });
         await commitWork();
 
         if (opts.json) {

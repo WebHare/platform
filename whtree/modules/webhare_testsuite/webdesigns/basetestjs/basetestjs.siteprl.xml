@@ -56,7 +56,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-wrdauthjs"
-             customizer="webdesign/auth.ts#AuthCustomizer"
+             customizer="webdesign/auth.ts#TestAuthCustomizer"
              loginpage="currentsite::/portal1/" /> <!-- TODO? supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport" -->
 
     <!-- Test a plugin -->
