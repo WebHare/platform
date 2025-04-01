@@ -1,6 +1,6 @@
 import { loadAssetPacksConfig } from '@mod-platform/js/assetpacks/api';
 import type { AssetPackMiniStatus } from '@mod-platform/js/devsupport/devbridge';
-import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/validation';
+import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/messages';
 import { openBackendService, subscribe, writeRegistryKey, type BackendEvents, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';

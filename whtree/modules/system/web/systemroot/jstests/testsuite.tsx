@@ -6,12 +6,14 @@ import * as domfocus from "dompack/browserfix/focus";
 import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
 import StackTrace from "stacktrace-js";
-import { isError } from '@webhare/std';
+import { isError, toCamelCase } from '@webhare/std';
 import type { TestError } from '@webhare/test/src/checks';
 import { createClient } from '@webhare/jsonrpc-client';
 import { qR } from '@webhare/dompack';
 import { debugFlags } from '@webhare/env';
 import type { TestFrameWorkCallbacks } from '@mod-system/js/wh/testframework';
+import type { AssetPackState } from '@mod-platform/js/assetpacks/types';
+import { formatValidationMessage, logValidationMessagesToConsole } from "@mod-platform/js/devsupport/messages";
 
 export interface TestService {
   invoke(libfunc: string, params: unknown[]): Promise<unknown>;
@@ -217,9 +219,20 @@ class TestFramework {
         {
           name: "test compilation failed",
           test: () => {
-            const bundlestatus = event.data.bundlestatus;
-            this.log(`Got compilation errors for ${bundlestatus.file}:\n${bundlestatus.errors}`);
-            throw new Error(`Compilation of ${bundlestatus.file} failed: ${bundlestatus.errors}`);
+            const compileFailureInfo = toCamelCase(event.data.compile_failure_info) as {
+              compileresult: AssetPackState;
+              affectedtest: {
+                script: string;
+                testname: string;
+              };
+            };
+
+            logValidationMessagesToConsole(compileFailureInfo.compileresult.messages);
+
+            const numErrors = compileFailureInfo.compileresult.messages.filter(_ => _.type === "error")?.length;
+            const msg = formatValidationMessage(compileFailureInfo.compileresult.messages.find(_ => _.type === "error")!) + (numErrors > 1 ? ` and ${numErrors - 1} more` : "");
+            this.log(`Got compilation errors for ${compileFailureInfo.affectedtest.script} - ${msg}`);
+            throw new Error(`Compilation of ${compileFailureInfo.affectedtest.script} failed: ${msg}`);
           }
         }
       ];

@@ -75,16 +75,12 @@ IF(urlbase LIKE "*/!/*")
         RECORD headers;
         IF (RecordExists(SELECT FROM compileresult.messages WHERE type = "error"))
         {
-          testwitty->RunComponent("compilefailure", CELL[
-              bundlestatus := CELL[ file := affectedtest.testscript.scriptpath
-                                  , errors := (SELECT *, formatted := FormatValidationMessageWithType(messages) FROM compileresult.messages WHERE type = "error")
-                                  ]
-            ]);
+          testwitty->RunComponent("compilefailure", CELL[ COMPILE_FAILURE_INFO := CELL[ compileresult, affectedtest ]]);
           RETURN;
         }
 
         //FIXME we need to get info.dependencies.FILEDEPENDENCIES (and .MISSINGDEPENDENCIES) to the top level devtools websocket to listen for
-        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.lastcompilesettings.bundle.config.name))
+        RECORD data := [ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.last_compile_settings.bundle.config.name))
                        , whconfig := [ dtapstage := GetDTAPStage()
                                      , islive := IsDTAPLive()
                                      , locale := "en-US"

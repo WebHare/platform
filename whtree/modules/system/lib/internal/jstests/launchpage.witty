@@ -54,12 +54,12 @@
 [component compilefailure]<html>
   <head>
     <script>
-      const bundlestatus = [bundlestatus:json];
-      console.error("Testscript compile errors", bundlestatus);
-      for(const err of bundlestatus.status?.info?.errors || [[])
+      const compile_failure_info = [compile_failure_info:json];
+      console.error("Testscript compile errors", compile_failure_info);
+      for(const err of compile_failure_info.status?.info?.errors || [[])
         console.error(`${err.resource}:${err.line}:${err.col} ${err.message}`);
 
-      window.parent.postMessage({type: 'compilefailure', bundlestatus}, location.origin);
+      window.parent.postMessage({type: "compilefailure", compile_failure_info}, location.origin);
     </script>
     <style>
       * { margin:0; padding:0; }

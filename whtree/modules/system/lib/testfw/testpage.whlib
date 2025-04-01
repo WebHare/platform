@@ -40,7 +40,7 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
     ABORT(compileresult,'tree');
 
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
-     CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundleTag))
+     CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundle_tag))
          , body := PTR pagebody(context)
          , options.isolatestorage
          , hasdevmodule := IsModuleInstalled("dev")
