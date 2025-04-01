@@ -27,8 +27,10 @@ function getBaseURL() {
 }
 
 export interface RPCClientOptions {
-  /** Custom request update. Use to eg. set keepalive or add debug variables to the URL*/
-  onBeforeRequest?: (url: URL, requestInit: RequestInit) => void;
+  /** Custom request update. Use to eg. set keepalive or add debug variables to the URL */
+  onBeforeRequest?: (url: URL, requestInit: RequestInit & { headers: Headers }) => void;
+  /** Response callback. Use this if you need to capture details on the incoming respones. May be invoked multiple times per request, eg due to 429 errors! */
+  onResponse?: (response: Response) => void;
   /** Call timeout */
   timeout?: number;
   /** Abort signal to cancel the RPC */
@@ -124,6 +126,8 @@ class ControlledCall {
     try {
       for (; ;) { //loop to handle "429 Conflict"s
         response = await fetchpromise;
+        this.options.onResponse?.(response); //allow hooks to capture headers
+
         if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           const retryafter = parseInt(response.headers.get("Retry-After") || "");
           if (this.client.debug)
@@ -220,7 +224,7 @@ class RPCClient {
 
     let requestStack: StackTrace | null = null;
 
-    const fetchoptions: RequestInit = {
+    const fetchoptions: RequestInit & { headers: Headers } = {
       method: "POST",
       headers: new Headers({
         "Accept": "application/json",

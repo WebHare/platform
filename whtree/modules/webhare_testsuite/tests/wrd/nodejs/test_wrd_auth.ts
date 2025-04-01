@@ -9,6 +9,7 @@ import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import { rpc } from "@webhare/rpc";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -280,6 +281,22 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
   test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
+
+  //Test the frontend login RPC - do we see the proper cache headers
+  const testsiteurl = new URL((await test.getTestSiteJS()).webRoot!);
+  let seenheaders = false;
+  await rpc("platform:authservice", {
+    onBeforeRequest(url, requestInit) {
+      url.searchParams.set("pathname", testsiteurl.pathname);
+      requestInit.headers.set("origin", testsiteurl.origin);
+    },
+    onResponse(response) {
+      test.eq("no-store", response.headers.get("cache-control"));
+      test.eq("no-cache", response.headers.get("pragma"));
+      seenheaders = true;
+    }
+  }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
+  test.assert(seenheaders, "verify onResponse isn't skipped");
 }
 
 async function testSlowPasswordHash() {

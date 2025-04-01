@@ -58,6 +58,10 @@ export const authService = {
     if (response.userInfo)
       responseBody.userInfo = response.userInfo;
 
+    /* Set safety headers when returning tokens just like openid */
+    context.responseHeaders.set("cache-control", "no-store");
+    context.responseHeaders.set("pragma", "no-cache");
+
     context.responseHeaders.append("Set-Cookie", buildCookieHeader(idCookie, logincookie, { ...cookieSettings, expires: response.expires }));
     for (const toClear of ignoreCookies)
       context.responseHeaders.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
