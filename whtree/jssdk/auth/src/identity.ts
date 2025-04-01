@@ -46,7 +46,7 @@ export type ListedToken = {
   metadata: unknown;
   /** Token creation date */
   created: Temporal.Instant;
-  /** Token expiration date, null if infinie */
+  /** Token expiration date, null if infinite */
   expires: Temporal.Instant | null;
   /** Scopes available to this token */
   scopes: string[];
