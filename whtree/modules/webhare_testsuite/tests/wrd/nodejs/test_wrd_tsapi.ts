@@ -1513,7 +1513,9 @@ async function testImportMode() {
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       json: null,
       hson: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       file: null,
+      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       image: null,
       richDocument: null,
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
@@ -1556,11 +1558,16 @@ async function testEvents() {
   using stream = subscribeToEventStream("wrd:type.*");
   const streamitr = stream[Symbol.asyncIterator]();
 
+  const anyUnit = (await schema.query("whuserUnit").select("wrdId").execute())[0];
+  if (!anyUnit)
+    throw new Error("No unit found");
+
   // STORY: create entity
   await whdb.beginWork();
   const person = await schema.insert("wrdPerson", {
     wrdContactEmail: "event-test@example.com",
     testJsonRequired: { mixedCase: [1, "yes!"] },
+    whuserUnit: anyUnit,
   });
   await whdb.commitWork();
 
@@ -1628,7 +1635,7 @@ async function testEvents() {
   // STORY: create a lot of entities entity
   await whdb.beginWork();
   for (let i = 0; i < 501; ++i) // 500 is the limit, otherwise allinvalidated will become true
-    await schema.insert("wrdPerson", { wrdContactEmail: `event-test-${i}@example.com`, testJsonRequired: { mixedCase: [1, "yes!"] } });
+    await schema.insert("wrdPerson", { wrdContactEmail: `event-test-${i}@example.com`, testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: anyUnit });
   await whdb.commitWork();
   event = await expectEvent(streamitr, { check: (evt) => evt.name === `wrd:type.${wrdPersonTypeId}.change` });
   test.eq({

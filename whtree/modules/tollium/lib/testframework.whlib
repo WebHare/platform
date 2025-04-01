@@ -1634,7 +1634,7 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
 
   OBJECT comp := TT(compname);
   STRING ARRAY extendnames := GetObjectExtendNames(comp);
-  IF ("TOLLIUMLIST" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
+  IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames OR "TOLLIUMSELECT" IN extendnames)
   {
     IF (NOT IsTypeIdArray(TypeID(val)))
       val := IsDefaultValue(val) ? VARIANT[] : VARIANT[ val ];
@@ -1646,7 +1646,7 @@ PUBLIC MACRO TTFillByTitle(STRING compname, VARIANT val, RECORD options DEFAULTS
     BOOLEAN selectmultiple;
     STRING detokenizedvalueseparator;
 
-    IF ("TOLLIUMLIST" IN extendnames)
+    IF ("TOLLIUMLIST" IN extendnames OR "ARRAYLISTEDITBASE" IN extendnames)
     {
       IF (options.cellname = "" OR options.cellname LIKE ":*")
       {

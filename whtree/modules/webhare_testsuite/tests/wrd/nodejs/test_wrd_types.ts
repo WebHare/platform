@@ -1,5 +1,6 @@
 import * as test from "@webhare/test";
 import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition } from "@mod-wrd/js/internal/types";
+import type { ResourceDescriptor } from "@webhare/services";
 
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
 
@@ -34,6 +35,8 @@ function testTypes() {
     whuser_unit: IsRequired<WRDAttributeTypeId.Domain>;
     whuser_hiddenannouncements: WRDAttributeTypeId.DomainArray;
     invented_domain: WRDAttributeTypeId.Domain;
+    requiredFile: IsRequired<WRDAttributeTypeId.File>;
+    requiredImage: IsRequired<WRDAttributeTypeId.File>;
   };
 
 
@@ -51,7 +54,7 @@ function testTypes() {
   test.throws(/Cannot combine selects, trying to combine a single field with a map/, () => combineRecordOutputMaps("a", { a: "a" }));
   test.throws(/Cannot combine selects, trying to combine a map with another single field/, () => combineRecordOutputMaps({ a: "a" }, "a"));
 
-  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] as const;
+  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] as const;
   void stringselect;
 
   test.typeAssert<test.Equals<{
@@ -62,10 +65,12 @@ function testTypes() {
     invented_domain: number | null;
     whuser_unit: number;
     whuser_hiddenannouncements: number[];
+    requiredFile: ResourceDescriptor;
+    requiredImage: ResourceDescriptor;
   }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect>>>();
 
 
-  const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] } as const;
+  const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] } as const;
   void recordselect;
 
   test.typeAssert<test.Equals<{
@@ -79,6 +84,8 @@ function testTypes() {
       whuser_unit: number;
       invented_domain: number | null;
       whuser_hiddenannouncements: number[];
+      requiredFile: ResourceDescriptor;
+      requiredImage: ResourceDescriptor;
     };
   }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect>>>();
 
@@ -100,30 +107,32 @@ function testTypes() {
     };
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }>>>();
 
-  test.typeAssert<test.Assignable<{
-    inventedDomain?: number | null | undefined;
-    whuserComment?: string | undefined;
-    whuserDisabled?: boolean | undefined;
-    whuserDisablereason?: string | undefined;
-    whuserHiddenannouncements?: number[] | undefined;
-    whuserLastlogin?: Date | null | undefined;
-    whuserUnit?: number | null;
+  test.typeAssert<test.Equals<{
+    invented_domain?: number | null | undefined;
+    whuser_comment?: string | undefined;
+    whuser_disabled?: boolean | undefined;
+    whuser_disablereason?: string | undefined;
+    whuser_hiddenannouncements?: number[] | undefined;
+    whuser_lastlogin?: Date | null | undefined;
     wrdCreationDate?: Date | null | undefined;
     wrdDateOfBirth?: Date | null | undefined;
     wrdDateOfDeath?: Date | null | undefined;
     wrdFirstName?: string | undefined;
     wrdFirstNames?: string | undefined;
-    wrdGender?: WRDGender | undefined;
-    wrdGuid?: string | undefined;
-    wrdId?: number | undefined;
-    wrdInfix?: string | undefined;
-    wrdInitials?: string | undefined;
+    wrd_gender?: WRDGender | null | undefined;
+    wrd_guid?: string | undefined;
+    wrd_id?: number | undefined;
+    wrd_infix?: string | undefined;
+    wrd_initials?: string | undefined;
     wrdLastName?: string | undefined;
     wrdLimitDate?: Date | null | undefined;
     wrdModificationDate?: Date | undefined;
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;
-    wrdTitles?: string | undefined;
+    wrd_titles?: string | undefined;
+    whuser_unit: number;
+    requiredFile: ResourceDescriptor | { data: Buffer };
+    requiredImage: ResourceDescriptor | { data: Buffer };
   }, WRDInsertable<System_Usermgmt_WRDPerson>>>();
 }
 

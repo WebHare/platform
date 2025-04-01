@@ -1,5 +1,5 @@
 <?wh
-//bootstrap the first index manager, wait for it to come online and apply the first index settings
+//ensures the first index manager is present in the list of indexmanagers
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 
@@ -28,6 +28,7 @@ IF(builtin_indexmanager = 0)
   INSERT INTO consilio.indexmanagers(id, name, address)
        VALUES (builtin_indexmanager, "Builtin OpenSearch", "builtin-opensearch");
 
+  // Rescan the apprunner task list if the apprunner is already running
   GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
   trans->CommitWork();
 }
