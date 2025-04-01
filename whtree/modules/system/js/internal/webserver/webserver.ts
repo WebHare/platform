@@ -117,20 +117,25 @@ class WebServerPort {
   }
 
   handleException(e: unknown, req: http.IncomingMessage, res: http.ServerResponse) {
-    //TODO log error
-    res.statusCode = 500;
-    if (!env.debugFlags.etr) {
-      res.setHeader("content-type", "text/html");
-      res.end("<p>Internal server error");
-      return; //and that's all you need to know without 'etr' ...
-    }
+    try {
+      //TODO log error
+      res.statusCode = 500;
+      if (!env.debugFlags.etr) {
+        res.setHeader("content-type", "text/html");
+        res.end("<p>Internal server error");
+        return; //and that's all you need to know without 'etr' ...
+      }
 
-    res.setHeader("content-type", "text/plain");
-    if (e instanceof Error) {
-      console.log(`Exception handling ${req.url}: `, e.message);
-      res.end(`500 Internal server error\n\n${e.message}\n${e.stack}`);
-    } else {
-      res.end(`500 Internal server error\n\nDid not receive a proper Error`);
+      res.setHeader("content-type", "text/plain");
+      if (e instanceof Error) {
+        console.log(`Exception handling ${req.url}: `, e.message);
+        res.end(`500 Internal server error\n\n${e.message}\n${e.stack}`);
+      } else {
+        res.end(`500 Internal server error\n\nDid not receive a proper Error`);
+      }
+    } catch (e2) {
+      console.error("Exception handling exception", e2);
+      req.socket.destroy();
     }
   }
 }
