@@ -3,16 +3,17 @@
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { backendConfig } from "../configuration";
 import * as path from "node:path";
-import { mkdir, readlink, rm, symlink } from "node:fs/promises";
+import { mkdir, readlink, rename, rm, symlink } from "node:fs/promises";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { globalPolyfills } from "@webhare/env/src/envbackend";
+import { generateRandomId } from "@webhare/std";
 
 type DataRootItem = {
-  name: string;
+  subPath: string;
   type: "symboliclink";
   target: string;
 } | {
-  name: string;
+  subPath: string;
   type: "directory";
 };
 
@@ -23,53 +24,53 @@ function getDataRootNodeModules(): DataRootItem[] {
   const items: DataRootItem[] = Object.entries(backendConfig.module).
     map(([name, settings]) => (
       {
-        name: `@mod-${name}`,
+        subPath: `@mod-${name}`,
         type: "symboliclink",
         target: settings.root
       }));
 
   items.push(
     {
-      name: "dompack",
+      subPath: "dompack",
       type: "symboliclink",
       target: `${backendConfig.module.system.root}js/dompack`
     },
     {
-      name: "@types",
+      subPath: "@types",
       type: "directory",
     },
     {
-      name: "@types/node",
+      subPath: "@types/node",
       type: "symboliclink",
       target: `${installationroot}node_modules/@types/node`
     },
     {
-      name: "@webhare",
+      subPath: "@webhare",
       type: "symboliclink",
       target: `${installationroot}jssdk/`
     },
     {
-      name: "wh:db",
+      subPath: "wh:db",
       type: "symboliclink",
       target: `${whdataroot}config/db`
     },
     {
-      name: "wh:openapi",
+      subPath: "wh:openapi",
       type: "symboliclink",
       target: `${whdataroot}config/openapi`
     },
     {
-      name: "wh:schema",
+      subPath: "wh:schema",
       type: "symboliclink",
       target: `${whdataroot}config/schema`
     },
     {
-      name: "wh:ts", //misc generated ts files (eg registry.ts)
+      subPath: "wh:ts", //misc generated ts files (eg registry.ts)
       type: "symboliclink",
       target: `${whdataroot}config/ts`
     },
     {
-      name: "wh:wrd",
+      subPath: "wh:wrd",
       type: "symboliclink",
       target: `${whdataroot}config/wrd`
     }
@@ -82,8 +83,8 @@ async function getTSPaths(items: DataRootItem[], startpath: string): Promise<Rec
   for (const item of items) {
     if (item.type === "symboliclink") {
       if ((await listDirectory(item.target, { allowMissing: true, mask: "index.*" })).length) //permit direct links like @webhare/std to work
-        result[`${startpath}${item.name}`] = [item.target];
-      result[`${startpath}${item.name}/*`] = [path.join(item.target, '*')];
+        result[`${startpath}${item.subPath}`] = [item.target];
+      result[`${startpath}${item.subPath}/*`] = [path.join(item.target, '*')];
     }
   }
   return result;
@@ -131,10 +132,11 @@ export async function generateTSConfigTextForModule(module: string) {
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
-  const contents = (await listDirectory(basepath)).map(entry => ({ ...entry, used: false, recursive: true }));
+  const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, used: false, subPath: entry.fullPath.substring(basepath.length) }));
+
   for (const item of want) {
-    const itemPath = basepath + item.name;
-    const pos = contents.findIndex(entry => entry.name === item.name);
+    const itemPath = basepath + item.subPath;
+    const pos = contents.findIndex(entry => entry.subPath === item.subPath);
     if (pos !== -1) {
       const found = contents[pos];
       contents[pos].used = true;
@@ -147,9 +149,9 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
 
     //If we get here, either the item (no longer) exists *or* it's a symlink we can just overwrite
     if (item.type === "symboliclink") {
-      //FIXME should be atomic, we need something like storeDiskFile temporary-rename-overwriting but for symlinks?
-      await rm(itemPath, { force: true });
-      await symlink(item.target, itemPath);
+      const tempPath = `${itemPath}.${generateRandomId()}.tmp`;
+      await symlink(item.target, tempPath); //generate with unique name
+      await rename(tempPath, itemPath); //and move atomically into place
     } else {
       await mkdir(itemPath);
     }
