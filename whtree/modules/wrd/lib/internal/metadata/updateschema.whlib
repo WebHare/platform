@@ -84,9 +84,12 @@ RECORD FUNCTION InsertDefaultFields(RECORD val, RECORD defaults, STRING ARRAY al
       THROW NEW Exception("Cell '"||r.name ||"' not allowed");
     IF (CellExists(val, r.name))
     {
-      IF (TypeId(GetCell(val, r.name)) != TypeID(r.value))
-        PRINT("Mixing types in " || r.name || "\n");
-      val := CellUpdate(val, r.name, r.value);
+      IF(IsValueSet(r.value)) { //avoids variant array assignment
+        IF (TypeId(GetCell(val, r.name)) != TypeID(r.value))
+          PRINT("Mixing types in " || r.name || "\n");
+
+        val := CellUpdate(val, r.name, r.value);
+      }
     }
     ELSE
       val := CellInsert(val, r.name, r.value);

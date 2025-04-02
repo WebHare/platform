@@ -1,12 +1,12 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { type WRDBaseAttributeTypeId, WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
 import { type GenerateContext, type FileToUpdate, generatorBanner } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std";
 import { elements } from "./xmlhelpers";
 import { getGeneratedFilePath } from "./shared";
+import { parseSchema, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
 export function generateTypeName(str: string) {
@@ -46,24 +46,6 @@ interface DeclaredAttribute extends WRDAttributeConfigurationWithChildren {
   defstr?: string | null; //'null' if in WRDTypeBaseSettings
   typeDeclaration?: string;
 }
-
-///SchemaDef as received from HareScript
-type SchemaDef = {
-  types: Array<{
-    tag: string;
-    type: "OBJECT" | "DOMAIN" | "ATTACHMENT" | "LINK";
-    parenttype_tag: string;
-
-    allattrs: Array<{
-      tag: string;
-      attributetype: WRDBaseAttributeTypeId | WRDAttributeTypeId;
-      allowedvalues: string[];
-      isrequired: boolean;
-      typedeclaration: string;
-      attrs: SchemaDef["types"][number]["allattrs"];  // recursive def
-    }>;
-  }>;
-};
 
 interface ModuleWRDSchemaDef {
   module: string;
@@ -119,7 +101,7 @@ interface ParsedWRDSchemaDef extends PublicParsedWRDSchemaDef {
   }>;
 }
 
-function buildAttrsFromArray(attrs: SchemaDef["types"][0]["allattrs"]): Record<string, DeclaredAttribute> {
+function buildAttrsFromArray(attrs: ParsedAttr[]): Record<string, DeclaredAttribute> {
   const attrdefs: Record<string, DeclaredAttribute> = {};
   for (const attr of attrs) {
     if (!attr.attributetype) //this is an <obsolete ...
@@ -148,7 +130,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
   };
 
   try {
-    const schemadef = await loadlib("mod::wrd/lib/internal/metadata/schemaparser.whlib").OpenWRDSchemaDefFile(schemaptr.definitionfile) as SchemaDef;
+    const schemadef = await parseSchema(schemaptr.definitionfile, true, null);
 
     for (const type of schemadef.types) {
       const typeinfo: ParsedWRDSchemaDef["types"][string] = {
