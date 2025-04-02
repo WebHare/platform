@@ -18,7 +18,7 @@ import { type IPCEndPoint, type IPCMessagePacket, type IPCPort, createIPCEndPoin
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
-import { escapePGIdentifier } from "@webhare/whdb/src/impl";
+import { escapePGIdentifier } from "@webhare/whdb/src/metadata";
 import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
 import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
 import type { LocalLockService } from "./wasm-locallockservice";

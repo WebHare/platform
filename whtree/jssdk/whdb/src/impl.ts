@@ -26,6 +26,7 @@ import { type HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hs
 import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
+import { escapePGIdentifier } from './metadata';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -416,31 +417,6 @@ type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork"
 
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
-
-export function escapePGIdentifier(str: string): string {
-  const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
-  let retval: string;
-  if (is_simple)
-    retval = `"${str.replaceAll(`"`, `""`)}"`;
-  else {
-    retval = `U&"`;
-    for (const char of str) {
-      const code = char.charCodeAt(0);
-      if (code >= 32 && code < 127) {
-        if (char === "\\")
-          retval += char;
-        retval += char;
-      } else {
-        if (code < 65536)
-          retval += `\\${code.toString(16).padStart(4, "0")}`;
-        else
-          retval += `\\+${code.toString(16).padStart(8, "0")}`;
-      }
-    }
-    retval += `"`;
-  }
-  return retval;
-}
 
 export function getConnection() {
   return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {

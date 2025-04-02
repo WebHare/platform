@@ -11,7 +11,7 @@ async function runWasmScript(script: string, params: string[]) {
 
   try {
     const vm = await runScript(script, { consoleArguments: params });
-    setScopedResource(HSVMSymbol, vm);
+    setScopedResource(HSVMSymbol, vm); //ensure any loadlib stays in the srcipt's context
     await vm.done;
     process.exitCode = vm.vm?.deref()?.exitCode ?? 254;
   } finally {

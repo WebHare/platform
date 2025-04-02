@@ -6,39 +6,94 @@
 */
 
 import { updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
+import { run } from "@webhare/cli";
 import { debugFlags } from "@webhare/env";
-import { backendConfig } from "@webhare/services";
-import { spawn } from "node:child_process";
+import { runScript } from "@webhare/harescript";
+import { HSVMSymbol } from "@webhare/harescript/src/wasm-support";
+import { setScopedResource } from "@webhare/services/src/codecontexts";
+import { sleep } from "@webhare/std";
+import { bootstrapPostgresWHDB } from "@webhare/whdb/src/bootstrap";
+import { getPGConnection } from "@webhare/whdb/src/connection";
 
-async function main() {
-  const verbose = debugFlags.startup;
+let verbose = debugFlags.startup;
 
+/* things we can do without a database in a TS-only environment (HareScript may not be available) */
+async function preDatabaseBootstrapTS() {
   /* The wh script will have generated 'config' already (TODO consider doing it here but then C++ processes might
      ignore or race before they recognize installed modules. Which might be for the better for a fast startup)
-
-     This step is an unavoidable XML parse */
+*/
   try {
     await updateGeneratedFiles(["extracts"], { verbose });
   } catch (e) {
     //this shouldn't happen, the parsers need to be robust. but we shouldn't be shutting down WebHare either
     console.error("ERROR running updateGeneratedFiles", e);
   }
+}
 
-  /* Run the OG startup script */
-  const startupper = spawn(
-    backendConfig.installationroot + "bin/runscript",
-    ["--workerthreads", "4", "mod::system/scripts/internal/webhareservice-startup.whscr"],
-    { stdio: "inherit" });
+/* Bring the PG database to a usable tate */
+async function bootstrapDatabase() {
+  // Get a connection. We race postgres' startup so we need to loop on connection
+  const startWait = Date.now();
+  let firstTry = true;
+  let pgclient;
+  for (; ;) {
+    pgclient = getPGConnection();
+    try {
+      await pgclient.connect();
+      break;
+    } catch (e) {
+      await sleep(50);
+      firstTry = false;
+      await pgclient.close();
+    }
+  }
 
-  const returncode = await new Promise<{ code: number; signal: string }>(resolve => startupper.on("exit", resolve));
-  if (returncode.code || returncode.signal) {
-    if (returncode.code)
-      console.error(`Startup script exited with code ${returncode.code}`);
-    else if (returncode.signal)
-      console.error(`Startup script exited with signal ${returncode.signal}`);
+  if (verbose && !firstTry) {
+    const elapsed = Date.now() - startWait;
+    console.log(`Waited ${elapsed}ms for database to be available`);
+  }
 
-    process.exitCode = 1;
+  /* Bootstrap postgres. This creates the webhare_internal.blob type without which @webhare/whdb can't even properly connect! */
+  await bootstrapPostgresWHDB(pgclient);
+  await pgclient.close();
+}
+
+async function runStep(name: string, fn: () => Promise<void>) {
+  if (verbose) {
+    console.log(`Starting ${name}`);
+    console.time(name);
+  }
+
+  try {
+    await fn();
+  } catch (e) {
+    console.error(`Error running step ${name}:`, e);
+    throw e;
+  }
+  if (verbose) {
+    console.timeEnd(name);
   }
 }
 
-void main();
+async function startupHS() {
+  const vm = await runScript("mod::system/scripts/internal/webhareservice-startup.whscr");
+  setScopedResource(HSVMSymbol, vm); //ensure any loadlib stays in the srcipt's context
+  await vm.done;
+
+  const returncode = vm.vm?.deref()?.exitCode ?? 254;
+  if (returncode) {
+    throw new Error(`Startup script exited with code ${returncode}`);
+  }
+}
+
+run({
+  flags: {
+    "v,verbose": { desceription: "Enable verbose logging" },
+  }, async main({ opts }) {
+    verbose ||= opts.verbose;
+    await runStep("updateGeneratedFiles", async () => preDatabaseBootstrapTS());
+    await runStep("bootstrapDatabase", async () => bootstrapDatabase());
+
+    await runStep("startupHS", async () => startupHS());
+  }
+});
