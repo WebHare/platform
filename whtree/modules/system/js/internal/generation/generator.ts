@@ -27,7 +27,7 @@ import { readFile } from "fs/promises";
 import { join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { DOMParser, type Document } from '@xmldom/xmldom';
+import type { Document } from '@xmldom/xmldom';
 import type { ModuleData } from "@webhare/services/src/config";
 import { listAllExtracts } from "./gen_extracts";
 import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types";
@@ -38,6 +38,7 @@ import { updateTypeScriptInfrastructure } from "./gen_typescript";
 import { listAllServiceTS } from "./gen_services";
 import { listMiscTS } from "./gen_misc_ts";
 import { rm } from "node:fs/promises";
+import { parseDocAsXML } from "./xmlhelpers";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "config/";
@@ -82,7 +83,7 @@ async function loadModuleDefs(name: string, mod: RecursiveReadonly<ModuleData>):
   try {
     const moddef = resourceBase + "moduledefinition.xml";
     const text = await readFile(toFSPath(moddef), 'utf8');
-    modXml = new DOMParser().parseFromString(text, "text/xml");
+    modXml = parseDocAsXML(text, "text/xml");
   } catch (ignore) {
   }
 
