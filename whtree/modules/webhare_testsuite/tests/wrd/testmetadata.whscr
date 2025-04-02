@@ -196,11 +196,6 @@ MACRO ExportXMLMetadata()
   TestEq(TRUE, wrdschema->GetType("WRD_PERSON")->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
 
-  TestEq("My test string!", wrdschema->GetSchemaSetting("wrd:setting1"));
-  TestEq(1234567890, wrdschema->GetSchemaSetting("wrd:setting2"));
-  TestEq(TRUE, wrdschema->GetSchemaSetting("wrd:setting3"));
-  TestEq(StringToBlob("My test blob!"), wrdschema->GetSchemaSetting("wrd:setting4"));
-
   //The schemas should match
   RECORD restoredschema := ExtractSchemaMetadata(wrdschema);
   TestEq(saveschema, restoredschema);

@@ -2,7 +2,6 @@
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -101,27 +100,6 @@ PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
 
   FOREVERY(RECORD type FROM basetypes)
     AddXMLType(wrdschema, type, root);
-
-  RECORD ARRAY keyvalues :=
-      SELECT *
-        FROM wrd.keyvaluestore
-       WHERE wrd_schema = wrdschema->id
-       ORDER BY name;
-
-  IF(Length(keyvalues) > 0)
-  {
-    OBJECT keyvaluesnode := root->ownerdocument->CreateElementNS(ns_schemadef,"keyvalues");
-    root->AppendChild(keyvaluesnode);
-
-    FOREVERY(RECORD keyvalue FROM keyvalues)
-    {
-      OBJECT keyvaluenode := root->ownerdocument->CreateElementNS(ns_schemadef,"keyvalue");
-      keyvaluesnode->AppendChild(keyvaluenode);
-      keyvaluenode->SetAttribute("name", keyvalue.name);
-      VARIANT value := ReadAnyFromDatabase(keyvalue.data, keyvalue.blobdata);
-      keyvaluenode->__SetHSValue(value);
-    }
-  }
 }
 
 

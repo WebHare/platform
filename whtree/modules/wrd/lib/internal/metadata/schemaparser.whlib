@@ -7,7 +7,6 @@ LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -95,25 +94,11 @@ CONSTANT RECORD basetype :=
 STATIC OBJECTTYPE ParsedSchemaDef
 <
   RECORD ARRAY types;
-  RECORD ARRAY keyvaluestore;
   RECORD metadata;
   STRING currentfile;
   STRING ARRAY importedfiles;
   RECORD ARRAY migrations;
   RECORD ARRAY resources;
-
-  MACRO AddKeyValue(OBJECT keyvaluenode)
-  {
-    STRING name := ToUppercase(keyvaluenode->GetAttribute("name"));
-    IF (name = "")
-      THROW NEW Exception("Keyvalue has no name");
-
-    IF (CellExists(this->keyvaluestore, name))
-      THROW NEW Exception("Duplicate keyvalue '" || name || "'");
-
-    RECORD keyvalue := AnyTypeToBlobString(keyvaluenode->__INTERNAL_GetHSValue());
-    INSERT CELL[ name, keyvalue ] INTO this->keyvaluestore AT END;
-  }
 
   MACRO AddType(OBJECT typenode)
   {
@@ -378,11 +363,6 @@ STATIC OBJECTTYPE ParsedSchemaDef
                     , revision := ParseXSInt(node->GetAttribute("revision"))
                     ] INTO this->migrations AT END;
       }
-      ELSE IF(node->localname="keyvalues")
-      {
-        FOREVERY(OBJECT keyvalue FROM node->childnodes->GetCurrentElements())
-          this->AddKeyValue(keyvalue);
-      }
       ELSE
       {
         this->AddType(node);
@@ -397,7 +377,6 @@ STATIC OBJECTTYPE ParsedSchemaDef
     RETURN
         CELL[ this->types
             , this->metadata
-            , this->keyvaluestore
             , this->migrations
             , schemaresources := CELL[ resources := (SELECT * FROM this->resources ORDER BY resourcename)
                                      , version := current_schema_version

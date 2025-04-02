@@ -81,13 +81,6 @@
           <!-- legacy -->
           <xs:element name="classification" type="AttachmentDefinition" />
         </xs:choice>
-        <xs:element name="keyvalues" minOccurs="0" maxOccurs="1">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element name="keyvalue" minOccurs="0" maxOccurs="unbounded" />
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
       </xs:sequence>
 
     </xs:sequence>
