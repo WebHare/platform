@@ -5,6 +5,7 @@
     <version>4.31.0</version>
     <validation options="nowarnings">
       <exclude mask="tests/wh/hscore/xml/generated/*" why="Don't validate generated code" />
+
       <!-- <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" /> -->
       <exclude mask="tolliumapps/demo/*"
                why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
@@ -12,22 +13,22 @@
       <exclude mask="tests/system/modules/data/brokenscreen.xml" why="Purposefully broken screen" />
       <exclude mask="tests/tollium/data/addons.xml" why="Purposefully broken screen" />
       <exclude mask="tests/publisher/siteprofile/data/test*.xml" why="Purposefully broken site profiles" />
-      <exclude mask="tests/wh/hscore/xml/testinfo.xml" why="Refers to generated/testinfo.xml but this file does not exist until the XML tests have been generated" />
+      <exclude mask="tests/wh/hscore/xml/testinfo.xml"
+               why="Refers to generated/testinfo.xml but this file does not exist until the XML tests have been generated" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
 
       <!-- tid tests need to generate tid errors, some tests explicitly have to trigger warnings -->
-      <ignoremessage mask="*gettid*" regex="Invalid tid"/>
-      <ignoremessage mask="*gettid*" regex="Missing tid"/>
-      <ignoremessage mask="*hsengine/test*" regex="(WHERE clause partly not|redeclared|been declared|erroneously as a RECORD|has been deprecated)"/>
-      <ignoremessage mask="*/tidtestscreen.xml" regex="Missing tid"/>
-      <ignoremessage mask="*.whscr" regex="has been deprecated"/>
-      <ignoremessage mask="*" regex="Missing tid"/>
-
+      <ignoremessage mask="*gettid*" regex="Invalid tid" />
+      <ignoremessage mask="*gettid*" regex="Missing tid" />
+      <ignoremessage mask="*hsengine/test*"
+                     regex="(WHERE clause partly not|redeclared|been declared|erroneously as a RECORD|has been deprecated)" />
+      <ignoremessage mask="*/tidtestscreen.xml" regex="Missing tid" />
+      <ignoremessage mask="*.whscr" regex="has been deprecated" />
+      <ignoremessage mask="*" regex="Missing tid" />
       <eslint masks="nosuch.js *.ts *.tsx" />
       <format masks="*.ts *.tsx" />
-
     </validation>
   </meta>
 
@@ -592,7 +593,7 @@
   </documentation>
 
   <wrdschemas>
-    <schema tag="testschema" definitionfile="mod::webhare_testsuite/tests/wrd/data/testschemadef.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
+    <schema tag="testschema" autocreate="false" definitionfile="mod::webhare_testsuite/tests/wrd/data/testschemadef.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
   </wrdschemas>
 
 </module>
