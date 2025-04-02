@@ -593,7 +593,7 @@
   </documentation>
 
   <wrdschemas>
-    <schema tag="testschema" definitionfile="mod::webhare_testsuite/tests/wrd/data/testschemadef.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
+    <schema tag="testschema" autocreate="false" definitionfile="mod::webhare_testsuite/tests/wrd/data/testschemadef.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
   </wrdschemas>
 
 </module>
