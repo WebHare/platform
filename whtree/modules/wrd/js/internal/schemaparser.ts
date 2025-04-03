@@ -134,6 +134,9 @@ class ParsedSchemaDef {
           stage: node.getAttribute("stage") || "beforeTypes",
           revision: getAttr(node, 'revision', 0)
         });
+      } else if (node.localName === "keyvalues") {
+        //Pre WH5.7 servers still send these on WRD sync, ignore
+        continue;
       } else {
         this.addType(node, resource);
       }
