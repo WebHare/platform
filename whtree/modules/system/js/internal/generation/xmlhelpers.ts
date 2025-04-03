@@ -3,12 +3,20 @@
 
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy } from "@webhare/std";
-import type { Node, Element, LiveNodeList } from "@xmldom/xmldom";
+import { DOMParser, type Document, type Node, type Element, type NodeList } from "@xmldom/xmldom";
 
-export function elements<T extends Element>(collection: LiveNodeList<T>): T[] {
+/** Build a \@xmldom/xmldom DOCParser that doesn't make noise about broken docs */
+export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): Document {
+  return new DOMParser({
+    onError: w => { } //just ignore
+  }).parseFromString(data, format);
+}
+
+export function elements<T extends Element>(collection: NodeList<Node>): T[] {
   const items: T[] = [];
   for (let i = 0; i < collection.length; ++i)
-    items.push(collection[i]);
+    if (collection[i].nodeType === collection[i].ELEMENT_NODE)
+      items.push(collection[i] as T);
   return items;
 }
 

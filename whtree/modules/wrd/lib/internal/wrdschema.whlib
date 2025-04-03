@@ -913,48 +913,41 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
     this->__iswrdapi2017 := TRUE;
   }
 
-  BOOLEAN FUNCTION TestSchemaResourcesChanged(STRING schemaresource)
+  STRING FUNCTION TestSchemaResourcesChanged(STRING schemaresource)
   {
     RECORD orgupdate := this->GetSchemaSetting("wrd:schemaresources", [ fallback := DEFAULT RECORD ]);
-    IF (RecordExists(orgupdate))
-    {
-      orgupdate :=
-          [ schemaresource :=   ""
-          , resources :=        RECORD[]
-          , version := 0
-          , ...orgupdate
-          ];
+    IF (NOT RecordExists(orgupdate))
+      RETURN `no schema definition resource set`;
 
-      IF (orgupdate.version != current_schema_version)
-        RETURN TRUE;
+    orgupdate :=
+        [ schemaresource :=   ""
+        , resources :=        RECORD[]
+        , version := 0
+        , ...orgupdate
+        ];
 
-      IF (orgupdate.schemaresource = schemaresource)
-      {
-        BOOLEAN all_same := TRUE;
-        FOREVERY (RECORD rec FROM orgupdate.resources)
-        {
-          rec := CELL[ resourcename := "", modified := DEFAULT DATETIME, ...rec ];
-          IF (rec.resourcename = "" OR rec.modified = DEFAULT DATETIME)
-          {
-            PRINT(`Resource '${rec.resourcename}' has illegal source data\n`);
-            all_same := FALSE;
-            BREAK;
-          }
-          RECORD resource := RetrieveWebhareResource(rec.resourcename, [ allowmissing := TRUE ]);
-          IF (NOT RecordExists(resource) OR ABS(GetDatetimeDifference(resource.modified,rec.modified).totalmsecs) > 1) //tolerate small differences, wasm and native round slightly diffrent
-          {
-            //PRINT(`Resource ${rec.resourcename} has been modified\n`);
-            all_same := FALSE;
-            BREAK;
-          }
-        }
-        IF (all_same)
-          RETURN FALSE;
-      }
+    IF (orgupdate.version != current_schema_version)
+      RETURN `schema version mismatch, expected version ${current_schema_version} but got version ${orgupdate.version}`;
+
+    IF (orgupdate.schemaresource != schemaresource)
+      RETURN `schemadefinition changed, was ${orgupdate.schemaresource ?? '<not set>'} and is now: ${schemaresource}`;
+
+    FOREVERY (RECORD rec FROM orgupdate.resources) {
+      rec := CELL[ resourcename := "", modified := DEFAULT DATETIME, ...rec ];
+      IF (rec.resourcename = "" OR rec.modified = DEFAULT DATETIME)
+        RETURN `dependency invalid: ${rec.resourcename}`;
+
+      RECORD resource := RetrieveWebhareResource(rec.resourcename, [ allowmissing := TRUE ]);
+      IF(NOT RecordExists(resource))
+        RETURN `dependenc missing: ${rec.resourcename}`;
+
+      INTEGER64 age := GetDatetimeDifference(resource.modified, rec.modified).totalmsecs;
+      IF(ABS(age)>1)
+          RETURN `dependency changed: ${rec.resourcename}`;
     }
-    RETURN TRUE;
-  }
 
+    RETURN "";
+  }
 
   UPDATE PUBLIC STRING FUNCTION __GetCurrentLanguageCode()
   {
@@ -991,7 +984,6 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
                                , reportskips := FALSE
                                , skipmigrations := FALSE
                                , fromexternal := FALSE
-                               , applysettings := TRUE
                                , __schemadefinition := DEFAULT BLOB
                                ], options);
 
@@ -1020,23 +1012,24 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       IF(schemaresource = "")
         RETURN; //nothing else to update
 
+      STRING changereason;
       IF (options.schemaresource = "" //not an explicitly specified resource
-          AND NOT options.force
-          AND NOT this->TestSchemaResourcesChanged(schemaresource))
+          AND NOT options.force)
       {
-        IF(options.reportskips)
-          Print(`Not updating '${this->tag}': schema definition not changed\n`);
-        RETURN;
+        changereason := this->TestSchemaResourcesChanged(schemaresource);
+        IF(changereason = "")
+        {
+          IF(options.reportskips)
+            Print(`Not updating '${this->tag}': schema definition not changed\n`);
+          RETURN;
+        }
       }
 
       IF(options.reportupdates)
-        Print(`Updating schema '${this->tag}'\n`);
+        Print(`Updating schema '${this->tag}'${changereason != "" ? ` because ${changereason}` : ""}\n`);
 
       schemadef := OpenWRDSchemaDefFile(schemaresource);
     }
-
-    IF (NOT options.applysettings)
-      schemadef.keyvaluestore := RECORD[];
 
     UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations ]);
   }

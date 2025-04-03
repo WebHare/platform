@@ -181,6 +181,23 @@ bool GetConsoleLineBuffered()
 void SetConsoleLineBuffered(bool newstate)
 {
         console_buffered = newstate;
+#ifndef __EMSCRIPTEN__
+        /* Fails under emscripten
+
+ Uncaught rejection TypeError: Cannot read properties of undefined (reading 'ioctl_tcgets')
+     at ___syscall_ioctl (/Users/arnold/projects/webhare/whtree/lib/harescript.js:9:71487)
+     at <anonymous> (/Users/arnold/projects/webhare/whtree/jssdk/harescript/src/wasm-modulesupport.ts:477:16)
+     at harescript.wasm.ioctl (wasm://wasm/harescript.wasm-00c006ca:wasm-function[1483]:0xbe098)
+     at harescript.wasm.tcgetattr (wasm://wasm/harescript.wasm-00c006ca:wasm-function[1094]:0x82617)
+     at harescript.wasm.HareScript::Baselibs::HS_SetConsoleLineBuffered(HareScript::VirtualMachine*) (wasm://wasm/harescript.wasm-00c006ca:wasm-function[3664]:0x1fa94a)
+     at harescript.wasm.HareScript::VirtualMachine::PrepareCallInternal(HareScript::LinkedLibrary::ResolvedFunctionDef const&) (wasm://wasm/harescript.wasm-00c006ca:wasm-function[702]:0x49986)
+     at harescript.wasm.void HareScript::VirtualMachine::RunInternal<false>(bool) (wasm://wasm/harescript.wasm-00c006ca:wasm-function[901]:0x65bcd)
+     at harescript.wasm.HareScript::VirtualMachine::Run(bool, bool) (wasm://wasm/harescript.wasm-00c006ca:wasm-function[1174]:0x88373)
+
+
+        but I doubt we truly need HareScript processes under WASM to be touching the console
+
+        */
 
         // Use termios to turn off line buffering
         termios term;
@@ -191,7 +208,7 @@ void SetConsoleLineBuffered(bool newstate)
             term.c_lflag &= ~ICANON;
         tcsetattr(0, TCSANOW, &term);
         setbuf(stdin, NULL);
-
+#endif
 /*        long curflags = fcntl(0,F_GETFL);
         if(newstate)
             curflags &= ~O_NONBLOCK;

@@ -320,39 +320,6 @@ MACRO TestCopyTo()
   TestEq(FALSE, syncres.anychanges, "RunSync did work after CopyTo, so copy wasn't proper");
 }
 
-MACRO TestSchemaSettings()
-{
-  testfw->BeginWork();
-
-  // Clean schema, otherwise we'll get a sync error due to a duplicated guid
-  OpenWRDSchema("webhare_testsuite:synctarget")->DeleteSelf();
-  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
-        [ title := "webhare_testsuite schema, sync target"
-        , description := "The webhare_testsuite WRD schema sync target"
-        ]);
-
-  testfw->GetWRDSchema()->SetSchemaSetting("webhare_testsuite:a", 1);
-  synctarget->SetSchemaSetting("webhare_testsuite:b", "b");
-  testfw->GetWRDSchema()->SetSchemaSetting("webhare_testsuite:c", "f");
-  synctarget->SetSchemaSetting("webhare_testsuite:c", "g");
-  testfw->CommitWork();
-
-  RECORD syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
-  TestEQMembers(
-      [ [ name := "webhare_testsuite:a", value := 1 ]
-      , [ name := "webhare_testsuite:c", value := "f" ]
-      , [ name := "wrd:debug.answer", value := 42 ]
-      ], (SELECT * FROM synctarget->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*"), "*");
-
-  syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
-  TestEq(FALSE, syncres.anychanges, "Settings shouldn't change after re-sync");
-  TestEQ(
-      [ [ name := "webhare_testsuite:a", value := 1 ]
-      , [ name := "webhare_testsuite:c", value := "f" ]
-      , [ name := "wrd:debug.answer", value := 42 ]
-      ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*" AND name NOT IN [ "wrd:schemaresources" ]);
-}
-
 MACRO TestLocalBlobUsage()
 {
   __sync_reusedblobs := 0;
@@ -410,7 +377,6 @@ RunTestframework(
     , PTR TestSync
     , PTR TestRenamedTypeBreaks
     , PTR TestCopyTo
-    , PTR TestSchemaSettings
     , PTR TestLocalBlobUsage
     , PTR TestNoSettingsBreaks
     ],

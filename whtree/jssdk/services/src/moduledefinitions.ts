@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { toFSPath } from "./resources";
-import { DOMParser, type Element } from '@xmldom/xmldom';
-import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
+import type { Element } from '@xmldom/xmldom';
+import { elements, parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 
 export interface ParseError {
   resource: string;
@@ -48,7 +48,7 @@ export function getModuleDefinition(name: string): ModuleDefinition {
   };
 
   const resource = `mod::${name}/moduledefinition.xml`;
-  const doc = new DOMParser().parseFromString(readFileSync(toFSPath(resource)).toString('utf-8'), 'text/xml');
+  const doc = parseDocAsXML(readFileSync(toFSPath(resource)).toString('utf-8'), 'text/xml');
   const logging = doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "logging")[0];
   if (logging) {
     const { logs, errors } = parseLogs(resource, logging);

@@ -3,7 +3,8 @@ import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildB
 import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
-import { DOMParser, Node, type Element } from "@xmldom/xmldom";
+import { Node, type Element } from "@xmldom/xmldom";
+import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 
 type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
@@ -165,7 +166,7 @@ class HSRTDImporter {
 
 export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
   const importer = new HSRTDImporter(rtd);
-  const doc = (new DOMParser).parseFromString(await rtd.htmltext.text(), 'text/html');
+  const doc = parseDocAsXML(await rtd.htmltext.text(), 'text/html');
   const body = doc.getElementsByTagName("body")[0];
   if (body) {
     await importer.outdoc.addBlocks(await importer.parseBlocks(body));

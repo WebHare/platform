@@ -64,23 +64,27 @@ export class JSLibraryImporter {
 }
 
 export async function importJSExport<T = unknown>(name: string): Promise<T> {
-  let libraryuri = name.split("#")[0];
-  if (libraryuri.startsWith("mod::"))
-    libraryuri = "@mod-" + libraryuri.substring(5);
+  let { 1: libraryURI, 2: symbolName } = name.match(/^(.*?)(?:#(.*))?$/) ?? [];
+  if (!libraryURI)
+    throw new Error(`Invalid export name '${name}'`);
+  else if (libraryURI.startsWith("mod::"))
+    libraryURI = "@mod-" + libraryURI.substring(5);
 
-  const symbolname = name.split("#")[1] ?? "default";
+  if (!symbolName)
+    symbolName = "default";
+
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
-  const library = require(libraryuri);
-  if (!(symbolname in library)) {
-    if (symbolname === "default") { //or do we need to look at __esModule to determine whether the default export is the module?
+  const library = require(libraryURI);
+  if (!(symbolName in library)) {
+    if (symbolName === "default") { //or do we need to look at __esModule to determine whether the default export is the module?
       if (!library)
-        throw new Error(`Library ${libraryuri} does not export '${symbolname}'`);
+        throw new Error(`Library ${libraryURI} does not export '${symbolName}'`);
       return library;
     }
 
-    throw new Error(`Library ${libraryuri} does not export '${symbolname}'`);
+    throw new Error(`Library ${libraryURI} does not export '${symbolName}'`);
   } else {
-    return library[symbolname];
+    return library[symbolName];
   }
 }
 

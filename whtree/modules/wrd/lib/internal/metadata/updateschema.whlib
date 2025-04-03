@@ -31,7 +31,6 @@ LOADLIB "wh::internal/graphs.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -393,11 +392,6 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
     @cell(record) schemadef.metadata.accountloginfield
     @cell(record) schemadef.metadata.accountemailfield
     @cell(record) schemadef.metadata.accountpasswordfield
-    @cell(record array) schemadef.keyvaluestore
-    @cell(string) schemadef.keyvaluestore.name
-    @cell(string) schemadef.keyvaluestore.keyvalue.data
-    @cell(blob) schemadef.keyvaluestore.keyvalue.blobdata
-    @cell(integer) schemadef.keyvaluestore.keyvalue.type
     @cell(record) schemadef.schemaresources Resources used to build the schema definition
     @param options
     @cell(boolean) options.fromexternal Set to true if the source is an external server
@@ -417,7 +411,6 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   //backwards compatibility with direct callers to us (even though we were internal...)
   schemadef := EnforceStructure([ migrations := RECORD[]
-                                , keyvaluestore := RECORD[]
                                 ], schemadef);
 
   RECORD ARRAY runmigrations;
@@ -644,12 +637,6 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
 
     UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
-  }
-
-  FOREVERY (RECORD setting FROM schemadef.keyvaluestore)
-  {
-    VARIANT value := AnyTypeFromBlobString(setting.keyvalue.data, setting.keyvalue.blobdata, setting.keyvalue.type);
-    local_schema->SetSchemaSetting(setting.name, value);
   }
 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "afterEntities")

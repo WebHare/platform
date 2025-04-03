@@ -6,7 +6,6 @@ LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -15,13 +14,6 @@ LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
 
-
-/// Settings that will be ignored
-CONSTANT STRING ARRAY ignore_schemasettings :=
-    [ "wrd:syncpoints"
-    , "wrd:schemaresources"
-    , "wrd:sync.history" //removed in 5.3 but we'll keep it on the ignorelist for when we communicate with older servers
-    ];
 
 RECORD ARRAY FUNCTION GetExisting(RECORD ARRAY newcurrentcontents, INTEGER id)
 {
@@ -249,62 +241,6 @@ PUBLIC RECORD ARRAY FUNCTION RestoreLocalLinks(RECORD ARRAY newcurrentcontents, 
   }
 
   RETURN data;
-}
-
-BOOLEAN FUNCTION UpdateSchemaSettings(
-    OBJECT wrdschema,
-    RECORD schemadef,
-    OBJECT remotepeer,
-    STRING remoteschemaname,
-    RECORD syncinstrs,
-    BOOLEAN isfullsync,
-    DATETIME now,
-    RECORD options)
-{
-  BOOLEAN settingschanges;
-
-  // Decode the schema settings from the remote schema
-  RECORD ARRAY schemadef_settings :=
-      SELECT name :=    ToLowercase(name)
-           , value :=   AnyTypeFromBlobString(keyvalue.data, keyvalue.blobdata, keyvalue.type)
-        FROM schemadef.keyvaluestore;
-
-  // Get current settings of the target schema
-  RECORD ARRAY allorgsettings := wrdschema->ListSchemaSettings();
-
-  RECORD ARRAY settings := JoinArrays(
-      (SELECT name, orgdata := CELL[ value ] FROM allorgsettings),
-      "name",
-      (SELECT name, newdata := CELL[ value ] FROM schemadef_settings),
-      [ newdata := DEFAULT RECORD ],
-      [ presentfield :=     "present"
-      , rightouterjoin :=   TRUE
-      , leftouterjoin :=    [ orgdata := DEFAULT RECORD ]
-      ]);
-
-  // Sync all (non-ignored) settings when changed
-  FOREVERY (RECORD rec FROM settings)
-  {
-    IF (__MatchesAnyMask(rec.name, ignore_schemasettings))
-      CONTINUE;
-
-    IF (rec.present = "left")
-    {
-      settingschanges := TRUE;
-      wrdschema->RemoveSchemaSetting(rec.name);
-    }
-    ELSE IF (rec.present = "right" OR EncodeHSON(rec.orgdata.value) != EncodeHSON(rec.newdata.value))
-    {
-      settingschanges := TRUE;
-      wrdschema->SetSchemaSetting(rec.name, rec.newdata.value);
-    }
-  }
-
-  // Remove wrd:schemaresources to force new updates, but don't report it as change
-  IF (RecordExists(SELECT FROM allorgsettings WHERE name = "wrd:schemaresources"))
-    wrdschema->RemoveSchemaSetting("wrd:schemaresources");
-
-  RETURN settingschanges;
 }
 
 OBJECTTYPE TypeBlobGetter
@@ -843,23 +779,5 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
         DoPopWork(e);
     }
 
-  YIELD [ status := `Updating settings`, progress := 95m ];
-  BOOLEAN settingschanges;
-  GetPrimary()->PushWork();
-  TRY
-  {
-    settingschanges := UpdateSchemaSettings(
-        wrdschema,
-        sourceschemadef,
-        remotepeer,
-        remoteschemaname,
-        schemasyncinstr,
-        isfullsync,
-        now,
-        options);
-  }
-  FINALLY (OBJECT e)
-    DoPopWork(e);
-
-  RETURN [ anychanges := total_toupdate + total_todelete != 0 OR settingschanges ];
+  RETURN [ anychanges := total_toupdate + total_todelete != 0  ];
 }

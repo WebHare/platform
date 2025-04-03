@@ -2,10 +2,11 @@ import { toFSPath } from "@webhare/services";
 import type { CompiledLanguageFile, IfParam, LanguagePart, LanguageText } from "../../../../jssdk/gettid/src/types";
 import { existsSync, readFileSync } from "node:fs";
 import { addResourceChangeListener } from "@webhare/services/src/hmrinternal";
-import { DOMParser, type Node, type Element } from "@xmldom/xmldom";
+import type { Node, Element } from "@xmldom/xmldom";
 import type { CodeContextTidStorage, GetTidHooks } from "@webhare/gettid/src/types";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { tidLanguage } from "@webhare/services/src/symbols";
+import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 
 
 function parseIfParam(node: Element) {
@@ -123,7 +124,7 @@ function compileLanguageFile(input: string, texts: Map<string, LanguageText>) {
   if (input.startsWith("\uFEFF"))
     input = input.substring(1);
 
-  const doc = new DOMParser().parseFromString(input, 'text/xml');
+  const doc = parseDocAsXML(input, 'text/xml');
   if (!doc.documentElement)
     throw new Error("No document element found in language file");
 

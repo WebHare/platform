@@ -196,11 +196,6 @@ MACRO ExportXMLMetadata()
   TestEq(TRUE, wrdschema->GetType("WRD_PERSON")->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
 
-  TestEq("My test string!", wrdschema->GetSchemaSetting("wrd:setting1"));
-  TestEq(1234567890, wrdschema->GetSchemaSetting("wrd:setting2"));
-  TestEq(TRUE, wrdschema->GetSchemaSetting("wrd:setting3"));
-  TestEq(StringToBlob("My test blob!"), wrdschema->GetSchemaSetting("wrd:setting4"));
-
   //The schemas should match
   RECORD restoredschema := ExtractSchemaMetadata(wrdschema);
   TestEq(saveschema, restoredschema);
@@ -466,7 +461,9 @@ MACRO TestCreateWithMetadata()
   STRING schematag := testfw->GetWRDSchema()->tag || '.temp';
   TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := StringToBlob(schema_with_ordering_issues) ]).errors);
   //test applying simple metadata with ordering issues
-  OBJECT wrdschema := CreateWRDSchema(schematag, [ initialize := TRUE,  schemaresource := `inline::${schema_with_ordering_issues}` ]);
+  OBJECT wrdschema := CreateWRDSchema(schematag);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schema_with_ordering_issues) ]);
+
   RECORD ARRAY types := wrdschema->^programme$type->RunQuery([outputcolumns:=["TARGET$INTEREST"]]);
   TestEq(1, Length(types));
   TestEq(wrdschema->^Programme$Type->GetDomVal("TARGET$INTEREST", "$BACHELOR"), types[0].target$interest);
