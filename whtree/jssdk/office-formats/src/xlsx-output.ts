@@ -143,7 +143,7 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
 
   //Create the worksheets
   const sheetnames: SheetInfo[] = [];
-  const output = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("zip");
+  const output = await loadlib("wh::filetypes/archiving.whlib").createNewArchive("zip");
   const names = new Set<string>;
 
   for (const [idx, sheet] of sheets.entries()) {
@@ -158,15 +158,16 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
 
     const sheetname = `sheet${idx + 1}.xml`;
     const outputSheet = createSheet(sheet, idx === 0);
-    await output.AddFile(`xl/worksheets/${sheetname}`, WebHareBlob.from(outputSheet), new Date);
+    await output.addFile(`xl/worksheets/${sheetname}`, WebHareBlob.from(outputSheet), new Date);
     sheetnames.push({ name: sheetname, title: useTitle });
   }
 
   //Create the workbook
   for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(sheetnames))) {
-    await output.AddFile(fullpath, WebHareBlob.from(data), new Date);
+    await output.addFile(fullpath, WebHareBlob.from(data), new Date);
   }
 
-  const outblob = await output.MakeBlob() as WebHareBlob;
+  const outblob = await output.makeBlob();
+  await output.close();
   return new File([await outblob.arrayBuffer()], `${options?.title || "export"}.xlsx`, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }

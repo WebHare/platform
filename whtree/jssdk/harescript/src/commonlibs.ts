@@ -43,6 +43,33 @@ interface Wh_Files {
   makeBlobFromStream(stream: number): Promise<WebHareBlob>;
 }
 
+type Archive = {
+  addFile(file: string, data: WebHareBlob, modtime: Date): Promise<void>;
+  addFolder(file: string, modtime: Date): Promise<void>;
+  makeBlob(): Promise<WebHareBlob>;
+  close(): Promise<void>;
+  removeEntries(path: string, mask: string): Promise<void>;
+  addDiskFolderRecursive(diskpath: string, basepath: string): Promise<void>; // options are omitted, not supported from TS
+  getFile(fullpath: string): Promise<WebHareBlob>;
+
+  $get(field: "archivecomment"): Promise<string>;
+  $get(field: "archivecomment", pvt_archivecomment: string): Promise<void>;
+  $get(field: "entries"): Promise<Array<{
+    /// Full path of the entry (path + name)
+    fullpath: string;
+    /// Type of the entry (0=file, 1=directory)
+    type: number;
+    /// Directory of the entry (full directory name for directories)
+    path: string;
+    /// Name of the file (empty for directories)
+    name: string;
+    /// Modification time of the file/directory
+    modtime: Date;
+    /// Size of the file (0 for directories)
+    size64: number;
+  }>>;
+};
+
 interface Wh_Filetypes_Archiving {
   unpackArchive(data: WebHareBlob): Promise<Array<{
     path: string;
@@ -50,6 +77,7 @@ interface Wh_Filetypes_Archiving {
     modtime: Date;
     data: WebHareBlob;
   }>>;
+  createNewArchive(type: "zip", options?: { compressionlevel?: number }): Promise<Archive>;
 }
 
 interface Mod_System_Lib_Database_PrimaryObject {
