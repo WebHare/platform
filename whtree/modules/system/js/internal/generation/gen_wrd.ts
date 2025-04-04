@@ -3,10 +3,12 @@ import { backendConfig, resolveResource } from "@webhare/services";
 import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
 import { type GenerateContext, type FileToUpdate, generatorBanner } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
+import type { Document } from "@xmldom/xmldom";
 import { emplace } from "@webhare/std";
 import { elements, getAttr } from "./xmlhelpers";
 import { getGeneratedFilePath } from "./shared";
 import { parseSchema, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
+import type { WRDSchemas } from "@mod-platform/generated/schema/moduledefinition";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
 export function generateTypeName(str: string) {
@@ -58,6 +60,8 @@ interface ModuleWRDSchemaDef {
   schemaDefinitionResource: string;
   /** Schema title */
   title: string;
+  /** Abstract schema? (shouldn't exist) */
+  abstract: boolean;
   /** Should this schema be autocreated? */
   autoCreate: boolean;
 }
@@ -70,38 +74,62 @@ export interface WRDSchemasExtract {
   }>;
 }
 
+function parseXMLWRDSchemas(mod: string, doc: Document) {
+  const schemas = new Array<ModuleWRDSchemaDef>();
+
+  for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
+    for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
+      const tag = wrdschema.getAttribute("tag") || "";
+      const fulltag = mod + ":" + tag;
+      const isExactMatch = !(tag.includes('*') || tag.includes('?'));
+
+      schemas.push({
+        module: mod,
+        isExactMatch,
+        title: getAttr(wrdschema, "title", ""),
+        wrdSchema: fulltag,
+        schemaDefinitionResource: resolveResource(`mod::${mod}/moduledefinition.xml`, getAttr(wrdschema, 'definitionfile', '')),
+        autoCreate: isExactMatch && getAttr(wrdschema, "autocreate", true),
+        abstract: !isExactMatch
+      });
+    }
+  }
+
+  return schemas;
+}
+
+function parseYMLWRDSchemas(mod: string, yml: WRDSchemas) {
+  const schemas = new Array<ModuleWRDSchemaDef>();
+
+  for (const [tag, def] of Object.entries(yml)) {
+    const fulltag = mod + ":" + tag;
+    const isExactMatch = !(tag.includes('*') || tag.includes('?'));
+
+    schemas.push({
+      wrdSchema: fulltag,
+      module: mod,
+      isExactMatch,
+      abstract: def.abstract ?? false,
+      title: def.title || '',
+      schemaDefinitionResource: def.schema ? resolveResource(`mod::${mod}/moduledefinition.yml`, def.schema) : '',
+      autoCreate: (def.autoCreate ?? true) && isExactMatch && !def.abstract
+    });
+  }
+  return schemas;
+}
+
 export async function getModuleWRDSchemas(context: GenerateContext, modulename: string): Promise<{ schemas: ModuleWRDSchemaDef[]; library: string }> {
   const schemas = new Array<ModuleWRDSchemaDef>();
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
-  for (const mod of mods) {
-    const doc = context.moduledefs.find(m => m.name === mod)?.modXml;
-    if (!doc)
+
+  for (const mod of context.moduledefs) {
+    if (!mods.includes(mod.name))
       continue;
 
-    for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
-      for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
-        const tag = wrdschema.getAttribute("tag") || "";
-        const fulltag = mod + ":" + tag;
-        const definitionfile = wrdschema.getAttribute("definitionfile") || "";
-        if (!definitionfile)
-          continue;
-
-        const resolved_definitionfile = resolveResource(`mod::${mod}/moduledefinition.xml`, definitionfile);
-        if (!resolved_definitionfile)
-          throw new Error(`Huh? ${mod} ${definitionfile}`);
-
-        const isExactMatch = !(tag.includes('*') || tag.includes('?'));
-
-        schemas.push({
-          module: modulename,
-          isExactMatch,
-          title: getAttr(wrdschema, "title", ""),
-          wrdSchema: fulltag,
-          schemaDefinitionResource: resolved_definitionfile,
-          autoCreate: isExactMatch && getAttr(wrdschema, "autocreate", true)
-        });
-      }
-    }
+    if (mod.modXml)
+      schemas.push(...parseXMLWRDSchemas(mod.name, mod.modXml));
+    if (mod.modYml?.wrdSchemas)
+      schemas.push(...parseYMLWRDSchemas(mod.name, mod.modYml.wrdSchemas));
   }
 
   return {
@@ -163,10 +191,11 @@ function buildAttrsFromArray(attrs: ParsedAttr[]): Record<string, DeclaredAttrib
 
 export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Promise<ParsedWRDSchemaDef> {
   const [modulename, schematag] = schemaptr.wrdSchema.split(":");
-  const modprefix = schemaptr.module === "platform" ? `${generateTypeName(modulename)}_` : ``;
+  const isPlatformPart = whconstant_builtinmodules.includes(modulename);
+  const modprefix = isPlatformPart ? `${generateTypeName(modulename)}_` : ``;
   const parsedschemadef: ParsedWRDSchemaDef = {
     schemaTypeName: `${modprefix}${generateTypeName(schematag)}SchemaType`,
-    schemaObject: generatePropertyName((schemaptr.module === "platform" ? `${modulename}_` : ``) + schematag + "_schema"),
+    schemaObject: generatePropertyName((isPlatformPart ? `${modulename}_` : ``) + schematag + "_schema"),
     types: {}
   };
 
@@ -290,7 +319,8 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     }
     fulldef += `};\n\n`;
 
-    schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)});`);
+    if (!schemaptr.abstract)
+      schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)});`);
 
     fullfile += def + fulldef;
 

@@ -108,6 +108,11 @@ pxlEvents:
   form_submitted:
     includeFields: form_started
 
+wrdSchemas:
+  basewrdschema:
+    abstract: true
+    schema: mod::wrd/data/wrdschemas/base.wrdschema.xml
+
 rpcServices:
   authservice:
     api: js/auth/authservice.ts#authService

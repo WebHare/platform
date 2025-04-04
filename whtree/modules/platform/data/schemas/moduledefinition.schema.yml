@@ -36,6 +36,9 @@ properties:
   pxlEvents:
     description: Declare pxl event types
     $ref: "#/$defs/PxlEvents"
+  wrdSchemas:
+    description: WRD Schemas
+    $ref: "#/$defs/WRDSchemas"
 
 $defs:
   # Server DTAP stages
@@ -372,3 +375,28 @@ $defs:
           includeFields:
             type: "string"
             description: "Include fields from another event"
+
+  WRDSchemas:
+    type: object
+    description: Declare WRD schemas and how to set them up. Schema names may end in a wildcard
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*\\*?$": # Schema name
+        type: object
+        additionalProperties: false
+        properties:
+          abstract:
+            type: boolean
+            description: "Abstract schema, only used for types and imports"
+          schema:
+            type: string
+            description: "Path to schema definition"
+          autoCreate:
+            type: boolean
+            description: "Automatically create the schema if it doesn't exist and it's not a wildcard/abstract schema"
+          ifWebHare:
+            description: "Restrict schema to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
+          title:
+            type: string
+            description: "Title for the schema"

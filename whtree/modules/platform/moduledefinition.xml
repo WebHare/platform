@@ -96,11 +96,6 @@
     <debugflag name="runpermission" description="Log the runpermission handling of HareScript code called from JavaScript in WASM mode" />
   </development>
 
-  <wrdschemas>
-    <!-- TODO need 'abstract' schema. -->
-    <schema tag="basewrdschema" autocreate="false" definitionfile="mod::wrd/data/wrdschemas/base.wrdschema.xml" title="Base WRD schema definition" />
-  </wrdschemas>
-
   <moduleregistry>
     <node name="cache">
       <string name="defaultimageformat" />

@@ -1,1 +1,5 @@
-{}
+wrdSchemas:
+  config:
+    schema: data/wrdschemas/config.wrdschema.xml
+  usermgmt:
+    schema: data/wrdschemas/usermgmt.wrdschema.xml

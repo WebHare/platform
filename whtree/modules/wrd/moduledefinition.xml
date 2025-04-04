@@ -464,12 +464,4 @@
     <debugflag name="usejsengine" description="Use the experimental WRD engine for selections in JS" />
     <debugflag name="checkjsonfields" description="Check the contents of JSON fields with type declarations in HareScript" />
   </development>
-
-  <wrdschemas>
-    <schema tag="testschema" definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" title="WebHare testsuite test schema" maxservertype="development" />
-
-    <!-- TODO abstract schema? -->
-    <schema tag="idp" autocreate="false" definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" title="Identity Provider" />
-  </wrdschemas>
-
 </module>
