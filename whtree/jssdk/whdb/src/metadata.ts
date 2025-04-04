@@ -305,8 +305,8 @@ function transformColumnDef(context: ChangeContext, table_schema: string, table_
           break;
         case "int4":
         case "int8": {
-          const decoded = parseInt(colrec.defVal);
-          if (!isNaN(decoded))
+          const decoded = JSON.parse(colrec.defVal);
+          if (typeof decoded !== "number")
             colrec.defVal = decoded.toString();
           else
             context.addError(`Invalid default value ${colrec.defVal} for column ${table_schema}.${table_name}.${colrec.name}`);
