@@ -1,7 +1,10 @@
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { parseSchema } from "@mod-wrd/js/internal/schemaparser";
+import { createSchema, openSchemaById } from "@webhare/wrd";
+import { testschemaSchema } from "wh:wrd/webhare_testsuite";
+import { beginWork, commitWork } from "@webhare/whdb";
 
 async function testSchemaParser() {
   // \xEF\xBB\xBF doesn't actually make a BOM - "\xEF\xBB\xBF".length === 3. we need \uFEFF, the character the BOM encodes as:
@@ -25,6 +28,20 @@ async function testSchemaParser() {
   }
 }
 
+async function testSchemaApply() {
+  await beginWork();
+  const testschemaid = await createSchema("webhare_testsuite:testschema", { initialize: true });
+  test.eq("webhare_testsuite:testschema", (await openSchemaById(testschemaid))?.tag, "Schema tag should be the same as the one we created");
+
+  const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
+  test.assert(testentry);
+
+  // test.eq(testentry?.tag, "TESTENTRY", "Test entry should be found with the correct tag");
+
+  // const testArrayFields = testschemaSchema.query("")
+  await commitWork();
+}
+
 async function testFileGeneration() {
   const context = await buildGeneratorContext(["system"], true);
   let result = await generateWRDDefs(context, "platform");
@@ -36,6 +53,8 @@ async function testFileGeneration() {
 }
 
 test.runTests([
+  test.reset,
   testSchemaParser,
+  testSchemaApply,
   testFileGeneration,
 ]);

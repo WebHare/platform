@@ -7,7 +7,7 @@ export { AuthenticationSettings, type FirstPartyToken } from "@webhare/auth/src/
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { db } from "@webhare/whdb";
+import { broadcastOnCommit, db } from "@webhare/whdb";
 import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
 import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
 import { tagToJS } from "./wrdsupport";
@@ -18,6 +18,12 @@ export { WRDSchema, type WRDAttributeType, type WRDMetaType };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 
 import type * as customizer from "@webhare/auth/src/customizer";
+import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+import { parseSchema, wrd_baseschemaresource } from "@mod-wrd/js/internal/schemaparser";
+import { loadlib } from "@webhare/harescript";
+import { regExpFromWildcards } from "@webhare/std";
+
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;
 /** @deprecated WH5.7 splits the WRDAuthCustomizer & friends off to \@webhare/auth - please use that library instead */
@@ -89,4 +95,69 @@ export async function deleteSchema(id: number) {
   await scheduleTimedTask("wrd:scanforissues"); //clear out any associated errors
 
   wrdFinishHandler().schemaNameChanged(id);
+}
+
+export interface CreateSchemaOptions {
+  /** Title */
+  title?: string;
+  /** Description */
+  description?: string;
+  /** Set up the schema using the wrdschema defined in its moduledefinition */
+  initialize?: boolean;
+
+  //TODO schemaDefinition - (abstract) wrd schema to apply
+
+  /** Override the schemaresource to use for initialization */
+  schemaDefinitionResource?: string;
+  /** Whether this schema is used for user management */
+  userManagement?: boolean;
+}
+
+function getSchemaConfiguration(tag: string) { //Equivalent of HS GetModuleWRDSchemaDefinition
+  const mod = getExtractedConfig("wrdschemas").modules.find(_ => tag.startsWith(_.module + ":"));
+  return mod?.schemas.find(_ => _.isExactMatch ? _.wrdSchema === tag : tag.match(regExpFromWildcards(_.wrdSchema))) ?? null;
+}
+
+/* Creates a new WRD schema
+    @param tag - Tag for the new schema
+    @param metadata - Metadata
+    @returns The created WRD schema's id */
+export async function createSchema(tag: string, options?: CreateSchemaOptions): Promise<number> {
+  checkModuleScopedName(tag);
+
+  const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id"]).where("name", "=", tag).executeTakeFirst();
+  if (dbschema)
+    throw new Error(`A schema with tag '${tag}' already exists`);
+
+  const schemainfo = getSchemaConfiguration(tag);
+
+  let schemaDefinitionResource = wrd_baseschemaresource;
+  if (options?.initialize) {
+    if (options?.schemaDefinitionResource)
+      schemaDefinitionResource = options.schemaDefinitionResource;
+    else {
+      if (!schemainfo)
+        throw new Error(`No schema definition available for WRD schema '${tag}'`);
+
+      schemaDefinitionResource = schemainfo.schemaDefinitionResource;
+    }
+  }
+
+  const newschema = await db<PlatformDB>().insertInto("wrd.schemas").values({
+    name: tag,
+    title: options?.title ?? schemainfo?.title ?? "",
+    description: options?.description ?? "",
+    creationdate: new Date(),
+    protected: false,
+    usermgmt: options?.userManagement ?? false,
+  }).returning("id").executeTakeFirstOrThrow();
+
+  //apply schemadefinition
+  const schemadef = await parseSchema(schemaDefinitionResource, true, null);
+  const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchemaById(newschema.id);
+  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef);
+
+  broadcastOnCommit("wrd:schema.list");
+
+  return newschema.id;
 }

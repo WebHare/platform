@@ -6,6 +6,11 @@
       <enum tag="enum1" allowedvalues="a b c" />
       <enum tag="enum2" allowedvalues="a ?:? c:*" />
     </attributes>
+    <values matchattribute="wrd_tag">
+      <value>
+        <field tag="wrd_tag">TESTENTRY</field>
+      </value>
+    </values>
   </object>
 
 </schemadefinition>
