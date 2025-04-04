@@ -4,13 +4,25 @@ import { buildGeneratorContext } from "@mod-system/js/internal/generation/genera
 import { parseSchema } from "@mod-wrd/js/internal/schemaparser";
 
 async function testSchemaParser() {
-  const emptySchemaWithBom = `\xEF\xBB\xBF<?xml version="1.0" encoding="UTF-8"?>
-<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
-  <!-- we don't have anything to add yet, hovimaster.xml suffices... but we still need a schemadef for the autocreate -->
-</schemadefinition>`;
+  // \xEF\xBB\xBF doesn't actually make a BOM - "\xEF\xBB\xBF".length === 3. we need \uFEFF, the character the BOM encodes as:
+  {
+    const emptySchemaWithBom = `\uFEFF<?xml version="1.0" encoding="UTF-8"?>
+  <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <!-- we don't have anything to add yet, hovimaster.xml suffices... but we still need a schemadef for the autocreate -->
+  </schemadefinition>`;
 
-  const result = await parseSchema("mod::webhare_testsuite/schema.xml", true, emptySchemaWithBom);
-  test.assert(result.types.some(t => t.tag === "WRD_SETTINGS"), "Simply test - we actually came here to verify BOM tolerance");
+    const result = await parseSchema("mod::webhare_testsuite/schema.xml", true, emptySchemaWithBom);
+    test.assert(result.types.some(t => t.tag === "WRD_SETTINGS"), "Simply test - we actually came here to verify BOM tolerance");
+  }
+
+  { //ensure we properly slicd it off (eg doing .slice(3) in parseDocAsXML would pass the above test because the declaration just turns into text noise
+    const emptySchemaWithBomNoDecl = `\uFEFF<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+    <!-- we don't have anything to add yet, hovimaster.xml suffices... but we still need a schemadef for the autocreate -->
+  </schemadefinition>`;
+
+    const result = await parseSchema("mod::webhare_testsuite/schema.xml", true, emptySchemaWithBomNoDecl);
+    test.assert(result.types.some(t => t.tag === "WRD_SETTINGS"), "Simply test - we actually came here to verify BOM tolerance");
+  }
 }
 
 async function testFileGeneration() {

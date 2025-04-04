@@ -11,8 +11,8 @@ export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): D
     onError: w => { } //just ignore
   });
 
-  if (data.startsWith("\xEF\xBB\xBF")) //UTF8 BOM - parseFromString can't handle that so remove it
-    data = data.substring(3);
+  if (data.startsWith("\uFEFF")) //UTF8 BOM - parseFromString can't handle that so remove it
+    data = data.substring(1);
 
   return parser.parseFromString(data, format);
 }
