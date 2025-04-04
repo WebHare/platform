@@ -121,7 +121,7 @@ IF (IsDatabaseWritable())
   trans->CommitWork();
 
   // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
-  ApplyWebHareConfiguration([ subsystems := ["config","dev"], source := "post-start"]);
+  ApplyWebHareConfiguration([ subsystems := [ "config" ], source := "post-start" ]);
 
   LogDebug("system:poststart", "Start UpdateModuleNotifications");
   UpdateModuleNotifications();

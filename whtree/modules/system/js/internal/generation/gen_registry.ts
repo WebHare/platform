@@ -116,13 +116,13 @@ export async function listAllRegistryTS(mods: string[]): Promise<FileToUpdate[]>
     {
       path: `ts/registry.ts`,
       module: "platform",
-      type: "ts-dev",
+      type: "ts",
       generator: (context: GenerateContext) => generateRegistryDefs(context, true, whconstant_builtinmodules)
     }, {
 
       path: `ts/registry.ts`,
       module: "dummy-installed",
-      type: "ts-dev",
+      type: "ts",
       generator: (context: GenerateContext) => generateRegistryDefs(context, false, mods.filter(m => !whconstant_builtinmodules.includes(m)))
     }
   ];

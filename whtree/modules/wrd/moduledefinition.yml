@@ -1,0 +1,11 @@
+wrdSchemas:
+  testschema:
+    autoCreate: false
+    schema: mod::system/data/wrdschemas/default.wrdschema.xml
+    title: WebHare testsuite test schema
+    ifWebHare:
+      dtapStages:
+        - development
+  idp:
+    abstract: true
+    schema: data/wrdschemas/idp.wrdschema.xml

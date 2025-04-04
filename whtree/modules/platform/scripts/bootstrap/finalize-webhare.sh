@@ -87,7 +87,7 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
 
 # This sets up @mod-platform/generated (so both config & dev are needed). It may also set up more whdata/config files but that will be discarded anyway (as whdata is temporary folder when finalizing WebHare)
 logWithTime "Generate all config files"
-wh apply --nodb --offline config dev
+wh apply --nodb --offline config
 
 logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
 "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"

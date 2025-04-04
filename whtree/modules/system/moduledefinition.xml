@@ -1615,9 +1615,4 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
                  validator="lib/internal/validation/xml.whlib#TopicValidator" />
   </development>
 
-  <wrdschemas>
-    <schema tag="config" definitionfile="data/wrdschemas/config.wrdschema.xml" />
-    <schema tag="usermgmt" autocreate="true" definitionfile="data/wrdschemas/usermgmt.wrdschema.xml" />
-  </wrdschemas>
-
 </module>
