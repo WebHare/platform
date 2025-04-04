@@ -102,6 +102,14 @@ moduleFileTypes:
     contentValidator: tests/system/modules/data/validator.ts#validateTestFile
     tsType: TestSchemaType
 
+wrdSchemas:
+  jsschema:
+    abstract: true
+    schema: tests/wrd/data/js-auth.wrdschema.xml
+  oidcschema:
+    abstract: true
+    schema: tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml
+
 pxlEvents:
   aa:
     fields:

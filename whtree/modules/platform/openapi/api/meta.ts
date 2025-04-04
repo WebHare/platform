@@ -12,6 +12,9 @@ export async function verifyUser(req: RestRequest): Promise<RestAuthorizationRes
 
   //Check whether this user is allowed to access the API
   const wrdschemaObj = await loadlib("mod::wrd/lib/api.whlib").OpenWRDschema(basecheck.authorization.wrdSchema);
+  if (!wrdschemaObj)
+    return failWRDAPIUserAuth(`WRD Schema not found`);
+
   const userapi = await loadlib("mod::wrd/lib/internal/userapi.whlib").GetWRDAuthUserAPI(wrdschemaObj);
   const userobj = await userapi.GetUser(basecheck.authorization.userId);
   if (!userobj)

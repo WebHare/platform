@@ -378,6 +378,7 @@ STATIC OBJECTTYPE TestFramework
 
   OBJECT openwrdschema;
   PUBLIC PROPERTY wrdschema(GetWRDSchema,-);
+  PUBLIC STRING wrdschematag;
 
   //Create relative output folders in system.webservers
   BOOLEAN relativeoutputfolders;
@@ -917,9 +918,10 @@ STATIC OBJECTTYPE TestFramework
 
     IF(this->options.wrdschema)
     {
-      this->openwrdschema := CreateWRDSchema(whconstant_wrd_testschema,
+      this->wrdschematag := this->options.wrdschematag;
+      this->openwrdschema := CreateWRDSchema(this->wrdschematag,
          [ description := "The webhare_testsuite WRD schema"
-         , usermgmt := this->wrdauth
+         ,  usermgmt := this->wrdauth
          , initialize := TRUE
          , schemaresource := this->options.schemaresource
          ]);
@@ -1005,7 +1007,7 @@ STATIC OBJECTTYPE TestFramework
 
     this->tests_started := TRUE;
 
-    IF(this->wrdauth)
+    IF(this->wrdauth AND ObjectExists(this->openwrdschema->GetType("WHUSER_UNIT")))
     {
       this->__betatestunit := this->userapi->CreateUnit([ wrd_title := "webhare_testsuite.unit", whuser_comment := "Beta test unit", wrd_tag := "TESTFW_TESTUNIT" ]);
     }
@@ -1031,10 +1033,11 @@ STATIC OBJECTTYPE TestFramework
       {
         RECORD newuser := [ wrd_contact_email := cred.login LIKE "*@*" ? cred.login : cred.login || "@beta.webhare.net"
                           , whuser_unit := this->testunit
-                          , whuser_password := "PLAIN:" || cred.userpassword
                           , wrd_firstname := ToUppercase(Left(cred.login,1)) || Substring(cred.login,1)
                           , wrd_lastname := "McTestsuite"
                           ];
+        IF(this->openwrdschema->accountpasswordtag != "")
+          newuser := CellInsert(newuser, this->openwrdschema->accountpasswordtag, "PLAIN:" || cred.userpassword);
 
         cred.wrdid := this->userapi->CreateUser(newuser);
         cred.userobj := this->userapi->GetTolliumUserFromEntityId(cred.wrdid); //we can't create this on-demand, as we probably wont have ~webhare anymore then, and currently we rely on full rights
@@ -1985,6 +1988,7 @@ PUBLIC OBJECT FUNCTION RunTestframework(FUNCTION PTR ARRAY tests, RECORD options
                               , relativeoutputfolders := FALSE
                               , testroles := RECORD[]
                               , wrdschema := TRUE
+                              , wrdschematag := whconstant_wrd_testschema
                               , schemaresource := ""
                               , wrdauth := FALSE
                               , usedatabase := TRUE

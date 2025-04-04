@@ -11,16 +11,17 @@ import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { createServiceProvider, initializeIssuer } from "@webhare/auth";
 import { createCodeVerifier } from "@webhare/auth/src/identity";
-import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { broadcast } from "@webhare/services";
-import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
+import { broadcast, toResourcePath } from "@webhare/services";
 import { getAuditLog } from "@webhare/wrd/src/auditevents";
+import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
+import { createSchema } from "@webhare/wrd";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
 let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
+const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
 async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   if (!puppeteer)
@@ -64,24 +65,25 @@ async function runWebHareLoginFlow(page: Puppeteer.Page) {
 }
 
 async function setupOIDC() {
-  await test.reset({
+  await test.resetWTS({ //resetWTS also links platform:identityprovider to the testsiteJS which we need to see the testsiteJS .well-known/openid-configuration
     users: {
       sysop: { grantRights: ["system:sysop"] }
-    }
+    },
+    wrdSchema: "webhare_testsuite:testschema",
+    schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
   });
 
   await runInWork(async () => {
-    await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema("webhare_testsuite:oidc-sp", {
+    await createSchema("webhare_testsuite:oidc-sp", {
       initialize: true,
-      schemaresource: "mod::system/data/wrdschemas/default.wrdschema.xml",
-      usermgmt: true
+      schemaDefinitionResource: "mod::system/data/wrdschemas/default.wrdschema.xml",
+      userManagement: true
     });
 
-    const schema = new WRDSchema("wrd:testschema");
-    await initializeIssuer(schema, "https://my.webhare.dev/testfw/issuer");
+    await initializeIssuer(oidcAuthSchema, "https://my.webhare.dev/testfw/issuer");
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
-    ({ wrdId: clientWrdId, clientId, clientSecret } = await createServiceProvider(schema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
+    ({ wrdId: clientWrdId, clientId, clientSecret } = await createServiceProvider(oidcAuthSchema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
 
     //Also register it ourselves for later use
     const testsite = await test.getTestSiteJS();
@@ -140,7 +142,7 @@ async function verifyRoutes() {
   const [, payload] = oauth2tokens.id_token.split(".");
   const parsedPayload = JSON.parse(Buffer.from(payload, 'base64').toString('utf8'));
 
-  const { wrdGuid: sysopguid } = await wrdTestschemaSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
+  const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
 }
 
@@ -149,8 +151,7 @@ async function verifyOpenIDClient() {
 
   //update client to use firstname as subject
   await beginWork();
-  const schema = new WRDSchema<WRD_IdpSchemaType>("wrd:testschema");
-  await schema.update("wrdauthServiceProvider", clientWrdId, { subjectField: "wrdFirstName" });
+  await oidcAuthSchema.update("wrdauthServiceProvider", clientWrdId, { subjectField: "wrdFirstName" });
   await commitWork();
 
   //verify using openid-client

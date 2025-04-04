@@ -1,21 +1,22 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer } from "@webhare/auth";
-import { AuthenticationSettings } from "@webhare/wrd";
+import { AuthenticationSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
-import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { loadlib } from "@webhare/harescript";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { rpc } from "@webhare/rpc";
+import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
 let robotClient: ClientConfig | undefined;
 let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
+
+const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
 async function testAuthSettings() {
   test.throws(/Expected.*record/, () => AuthenticationSettings.fromHSON("hson:42"));
@@ -160,15 +161,19 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 }
 
 async function setupOpenID() {
-
-  await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], {
-    schemaresource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
+  await test.resetWTS({
+    wrdSchema: "webhare_testsuite:testschema",
+    schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
+    // users: {
+    //   sysop: { grantRights: ["system:sysop", "platform:api"] },
+    //   noApiSysop: { grantRights: ["system:sysop"] },
+    // }
   });
 
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
   await whdb.beginWork();
-  const provider = new IdentityProvider(wrdTestschemaSchema);
-  await initializeIssuer(wrdTestschemaSchema, "https://my.webhare.dev/testfw/issuer");
+  const provider = new IdentityProvider(oidcAuthSchema);
+  await initializeIssuer(oidcAuthSchema, "https://my.webhare.dev/testfw/issuer");
 
   const jwks = await provider.getPublicJWKS();
   test.eq(2, jwks.keys.length);
@@ -176,22 +181,22 @@ async function setupOpenID() {
   test.assert("kid" in jwks.keys[0]);
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
-  peopleClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts people testclient" });
+  peopleClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts people testclient" });
   test.assert(isLikeRandomId(peopleClient.clientId), "verify clientid is not a UUID");
 
-  robotClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
-  evilClient = await createServiceProvider(wrdTestschemaSchema, { title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  robotClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  evilClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
 
   await whdb.commitWork();
 }
 
 async function testAuthAPI() {
-  const provider = new IdentityProvider(wrdTestschemaSchema);
+  const provider = new IdentityProvider(oidcAuthSchema);
 
   await whdb.beginWork();
   //Setup test user and test the AuthenticationSettings types
-  const testunit = await wrdTestschemaSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
-  const testuser = await wrdTestschemaSchema.insert("wrdPerson", {
+  const testunit = await oidcAuthSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
+  const testuser = await oidcAuthSchema.insert("wrdPerson", {
     wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$)
   });
   await whdb.commitWork();
@@ -225,7 +230,7 @@ async function testAuthAPI() {
   const claimCustomizer: AuthCustomizer = {
     async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload) {
       test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
-      const userinfo = await wrdTestschemaSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
+      const userinfo = await oidcAuthSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
       if (!userinfo)
         throw new Error(`No such user`);
       payload.name = userinfo?.wrdFullName;
@@ -245,8 +250,8 @@ async function testAuthAPI() {
   test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
 
   //Test simple login tokens. Disable prefix so we can pass 'm straight to decodeJWT
-  const login1 = await createFirstPartyToken(wrdTestschemaSchema, "id", testuser, { prefix: "" });
-  const login2 = await createFirstPartyToken(wrdTestschemaSchema, "id", testuser, { prefix: "" });
+  const login1 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "" });
+  const login2 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "" });
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 
