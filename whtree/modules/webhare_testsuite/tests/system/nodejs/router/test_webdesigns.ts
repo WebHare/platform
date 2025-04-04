@@ -2,7 +2,6 @@ import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
 import type { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
-import type { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 import type { Document } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
@@ -48,18 +47,13 @@ async function testSiteResponse() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const sitereq = await buildSiteRequest(new IncomingWebRequest(markdowndoc.link!), markdowndoc);
 
-  //It should be okay to initialize the composer without knowing its tpye
-  const outputpage = await sitereq.createComposer();
-  test.assert(outputpage.pageConfig);
+  //We can access the pageConfig through debugging APIs - but it's a bit more hidden now...
+  const outputwitty = await sitereq._prepareWitty();
+  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", outputwitty.data.whfspath);
 
-  //And if we know the type, we can access the pageConfig!
-  const typedoutputpage = await sitereq.createComposer<BaseTestPageConfig>();
-  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageConfig.whfspath);
+  const response = await sitereq.renderHTMLPage(`<p>This is a body!</p>`);
 
-  typedoutputpage.appendHTML(`<p>This is a body!</p>`);
-  const response = await typedoutputpage.finish();
-
-  //Verify markdown contents
+  //Verify markdown contents...
   const responsetext = await response.text();
   const doc = parseDocAsXML(responsetext, 'text/html');
   test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
@@ -78,8 +72,8 @@ async function testSiteResponse() {
 
 async function getAsDoc(whfspath: string) {
   const whfsobj = await whfs.openFile(whfspath);
-  const page = await (await buildSiteRequest(new IncomingWebRequest(whfsobj.link!), whfsobj)).createComposer();
-  const response = await page.finish();
+  const sitereq = await buildSiteRequest(new IncomingWebRequest(whfsobj.link!), whfsobj);
+  const response = await sitereq.renderHTMLPage('');
   const responsetext = await response.text();
   return parseDocAsXML(responsetext, 'text/html');
 }

@@ -8,7 +8,7 @@
     <webdesign designfolder="."
                maxcontentwidth="960px"
                witty="frontend/frontend.witty"
-               siteresponsefactory="webdesign/webdesign.ts#BaseTestJSDesign"
+               getdata="webdesign/webdesign.ts#getBaseTestJSDesign"
                assetpack="basetestjs"
                wittyencoding="HTML-NI"
                async="true" />

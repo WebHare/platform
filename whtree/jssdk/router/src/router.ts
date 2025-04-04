@@ -2,16 +2,21 @@
 declare module "@webhare/router" {
 }
 
+import type { WRDAuthPluginAPI } from '@mod-wrd/js/internal/wrdauthplugin';
 import type { WebRequest } from './request';
 import type { WebResponse } from './response';
 import type { SiteRequest } from './siterequest';
+
+export interface WebdesignPluginAPIs {
+  "platform:wrdauth": WRDAuthPluginAPI;
+}
 
 export { HTTPMethod, getOriginURL, type WebRequest, type RPCContext } from './request';
 export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes
 } from './response';
-export type { SiteRequest, WebDesignFunction } from './siterequest';
+export type { SiteRequest, WebDesignFunction, ResponseBuilder } from './siterequest';
 export {
   RestRequest
 } from './restrequest';
