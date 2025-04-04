@@ -30,7 +30,7 @@ async function preDatabaseBootstrapTS() {
   }
 }
 
-/* Bring the PG database to a usable tate */
+/* Bring the PG database to a usable state */
 async function bootstrapDatabase() {
   // Get a connection. We race postgres' startup so we need to loop on connection
   const startWait = Date.now();
