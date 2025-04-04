@@ -1,5 +1,5 @@
 import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
-import { generateForConfig, generateForDev, type GeneratorType } from '@mod-system/js/internal/generation/shared';
+import { generatorTypes, type GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
@@ -24,30 +24,22 @@ const subsystems = {
         - so it also needs to update any non type-only TS Files  */
   config: {
     title: "Configuration",
-    description: "Update configuration files",
-    generate: generateForConfig,
+    description: "Update configuration files and development infrastructure (imports, schemas)",
+    generate: generatorTypes,
     parts: {
       //config.base if you're only here to update eg. the backend URL or module map
       base: { generate: ["config"] },
       extracts: { generate: ["config", "extracts"] },
-    }
-  },
-  /* 'wh apply dev' should ensure dev tooling is operable
-      - so it probably wants to do everythint 'wh apply config' does
-      - it also needs to fix type-only files (whdb, schemas)
-  */
-  dev: {
-    title: "Development",
-    description: "Update development infrastructure (imports, schemas)",
-    generate: [...generateForConfig, ...generateForDev],
-    parts: {
       wrd: { generate: ["wrd"] },
       db: { generate: ["db"] },
-      schema: { generate: ["schema"] },
+      schemas: { generate: ["schema"] },
     }
-
   },
-  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["ts-dev"] },
+  registry: {
+    title: "Registry",
+    description: "Initialize registry keys defined in module definitions",
+    generate: ["ts"]
+  },
   wrd: {
     title: "WRD",
     description: "Apply wrdschema definitions and regenerate the TS definitions",

@@ -44,13 +44,13 @@ export async function listAllServiceTS(mods: string[]): Promise<FileToUpdate[]> 
     {
       path: `ts/services.ts`,
       module: "platform",
-      type: "ts-dev",
+      type: "ts",
       generator: (context: GenerateContext) => generateServicesDefs(context, whconstant_builtinmodules)
     }, {
 
       path: `ts/services.ts`,
       module: "dummy-installed",
-      type: "ts-dev",
+      type: "ts",
       generator: (context: GenerateContext) => generateServicesDefs(context, mods.filter(m => !whconstant_builtinmodules.includes(m)))
     }
   ];
