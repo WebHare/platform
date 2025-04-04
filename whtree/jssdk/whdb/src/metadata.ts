@@ -306,7 +306,7 @@ function transformColumnDef(context: ChangeContext, table_schema: string, table_
         case "int4":
         case "int8": {
           const decoded = JSON.parse(colrec.defVal);
-          if (typeof decoded !== "number")
+          if (typeof decoded === "number")
             colrec.defVal = decoded.toString();
           else
             context.addError(`Invalid default value ${colrec.defVal} for column ${table_schema}.${table_name}.${colrec.name}`);
