@@ -19,7 +19,7 @@ async function testSchemaParser() {
     test.assert(result.types.some(t => t.tag === "WRD_SETTINGS"), "Simply test - we actually came here to verify BOM tolerance");
   }
 
-  { //ensure we properly slicd it off (eg doing .slice(3) in parseDocAsXML would pass the above test because the declaration just turns into text noise
+  { //ensure we properly sliced it off (eg doing .slice(3) in parseDocAsXML would pass the above test because the declaration just turns into text noise
     const emptySchemaWithBomNoDecl = `\uFEFF<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
     <!-- we don't have anything to add yet, hovimaster.xml suffices... but we still need a schemadef for the autocreate -->
   </schemadefinition>`;
