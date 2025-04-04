@@ -11,6 +11,7 @@ import * as crypto from "node:crypto";
 import { stringify, throwError } from "@webhare/std";
 import type { Document } from "@xmldom/xmldom";
 import { generateTasks } from "./gen_extract_tasks";
+import { getAllModuleWRDSchemas } from "./gen_wrd";
 
 const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
@@ -291,6 +292,10 @@ export async function generateServices(context: GenerateContext): Promise<string
   return JSON.stringify(await gatherServices(context), null, 2) + "\n";
 }
 
+export async function generateWRDSchemas(context: GenerateContext): Promise<string> {
+  return JSON.stringify(await getAllModuleWRDSchemas(context), null, 2) + "\n";
+}
+
 export async function listAllExtracts(): Promise<FileToUpdate[]> {
   return [
     {
@@ -316,6 +321,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generateTasks(context)
+    },
+    {
+      path: `extracts/wrdschemas.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generateWRDSchemas(context)
     }
   ];
 }

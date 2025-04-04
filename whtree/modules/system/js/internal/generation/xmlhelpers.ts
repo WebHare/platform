@@ -7,9 +7,14 @@ import { DOMParser, type Document, type Node, type Element, type NodeList } from
 
 /** Build a \@xmldom/xmldom DOCParser that doesn't make noise about broken docs */
 export function parseDocAsXML(data: string, format: "text/xml" | "text/html"): Document {
-  return new DOMParser({
+  const parser = new DOMParser({
     onError: w => { } //just ignore
-  }).parseFromString(data, format);
+  });
+
+  if (data.startsWith("\uFEFF")) //UTF8 BOM - parseFromString can't handle that so remove it
+    data = data.substring(1);
+
+  return parser.parseFromString(data, format);
 }
 
 export function elements<T extends Element>(collection: NodeList<Node>): T[] {

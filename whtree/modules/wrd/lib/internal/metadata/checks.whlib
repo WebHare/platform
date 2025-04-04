@@ -15,7 +15,6 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDIssueList()
                                FROM wrd.schemas
                               WHERE name NOT LIKE "$wrd$deleted*";
 
-  RECORD ARRAY definedschemas;
   RECORD ARRAY moduleschemas;
 
   FOREVERY(RECORD wrdschema FROM SELECT * FROM wrdschemas WHERE module = "")
@@ -44,15 +43,11 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDIssueList()
                    ] INTO msgs AT END;
       CONTINUE;
     }
-    ELSE
-    {
-      definedschemas := definedschemas CONCAT GetModuleDefinedWRDSchemas(module);
-    }
 
     moduleschemas := moduleschemas CONCAT schemas;
   }
 
-  definedschemas := SELECT *, seen := FALSE FROM definedschemas;
+  RECORD ARRAY definedschemas := SELECT *, seen := FALSE FROM GetAllDefinedWRDSchemas();
 
   //we need to analyze all schemas together, eg module example can request schema 'newsletter:examplemailings'
   FOREVERY(RECORD wrdschema FROM moduleschemas)

@@ -72,9 +72,7 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
                              , force := FALSE
                              ], options);
 
-  RECORD ARRAY alldefs;
-  FOREVERY(STRING module FROM GetInstalledModuleNames())
-    alldefs := alldefs CONCAT GetModuleDefinedWRDSchemas(module);
+  RECORD ARRAY alldefs := GetAllDefinedWRDSchemas();
 
   BOOLEAN allsuccess := TRUE, anymatch;
   RECORD ARRAY schemas := SELECT DISTINCT tag := ToLowercase(tag)

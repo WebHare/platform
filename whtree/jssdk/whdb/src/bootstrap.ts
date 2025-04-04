@@ -1,107 +1,71 @@
-<?wh
-
-LOADLIB "wh::dbase/postgresql.whlib";
-LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
-
-
-/** Contains initialization code for a WebHare PostgreSQL database
-*/
+import type { Connection } from "../vendor/postgresql-client/src";
+import { createTableImmediately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
 
 /** Bootstraps the PostgreSQL database
-    @param trans Transaction
 */
-PUBLIC MACRO BootstrapPostgreSQL(OBJECT trans)
-{
-  EnsureExtensions(trans);
-  EnsureSettings(trans);
-  EnsureBlobTable(trans);
-  EnsureStoredProcedures(trans);
+export async function bootstrapPostgresWHDB(pg: Connection) {
+  await pg.query('START TRANSACTION READ WRITE');
+  await ensureExtensions(pg);
+  await ensureSettings(pg);
+  await ensureBlobTable(pg);
+  await ensureStoredProcedures(pg);
+  await pg.query("COMMIT");
 }
 
-MACRO EnsureExtensions(OBJECT trans)
-{
-  STRING ARRAY required_extensions :=
-      [ "plpgsql"     // For stored procedures. Should be installed by default
-      , "pgcrypto"    // Needed for digest(...) function, used by unique indexes on long varchars
-      ];
+async function ensureExtensions(pg: Connection) {
+  const required_extensions = [
+    "plpgsql", // For stored procedures. Should be installed by default
+    "pgcrypto" // Needed for digest(...) function, used by unique indexes on long varchars
+  ];
 
-  STRING ARRAY installed := SELECT AS STRING ARRAY extname FROM trans->__ExecSQL(`SELECT * FROM pg_extension`);
-  FOREVERY (STRING ext FROM required_extensions)
-    IF (ext NOT IN installed)
-    {
-      trans->BeginWork();
-      trans->__ExecSQL(`CREATE EXTENSION ${ext}`);
-      trans->CommitWork();
+  const installed = await pg.query(
+    `SELECT extname FROM pg_extension`, { objectRows: true });
+
+  for (const ext of required_extensions)
+    if (!installed.rows?.some(row => row.extname === ext)) {
+      await pg.query(`CREATE EXTENSION ${ext}`);
     }
 }
 
-MACRO EnsureSettings(OBJECT trans)
-{
-  trans->BeginWork();
-  trans->__ExecSQL(`ALTER USER CURRENT_USER SET default_transaction_read_only = on`);
+async function ensureSettings(pg: Connection) {
+  await pg.query(`alter user current_user set default_transaction_read_only = on`);
   //Always block any password at startup, password-access to webhare's user should only be temporary
-  trans->__ExecSQL(`ALTER USER CURRENT_USER PASSWORD NULL`);
-  trans->CommitWork();
+  await pg.query(`alter user current_user password null`);
 }
 
-MACRO EnsureBlobTable(OBJECT trans)
-{
+async function ensureBlobTable(pg: Connection) {
   // Ensure the blob type exists
-  IF (NOT RecordExists(trans->__ExecSQL(`
-    SELECT t.oid, t.typname
-      FROM pg_catalog.pg_type t
-           JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
-  {
-    trans->BeginWork();
+  const blobtype = await getPGType(pg, "webhare_internal", "webhare_blob");
 
-    IF (NOT trans->SchemaExists("webhare_internal"))
-      trans->CreateSchema("webhare_internal", "", "");
+  if (!blobtype) {
+    if (!await schemaExists(pg, "webhare_internal"))
+      await pg.query(`CREATE SCHEMA webhare_internal`);
 
-    IF (RecordExists(trans->__ExecSQL(`
-      SELECT t.oid, t.typname
-        FROM pg_catalog.pg_type t
-             JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-             JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-       WHERE nspname = 'public' AND t.typname = 'webhare_blob' AND proname = 'record_in'`)))
-    {
+    const oldblobtype = await getPGType(pg, "public", "webhare_blob");
+    if (oldblobtype) {
       //Pre 4.35 we created this type in public, but that makes a 'DROP SCHEMA public' terribly dangerous. Migrate it to our schema
-      trans->__ExecSQL(`ALTER TYPE public.webhare_blob SET SCHEMA webhare_internal`);
+      //We shouldn't ever be upgrading from pre-4.35 to a TypesScript WebHare, but just in case...
+      await pg.query(`ALTER TYPE public.webhare_blob SET SCHEMA webhare_internal`);
+    } else {
+      await pg.query(`CREATE TYPE webhare_internal.webhare_blob AS (id text, size int8)`);
     }
-    ELSE
-    {
-      trans->__ExecSQL(`CREATE TYPE webhare_internal.webhare_blob AS (id text, size int8)`);
-    }
-    trans->CommitWork();
-
-    // Rescan types for the blob type
-    trans->__ExecSQL(`__internal:scantypes`);
   }
 
-  IF (NOT trans->ColumnExists("webhare_internal", "blob", "id"))
-  {
-    trans->BeginWork();
+  // Ensure the blob table exists
+  if (!await tableExists(pg, "webhare_internal", "blob")) {
+    await createTableImmediately(pg, "webhare_internal", {
+      name: "blob",
+      primaryKey: "id",
+      columns: [{ name: "id", dbType: "BLOB" }]
+    });
 
-    __LegacyCreateTable(trans, "webhare_internal", "blob",
-       [ primarykey :=  "id"
-       , cols :=        [ [ column_name := "id", data_type := "BLOB" ]
-                        ]
-       ]);
-    trans->CommitWork();
-  }
-
-  // Make sure an index exists on the ID part of the blob primary key (needed for blob cleanup)
-  IF (NOT trans->IndexExists("webhare_internal", "blob", "blob_id_id"))
-  {
-    trans->BeginWork();
-    trans->__ExecSQL(`CREATE UNIQUE INDEX blob_id_id ON webhare_internal.blob(((id).id))`);
-    trans->CommitWork();
+    // Make sure an index exists on the ID part of the blob primary key (needed for blob cleanup)
+    if (!await indexExists(pg, "webhare_internal", "blob", "id"))
+      await pg.query(`CREATE UNIQUE INDEX blob_id_id ON webhare_internal.blob(((id).id))`);
   }
 }
 
-MACRO EnsureStoredProcedures(OBJECT trans)
-{
+async function ensureStoredProcedures(pg: Connection) {
   /* Stored procedures
 
      The parameter lists for most of these have been hard-coded into the
@@ -111,9 +75,10 @@ MACRO EnsureStoredProcedures(OBJECT trans)
        RAISE NOTICE 'text % %', var1, var2;
   */
 
-  RECORD ARRAY stored_procedures :=
-      [ [ name :=   "webhare_proc_urlencode"
-        , code :=   `
+  const stored_procedures: Array<{ name: string; code: string }> = [
+    {
+      name: "webhare_proc_urlencode",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_urlencode(in_str text) RETURNS text
   STRICT IMMUTABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -143,9 +108,10 @@ BEGIN
   END LOOP;
   RETURN _result;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_folderurl"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_folderurl",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_folderurl(_id int4) RETURNS varchar
   STRICT IMMUTABLE LANGUAGE plpgsql AS $$
 
@@ -176,9 +142,10 @@ BEGIN
   END LOOP;
   RETURN '';
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_isforeignfolder"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_isforeignfolder",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_isforeignfolder(_id int4, _path varchar) RETURNS boolean
     LANGUAGE plpgsql AS $$
 DECLARE
@@ -202,9 +169,10 @@ BEGIN
   END LOOP;
   RETURN false;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_ispublishpublished"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_ispublishpublished",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_ispublishpublished(_published int4) RETURNS boolean
   STRICT IMMUTABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -217,9 +185,10 @@ BEGIN
   END IF;
   RETURN false;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_isvalidwhfsname"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_isvalidwhfsname",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_isvalidwhfsname(name text) RETURNS boolean
   STRICT IMMUTABLE LANGUAGE plpgsql AS $$
 BEGIN
@@ -235,9 +204,10 @@ BEGIN
     RETURN true;
   END IF;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_highestparent"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_highestparent",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_highestparent(_id int4, defaultretval int4 default 0) RETURNS int4
   CALLED ON NULL INPUT STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -257,9 +227,10 @@ BEGIN
   END LOOP;
   RETURN defaultretval;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_fullpath"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_fullpath",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_fullpath(_id int4, _isfolder boolean) RETURNS text
   STRICT STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -289,9 +260,10 @@ BEGIN
   END LOOP;
   RETURN '';
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_foldercontainssite"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_foldercontainssite",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_foldercontainssite(_id int4) RETURNS boolean
     LANGUAGE plpgsql AS $$
 DECLARE
@@ -326,9 +298,10 @@ BEGIN
 
   RETURN _id IS NOT NULL;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_indexurl"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_indexurl",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_indexurl(_id int4, _name varchar, _isfolder boolean, _parent int4, _published int4, _type int4, _externallink varchar, _filelink int4, _indexdoc int4) RETURNS text
   STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -360,9 +333,10 @@ BEGIN
   END IF;
   RETURN '';
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_isactive"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_isactive",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_isactive(_id int4) RETURNS boolean
   STRICT STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -383,9 +357,10 @@ BEGIN
   END LOOP;
   RETURN TRUE;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_publish"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_publish",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_publish(_isfolder boolean, _published int4) RETURNS boolean
     STRICT STABLE LANGUAGE plpgsql AS $$
 BEGIN
@@ -395,9 +370,10 @@ BEGIN
     RETURN webhare_proc_ispublishpublished(_published);
   END IF;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_url"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_url",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_url(_id int4, _name varchar, _isfolder boolean, _parent int4, _published int4, _type int4, _externallink varchar, _filelink int4) RETURNS text
   STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -474,7 +450,7 @@ BEGIN
    WHERE t.id = _type;
 
   IF (_published / 1600000) % 2 = 1 THEN /* PublisherStripExtension */
-    _name := regexp_replace(_name, '\.[^.]*$', '');
+    _name := regexp_replace(_name, '\\.[^.]*$', '');
   END IF;
 
   _folderurl := _folderurl || webhare_proc_urlencode(_name);
@@ -485,9 +461,10 @@ BEGIN
 
   RETURN _folderurl;
 END;$$`
-        ]
-      , [ name :=   "webhare_proc_fs_objects_whfspath"
-        , code :=   `
+    },
+    {
+      name: "webhare_proc_fs_objects_whfspath",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_fs_objects_whfspath(_id int4, _isfolder boolean) RETURNS text
   STRICT STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -512,10 +489,9 @@ BEGIN
   END LOOP;
   RETURN '';
 END;$$`
-        ]
-
-      , [ name :=   "webhare_proc_sites_webroot"
-        , code :=   `
+    }, {
+      name: "webhare_proc_sites_webroot",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_proc_sites_webroot(_outputweb int4, _outputfolder text) RETURNS text
     STABLE LANGUAGE plpgsql AS $$
 DECLARE
@@ -543,9 +519,10 @@ BEGIN
   END IF;
   RETURN _baseurl;
 END;$$`
-        ]
-      , [ name :=   "webhare_trigger_system_fs_objects_writeaccess"
-        , code :=   `
+    },
+    {
+      name: "webhare_trigger_system_fs_objects_writeaccess",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_trigger_system_fs_objects_writeaccess() RETURNS trigger
     LANGUAGE plpgsql AS $$
 DECLARE
@@ -589,9 +566,10 @@ BEGIN
 
   RETURN new; /* return 'new' to accept. */
 END;$$`
-        ]
-      , [ name :=   "webhare_trigger_system_sites_writeaccess"
-        , code :=   `
+    },
+    {
+      name: "webhare_trigger_system_sites_writeaccess",
+      code: `
 CREATE OR REPLACE FUNCTION webhare_trigger_system_sites_writeaccess() RETURNS trigger
     LANGUAGE plpgsql AS $$
 DECLARE
@@ -629,33 +607,32 @@ BEGIN
 
   RETURN new; /* return 'new' to accept. */
 END;$$`
-        ]
-      ];
-
-  RECORD ARRAY obsolete_procedures :=
-      [ [ name :=   "webhare_proc_fs_objects_highestparent"
-        , code :=   `
-DROP FUNCTION IF EXISTS webhare_proc_fs_objects_highestparent(_id int4)`
-        ]
-      ];
-  trans->BeginWork();
-  trans->__ExecSQL(`SET client_min_messages TO WARNING`); /* Prevent log noise if the function doesn't exist */
-
-  FOREVERY (RECORD rec FROM stored_procedures)
-  {
-    TRY
-    {
-      trans->__ExecSQL(`SAVEPOINT sp`);
-      trans->__ExecSQL(rec.code);
     }
-    CATCH (OBJECT e)
+  ];
+
+  const obsolete_procedures: Array<{ name: string; code: string }> = [
     {
-      trans->__ExecSQL(`ROLLBACK TO SAVEPOINT sp`);
-      trans->__ExecSQL(`DROP FUNCTION ${PostgreSQLEscapeIdentifier(rec.name)} CASCADE`); // triggers will be recreated later
-      trans->__ExecSQL(rec.code);
+      name: "webhare_proc_fs_objects_highestparent",
+      code: `DROP FUNCTION IF EXISTS webhare_proc_fs_objects_highestparent(_id int4)`
+    }
+  ];
+
+  await pg.query(`SET client_min_messages TO WARNING`); /* Prevent log noise if the function doesn't exist
+   FIXME why can't we just check and then treat exceptions seriously?  why doesn't CREATE OR REPLACE remove the need for DROP
+   ?*/
+  for (const rec of stored_procedures) {
+    try {
+      await pg.query(`SAVEPOINT sp`);
+      await pg.query(rec.code);
+    } catch (e) {
+      console.error("Creating stored procedure", rec.name, e);
+      await pg.query(`ROLLBACK TO SAVEPOINT sp`);
+      await pg.query(`DROP FUNCTION ${rec.name} CASCADE`); // triggers will be recreated later
+      await pg.query(rec.code);
     }
   }
-  FOREVERY (RECORD rec FROM obsolete_procedures)
-    trans->__ExecSQL(rec.code);
-  trans->CommitWork();
+
+  for (const re of obsolete_procedures) {
+    await pg.query(re.code);
+  }
 }

@@ -25,7 +25,7 @@ async function testDevBridge() {
   }, platform_wrd_defs);
 
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
-  const usermgmt = platform_wrd_defs.schemas.find(_ => _.wrdschema === "system:usermgmt");
+  const usermgmt = platform_wrd_defs.schemas.find(_ => _.wrdSchema === "system:usermgmt");
   test.assert(usermgmt);
   test.eqPartial({
     schemaObject: "systemUsermgmtSchema"

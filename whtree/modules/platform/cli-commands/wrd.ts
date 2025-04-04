@@ -4,6 +4,7 @@ import { throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { runInWork } from '@webhare/whdb';
 import { CLIRuntimeError, run } from "@webhare/cli";
+import { parseSchema } from '@mod-wrd/js/internal/schemaparser';
 
 run({
   description: "Manage WRD",
@@ -11,6 +12,13 @@ run({
     "j,json": { description: "Output in JSON format" }
   },
   subCommands: {
+    "parse-schema": {
+      description: "Parse a WRD schema. dump the contents",
+      arguments: [{ name: "<schemaresource>", description: "Schema to parse" }],
+      main: async ({ args }) => {
+        console.log(JSON.stringify(await parseSchema(args.schemaresource, true, null), null, 2));
+      }
+    },
     "update": {
       description: "Update an entity",
       arguments: [

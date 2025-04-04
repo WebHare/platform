@@ -12,7 +12,7 @@ import { unlink, rm } from "fs/promises";
 
 async function expireOldUsers() {
   let schemastofix = await listSchemas();
-  schemastofix = schemastofix.filter(_ => _.usermgmt);
+  schemastofix = schemastofix.filter(_ => _.userManagement);
   for (const schema of schemastofix) {
     await runAccountExpiration(schema.tag);
   }

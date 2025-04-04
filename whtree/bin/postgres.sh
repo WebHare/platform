@@ -43,6 +43,6 @@ else
   fi
 fi
 
-
+mkdir -p "$PSROOT/tmp" # ensure we can upload blobs!
 echo "Starting $PSNAME"
 exec $RUNAS "$WEBHARE_PGBIN/postgres" -D "$PSROOT/db" -c "unix_socket_directories=$PGHOST" -c "port=$PGPORT" 2>&1

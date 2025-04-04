@@ -21,6 +21,7 @@ import { ArrayInt2Type, Int2Type } from '../vendor/postgresql-client/src/data-ty
 import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgresql-client/src/data-types/oid-type';
 import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgresql-client/src/data-types/int2-vector-type';
 import { ArrayCharType, CharType } from '../vendor/postgresql-client/src/data-types/char-type';
+import { getPGType } from './metadata';
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
@@ -86,15 +87,9 @@ async function configureWHDBClient(pg: Connection): Promise<void> {
     whdbTypeMap.register([TidType, ArrayTidType]); //Postgres TID (Tuple IDentifier)
     whdbTypeMap.register([WHTimestampType, ArrayWHTimestampType]);
 
-    const bloboidquery = await pg.query(
-      `SELECT t.oid, t.typname
-        FROM pg_catalog.pg_type t
-        JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-        JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-        WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
-
-    if (bloboidquery.rows) {
-      configuration = { bloboid: bloboidquery.rows[0][0] };
+    const bloboidquery = await getPGType(pg, "webhare_internal", "webhare_blob");
+    if (bloboidquery) {
+      configuration = { bloboid: bloboidquery.oid };
       BlobType.oid = configuration.bloboid;
       whdbTypeMap.register(BlobType);
       configurationPromise = undefined;
@@ -111,6 +106,28 @@ export interface FullPostgresQueryResult<R> extends PostgresQueryResult<R> {
   fields?: FieldInfo[];
 }
 
+function onDebug(evt: PGConnectionDebugEvent) {
+  console.log(evt.location, evt.message);
+}
+
+export function getPGConnection() {
+  if (!process.env.WEBHARE_BASEPORT)
+    throw new Error("WEBHARE_BASEPORT not set in environment");
+
+  const pgclient = new Connection({
+    host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST) + "/.s.PGSQL." + process.env.PGPORT, //apparently it needs to be spelled out..
+    database: process.env.WEBHARE_DBASENAME,
+    rollbackOnError: false
+  });
+
+  if (debugFlags["pg-logcommands"])
+    pgclient.on("debug", onDebug);
+  if (debugFlags["pg-logsocket"])
+    getIntlConnection(pgclient).socket.on("debug", onDebug);
+
+  return pgclient;
+}
+
 export class WHDBPgClient {
   pgclient?;
   connected = false;
@@ -120,25 +137,13 @@ export class WHDBPgClient {
     if (!process.env.WEBHARE_BASEPORT)
       throw new Error("WEBHARE_BASEPORT not set in environment");
 
-    this.pgclient = new Connection({
-      host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST) + "/.s.PGSQL." + process.env.PGPORT, //apparently it needs to be spelled out..
-      database: process.env.WEBHARE_DBASENAME,
-      rollbackOnError: false
-    });
-    if (debugFlags["pg-logcommands"])
-      this.pgclient.on("debug", (evt) => this.onDebug(evt));
-    if (debugFlags["pg-logsocket"])
-      getIntlConnection(this.pgclient).socket.on("debug", (evt) => this.onDebug(evt));
+    this.pgclient = getPGConnection();
 
     const client = this.pgclient;
     this.connectpromise = client.connect().then(() => configureWHDBClient(client));
 
     // Make sure that failed connections do not result in uncaught rejections when nobody calls connect()
     this.connectpromise.catch(() => { });
-  }
-
-  private onDebug(evt: PGConnectionDebugEvent) {
-    console.log(evt.location, evt.message);
   }
 
   query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;

@@ -868,6 +868,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     const type = await this._getType();
     return (await type.GetEventMasks() as string[]).sort();
   }
+
+  /** Get the name to us in error messages */
+  getFormattedName() {
+    return `'${this.schema.tag}.${this.tag}'`;
+  }
 }
 
 /** Simple history modes:

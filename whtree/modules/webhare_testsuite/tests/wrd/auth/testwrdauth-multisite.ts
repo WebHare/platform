@@ -6,7 +6,7 @@ test.runTests(
   [
     "Test login APIs",
     async function () {
-      await prepareWRDAuthTest("multisite", { multisite: true });
+      await prepareWRDAuthTest("multisite", { multisite: true, js: true });
     },
 
     "Login for site1",

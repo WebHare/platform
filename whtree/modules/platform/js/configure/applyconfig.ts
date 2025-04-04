@@ -36,7 +36,17 @@ const subsystems = {
       - so it probably wants to do everythint 'wh apply config' does
       - it also needs to fix type-only files (whdb, schemas)
   */
-  dev: { title: "Development", description: "Update development infrastructure (imports, schemas)", generate: [...generateForConfig, ...generateForDev] },
+  dev: {
+    title: "Development",
+    description: "Update development infrastructure (imports, schemas)",
+    generate: [...generateForConfig, ...generateForDev],
+    parts: {
+      wrd: { generate: ["wrd"] },
+      db: { generate: ["db"] },
+      schema: { generate: ["schema"] },
+    }
+
+  },
   registry: { title: "Registry", description: "Initialize registry keys defined in module definitions", generate: ["ts-dev"] },
   wrd: {
     title: "WRD",

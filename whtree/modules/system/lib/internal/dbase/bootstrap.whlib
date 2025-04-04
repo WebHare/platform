@@ -1,14 +1,11 @@
 <?wh
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbase/postgresql-bootstrap.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 
 
 PUBLIC MACRO BootstrapDatabase()
 {
-  BootstrapPostgreSQL(GetPrimary());
-
   GetPrimary()->BeginWork();
 
   IF(NOT GetPrimary()->SchemaExists("system"))
@@ -30,5 +27,3 @@ PUBLIC MACRO BootstrapDatabase()
   }
   GetPrimary()->CommitWork();
 }
-
-
