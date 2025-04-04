@@ -69,7 +69,7 @@ export async function listSchemas() {
   //TODO? user parameter to see from their view. but requires JS userrights api
   const dbschemas = await db<PlatformDB>().selectFrom("wrd.schemas").select(["id", "name", "title", "usermgmt"]).execute();
   return dbschemas.filter(_ => !_.name.startsWith("$wrd$deleted"))
-    .map(_ => ({ id: _.id, tag: _.name, title: _.title, usermgmt: _.usermgmt }));
+    .map(_ => ({ id: _.id, tag: _.name, title: _.title, userManagement: _.usermgmt }));
 }
 
 /** Open a schema by id
