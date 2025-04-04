@@ -7,7 +7,7 @@ import { backendConfig, toResourcePath } from "@webhare/services";
 import path from "path";
 
 run({
-  description: "Valdiate a WebHare resourrce",
+  description: "Validate a WebHare resourrce",
   flags: {
     "tids": "Show tids",
     "parsed": "Show parse result",
