@@ -89,6 +89,17 @@
     <xs:attribute name="accountloginfield" type="sc:Name" />
     <xs:attribute name="accountpasswordfield" type="sc:Name" />
     <xs:attribute name="accountemailfield" type="sc:Name" />
+    <xs:attribute name="accountstatus">
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="active" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="TypeDefinition">

@@ -161,3 +161,11 @@ export async function createSchema(tag: string, options?: CreateSchemaOptions): 
 
   return newschema.id;
 }
+
+/** Extend an existing WRD schema */
+export async function extendSchema(tag: string, options: { schemaDefinitionXML: string }) {
+  //only supporting inline XML schemadefs, switch to inline YML schemadefs soon!
+  const schemadef = await parseSchema("mod::wrd/dummy.wrdschema.xml", true, options?.schemaDefinitionXML);
+  const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(tag);
+  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef);
+}

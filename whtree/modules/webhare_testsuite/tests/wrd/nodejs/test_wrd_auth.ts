@@ -1,9 +1,9 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer } from "@webhare/auth";
-import { AuthenticationSettings, WRDSchema } from "@webhare/wrd";
+import { AuthenticationSettings, extendSchema, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
-import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId } from "@webhare/std";
+import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
@@ -304,6 +304,28 @@ async function testAuthAPI() {
   test.assert(seenheaders, "verify onResponse isn't skipped");
 }
 
+async function testAuthStatus() {
+  const provider = new IdentityProvider(oidcAuthSchema);
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  //Add an authstatus field
+  await whdb.beginWork();
+  await extendSchema("webhare_testsuite:testschema", {
+    schemaDefinitionXML:
+      `<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                       accountstatus="active">
+       <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
+      </schemadefinition>`
+  });
+  await whdb.commitWork();
+
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
+  //@ts-ignore doesn't know about wrdauthAccountStatus
+  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
+}
+
 async function testSlowPasswordHash() {
   const start = new Date;
   {
@@ -340,5 +362,6 @@ test.runTests([
   testLowLevelAuthAPIs,
   setupOpenID,
   testAuthAPI,
+  testAuthStatus,
   testSlowPasswordHash //placed last so we don't have to wait too long for other test failures
 ]);

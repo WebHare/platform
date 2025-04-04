@@ -14,6 +14,7 @@ import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
+import type { WRDAuthAccountStatus } from "@mod-platform/js/auth/types";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -231,11 +232,13 @@ declare module "@webhare/services" {
 }
 
 export interface WRDAuthSettings {
+  accountType: string;
   emailAttribute: string | null;
   loginAttribute: string | null;
   loginIsEmail: boolean;
   passwordAttribute: string | null;
   passwordIsAuthSettings: boolean;
+  hasAccountStatus: boolean;
 }
 
 // Autorization with PKCE code verifier: https://www.rfc-editor.org/rfc/rfc7636
@@ -269,12 +272,17 @@ function verifyCodeChallenge(verifier: string, challenge: string, method: CodeCh
   return createCodeChallenge(verifier, method) === challenge;
 }
 
-export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings> {
-  const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
+export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings | null> {
+  const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accounttype", "accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
   if (!settings)
     throw new Error(`No such WRD schema '${wrdschema.tag}'`);
 
-  const persontype = wrdschema.getType("wrdPerson");
+  if (!settings.accounttype)
+    return null;
+
+  const type = await db<PlatformDB>().selectFrom("wrd.types").select(["tag"]).where("id", "=", settings.accounttype).executeTakeFirstOrThrow();
+  const accountType = tagToJS(type.tag);
+  const persontype = wrdschema.getType(accountType);
   const attrs = await persontype.ensureAttributes();
 
   const email = attrs.find(_ => _.id === settings.accountemail);
@@ -282,11 +290,13 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
   const password = attrs.find(_ => _.id === settings.accountpassword);
 
   return {
+    accountType,
     emailAttribute: email ? tagToJS(email.tag) : null,
     loginAttribute: login ? tagToJS(login.tag) : null,
     loginIsEmail: Boolean(email?.id && email?.id === login?.id),
     passwordAttribute: password ? tagToJS(password.tag) : null,
-    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS"
+    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS",
+    hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS")
   };
 }
 
@@ -866,16 +876,27 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
   async handleFrontendLogin(username: string, password: string, customizer: AuthCustomizer | null, options?: LoginRemoteOptions): Promise<LoginResult> {
     const authsettings = await getAuthSettings(this.wrdschema);
-    if (!authsettings.passwordAttribute)
+    if (!authsettings?.passwordAttribute)
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
 
     let userid = await this.lookupUser(authsettings, username, customizer, options);
     if (userid) {
+      const getfields = {
+        password: authsettings.passwordAttribute,
+        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
+      };
+
       //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
-      const userinfo = await this.wrdschema.getFields("wrdPerson", userid, { password: authsettings.passwordAttribute }) as { password: AuthenticationSettings | null };
+      const userInfo = await this.wrdschema.getFields(authsettings.accountType, userid, getfields) as {
+        password: AuthenticationSettings | null;
+        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+      };
+
+      if (authsettings.hasAccountStatus && !(userInfo?.wrdauthAccountStatus?.status === "active"))
+        userid = 0;
 
       //TODO ratelimits/auditing
-      if (!await userinfo?.password?.verifyPassword(password))
+      if (userid && !await userInfo?.password?.verifyPassword(password))
         userid = 0;
     }
 
