@@ -729,7 +729,7 @@ export async function executeSQLUpdates(pg: Connection, cmds: Command[]) {
   // TODO  ClearAllSchemaCaches();
 }
 
-export async function createTableImemdiately(pg: Connection, schema: string, table: TableDef) {
+export async function createTableImmediately(pg: Connection, schema: string, table: TableDef) {
   // Translate to schema definition, run to table updater
   const schemadef = { name: schema, tables: [table] };
   const cmd = await generateDependentSQLCommands(pg, [schemadef]);

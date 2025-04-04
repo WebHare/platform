@@ -1,5 +1,5 @@
 import type { Connection } from "../vendor/postgresql-client/src";
-import { createTableImemdiately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
+import { createTableImmediately, getPGType, indexExists, schemaExists, tableExists } from "./metadata";
 
 /** Bootstraps the PostgreSQL database
 */
@@ -53,7 +53,7 @@ async function ensureBlobTable(pg: Connection) {
 
   // Ensure the blob table exists
   if (!await tableExists(pg, "webhare_internal", "blob")) {
-    await createTableImemdiately(pg, "webhare_internal", {
+    await createTableImmediately(pg, "webhare_internal", {
       name: "blob",
       primaryKey: "id",
       columns: [{ name: "id", dbType: "BLOB" }]
