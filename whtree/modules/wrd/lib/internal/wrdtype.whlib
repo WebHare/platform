@@ -3225,7 +3225,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(bestmatch != "")
         didyoumean := `, did you mean '${bestmatch}' ?`;
 
-      THROW NEW Exception(`The field '${unpacked_leftovers[0].name}' that you were trying to set does not exist in type '${this->tag}'${didyoumean}`);
+      THROW NEW Exception(`The field '${unpacked_leftovers[0].name}' that you were trying to set does not exist in type '${this->wrdschema->tag}.${this->tag}'${didyoumean}`);
     }
     IF(Length(unpacked_leftovers)>0)
     {
@@ -3234,7 +3234,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(Length(mention_leftovers) < Length(unpacked_leftovers))
         describe_leftovers := describe_leftovers || " and " || Length(unpacked_leftovers) - Length(mention_leftovers) || " more";
 
-      THROW NEW Exception(`Some fields that you were trying to set do not exist in type '${this->tag}': ${describe_leftovers}`);
+      THROW NEW Exception(`Some fields that you were trying to set do not exist in type '${this->wrdschema->tag}.${this->tag}': ${describe_leftovers}`);
     }
 
 

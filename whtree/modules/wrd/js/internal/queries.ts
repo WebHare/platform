@@ -107,7 +107,7 @@ export async function getDefaultJoinRecord<S extends SchemaTypeDefinition, T ext
   // Lookup the type
   const typerec = schemadata.typeTagMap.get(type.tag);
   if (!typerec)
-    throw new Error(`No such type ${JSON.stringify(type.tag)}`);
+    throw new Error(`No such type ${type.getFormattedName()}`);
 
   // Build the output mapping
   const { map, accessors } = createSelectMap(type, selects || {}, typerec.rootAttrMap, typerec.parentAttrMap);
@@ -138,7 +138,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   // Lookup the type
   const typerec = schemadata.typeTagMap.get(type.tag);
   if (!typerec)
-    throw new Error(`No such type ${JSON.stringify(type.tag)}`);
+    throw new Error(`No such type ${type.getFormattedName()}`);
 
   // Build the output mapping
   const { map, accessors } = createSelectMap(type, selects || {}, typerec.rootAttrMap, typerec.parentAttrMap);
@@ -189,12 +189,12 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
         typerec.parentAttrMap.get(attr.id)?.find(a => a.tag === part) :
         typerec.rootAttrMap.get(part);
       if (!attr)
-        throw new Error(`Cannot find attribute ${JSON.stringify(parts.slice(0, idx + 1))} in type ${JSON.stringify(type.tag)}`);
+        throw new Error(`Cannot find attribute ${JSON.stringify(parts.slice(0, idx + 1))} in type ${type.getFormattedName()}`);
     }
     if (!attr)
-      throw new Error(`Cannot find attribute ${JSON.stringify(filter.field)} in type ${JSON.stringify(type.tag)}`);
+      throw new Error(`Cannot find attribute ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
     if (parts.length > 1 && !["mentions", "mentionsany"].includes(filter.condition))
-      throw new Error(`Condition ${JSON.stringify(filter.condition)} not allowed for field ${JSON.stringify(filter.field)} in type ${JSON.stringify(type.tag)}`);
+      throw new Error(`Condition ${JSON.stringify(filter.condition)} not allowed for field ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
 
     const accessor = getAccessor(attr, typerec.parentAttrMap);
     accessor.checkFilter(filter as never);
