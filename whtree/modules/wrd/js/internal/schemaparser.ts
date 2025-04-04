@@ -6,7 +6,7 @@ import { Money, throwError } from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat";
 import { isNodeApplicableToThisWebHare } from "@mod-system/js/internal/generation/shared";
 
-const wrd_baseschemaresource = "mod::wrd/data/wrdschemas/base.wrdschema.xml";
+export const wrd_baseschemaresource = "mod::wrd/data/wrdschemas/base.wrdschema.xml";
 const ns_schemadef = "http://www.webhare.net/xmlns/wrd/schemadefinition";
 const current_schema_version = 2; //v1 doesn't explicitly mention mod::wrd/data/wrdschemas/base.wrdschema.xml as a dependency, causing 5.03 WH upgrades to not apply WRD_SETTINGS
 
@@ -34,9 +34,11 @@ export interface ParsedAttr {
   attrs: ParsedAttr[];
 }
 
+type ParsedMetaType = "OBJECT" | "ATTACHMENT" | "LINK" | "DOMAIN";
+
 interface ParsedType {
   tag: string;
-  type: string;
+  type: ParsedMetaType;
   title: string;
   parenttype_tag: string;
   description: string;
@@ -55,26 +57,6 @@ interface ParsedType {
 }
 
 type ParsedValue = Record<string, unknown> & { __subvalues?: ParsedValue[] };
-
-const basetype: ParsedType = {
-  tag: "",
-  type: "",
-  title: "",
-  parenttype_tag: "",
-  description: "",
-  deleteclosedafter: 0,
-  keephistorydays: 0,
-  haspersonaldata: false,
-  attrs: [],
-  allattrs: [],
-  hasvalues: false,
-  vals: [],
-  valslinenum: -1,
-  linkfrom_tag: "",
-  linkto_tag: "",
-  domvalsyncattr: "",
-  domvalsoverwritefields: [],
-};
 
 class ParsedSchemaDef {
   resources = new Array<{
@@ -184,10 +166,12 @@ class ParsedSchemaDef {
     const existingtypepos = this.types.findIndex(type => type.tag === typetag);
     let type;
     if (existingtypepos === -1) {  //ADDING
+      if (type === 'extend')
+        throw new Error(`Type '${typetag}' is not defined yet, cannot extend it`);
+
       type = {
-        ...structuredClone(basetype), //we need structureclones to prevent sharing attrs[] and vals[] between types. TODO just construct from scratch
         tag: typetag,
-        type: which.toUpperCase(),
+        type: which.toUpperCase() as ParsedMetaType,
         title: getAttr(typenode, "title", ""),
         parenttype_tag: getAttr(typenode, "parent", ""),
         description: getAttr(typenode, "description", ""),
@@ -196,7 +180,14 @@ class ParsedSchemaDef {
         haspersonaldata: getAttr(typenode, "haspersonaldata", false),
         linkfrom_tag: which === "attachment" || which === "link" ? getAttr(typenode, "linkfrom", "").toUpperCase() : "",
         linkto_tag: which === "link" ? getAttr(typenode, "linkto", "").toUpperCase() : "",
-      };
+        attrs: [],
+        allattrs: [],
+        hasvalues: false,
+        vals: [],
+        valslinenum: -1,
+        domvalsyncattr: "",
+        domvalsoverwritefields: [],
+      } satisfies ParsedType;
       if (type.tag === "WRD_PERSON" && !typenode.hasAttribute("haspersonaldata"))
         type.haspersonaldata = true;
     } else {
@@ -240,9 +231,6 @@ class ParsedSchemaDef {
 
     const valuesnode = typenode.getElementsByTagNameNS(ns_schemadef, "values")[0];
     if (valuesnode) {
-      if (!['domain', 'object', 'attachment'].includes(which))
-        throw new Error(`Unexpected <values> node in ${type.tag}`);
-
       if (type.hasvalues)
         throw new Error(`<values> can currently only be defined once for a type (reading a second <values> for '${typetag}'`);
       type.hasvalues = true;
@@ -328,7 +316,7 @@ class ParsedSchemaDef {
           if (subvalnode.localName !== "element")
             throw new Error("Expected <element> in <arrayfield> node");
 
-          const subval = this.parseEntityValue(subvalnode, `${idx}/${subvalnode.tagName}`, type, attrs);
+          const subval = this.parseEntityValue(subvalnode, `${idx}/${subvalnode.tagName}`, type, attr.attrs);
           vals.push(subval);
         }
         val[cellname] = vals;

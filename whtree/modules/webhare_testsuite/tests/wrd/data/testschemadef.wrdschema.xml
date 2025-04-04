@@ -13,4 +13,30 @@
     </values>
   </object>
 
+  <domain tag="test_array_fields">
+    <attributes>
+      <array tag="translated" title="Translated values">
+        <free tag="langcode" title="Language code for this translation" />
+        <free tag="title" title="Title" />
+        <free tag="contact_name" title="Contact name" />
+      </array>
+    </attributes>
+
+    <values matchattribute="wrd_tag">
+      <value>
+        <field tag="wrd_tag">HOVI_UT_ENSCHEDE</field>
+        <arrayfield tag="translated">
+          <element>
+            <field tag="langcode">en</field>
+            <field tag="title">University of Twente, location Enschede</field>
+          </element>
+          <element>
+            <field tag="langcode">nl</field>
+            <field tag="title">University of Twente, vestiging Enschede</field>
+          </element>
+        </arrayfield>
+      </value>
+    </values>
+  </domain>
+
 </schemadefinition>

@@ -5,6 +5,7 @@ import { parseSchema } from "@mod-wrd/js/internal/schemaparser";
 import { createSchema, openSchemaById } from "@webhare/wrd";
 import { testschemaSchema } from "wh:wrd/webhare_testsuite";
 import { beginWork, commitWork } from "@webhare/whdb";
+import { throwError } from "@webhare/std";
 
 async function testSchemaParser() {
   // \xEF\xBB\xBF doesn't actually make a BOM - "\xEF\xBB\xBF".length === 3. we need \uFEFF, the character the BOM encodes as:
@@ -38,7 +39,21 @@ async function testSchemaApply() {
 
   // test.eq(testentry?.tag, "TESTENTRY", "Test entry should be found with the correct tag");
 
-  // const testArrayFields = testschemaSchema.query("")
+  const testArrayEntry = await testschemaSchema.find("testArrayFields", { wrdTag: "HOVI_UT_ENSCHEDE" }) ?? throwError("Test entry should be found with the correct tag");
+  test.eq({
+    translated: [
+      {
+        contactName: "",
+        langcode: "en",
+        title: "University of Twente, location Enschede"
+      }, {
+        contactName: "",
+        langcode: "nl",
+        title: "University of Twente, vestiging Enschede"
+      }
+    ]
+  }, await testschemaSchema.getFields("testArrayFields", testArrayEntry, ["translated"]));
+
   await commitWork();
 }
 
