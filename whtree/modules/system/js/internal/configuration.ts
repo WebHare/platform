@@ -11,6 +11,7 @@ import { updateDebugConfig } from "@webhare/env/src/envbackend";
 import { throwError } from "@webhare/std";
 import * as semver from "semver";
 import type { TasksExtract } from "./generation/gen_extract_tasks";
+import type { WRDSchemasExtract } from "./generation/gen_wrd";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -137,6 +138,7 @@ export function isInvalidWebHareUpgrade(from: string, to: string): string | null
 export function getExtractedConfig(which: "assetpacks"): AssetPack[];
 export function getExtractedConfig(which: "services"): Services;
 export function getExtractedConfig(which: "tasks"): TasksExtract;
+export function getExtractedConfig(which: "wrdschemas"): WRDSchemasExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {

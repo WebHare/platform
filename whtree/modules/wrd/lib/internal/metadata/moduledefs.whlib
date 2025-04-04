@@ -1,87 +1,21 @@
 <?wh
 
-LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::xml/xsd.whlib";
-
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
-RECORD ARRAY FUNCTION ParseSchemas(OBJECT xmldef, STRING modulename)
-{
-  OBJECT ARRAY wrdschemas := xmldef->documentelement->ListChildren(whconstant_xmlns_moduledef, "wrdschemas");
-  IF(Length(wrdschemas) != 1)
-    RETURN RECORD[];
-
+PUBLIC RECORD ARRAY FUNCTION GetAllDefinedWRDSchemas() {
   RECORD ARRAY schemas;
-  FOREVERY(OBJECT schemanode FROM wrdschemas[0]->ListChildren(wrdschemas[0]->namespaceuri, "schema"))
-  {
-    IF(NOT IsNodeApplicableToThisWebHare(schemanode))
-      CONTINUE;
-
-    STRING tag, deffile;
-    //can't use qualify, breaks wildcards (unless we start switching modules over to xxx:* tags and everyone is 4.28)
-    //tag := QualifyName(modulename, schemanode->GetAttribute("tag"));
-    tag := schemanode->GetAttribute("tag");
-    IF(tag NOT LIKE "?*:?*")
-      tag := modulename || ":" || tag;
-    deffile := MakeAbsoluteResourcePath("mod::" || modulename || "/", schemanode->GetAttribute("definitionfile"));
-
-    BOOLEAN isexact := SearchSubstring(tag,'*') = -1 AND SearchSubstring(tag,'?') = -1;
-
-    RECORD schemarec :=
-      CELL[ tag
-          , isexact
-          , definitionfile := deffile
-                              //look for autocreate. for 4.28 integrated wrdschema, it defaults to true unless disabled
-          , autocreate     := isexact AND ParseXSBoolean(schemanode->GetAttribute("autocreate") ?? "true")
-          , title          := schemanode->GetAttribute("title")
-          , sourcemodule   := modulename
-          ];
-    INSERT schemarec INTO schemas AT END;
+  FOREVERY(RECORD mod FROM __GetExtractedConfig("wrdschemas").modules) {
+    schemas := schemas CONCAT
+      SELECT tag := STRING(wrdschema)
+           , isexact := isexactmatch
+           , definitionfile := STRING(schemadefinitionresource)
+           , autocreate := BOOLEAN(autocreate)
+           , title := STRING(title)
+        FROM mod.schemas;
   }
   RETURN schemas;
 }
 
-RECORD FUNCTION GetCacheableModuleDefinedWRDSchemas(STRING modulename)
-{
-  OBJECT xmldef;
-  TRY
-    xmldef := GetModuleDefinitionXML(modulename);
-  CATCH
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
-  IF(NOT ObjectExists(xmldef))
-    RETURN [ eventmasks := [ "system:modulesupdate" ], value := DEFAULT RECORD ARRAY ];
-
-  RECORD ARRAY schemas := ParseSchemas(xmldef, modulename);
-  RETURN [ eventmasks := [ "system:modulesupdate" ], value := schemas ];
-}
-
-PUBLIC RECORD ARRAY FUNCTION GetModuleDefinedWRDSchemas(STRING modulename)
-{
-  RETURN GetAdhocCached(CELL[ modulename ], PTR GetCacheableModuleDefinedWRDSchemas(modulename));
-}
-
-PUBLIC RECORD FUNCTION GetModuleWRDSchemaDefinition(STRING tag)
-{
-  STRING ARRAY modstocheck := GetInstalledModuleNames();
-
-  IF(tag LIKE "*:*") //try a fast look up
-  {
-    STRING fastcheckmod := Tolowercase(Tokenize(tag,":")[0]);
-    IF(fastcheckmod IN modstocheck)
-    {
-      DELETE FROM modstocheck AT SearchElement(modstocheck, fastcheckmod);
-      modstocheck := [ fastcheckmod, ...modstocheck ];
-    }
-  }
-
-  FOREVERY(STRING mod FROM modstocheck)
-  {
-    RECORD ARRAY schemas := GetModuleDefinedWRDSchemas(mod);
-    RECORD attemptlookup := SELECT * FROM schemas WHERE ToUppercase(VAR tag) LIKE ToUppercase(schemas.tag);
-    IF(RecordExists(attemptlookup))
-      RETURN attemptlookup;
-  }
-  RETURN DEFAULT RECORD;
+PUBLIC RECORD FUNCTION GetModuleWRDSchemaDefinition(STRING findtag) {
+  RETURN SELECT * FROM GetAllDefinedWRDSchemas() WHERE ToUppercase(findtag) LIKE ToUppercase(tag);
 }

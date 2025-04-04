@@ -54,7 +54,7 @@ IF(Length(validateres.errors)>0)
 IF(resname LIKE "*.wrdschema.xml")
 {
   OBJECT trans := OpenPrimary();
-  RECORD ARRAY matchschemas := SELECT * FROM GetModuleDefinedWRDSchemas(GetModuleNameFromResourcePath(resname)) WHERE definitionfile = resname;
+  RECORD ARRAY matchschemas := SELECT * FROM GetAllDefinedWRDSchemas() WHERE definitionfile = resname;
   IF(Length(matchschemas) = 0)
     THROW NEW Exception(`No schema definitions claims '${resname}'`);
 

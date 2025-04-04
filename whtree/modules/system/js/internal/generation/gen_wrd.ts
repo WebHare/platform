@@ -4,7 +4,7 @@ import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes
 import { type GenerateContext, type FileToUpdate, generatorBanner } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { emplace } from "@webhare/std";
-import { elements } from "./xmlhelpers";
+import { elements, getAttr } from "./xmlhelpers";
 import { getGeneratedFilePath } from "./shared";
 import { parseSchema, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
 
@@ -48,9 +48,18 @@ interface DeclaredAttribute extends WRDAttributeConfigurationWithChildren {
 }
 
 interface ModuleWRDSchemaDef {
+  /** @deprecated 'module' should already be in our parent object */
   module: string;
-  wrdschema: string;
-  definitionfile: string;
+  /** Full module:tag schema name. May contain wildcards */
+  wrdSchema: string;
+  /** It's an exact match */
+  isExactMatch: boolean;
+  /** Resource path containing schema definition */
+  schemaDefinitionResource: string;
+  /** Schema title */
+  title: string;
+  /** Should this schema be autocreated? */
+  autoCreate: boolean;
 }
 
 export interface WRDSchemasExtract {
@@ -81,7 +90,16 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
         if (!resolved_definitionfile)
           throw new Error(`Huh? ${mod} ${definitionfile}`);
 
-        schemas.push({ module: modulename, wrdschema: fulltag, definitionfile: resolved_definitionfile });
+        const isExactMatch = !(tag.includes('*') || tag.includes('?'));
+
+        schemas.push({
+          module: modulename,
+          isExactMatch,
+          title: getAttr(wrdschema, "title", ""),
+          wrdSchema: fulltag,
+          schemaDefinitionResource: resolved_definitionfile,
+          autoCreate: isExactMatch && getAttr(wrdschema, "autocreate", true)
+        });
       }
     }
   }
@@ -144,7 +162,7 @@ function buildAttrsFromArray(attrs: ParsedAttr[]): Record<string, DeclaredAttrib
 }
 
 export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Promise<ParsedWRDSchemaDef> {
-  const [modulename, schematag] = schemaptr.wrdschema.split(":");
+  const [modulename, schematag] = schemaptr.wrdSchema.split(":");
   const modprefix = schemaptr.module === "platform" ? `${generateTypeName(modulename)}_` : ``;
   const parsedschemadef: ParsedWRDSchemaDef = {
     schemaTypeName: `${modprefix}${generateTypeName(schematag)}SchemaType`,
@@ -152,7 +170,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
     types: {}
   };
 
-  const schemadef = await parseSchema(schemaptr.definitionfile, true, null);
+  const schemadef = await parseSchema(schemaptr.schemaDefinitionResource, true, null);
 
   for (const type of schemadef.types) {
     const typeinfo: ParsedWRDSchemaDef["types"][string] = {
@@ -241,12 +259,12 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
   }
 
   // Sort on schema name
-  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).schemas.sort((a, b) => a.wrdschema < b.wrdschema ? -1 : 1);
+  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).schemas.sort((a, b) => a.wrdSchema < b.wrdSchema ? -1 : 1);
 
   const schemaconsts = [];
   for (const schemaptr of schemasptrs) {
     if (context.verbose)
-      console.time("generateWRDDefs " + schemaptr.wrdschema);
+      console.time("generateWRDDefs " + schemaptr.wrdSchema);
 
     const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
@@ -272,12 +290,12 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     }
     fulldef += `};\n\n`;
 
-    schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdschema)});`);
+    schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdSchema)});`);
 
     fullfile += def + fulldef;
 
     if (context.verbose)
-      console.timeEnd("generateWRDDefs " + schemaptr.wrdschema);
+      console.timeEnd("generateWRDDefs " + schemaptr.wrdSchema);
   }
 
   if (fullfile) {
