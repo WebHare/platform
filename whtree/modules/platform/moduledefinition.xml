@@ -40,6 +40,7 @@
     - `/.wh/ea/uc/`: The new location for the unified cache (Files and Images)
     - `/.wh/ea/ap/`: The new location for asset packs (see also getAssetPackBase)
     -->
+    <webrule path="allroots:/.wh/auth/" match="initial" router="/js/auth/authpages.ts#authRouter" />
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
 
     <!-- Assetpack caching.. cache everything (with hashed names) for 24 hours *except* ap.css/mjs etc... those should only be cached for 15 minutes as their names cannot change -->

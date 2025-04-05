@@ -7,7 +7,7 @@ export async function getBaseTestJSDesign(builder: ResponseBuilder) {
     contentobjectpath: "FIXME", //are we receiving contentObject yet ?
     navigationobjectpath: "FIXME", //are we receiving navigationobject yet ?
     widget: null,
-    wrdauthplugin: null, //FIXME builder.getPlugin("platform:wrdauth")?.getWittyData() || null,
+    wrdauthplugin: await builder.getPlugin("platform:wrdauth")?.getWittyData() || null,
     comments: null,
     sharedblocks: null,
     // , comments := ObjectExists(GetForumPluginForWebdesign(this)) ? PTR GetForumPluginForWebdesign(this)->EmbedComments() : DEFAULT MACRO PTR
