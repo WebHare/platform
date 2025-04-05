@@ -4,7 +4,7 @@ import { WRDSchema } from "@webhare/wrd";
 
 export class TestAuthCustomizer implements AuthCustomizer {
   async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload): Promise<void> {
-    //FIXME our IDP needs to fill email/profiel fields itself if email & profile are requested AND permitted for that provider
+    //FIXME our IDP needs to fill email/profile fields itself if email & profile are requested AND permitted for that provider
     if (params.scopes.includes("testfw")) {
       const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
       const userinfo = await jsAuthSchema.getFields("wrdPerson", params.user, ["wrdFirstName", "wrdLastName", "wrdContactEmail"]);
