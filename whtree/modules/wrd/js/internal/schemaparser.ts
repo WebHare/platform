@@ -100,7 +100,7 @@ function finalize(schema: ParsedFinalSchemaDef): ParsedFinalSchemaDef {
     if (accounttype.attrs.find(a => a.tag === "WRDAUTH_ACCOUNT_STATUS"))
       throw new Error(`Account status is enabled but attribute 'WRDAUTH_ACCOUNT_STATUS' already exists in type '${schema.metadata.accounttype}'`);
 
-    accounttype.attrs.push({
+    const addattr: ParsedAttr = {
       attributetype: getAttributeTypeIdByTypeName("JSON"),
       attributetypename: "JSON",
       tag: "WRDAUTH_ACCOUNT_STATUS",
@@ -110,13 +110,17 @@ function finalize(schema: ParsedFinalSchemaDef): ParsedFinalSchemaDef {
       isunique: false,
       isunsafetocopy: false,
       multiline: false,
-      typedeclaration: `mod::platform/js/auth/types.ts#WRDAuthAccountStatus & { status: "active" }`,
+      typedeclaration: `mod::platform/js/auth/types.ts#WRDAuthAccountStatus`, //FIXME  & { status: "active" } but we need to test with a real generator
       allowedvalues: [],
       domaintag: "",
       checklinks: false,
       attrs: [],
-    });
+    };
+
+    accounttype.attrs.push(addattr);
+    accounttype.allattrs.push(addattr);
   }
+
   return schema;
 }
 
