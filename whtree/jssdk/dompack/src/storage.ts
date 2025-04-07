@@ -62,16 +62,20 @@ export function isStorageAvailable(): boolean {
 }
 
 function get(storage: BrowserStorage, key: string): unknown | null {
-  let foundvalue = backup[storage]?.[key];
-  if (foundvalue === undefined && !isIsolated()) { //it's not in the backup
+  let foundvalue: string | undefined | null = backup[storage]?.[key];
+  if (foundvalue) //if it's in the backups storage encoding can't fail either
+    return parseTyped(foundvalue);
+
+  if (!isIsolated()) { //it's not in the backup
     try {
-      foundvalue = window[storage].getItem(key) || undefined;
+      foundvalue = window[storage].getItem(key);
+      if (foundvalue)
+        return parseTyped(foundvalue);
     } catch (e) {
-      return null; //if storage throws, it's definitely not there
+      //we ignore parse failures
     }
   }
-
-  return foundvalue !== undefined ? parseTyped(foundvalue) : null;
+  return null;
 }
 
 function set(storage: BrowserStorage, key: string, value: unknown) {
