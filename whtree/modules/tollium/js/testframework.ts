@@ -506,10 +506,15 @@ export async function expectWindowOpen(code: () => void | Promise<void>) {
     });
     if (code)
       await code();
+    console.log("expectWindowOpen - waiting for open callback");
     let result = await promise;
+    console.log("expectWindowOpen - got result, url", result.url);
     if (/filetransfer.shtml/.exec(result.url))
       result = { ...result, ...await test.invoke("mod::tollium/lib/testframework.whlib#GetFileTransferData", result.url) };
     return result;
+  } catch (e) {
+    console.log("expectWindowOpen - exception", e.toString());
+    throw e;
   } finally {
     test.getWin().open = _testfw_oldopen;
   }
