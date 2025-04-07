@@ -23,6 +23,8 @@
       <legend>WRD Auth witty status</legend>
       isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauth.isloggedin]checked[/if] autocomplete="off"><br>
       logoutlink: <input readonly id="logoutlink" value="[wrdauth.logoutlink]" style="width:300px" autocomplete="off"><button id="logout" type="button">Logout</button><br/>
+      allclaims: <input readonly id="allclaims" value="[allclaims]"><br>
+      numsessions: <input readonly id="numsessions" value="[numsessions]">
     </fieldset>
 
     <fieldset>
@@ -58,6 +60,9 @@
               </form>
             </div>
           [/if]
+          <div style="flex:1">
+            <button type="button" id="customclaimbutton">Custom claim login</button>
+          </div>
         </div>
     </fieldset>
 

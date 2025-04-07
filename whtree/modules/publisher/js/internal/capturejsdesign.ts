@@ -14,10 +14,8 @@ export async function captureJSDesign(obj: number) {
   const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
   const sitereq = await buildSiteRequest(req, targetdoc);
 
-  const outputpage = await sitereq.createComposer({ __captureJSDesign: true });
   const placeholder = "__CAPTUREJSDESIGN__" + Math.random();
-  outputpage.appendHTML(placeholder);
-  const response = await outputpage.finish();
+  const response = await sitereq.renderHTMLPage(placeholder);
 
   return { parts: (await response.text()).split(placeholder) };
 }
@@ -36,7 +34,8 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
 
     const renderer: WebHareWHFSRouter = await importJSFunction<WebHareWHFSRouter>(target.renderer);
     const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
-    setTidLanguage(await whfsreq.getSiteLanguage());
+    setTidLanguage(whfsreq.siteLanguage);
+
     const response = await renderer(whfsreq);
     return await response.asWebResponseInfo();
   });

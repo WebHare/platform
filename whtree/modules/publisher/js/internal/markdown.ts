@@ -1,5 +1,5 @@
 import { loadlib } from "@webhare/harescript";
-import type { SiteRequest, WebResponse } from "@webhare/router";
+import type { ResponseBuilder, WebResponse } from "@webhare/router";
 import type { WebHareBlob } from "@webhare/services";
 import MarkdownIt from 'markdown-it';
 
@@ -60,15 +60,10 @@ export async function renderMarkdownText(text: string): Promise<string> {
   return html;
 }
 
-export async function renderMarkdown(request: SiteRequest): Promise<WebResponse> {
+export async function renderMarkdown(request: ResponseBuilder): Promise<WebResponse> {
   //FIXME we need a JS getInstanceData that gives us nicer Image records with a formatImage or getImageURL or something.. and real blobs
-  const markdowninfo = await loadlib("mod::system/lib/internal/jshelpers.whlib").GetInstanceData(request.contentObject.id, "http://www.webhare.net/xmlns/publisher/markdownfile") as { data: { text: WebHareBlob } } | null;
-  const outputpage = await request.createComposer();
-  if (!markdowninfo?.data?.text)
-    return outputpage.finish();
-
-  const markdowntext = await markdowninfo?.data?.text.text();
-  const html = await renderMarkdownText(markdowntext);
-  outputpage.appendHTML(html);
-  return outputpage.finish();
+  const markdowninfo = await loadlib("mod::system/lib/internal/jshelpers.whlib").GetInstanceData(request.contentObject.id, "http://www.webhare.net/xmlns/publisher/markdownfile") as { data: { text?: WebHareBlob } } | null;
+  const markdowntext = await markdowninfo?.data?.text?.text();
+  const html = markdowntext ? await renderMarkdownText(markdowntext) : "";
+  return request.renderHTMLPage(html);
 }

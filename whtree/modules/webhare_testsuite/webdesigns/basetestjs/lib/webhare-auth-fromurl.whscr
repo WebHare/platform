@@ -1,0 +1,18 @@
+<?wh
+// This script fakes the "requirewhaccount" access rule setting but uses the /portal1/ auth plugin
+
+LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/webserver/authscripts.whlib";
+
+LOADLIB "mod::wrd/lib/auth.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+
+OBJECT FUNCTION GetTestfwAuthPlugin()
+{
+  OBJECT testsite := OpenTestsuiteSite();
+  RETURN GetWRDAuthPLugin(GetRequestURL());
+}
+
+RunStandardWebhareAuthScript(PTR GetTestfwAuthPlugin());

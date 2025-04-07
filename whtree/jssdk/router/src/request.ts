@@ -60,6 +60,24 @@ export function getOriginURL(req: SupportedRequestSubset, pathname: string): str
   return origin + (pathname.startsWith('/') ? '' : '/') + pathname;
 }
 
+export function expandCookies(cookieHeader: string | null): Record<string, string> {
+  const retval: Record<string, string> = {};
+  if (!cookieHeader)
+    return retval;
+
+  const cookies = cookieHeader.split(';');
+  for (let cookietok of cookies) {
+    cookietok = cookietok.trim();
+    const eqIdx = cookietok.indexOf('=');
+    if (eqIdx < 0)
+      continue;
+    const cookiename = cookietok.substring(0, eqIdx);
+    const cookievalue = cookietok.substring(eqIdx + 1);
+    retval[cookiename] = decodeURIComponent(cookievalue);
+  }
+  return retval;
+}
+
 export interface WebRequest extends SupportedRequestSubset {
   ///HTTP Method, eg "get", "post"
   readonly method: HTTPMethod;
@@ -155,22 +173,7 @@ export class IncomingWebRequest implements WebRequest {
   }
 
   getAllCookies(): Record<string, string> {
-    const retval: Record<string, string> = {};
-    const cookieHeader = this.headers.get("cookie");
-    if (!cookieHeader)
-      return retval;
-
-    const cookies = cookieHeader.split(';');
-    for (let cookietok of cookies) {
-      cookietok = cookietok.trim();
-      const eqIdx = cookietok.indexOf('=');
-      if (eqIdx < 0)
-        continue;
-      const cookiename = cookietok.substring(0, eqIdx);
-      const cookievalue = cookietok.substring(eqIdx + 1);
-      retval[cookiename] = decodeURIComponent(cookievalue);
-    }
-    return retval;
+    return expandCookies(this.headers.get("cookie"));
   }
 
   getCookie(name: string): string | null {

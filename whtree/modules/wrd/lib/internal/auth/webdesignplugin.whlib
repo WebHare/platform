@@ -627,10 +627,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         {
           STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token
           STRING tokenhash := GetHashForString(idtoken, "SHA-256");
-          RECORD match := SELECT * FROM wrd.tokens WHERE hash = tokenhash AND client = 0; //find a session attached to us
+          RECORD match := SELECT entity, id FROM wrd.tokens WHERE hash = tokenhash AND client = 0 AND type = "id"; //find a session attached to us
           IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity))
           { //It's s a hit!
-            this->wrdauthjs := [ entity := match.entity ];
+            this->wrdauthjs := [
+              token := match.id,
+              entity := match.entity,
+              claims := DecodeJSON(DecodeUFS(Tokenize(idcookie,'.')[1]))
+            ];
           }
         }
       }
@@ -652,6 +656,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     IF(RecordExists(this->wrdauthjs))
       RETURN TRUE;
     RETURN /*IsRequest() AND */this->__GetWRDAuthIntegration()->IsLoggedIn();
+  }
+
+  /** Get the claims in the ID token */
+  PUBLIC RECORD FUNCTION GetClaims() {
+    RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.claims : DEFAULT RECORD;
   }
 
   /** Check whether the current user can be logged out
@@ -691,7 +700,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           ]);
     }
 
+    IF(RecordExists(this->wrdauthjs)) {
+      GetPrimary()->BeginWork();
+      DELETE FROM wrd.tokens WHERE id = this->wrdauthjs.token;
+      GetPrimary()->CommitWork();
+
+      this->wrdauthjs := DEFAULT RECORD;
+    }
+
     this->__GetWRDAuthIntegration()->Logout([logauditevent := FALSE]);
+
   }
 
   /** Returns the WRD id of the currently logged in entity

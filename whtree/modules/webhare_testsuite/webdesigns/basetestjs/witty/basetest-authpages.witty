@@ -1,0 +1,16 @@
+[component emailchange]
+  [embed mod::wrd/witty/authpages.witty:emailchange]
+  <div id="custom-emailchange-text">Crude test of witty override</div>
+[/component]
+
+[component emailchangemail]
+  <html>
+    <head>
+      <title>Email reset for '[hostname]'</title>
+    </head>
+    <body>
+      [embed mod::wrd/witty/authpages.witty:emailchangemailbody]
+      <div id="custom-emailchange-text">Crude test of email override</div>
+    </body>
+  </html>
+[/component]

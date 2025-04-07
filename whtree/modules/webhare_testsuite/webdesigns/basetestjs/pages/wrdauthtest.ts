@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-frontend";
 import * as dompack from "@webhare/dompack";
 import { qR } from "@webhare/dompack";
-import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo } from "@webhare/frontend";
+import { setupWRDAuth, isLoggedIn, login, logout, getUserInfo, navigateTo } from "@webhare/frontend";
 import { stringify } from "@webhare/std";
 import { rpc } from "@webhare/rpc";
 
@@ -21,6 +21,7 @@ dompack.register(".wrdauthtest", container => {
   });
 
   qR<HTMLInputElement>('#js_isloggedin').checked = isLoggedIn();
+  qR<HTMLInputElement>('#js_fullname').value = getUserInfo<{ firstName: string }>()?.firstName || '';
 });
 
 function onNavLessLogin() {
@@ -31,5 +32,9 @@ const params = new URL(location.href).searchParams;
 const authopts: Parameters<typeof setupWRDAuth>[0] = {};
 if (params.get("navlesslogin") === "1")
   authopts.onLogin = onNavLessLogin;
+
+dompack.register("#customclaimbutton", node => node.addEventListener("click", () => {
+  void rpc("webhare_testsuite:testapi").getCustomClaimAction().then(instr => navigateTo(instr));
+}));
 
 setupWRDAuth(authopts);

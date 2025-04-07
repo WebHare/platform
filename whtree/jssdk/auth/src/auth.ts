@@ -2,7 +2,7 @@
 declare module "@webhare/auth" {
 }
 
-export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken } from "./identity";
+export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
 export type { FirstPartyToken } from "./identity";
 
 export { createServiceProvider, initializeIssuer } from "./oauth2";

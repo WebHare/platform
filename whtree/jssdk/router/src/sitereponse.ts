@@ -1,13 +1,16 @@
-import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { createWebResponse, type WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
 import { stringify, throwError } from "@webhare/std";
-import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
-import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import type { FrontendDataTypes } from "@webhare/frontend";
 import { getWHFSObjRef } from "@webhare/whfs/src/support";
 import { encodeAttr, getAssetPackIntegrationCode } from "./concepts";
+import type { WebdesignPluginAPIs } from "@webhare/router";
+
+export type PluginInterface<API extends object> = {
+  api: API;
+};
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -21,11 +24,26 @@ export class SiteResponseSettings {
   pagedescription: string | null = null;
   canonicalurl: string | null = null;
   supportedlanguages: string[] = [];
+  #plugins: {
+    [Api in keyof WebdesignPluginAPIs]?: PluginInterface<WebdesignPluginAPIs[Api]>;
+  } = {};
+
+  constructor() {
+
+  }
+
+  getPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType): WebdesignPluginAPIs[PluginType] | null {
+    return this.#plugins[api]?.api || null;
+  }
+
+  addPlugin<PluginType extends keyof WebdesignPluginAPIs>(api: PluginType, plugin: WebdesignPluginAPIs[PluginType]) {
+    this.#plugins[api] = { api: plugin };
+  }
 }
 
 export type InsertPoints = "dependencies-top" | "dependencies-bottom" | "content-top" | "content-bottom" | "body-top" | "body-bottom" | "body-devbottom";
 
-type Insertable = string | (() => string | Promise<string>);
+export type Insertable = string | (() => string | Promise<string>);
 
 function getDesignRootForAssetPack(assetpack: string): string {
   //Transform an assetpackname, eg 'webhare_testsuite:basetestjs' to its corresponding URL, '/.publisher/sd/webhare_testsuite/basetestjs/'
@@ -38,27 +56,20 @@ export class SiteResponse<T extends object = object> {
   settings: SiteResponseSettings;
   protected contents = "";
   private rendering = false;
-  protected insertions: Partial<Record<InsertPoints, Insertable[]>> = {};
 
   /** The pageConfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageConfig: T;
 
-  /** JS configuration data */
-  private frontendConfig: WHConfigScriptData;
+  readonly insertions;
+  readonly renderInserts;
 
   constructor(pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
     this.siteRequest = siteRequest;
     this.pageConfig = pageConfig;
     this.settings = settings;
 
-    this.frontendConfig = {
-      siteRoot: "",
-      site: {},
-      obj: {},
-      dtapStage: services.backendConfig.dtapstage,
-      locale: this.settings.lang as never, //why doesn't JS just get the html lang= ?
-      server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
-    };
+    this.insertions = this.siteRequest._insertions;
+    this.renderInserts = this.siteRequest._renderInserts.bind(this.siteRequest);
   }
 
   /** Render the contents of the specified witty component (path#component) with the specified data
@@ -73,8 +84,7 @@ export class SiteResponse<T extends object = object> {
 
   /** Set data associated with a plugin */
   setFrontendData<Type extends keyof FrontendDataTypes>(dataObject: Type, data: FrontendDataTypes[Type]) {
-    checkModuleScopedName(dataObject);
-    this.frontendConfig[dataObject] = data;
+    this.siteRequest.setFrontendData(dataObject, data);
   }
 
   private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {
@@ -93,13 +103,11 @@ export class SiteResponse<T extends object = object> {
       page += `<link rel="canonical" href="${encodeAttr(this.settings.canonicalurl)}">`;
     page += head;
 
-    //TODO do we (still) need all these roots?
-    this.frontendConfig.siteRoot = urlpointers.siteroot;
-
     if (this.insertions["dependencies-top"])
       page += await this.renderInserts("dependencies-top");
 
-    page += `<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script" })}</script>`;
+    //FIXME TYPED! or at least in the new sitrequest handling?
+    page += `<script type="application/json" id="wh-config">${stringify(this.siteRequest._frontendConfig, { target: "script" })}</script>`;
 
     /* TODO cachebuster /! support
       IF(cachebuster !== "")
@@ -111,7 +119,7 @@ export class SiteResponse<T extends object = object> {
     page += getAssetPackIntegrationCode(this.settings.assetpack);
 
 
-    if (this.insertions["dependencies-bottom"])
+    if (this.siteRequest._insertions["dependencies-bottom"])
       page += await this.renderInserts("dependencies-bottom");
     //FIXME
     // IF(Length(this->structuredbreadcrumb) > 0)
@@ -164,17 +172,6 @@ export class SiteResponse<T extends object = object> {
     return page;
   }
 
-  protected async renderInserts(point: InsertPoints) {
-    let output = '';
-    for (const insert of this.insertions[point]!) {
-      if (typeof insert === "string")
-        output += insert;
-      else
-        output += await insert();
-    }
-    return output;
-  }
-
   getSupportedLanguages(): Record<string, boolean> {
     return Object.fromEntries(this.settings.supportedlanguages.map(lang => [lang, false]));
   }
@@ -182,10 +179,8 @@ export class SiteResponse<T extends object = object> {
   /** Insert a callback for use during rendering */
   insertAt(where: InsertPoints, what: Insertable) {
     if (this.rendering)
-      throw new Error("Cannot insert after rendering has started");
-    if (!this.insertions[where])
-      this.insertions[where] = [];
-    this.insertions[where]!.push(what); //ensured above
+      throw new Error("Cannot insert after rendering has started"); //TODO should ResponseBUilder do this check or can it mostly avoid rendering phase?
+    this.siteRequest.insertAt(where, what);
   }
 
   private async getContents(): Promise<string> {

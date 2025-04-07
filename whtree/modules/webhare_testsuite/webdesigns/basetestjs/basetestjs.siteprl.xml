@@ -8,7 +8,7 @@
     <webdesign designfolder="."
                maxcontentwidth="960px"
                witty="frontend/frontend.witty"
-               siteresponsefactory="webdesign/webdesign.ts#BaseTestJSDesign"
+               getdata="webdesign/webdesign.ts#getBaseTestJSDesign"
                assetpack="basetestjs"
                wittyencoding="HTML-NI"
                async="true" />
@@ -92,6 +92,19 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="/testpages/wrdauthtest-router-protected/*" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" loginpage="currentsite::/testpages/wrdauthtest-router" />
+  </apply>
+
+  <apply>
+    <to type="all" pathmask="/testpages/wrdauthtest-*router-extended" />
+    <to type="all" pathmask="/testpages/wrdauthtest-*router-broken" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             authpageswitty="witty/basetest-authpages.witty"
+             routerfeatures="emailchange passwordchange" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="*-ps-af*" />
     <sitelanguage lang="ps-AF" />
   </apply>
@@ -139,6 +152,11 @@
         <csp policy="script-src 'self'; frame-ancestors 'self' [webhare]" />
       </webrule>
       <openapi path="/testsuiteportal/.wh/api/v1/" service="platform:api" />
+     <webrule path="/testpages/wrdauthtest-router-protected/accessruleprotected"
+               match="initial"
+               authmode="ipandaccess"
+               authscript="lib/webhare-auth-fromurl.whscr"
+               requirewhaccount="true" />
     </webruleset>
   </sitesettings>
 

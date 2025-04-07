@@ -2,8 +2,11 @@ import { debugFlags } from "@webhare/env";
 import type { RPCContext } from "@webhare/router";
 import { beginWork } from "@webhare/whdb";
 
-import { testschemaSchema } from "wh:wrd/webhare_testsuite";
-import { sleep } from "@webhare/std";
+import { testschemaSchema, type OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
+import { sleep, throwError } from "@webhare/std";
+import { getTestSiteJS } from "./wts-backend";
+import { WRDSchema } from "@webhare/wrd";
+import { prepareFrontendLogin } from "@webhare/auth";
 
 export const testAPI = {
   async lockWork() {
@@ -45,6 +48,15 @@ export const testAPI = {
     }
 
     return { user: "" };
+  },
+  async getCustomClaimAction() {
+    const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
+    const targetlink = (await getTestSiteJS()).webRoot + "testpages/wrdauthtest/";
+    const pietje = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "pietje-js@beta.webhare.net" }) ?? throwError("Pietje not found");
+
+    return await prepareFrontendLogin(targetlink, pietje, {
+      claims: { ["custom.impersonate"]: true }
+    });
   },
   async setCookies(context: RPCContext) {
     context.responseHeaders.append("Set-Cookie", "testcookie=124");
