@@ -173,7 +173,7 @@ async function verifyOpenIDClient() {
   // const code_challenge = generators.codeChallenge(code_verifier);
 
   const authorizeurl = client.authorizationUrl({
-    scope: 'openid email',
+    scope: 'openid email invalidscope',
     // TODO make code work
     // code_challenge,
     // code_challenge_method: 'S256',
@@ -184,8 +184,8 @@ async function verifyOpenIDClient() {
 
   const tokenSet = await client.callback(callbackUrl, params); // , { code_verifier });
   test.eq("Bearer", tokenSet.token_type);
-  // console.log('received and validated tokens %j', tokenSet);
-  // console.log('validated ID Token claims %j', tokenSet.claims());
+  const accesTokenClaims = JSON.parse(Buffer.from(tokenSet.access_token!.split(".")[1], "base64url").toString());
+  test.eq("openid email", accesTokenClaims.scope);
 
   test.eq("Sysop", tokenSet.claims().sub);
 

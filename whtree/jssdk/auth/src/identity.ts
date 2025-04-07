@@ -567,6 +567,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     //ID tokens are only generated for 3rd party clients requesting an openid scope. They shouldn't be providing access to APIs and cannot be retracted by us
     let id_token: string | undefined;
+    const requestedScopes = options?.scopes || [];
     if (isOIDC) {
       if (!(client && clientInfo))
         throw new Error("Unable to create ID token without a thirdparty client");
@@ -575,7 +576,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
-        await options?.customizer.onOpenIdToken({ user: subject, scopes: options?.scopes || [], client }, payload as JWTPayload);
+        await options?.customizer.onOpenIdToken({ user: subject, scopes: requestedScopes, client }, payload as JWTPayload);
 
       if (!config.issuer)
         throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
@@ -586,10 +587,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       id_token = this.signJWT(payload, config.signingKeys, "RSA");
     }
 
+    const scopes = type === "oidc"
+      ? requestedScopes.filter(scope => ["openid", "profile", "email"].includes(scope)) //filter out non-openid scopes to protect against misinterpretation, as these tokens were specified by the client!
+      : requestedScopes;
+
     /* We always generate access tokens for OpenID requests (skippable when client only requests an id_token)
        For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not really care
        about the signature yet - our wrd.tokens table is leading (and we want to be able to show active sessions anyway) */
-    const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes: options?.scopes || [] });
+    const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes });
     const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
     const access_token = prefix + this.signJWT(atPayload, config.signingKeys, "EC");
     const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
@@ -603,7 +608,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       expirationdate: atPayload.exp ? new Date(atPayload.exp * 1000) : defaultDateTime,
       entity: subject,
       client: client,
-      scopes: options?.scopes?.join(" ") ?? "",
+      scopes: scopes?.join(" "),
       hash: hashSHA256(access_token),
       metadata: metadata,
       title: options?.title ?? ""
