@@ -197,13 +197,13 @@ type CallStackElement = {
 
 type VarStackElement = {
   foreveryNonRA?: ParsedPart;
-  wittyVar: WittyData;
+  wittyVar: WittyVar;
 };
 
 export interface WittyCallContext {
-  get: (name: string) => WittyData | WittyData[] | undefined;
+  get: (name: string) => WittyVar | undefined;
   embed: (name: string, wittyData?: WittyData) => Promise<string>;
-  encode: (wittyVar?: WittyData | WittyData[]) => Promise<string>;
+  encode: (wittyVar?: WittyVar) => Promise<string>;
 }
 
 type WittyTemplateLoader = (resource: string) => Promise<string>;
@@ -214,12 +214,13 @@ type WittyCallbackFunction =
 
 type WittyVar =
   string | number | boolean | // base types
+  { [key in string]?: WittyVar } |
+  WittyVar[] |
   WittyCallbackFunction |
   null; // null
 
-export type WittyData = WittyVar | WittyVar[] | {
-  [key: string]: WittyData | WittyData[];
-};
+//Top-level witty data is required to be an object
+export type WittyData = { [key in string]?: WittyVar };
 
 export type WittyOptions = {
   encoding?: WittyEncodingStyle;
@@ -913,7 +914,7 @@ export class WittyTemplate {
     }
   }
 
-  private pushState(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyData, foreveryNonRA?: ParsedPart) {
+  private pushState(newInvocation: boolean, itr: number, limit: number, rootInvocation: boolean, wittyData?: WittyVar, foreveryNonRA?: ParsedPart) {
     const depth = this.callStack.length ? this.callStack[this.callStack.length - 1].depth + (newInvocation ? 1 : 0) : 1;
     const hasVariable = wittyData !== undefined && ((typeof wittyData === "object" && !Array.isArray(wittyData)) || foreveryNonRA !== undefined);
 
@@ -948,7 +949,7 @@ export class WittyTemplate {
       }
       const part = this.parts[elt.itr];
 
-      let wittyVar: WittyData | WittyData[] | undefined;
+      let wittyVar: WittyVar | undefined;
       let isHtml = false;
       if (![ParsedPartType.Content, ParsedPartType.Component, ParsedPartType.Embed, ParsedPartType.GetTid, ParsedPartType.GetHTMLTid].includes(part.type) && part.dataType === DataType.Cell) {
         wittyVar = this.findCellInStack(this.parts[elt.itr].content);
@@ -1039,7 +1040,7 @@ export class WittyTemplate {
     return await this.callWittyComponent(false, part.content);
   }
 
-  private async getOutputCell(part: ParsedPart, wittyVar?: WittyData | WittyData[]): Promise<string> {
+  private async getOutputCell(part: ParsedPart, wittyVar?: WittyVar): Promise<string> {
     switch (part.dataType) {
       case DataType.Seqnr:
         {
@@ -1119,12 +1120,12 @@ export class WittyTemplate {
     const ctx: WittyCallContext = {
       get: (name: string) => this.findCellInStack(name),
       embed: (name: string, wdata?: WittyData) => this.callWittyComponent(false, name, wdata),
-      encode: async (wvar?: WittyData | WittyData[]) => await this.getOutputCell(part, wvar)
+      encode: async (wvar?: WittyVar) => await this.getOutputCell(part, wvar)
     };
     return await func(ctx);
   }
 
-  private evaluateIf(part: ParsedPart, wittyVar?: WittyData | WittyData[]): boolean {
+  private evaluateIf(part: ParsedPart, wittyVar?: WittyVar): boolean {
     if (part.dataType === DataType.Cell) {
       if (Array.isArray(wittyVar))
         return wittyVar.length > 0;
@@ -1165,9 +1166,9 @@ export class WittyTemplate {
     }
   }
 
-  private findCellInStack(cellName: string): WittyData | WittyData[] | undefined {
+  private findCellInStack(cellName: string): WittyVar | undefined {
     const cellParts = cellName.split(".");
-    let colVar: WittyData | WittyData[] | undefined = undefined;
+    let colVar: WittyVar | undefined = undefined;
     for (let i = this.varStack.length - 1; i >= 0 && colVar === undefined; --i) {
       const elem = this.varStack[i];
       if (cellParts.length === 1 && elem.foreveryNonRA !== undefined) {

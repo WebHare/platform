@@ -797,7 +797,7 @@ PUBLIC MACRO ExecuteSubmitInstruction(RECORD instr)
           '<script nonce="[nonce]">document.getElementById("submitbutton").style.display="none";document.getElementById("repostform").submit()</script>' ||
           '</body></html>');
 
-      BLOB data := witty->RunToBlob(CELL[ instr.form.action, instr.form.method, instr.form.vars, nonce ]);
+      BLOB data := witty->RunToBlob(CELL[ instr.form.action, method := CellExists(instr.form,'method') ? instr.form.method : 'POST', instr.form.vars, nonce ]);
       SendWebFile(data);
     }
     CASE "postmessage"
