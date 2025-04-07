@@ -140,8 +140,17 @@ PUBLIC OBJECTTYPE AuditLogReader EXTEND LogReaderBase
     }
   }
 
+  RECORD FUNCTION ProcessJSONLine(STRING line)
+  {
+    RECORD rec := DecodeJSON(line);
+    RETURN rec;
+  }
+
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
+    IF(line LIKE "{*")
+      RETURN this->ProcessJSONLine(line);
+
     STRING ARRAY linetoks := Tokenize(line,"\t");
     IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
       RETURN DEFAULT RECORD;

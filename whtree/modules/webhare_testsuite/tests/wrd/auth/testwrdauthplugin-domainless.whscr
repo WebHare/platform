@@ -137,9 +137,8 @@ MACRO CreateMyTestSchema()
       , bylogin := "testaccount@test.invali"
       ]);
 
-  OBJECT stream := OpenWebHareLogStream("audit", starttest, GetCurrentDatetime());
-  RECORD rec := stream->ReadRecord();
-  TestEq("wrd:testschema", DecodeHSON(rec.parts[2]).wrdschema);
+  RECORD ARRAY events := ReadJSONLogLines("system:audit", starttest);
+  TestEqMembers( [[ wrdschema := "wrd:testschema", type := "wrd:login:failed" ]], events,"*");
 
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
