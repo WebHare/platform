@@ -50,7 +50,7 @@ class CSiteRequest {
     [Api in keyof WebdesignPluginAPIs]?: PluginInterface<WebdesignPluginAPIs[Api]>;
   } = {};
 
-  _insertions: Partial<Record<InsertPoints, Insertable[]>> = {};
+  _insertions: { [key in InsertPoints]?: Insertable[] } = {};
 
   /** JS configuration data */
   _frontendConfig: WHConfigScriptData;
@@ -85,7 +85,7 @@ class CSiteRequest {
   insertAt(where: InsertPoints, what: Insertable) {
     if (!this._insertions[where])
       this._insertions[where] = [];
-    this._insertions[where]!.push(what); //ensured above
+    this._insertions[where].push(what); //ensured above
   }
 
   /** Set data associated with a plugin */
@@ -96,7 +96,7 @@ class CSiteRequest {
 
   async _renderInserts(point: InsertPoints) {
     let output = '';
-    for (const insert of this._insertions[point]!) {
+    for (const insert of this._insertions[point] || []) {
       if (typeof insert === "string")
         output += insert;
       else
@@ -107,7 +107,7 @@ class CSiteRequest {
 
   /** @deprecated createComposer is going away, switch to the ResponseBuilder in WH5.7 */
   async createComposer<T extends object = object>(options?: { __captureJSDesign?: boolean }): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
-    const publicationsettings = await this.#applyTester!.getWebDesignInfo();
+    const publicationsettings = await this.#applyTester.getWebDesignInfo();
     if (!publicationsettings.siteResponseFactory && !publicationsettings.getData) {
       if (options?.__captureJSDesign) //prevent endless loop
         throw new Error(`Inconsistent siteprofiles - createComposer for ${this.targetObject.whfsPath} (#${this.targetObject.id}) wants to invoke a HS design but was invoked by captureJSDesign`);
@@ -179,7 +179,7 @@ class CSiteRequest {
     this.#applyTester = await getApplyTesterForObject(this.targetObject);
     this.#siteLanguage = await this.#applyTester.getSiteLanguage(); //FIXME we need to be in a CodeContext and set tid!
 
-    const publicationsettings = await this.#applyTester!.getWebDesignInfo();
+    const publicationsettings = await this.#applyTester.getWebDesignInfo();
     this._frontendConfig.locale = this.#siteLanguage as never; //FIXME why doesn't JS just get the html lang= ?
 
     for (const plugin of publicationsettings.plugins) { //apply plugins
@@ -197,7 +197,10 @@ export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHF
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
   const targetSite = await openSite(targetObject.parentSite);
-  const targetFolder = targetObject.isFolder ? targetObject as WHFSFolder : await openFolder(targetObject.parent!); //parent must exist if we're in a site.
+  const targetFolder = targetObject.isFolder ? targetObject as WHFSFolder : targetObject.parent ? await openFolder(targetObject.parent) : null; //parent must exist if we're in a site.
+  if (!targetFolder)
+    throw new Error(`Target folder #${targetObject.parent}) not found`);
+
   const req = new CSiteRequest(webRequest, targetSite, targetFolder, targetObject, { contentObject, navObject });
   await req._prepareResponse();
   return req;
