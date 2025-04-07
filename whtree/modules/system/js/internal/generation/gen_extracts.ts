@@ -54,6 +54,7 @@ export interface OpenAPIDescriptor {
 export interface TypedServiceDescriptor {
   name: string;
   api: string;
+  filter: string;
   maxBodySize: number;
 }
 
@@ -238,6 +239,7 @@ export async function gatherServices(context: GenerateContext) {
       retval.rpcServices.push({
         name: `${mod.name}:${servicename}`,
         api: resolveResource(mod.resourceBase, servicedef.api),
+        filter: resolveResource(mod.resourceBase, servicedef.filter || ''),
         maxBodySize: servicedef.maxBodySize || DefaultMaxBodySize
       });
     }
