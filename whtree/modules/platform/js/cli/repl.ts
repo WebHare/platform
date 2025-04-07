@@ -1,41 +1,43 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 // short: A JS REPL for WebHare
 
 import * as repl from "node:repl"; //https://nodejs.org/api/repl.html
 
-//Globals to create:
-import * as env from "@webhare/env";
-import * as harescript from "@webhare/harescript";
-import * as jsonrpcClient from "@webhare/jsonrpc-client";
-import * as services from "@webhare/services";
-import * as std from "@webhare/std";
-import * as systemTools from "@webhare/system-tools";
-// import * as test from "@webhare/test"; //test is not that useful and slows done wh reply by up to 200ms
-import * as whdb from "@webhare/whdb";
-import * as whfs from "@webhare/whfs";
-import * as witty from "@webhare/witty";
+import { listDirectory } from "@webhare/system-tools";
+import { backendConfig, toFSPath } from "@webhare/services";
+import { toCamelCase } from "@webhare/std";
 
 console.log("Starting WebHare REPL. Use .help for help");
+
 const whrepl = repl.start({
   prompt: "wh => ",
   breakEvalOnSigint: true,
   replMode: repl.REPL_MODE_STRICT //no octals etc
 });
 
-whrepl.setupHistory(services.toFSPath("storage::system/whrepl_history"), () => { });
-Object.assign(whrepl.context,
-  {
-    //Globals for the flat API:
-    env,
-    harescript,
-    jsonrpcClient,
-    services,
-    std,
-    systemTools,
-    // test,
-    whdb,
-    whfs,
-    witty,
+whrepl.setupHistory(toFSPath("storage::system/whrepl_history"), () => { });
 
-    //Convenience wrappers
-    loadlib: harescript.loadlib
+//expose all @webhare libraries on demand.
+async function setupWhRepl() {
+  for (const dir of await listDirectory(backendConfig.installationroot + "jssdk")) {
+    //map all @webhare/ dirs to a symbol, but translate eg jsonrpc-client to jsonrpcClient
+    Object.defineProperty(whrepl.context, toCamelCase(dir.name.replaceAll('-', '_')), {
+      get: () => {
+        return require(`@webhare/${dir.name}`);
+      },
+      configurable: false,
+      enumerable: true
+    });
+  }
+
+  //Convenience wrappers
+  Object.defineProperty(whrepl.context, "loadlib", {
+    get: () => {
+      return require("@webhare/harescript").loadlib;
+    },
+    configurable: false,
+    enumerable: true
   });
+}
+
+void setupWhRepl();
