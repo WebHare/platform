@@ -14,7 +14,7 @@ PUBLIC STATIC OBJECTTYPE WrappedJSDesign EXTEND WebDesignBase
   UPDATE PUBLIC MACRO SetupPageWitty()
   {
     //TODO can we cache the JS webdesign? we should start to have cacheability rules
-    RECORD captureddesign := WaitForPromise(ImportJS("mod::publisher/js/internal/capturejsdesign.ts")->CaptureJSDesign(this->targetobject->id));
+    RECORD captureddesign := CallJS("mod::publisher/js/internal/capturejsdesign.ts#captureJSDesign", this->targetobject->id);
     STRING ARRAY pageparts := captureddesign.parts;
     FOREVERY(STRING part FROM pageparts)
       pageparts[#part] := Substitute(part, '[', '[[');
