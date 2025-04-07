@@ -122,4 +122,5 @@ pxlEvents:
 
 rpcServices:
   testapi:
+    filter: js/rpcservice.ts#filterAPI
     api: js/rpcservice.ts#testAPI

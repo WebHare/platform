@@ -37,6 +37,11 @@ export type RPCContext = {
   responseHeaders: Headers;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- no RPC matches unknown, we need to accept any argument
+export type RPCAPI = Record<string, (context: RPCContext, ...args: any[]) => unknown | Promise<unknown>>;
+
+export type RPCFilter = (context: RPCContext, method: string, args: unknown[]) => Promise<{ result?: unknown } | void> | { result?: unknown } | void;
+
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
 export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;
 

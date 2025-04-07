@@ -1,9 +1,9 @@
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { type StackTrace, parseTrace } from "@webhare/js-api-tools";
 import { debugFlags } from "@webhare/env";
-import { getOriginURL, type RPCContext, type WebRequest, type WebResponse } from "@webhare/router";
+import { getOriginURL, type RPCFilter, type RPCAPI, type RPCContext, type WebRequest, type WebResponse } from "@webhare/router";
 import { createRPCResponse, HTTPErrorCode, HTTPSuccessCode, RPCError } from "@webhare/router/src/response";
-import { importJSExport } from "@webhare/services/src/resourcetools";
+import { importJSExport, importJSFunction } from "@webhare/services/src/resourcetools";
 import { parseTyped } from "@webhare/std";
 import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
@@ -66,7 +66,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
   }
 
   try {
-    const api = await importJSExport(matchservice.api) as Record<string, (context: RPCContext, ...args: unknown[]) => unknown | Promise<unknown>>;
+    const api = await importJSExport<RPCAPI>(matchservice.api);
     if (!api[method])
       throw new RPCError(HTTPErrorCode.NotFound, `Method '${method}' not found`);
 
@@ -78,9 +78,20 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
       responseHeaders
     };
 
-    const result = await api[method](context, ...params);
-    const retval: RPCResponse = { result, ...(showerrors ? getDebugData() : {}) };
-    return createRPCResponse(HTTPSuccessCode.Ok, retval, { headers: responseHeaders });
+    let result: RPCResponse | undefined;
+    if (matchservice.filter) {
+      const filter = await importJSFunction<RPCFilter>(matchservice.filter);
+      const response = await filter(context, method, params);
+      if (response)
+        result = response;
+    }
+
+    if (!result) //filter didn't block the actual call
+      result = { result: await api[method](context, ...params) };
+
+    if (showerrors)
+      Object.assign(result, getDebugData());
+    return createRPCResponse(HTTPSuccessCode.Ok, result, { headers: responseHeaders });
   } catch (e) {
     const debug = showerrors ? getDebugData(e) : undefined;
     if (e instanceof RPCError)

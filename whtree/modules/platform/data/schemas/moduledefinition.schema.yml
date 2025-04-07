@@ -229,7 +229,10 @@ $defs:
           - api
         properties:
           api:
-            description: "Path to the API object"
+            description: "Path to the API object. This is the object should satisfy the RPCAPI type"
+            type: string
+          filter:
+            description: "Path to a filtering function (satisfying RPCFilter) to pre-check any API requests - generally for security"
             type: string
           maxBodySize:
             description: "Maximum body size for the request in bytes. Defaults to 64KB" #DefaultMaxBodySize

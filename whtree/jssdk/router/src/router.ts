@@ -11,7 +11,7 @@ export interface WebdesignPluginAPIs {
   "platform:wrdauth": WRDAuthPluginAPI;
 }
 
-export { HTTPMethod, getOriginURL, expandCookies, type WebRequest, type RPCContext } from './request';
+export { HTTPMethod, getOriginURL, expandCookies, type WebRequest, type RPCContext, type RPCAPI, type RPCFilter } from './request';
 export {
   createWebResponse, createJSONResponse, createRedirectResponse, HTTPErrorCode, HTTPSuccessCode, RPCError,
   type WebResponse, type HTTPStatusCode, type HTTPRedirectCode, type RPCErrorCodes

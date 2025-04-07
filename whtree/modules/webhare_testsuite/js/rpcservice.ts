@@ -1,5 +1,5 @@
 import { debugFlags } from "@webhare/env";
-import type { RPCContext } from "@webhare/router";
+import type { RPCAPI, RPCContext, RPCFilter } from "@webhare/router";
 import { beginWork } from "@webhare/whdb";
 
 import { testschemaSchema, type OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
@@ -7,6 +7,15 @@ import { sleep, throwError } from "@webhare/std";
 import { getTestSiteJS } from "./wts-backend";
 import { WRDSchema } from "@webhare/wrd";
 import { prepareFrontendLogin } from "@webhare/auth";
+
+export async function filterAPI(context: RPCContext, method: string, args: unknown[]) {
+  if (context.request.headers.get("filter") === "throw")
+    throw new Error("Intercepted");
+  if (method === "echo" && args[0] === -42)
+    return { result: [-43] };
+  if (method === "echo" && args[0] === -43)
+    return {};
+}
 
 export const testAPI = {
   async lockWork() {
@@ -64,3 +73,6 @@ export const testAPI = {
     return { cookiesSet: true };
   }
 };
+
+filterAPI satisfies RPCFilter;
+testAPI satisfies RPCAPI;

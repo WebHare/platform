@@ -145,11 +145,23 @@ async function testTypedClient() {
   await testAPIService.lockWork();
 }
 
+async function testFilter() {
+  const etrRpc = rpc("webhare_testsuite:testapi", {
+    silent: true,
+    onBeforeRequest: (url: URL) => url.searchParams.set("wh-debug", getSignedWHDebugOptions({ debugFlags: { etr: true } })),
+  });
+
+  await test.throws(/Intercepted/, () => etrRpc.withOptions({ headers: { "filter": "throw" } }).echo(1));
+  test.eq([-43], await etrRpc.echo(-42));
+  //@ts-expect-error As far as TS knows, this shouldn't happen. It's up to the filter implementor to *not* break call compatibility
+  test.eq(undefined, await etrRpc.echo(-43));
+}
+
 test.runTests([
   () => test.reset({
     wrdSchema: "webhare_testsuite:testschema",
-    // schemaDefinitionResource: "mod::webhare_testsuite/tests/wrd/data/js-auth.wrdschema.xml",
   }),
   testRPCCaller,
-  testTypedClient
+  testTypedClient,
+  testFilter
 ]);
