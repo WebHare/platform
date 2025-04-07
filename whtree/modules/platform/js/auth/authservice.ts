@@ -1,12 +1,12 @@
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
-import { HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
+import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
 import { generateRandomId, pick, throwError } from "@webhare/std";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
-import { IdentityProvider, type LoginRemoteOptions } from "@webhare/auth/src/identity";
+import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions } from "@webhare/auth/src/identity";
 import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
 
@@ -48,8 +48,13 @@ export function doLoginHeaders(idCooie: string, ignoreCookies: string[], expires
     hdrs.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
 }
 
-export async function doLogout(url: string, cookieName: string | null, hdrs: Headers): Promise<void> {
+export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers): Promise<void> {
   const { idCookie, ignoreCookies, cookieSettings } = await prepAuth(url, cookieName);
+
+  for (const [name, value] of Object.entries(expandCookies(currentCookie)))
+    if (name === idCookie || ignoreCookies.includes(name))
+      await closeFrontendLogin(value);
+
   for (const killCookie of [idCookie, ...ignoreCookies])
     hdrs.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
 
@@ -94,8 +99,7 @@ export const authService = {
    * @param cookieName - The name of the session cookie used
   */
   async logout(context: RPCContext, cookieName: string): Promise<void> {
-    //FIXME DESTROY THE SESSION
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
-    await doLogout(originUrl, cookieName, context.responseHeaders);
+    await doLogout(originUrl, cookieName, context.request.headers.get("cookie"), context.responseHeaders);
   }
 };

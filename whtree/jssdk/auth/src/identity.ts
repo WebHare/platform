@@ -1079,3 +1079,11 @@ export async function prepareFrontendLogin(targetUrl: string, userid: number, op
     }
   };
 }
+
+export async function closeFrontendLogin(cookie: string): Promise<void> {
+  const accessToken = cookie?.match(/ accessToken:(.+)$/)?.[1];
+  if (accessToken) {
+    const hash = hashSHA256(accessToken);
+    await runInWork(() => db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).execute());
+  }
+}

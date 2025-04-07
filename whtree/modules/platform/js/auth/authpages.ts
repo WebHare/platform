@@ -15,7 +15,7 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
       return createWebResponse("", { status: 400 });
 
     const responseHeaders = new Headers;
-    await doLogout(origurl, null, responseHeaders);
+    await doLogout(origurl, null, req.headers.get("cookie"), responseHeaders);
     return createRedirectResponse(origurl, HTTPSuccessCode.TemporaryRedirect, { headers: responseHeaders });
   }
 

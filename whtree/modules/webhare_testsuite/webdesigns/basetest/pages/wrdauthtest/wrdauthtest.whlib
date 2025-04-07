@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/pages.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
 
 LOADLIB "mod::tollium/webdesigns/webinterface/lib/webinterface.whlib";
 
@@ -59,10 +60,13 @@ PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
                    , pwdresetresult := DEFAULT MACRO PTR
                    , multisite := webdesign->targetobject->name LIKE "*multisite*"
                    , allclaims := ""
+                   , numsessions := 0
                    ];
 
-    IF(wrdauthplugin->IsLoggedIn())
+    IF(wrdauthplugin->IsLoggedIn()) {
       data.allclaims := EncodeJSON(wrdauthplugin->GetClaims());
+      data.numsessions := LENGTH(SELECT FROM wrd.tokens WHERE entity = wrdauthplugin->GetLoggedinEntity());
+    }
 
     IF(GetWebVariable('pwdreset')='1')
     {

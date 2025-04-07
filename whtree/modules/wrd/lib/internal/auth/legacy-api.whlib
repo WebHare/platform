@@ -1061,7 +1061,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   MACRO SetLoginCookie(STRING value, INTEGER64 lifetime)
   {
-    UpdateWebCookie(this->cookiename, value, CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ]);
+    RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ];
+    UpdateWebCookie(this->cookiename, value, opts);
+    //also erase the 'modern' logout cookies
+    UpdateWebCookie("__Host-" || this->cookiename, value, opts);
+    UpdateWebCookie("__Secure-" || this->cookiename, value, opts);
   }
 
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
