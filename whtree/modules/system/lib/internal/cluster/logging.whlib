@@ -860,12 +860,16 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
     auditcontext.impersonator_login := auditcontext.user_login;
   }
 
-  STRING encodeddata := EncodeHSON(data);
-  STRING msg := EncodeJava(logsource) || "\t" || GetCurrentGroupId() || "\t" || EncodeHSON(auditcontext);
-  IF(Length(msg)+Length(encodeddata)>127*1024)
-    encodeddata := "-";
+  STRING encodeddata := EncodeJSON(data);
+  IF(Length(encodeddata)>63*1024) //TODO verify what our new TS logging protocols actually want/support ?
+    data := [ __toolong := Length(encodeddata) ];
 
-  ModuleLog("system:audit", msg||"\t"||encodeddata);
+  LogToJSONLog("system:audit", CELL[
+    source := logsource,
+    groupid := GetCurrentGroupId(),
+    ...auditcontext,
+    ...(Length(encodeddata) > 63 * 1024 ? CELL[overflow := Length(encodeddata)] : CELL[data])
+  ]);
   __SYSTEM_FLUSHREMOTELOG("system:audit");
 
   RETURN CELL[ auditcontext ];

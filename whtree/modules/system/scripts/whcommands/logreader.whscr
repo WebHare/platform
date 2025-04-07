@@ -371,7 +371,12 @@ WHILE(TRUE)
       }
       CASE "audit"
       {
-        IF (line.v = 1)
+        IF(CellExists(line, "@timestamp"))
+        {
+          lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", MakeDateFromText(line."@timestamp")) || ` ${line.groupid} ${line.source}\n  > ` ||
+              Substitute(TrimWhitespace(AnyToString(line, "tree")), "\n", "\n  > ") || "\n";
+        }
+        ELSE IF (CellExists(line,'v') AND line.v = 1)
         {
           lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || ` ${line.srhid} ${line.source} login:${line.login} ${line.auth}\n  > ` ||
               Substitute(TrimWhitespace(AnyToString(line.message, "tree")), "\n", "\n  > ") || "\n";

@@ -1256,7 +1256,7 @@ int WHManager::Execute (std::vector<std::string> const &args)
                 log.logname = logfiles[i];
                 log.logextension = ".log";
                 log.autoflush = false;
-                log.timestamps = true;
+                log.timestamps = false; //we don't want [...] style timestamps. JSON log files will send timestamps from the source
                 log.rotates = 9999; //unconfigured, allow up to about 30 years of logs.
                 logs.push_back(log);
         }

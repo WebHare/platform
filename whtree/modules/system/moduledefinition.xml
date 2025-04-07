@@ -1578,7 +1578,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
 
   <logging>
     <log name="rpc" filename="rpc" />
-    <log name="audit" filename="audit" />
+    <log name="audit" filename="audit" timestamps="false" />
     <log name="debug" filename="debug" timestamps="false" />
     <log name="notice" filename="notice" timestamps="false" />
     <log name="accounting" filename="accounting" timestamps="false" />
