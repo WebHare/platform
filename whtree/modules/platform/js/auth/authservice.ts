@@ -10,7 +10,7 @@ import { IdentityProvider, type LoginRemoteOptions } from "@webhare/auth/src/ide
 import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
 
-async function prepAuth(url: string, cookieName: string | null) {
+export async function prepAuth(url: string, cookieName: string | null) {
   const applytester = await getApplyTesterForURL(url);
   //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
   const settings = await applytester?.getWRDAuth();
@@ -36,6 +36,16 @@ async function prepAuth(url: string, cookieName: string | null) {
     secure,
     cookieSettings
   };
+}
+
+export function doLoginHeaders(idCooie: string, ignoreCookies: string[], expires: Temporal.Instant, value: string, cookieSettings: ServersideCookieOptions, hdrs: Headers): void {
+  /* Set safety headers when returning tokens just like openid */
+  hdrs.set("cache-control", "no-store");
+  hdrs.set("pragma", "no-cache");
+
+  hdrs.append("Set-Cookie", buildCookieHeader(idCooie, value, { ...cookieSettings, expires: expires }));
+  for (const toClear of ignoreCookies)
+    hdrs.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
 }
 
 export async function doLogout(url: string, cookieName: string | null, hdrs: Headers): Promise<void> {
@@ -76,14 +86,7 @@ export const authService = {
     if (response.userInfo)
       responseBody.userInfo = response.userInfo;
 
-    /* Set safety headers when returning tokens just like openid */
-    context.responseHeaders.set("cache-control", "no-store");
-    context.responseHeaders.set("pragma", "no-cache");
-
-    context.responseHeaders.append("Set-Cookie", buildCookieHeader(idCookie, logincookie, { ...cookieSettings, expires: response.expires }));
-    for (const toClear of ignoreCookies)
-      context.responseHeaders.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
-
+    doLoginHeaders(idCookie, ignoreCookies, response.expires, logincookie, cookieSettings, context.responseHeaders);
     return responseBody;
   },
 

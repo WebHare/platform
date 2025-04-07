@@ -58,7 +58,11 @@ PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
                    , lastname := GetWebVariable("lastname")
                    , pwdresetresult := DEFAULT MACRO PTR
                    , multisite := webdesign->targetobject->name LIKE "*multisite*"
+                   , allclaims := ""
                    ];
+
+    IF(wrdauthplugin->IsLoggedIn())
+      data.allclaims := EncodeJSON(wrdauthplugin->GetClaims());
 
     IF(GetWebVariable('pwdreset')='1')
     {

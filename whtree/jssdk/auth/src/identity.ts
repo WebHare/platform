@@ -1,13 +1,13 @@
 import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
-import type { SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
+import { type SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import type { NavigateInstruction } from "@webhare/env";
-import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, updateServerSession } from "@webhare/services";
+import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
@@ -15,6 +15,8 @@ import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@mod-platform/js/auth/types";
+import { prepAuth } from "@mod-platform/js/auth/authservice";
+import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -34,6 +36,8 @@ export interface AuthTokenOptions {
   title?: string;
   /** Metadata to add */
   metadata?: object | null;
+  /** Additional claims to add to the token */
+  claims?: Record<string, unknown>;
 }
 
 export type ListedToken = {
@@ -227,6 +231,18 @@ declare module "@webhare/services" {
       ruleid: number;
       returnto: string;
       validuntil: Date;
+    };
+    "platform:settoken": {
+      /** The cookie to place the ID cookie in */
+      idCookie: string;
+      ignoreCookies: string[];
+      /** Configured original cookiename (not __Host or __Secure prefixed) */
+      cookieName: string;
+      value: string;
+      expires: Temporal.Instant;
+      target: string;
+      userInfo?: object;
+      cookieSettings: ServersideCookieOptions;
     };
   }
 }
@@ -606,6 +622,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
        about the signature yet - our wrd.tokens table is leading (and we want to be able to show active sessions anyway) */
     const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes });
     const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
+    if (options?.claims)
+      Object.assign(atPayload, options.claims);
     const access_token = prefix + this.signJWT(atPayload, config.signingKeys, "EC");
     const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
     if (Buffer.from(metadata).length > 4096)
@@ -1024,4 +1042,40 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
   await verifyToken(wrdSchema, tokenId);
 
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
+}
+
+/** Generate a navigation instruction to set an Id Token cookie */
+export async function prepareFrontendLogin(targetUrl: string, userid: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
+  const { idCookie, ignoreCookies, settings, cookieSettings } = await prepAuth(targetUrl, null);
+
+  if (!settings?.cookieName || !settings?.wrdSchema)
+    throw new Error("Unable to find id token cookie/wrdauth settings for URL " + targetUrl);
+
+  const customizer = options?.customizer || (settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null);
+  const idToken = await createFirstPartyToken(new WRDSchema(settings.wrdSchema), "id", userid, { ...options, customizer });
+  const target = new URL(targetUrl);
+
+  /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
+     also sending origin + pathname so you can't redirect this request to another URL
+     (doubt we need pathname though?) */
+  const setToken: ServerEncryptionScopes["platform:settoken"] = {
+    idCookie,
+    ignoreCookies,
+    value: generateRandomId() + " accessToken:" + idToken.accessToken,
+    expires: idToken.expires,
+    target: targetUrl,
+    cookieSettings,
+    cookieName: settings.cookieName,
+  };
+
+  if (customizer?.onFrontendUserInfo)
+    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userid });
+
+  return {
+    type: "form",
+    form: {
+      action: `${target.origin}/.wh/auth/settoken`,
+      vars: [{ name: "settoken", value: encryptForThisServer("platform:settoken", setToken) }]
+    }
+  };
 }

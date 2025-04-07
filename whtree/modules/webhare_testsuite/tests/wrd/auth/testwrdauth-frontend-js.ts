@@ -32,6 +32,7 @@ test.runTests([
     const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
     const userinfo = await frontendAuthApi.validateLoggedinUser();
     test.eqPartial({ user: "Pietje Tester" }, userinfo);
+    test.eq("Pietje", test.qR("#js_fullname").value);
   },
   'click #static',
   async function () {
@@ -70,5 +71,14 @@ test.runTests([
     const result = parseTyped(resultText);
     test.eq({ userInfo: { firstName: "Pietje", aDate: new Date("2025-03-18") } }, result);
     test.eq(true, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
+  },
+
+  "test impersonation/custom claims",
+  async function () {
+    test.click("#customclaimbutton");
+    await test.waitForLoad();
+    const allclaims = JSON.parse(test.qR("#allclaims").value!);
+    test.eq(true, allclaims["custom.impersonate"]);
+    test.eq("Pietje", test.qR("#js_fullname").value);
   }
 ]);
