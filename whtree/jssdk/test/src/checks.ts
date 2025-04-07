@@ -572,9 +572,10 @@ export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 
 /** Wait for a condition to become truthy
  * @param waitfor - A function/promiose that should resolve to true for the wait to finish
+ * @param test - An optional test that should return true for the wait to end. By default wait() waits for a truthy value
  * @returns The value that the waitfor function last resolved to
  */
-export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; annotation?: Annotation }): WaitRetVal<T> {
+export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; test?: (value: T) => boolean; annotation?: Annotation }): WaitRetVal<T> {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
@@ -588,7 +589,8 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     const timeout_cb = setTimeout(() => gottimeout = true, timeout);
     while (!gotTimeout()) {
       const result = await waitfor();
-      if (result) {
+      const done = options?.test ? options?.test(result) : result;
+      if (done) {
         if (!gotTimeout())
           clearTimeout(timeout_cb);
         return result as unknown as WaitRetVal<T>;
@@ -599,6 +601,9 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     throw new TestError(`test.wait timed out after ${timeout} ms`, annotation);
   } else {
     let cb;
+    if (options?.test)
+      throw new Error("The test option can only be used together with function waits");
+
     const timeoutpromise = new Promise((_, reject) => {
       cb = setTimeout(() => {
         cb = null;

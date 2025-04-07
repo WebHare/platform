@@ -167,6 +167,13 @@ async function testLoadTypes() {
   await test.wait(new Promise(resolve => resolve({ a: 1 })));
   await test.wait(new Promise(resolve => resolve(false)));
   await test.wait(() => Promise.resolve(true));
+  await test.throws(/The test option can only be used together with function waits/, () => test.wait(Promise.resolve(true), { test: Boolean }));
+
+  //verify filter is implemented - wait() will not return until n === 6, even though 2 would already be truthy
+  let num = 1;
+  test.eq(6, await test.wait(() => ++num, { test: n => n >= 6 }));
+  //@ts-expect-error -- verifying that we explicitly recognize undefined as false (and noone did a fallback to truthiness of the value).
+  test.eq(9, await test.wait(() => ++num, { test: n => n >= 9 || undefined }));
 
   {
     test.typeAssert<test.Assignable<number, 2>>();

@@ -4,7 +4,6 @@ import { getPxlLogLines } from '@webhare/test-frontend';
 test.runTests(
   [
     async function () {
-      console.log(test.getTestSiteRoot());
       const js = test.getTestSiteRoot().endsWith("testsitejs/");//FIXME more reliable js test - get site name or test params?
       const setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { iswidget: true, js });
       await test.load(setupdata.url, { urlParams: { gtmFormEvents: "publisher:form" } });
@@ -18,7 +17,7 @@ test.runTests(
       } else {
         test.fill(test.qSA('input[type=text]')[0], 'Joe');
 
-        const events = (await getPxlLogLines()).filter(l => l.event === "platform:form_started");
+        const events = (await test.wait(getPxlLogLines, { test: lines => lines.length >= 1 })).filter(l => l.event === "platform:form_started");
         test.eq(setupdata.formholder_objref, events[0].objref);
         test.eq(setupdata.formfile_objref, events[0].mod_platform.formmeta_objref);
 
