@@ -12,11 +12,6 @@
     <task runat="15  * * * *" runtz="maintenance" script="scripts/tasks/updatepxllog.ts" tag="updatepxllog" />
   </servicemanager>
 
-  <services>
-    <webservice name="frontendtests" service="js/devsupport/frontend-test-service.ts#FrontendTestService" transports="jsonrpc">
-      <accesscheck />
-    </webservice>
-  </services>
 
   <backend>
     <!--

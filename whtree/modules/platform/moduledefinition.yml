@@ -116,3 +116,6 @@ wrdSchemas:
 rpcServices:
   authservice:
     api: js/auth/authservice.ts#authService
+  frontendtests:
+    api: js/devsupport/frontend-test-service.ts#testService
+    filter: js/devsupport/frontend-test-service.ts#filterTestService
