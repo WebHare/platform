@@ -9,9 +9,8 @@ import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import { throwError } from "@webhare/std";
-import { deleteSchema, listSchemas } from "@webhare/wrd";
+import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
-import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -32,8 +31,8 @@ export interface TestUserDetails extends TestUserConfig {
 
 export interface ResetOptions {
   users?: Record<string, TestUserConfig>;
-  wrdschema?: boolean;
-  schemaresource?: string;
+  wrdSchema?: string | null;
+  schemaDefinitionResource?: string;
 }
 
 const users: Record<string, TestUserDetails> = {};
@@ -49,11 +48,15 @@ async function cleanupWRDTestSchemas() {
 
 /** Reset the test framework */
 export async function reset(options?: ResetOptions) {
-  const setupWrdAuth = options?.users && Object.keys(options.users).length;
+  const setupWrdAuth = Boolean(options?.users && Object.keys(options.users).length);
+  const wrdSchema = options?.wrdSchema === null ? null : options?.wrdSchema ?? whconstant_wrd_testschema;
 
   if (setupWrdAuth) {
     const hstestoptions = {
       testusers: Object.entries(options?.users || []).map(([login, config]) => ({ login, grantrights: config.grantRights || [] })),
+      wrdschema: Boolean(wrdSchema),
+      wrdschematag: wrdSchema || "",
+      schemaresource: options?.schemaDefinitionResource || ""
     };
 
     const testframeworkLib = loadlib("mod::system/lib/testframework.whlib");
@@ -72,15 +75,19 @@ export async function reset(options?: ResetOptions) {
   if (!setupWrdAuth) { //as setupWRDAuth still delegates to the HS testframwork
     await cleanupWRDTestSchemas();
 
-    await loadlib("mod::wrd/lib/api.whlib").CreateWRDSchema(whconstant_wrd_testschema, {
-      initialize: true,
-      schemaresource: options?.schemaresource || "",
-      usermgmt: setupWrdAuth,
-      description: "The webhare_testsuite WRD schema"
-    });
+    if (wrdSchema) {
+      await createSchema(wrdSchema, {
+        initialize: true,
+        schemaDefinitionResource: options?.schemaDefinitionResource,
+        userManagement: setupWrdAuth,
+        description: "The webhare_testsuite WRD schema"
+      });
 
-    if (!setupWrdAuth) { //mark unit as not-required for compatibility with all existing tests
-      await wrdTestschemaSchema.getType("wrdPerson").updateAttribute("whuserUnit", { isRequired: false });
+      if (!setupWrdAuth) { //mark unit as not-required for compatibility with all existing tests
+        const persontype = new WRDSchema(wrdSchema).getType("wrdPerson");
+        if (await persontype.describeAttribute("whuserUnit"))
+          await persontype.updateAttribute("whuserUnit", { isRequired: false });
+      }
     }
   }
 
@@ -90,7 +97,7 @@ export async function reset(options?: ResetOptions) {
       for (const item of await tmpfolder.list()) {
         //FIXME openObjects would still be very useful
         const obj = await openFileOrFolder(item.id);
-        await obj.delete(); //FIXME we desire recyle
+        await obj.recycle();
       }
     }
   }

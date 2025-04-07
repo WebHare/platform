@@ -2,7 +2,7 @@ import { debugFlags } from "@webhare/env";
 import type { RPCContext } from "@webhare/router";
 import { beginWork } from "@webhare/whdb";
 
-import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
+import { testschemaSchema } from "wh:wrd/webhare_testsuite";
 import { sleep } from "@webhare/std";
 
 export const testAPI = {
@@ -39,7 +39,7 @@ export const testAPI = {
   async validateLoggedinUser(context: RPCContext): Promise<{ user: string }> {
     const userId = await context.getRequestUser();
     if (userId) {
-      const user = await wrdTestschemaSchema.getFields("wrdPerson", userId, ["wrdFullName"]);
+      const user = await testschemaSchema.getFields("wrdPerson", userId, ["wrdFullName"]);
       if (user)
         return { user: user.wrdFullName };
     }

@@ -1,0 +1,26 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accountemailfield="wrd_contact_email"
+                  accountloginfield="wrd_contact_email"
+                  accountpasswordfield="password"
+                  accounttype="wrd_person">
+
+  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" />
+
+  <extend tag="whuser_unit">
+    <attributes></attributes>
+    <values matchattribute="wrd_tag">
+      <value>
+        <field tag="wrd_tag">UNIT1</field>
+      </value>
+    </values>
+  </extend>
+
+  <object tag="wrd_person">
+    <attributes>
+      <password tag="password" />
+      <free tag="multisite" />
+      <email tag="wrd_contact_email" required="1" title="Email address" unique="1" />
+    </attributes>
+  </object>
+
+</schemadefinition>

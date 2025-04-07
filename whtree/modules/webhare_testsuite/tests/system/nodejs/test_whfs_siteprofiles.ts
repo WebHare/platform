@@ -25,12 +25,12 @@ async function testSiteProfiles() {
 
     const tester = await getApplyTesterForURL((await emptyfolder.getBaseURL())!);
     test.assert(tester);
-    test.eqPartial({ wrdSchema: "wrd:testschema" }, await tester.getWRDAuth());
+    test.eqPartial({ wrdSchema: "webhare_testsuite:testschema" }, await tester.getWRDAuth());
   }
 
   const testsitefile = await whfs.openFile("site::webhare_testsuite.testsitejs/staticlogin/login");
   const wrdauth = await (await getApplyTesterForObject(testsitefile)).getWRDAuth();
-  test.eq("wrd:testschema", wrdauth.wrdSchema);
+  test.eq("webhare_testsuite:testschema", wrdauth.wrdSchema);
   test.eq("currentsite::/portal1/", wrdauth.loginPage);
   test.eq("webharelogin-wrdauthjs", wrdauth.cookieName);
   test.eq('mod::webhare_testsuite/webdesigns/basetestjs/webdesign/auth.ts#TestAuthCustomizer', wrdauth.customizer);

@@ -58,6 +58,72 @@ interface ParsedType {
 
 type ParsedValue = Record<string, unknown> & { __subvalues?: ParsedValue[] };
 
+type AccountStatusOption = "active";
+
+interface ParsedSchemaMetadata {
+  accounttype?: string;
+  accountloginfield?: string;
+  accountemailfield?: string;
+  accountpasswordfield?: string;
+  accountstatus?: AccountStatusOption[];
+}
+
+interface ParsedFinalSchemaDef {
+  types: ParsedType[];
+  metadata: ParsedSchemaMetadata | null;
+  migrations: Array<{
+    tag: string;
+    updatefunction: string;
+    stage: string;
+    revision: number;
+  }>;
+  schemaresources: {
+    resources: Array<{
+      resourcename: string;
+      modified: Date;
+    }>;
+    version: number;
+    schemaresource?: string;
+  };
+}
+
+function finalize(schema: ParsedFinalSchemaDef): ParsedFinalSchemaDef {
+  if (schema.metadata?.accountstatus?.length) {
+    //If accountstatus has been enabled, add the ENUM to the accounttype
+    if (!schema.metadata?.accounttype)
+      throw new Error("Account status is enabled, but no accounttype is defined");
+
+    const accounttype = schema.types.find(t => t.tag.toUpperCase() === schema.metadata?.accounttype?.toUpperCase());
+    if (!accounttype)
+      throw new Error(`Account status is enabled, but accounttype '${schema.metadata.accounttype}' is not defined`);
+
+    if (accounttype.attrs.find(a => a.tag === "WRDAUTH_ACCOUNT_STATUS"))
+      throw new Error(`Account status is enabled but attribute 'WRDAUTH_ACCOUNT_STATUS' already exists in type '${schema.metadata.accounttype}'`);
+
+    const addattr: ParsedAttr = {
+      attributetype: getAttributeTypeIdByTypeName("JSON"),
+      attributetypename: "JSON",
+      tag: "WRDAUTH_ACCOUNT_STATUS",
+      title: "",
+      description: "",
+      isrequired: false,
+      isunique: false,
+      isunsafetocopy: false,
+      multiline: false,
+      typedeclaration: `mod::platform/js/auth/types.ts#WRDAuthAccountStatus`, //FIXME  & { status: "active" } but we need to test with a real generator
+      allowedvalues: [],
+      domaintag: "",
+      checklinks: false,
+      attrs: [],
+    };
+
+    accounttype.attrs.push(addattr);
+    accounttype.allattrs.push(addattr);
+  }
+
+  return schema;
+}
+
 class ParsedSchemaDef {
   resources = new Array<{
     resourcename: string;
@@ -65,18 +131,8 @@ class ParsedSchemaDef {
   }>;
 
   types = new Array<ParsedType>;
-  metadata: {
-    accounttype?: string;
-    accountloginfield?: string;
-    accountemailfield?: string;
-    accountpasswordfield?: string;
-  } = {};
-  migrations = new Array<{
-    tag: string;
-    updatefunction: string;
-    stage: string;
-    revision: number;
-  }>;
+  metadata: ParsedSchemaMetadata = {};
+  migrations: ParsedFinalSchemaDef["migrations"] = [];
 
   constructor() {
 
@@ -136,10 +192,12 @@ class ParsedSchemaDef {
       this.metadata.accountemailfield = rootnode.getAttribute("accountemailfield")!;
     if (rootnode.hasAttribute("accountpasswordfield"))
       this.metadata.accountpasswordfield = rootnode.getAttribute("accountpasswordfield")!;
+    if (rootnode.hasAttribute("accountstatus"))
+      this.metadata.accountstatus = getAttr(rootnode, "accountstatus", []) as AccountStatusOption[];
   }
 
-  getResult(schemaResource: string) {
-    return {
+  getResult(schemaResource: string): ParsedFinalSchemaDef {
+    return finalize({
       types: this.types,
       metadata: this.metadata,
       migrations: this.migrations,
@@ -148,7 +206,7 @@ class ParsedSchemaDef {
         version: current_schema_version,
         ...(schemaResource ? { schemaresource: schemaResource } : {}),
       }
-    };
+    });
   }
 
   addType(typenode: Element, currentfile: string) {

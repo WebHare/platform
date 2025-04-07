@@ -1323,22 +1323,38 @@ PUBLIC RECORD FUNCTION TestInvoke_GetWebtoolFormResult(STRING guid, RECORD optio
              ];
 }
 
-PUBLIC MACRO DoSetupWRDAuth(BOOLEAN multisite DEFAULTSTO FALSE)
-{
+PUBLIC MACRO DoSetupWRDAuth(RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ multisite := FALSE
+                             , js := FALSE
+                             ], options);
+
+
   testfw->BeginWork();
 
-  OBJECT persontype := testfw->GetWRDSchema()->GetType("WRD_PERSON");
-  persontype->CreateAttribute("PASSWORD","PASSWORD");
-  persontype->CreateAttribute("MULTISITE","FREE");
-  IF(multisite)
-    persontype->UpdateAttribute("wrd_contact_email", [ isunique := false ]);
+  OBJECT wrdschema;
+  IF(options.js) {
+    wrdschema := CreateWRDSchema("webhare_testsuite:testschema",
+        [ initialize := TRUE
+        , schemaresource := "mod::webhare_testsuite/tests/wrd/data/js-auth.wrdschema.xml"
+        , usermgmt := TRUE
+        ]);
 
-  testfw->GetWRDSchema()->UpdateMetadata(
-      [ accounttype :=      persontype->id
-      , accountlogin :=     persontype->GetAttribute("WRD_CONTACT_EMAIL").id
-      , accountemail :=     persontype->GetAttribute("WRD_CONTACT_EMAIL").id
-      , accountpassword :=  persontype->GetAttribute("PASSWORD").id
-      ]);
+    OBJECT persontype := wrdschema->GetType("WRD_PERSON");
+    IF(options.multisite)
+      persontype->UpdateAttribute("wrd_contact_email", [ isunique := false ]);
+  } ELSE {
+    wrdschema := testfw->GetWRDSchema();
+
+    OBJECT persontype := testfw->GetWRDSchema()->GetType("WRD_PERSON");
+    persontype->CreateAttribute("PASSWORD","PASSWORD");
+
+    testfw->GetWRDSchema()->UpdateMetadata(
+        [ accounttype :=      persontype->id
+        , accountlogin :=     persontype->GetAttribute("WRD_CONTACT_EMAIL").id
+        , accountemail :=     persontype->GetAttribute("WRD_CONTACT_EMAIL").id
+        , accountpassword :=  persontype->GetAttribute("PASSWORD").id
+        ]);
+  }
 
   testfw->CommitWork();
 }
@@ -1599,49 +1615,52 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
   RETURN retval;
 }
 
-PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix, BOOLEAN multisite DEFAULTSTO FALSE)
-{
+PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ multisite := FALSE
+                             , js := FALSE
+                             ], options);
+
   OpenPrimary();
-  TRY
-  {
+  TRY {
     GetWRDAuthPlugin(forurl)->Logout();
-  }
-  CATCH(OBJECT e)
-  {
+  } CATCH(OBJECT e) {
     //logout failed, but we don't care in tests
   }
 
-  RunTestFramework([ PTR DoSetupWRDAuth(multisite) ], [wrdauth := FALSE]);
+  RunTestFramework([ PTR DoSetupWRDAuth(options) ], [wrdauth := FALSE]);
 
   testfw->BeginWork();
-  SetWRDSetting(testfw->GetWRDSchema(), "password_validation_checks", "minlength:5 symbols:1");
+  OBJECT wrdschema := options.js ? OpenWRDSchema("webhare_testsuite:testschema")
+                                 : testfw->GetWRDSchema();
+  SetWRDSetting(wrdschema, "password_validation_checks", "minlength:5 symbols:1");
+  INTEGER unit := options.js ? wrdschema->^whuser_unit->Search("WRD_TAG", "UNIT1") : testfw->testunit;
 
-  testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+  wrdschema->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"
     , wrd_lastname := "Tester"
     , wrd_contact_email := "pietje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2F3A"
     , password := testfw->hashedpasswords.secret_dollar
-    , whuser_unit :=            testfw->testunit
+    , whuser_unit :=            unit
     ]);
-  testfw->GetWRDSchema()->^wrd_person->CreateEntity(
-    [ wrd_firstname := "Jantje"
-    , wrd_lastname := "Tester"
-    , wrd_contact_email := "jantje" || emailsuffix
-    , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
-    , password := testfw->hashedpasswords.secret_dollar
-    , whuser_unit :=            testfw->testunit
-    , multisite := "site1"
-    ]);
-  IF(multisite)
-  {
-    testfw->GetWRDSchema()->^wrd_person->CreateEntity(
+  wrdschema->^wrd_person->CreateEntity(
+    CELL[ wrd_firstname := "Jantje"
+        , wrd_lastname := "Tester"
+        , wrd_contact_email := "jantje" || emailsuffix
+        , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
+        , password := testfw->hashedpasswords.secret_dollar
+        , whuser_unit :=            unit
+        , ...(options.multisite ? [ multisite := "site1" ]: DEFAULT RECORD)
+        ]);
+
+  IF(options.multisite) {
+    wrdschema->^wrd_person->CreateEntity(
       [ wrd_firstname := "Jantje2"
       , wrd_lastname := "Tester2"
       , wrd_contact_email := "jantje" || emailsuffix
       , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABD"
       , password := testfw->hashedpasswords.secret
-      , whuser_unit :=            testfw->testunit
+      , whuser_unit :=            unit
       , multisite := "site2"
       ]);
   }

@@ -12,8 +12,12 @@ import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
 import { parseTyped } from '@webhare/std';
 import { getTypedStringifyableData } from '@mod-webhare_testsuite/js/ci/testdata';
-import { wrdTestschemaSchema } from '@mod-platform/generated/wrd/webhare';
 import { createFirstPartyToken } from '@webhare/auth';
+import { WRDSchema } from '@webhare/wrd';
+import type { JsschemaSchemaType } from 'wh:wrd/webhare_testsuite';
+import { runInWork } from '@webhare/whdb';
+
+const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
 
 async function testRPCCaller() {
   const servicebaseurl = "http://127.0.0.1/.wh/rpc/webhare_testsuite/testapi/";
@@ -94,10 +98,11 @@ async function testTypedClient() {
 
   //Verify login/authorization
   test.eq({ user: "" }, await testAPIService.validateLoggedinUser());
-  const idToken = await createFirstPartyToken(wrdTestschemaSchema, "id", test.getUser("caller").wrdId);
+  const caller = await runInWork(() => jsAuthSchema.insert("wrdPerson", { wrdFirstName: "The", wrdLastName: "Caller" }));
+  const idToken = await createFirstPartyToken(jsAuthSchema, "id", caller);
 
   const authService = testAPIService.withOptions({ headers: { "authorization": "bearer " + idToken.accessToken } });
-  test.eq({ user: "Caller McTestsuite" }, await authService.validateLoggedinUser());
+  test.eq({ user: "The Caller" }, await authService.validateLoggedinUser());
 
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
@@ -142,9 +147,8 @@ async function testTypedClient() {
 
 test.runTests([
   () => test.reset({
-    users: {
-      caller: {}
-    }
+    wrdSchema: "webhare_testsuite:testschema",
+    // schemaDefinitionResource: "mod::webhare_testsuite/tests/wrd/data/js-auth.wrdschema.xml",
   }),
   testRPCCaller,
   testTypedClient
