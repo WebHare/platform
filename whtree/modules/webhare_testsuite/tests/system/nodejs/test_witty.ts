@@ -16,7 +16,7 @@ async function simpleTest() {
   //Test whether WTE works at all
   witty = new WittyTemplate("Test: [test1] [test2] [[test]");
   test.eq("Test: 1 2 [test]", await witty.run({ test1: "1", test2: 2 }));
-  await test.throws(/No such cell 'test1'/, () => witty.run("test1"));
+  await test.throws(/No such cell 'test1'/, () => witty.run({ test0: 0 }));
 
   witty = new WittyTemplate("Test: [if test1][test2][else][test3][/if]");
   test.eq("Test: a", await witty.run({ test1: true, test2: "a", test3: "b" }));
