@@ -86,6 +86,11 @@ TRY
     IF(RecordExists(appinfo.launchuserinfo))
     {
       RECORD res := userapi->GetTolliumUserByIdAndImpersonation(appinfo.launchuserinfo.loggedin, appinfo.launchuserinfo.openas);
+      IF(ObjectExists(res.userobject))
+        UpdateAuditContext([
+          user_entityid :=          res.userobject->entityid
+        , user_login :=             res.userobject->login
+        ]);
       currentuser := ObjectExists(res.userobject) ? res.userobject : userapi->GetAnonymousUser();
       sessionexpires := appinfo.launchuserinfo.loggedin_expires;
       IF (ObjectExists(res.impersonatinguser))
