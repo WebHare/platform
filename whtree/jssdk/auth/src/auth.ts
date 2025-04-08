@@ -2,6 +2,12 @@
 declare module "@webhare/auth" {
 }
 
+/** Auth audit log event formats */
+export interface AuthEventData {
+  "platform:login": { tokenHash: string };
+  "platform:apikey": { tokenHash: string };
+}
+
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
 export type { FirstPartyToken } from "./identity";
 
@@ -10,3 +16,6 @@ export type { ClientConfig, ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
 export type { AuthCustomizer, JWTPayload, LookupUsernameParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+
+export { writeAuthAuditEvent } from "./audit";
+export type { AuthAuditEvent, AuthAuditContext } from "./audit";

@@ -9,7 +9,6 @@ import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateabl
 import type { NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
@@ -17,6 +16,8 @@ import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUs
 import type { WRDAuthAccountStatus } from "@mod-platform/js/auth/types";
 import { prepAuth } from "@mod-platform/js/auth/authservice";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
+import { writeAuthAuditEvent, type AuthAuditContext } from "./audit";
+import { getAuthSettings } from "./support";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -38,6 +39,8 @@ export interface AuthTokenOptions {
   metadata?: object | null;
   /** Additional claims to add to the token */
   claims?: Record<string, unknown>;
+  /** Information about the source and actors in this event */
+  authAuditContext?: AuthAuditContext;
 }
 
 export type ListedToken = {
@@ -286,34 +289,6 @@ export function createCodeChallenge(verifier: string, method: CodeChallengeMetho
 
 function verifyCodeChallenge(verifier: string, challenge: string, method: CodeChallengeMethod) {
   return createCodeChallenge(verifier, method) === challenge;
-}
-
-export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings | null> {
-  const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accounttype", "accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
-  if (!settings)
-    throw new Error(`No such WRD schema '${wrdschema.tag}'`);
-
-  if (!settings.accounttype)
-    return null;
-
-  const type = await db<PlatformDB>().selectFrom("wrd.types").select(["tag"]).where("id", "=", settings.accounttype).executeTakeFirstOrThrow();
-  const accountType = tagToJS(type.tag);
-  const persontype = wrdschema.getType(accountType);
-  const attrs = await persontype.ensureAttributes();
-
-  const email = attrs.find(_ => _.id === settings.accountemail);
-  const login = attrs.find(_ => _.id === settings.accountlogin);
-  const password = attrs.find(_ => _.id === settings.accountpassword);
-
-  return {
-    accountType,
-    emailAttribute: email ? tagToJS(email.tag) : null,
-    loginAttribute: login ? tagToJS(login.tag) : null,
-    loginIsEmail: Boolean(email?.id && email?.id === login?.id),
-    passwordAttribute: password ? tagToJS(password.tag) : null,
-    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS",
-    hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS")
-  };
 }
 
 export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> {
@@ -630,6 +605,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Metadata too large, max size is 4096 bytes`);
 
     await beginWork();
+    const hash = hashSHA256(access_token);
     const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: type,
       creationdate: new Date(atPayload.nbf! * 1000),
@@ -637,13 +613,22 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       entity: subject,
       client: client,
       scopes: scopes?.join(" "),
-      hash: hashSHA256(access_token),
+      hash,
       metadata: metadata,
       title: options?.title ?? ""
     }).returning("id").execute();
 
     if (closeSessionId)
       await closeServerSession(closeSessionId);
+
+    if (type !== "oidc") {
+      await writeAuthAuditEvent(this.wrdschema, {
+        type: type === "id" ? "platform:login" : "platform:apikey",
+        entity: subject,
+        ...options?.authAuditContext,
+        data: { tokenHash: hash.toString("base64url") }
+      });
+    }
 
     await commitWork();
 
@@ -1044,15 +1029,20 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }
 
-/** Generate a navigation instruction to set an Id Token cookie */
-export async function prepareFrontendLogin(targetUrl: string, userid: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
+/** Generate a navigation instruction to set an Id Token cookie. This API can be used to construct a "Login As" service
+ * @param targetUrl - URL to which we'll redirect after logging in and which will be used to extract WRDAuth settings
+ * @param userId - The user ID to generate a token for
+ * @param options - Options for token generation
+ */
+export async function prepareFrontendLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
   const { idCookie, ignoreCookies, settings, cookieSettings } = await prepAuth(targetUrl, null);
 
   if (!settings?.cookieName || !settings?.wrdSchema)
     throw new Error("Unable to find id token cookie/wrdauth settings for URL " + targetUrl);
 
   const customizer = options?.customizer || (settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null);
-  const idToken = await createFirstPartyToken(new WRDSchema(settings.wrdSchema), "id", userid, { ...options, customizer });
+  const wrdSchema = new WRDSchema(settings.wrdSchema);
+  const idToken = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer });
   const target = new URL(targetUrl);
 
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
@@ -1069,7 +1059,7 @@ export async function prepareFrontendLogin(targetUrl: string, userid: number, op
   };
 
   if (customizer?.onFrontendUserInfo)
-    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userid });
+    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userId });
 
   return {
     type: "form",

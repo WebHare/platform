@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer } from "@webhare/auth";
-import { AuthenticationSettings, extendSchema, WRDSchema } from "@webhare/wrd";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin } from "@webhare/auth";
+import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -9,6 +9,7 @@ import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
+import { loadlib } from "@webhare/harescript";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -162,13 +163,13 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 
 async function setupOpenID() {
   await test.resetWTS({
-    wrdSchema: "webhare_testsuite:testschema",
-    schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml"),
-    // users: {
-    //   sysop: { grantRights: ["system:sysop", "platform:api"] },
-    //   noApiSysop: { grantRights: ["system:sysop"] },
-    // }
+    users: {
+      sysop: { grantRights: ["system:sysop"] },
+    }
   });
+  await whdb.beginWork();
+  await createSchema(oidcAuthSchema.tag, { schemaDefinitionResource: toResourcePath(__dirname + "/data/usermgmt_oidc.wrdschema.xml") });
+  await whdb.commitWork();
 
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
   await whdb.beginWork();
@@ -302,6 +303,28 @@ async function testAuthAPI() {
     }
   }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
   test.assert(seenheaders, "verify onResponse isn't skipped");
+
+  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
+
+  //Verify prepareFrontendLogin creates an audit event
+  await prepareFrontendLogin(testsiteurl.toString(), testuser, {
+    authAuditContext: {
+      impersonatedBy: test.getUser("sysop").wrdId,
+      remoteIp: "67.43.156.0"
+    }
+  });
+
+  test.eqPartial({
+    entity: testuser,
+    type: "platform:login",
+    remoteIp: "67.43.156.0",
+    country: "BT",
+    entityLogin: "jonshow@beta.webhare.net",
+    impersonatedBy: test.getUser("sysop").wrdId,
+    impersonatedByLogin: test.getUser("sysop").login
+  }, await test.getLastAuthAuditEvent(oidcAuthSchema));
+
+  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").RestoreGEOIPDatabases();
 }
 
 async function testAuthStatus() {
