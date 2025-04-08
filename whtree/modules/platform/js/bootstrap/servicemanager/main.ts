@@ -218,7 +218,7 @@ class ProcessManager {
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Active) {
       this.log(`Exit is considered fatal, shutting down service manager`);
-      void this.servicemgr.shutdown(); // no need to await
+      this.servicemgr.shutdown();
     }
 
     this.stopDefer.resolve(exitreason);
@@ -387,7 +387,7 @@ class ServiceManager {
     process.on("SIGCONT", this.stopContinueSignal);
     process.on("uncaughtException", (err, origin) => {
       console.error("Uncaught exception", err, origin);
-      void this.shutdown(); // no need to await the shutdown
+      this.shutdown();
       smLog(`Uncaught exception`, { error: String(err), origin: String(origin) });
     });
 
@@ -418,7 +418,7 @@ class ServiceManager {
 
   shutdownSignal = (signal: NodeJS.Signals) => {
     smLog(`Received signal '${signal}'${this.shuttingDown ? ' but already shutting down' : ', shutting down'}`, { signal, wasShuttingDown: this.shuttingDown });
-    void this.shutdown(); // no need to await the shutdown
+    this.shutdown();
   };
 
   stopContinueSignal = (signal: NodeJS.Signals) => {
@@ -433,17 +433,19 @@ class ServiceManager {
       process.kill(process.pid, "SIGSTOP");
   };
 
-  async shutdown(): Promise<void> {
+  shutdown(): void {
     if (this.shuttingDown)
       return;
     if (this.keepAlive)
       clearTimeout(this.keepAlive);
 
     this.shuttingDown = true;
-    return await (async () => { //we handle our own async as we handle our own exceptions
+    void (async () => { //we handle our own async as we handle our own exceptions
       try {
+        const shutdownMonitor = setInterval(() => this.checkShutdownProgress(), 1000);
         await this.startStage(Stage.Terminating);
         await this.startStage(Stage.ShuttingDown);
+        clearInterval(shutdownMonitor);
         updateTitle('');
 
         if (!this.isSecondaryManager) {
@@ -459,6 +461,10 @@ class ServiceManager {
         process.exit(1);
       }
     })();
+  }
+
+  checkShutdownProgress() {
+    smLog(`Shutting down, still running: ${processes.getAllRunning().map(_ => `${_.name} (${_.process?.pid || ""})`).join(", ")}`);
   }
 
   /// Move to a new stage

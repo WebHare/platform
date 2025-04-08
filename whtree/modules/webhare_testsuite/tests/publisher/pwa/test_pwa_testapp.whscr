@@ -34,9 +34,12 @@ MACRO TestAppLayout()
 
 ASYNC MACRO TestProps()
 {
-  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), OpenSiteByName("webhare_testsuite.pwa")->OpenByPath("pwatest")->id));
+  INTEGER pwa := OpenSiteByName("webhare_testsuite.pwa")->OpenByPath("pwatest")->id;
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectPropertiesDialog(GetTestController(), pwa));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  testfw->WaitForPublishCompletion(pwa);
 }
 
 

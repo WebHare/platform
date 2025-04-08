@@ -506,13 +506,13 @@
     <xs:choice minOccurs="0" maxOccurs="unbounded" >
       <xs:element name="runatstartup">
         <xs:complexType>
+          <xs:annotation>
+            <xs:documentation>
+              runatstartup has been deprecated and will be removed soon.
+            </xs:documentation>
+          </xs:annotation>
           <xs:attribute name="script" type="xs:string" use="required" />
           <xs:attribute name="when">
-            <xs:annotation>
-              <xs:documentation>
-                Specify when to invoke this script. 'afterlaunch' postpones this script until WebHare is online.
-              </xs:documentation>
-            </xs:annotation>
             <xs:simpleType>
               <xs:restriction base="xs:string">
                 <xs:enumeration value="afterlaunch"/>

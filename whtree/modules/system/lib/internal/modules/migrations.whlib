@@ -3,6 +3,8 @@
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
 
 CONSTANT STRING ARRAY whens :=
         [ "afterschemacreation"
@@ -12,7 +14,7 @@ CONSTANT STRING ARRAY whens :=
         , "poststart"
         ];
 
-RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
+PUBLIC RECORD ARRAY FUNCTION ParseModuleDefRunonce(OBJECT doc)
 {
   INTEGER last_runonce_whentype;
   RECORD ARRAY scripts;
@@ -22,7 +24,7 @@ RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
     IF(NOT IsNodeApplicableToThisWebHare(runonce))
       CONTINUE;
 
-    STRING when := runonce->GetAttribute("when") ?? "aftertablecreation";
+    STRING when := doc->GetModuleName() IN whconstant_builtinmodules ? runonce->GetAttribute("when") ?? "aftertablecreation" : "poststart";
 
     // Check ordering
     INTEGER when_type := SearchElement(whens, when);
@@ -49,9 +51,4 @@ RECORD ARRAY FUNCTION ParseModuleDefRunonceModuleDef(OBJECT doc)
    }
 
    RETURN scripts;
-}
-
-PUBLIC RECORD ARRAY FUNCTION ParseModuleDefRunonce(OBJECT doc)
-{
-  RETURN ParseModuleDefRunonceModuleDef(doc);
 }
