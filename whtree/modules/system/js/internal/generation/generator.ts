@@ -36,7 +36,7 @@ import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduled
 import { listAllRegistryTS } from "./gen_registry";
 import { updateTypeScriptInfrastructure } from "./gen_typescript";
 import { listAllServiceTS } from "./gen_services";
-import { listMiscTS } from "./gen_misc_ts";
+import { listMiscTS, listPublicConfig } from "./gen_misc_ts";
 import { rm } from "node:fs/promises";
 import { parseDocAsXML } from "./xmlhelpers";
 
@@ -69,7 +69,8 @@ async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
     ...await listAllModuleTableDefs(allmods),
     ...await listAllModuleWRDDefs(),
     ...await listAllModuleOpenAPIDefs(),
-    ...await listAllGeneratedTypeScript(allmods)
+    ...await listAllGeneratedTypeScript(allmods),
+    ...await listPublicConfig(),
   ]);
 }
 

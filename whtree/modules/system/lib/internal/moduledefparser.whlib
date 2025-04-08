@@ -1,11 +1,14 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
+
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
@@ -239,7 +242,9 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
 
     rule.datastorage :=
       [ [ isfolder :=     handlebydir != ""
-        , resource :=     router != "" ? "mod::system/scripts/internal/jsrouter.shtml" : MakeAbsoluteResourcePath(baseresource, handlebydir ?? handlebyscript)
+        , resource :=     router != "" ? "mod::system/scripts/internal/jsrouter.shtml"
+                             : handlebydir LIKE "whdata::*" ? handlebydir
+                             : MakeAbsoluteResourcePath(baseresource, handlebydir ?? handlebyscript)
         , method :=       "direct"
         ]
       ];

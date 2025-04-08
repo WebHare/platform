@@ -662,7 +662,7 @@ OBJECTTYPE WebConfigBuilder
           ELSE
             THROW NEW Exception(`Non-existing/published site '${triplet.base}' referenced in webrule path`);
         }
-        ELSE IF (resource LIKE "whdata::*") //FIXME phase-out this pseudo-namespace, users should be able to switch to storage:: - (or not - see https://gitlab.webhare.com/webharebv/codekloppers/-/issues/1043)
+        ELSE IF (resource LIKE "whdata::*")
           resource := MergePath(GetWebhareConfiguration().basedataroot, SubString(resource, 8));
         ELSE IF (resource LIKE "mod::*" OR resource LIKE "storage::*")
         {

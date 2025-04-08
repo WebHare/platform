@@ -119,7 +119,7 @@ STATIC OBJECTTYPE JSONRPCTransport EXTEND Transport
         , data :=     CellInsert(e->EncodeForIPC(), "__FORMAT", "webhare-exception")
         ] :
         [ code :=     -32000
-        , message :=  `Internal error (ID: ${GetCurrentGroupID()}`
+        , message :=  `Internal error (ID: ${GetCurrentGroupID()})`
         ];
 
     INTEGER httpstatus := 500;
