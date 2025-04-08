@@ -120,6 +120,7 @@ PUBLIC MACRO TestShortURLAPI()
   TestEq("selfnamed", selfnamed_reusedlink.shortname);
   TestEq(selfnamed_newlink.id, selfnamed_reusedlink.id);
   TestEq(MakeDatetime(2047,5,2,16,0,0), selfnamed_reusedlink.expirationdate);
+  TestEq(TRUE, firstlink.targeturl != selfnamed_reusedlink.targeturl);
 
   RECORD selfnamed2_newlink := testdomain->CreateInternalShortUrl(OpenTestsuiteSite()->OpenByPath("testpages/staticpage-en-gb")->id, [ shortname := "selfnamed2" ]);
   TestEq(TRUE, selfnamed2_newlink.isnew);
@@ -131,7 +132,8 @@ PUBLIC MACRO TestShortURLAPI()
 
   testfw->browser->autofollow := FALSE;
   TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
-  TestEq(firstlink.targeturl, testfw->browser->GetResponseHeader("Location"));
+  STRING ps_af_location := testfw->browser->GetResponseHeader("Location");
+  TestEq(firstlink.targeturl, ps_af_location);
   TestEq(302, testfw->browser->GetHTTPStatusCode());
 
   testfw->BeginWork();
@@ -141,8 +143,18 @@ PUBLIC MACRO TestShortURLAPI()
                                            ]);
   testfw->CommitWork();
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
-  TestEq(TRUE, firstlink.targeturl != selfnamed_reusedlink.targeturl);
+  { //we need to wait for the modified link to be picked up as shorturl.shtml caches the looked up links and may not have received the event yet
+    DATETIME deadline := AddTimeToDate(10000, GetCurrentDatetime());
+    WHILE(GetCurrentDatetime() < deadline)
+    {
+      TestEq(TRUE, testfw->browser->GotoWebPage(firstlink.shorturl));
+      STRING loc := testfw->browser->GetResponseHeader("Location");
+      IF(loc != ps_af_location) //finally got a new link - the old one might be cached for a while
+        BREAK;
+      Sleep(100);;
+    }
+  }
+
   TestEq(selfnamed_reusedlink.targeturl, testfw->browser->GetResponseHeader("Location"));
   TestEq(MakeDatetime(2047,5,1,16,0,0), testdomain->GetShortURL(firstlink.id).expirationdate);
   TestEq("D2", testdomain->GetShortURL(firstlink.id).description);
