@@ -763,3 +763,5 @@ INTEGER example5 := SearchLastSubstring("ababab", "ab", 4);
 INTEGER example6 := SearchLastSubstring("ababab", "ab", 0);
 */
 PUBLIC INTEGER FUNCTION SearchLastSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+PUBLIC RECORD __auditcontext;

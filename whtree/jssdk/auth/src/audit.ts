@@ -7,6 +7,7 @@ import { getAuthSettings } from "./support";
 import { stringify } from "@webhare/std";
 import { log } from "@webhare/services";
 import type { AuthEventData } from "@webhare/auth";
+import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 
 export type AuthAuditContext = {
   /** Remote IP address */
@@ -77,6 +78,17 @@ export async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Se
     country: event.country || undefined,
     data: JSON.parse(event.data) as AuthEventData[Type]
   };
+}
+
+export function getAuditContext() {
+  return getScopedResource<AuthAuditContext>("platform:authcontext");
+}
+
+export function updateAuditContext(updates: AuthAuditContext) {
+  setScopedResource("platform:authcontext", {
+    ...getScopedResource<AuthAuditContext>("platform:authcontext"),
+    ...updates
+  });
 }
 
 /** Writes a audit event to the logs in a separate transction

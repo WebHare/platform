@@ -16,7 +16,7 @@ import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUs
 import type { WRDAuthAccountStatus } from "@mod-platform/js/auth/types";
 import { prepAuth } from "@mod-platform/js/auth/authservice";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
-import { writeAuthAuditEvent, type AuthAuditContext } from "./audit";
+import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
 import { getAuthSettings } from "./support";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
@@ -625,7 +625,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       await writeAuthAuditEvent(this.wrdschema, {
         type: type === "id" ? "platform:login" : "platform:apikey",
         entity: subject,
-        ...options?.authAuditContext,
+        ...(options?.authAuditContext ?? getAuditContext()),
         data: { tokenHash: hash.toString("base64url") }
       });
     }
