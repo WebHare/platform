@@ -1,0 +1,79 @@
+/* Tollium theme settings (keep in sync with styling.ts!) */
+
+/* 'default' theme */
+:root {
+  /* Colors */
+  /** The accent color, used by headings */
+  --tollium-color-accent: #308fe2;
+
+  /* Backgrounds */
+  /** The background color */
+  --tollium-background: #ffffff;
+  /** A slightly shaded background color */
+  --tollium-background-shaded: #f8f8f8;
+  /** The footer background color */
+  --tollium-background-footer: #e5e5e5;
+  /** The background color of selected items when focused */
+  --tollium-background-selected: #95cdfe;
+  /** The background color of selected items when blurred */
+  --tollium-background-blurred: #e1e1e1;
+
+  /* Borders */
+  /** The border color */
+  --tollium-border-color: #b3b3b3;
+  /** The border color of focused components */
+  --tollium-border-color-focus: #52aefe;
+  /** The border color of disabled components */
+  --tollium-border-color-disabled: #c9c9c9;
+  /** The default border width */
+  --tollium-border-width: 1px;
+  /** The color of icon lines */
+  --tollium-line-color: #4a4a4a;
+
+  /* Text */
+  /** The text color */
+  --tollium-text-color: #333333;
+  /** The text color of disabled components */
+  --tollium-text-color-disabled: #c9c9c9;
+  /** The font family */
+  --tollium-font-family: Roboto, Helvetica, Arial, sans-serif;
+  /** The default font size */
+  --tollium-font-size: 12px;
+  /** The default font definition */
+  --tollium-font: var(--tollium-font-size) var(--tollium-font-family);
+  /** The font definition for headings */
+  --tollium-heading-font: 500 13px/120% var(--tollium-font-family);
+  /** The heading text color */
+  --tollium-heading-color: var(--tollium-color-accent);
+
+  /* Inputs */
+  /** The background of input components */
+  --tollium-input-background: #fbfbfb;
+  /** The background of required input components */
+  --tollium-input-background-required: #fcf8d0;
+  /** The component border radius */
+  --tollium-border-radius: 2px;
+
+  /* Layout */
+  /** The default padding between elements in the interface */
+  --tollium-padding: 10px;
+}
+
+/* Apply some default Tollium styling */
+html {
+  background-color: var(--tollium-background);
+  color: var(--tollium-text-color);
+  font: var(--tollium-font);
+  -webkit-font-smoothing: antialiased; /* Safari macOS, Firefox macOS 128+ */
+}
+
+body
+{
+  -webkit-text-size-adjust: none; /* Safari iOS 5+ */
+  -moz-text-size-adjust: none; /* Firefox Android 137+ */
+  text-size-adjust: none;
+}
+
+* {
+  border: 0px solid var(--tollium-border-color);
+}
