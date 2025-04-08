@@ -34,7 +34,7 @@ test.runTests(
       test.eq('Message count: 1', notes[0].querySelector('.description')?.textContent);
 
       test.click(test.getMenu(['A01']));
-      await test.waitUIFree(); //absorb the modality layer triggered by server side vevent
+      await test.waitUIFree(); //absorb the modality layer triggered by server side event
       await test.wait(() => getTowlNotifications().length > 1);
 
       notes = getTowlNotifications();
@@ -45,7 +45,7 @@ test.runTests(
     "Check third event - should REPLACE second event",
     async function () {
       test.click(test.getMenu(['A01']));
-      await test.waitUIFree(); //absorb the modality layer triggered by server side vevent
+      await test.waitUIFree(); //absorb the modality layer triggered by server side event
       await test.wait(() => getTowlNotifications()[1].querySelector('.description')?.textContent === 'Message count: 3'
         || getTowlNotifications().length > 2);
 
