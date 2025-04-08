@@ -77,7 +77,6 @@ export async function reset(options?: ResetOptions) {
 
     if (wrdSchema) {
       await createSchema(wrdSchema, {
-        initialize: true,
         schemaDefinitionResource: options?.schemaDefinitionResource,
         userManagement: setupWrdAuth,
         description: "The webhare_testsuite WRD schema"

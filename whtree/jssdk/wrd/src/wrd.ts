@@ -102,7 +102,7 @@ export interface CreateSchemaOptions {
   title?: string;
   /** Description */
   description?: string;
-  /** Set up the schema using the wrdschema defined in its moduledefinition */
+  /** Set to false to skip initializing the schema based on moduledefinition */
   initialize?: boolean;
 
   //TODO schemaDefinition - (abstract) wrd schema to apply
@@ -132,7 +132,7 @@ export async function createSchema(tag: string, options?: CreateSchemaOptions): 
   const schemainfo = getSchemaConfiguration(tag);
 
   let schemaDefinitionResource = wrd_baseschemaresource;
-  if (options?.initialize) {
+  if (options?.initialize !== false) {
     if (options?.schemaDefinitionResource)
       schemaDefinitionResource = options.schemaDefinitionResource;
     else {

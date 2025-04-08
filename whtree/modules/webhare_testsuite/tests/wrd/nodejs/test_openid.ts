@@ -75,7 +75,6 @@ async function setupOIDC() {
 
   await runInWork(async () => {
     await createSchema("webhare_testsuite:oidc-sp", {
-      initialize: true,
       schemaDefinitionResource: "mod::system/data/wrdschemas/default.wrdschema.xml",
       userManagement: true
     });

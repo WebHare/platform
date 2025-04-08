@@ -31,7 +31,7 @@ async function testSchemaParser() {
 
 async function testSchemaApply() {
   await beginWork();
-  const testschemaid = await createSchema("webhare_testsuite:testschema", { initialize: true });
+  const testschemaid = await createSchema("webhare_testsuite:testschema");
   test.eq("webhare_testsuite:testschema", (await openSchemaById(testschemaid))?.tag, "Schema tag should be the same as the one we created");
 
   const testentry = await testschemaSchema.find("testType", { wrdTag: "TESTENTRY" });
