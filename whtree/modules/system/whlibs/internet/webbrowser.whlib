@@ -1366,7 +1366,7 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     IF (rec.haveresult)
       RETURN rec.result;
 
-    IF (TypeId(rec.error) = TypeID(RECORD) AND RecordExists(rec.error.data))
+    IF (TypeId(rec.error) = TypeID(RECORD) AND CellExists(rec.error,'data') AND RecordExists(rec.error.data))
     {
       RECORD data := rec.error.data;
       IF (CellExists(data, "__FORMAT") AND TypeID(data.__format) = TypeID(STRING) AND data.__format = "webhare-exception")
