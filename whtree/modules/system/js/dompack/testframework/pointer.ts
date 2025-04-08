@@ -633,8 +633,8 @@ function validateMouseDownTarget(part: MouseGesture, elhere: Element, position) 
     if (!deepContains(wantedtotarget, elhere)) {
       console.log("Wanted to target: ", wantedtotarget, " at " + position.x + "," + position.y, " but actual element is:", elhere, part);
 
-      console.log("Original target", wantedtotarget, part.el.nodeName, convertbndrec(part.el));
-      console.log("Final target", elhere, elhere.nodeName, convertbndrec(elhere));
+      console.log("Original target", wantedtotarget, part.el.nodeName, part.el.className, convertbndrec(part.el));
+      console.log("Final target", elhere, elhere.nodeName, elhere.className, convertbndrec(elhere));
       const fc = elhere.firstChild;
       if (fc)
         console.log("childtarget", fc, fc.nodeName, convertbndrec(fc));
