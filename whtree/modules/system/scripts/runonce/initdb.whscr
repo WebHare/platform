@@ -7,6 +7,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
@@ -263,24 +264,30 @@ IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
 IF(ReadRegistryKey("system.webserver.security.gcmsecret")="")
   WriteRegistryKey("system.webserver.security.gcmsecret", EncodeUFS(DecodeUFS(GenerateUFS128BitId())||DecodeUFS((GenerateUFS128BitId()))));
 
-IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+/* NOT sure if we want to make this envvar official .. using it for freshdbconsole but a YAML file with initial
+   (or always applied?) configuration would be more flexible */
+STRING initial_backend := GetEnvironmentVariable("WEBHARE_INITIAL_BACKEND")
+                          ?? (GetEnvironmentVariable("WEBHARE_CI") != "" ? "http://127.0.0.1/" : "");
+
+IF(initial_backend LIKE "http:*") //no https support (yet? but bothering letsencrypt for CI is not nice)
 {
   IF(NOT RecordExists(SELECT FROM system.webservers)
      AND NOT RecordExists(SELECT FROM system.ports)
      AND NOT RecordExists(SELECT FROM system.sites WHERE id = whconstant_whfsid_webharebackend) ) //we are completely new!
   {
+    RECORD unpacked := UnpackURL(initial_backend);
+
     // Setup port and bindings for http://127.0.0.1/
     INTEGER webserverid := MakeAutoNumber(system.webservers,"id");
     INTEGER portid := MakeAutoNumber(system.ports,"id");
     INSERT INTO system.ports(id,ip,port,virtualhost)
-           VALUES (portid, "", 80, TRUE);
+           VALUES (portid, "", unpacked.port, unpacked.isdefaultport); //we assume 80/443 should be virtualhosted
 
     //on a DB with just 1 webserver of interface type, UpdateSystemBackendSite will automatically pick that one
-    STRING url := "http://127.0.0.1/";
-    INSERT INTO system.webservers(id,type,baseurl,outputextension)
-           VALUES (webserverid, 1, url, '.html');
+    INSERT INTO system.webservers(id,type,baseurl,outputextension,port)
+           VALUES (webserverid, 1, initial_backend, '.html',unpacked.isdefaultport ? 0 : portid);
 
-    Print(`WEBHARE_CI: Configured a webinterface at ${url}\n`);
+    Print(`WEBHARE_CI: Configured a webinterface at ${initial_backend}\n`);
     OBJECT backendsite := CreateSiteFromFolder(whconstant_whfsid_webharebackend);
     backendsite->SetPrimaryOutput(webserverid, "/");
   }
