@@ -5,7 +5,7 @@ LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "wh::internal/any.whlib";
-
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/dialogs.whlib";
@@ -846,6 +846,16 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
   //
   // Action handlers
   //
+  STRING FUNCTION FormatUsername(INTEGER logged_entity, STRING calculated_username, STRING logged_username) {
+    IF(calculated_username = "" AND logged_username != "") //user deleted or outside schema
+      RETURN logged_username;
+    IF(calculated_username != "" AND (logged_username = "" OR logged_username = calculated_username)) //no new info in the logged_username
+      RETURN calculated_username;
+    IF(calculated_username = "")
+      RETURN logged_entity != 0 ? "#" || logged_entity : "";
+    //calculated_username and logged_username are both set and different
+    RETURN `${calculated_username} (${logged_username})`;
+  }
 
   RECORD ARRAY FUNCTION OnGetEvents()
   {
@@ -893,8 +903,8 @@ PUBLIC OBJECTTYPE AuditLog EXTEND TolliumScreenBase
                  , TEMPORARY failure_event := wrdaudit_type IN this->pvt_failure_types
                  , *
                  , status := success_event ? 1 : warning_event ? 2 : failure_event ? 3 : 0
-                 , user_account :=          byentity != entity ? `${wrdaudit_byaccount}${wrdaudit_byaccount != bylogin ? `(${bylogin})` : ""}` : ""
-                 , impersonator_account :=  impersonator_entity != byentity ? `${wrdaudit_impersonator_account}${wrdaudit_impersonator_account != impersonator_login ? `(${impersonator_login})` : ""}` : ""
+                 , user_account :=          byentity != entity ? this->FormatUsername(byentity, wrdaudit_byaccount, bylogin) : ""
+                 , impersonator_account :=  impersonator_entity != byentity ? this->FormatUsername(impersonator_entity, wrdaudit_impersonator_account, impersonator_login) : ""
               FROM evts;
 
     RETURN evts;
@@ -980,7 +990,7 @@ PUBLIC OBJECTTYPE AuditLogEvent EXTEND TolliumScreenBase
       mappedtype := `${mappedtype} (${data.event.type})`;
     ^type->value := mappedtype;
 
-    RECORD eventdata := data.event.data = "" ? DEFAULT RECORD : DecodeHSON(data.event.data);
+    RECORD eventdata := DecodeHSONorJSONRecord(data.event.data);
     ^data->value := this->GetFormattedJSON(eventdata, 0, 0);
     ^dataheading->visible := IsValueSet(eventdata);
     ^data->visible := IsValueSet(eventdata);
