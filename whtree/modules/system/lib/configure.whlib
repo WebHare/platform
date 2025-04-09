@@ -253,7 +253,7 @@ RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
     , force := FALSE
     , verbose := FALSE
     , source := ""
-    ], inoptions, [ required := [ "subsystems", "source"]]);
+    ], inoptions, [ required := [ "subsystems", "source"], optional := [ "modules" ]]);
 }
 
 /** Ensure changes to WebHare's configuration are applied */

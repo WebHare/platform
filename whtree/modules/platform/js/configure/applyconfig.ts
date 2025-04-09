@@ -105,7 +105,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       if (verbose)
         console.log(`Update generated files: ${[...togenerate].join(", ")}`);
 
-      await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: options.nodb, dryRun: false, showUnchanged: options.showUnchanged, generateContext });
+      await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: options.nodb, dryRun: false, modules: options.modules, showUnchanged: options.showUnchanged, generateContext });
     }
 
     if (todoList.includes('assetpacks')) {
