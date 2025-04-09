@@ -1,6 +1,5 @@
 wrdSchemas:
-  testschema:
-    autoCreate: false
+  testschema: #autocreated on dev, otherwise CI will be very noise as the testsites get indexed during startup
     schema: mod::system/data/wrdschemas/default.wrdschema.xml
     title: WebHare testsuite test schema
     ifWebHare:
