@@ -4,6 +4,7 @@ import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
+import { updateConsilioCatalogs } from './consilio';
 
 type SubsystemConfig = {
   generate?: readonly GeneratorType[];
@@ -47,6 +48,10 @@ const subsystems = {
     parts: {
       ts: { generate: ["wrd"] }
     }
+  },
+  consilio: {
+    title: "Consilio",
+    description: "Define catalogs in the database and schedule updating the index managers",
   },
   siteprofiles: { title: "Siteprofiles", description: "Recompile site profiles" },
   siteprofilerefs: { title: "Siteprofile references", description: "Regenerate site webfeature/webdesign associations" },
@@ -142,6 +147,10 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").__DoRecompileSiteprofiles(true, false, true);
     } else if (todoList.includes('siteprofilerefs')) {
       await loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib").UpdateSiteProfileRefs(null);
+    }
+
+    if (todoList.includes('consilio')) {
+      await updateConsilioCatalogs(generateContext, options);
     }
 
     logDebug("platform:configuration", { type: "done", at: Date.now() - start });
