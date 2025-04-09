@@ -122,7 +122,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
     }
 
     if (todoList.includes('wrd')) {
-      //Update WRD schemas (TODO limit ourselves based on module mask)
+      //Update WRD schemas
       if (options.verbose)
         console.log("Updating WRD schemas based on their schema definitions");
 
@@ -134,8 +134,6 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       await beginWork();
       await scheduleTimedTask("wrd:scanforissues");
       await commitWork();
-
-      await updateGeneratedFiles(["wrd"], { verbose, nodb: false, dryRun: false, generateContext });
     }
 
     if (todoList.includes('siteprofiles')) {
