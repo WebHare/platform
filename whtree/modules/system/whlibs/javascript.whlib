@@ -177,8 +177,9 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
   IF(Length(toks) = 2)
     name := toks[1];
 
+  RECORD hscontext := CELL [ auth := __auditcontext ];
   IF(IsWasm())
-    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args ]));
+    RETURN WaitForPromise(EM_Syscall("jsCall", CELL[ lib, name, args, hscontext ]));
 
   IF(NOT ObjectExists(calljseventmgr)) {
     calljseventmgr := NEW EventManager; //RegisterEventCallback won't do, that one waits for microtasks but CallJS avoids running those
@@ -194,5 +195,5 @@ PUBLIC VARIANT FUNCTION CallJS(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(V
   IF(NOT ObjectExists(calljsservice))
     calljsservice := __OpenSynchronousWebHareService("platform:calljs");
 
-  RETURN calljsservice->Invoke(lib,name,args);
+  RETURN calljsservice->Invoke(lib,name,args,hscontext);
 }

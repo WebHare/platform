@@ -1,7 +1,10 @@
 import { HSVMMarshallableOpaqueObject, type HSVMObjectWrapper } from "@webhare/harescript/src/wasm-proxies";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, toSnakeCase } from "@webhare/std";
 import { beginWork, isWorkOpen } from "@webhare/whdb";
 import * as test from "@webhare/test";
+import { createFirstPartyToken } from "@webhare/auth";
+import { getLastAuthAuditEvent } from "@mod-webhare_testsuite/js/wts-backend";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 
 const random = generateRandomId();
 
@@ -83,6 +86,11 @@ export async function getThrowingProperty(p: HSVMObjectWrapper): Promise<number>
 
 export async function setThrowingProperty(p: HSVMObjectWrapper) {
   await p.$set("p", 10);
+}
+
+export async function testTokenAudit(user: number) {
+  await createFirstPartyToken(wrdTestschemaSchema, "id", user);
+  return toSnakeCase(await getLastAuthAuditEvent(wrdTestschemaSchema));
 }
 
 export { isWorkOpen };

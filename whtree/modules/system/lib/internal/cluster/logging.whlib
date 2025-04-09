@@ -14,9 +14,6 @@ LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-
-RECORD __auditcontext;
-
 RECORD FUNCTION DecodeClassicAccessLogLine(STRING line)
 {
   STRING ARRAY parts := Tokenize(line, '"');

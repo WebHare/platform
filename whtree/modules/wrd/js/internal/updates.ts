@@ -601,7 +601,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
     // Lookup the type
     const typeRec = schemadata.typeTagMap.get(type.tag);
     if (!typeRec)
-      throw new Error(`No such type ${JSON.stringify(type.tag)}`);
+      throw new Error(`No such type ${JSON.stringify(type.tag)} in schema ${JSON.stringify(type.schema.tag)}`);
 
     const result = {
       entityId: entityId

@@ -5,12 +5,16 @@
 declare module "@webhare/test-backend" {
 }
 
-import { beginWork } from "@webhare/whdb";
+import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import { throwError } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
+import { unmapAuthEvent } from "@webhare/auth/src/audit";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -77,7 +81,6 @@ export async function reset(options?: ResetOptions) {
 
     if (wrdSchema) {
       await createSchema(wrdSchema, {
-        initialize: true,
         schemaDefinitionResource: options?.schemaDefinitionResource,
         userManagement: setupWrdAuth,
         description: "The webhare_testsuite WRD schema"
@@ -108,6 +111,14 @@ export async function reset(options?: ResetOptions) {
 /** Describe a created test user */
 export function getUser(name: string): TestUserDetails {
   return users[name] ?? throwError("User not found: " + name);
+}
+
+/** Get the last audit event generated in a WRD Schema */
+export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(w: WRDSchema<S>): Promise<AuthAuditEvent<Type>> {
+  const eventRecord = await db<PlatformDB>().
+    selectFrom("wrd.auditevents").selectAll().where("wrdschema", "=", await w.getId()).orderBy("creationdate desc").limit(1).executeTakeFirstOrThrow();
+
+  return unmapAuthEvent(eventRecord);
 }
 
 //By definition we re-export all of whtest and @webhare/test

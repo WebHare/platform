@@ -8,6 +8,8 @@ import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { importJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
+import { updateAuditContext } from "@webhare/auth";
+import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/context";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -134,9 +136,11 @@ export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: strin
   return loaded.call(name, args);
 }
 
-export async function jsCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
-  const func = await importJSFunction<(...args: unknown[]) => unknown>(`${lib}#${name}`);
-  return await func(...args);
+export async function jsCall(hsvm: HareScriptVM, calljs: { lib: string; name: string; args: unknown[]; hscontext: HarescriptJSCallContext }) {
+  const func = await importJSFunction<(...args: unknown[]) => unknown>(`${calljs.lib}#${calljs.name}`);
+  if (calljs.hscontext.auth)
+    updateAuditContext(toAuthAuditContext(calljs.hscontext.auth));
+  return await func(...calljs.args);
 }
 
 export function startSeparatePrimary() {
