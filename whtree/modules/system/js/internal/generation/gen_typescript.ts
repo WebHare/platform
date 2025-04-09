@@ -166,15 +166,17 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
 
 
 /** Update the symlinks for the rest of the TS/JS system */
-export async function updateTypeScriptInfrastructure({ verbose = false } = {}) {
+export async function updateTypeScriptInfrastructure({ verbose = false, showUnchanged = false } = {}) {
   if (verbose)
     console.time("Updating TypeScript infrastructure");
 
   async function updateFile(filePath: string, text: string) {
     try {
       const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
-      if (verbose)
-        console.log(`${skipped ? 'Kept' : 'Updated'} file ${filePath}`);
+      if (showUnchanged && skipped)
+        console.log(`Keeping file ${filePath}`);
+      if (verbose && !skipped)
+        console.log(`Updated file ${filePath}`);
     } catch (e) {
       console.error(`Error updating ${filePath}: ${(e as Error)?.message}`);
     }

@@ -8,6 +8,7 @@ import { CLISyntaxError } from '@webhare/cli/src/run';
 run({
   flags: {
     "v,verbose": { description: "Verbose mode" },
+    "show-unchanged": { description: "Show unchanged files" },
     "f,force": { description: "Force updates even if no changes detected" },
     "nodb": { description: "Do not access the database" },
     "offline": { description: "Do not block the apply backend service (dangerous if WebHare is running!)" },
@@ -29,6 +30,7 @@ run({
       force: opts.force,
       offline: opts.offline,
       nodb: opts.nodb,
+      showUnchanged: opts.showUnchanged,
       source: "wh apply"
     };
     if (opts.modules)
