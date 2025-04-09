@@ -27,8 +27,6 @@ export type AuthAuditContext = {
   impersonatedByLogin?: string;
 };
 
-Array satisfies object;
-
 export type AuthAuditEvent<Type extends keyof AuthEventData> = AuthAuditContext & {
   /** Entity affected by this event. Can be null for unknown accounts (eg. unknown login name) */
   entity: number | null;
