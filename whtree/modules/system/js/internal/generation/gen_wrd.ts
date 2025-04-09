@@ -7,7 +7,7 @@ import type { Document } from "@xmldom/xmldom";
 import { emplace } from "@webhare/std";
 import { elements, getAttr } from "./xmlhelpers";
 import { getGeneratedFilePath } from "./shared";
-import { parseSchema, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
+import { parseSchema, wrd_baseschemaresource, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
 import type { WRDSchemas } from "@mod-platform/generated/schema/moduledefinition";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
@@ -199,7 +199,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
     types: {}
   };
 
-  const schemadef = await parseSchema(schemaptr.schemaDefinitionResource, true, null);
+  const schemadef = await parseSchema(schemaptr.schemaDefinitionResource || wrd_baseschemaresource, true, null);
 
   for (const type of schemadef.types) {
     const typeinfo: ParsedWRDSchemaDef["types"][string] = {
