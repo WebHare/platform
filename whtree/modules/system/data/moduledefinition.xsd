@@ -2062,7 +2062,6 @@
         <xs:element name="contentprovider" type="ContentProvider" />
         <xs:element name="catalog" type="Catalog" />
         <xs:element name="obsoletecatalog" type="ObsoleteCatalog" />
-        <xs:element name="index" type="Index" />
         <xs:element name="fieldgroup" type="FieldGroup" />
         <xs:element name="addtowhfsindex">
           <xs:annotation>
@@ -2164,21 +2163,6 @@
         <xs:documentation>Callback returning the sourcelist for this catalog</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-  </xs:complexType>
-
-  <xs:complexType name="Index">
-    <xs:annotation>
-      <xs:documentation>
-        An OpenSearch index
-      </xs:documentation>
-    </xs:annotation>
-
-    <xs:sequence>
-      <xs:group ref="IndexField" minOccurs="0" maxOccurs="unbounded" />
-    </xs:sequence>
-
-    <xs:attribute name="tag" type="sc:Name" use="required" />
-    <xs:attribute name="priority" type="xs:integer" />
   </xs:complexType>
 
   <xs:complexType name="ObsoleteCatalog">

@@ -65,24 +65,6 @@ PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors, STRING ca
     INSERT catalog INTO wantcatalogs AT END;
   }
 
-  FOREVERY(RECORD indexnode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "index")) //support for <index> should be dropped ASAP
-  {
-    RECORD catalog := CELL[ tag := ToLowercase(`${indexnode.module}:${indexnode.node->GetAttribute("tag")}`)
-                          , priority := ParseXSInt(indexnode.node->Getattribute("priority"))
-                          , definedby := "<index> " || indexnode.resource || ":" || indexnode.node->linenum
-                          , sourcemodule := indexnode.module
-                          , contentsources := RECORD[]
-                          , managed := FALSE
-                          , suffixed := TRUE
-                          , fieldgroups := [ `<index>${indexnode.module}:${indexnode.node->GetAttribute("tag")}` ]
-                          , lang := ""
-                          ];
-    IF(catalog.tag NOT LIKE catalogmask)
-      CONTINUE;
-
-    INSERT catalog INTO wantcatalogs AT END;
-  }
-
   RECORD siteprofs := GetCachedSiteProfiles();
   FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
   {
