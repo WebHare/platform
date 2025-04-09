@@ -1,6 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin } from "@webhare/auth";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, throwError } from "@webhare/std";
@@ -18,6 +18,35 @@ let peopleClient: ClientConfig | undefined;
 let evilClient: ClientConfig | undefined;
 
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
+
+declare module "@webhare/auth" {
+  interface AuthEventData {
+    "webhare_testsuite:dataevent": { s: string };
+    "webhare_testsuite:nodataevent": null;
+    "webhare_testsuite:badevent": number;
+    "webhare_testsuite:badarrayevent": number[];
+  }
+}
+
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- we never execute this function
+async function __typeTests() {
+  //@ts-expect-error -- should fail, we require 'data'
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:dataevent" });
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:dataevent", data: { s: "x" } });
+
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:nodataevent" });
+  //@ts-expect-error -- should fail, we don't require data
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:nodataevent", data: { s: "x" } });
+
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badevent" });
+  //@ts-expect-error -- should fail, we're ignoring data as its not typed as an object
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badevent", data: { s: "x" } });
+
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent" });
+  //@ts-expect-error -- should fail, we're ignoring data as its not typed as a non-array object
+  await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent", data: { s: "x" } });
+}
 
 async function testAuthSettings() {
   test.throws(/Expected.*record/, () => AuthenticationSettings.fromHSON("hson:42"));

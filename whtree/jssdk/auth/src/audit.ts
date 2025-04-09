@@ -8,6 +8,7 @@ import { stringify } from "@webhare/std";
 import { log } from "@webhare/services";
 import type { AuthEventData } from "@webhare/auth";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
+import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
 export type AuthAuditContext = {
   /** Remote IP address */
@@ -26,6 +27,8 @@ export type AuthAuditContext = {
   impersonatedByLogin?: string;
 };
 
+Array satisfies object;
+
 export type AuthAuditEvent<Type extends keyof AuthEventData> = AuthAuditContext & {
   /** Entity affected by this event. Can be null for unknown accounts (eg. unknown login name) */
   entity: number | null;
@@ -33,15 +36,15 @@ export type AuthAuditEvent<Type extends keyof AuthEventData> = AuthAuditContext 
   entityLogin?: string;
   /** Event type */
   type: Type;
-  /** Additional data/message */
-  data?: unknown;
-} & (
-    AuthEventData[Type] extends null
-    ? unknown
-    : {
+} &
+  (
+    AuthEventData[Type] extends unknown[] ? unknown :
+    AuthEventData[Type] extends object
+    ? {
       /** Additional data/message */
       data: AuthEventData[Type];
     }
+    : unknown
   );
 
 async function describeActingEntity(user: number, requireAuthInfo: boolean) {
@@ -76,7 +79,7 @@ export async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Se
     actionBy: event.byentity || null,
     actionByLogin: event.bylogin || undefined,
     country: event.country || undefined,
-    data: JSON.parse(event.data) as AuthEventData[Type]
+    data: decodeHSONorJSONRecord(event.data, { typed: true }) as AuthEventData[Type]
   };
 }
 
@@ -121,7 +124,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     byentity: event.actionBy || null,
     bylogin: actionBy?.login || "",
     login: accountInfo?.login || "",
-    data: event?.data ? stringify(event.data, { typed: true }) : ""
+    data: "data" in event && event.data ? stringify(event.data, { typed: true }) : ""
   };
 
   const inserted = await db<PlatformDB>().insertInto("wrd.auditevents").values(toInsert).returning("id").execute();
@@ -141,6 +144,6 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     actionByLogin: toInsert.bylogin || undefined,
     entity: toInsert.entity || undefined,
     entityLogin: toInsert.login || undefined,
-    data: event?.data || undefined
+    data: "data" in event && event.data ? event?.data : undefined
   });
 }

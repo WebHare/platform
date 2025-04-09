@@ -2,6 +2,7 @@
 declare module "@webhare/hscompat" {
 }
 
+import { parseTyped } from "@webhare/std";
 import { decodeHSON, encodeHSON, setHareScriptType, HareScriptType } from "./hson";
 //Starting with WH5.6.1, you can load these from @webhare/std. TODO deprecate
 export { toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "@webhare/std/types";
@@ -12,7 +13,7 @@ export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
 export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "./richdocument";
 
 /** API to prepare for transitional period where we have both HSON and JSON records in the database. */
-export function decodeHSONorJSONRecord(input: string | null): object | null {
+export function decodeHSONorJSONRecord(input: string | null, { typed = false } = {}): object | null {
   if (!input)
     return null;
   if (input.startsWith("hson:")) {
@@ -22,6 +23,6 @@ export function decodeHSONorJSONRecord(input: string | null): object | null {
     return JSON.parse(JSON.stringify(hson)); //ensure flattening of Money etc values
   }
   if (input.startsWith("{"))
-    return JSON.parse(input);
+    return typed ? parseTyped(input) : JSON.parse(input);
   throw new Error(`Decoding input that was expected to be HSON or JSON, but is neither (starts with: '${input.substring(0, 10)})')`);
 }
