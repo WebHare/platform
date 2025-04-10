@@ -19,6 +19,8 @@ import { encodeHSON } from "@webhare/hscompat";
 import { loadlib } from "@webhare/harescript";
 import type { AttachedIndex, CatalogListEntry, CatalogSuffix } from "./types";
 import { isValidIndexSuffix } from "./support";
+import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
+import { getExpectedCatalogs } from "@mod-platform/js/configure/consilio";
 
 interface AttachedIndexWithAddress extends AttachedIndex {
   baseurl: string;
@@ -373,9 +375,9 @@ export interface CatalogOptions {
   /** Create a suffixed catalog */
   suffixed?: boolean;
   lang?: string;
-  definedby?: string;
-  fieldgroups?: string[];
-  loglevel?: number;
+  definedBy?: string;
+  fieldGroups?: string[];
+  logLevel?: number;
 }
 
 /** Create a new Consilio catalog.
@@ -384,6 +386,26 @@ export interface CatalogOptions {
     @returns Catalog object
 */
 export async function createCatalog<DocType extends object = object>(tag: string, options?: CatalogOptions): Promise<Catalog<DocType>> {
+  const context = await buildGeneratorContext(null, false);
+  const catalogconfig = getExpectedCatalogs(context).catalogs.find(catalog => catalog.tag === tag);
+  if (catalogconfig) {
+    if (options?.fieldGroups)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
+    if (options?.lang)
+      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its language`);
+
+    options = {
+      ...options,
+      fieldGroups: catalogconfig.fieldGroups,
+      lang: catalogconfig.lang,
+    };
+  }
+
+  await doCreateCatalog(tag, options);
+  return await openCatalog<DocType>(tag);
+}
+
+export async function doCreateCatalog(tag: string, options?: CatalogOptions): Promise<void> {
   if (!tag || !isValidModuleScopedName(tag))
     throw new Error(`Invalid catalog tag '${tag}'`);
 
@@ -395,17 +417,8 @@ export async function createCatalog<DocType extends object = object>(tag: string
   if (options?.suffixed && options?.managed)
     throw new Error("A managed index can't be set to suffixed");
 
-  /* FIXME look up moduledefined catalog info */
-  const catalogconfig = (await loadlib("mod::consilio/lib/internal/catalogdefparser.whlib").getRequiredCatalogs(true, "*")).find((catalog: { tag: string }) => catalog.tag === tag);
-  if (catalogconfig) {
-    if (options?.fieldgroups)
-      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its fieldgroups`);
-    if (options?.lang)
-      throw new Error(`Catalog ${tag} is configured in the moduledefinition, you cannot update its language`);
-  }
-
-  const lang = options?.lang || catalogconfig?.lang || "en";
-  const fieldgrousps = options?.fieldgroups || catalogconfig?.fieldgroups || [];
+  const lang = options?.lang || "en";
+  const fieldgrousps = options?.fieldGroups || [];
 
   // Prepare configuration
   const config = await loadlib("mod::consilio/lib/internal/opensearch/mapping.whlib").CalculateExpectedConfiguration(fieldgrousps, options?.managed || false, tag, [], lang);  //no contentsource ids yet
@@ -414,9 +427,9 @@ export async function createCatalog<DocType extends object = object>(tag: string
     id: indexid,
     name: tag,
     description: options?.comment || "",
-    loglevel: options?.loglevel || 0,
+    loglevel: options?.logLevel || 0,
     priority: options?.priority || 0,
-    definedby: options?.definedby || `createConsilioCatalog from ${getStackTrace()[1].filename}#${getStackTrace()[1].func}`,
+    definedby: options?.definedBy || `createConsilioCatalog from ${getStackTrace()[1].filename}#${getStackTrace()[1].func}`,
     type: options?.managed ? whconstant_consilio_catalogtype_managed : whconstant_consilio_catalogtype_unmanaged,
     suffix: options?.suffixed ? whconstant_consilio_default_suffix_mask : "",
     fieldgroups: await loadlib("mod::consilio/lib/catalogs.whlib").__BuildFieldgroups(fieldgrousps),
@@ -427,8 +440,6 @@ export async function createCatalog<DocType extends object = object>(tag: string
   const finishHandler = await loadlib("mod::consilio/lib/internal/finishhandler.whlib").GetConsilioFinishHandler();
   await finishHandler.ScheduleUpdate();
   broadcastOnCommit("consilio:indiceschanged");
-
-  return await openCatalog<DocType>(tag);
 }
 
 export type Catalog<DocType extends object = object> = CatalogObj<DocType & OpenSearchDocument>;

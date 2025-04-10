@@ -10,6 +10,7 @@ LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -167,6 +168,8 @@ MACRO EnsureIndexManagerUp(INTEGER id)
 
 MACRO UpdateModuleCatalogs(RECORD options)
 {
+  //Moddef-based catalog creation has been moved to TS
+  ApplyWebHareConfiguration([ subsystems := ["consilio"], source := "UpdateModuleCatalogs"]);
   indexmanagers := SELECT *, isup := FALSE FROM ListIndexManagers() ORDER BY isdefault DESC;
 
   OBJECT trans := GetPrimary();
@@ -181,16 +184,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
   {
     OBJECT catalog := OpenConsilioCatalog(want.tag);
     IF(NOT ObjectExists(catalog))
-    {
-      IF(want.managed)
-      {
-        IF(NOT havedefaultindexmanager)
-          CONTINUE; //we cannot create catalogs if the defaultindexmanager doesn't exist (yet))
-
-        EnsureIndexManagerUp(indexmanagers[0].id); //create will need the indexmanager
-      }
-      catalog := CreateConsilioCatalog(want.tag, CELL[ want.managed, want.suffixed ]);
-    }
+      CONTINUE; //ApplyWebHareConfiguration apparently failed?
 
     wantcatalogs[#want].catalog := catalog;
     IF(catalog->managed != want.managed)

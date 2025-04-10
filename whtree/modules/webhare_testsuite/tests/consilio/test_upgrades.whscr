@@ -30,38 +30,6 @@ MACRO TestNofieldUnmanagedCatalog()
   TestEq("strict", GetCell(mapping,indices[0].indexname).mappings.dynamic);
 }
 
-MACRO TestOldIndexSyntax()
-{
-  testfw->BeginWork();
-
-  //A catalog created using a legacy <index tag (we'll drop support soon!) should be an Unmanaged Suffixed catalog
-  OBJECT legacytoolslog := OpenConsilioCatalog("webhare_testsuite:toolslog");
-  TestEq(FALSE, legacytoolslog->managed);
-  TestEq(TRUE, legacytoolslog->suffixed, "Catalog is not initially suffixed - you may have to `wh consilio:updateindices` first");
-
-  FOREVERY(RECORD toremove FROM legacytoolslog->ListAttachedIndices())
-    legacytoolslog->DetachIndex(toremove.id);
-
-  legacytoolslog->AttachIndex(0);
-  legacytoolslog->ApplyConfiguration([ suffixes := ["sfx1"]]);
-  testfw->CommitWork();
-
-  RECORD indexinfo := legacytoolslog->ListAttachedIndices()[0];
-  RECORD mapping := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}-sfx1/_mapping`, DEFAULT RECORD).result;
-  TestEq("keyword", GetCell(mapping,indexinfo.indexname || "-sfx1").mappings.properties.minfin.properties.theme.type, "Verify that the fieldgroup got applied");
-
-  testfw->BeginWork();
-  legacytoolslog->UpdateCatalog([ suffixed := FALSE ]);
-  TestEq(FALSE, legacytoolslog->suffixed);
-  testfw->CommitWork();
-
-  TestEq(FALSE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
-
-  FixConsilioIndices([ catalogmask := "webhare_testsuite:*" ]);
-
-  TestEq(TRUE, OpenConsilioCatalog("webhare_testsuite:toolslog")->suffixed);
-}
-
 MACRO TestIndexConfiguration(BOOLEAN expect_proper, OBJECT catalog)
 {
   RECORD indexinfo := catalog->ListAttachedIndices()[0];
@@ -120,6 +88,5 @@ MACRO TestOpeningExternalIndex()
 
 RunTestframework(
     [ PTR TestNofieldUnmanagedCatalog
-    , PTR TestOldIndexSyntax
     , PTR TestOpeningExternalIndex
     ]);

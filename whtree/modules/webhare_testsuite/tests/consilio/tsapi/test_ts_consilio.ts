@@ -110,7 +110,7 @@ async function testSuffixes() {
   await beginWork();
   const cat = await createCatalog<TestSuffixedTestType>("consilio:testfw_testindex_suffixed",
     {
-      fieldgroups: ["webhare_testsuite:nosuchfieldyet"],
+      fieldGroups: ["webhare_testsuite:nosuchfieldyet"],
       managed: false,
       suffixed: true,
       priority: 9

@@ -569,8 +569,7 @@
     <addtowhfsindex priority="beforesites" privatefolder="addtowhfsindex/beforesites" />
     <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
 
-    <!-- legacy syntax -->
-    <index tag="toolslog">
+    <fieldgroup tag="toolslog_fields">
       <datetime name="@timestamp" />
       <record name="minfin">
         <keyword name="theme" />
@@ -578,7 +577,9 @@
         <keyword name="type" />
         <integer name="versionnr" />
       </record>
-    </index>
+    </fieldgroup>
+
+    <catalog tag="toolslog" fieldgroups="toolslog_fields" managed="false" suffixed="true" />
   </consilio>
 
   <hooking>
