@@ -48,9 +48,14 @@ PUBLIC INTEGER FUNCTION GetData_absttl(INTEGER id)
   RETURN GetAdhocCached([id:=id], PTR CalcData_absttl(id));
 }
 
-PUBLIC MACRO SetData(INTEGER id, INTEGER ttl)
+PUBLIC RECORD FUNCTION RetrieveSetData(INTEGER id)
 {
-  StoreAdhocCached([id:=id], [ ttl := ttl, value := id ]);
+  RETURN LookupAdhocCached(CELL[id]);
+}
+
+PUBLIC MACRO SetData(INTEGER id, INTEGER ttl, RECORD value)
+{
+  StoreAdhocCached(CELL[id], CELL [ ttl, value ]);
 }
 
 PUBLIC INTEGER FUNCTION GetDataWithEventInvalidation(INTEGER id)

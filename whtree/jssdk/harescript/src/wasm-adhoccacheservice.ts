@@ -83,6 +83,15 @@ class AdhocCacheData {
     return { value: rec.value };
   }
 
+  removeExpiry(libraryUri: string, hash: string, item: Item) {
+    if (!item.expires)
+      return;
+
+    const pos = recordLowerBound(this.expiries, { expires: item.expires, libraryUri, hash }, ["expires", "libraryUri", "hash"]);
+    if (pos.found)
+      this.expiries.splice(pos.position, 1);
+  }
+
   setCachedData(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown) {
     const newEntry: Item = {
       libraryModDate,
@@ -91,10 +100,13 @@ class AdhocCacheData {
       eventMasks,
       eventMaskRegExp: eventMasks.length === 0 ? null : regExpFromWildcards(eventMasks),
     };
+    //Get the library to add the item to
     const items = emplace(this.libraries, libraryUri, { insert: () => new LibraryData }).items;
+    //And add it by hash..
     const emplaced = emplace(items, hash, {
       insert: () => newEntry,
       update: (item) => {
+        this.removeExpiry(libraryUri, hash, item);
         if (item.libraryModDate <= libraryModDate)
           return newEntry;
         return item;
@@ -119,6 +131,7 @@ class AdhocCacheData {
     if (lib) {
       const item = lib.items.get(hash);
       if (item) {
+        this.removeExpiry(libraryUri, hash, item);
         lib.items.delete(hash);
         if (!lib.items.size)
           this.libraries.delete(libraryUri);
@@ -126,7 +139,7 @@ class AdhocCacheData {
     }
   }
 
-  gotExpiryTimeout() {
+  gotExpiryTimeout(): void {
     this.expireCB = undefined;
     this.runExpiry();
   }
@@ -147,7 +160,8 @@ class AdhocCacheData {
   private updateExpireCB() {
     if (this.expiries.length) {
       //Clamp timeout to 1 day as adhoc cache values without ttl have infinite expiry, but timeout must stay within 31bits
-      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.min(86400 * 1000, this.expiries[0].expires.getTime() - Date.now()));
+      //But also minimum of 1 sec, as the item might already have expired
+      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.max(1, Math.min(86400 * 1000, this.expiries[0].expires.getTime() - Date.now())));
       this.expireCB.unref();
     } else
       this.expireCB = undefined;
