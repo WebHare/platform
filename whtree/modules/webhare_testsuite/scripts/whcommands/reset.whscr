@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
 
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
@@ -28,6 +29,11 @@ LOADLIB "mod::system/lib/testframework.whlib";
 
 IF(GetPrimaryWebhareInterfaceURL() = "")
   TerminateScriptWithError(`Not initializing testsite until there's a primary interface URL (usually setup automatically by WEBHARE_CI=1)`);
+
+//wait for the assetpacks to be compiled as some of the pages we generate will immediately start generating errors otherwise (eg because they attempt a 'GetAssetPackBuildVersion' call)
+OBJECT assetpackservice := WaitForPromise(OpenWebHareService("platform:assetpacks", [ arguments := VARIANT["webhare_testsuite:reset"]]));
+WaitForPromise(assetpackservice->WaitForCompile("webhare_testsuite:basetest"));
+WaitForPromise(assetpackservice->WaitForCompile("webhare_testsuite:basetestjs"));
 
 OBJECT trans := OpenPrimary();
 
@@ -426,6 +432,8 @@ IF(ObjectExists(alttestsite))
 IF(IsDebugTagEnabled("startup"))
   Print("Publication of the test sites completed\n");
 
+/* We'll stop doing this so we can run reset asynchronously with the rest of bootup. Let's see who misses it and
+
 //clear state left by old check.ts
 UpdateCheckStatus("webhare_testsuite:checks", RECORD[]);
 IF(IsDebugTagEnabled("startup"))
@@ -437,3 +445,4 @@ IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started we
   IF(IsDebugTagEnabled("startup"))
     Print("Cleaned testframework state\n");
 }
+*/
