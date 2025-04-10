@@ -1,18 +1,20 @@
 import type { Money, stdTypeOf } from "@webhare/std";
 
 interface ColumnTypeDef {
-  validDataTypes: Array<ReturnType<typeof stdTypeOf>>;
+  validDataTypes?: Array<ReturnType<typeof stdTypeOf>>;
 }
 
-export const ColumnTypes = {
-  "string": { validDataTypes: ["string"] },
+type ValidColumnTypes = "string" | "number" | "date" | "boolean" | "money" | "time" | "dateTime";
+
+export const ColumnTypes: Record<ValidColumnTypes, ColumnTypeDef> = {
+  "string": {},
   "number": { validDataTypes: ["number"] },
   "date": { validDataTypes: ["Date", "null"] },
   "boolean": { validDataTypes: ["boolean"] },
   "money": { validDataTypes: ["Money"] },
   "time": { validDataTypes: ["number"] },
   "dateTime": { validDataTypes: ["Date", "null"] },
-} as const satisfies Record<string, ColumnTypeDef>;
+};
 
 export type SpreadsheetColumn = {
   name: string;
@@ -27,8 +29,18 @@ export type SpreadsheetColumn = {
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
 
-export type GenerateSpreadsheetOptions = {
+export type GenerateSpreadsheetOptions = ({
   rows: SpreadsheetRow[];
+  columns: SpreadsheetColumn[];
+} | {
+  rows: Array<Record<string, unknown>>;
+}) & {
+  title?: string;
+  timeZone?: string;
+};
+
+export type FixedSpreadsheetOptions = {
+  rows: Array<Record<string, unknown>>;
   columns: SpreadsheetColumn[];
   title?: string;
   timeZone?: string;
@@ -57,8 +69,24 @@ export function isValidSheetName(sheetname: string): boolean {
   return /^[^:/\\?\\*\\[\]\x00-\x1F]{1,31}$/.test(sheetname) && sheetname.toLowerCase() !== "history" && !/^[' ]|[ ']$/.test(sheetname);
 }
 
-export function validateRowsColumns(options: GenerateSpreadsheetOptions) {
-  if (options.columns.length === 0) {
+/** Check columns and row consistency. */
+export function validateAndFixRowsColumns(options: GenerateSpreadsheetOptions): FixedSpreadsheetOptions {
+  if (!("columns" in options)) {
+    //Infer them!
+    const cols: SpreadsheetColumn[] = [];
+    for (const row of options.rows)
+      for (const [key] of Object.entries(row)) { //TODO infer Date and number ?
+        let matchCol: SpreadsheetColumn | undefined = cols.find((col) => col.name === key);
+        if (!matchCol) {
+          matchCol = { name: key, title: key, type: "string" };
+          cols.push(matchCol);
+        }
+      }
+
+    return { ...options, columns: cols };
+  }
+
+  if (options.columns.length === 0) { //*if* you define a col[] array, we expect it to be there
     throw new Error("No columns defined");
   }
 
@@ -72,4 +100,6 @@ export function validateRowsColumns(options: GenerateSpreadsheetOptions) {
       throw new Error(`Column ${column.name} has an invalid type: ${column.type}`);
     }
   }
+
+  return options as FixedSpreadsheetOptions; //cast should be safe, we verified columns exists
 }

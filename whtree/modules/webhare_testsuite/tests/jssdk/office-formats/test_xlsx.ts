@@ -85,6 +85,14 @@ async function testSheetsApi() {
     test.assert(isValidSheetName("Sheet " + goodchar), `Sheetname 'Sheet ${goodchar}' should be valid`);
 }
 
+async function getRows(xlsx: File) {
+  const xlsxin = await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").OpenOOXMLSpreadSheetFile(await WebHareBlob.fromBlob(xlsx));
+  test.assert(xlsxin);
+
+  const xlssheet = await xlsxin.OpenSheet(0);
+  const outrows = await xlssheet.GetAllRows();
+  return outrows;
+}
 
 export async function testXLSXColumnFiles() {
   //@ts-expect-error - Column definition is also rejected by TS
@@ -106,11 +114,7 @@ export async function testXLSXColumnFiles() {
   const nodewithlinefeed = sheet1xml2.getElementsByTagName("c").filter(_ => _.getAttribute("r") === "A3")[0];
   test.eq("Tit&le 2\rnext line!", nodewithlinefeed.textContent);
 
-  const xlsxin = await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").OpenOOXMLSpreadSheetFile(await WebHareBlob.fromBlob(output2));
-  test.assert(xlsxin);
-
-  const xlssheet = await xlsxin.OpenSheet(0);
-  const outrows = await xlssheet.GetAllRows();
+  const outrows = await getRows(output2);
 
   test.eq(4, outrows.length);
   test.eq(columns.length, outrows[0].length);
@@ -147,6 +151,40 @@ export async function testXLSXColumnFiles() {
   test.eq(-10000000000, outrows[2][7]);
 
   //The rest of testXLSXColumnFiles was testing various parse modes (eg alltostring TRUE, floatmode 'money' not the generator )
+}
+
+async function testAutoXLSXColumnFiles() {
+  //Often we don't really care to exactly define an output format - eg an internal used one-off format. We can always go back and specify columns!
+  const doc = await generateXLSX({ rows: reftrestrows });
+  test.eq([
+    [
+      'title', 'bool',
+      'date', 'int',
+      'time', 'dt',
+      'mf', 'int64'
+    ],
+    [
+      'Ti<>tle 1',
+      'true',
+      'Thu Dec 08 2011 07:58:12 GMT+0100 (Central European Standard Time)',
+      '17',
+      '25092000',
+      'Thu Dec 08 2011 07:58:12 GMT+0100 (Central European Standard Time)',
+      '1.5',
+      '0'
+    ],
+    [
+      'Tit&le 2\nnext line!',
+      'false',
+      'Wed Nov 09 2011 00:06:06 GMT+0100 (Central European Standard Time)',
+      '666',
+      '666000',
+      'Wed Nov 09 2011 00:06:06 GMT+0100 (Central European Standard Time)',
+      '2.5',
+      '-10000000000'
+    ],
+    ['Third row', 'false', '', '0', '0', '', '0', '0']
+  ], await getRows(doc));
 }
 
 async function testXLSXMultipleSheets() {
@@ -194,5 +232,6 @@ async function testXLSXMultipleSheets() {
 test.runTests([
   testSheetsApi,
   testXLSXColumnFiles,
+  testAutoXLSXColumnFiles,
   testXLSXMultipleSheets
 ]);
