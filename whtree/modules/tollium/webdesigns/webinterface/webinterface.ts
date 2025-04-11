@@ -1,7 +1,7 @@
 import { frontendConfig } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
+import "@webhare/tollium-iframe-api/styling";
 import './css/webinterface.scss';
-import 'typeface-roboto';
 import './pages/harescripterror';
 import './pages/manual';
 

@@ -178,6 +178,12 @@ async function processMessage(msg: HostRuntimeMessage) {
       break;
     }
 
+    case "theme": {
+      // The host changed the theme, dispatch the 'theme-change' event to the Theme class
+      window.dispatchEvent(new CustomEvent("tollium-iframe-api:theme-change", { detail: { name: msg.name } }));
+      break;
+    }
+
     default: //verify we don't miss any new message types (msg is never if all cases are handled, then cast it back to HostRuntimeMessage)
       console.error(`Unsupported tollium_iframe type '${(msg satisfies never as HostRuntimeMessage).tollium_iframe}'`);
   }

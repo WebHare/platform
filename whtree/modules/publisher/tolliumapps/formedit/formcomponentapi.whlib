@@ -140,14 +140,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
     {
       CASE "IN", "HAS", "IS", "HASVALUE", "AGE<", "AGE>="
       {
-        STRING condition_field := condition.field;
-        STRING extra_field;
-        IF (condition_field LIKE "*$*")
-        {
-          condition_field := Tokenize(condition.field, "$")[0];
-          extra_field := Substring(condition.field, Length(condition_field));
-        }
-        RECORD match := SELECT * FROM sources WHERE rowkey = condition_field;
+        RECORD match := SELECT * FROM sources WHERE rowkey = condition.field;
         IF (NOT RecordExists(match))
           RETURN [ errortid := /*tid*/"publisher:tolliumapps.formedit.messages.conditionsourcenotfound" ];
       }

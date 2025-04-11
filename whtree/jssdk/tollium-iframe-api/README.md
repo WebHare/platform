@@ -73,6 +73,44 @@ postTolliumMessage({ msg: "This is a message" });
 
 ## Integrating with the Tollium environment
 
+### Tollium styling
+
+This package can be used in iframes loaded within Tollium's 'iframe' component to more seamlessly blend in within the Tollium
+interface. In the future, this package will be used to centralize all Tollium styling and skinning.
+
+Just import the styling package to activate some basic styling:
+
+```typescript
+import "@webhare/tollium-iframe-api/styling";
+```
+
+This module sets some default font, color and border styling on the html element (to show borders, set the `border-width` to
+`var(--tollium-border-width)`) and loads the Roboto font used by Tollium. It also exposes some CSS variables and TypeScript
+constants for usage in your iframe.
+
+```typescript
+import { theme } from "@webhare/tollium-iframe-api/styling";
+
+document.getElementById("mydiv").style.outline = `2px solid ${theme.colorAccent}`;
+```
+
+```css
+#mydiv
+{
+  outline: 2px solid var(--tollium-color-accent);
+}
+```
+
+The currenly active theme is added to the html element's class list as `tollium-theme-<name>`, which is used to automatically
+update the CSS variables when the theme changes. If you need to more explicitly handle theme changes, you can listen for the
+`change` event on the `theme` object:
+
+```typescript
+import { theme } from "@webhare/tollium-iframe-api/styling";
+
+theme.on("change", () => console.info("The theme is now", theme.name));
+```
+
 ### Context menus
 
 Define the menu to show in xml:

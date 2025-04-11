@@ -5,40 +5,37 @@
              xmlns:webhare_testsuite="http://www.webhare.net/xmlns/webhare_testsuite"
              xmlns:xyz="urn:xyz">
 
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest"
-            kind="virtualfile"
-            isacceptableindex="true">
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/exclusiveaccesstest" kind="virtualfile">
     <dynamicexecution webpageobjectname="pages/exclusiveaccesstest/exclusiveaccesstest.whlib#ExclusiveAccessTestPage" />
   </filetype>
 
   <!-- Test pages etc -->
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/formtest"
-            kind="virtualfile">
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/formtest" kind="virtualfile">
     <dynamicexecution webpageobjectname="pages/formtest/formtest.whlib#FormTestPage" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest"
-            kind="virtualfile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest" kind="virtualfile">
     <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/internal/testsite.whlib#TestRequireSysopPage" />
   </filetype>
+
   <!-- WRDAuth tests prebuilts -->
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest"
-            kind="virtualfile">
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest" kind="virtualfile">
     <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthtestPage" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static"
-            kind="virtualfile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-static" kind="virtualfile">
     <bodyrenderer objectname="pages/wrdauthtest/wrdauthtest.whlib#wrdauthStaticPage" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router"
-            kind="virtualfile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router" kind="virtualfile">
     <dynamicexecution routerfunction="pages/wrdauthtest/wrdauthtest.whlib#WRDauthRouter" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage"
-            kind="virtualfile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage" kind="virtualfile">
     <dynamicexecution webpageobjectname="pages/basetestpages.whlib#DynamicPage" />
   </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected"
-            kind="virtualfile">
+
+  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest_codeprotected" kind="virtualfile">
     <dynamicexecution webpageobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthTestRequireLoginPage" />
   </filetype>
 
@@ -90,11 +87,12 @@
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/contentlink" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/richdocumentfile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/webhare_testsuite/pagelist" />
-
     <formdefinitions path="pages/formtest/formtest.formdef.xml" />
+
     <!-- also load through a name to test that this name doesn't appear in the formid -->
     <formdefinitions name="webhare_testsuite:formdefs" path="pages/formtest/formtest.formdef.xml" />
     <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#twolevel" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />
@@ -117,20 +115,27 @@
   </apply>
 
   <apply>
-    <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
-
+    <testdata member="mode"
+              target="root"
+              typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+              value="blue" />
     <userdata key="webhare_testsuite:setting" value='{"dogName":"bluey"}' />
   </apply>
 
   <apply>
-    <testdata member="setting" value="red" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
-
+    <testdata member="setting"
+              target="root"
+              typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+              value="red" />
     <userdata key="webhare_testsuite:setting" value='{"sisterName":"bingo"}' />
   </apply>
 
   <apply>
     <and>
-      <testdata member="mode" value="blue" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
+      <testdata member="mode"
+                target="root"
+                typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings"
+                value="blue" />
       <testdata member="when" target="root" typedef="x-webhare-scopedtype:webhare_testsuite.base_test.site_settings" />
     </and>
     <userdata key="webhare_testsuite:setting" value='{"isDateSet":false}' />
@@ -414,15 +419,15 @@
     </members>
   </widgettype>
 
-  <tabsextension name="widgetblock" xmlns="http://www.webhare.net/xmlns/tollium/screens" implementation="none">
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="widgetblock" implementation="none">
     <newtab>
-      <p:browseforobjectarray cellname="widgets"
-                              sortable="true"
-                              orderable="true"
-                              acceptfolders="false"
+      <p:browseforobjectarray composition="contentdata"
+                              cellname="widgets"
                               acceptfiles="true"
+                              acceptfolders="false"
+                              orderable="true"
                               required="true"
-                              composition="contentdata"/>
+                              sortable="true" />
     </newtab>
   </tabsextension>
 
@@ -896,13 +901,13 @@
 
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="testeditor">
     <insert position="settings">
-      <text name="text1" title="Text #1" value="Added setting #1"/>
+      <text name="text1" title="Text #1" value="Added setting #1" />
     </insert>
     <insert position="settings" where="atend">
-      <text name="text2" title="Text #2" value="Added setting #2"/>
+      <text name="text2" title="Text #2" value="Added setting #2" />
     </insert>
     <insert position="settings">
-      <text name="text3" title="Text #3" value="Added setting #3"/>
+      <text name="text3" title="Text #3" value="Added setting #3" />
     </insert>
     <newtab gid="editors" tid=".betatest">
       <textedit composition="contentdata" cellname="stringtest" />
@@ -1019,8 +1024,7 @@
                match="initial"
                authmode="ipandaccess"
                authscript="lib/webhare-auth-staticlogin.whscr"
-               requirewhaccount="true">
-      </webrule>
+               requirewhaccount="true" />
       <webrule path="/testpages/wrdauthtest-router-protected/accessruleprotected"
                match="initial"
                authmode="ipandaccess"
