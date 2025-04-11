@@ -103,6 +103,7 @@
     <!-- also load through a name to test that this name doesn't appear in the formid -->
     <formdefinitions name="webhare_testsuite:formdefs" path="pages/formtest/formtest.formdef.xml" />
     <formdefinitions name="webhare_testsuite:global" path="pages/formtest/global.formdef.xml" />
+    <allowformquestion type="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#twolevel" />
     <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" />
     <allowwidgettype type="http://www.webhare.net/xmlns/webhare_testsuite/rtd/emptywidget" />
     <allowwidgettype type="http://www.webhare.net/xmlns/publisher/widgets/anchor" />

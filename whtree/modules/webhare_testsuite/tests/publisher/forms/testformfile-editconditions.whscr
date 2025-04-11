@@ -13,7 +13,7 @@ LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 
-OBJECT conditionalformfile, checkboxesfield, radiobuttonsfield, checkboxfield;
+OBJECT conditionalformfile, checkboxesfield, radiobuttonsfield, checkboxfield, twolevelfield;
 
 MACRO TestBuildConditionalForm()
 {
@@ -62,6 +62,10 @@ MACRO TestBuildConditionalForm()
   checkboxfield->SetAttribute("name", "checkbox");
   checkboxfield->SetAttribute("title", "Checkbox");
 
+  // Add a two-level field to test validating conditions depending on subfields
+  twolevelfield := formpage->AppendComponent("http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#twolevel");
+  twolevelfield->SetAttribute("title", "Two-level");
+
   // Add a text field, for which we'll edit the conditions
   OBJECT firstnamefield := formpage->AppendComponent("textedit");
   firstnamefield->SetAttribute("name", "firstname");
@@ -79,7 +83,7 @@ ASYNC MACRO TestEditConditions()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ conditionalformfile->whfspath ], target := DEFAULT RECORD ]));
 
   // Select and edit the textedit question
-  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[4];
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[5];
   TestEq("First name", TT("doceditor->questions")->selection.title);
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
 
@@ -182,20 +186,29 @@ ASYNC MACRO TestEditConditions()
   TestEq(TRUE, ObjectExists(TT("fragment3!deleteconditionbutton")));
   TestEq(checkboxfield->GetAttribute("guid"), TT("fragment3!field")->value);
   TestEq(TRUE, TT("fragment3!value_hasvalue")->value);
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+
+  // Add a subcondition for the two-level field
+  TTClick("fragment3!addconditionbutton");
+  TT("fragment4!field")->value := twolevelfield->GetAttribute("guid") || "$field1";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment4!editvaluein"));
+  TT("value")->value := SELECT AS STRING ARRAY rowkey FROM TT("value")->options WHERE value IN [ "abc" ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit value in
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit condition
 
   TestEq(
       [ matchtype := "OR"
       , conditions :=
           [ [ field := radiobuttonsfield->GetAttribute("guid"), matchtype := "IN", value := VARIANT[ "ropt1" ] ]
           , [ field := checkboxfield->GetAttribute("guid"), matchtype := "HASVALUE", value := TRUE ]
+          , [ field := twolevelfield->GetAttribute("guid") || "$field1", matchtype := "IN", value := VARIANT[ "abc" ] ]
           ]
       ], TT("requiredcondition")->value);
 
   // Save the textedit question
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK")); // edit component
 
   // Save and publish
+  // Regression: this would falsely mark the condition's two-level subfield as being deleted
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 
   // Select and delete the 'radiobuttons' question
@@ -213,7 +226,7 @@ ASYNC MACRO TestEditConditions()
   AWAIT ExpectScreenChange(-1, PTR GetCell(topscreen->buttonmap,"OK")->TolliumClick(), [ allowscreenchangeafter := TRUE ]);
 
   // Edit the textedit question
-  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[3];
+  TT("doceditor->questions")->selection := TT("doceditor->questions")->rows[4];
   TestEq("First name", TT("doceditor->questions")->selection.title);
   AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Edit"));
   // The required condition field should show a 'condition source deleted' message

@@ -5,15 +5,9 @@
  * Basic layout
  */
 
-/* line 56, http://webhare.moe.sf.b-lex.com/.tollium/ui/skins/default/skin.less */
-*
-{
-  border:0px solid #b3b3b3;
-}
-
 t-text a
 {
-  color: #333333;
+  color: var(--tollium-text-color);
 }
 
 /****************************************************************************************************************************
@@ -249,7 +243,7 @@ t-text a
  */
 t-text.heading
 {
-  color: #308fe2;
+  color: var(--tollium-heading-color);
   font-size: 13px;
   line-height: 120%;
   font-weight: 500;

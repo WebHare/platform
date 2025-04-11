@@ -2,10 +2,6 @@
 
 html
 {
-  font: 12px Roboto, Helvetica, Arial, sans-serif;
-  background-color: #ffffff;
-  color: #333333;
-  -webkit-font-smoothing: antialiased;
   width: 100%;
   min-height: 100vh;
 }
@@ -62,13 +58,6 @@ body
 .hserror__body
 {
   margin:10px 15px;
-}
-
-body
-{
-  -webkit-text-size-adjust: none;
-  -moz-text-size-adjust: none;
-  text-size-adjust: none;
 }
 
 /* Navigation */

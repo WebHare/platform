@@ -11,6 +11,7 @@ import ObjMenuItem from '../menuitem/menuitem';
 import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tollium-iframe-api/src/host-protocol';
 import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
 import { debugFlags } from '@webhare/env';
+import { theme } from "@webhare/tollium-iframe-api/styling";
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -108,6 +109,9 @@ export default class ObjIFrame extends ComponentBase {
         console.log(`[tollium-focus] Setting focus to iframe`);
       this.postTypedMessage({ tollium_iframe: "focus" });
     });
+
+    // If the theme changed, notify our iframe
+    theme.addEventListener("change", () => this.postTypedMessage({ tollium_iframe: "theme", name: theme.name }));
   }
 
   // ---------------------------------------------------------------------------
