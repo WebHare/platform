@@ -10,6 +10,7 @@ import * as compileutils from './compileutils';
 import type { CaptureLoadPlugin } from './compiletask';
 import { debugFlags } from '@webhare/env';
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 function addUnderscoreToFilename(url: string) {
   const parts = url.split('/');
@@ -76,7 +77,7 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
         if (e instanceof sass.Exception) {
           const splitstack = e.sassStack.split("\n")[0].match(/^(.*?) (\d+):(\d+)/);
           if (splitstack) {
-            errors.push({ text: e.message, location: { file: splitstack[1], line: parseInt(splitstack[2]), column: parseInt(splitstack[3]) } });
+            errors.push({ text: e.message, location: { file: resolve(splitstack[1]), line: parseInt(splitstack[2]), column: parseInt(splitstack[3]) } });
             return { errors };
           }
         }
