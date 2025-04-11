@@ -1,5 +1,4 @@
 #!/bin/bash
-
 source "${BASH_SOURCE%/*}/wh-functions.sh"
 
 get_postgres_binaries()   # params: targetvar version
@@ -87,17 +86,18 @@ init_webhare_pg_db()
   DATAROOTDIR="$1"
   PGBINDIR="$2"
 
-  echo DATAROOTDIR=$DATAROOTDIR
-
   mkdir "$DATAROOTDIR/"
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
     chown postgres "$PSROOT" "$DATAROOTDIR"
   fi
 
-  echo "Prepare PostgreSQL database in $DATAROOTDIR"
-  if ! $RUNAS "$PGBINDIR/initdb" -U postgres -D "$DATAROOTDIR" --auth-local=trust --encoding 'UTF-8' --locale='C' ; then
+  echo "Initializing new PostgreSQL database"
+  # Log postgres' output, we only show it when creation fails
+  LOGFILE="$(mktemp)"
+  if ! $RUNAS "$PGBINDIR/initdb" -U postgres -D "$DATAROOTDIR" --auth-local=trust --encoding 'UTF-8' --locale='C' >"$LOGFILE" 2>&1 ; then
     echo DB initdb failed
+    cat "$LOGFILE"
     exit 1
   fi
 
@@ -106,16 +106,20 @@ init_webhare_pg_db()
 
   # CREATE DATABASE cannot be combined with other commands
   # log in to 'postgres' database so we can create our own
-  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" postgres ; then
+  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" postgres  >"$LOGFILE" 2>&1 ; then
     echo DB create db failed
+    cat "$LOGFILE"
     exit 1
   fi
   DOCKERGRANTS=
   if [ -n "$WEBHARE_IN_DOCKER" ]; then
     DOCKERGRANTS="GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;"
   fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" "$WEBHARE_DBASENAME" ; then
+  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" "$WEBHARE_DBASENAME" >"$LOGFILE" 2>&1 ; then
     echo DB create user failed
+    cat "$LOGFILE"
     exit 1
   fi
+
+  return 0
 }
