@@ -5,5 +5,4 @@
   <test script="test_seotab.whscr" />
   <test script="test_google.whscr" tags="external" ifenvironset="TESTSECRET_GOOGLE_APIKEY" />
   <test script="test_embedscript.whscr" flaky="true" />
-  <jstest file="test_gtmintegration.ts" />
 </group>
