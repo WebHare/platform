@@ -1,6 +1,8 @@
-import type { Money } from "./money";
-import { isBlob, isDate, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "./quacks";
+import { Money } from "./money";
+import { isBlob, isDate, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime, stdTypeOf } from "./quacks";
 import type { Temporal } from "temporal-polyfill";
+
+export type ComparableType = number | null | bigint | string | Date | Money | boolean | Uint8Array;
 
 type CamelCase<S extends string> = S extends `${infer P1}_${infer P2}${infer P3}`
   ? `${Lowercase<P1>}${Uppercase<P2>}${CamelCase<P3>}`
@@ -75,4 +77,90 @@ export function toCamelCase<T>(inp: T): ToCamelCase<T> {
   if (inp && typeof inp === "object" && recodeObject(inp))
     return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToCamelCase(key), toCamelCase(value)])) as ToCamelCase<T>;
   return inp as ToCamelCase<T>;
+}
+
+// TODO make this a quack if we're sure Uint8array is what we want to support - this is here basically to give Buffer support to be compatible with hscompat' compare
+function isUInt8Array(value: unknown): value is Uint8Array {
+  return value !== null && typeof value === "object" && "length" in value && (value as Uint8Array).BYTES_PER_ELEMENT === 1;
+}
+
+/** Compare two values of std-supported types
+ * @param left - First value
+ * @param right - Second value
+ * @returns -1 if left \< right, 0 if equal, 1 if left \> right
+ */
+export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
+  if (left === null)
+    return right === null ? 0 : -1;
+  else if (right === null)
+    return 1;
+
+  switch (typeof left) {
+    case "boolean": {
+      if (typeof right === "boolean")
+        return left !== right ? left < right ? -1 : 1 : 0;
+    } break;
+    case "number": {
+      switch (typeof right) {
+        case "bigint": {
+          const right_number = Number(right);
+          return left !== right_number ? left < right_number ? -1 : 1 : 0;
+        }
+        case "number": {
+          return left !== right ? left < right ? -1 : 1 : 0;
+        }
+        case "object": {
+          if (Money.isMoney(right))
+            return Money.cmp(left.toString(), right);
+        }
+      }
+    } break;
+    case "bigint": {
+      switch (typeof right) {
+        case "bigint": {
+          return left !== right ? left < right ? -1 : 1 : 0;
+        }
+        case "number": {
+          const left_number = Number(left);
+          return left_number !== right ? left_number < right ? -1 : 1 : 0;
+        }
+        case "object": {
+          if (Money.isMoney(right)) {
+            return Money.cmp(left.toString(), right);
+          }
+        }
+      }
+    } break;
+    case "string": {
+      if (typeof right === "string")
+        return left === right ? 0 : left < right ? -1 : 1;
+    } break;
+    case "object": {
+      if (Money.isMoney(left)) {
+        switch (typeof right) {
+          case "number":
+          case "bigint":
+            return Money.cmp(left, right.toString());
+          case "object": {
+            if (right === null) {
+              return 1;
+            } else if (Money.isMoney(right))
+              return Money.cmp(left, right);
+          }
+        }
+      } else if (isDate(left) && isDate(right)) {
+        const left_value = Number(left);
+        const right_value = Number(right);
+        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+      } else if (isUInt8Array(left) && isUInt8Array(right)) {
+        const compareLength = Math.min(left.length, right.length);
+        for (let i = 0; i < compareLength; i++) {
+          if (left[i] !== right[i])
+            return left[i] < right[i] ? -1 : 1;
+        }
+        return left.length !== right.length ? left.length < right.length ? -1 : 1 : 0;
+      }
+    } break;
+  }
+  throw new Error(`Cannot compare a ${stdTypeOf(left)} with a ${stdTypeOf(right)}`);
 }

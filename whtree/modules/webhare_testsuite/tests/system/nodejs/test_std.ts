@@ -779,6 +779,79 @@ function testBigInt() {
   test.eq({ deep: 44n, deeper: [45n] }, std.parseTyped(std.stringify({ deep: 44n, deeper: [45n] }, { typed: true })));
 }
 
+function testCompare() {
+  test.eq(-1, std.compare(-1, 0));
+  test.eq(-1, std.compare(-1, BigInt(0)));
+  test.eq(-1, std.compare(-1, new Money("0")));
+  test.eq(-1, std.compare(BigInt(-1), 0));
+  test.eq(-1, std.compare(BigInt(-1), BigInt(0)));
+  test.eq(-1, std.compare(BigInt(-1), new Money("0")));
+  test.eq(-1, std.compare(new Money("-1"), 0));
+  test.eq(-1, std.compare(new Money("-1"), BigInt("0")));
+  test.eq(-1, std.compare(new Money("-1"), new Money("0")));
+  test.eq(-1, std.compare(null, -1));
+  test.eq(-1, std.compare(null, 0));
+  test.eq(-1, std.compare(null, 1));
+  test.eq(-1, std.compare(null, BigInt(-1)));
+  test.eq(-1, std.compare(null, BigInt(0)));
+  test.eq(-1, std.compare(null, BigInt(1)));
+  test.eq(-1, std.compare(null, new Money("-1")));
+  test.eq(-1, std.compare(null, new Money("0")));
+  test.eq(-1, std.compare(null, new Money("1")));
+  test.eq(-1, std.compare(null, new Date(-1)));
+  test.eq(-1, std.compare(null, new Date(0)));
+  test.eq(-1, std.compare(null, new Date(1)));
+  test.eq(-1, std.compare("a", "b"));
+  test.eq(-1, std.compare(new Date(1), new Date(2)));
+
+  test.eq(0, std.compare(0, 0));
+  test.eq(0, std.compare(0, BigInt(0)));
+  test.eq(0, std.compare(0, new Money("0")));
+  test.eq(0, std.compare(BigInt(0), 0));
+  test.eq(0, std.compare(BigInt(0), BigInt(0)));
+  test.eq(0, std.compare(BigInt(0), new Money("0")));
+  test.eq(0, std.compare(new Money("0"), 0));
+  test.eq(0, std.compare(new Money("0"), BigInt("0")));
+  test.eq(0, std.compare(new Money("0"), new Money("0")));
+  test.eq(0, std.compare(null, null));
+  test.eq(0, std.compare("a", "a"));
+  test.eq(0, std.compare(new Date(1), new Date(1)));
+
+  test.eq(1, std.compare(0, -1));
+  test.eq(1, std.compare(-1, null));
+  test.eq(1, std.compare(0, null));
+  test.eq(1, std.compare(1, null));
+  test.eq(1, std.compare(0, BigInt(-1)));
+  test.eq(1, std.compare(0, new Money("-1")));
+  test.eq(1, std.compare(BigInt(0), -1));
+  test.eq(1, std.compare(BigInt(-1), null));
+  test.eq(1, std.compare(BigInt(0), null));
+  test.eq(1, std.compare(BigInt(1), null));
+  test.eq(1, std.compare(BigInt(0), BigInt(-1)));
+  test.eq(1, std.compare(BigInt("0"), new Money("-1")));
+  test.eq(1, std.compare(new Money("0"), -1));
+  test.eq(1, std.compare(new Money("-1"), null));
+  test.eq(1, std.compare(new Money("0"), null));
+  test.eq(1, std.compare(new Money("1"), null));
+  test.eq(1, std.compare(new Money("0"), BigInt(-1)));
+  test.eq(1, std.compare(new Money("0"), new Money("-1")));
+  test.eq(1, std.compare("b", "a"));
+  test.eq(1, std.compare(new Date(2), new Date(1)));
+  test.eq(1, std.compare(new Date(-1), null));
+  test.eq(1, std.compare(new Date(0), null));
+  test.eq(1, std.compare(new Date(1), null));
+
+  test.eq(-1, std.compare(new Uint8Array([1, 2]), new Uint8Array([2, 1])));
+  test.eq(0, std.compare(new Uint8Array([1, 2]), new Uint8Array([1, 2])));
+  test.eq(1, std.compare(new Uint8Array([1, 2, 3]), new Uint8Array([1, 2])));
+
+  if (typeof Buffer !== "undefined") { //looks like nodejs
+    test.eq(-1, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x02\x01")));
+    test.eq(0, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x01\x02")));
+    test.eq(1, std.compare(Buffer.from("\x01\x02\x03"), Buffer.from("\x01\x02")));
+  }
+}
+
 function testCaseChanging() {
   test.eq("message_text", std.nameToSnakeCase("messageText"));
   test.eq("messageText", std.nameToCamelCase("message_text"));
@@ -836,6 +909,9 @@ test.runTests([
   testPromises,
   "BigInt",
   testBigInt,
+  "compare",
+  testCompare,
+  "testCaseChanging",
   testCaseChanging,
   ...(typeof window !== "undefined" ? [
     "UUID fallback",
