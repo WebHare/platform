@@ -1,4 +1,4 @@
-import { ColumnTypes, isValidSheetName, validateRowsColumns, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { encodeString, stdTypeOf, type Money } from "@webhare/std";
@@ -19,7 +19,7 @@ function getNameForColumn(col: number): string {
   return name;
 }
 
-function createHeaderRow(sheetSettings: GenerateSpreadsheetOptions) {
+function createHeaderRow(sheetSettings: FixedSpreadsheetOptions) {
   let result = '';
   result += `<row r="1">`;
   for (const [idx, col] of sheetSettings.columns.entries()) {
@@ -38,13 +38,13 @@ class WorksheetBuilder {
     let storevalue: string, type = '', style = 0;
     const typeinfo = ColumnTypes[col.type];
     const valType = stdTypeOf(value);
-    if (!(typeinfo.validDataTypes as string[]).includes(valType)) {
+    if (typeinfo.validDataTypes && !(typeinfo.validDataTypes as string[]).includes(valType)) {
       throw new Error(`Invalid type for column ${col.name}: ${valType} - expect: ${typeinfo.validDataTypes.join(", ")}`);
     }
 
     switch (col.type) {
       case "string":
-        storevalue = value as string;
+        storevalue = String(value);
         type = "inlineStr";
         break;
       case "date":
@@ -91,7 +91,7 @@ class WorksheetBuilder {
     return result;
   }
 
-  createRows(sheetSettings: GenerateSpreadsheetOptions) {
+  createRows(sheetSettings: FixedSpreadsheetOptions) {
     let currow = 1;
     const rows: string[] = [];
 
@@ -119,7 +119,7 @@ class WorksheetBuilder {
   }
 }
 
-function createSheet(sheetSettings: GenerateSpreadsheetOptions, tabSelected: boolean) {
+function createSheet(sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean) {
   const builder = new WorksheetBuilder;
   const rows = builder.createRows(sheetSettings);
   const dimensions = getNameForColumn(sheetSettings.columns.length) + rows.length;
@@ -138,9 +138,8 @@ function createSheet(sheetSettings: GenerateSpreadsheetOptions, tabSelected: boo
     @returns Blob blob containing the XLSX file
 */
 export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> {
-  const sheets = "sheets" in options ? options.sheets : [options];
-  for (const sheet of sheets)
-    validateRowsColumns({ timeZone: options.timeZone, ...sheet });
+  const inSheets = "sheets" in options ? options.sheets : [options];
+  const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
 
   //Create the worksheets
   const sheetnames: SheetInfo[] = [];

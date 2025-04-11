@@ -366,9 +366,9 @@ MACRO ReplaceTest()
 
     FOR (INTEGER i := 0; i < 10000; i := i + 1)
     {
-      SetData(1, 10 + i * 10);
-      SetData(2, 10 + i * 10);
-      SetData(3, 10 + i * 10);
+      SetData(1, 10 + i * 10, CELL [ val := 1, gen := i]);
+      SetData(2, 10 + i * 10, CELL [ val := 2, gen := i]);
+      SetData(3, 10 + i * 10, CELL [ val := 3, gen := i]);
     }
 
     // Test ok!
@@ -379,7 +379,11 @@ MACRO ReplaceTest()
     PRINT("Spurious failure #" || test + 1 || "/10 in replacetest, trying again\n");
   }
 
+  //wasm adhoccache had a bug where it didn't remove updated items from the expiry list. So the initial SetData(1,10).. call would have still set us up to expiry item 1
+  Sleep(20);
+  SetData(3, 1, CELL [ val := 3, gen := -1]); //set one of the items, also triggers cache expiry
   TestEQ(oldsize + 3, GetAdhocCacheStats().cachesize);
+  TestEq([ val := 1, gen := 9999], RetrieveSetData(1).value);
 }
 
 
