@@ -33,7 +33,6 @@
   </meta>
 
   <servicemanager>
-    <runonce script="tests/publisher/pwa/setuppwasite.whscr" tag="setuppwasite" when="poststart" ifenvironset="WEBHARE_CI" />
     <runonce script="scripts/runonce/typescript-runonce.ts" tag="typescript_runonce" when="poststart" />
 
     <task script="scripts/tasks/singleshottest.ts" tag="singleshottest" description="Test singleshot tasks">
