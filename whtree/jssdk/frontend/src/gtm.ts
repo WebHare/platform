@@ -129,3 +129,29 @@ export function setupFormAnalyticsForGTM(options?: { eventPrefix: string }): voi
     pushToDataLayer(entry);
   });
 }
+
+function processClickDataLayerTags(event: MouseEvent) {
+  const entry: Record<string, unknown> = {};
+
+  for (let node = event.target as HTMLElement | undefined | null; node; node = node?.parentElement)
+    for (const attr of node.attributes)
+      if (attr.nodeName.startsWith("data-wh-datalayer-onclick-")) {
+        const key = attr.nodeName.substring(26);
+        if (key !== "__proto__" && !(key in entry)) //as we're working upwards, don't overwrite already set keys
+          entry[key] = attr.nodeValue || "";
+      } else if (attr.nodeName === "data-wh-datalayer-onclick") { //JSON setter
+        const data = JSON.parse(attr.nodeValue!);
+        for (const [key, value] of Object.entries(data))
+          if (key !== "__proto__" && !(key in entry)) //as we're working upwards, don't overwrite already set keys
+            entry[key] = value;
+      }
+
+  if (Object.keys(entry).length)
+    pushToDataLayer(entry as DataLayerEntry);
+}
+
+/** Setup support for data-wh-datalayer-onclick-xxx="yyy" attributes. When clicking an element with these attributes the JSON from the attribute and all parents are merged together and pushed to the dataLayer  */
+export function setupDataLayerTags() {
+  //we capture so we can also simply set variables for any existing GTM handlers
+  window.addEventListener("click", processClickDataLayerTags, { capture: true });
+}

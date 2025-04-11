@@ -22,13 +22,38 @@ test.runTests(
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
-      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=none');
+      await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=none&setupdatalayertags=1');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
       checkForGTM({ selfhosted: 1 });
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val === "HiThere")[0].filename);
+
+      //Check GTM click handling
+      test.getDoc().body.innerHTML = `<div data-wh-datalayer-onclick-a-tag="a1" data-wh-datalayer-onclick-b="b1" data-wh-datalayer-onclick-fromroot="root">
+        <div data-wh-datalayer-onclick-b="b1.5">
+          <a href="#" data-wh-datalayer-onclick-b="b2" data-wh-datalayer-onclick-event="myclick" id="clickme" data-wh-datalayer-onclick-fromroot>link</a>
+        </div>
+        <div data-wh-datalayer-onclick-event="subClick">
+          <span data-wh-datalayer-onclick-MixedCase="MixedResults?" id="clickme2">item 2</span>
+          <span data-wh-datalayer-onclick='{"MixedCase":42}' id="clickme3">item 3</span>
+        </div>
+      </div>`;
+
+      test.click("#clickme");
+      //'fromroot' is cleared again
+      test.eqPartial([{ "a-tag": "a1", "b": "b2", "event": "myclick", fromroot: "" }], test.getWin().dataLayer.filter(e => e.event === "myclick"));
+
+      test.click("#clickme2");
+      test.click("#clickme3");
+
+      //a MixedCase attribute gets lowercased. if you need this (or non string types) we'll just let you use a data-wh-datalayer-onclick with JSON data
+      test.eqPartial([
+        { mixedcase: "MixedResults?" },
+        { MixedCase: 42 }
+      ], test.getWin().dataLayer.filter(e => e.event === "subClick"));
+
     },
 
     "Test assetpack mode",

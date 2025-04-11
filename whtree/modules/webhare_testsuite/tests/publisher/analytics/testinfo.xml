@@ -2,4 +2,5 @@
   <!-- test-geoip relies on system tests running before publissher tests. system.geoip will update the geoip database, as testsuite builds currently don't ship with one -->
   <jstest file="test-geoip.ts" />
   <jstest file="test-ga4.ts" />
+  <jstest file="test-gtmintegration.ts" />
 </group>
