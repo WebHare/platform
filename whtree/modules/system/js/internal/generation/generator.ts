@@ -22,7 +22,7 @@ import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_w
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { backendConfig, toFSPath } from "@webhare/services";
-import { getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
+import { appliesToModule, getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { readFile } from "fs/promises";
 import { join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -39,6 +39,7 @@ import { listAllServiceTS } from "./gen_services";
 import { listMiscTS, listPublicConfig } from "./gen_misc_ts";
 import { rm } from "node:fs/promises";
 import { parseDocAsXML } from "./xmlhelpers";
+import { pick } from "@webhare/std";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "config/";
@@ -111,9 +112,12 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
   };
 }
 
-async function generateFiles(files: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean }) {
+async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; modules?: string[] } = {}) {
+  const files = filelist.filter(file => appliesToModule(file.module, options.modules));
   const generated = files.map(file => file.generator(context).catch(e => {
-    console.error(`Error generating ${file.path}: ${e}`);
+    console.error(`Error generating ${file.path}: ${(e as Error)?.message}`);
+    if (options.verbose)
+      console.error(e.stack);
     return null;
   }));
 
@@ -145,10 +149,12 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
   //TODO remove? dryRun is unreachable now and not currently guaranteed by wh apply to work?
   dryRun?: boolean;
   verbose?: boolean;
+  showUnchanged?: boolean;
   nodb?: boolean;
   generateContext?: GenerateContext;
+  modules?: string[];
 } = {}) {
-  await updateTypeScriptInfrastructure({ verbose: options.verbose }); // Setup symlinks and helpers files
+  await updateTypeScriptInfrastructure(options); // Setup symlinks and helpers files
 
   if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
     return;
@@ -181,16 +187,15 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
     await generateFiles(togenerate, context, options);
 
   //Remove old files from subdirs that contain per-module files
+  const deleteOpts = { allowMissing: true, ...pick(options, ["dryRun", "verbose", "showUnchanged"]) };
   for (const subdir of ["schema", "db", "wrd", "openapi"] as const)
-    if (targets.includes(subdir)) {
-      for (const root of [installedBaseDir, builtinBaseDir])
-        await deleteRecursive(join(root, subdir), { allowMissing: true, keep: _ => keepfiles.has(_.fullPath), dryRun: options.dryRun, verbose: options.verbose });
-    }
+    for (const root of [installedBaseDir, builtinBaseDir])
+      await deleteRecursive(join(root, subdir), { keep: _ => keepfiles.has(_.fullPath), ...deleteOpts });
 
   //Delete pre-wh5.7 config locations. We'll do this every time for a while until we're sure noone is switching branches to pre-5.7
-  await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', { allowMissing: true });
-  await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', { allowMissing: true });
-  await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', { allowMissing: true });
+  await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', deleteOpts);
+  await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', deleteOpts);
+  await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', deleteOpts);
   await rm(backendConfig.dataroot + 'storage/system/js/publicconfig.json', { force: true });
   return;
 }

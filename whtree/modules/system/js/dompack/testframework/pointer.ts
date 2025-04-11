@@ -545,10 +545,10 @@ export function _resolveToSingleElement(element: ValidElementTarget): HTMLElemen
       }
     }
     if (elements.length === 0)
-      throw new Error("Selector '" + element + "'' evaluated to no elements");
+      throw new Error(`Selector '${element}' evaluated to no elements`);
     if (elements.length > 1) {
       console.log(elements);
-      throw new Error("Selector '" + element + "'' evaluated to multiple elements, make sure the selector only matches one!");
+      throw new Error(`Selector '${element}' evaluated to multiple elements, make sure the selector only matches one!`);
     }
     return elements[0];
   }

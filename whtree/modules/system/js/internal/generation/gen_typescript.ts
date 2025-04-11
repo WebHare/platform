@@ -166,15 +166,17 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
 
 
 /** Update the symlinks for the rest of the TS/JS system */
-export async function updateTypeScriptInfrastructure({ verbose = false } = {}) {
-  if (verbose)
+export async function updateTypeScriptInfrastructure(options?: { verbose?: boolean; showUnchanged?: boolean; modules?: string[] }) {
+  if (options?.verbose)
     console.time("Updating TypeScript infrastructure");
 
   async function updateFile(filePath: string, text: string) {
     try {
       const { skipped } = await storeDiskFile(filePath, text, { overwrite: true, onlyIfChanged: true });
-      if (verbose)
-        console.log(`${skipped ? 'Kept' : 'Updated'} file ${filePath}`);
+      if (options?.showUnchanged && skipped)
+        console.log(`Keeping file ${filePath}`);
+      if (options?.verbose && !skipped)
+        console.log(`Updated file ${filePath}`);
     } catch (e) {
       console.error(`Error updating ${filePath}: ${(e as Error)?.message}`);
     }
@@ -226,11 +228,11 @@ export default relaxedConfig;
     Note that 'wh checkmodule' currently also updates this for the checked module.*/
   const tsconfigText = formatTSConfig(tsconfig);
   for (const [module, config] of Object.entries(backendConfig.module)) {
-    if (!whconstant_builtinmodules.includes(module)) { //the builtin ones are handled by a central tsconfig.json
+    if (!whconstant_builtinmodules.includes(module) && (!options?.modules || options?.modules.includes(module))) { //the builtin ones are handled by a central tsconfig.json
       await updateFile(config.root + "tsconfig.json", tsconfigText);
     }
   }
 
-  if (verbose)
+  if (options?.verbose)
     console.timeEnd("Updating TypeScript infrastructure");
 }

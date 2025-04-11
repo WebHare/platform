@@ -124,8 +124,10 @@ interface DeleteRecursiveOptions {
   keep?: (file: ListDirectoryEntry) => boolean;
   /** If true, the basepath itself will be deleted if it is empty */
   deleteSelf?: boolean;
-  /** Log what would be deleted or kept */
+  /** Log what will be deleted */
   verbose?: boolean;
+  /** Log what will be kept */
+  showUnchanged?: boolean;
   /** Don't actually delete anything */
   dryRun?: boolean;
   /** Ignore missing directory entries */
@@ -139,8 +141,10 @@ async function deleteRecursiveDeeper(basepath: string, subpath: string, options?
   for (const item of direntries) {
     const isdir = item.type === "directory";
     const keepit = options?.keep?.(item) || (isdir && !await deleteRecursiveDeeper(basepath, join(subpath, item.name), options));
-    if (options?.verbose)
-      console.log(`${keepit ? "Keeping" : "Deleting"} ${isdir ? "directory" : "file"} ${item.fullPath}`);
+    if (!keepit && options?.verbose)
+      console.log(`Deleting ${isdir ? "directory" : "file"} ${item.fullPath}`);
+    if (keepit && options?.showUnchanged)
+      console.log(`Keeping ${isdir ? "directory" : "file"} ${item.fullPath}`);
     if (keepit) {
       allgone = false;
       continue;

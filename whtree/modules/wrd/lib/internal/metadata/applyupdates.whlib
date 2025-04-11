@@ -91,7 +91,7 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
       allsuccess := FALSE;
   }
   IF(NOT anymatch AND options.reportupdates)
-    PrintTo(2, `No schemas matched the specified masks\n`);
+    PrintTo(2, `No WRD schemas matched the mask ${Detokenize(options.schemamasks,',')}\n`);
 
   RETURN allsuccess;
 }
