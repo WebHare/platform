@@ -108,7 +108,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
 
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform', node => {
     node.setAttribute("data-wh-wrdauth-attached", "");
-    node.addEventListener("submit", evt => void submitLoginForm(node, evt));
+    dompack.addDocEventListener(node, "submit", evt => submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
     async function handleLogoutClick(event: Event) {
@@ -118,7 +118,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
       navigateTo({ type: "reload" }); //TODO put this behind a 'login state change' event
     }
 
-    node.addEventListener("click", event => void handleLogoutClick(event));
+    dompack.addDocEventListener(node, "click", event => handleLogoutClick(event));
   });
 
   dompack.onDomReady(() => {

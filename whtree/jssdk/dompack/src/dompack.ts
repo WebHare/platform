@@ -5,7 +5,7 @@ declare module "@webhare/dompack" {
 /* This is our public api */
 export { flagUIBusy, setupBusyModal } from './busy';
 export type { UIBusyLock, BusyModalEvent } from './busy';
-export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, stop, addDocEventListener, EventListenerSet } from '../../../modules/system/js/dompack/src/events';
+export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, stop, addDocEventListener } from '../../../modules/system/js/dompack/src/events';
 export type { DocEvent, DomEventOptions } from '../../../modules/system/js/dompack/src/events';
 export { qS, qR, qSA, isFormControl, isElement, isHTMLElement, getRelativeBounds } from './tree';
 export type { FormControlElement, Rect } from './tree';

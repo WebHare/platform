@@ -268,7 +268,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     addDocEventListener(this.node, "dompack:takefocus", evt => this._onTakeFocus(evt));
     addDocEventListener(this.node, "input", evt => this._onInputChange(), { capture: true });
     addDocEventListener(this.node, "change", evt => this._onInputChange(), { capture: true });
-    addDocEventListener(this.node, 'submit', evt => void this._submit(evt, null));
+    addDocEventListener(this.node, 'submit', evt => this._submit(evt, null));
     addDocEventListener(this.node, 'wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
     addDocEventListener(this.node, "wh:form-setfielderror", evt => this._doSetFieldError(evt));
     addDocEventListener(this.node, "mousedown", doDelayValidation);
