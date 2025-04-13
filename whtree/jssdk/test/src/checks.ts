@@ -465,7 +465,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
             throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`, annotation);
           }
           for (let i = 0; i < expect.length; ++i)
-            eqPropsRecurse(expect[i], actual[i], `${path} [${i}]`, ignore, annotation);
+            eqPropsRecurse(expect[i], actual[i], `${path}[${i}]`, ignore, annotation);
           return;
         } else {
           if (Array.isArray(actual)) {
