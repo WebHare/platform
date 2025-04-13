@@ -33,12 +33,17 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
 
     RECORD ARRAY bundles;
     IF(RecordExists(this->laststatus))
-      bundles := EnforceStructure([[ lastcompile := DEFAULT DATETIME ]], this->laststatus.bundles);
+      bundles := EnforceStructure([[
+          lastcompile := DEFAULT DATETIME,
+          haswarnings := FALSE
+           ]], this->laststatus.bundles);
 
     ^bundles->rows := SELECT TEMPORARY status := hasstatus
-                                                  ? haserrors
+                                                    ? haserrors
                                                         ? (iscompiling ? "COMPILING (was ERROR)" : requirecompile ? "DIRTY (was ERROR)" : "ERROR")
-                                                        : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
+                                                    : haswarnings
+                                                        ? (iscompiling ? "COMPILING (was WARNING)" : requirecompile ? "DIRTY (was WARNING)" : "WARNING")
+                                                    : iscompiling ? "COMPILING" : requirecompile ? "DIRTY" : "OK"
                                                   : ""
                            , rowkey := outputtag
                            , id

@@ -55,9 +55,9 @@ const runData = run({
       description: "Check if assetpacks are okay. List any errors. Omit or use '*' to check all",
       arguments: [{ name: "[assetpacks...]", description: "Asset packs to check" }],
       async main({ args: { assetpacks } }) {
-        for (const broken of (await getBundles(assetpacks)).filter(bundle => bundle.iscompiling || bundle.haserrors)) {
-          await printBundleMessages(broken.outputtag);
-          process.exitCode = 1;
+        for (const broken of (await getBundles(assetpacks)).filter(bundle => bundle.iscompiling || bundle.haserrors || bundle.haswarnings)) {
+          if (await printBundleMessages(broken.outputtag)) //errors?
+            process.exitCode = 1;
         }
       }
     },
@@ -161,7 +161,10 @@ function waitForEvent<Mask extends keyof BackendEvents>(eventmask: Mask): Promis
 }
 
 function getBundleStatusString(bundle: AssetPackMiniStatus) {
-  return bundle.hasstatus ? bundle.haserrors ? `${ansiCmd("bold", "red")}errors${ansiCmd("reset")}` : "ok" : "n/a";
+  return bundle.hasstatus ?
+    bundle.haserrors ? `${ansiCmd("bold", "red")}errors${ansiCmd("reset")}`
+      : bundle.haswarnings ? `${ansiCmd("bold", "yellow")}warnings${ansiCmd("reset")}`
+        : "ok" : "n/a";
 }
 
 async function getControlClient(): Promise<GetBackendServiceInterface<"platform:assetpacks">> {
@@ -208,12 +211,14 @@ async function printBundleMessages(tag: string) {
   if (!data)
     throw new Error(`No bundle with tag ${tag}`);
 
-  if (data.messages.find(msg => msg.type === "error")) {
+  const anyError = data.messages.find(msg => msg.type === "error");
+  if (anyError) {
     console.log(`Bundle ${tag} has the following errors:`);
   } else if (data.messages.length) {
     console.log(`Bundle ${tag} has the following messages:`);
   }
   logValidationMessagesToConsole(data.messages);
+  return anyError;
 }
 
 async function waitForCompilation(masks: string[], verbose: boolean): Promise<boolean> {

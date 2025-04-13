@@ -8,7 +8,8 @@ export type AssetPackMiniStatus = {
   hasstatus: boolean;
   iscompiling: boolean;
   requirecompile: boolean;
-  haserrors: boolean | undefined;
+  haserrors: boolean;
+  haswarnings: boolean;
   outputtag: string;
   lastcompile: Date | null;
   isdev: boolean;
