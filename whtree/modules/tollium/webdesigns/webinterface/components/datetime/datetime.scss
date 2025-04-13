@@ -1,6 +1,6 @@
-@import "~@mod-tollium/web/ui/css/settings.scss";
-@import "~@mod-publisher/js/forms/fields/datetime.scss";
-@import "~@mod-tollium/web/ui/skins/default/mixins.scss";
+@use "~@mod-tollium/web/ui/css/settings.scss" as *;
+@use "~@mod-publisher/js/forms/fields/datetime.scss" as *;
+@use "~@mod-tollium/web/ui/skins/default/mixins.scss" as *;
 
 ///////////////////////////////////
 //
@@ -9,13 +9,13 @@
 
 .tollium__datetime
 {
-  @include wh-datetime;
-
   height: $control-height;
   line-height: $control-height;
   border: 1px solid $default-border-color;
   border-radius: $default-border-radius;
   background: $control-background-color;
+
+  @include wh-datetime;
 
   &:focus-within
   {

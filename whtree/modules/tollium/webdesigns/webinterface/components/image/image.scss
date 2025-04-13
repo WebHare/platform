@@ -1,4 +1,4 @@
-@import "~@webhare/dompack-overlays/styles/mixins";
+@use "~@webhare/dompack-overlays/styles/mixins" as *;
 
 /****************************************************************************************************************************
  * Image
@@ -21,10 +21,10 @@
 /* FIXME: move part of styling to skin ! */
 .t-image__overlay
 {
-  @include dompack-overlays;
-
   box-shadow: 0 0 3px rgba(0,0,0,0.2);
   border:     2px solid rgba(255, 255, 255, 0.8);
+
+  @include dompack-overlays;
 
     &:focus
   , &:active
@@ -84,4 +84,3 @@
   text-overflow: ellipsis;
   overflow: hidden;
 }
-

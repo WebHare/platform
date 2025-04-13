@@ -1,7 +1,7 @@
-@import "screenshotmode.scss";
-@import "dashboard.scss";
-@import "~@mod-tollium/js/themes/indy/mixins.scss";
-@import "~dompack/components/pulldown/mixins.scss";
+@use "screenshotmode.scss" as *;
+@use "dashboard.scss" as *;
+@use "~@mod-tollium/js/themes/indy/mixins.scss" as *;
+@use "~dompack/components/pulldown/mixins.scss" as *;
 
 /****************************************************************************************************************************
  * General settings
@@ -962,6 +962,6 @@ t-custom[data-name='imageeditor'] .wh-toolbar .wh-toolbar-separator:before
  */
 .t-selectlist
 {
-  @include theme-indy-pulldown;
   @include dompack-pulldown(28);
+  @include theme-indy-pulldown;
 }

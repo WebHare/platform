@@ -1,5 +1,5 @@
-@import "~@mod-tollium/web/ui/css/settings.scss";
-@import "~@mod-tollium/web/ui/skins/default/mixins.scss";
+@use "~@mod-tollium/web/ui/css/settings.scss" as *;
+@use "~@mod-tollium/web/ui/skins/default/mixins.scss" as *;
 
 textarea
 {
