@@ -32,7 +32,8 @@ export class CLIRuntimeError extends CLIError {
 export interface CLIArgumentType<ValueType> {
   /** Parses a user-provided value. Throws CLISyntaxError. Required to allow typeinference to work. */
   parseValue(arg: string, options: { argName: string; command?: string }): ValueType;
-  autoComplete?(arg: string, options: { argName: string; command?: string }): string[];
+  /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored */
+  autoComplete?(startsWith: string, options: { argName: string; command?: string }): string[];
   description?: string;
 }
 
@@ -279,6 +280,14 @@ function registerOptsAndFlags(optMap: OptMap, parsedOpts: Record<string, unknown
       }
     }
   }
+}
+
+/* Fix the suffix character for an autocomplete - we ask getAutoComplete to make them end in '*' but the autocomplete protocol needs '\\n' for final answers */
+function fixAutcompleteSuffix(ac: string) {
+  if (ac.endsWith('*'))
+    return ac.substring(0, ac.length - 1);
+  else
+    return ac + '\n';
 }
 
 export function parse<
@@ -694,6 +703,9 @@ export function enumOption<const T extends string>(allowedValues: T[]): CLIArgum
       }
       return arg as T;
     },
+    autoComplete() {
+      return allowedValues;
+    },
     description: `one of ${allowedValues.map(s => JSON.stringify(s)).join(", ")}`,
   };
 }
@@ -737,7 +749,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
             // autocompleting the argument of this option
             if (optionRef.rec.type?.autoComplete) {
               const completes = optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
-              return completes.filter(c => c.startsWith(argv[i]));
+              return completes.filter(c => c.startsWith(argv[i])).map(fixAutcompleteSuffix);
             }
             return [];
           }
@@ -749,7 +761,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
               return [];
 
             const completes = optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
-            return completes.map(c => `--${key}=${c}`).filter(c => c.startsWith(arg));
+            return completes.map(c => `--${key}=${c}`).filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
           }
 
           // autocomplete the option
@@ -836,7 +848,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
       if (isLast) {
         if (curArg.type?.autoComplete) {
           const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0] });
-          return completes.filter(c => c.startsWith(arg));
+          return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
         }
         return [];
       }
@@ -847,7 +859,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
     if (isLast) {
       if (curArg.type?.autoComplete) {
         const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0] });
-        return completes.filter(c => c.startsWith(arg));
+        return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
       }
       return [];
     }

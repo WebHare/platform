@@ -6,7 +6,7 @@ import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/mess
 import { openBackendService, subscribe, writeRegistryKey, type BackendEvents, type GetBackendServiceInterface } from '@webhare/services';
 import { regExpFromWildcards, sleep } from '@webhare/std';
 import { runInWork } from '@webhare/whdb';
-import { ansiCmd, run } from '@webhare/cli';
+import { ansiCmd, enumOption, run } from '@webhare/cli';
 import { getExtractedConfig } from '@mod-system/js/internal/configuration';
 import { readBundleSettings } from '@mod-platform/js/assetpacks/support';
 import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/compiletask';
@@ -122,7 +122,7 @@ const runData = run({
     },
     autocompile: {
       description: "Configure autocompilation of production packages",
-      arguments: [{ name: "[state]", description: "on/off" }],
+      arguments: [{ name: "[state]", description: "on/off", type: enumOption(["on", "off"]) }],
       async main({ args: { state } }) {
         if (!state) {
           const config = await loadAssetPacksConfig();

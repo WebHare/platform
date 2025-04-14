@@ -443,9 +443,16 @@ async function testCLIAutoCompletion() {
         description: "Output file",
         type: {
           parseValue: (arg: string) => arg,
-          autoComplete: (arg: string) => ["file1.txt\n", "file2.txt\n"],
+          autoComplete: (arg: string) => ["file1.txt", "file2.txt"],
         },
       },
+      "1by1": {
+        description: "Parameter revealing one-by-one",
+        type: {
+          parseValue: (arg: string) => arg,
+          autoComplete: (arg: string) => ["123456789".substring(0, arg.length + 1) + "*"],
+        },
+      }
     },
     subCommands: {
       "convert": {
@@ -453,10 +460,7 @@ async function testCLIAutoCompletion() {
         options: {
           "format,f": {
             description: "Output format",
-            type: {
-              parseValue: (arg: string) => arg,
-              autoComplete: (arg: string) => ["json\n", "xml\n"],
-            },
+            type: enumOption(["json", "xml"]),
           },
         },
         arguments: [
@@ -465,7 +469,7 @@ async function testCLIAutoCompletion() {
             description: "Source file",
             type: {
               parseValue: (arg: string) => arg,
-              autoComplete: (arg: string) => ["source1.txt\n", "source2.txt\n"],
+              autoComplete: (arg: string) => ["source1.txt", "source2.txt"],
             },
           },
           {
@@ -473,7 +477,7 @@ async function testCLIAutoCompletion() {
             description: "Destination file",
             type: {
               parseValue: (arg: string) => arg,
-              autoComplete: (arg: string) => ["dest1.txt\n", "dest2.txt\n"],
+              autoComplete: (arg: string) => ["dest1.txt", "dest2.txt"],
             },
           },
         ],
@@ -482,12 +486,16 @@ async function testCLIAutoCompletion() {
   } as const satisfies ParseData;
 
   // Autocomplete options
-  test.eq(["--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"]));
+  test.eq(["--1by1\n", "--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"]));
   test.eq(["--output\n"], runAutoComplete(mockData, ["--o"]));
   test.eq(["-o\n"], runAutoComplete(mockData, ["-o"]));
   test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output="]));
   test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=f"]));
   test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"]));
+
+  // Autocomplete partial options
+  test.eq(["--1by1=1234"], runAutoComplete(mockData, ["--1by1=123"]));
+  test.eq(["--1by1=12345"], runAutoComplete(mockData, ["--1by1=1234"]));
 
   // Autocomplete subcommands
   test.eq(["convert\n"], runAutoComplete(mockData, [""]));
@@ -495,8 +503,8 @@ async function testCLIAutoCompletion() {
   test.eq(["convert\n"], runAutoComplete(mockData, ["convert"]));
 
   // Autocomplete subcommand options
-  test.eq(["--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["convert", "-"]));
-  test.eq(["--format\n", "--output\n", "--verbose\n"], runAutoComplete(mockData, ["convert", "--"]));
+  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["convert", "-"]));
+  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n"], runAutoComplete(mockData, ["convert", "--"]));
   test.eq(["--format\n"], runAutoComplete(mockData, ["convert", "--f"]));
   test.eq(["-f\n"], runAutoComplete(mockData, ["convert", "-f"]));
   test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));

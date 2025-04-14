@@ -180,6 +180,25 @@ The following types have been predefined:
 - enumOption: Accepts a specific set of strings
 
 ### Autocompletion
+To enable autocompletion for an option you can need to define a custom type
+with parseValue and autoComplete eg:
+
+```typescript
+const assetPackOption = {
+  parseValue: (arg: string) => arg,
+  autoComplete: (mask: string) => {
+    //first complete to module name, then to the full name
+    const allpacks = getExtractedConfig("assetpacks").map(assetpack => assetpack.name);
+    return mask.includes(':') ? allpacks : [...new Set(allpacks.map(name => name.split(':')[0] + ':*'))];
+  }
+};
+
+...
+  arguments: [{ name: "[assetpack]", description: "Asset packs to list", type: assetPackOption }],
+```
+
+Autocomplete results should end in a wildcard (`*`) if the argument is not yet complete (eg a partial filename)
+
 The API for bash autocompletion support is still under development, and should
 be considered experimental (and subject to change in the future).
 
