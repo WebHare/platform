@@ -1,6 +1,7 @@
 import { addBestMatch } from "@webhare/js-api-tools/src/levenshtein";
 import { BackendServiceConnection, registerAsDynamicLoadingLibrary, toFSPath } from "@webhare/services";
 import { isPromise } from "@webhare/std";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 const libmap = new Map<string, Record<string, unknown>>;
 
@@ -67,9 +68,12 @@ export async function awaitPromise(promise: number) {
 /* The helper service gives us access to */
 class InvokeService extends BackendServiceConnection {
   async invoke(lib: string, name: string, args: unknown[]) {
-    if (lib)
-      await load(lib);
-    return await callExportNowrap(lib, name, args);
+    await using context = new CodeContext("CallJSService", { lib, name });
+    return await context.run(async () => {
+      if (lib)
+        await load(lib);
+      return await callExportNowrap(lib, name, args);
+    });
   }
 }
 
