@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+  <test script="test_randomaccessstream.ts" />
+  <test script="test_utils.ts" />
+  <test script="test_zip.ts" />
+  <test script="test_streamtools.ts" />
+</group>
