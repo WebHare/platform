@@ -696,6 +696,107 @@ async function testCollections() {
   test.eq(99999, hugeArray.at(-1));
 }
 
+async function testSortedSetMap() {
+  // List (sorted on 'a', then 'b')
+  const multimap1 = new std.SortedMultiMap(std.compareProperties(["a", "b"]), std.shuffle([
+    [{ a: 1, b: 10 }, ["value 1"]],
+    [{ a: 3, b: 1 }, ["second value"]],
+    [{ a: 3, b: 1 }, ["second value, again"]],
+    [{ a: 3, b: 3 }, ["value 3"]],
+    [{ a: 5, b: 7 }, ["last value"]]
+  ]));
+
+  const multiset1 = new std.SortedMultiSet(std.compareProperties(["a", "b"]), std.shuffle([
+    { a: 1, b: 10 },
+    { a: 3, b: 1 },
+    { a: 3, b: 1 },
+    { a: 3, b: 3 },
+    { a: 5, b: 7 }
+  ]));
+
+
+  // console.log(multimap1.lowerBound({ a: 1 }));
+  // console.log(multimap1.upperBound({ a: 1 }));
+  // console.log(multimap1.lowerBound({ a: 3 }));
+  // console.log(multimap1.upperBound({ a: 3 }));
+
+  // throw 1;
+
+  test.eq(5, multimap1.size);
+  test.eq(5, multiset1.size);
+
+  test.eq([{ a: 1, b: 10 }, ["value 1"]], multimap1.at(0));
+  test.eq({ a: 1, b: 10 }, multiset1.at(0));
+
+  test.eq([{ a: 5, b: 7 }, ["last value"]], multimap1.at(-1));
+  test.eq({ a: 5, b: 7 }, multiset1.at(-1));
+
+  test.eq({ present: true, index: 1 }, multimap1.lowerBound({ a: 3, b: 1 }));
+  test.eq({ present: true, index: 1 }, multiset1.lowerBound({ a: 3, b: 1 }));
+
+  test.eq({ present: false, index: 5 }, multimap1.lowerBound({ a: 5, b: 8 }));
+  test.eq({ present: false, index: 5 }, multiset1.lowerBound({ a: 5, b: 8 }));
+
+  test.eq({ present: false, index: 0 }, multimap1.lowerBound({ a: 1, b: 8 }));
+  test.eq({ present: false, index: 0 }, multiset1.lowerBound({ a: 1, b: 8 }));
+
+  // @ts-expect-error -- Used key that doesn't exist in list.
+  test.throws(/Property 'b' does not exist/, () => multimap1.lowerBound({ a: 1 }));
+  // @ts-expect-error -- Used key that doesn't exist in set.
+  test.throws(/Property 'b' does not exist/, () => multiset1.lowerBound({ a: 1 }));
+
+  // @ts-expect-error -- but not when searchrecord is known and key doesn't exist there.
+  test.throws(/Property 'b' does not exist/, () => multimap1.lowerBound({ a: 3 }));
+  // @ts-expect-error -- but not when searchrecord is known and key doesn't exist there.
+  test.throws(/Property 'b' does not exist/, () => multiset1.lowerBound({ a: 3 }));
+
+  test.eq(1, multimap1.upperBound({ a: 1, b: 10 }));
+  test.eq(1, multiset1.upperBound({ a: 1, b: 10 }));
+
+  test.eq(3, multimap1.upperBound({ a: 3, b: 1 }));
+  test.eq(3, multiset1.upperBound({ a: 3, b: 1 }));
+
+  test.eq(5, multimap1.upperBound({ a: 5, b: 8 }));
+  test.eq(5, multiset1.upperBound({ a: 5, b: 8 }));
+
+  test.eq(0, multimap1.upperBound({ a: 1, b: 8 }));
+  test.eq(0, multiset1.upperBound({ a: 1, b: 8 }));
+
+  test.eq(multimap1.slice(0, 1), multimap1.sliceRange({ a: 1, b: 10 }));
+  test.eq(multiset1.slice(0, 1), multiset1.sliceRange({ a: 1, b: 10 }));
+  test.eq(multimap1.slice(1, 3), multimap1.sliceRange({ a: 3, b: 1 }));
+  test.eq(multiset1.slice(1, 3), multiset1.sliceRange({ a: 3, b: 1 }));
+
+  test.eq([], multimap1.sliceRange({ a: 5, b: 8 }));
+  test.eq([], multiset1.sliceRange({ a: 5, b: 8 }));
+  test.eq([], multimap1.sliceRange({ a: 1, b: 8 }));
+  test.eq([], multiset1.sliceRange({ a: 1, b: 8 }));
+
+  test.eq(multimap1.slice(0, 1), [...multimap1.rangeIterator({ a: 1, b: 10 })]);
+  test.eq(multiset1.slice(0, 1), [...multiset1.rangeIterator({ a: 1, b: 10 })]);
+  test.eq(multimap1.slice(1, 3), [...multimap1.rangeIterator({ a: 3, b: 1 })]);
+  test.eq(multiset1.slice(1, 3), [...multiset1.rangeIterator({ a: 3, b: 1 })]);
+  test.eq([], [...multimap1.rangeIterator({ a: 5, b: 8 })]);
+  test.eq([], [...multiset1.rangeIterator({ a: 5, b: 8 })]);
+  test.eq([], [...multimap1.rangeIterator({ a: 1, b: 8 })]);
+  test.eq([], [...multiset1.rangeIterator({ a: 1, b: 8 })]);
+
+  const multimap2 = new std.SortedMultiMap(std.compare, std.shuffle([[1, "One"], [2, "Two"], [3, "Three"], [4, "Four"], [5, "Five"], [6, "Six"], [7, "Seven"]]));
+  const multiset2 = new std.SortedMultiSet(std.compare, std.shuffle([1, 2, 3, 4, 5, 6, 7]));
+
+  multimap2.delete(3);
+  multiset2.delete(3);
+  test.eq(4, multimap2.add(5, "Another five"));
+  test.eq(4, multiset2.add(5));
+
+  test.eq([[1, "One"], [2, "Two"], [4, "Four"], [5, "Five"], [5, "Another five"], [6, "Six"], [7, "Seven"]], multimap2.slice(0, Infinity));
+  test.eq([1, 2, 4, 5, 5, 6, 7], multiset2.slice(0, Infinity));
+
+  multimap2.clear();
+  test.eq(0, multimap2.size);
+  multiset2.clear();
+  test.eq(0, multiset2.size);
+}
 
 class TestClass {
   counter = 0;
@@ -924,14 +1025,15 @@ test.runTests([
   testLevenstein,
   testEmails,
   testUrls,
+  "compare",
+  testCompare,
   "Collections",
   testCollections,
+  testSortedSetMap,
   "Promises",
   testPromises,
   "BigInt",
   testBigInt,
-  "compare",
-  testCompare,
   "testCaseChanging",
   testCaseChanging,
   ...(typeof window !== "undefined" ? [
