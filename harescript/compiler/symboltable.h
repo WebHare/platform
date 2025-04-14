@@ -258,6 +258,9 @@ struct ObjectDef : public Scope
 
         ObjectTypeFlags::Type flags;
 
+        /// WASM type
+        std::string wasmtype;
+
         //Constructor
         Symbol *constructor;
         bool constructor_is_generated;

@@ -86,7 +86,7 @@ const basicEscapeCodes = {
 } as const;
 
 
-type AnsiCommand = keyof typeof basicEscapeCodes | {
+export type AnsiCommand = keyof typeof basicEscapeCodes | {
   /** Set cursor position */
   pos: {
     /** X-coordinate, 0-based, 0 is leftmost side */

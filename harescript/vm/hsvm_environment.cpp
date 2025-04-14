@@ -809,6 +809,7 @@ void Environment::ResolveVtables(Library &library)
                 objdef.constructor = &library.linkedlibrary.functiondefs[it->constructor];
                 objdef.def = &*it;
                 objdef.name = linkinfo.GetNameStr(it->name_index);
+                objdef.wasmtype = linkinfo.GetNameStr(it->wasmtype_name_index);
 
                 for (std::vector< uint32_t >::const_iterator it2 = it->uid_indices.begin(), end = it->uid_indices.end(); it2 != end; ++it2)
                     objdef.uids.push_back(linkinfo.GetNameStr(*it2));

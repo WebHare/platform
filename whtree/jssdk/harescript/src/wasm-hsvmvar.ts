@@ -19,10 +19,14 @@ function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
 //TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob extends WebHareBlob {
   blob: HSVMHeapVar | null;
+  offset: number;
+  sliced: boolean;
 
-  constructor(blob: HSVMHeapVar, size: number, type = '') {
+  constructor(blob: HSVMHeapVar, size: number, { type = "", offset }: { type: string; offset?: number } = { type: "" }) {
     super(size, type);
     this.blob = blob;
+    this.sliced = offset !== undefined;
+    this.offset = offset ?? 0;
   }
 
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
@@ -33,7 +37,7 @@ class HSVMBlob extends WebHareBlob {
     const openblob = this.blob.vm.wasmmodule._HSVM_BlobOpen(this.blob.vm.hsvm, this.blob.id);
 
     try {
-      const numread = Number(this.blob.vm.wasmmodule._HSVM_BlobDirectRead(this.blob.vm.hsvm, openblob, 0n, this.size, buffer));
+      const numread = Number(this.blob.vm.wasmmodule._HSVM_BlobDirectRead(this.blob.vm.hsvm, openblob, BigInt(this.offset), this.size, buffer));
       if (numread !== this.size)
         throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
 
@@ -67,19 +71,32 @@ class HSVMBlob extends WebHareBlob {
   getJSTag(): JSBlobTag {
     if (!this.blob)
       throw new Error(`This blob has already been closed`);
+    if (this.sliced)
+      return null;
 
     return this.blob.vm.getBlobJSTag(this.blob.id);
   }
   setJSTag(tag: JSBlobTag) {
     if (!this.blob)
       throw new Error(`This blob has already been closed`);
-
-    this.blob.vm.setBlobJSTag(this.blob.id, tag);
+    if (!this.sliced)
+      this.blob.vm.setBlobJSTag(this.blob.id, tag);
   }
 
   __registerPGUpload(databaseid: string) {
-    if (this.blob) //not closed yet
+    if (this.blob && !this.sliced) //not closed yet
       this.setJSTag({ pg: databaseid });
+  }
+
+  slice(start?: number, end?: number, contentType?: string): HSVMBlob {
+    if (!this.blob)
+      throw new Error(`This blob has already been closed`);
+
+    start = Math.max(0, Math.min(start ?? 0, this.size));
+    end = Math.max(start, Math.min(end ?? this.size, this.size));
+
+    const newblob = this.blob.vm.allocateVariableCopy(this.blob.id);
+    return new HSVMBlob(newblob, end - start, { type: contentType ?? this.type, offset: this.offset + start });
   }
 }
 

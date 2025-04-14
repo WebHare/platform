@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import Module from "node:module";
 import { backendConfig, getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { toFSPath } from "@webhare/services/src/resources"; // already loaded from /configuration
 import { debugFlags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 export type LibraryData = {
@@ -78,11 +79,19 @@ export function registerAsNonReloadableLibrary(mod: NodeModule) {
     libdata[mod.id] = { fixed: true, dynamicloader: false, directloads: [], resources: [] };
 }
 
+function resolveResource(path: string) {
+  let libraryuri = path.split("#")[0];
+  if (libraryuri.startsWith("mod::"))
+    libraryuri = "@mod-" + libraryuri.substring(5);
+  return libraryuri.startsWith("@mod-") ? toFSPath(libraryuri) : libraryuri;
+}
+
 /** Register a resource as a dependency for the a module. If the dependency is modified the module will be invalidated (and thus be reloaded when requested again).
     @param mod - The module which will be invalidated when the resource changes. You should use `module` for this parameter
     @param resourcePath - The path to the resource to watch
 */
 export function registerResourceDependency(mod: NodeModule, path: string) {
+  path = resolveResource(path);
   const lib = libdata[mod.id];
   if (lib) {
     if (lib.resources.includes(path))
@@ -101,6 +110,7 @@ export function registerResourceDependency(mod: NodeModule, path: string) {
     @param callback - The callback that will be invoked once when the resource is modified
  */
 export function addResourceChangeListener(mod: NodeModule, resourcePath: string, callback: () => void) {
+  resourcePath = resolveResource(resourcePath);
   let lib = libdata[mod.id];
   if (!lib)
     libdata[mod.id] = lib = { fixed: false, dynamicloader: false, directloads: [], resources: [] };

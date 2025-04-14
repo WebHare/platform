@@ -6,9 +6,9 @@ import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
-import { Readable } from "node:stream";
 import { brandWebhareBlob } from "./symbols";
 import "./blob.d.ts";
+import { readableToWeb } from "@webhare/zip/src/nodestreamsupport.ts";
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob implements Blob {
@@ -26,12 +26,14 @@ export abstract class WebHareBlob implements Blob {
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
-  static from(str: string | Buffer | ArrayBufferLike): WebHareBlob {
-    if (str instanceof Buffer)
+  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView): WebHareBlob {
+    if (typeof str === "string")
+      return new WebHareMemoryBlob(new TextEncoder().encode(str));
+    if ("readUInt8" in str || str instanceof Uint8Array) // Buffer or Uint8Array
       return new WebHareMemoryBlob(str);
-    if (ArrayBuffer.isView(str))
-      return new WebHareMemoryBlob(new Uint8Array(str));
-    return new WebHareMemoryBlob(new TextEncoder().encode(str as string)); //'as string' is a TS 5.7 workaround, TODO can we undo this?
+    if ("byteOffset" in str && "byteLength" in str) // Other typed array, DataView
+      return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str.buffer, str.byteOffset, str.byteLength));
+    return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str));
   }
 
   /** Create a WebHare blob from a JavaScript Blob */
@@ -106,9 +108,7 @@ export abstract class WebHareBlob implements Blob {
     return this.stream();
   }
 
-  slice(start?: number, end?: number, contentType?: string): Blob {
-    throw new Error("Method not implemented.");
-  }
+  abstract slice(start?: number, end?: number, contentType?: string): Blob;
 }
 
 export class WebHareMemoryBlob extends WebHareBlob {
@@ -132,22 +132,48 @@ export class WebHareMemoryBlob extends WebHareBlob {
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
     return this.data;
   }
+
+  slice(start?: number, end?: number, contentType?: string): WebHareMemoryBlob {
+    start = Math.max(0, Math.min(start ?? 0, this.size));
+    end = Math.max(start, Math.min(end ?? this.size, this.size));
+
+    return new WebHareMemoryBlob(this.data.slice(start, end), contentType ?? this.type);
+  }
 }
 
 export class WebHareDiskBlob extends WebHareBlob {
   readonly path: string;
+  readonly offset: number;
 
-  constructor(size: number, path: string, type = '') {
+  constructor(size: number, path: string, { type, offset }: { type: string; offset?: number } = { type: "" }) {
     super(size, type);
+    this.offset = offset ?? 0;
     this.path = path;
   }
 
   stream(): ReadableStream<Uint8Array> {
-    return Readable.toWeb(createReadStream(this.path, { start: 0, end: this.size }));
+    // Can't create a Node.js read stream of size 0
+    if (!this.size) {
+      return new ReadableStream({
+        start(controller) {
+          controller.close();
+        }
+      });
+    }
+
+    // createReadStream end is inclusive, so we need to subtract 1 from the size
+    return readableToWeb(createReadStream(this.path, { start: this.offset, end: this.offset + this.size - 1 }));
   }
 
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
-    return readFileSync(this.path);
+    return readFileSync(this.path).subarray(this.offset, this.offset + this.size);
+  }
+
+  slice(start?: number, end?: number, contentType?: string): WebHareDiskBlob {
+    start = Math.max(0, Math.min(start ?? 0, this.size));
+    end = Math.max(start, Math.min(end ?? this.size, this.size));
+
+    return new WebHareDiskBlob(end - start, this.path, { type: contentType ?? this.type, offset: this.offset + start });
   }
 }
 
@@ -165,5 +191,9 @@ export class WebHareNativeBlob extends WebHareBlob {
   stream(): ReadableStream<Uint8Array> {
     //@ts-ignore NodeJS is misunderstanding the types
     return this.blob.stream();
+  }
+
+  slice(start?: number, end?: number, contentType?: string): Blob {
+    return new WebHareNativeBlob(this.blob.slice(start, end, contentType));
   }
 }

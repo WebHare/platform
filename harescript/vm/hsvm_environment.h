@@ -117,6 +117,9 @@ class LinkedLibrary
                 /// Name of the object
                 std::string name;
 
+                /// wasmtype of the object
+                std::string wasmtype;
+
                 /// UIDs of the object
                 std::vector< std::string > uids;
 

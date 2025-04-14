@@ -1658,6 +1658,14 @@ MACRO TestSharedReferenceTest()
   TestEQ([ isshared := TRUE, value := obj ], __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(obj));
 }
 
+OBJECTTYPE TTestWASMType __ATTRIBUTES__(WASMTYPE "testwasmtype") <
+>;
+
+MACRO TestWASMType() {
+  TestEQ("", GetObjectWasmType(NEW variant_array_member));
+  TestEQ("testwasmtype", GetObjectWasmType(NEW TTestWASMType));
+}
+
 BaseObjectsTest();
 InsertMemberTest();
 PrivateTest();
@@ -1683,3 +1691,4 @@ TestWeakObjects();
 TestReadWriteOnlyProperties();
 VariantArrayUpdateTest();
 TestSharedReferenceTest();
+TestWASMType();

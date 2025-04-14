@@ -895,6 +895,8 @@ class BLEXLIB_PUBLIC VirtualMachine
         ObjectTypeDefinition * ExtendObjectType(ObjectTypeDefinition const *type, LinkedLibrary::LinkedObjectDef const *def);
 
         std::string GetObjectTypeName(VarId obj);
+        std::string const * GetObjectWasmType(VarId obj);
+
         void GetStackTrace(std::vector< StackTraceElement > *elements, bool atinstr, bool full);
         void GetRawAsyncStackTrace(AsyncStackTrace *trace, unsigned skip_items, std::shared_ptr< AsyncStackTrace > *prev_segment) const;
         void BuildAsyncStackTrace(AsyncStackTrace const &trace, std::vector< StackTraceElement > *elements);

@@ -1,0 +1,15 @@
+{
+  "name": "@webhare/zip",
+  "version": "",
+  "description": "",
+  "main": "src/zip.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/zip.ts"
+    ]
+  },
+  "private": true
+}

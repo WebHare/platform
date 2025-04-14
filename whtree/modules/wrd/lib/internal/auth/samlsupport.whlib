@@ -46,7 +46,7 @@ PUBLIC RECORD FUNCTION ParseConnectedSAMLProviderMetadata(OBJECT doc)
   IF (LENGTH(errors) != 0)
   {
     RETURN
-        [ succes :=         FALSE
+        [ success :=        FALSE
         , messages :=       STRING[ GetTid("wrd:samlauth.editconnectedprovider.metadatadocumentdoesnotvalidate") ]
         ];
   }

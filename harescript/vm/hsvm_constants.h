@@ -4,7 +4,7 @@
 #include <harescript/vm/hsvm_dllinterface.h>
 
 //ADDME: Convert to const
-#define HARESCRIPT_LIBRARYVERSION 0x014F // 0x major(01) minor(4F).
+#define HARESCRIPT_LIBRARYVERSION 0x0150 // 0x major(01) minor(50).
 
 namespace HareScript
 {

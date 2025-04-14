@@ -160,6 +160,7 @@ MACRO LookupTest()
   // test with ignored extension extension
   OBJECT whfstype_doc := OpenWHFSType("http://www.webhare.net/xmlns/publisher/mswordfile");
   OBJECT testfile2 := testfolder->CreateFile([name:='test-ignoreext.doc', published := PublishedFlag_StripExtension, type := whfstype_doc->id ]);
+  TestEQ(testfile2->url, root->url || "testfolder/test-ignoreext/");
   lookupresult := LookupPublisherURL(root->url || "testfolder/test-ignoreext.doc");
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(testfile2->id, lookupresult.file);

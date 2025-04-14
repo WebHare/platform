@@ -165,6 +165,9 @@ struct ObjectTypeDef : public SymbolDef
         /// Constructor
         uint32_t constructor;
 
+        /// WASM type
+        uint32_t wasmtype_name_index;
+
         /// List of members
         std::vector< ObjectCellDef > cells;
 
