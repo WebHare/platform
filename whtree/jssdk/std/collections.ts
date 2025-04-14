@@ -5,6 +5,34 @@ export interface EmplaceHandler<ValueType> {
   update?: (current: ValueType) => ValueType;
 }
 
+function binarySearchImpl<A, K>(compareFn: (element: A, key: K) => number, contents: A[], searchfor: K, upper_bound: boolean): { present: boolean; index: number } {
+  let first = 0;
+  let len = contents.length;
+  let present = false;
+
+  const cmpbound = upper_bound ? 1 : 0;
+  let unsorted_cmp = 0; // if this is non-0 and cmp is this value, we have an unsorted list
+  while (len > 0) {
+    const half = Math.floor(len / 2);
+    const middle = first + half;
+    const cmp = compareFn(contents[middle], searchfor);
+    if (cmp === 0) {
+      present = true;
+      unsorted_cmp = upper_bound ? -1 : 1;
+    } else if (cmp === unsorted_cmp)
+      throw new Error(`The provided array was not properly sorted!`);
+
+    if (cmp < cmpbound) {
+      first = middle + 1;
+      len -= half;
+      --len;
+    } else {
+      len = half;
+    }
+  }
+  return { present, index: first };
+}
+
 //emplace is based on https://github.com/tc39/proposal-upsert (a Map.prototype.emplace)
 /** Place a value into a Map
  * @param map - The map to place the value into
@@ -155,4 +183,145 @@ export function appendToArray<T extends unknown[]>(array: T, values: readonly un
     array.push(value);
 
   //not returning the original array to make it clear we're not creating a new one
+}
+
+
+export class SortedMultiSet<V> {
+  private contents: V[] = [];
+
+  constructor(private compareFn: (lhs: V, rhs: V) => number, contents?: V[]) {
+    if (contents)
+      this.addMultiple(contents);
+  }
+
+  get size() {
+    return this.contents.length;
+  }
+
+  at(index: number): V | undefined {
+    return this.contents.at(index);
+  }
+
+  add(value: V): number {
+    const pos = this.upperBound(value);
+    this.contents.splice(pos, 0, value);
+    return pos;
+  }
+
+  addMultiple(values: V[]): void {
+    for (const value of values) {
+      this.add(value);
+    }
+  }
+
+  delete(key: V): void {
+    const [start, limit] = this.range(key);
+    this.contents.splice(start, limit - start);
+  }
+
+  clear() {
+    this.contents.splice(0, this.contents.length);
+  }
+
+  lowerBound(key: Readonly<V>): { present: boolean; index: number } {
+    return binarySearchImpl(this.compareFn, this.contents, key, false);
+  }
+
+  upperBound(key: Readonly<V>): number {
+    return binarySearchImpl(this.compareFn, this.contents, key, true).index;
+  }
+
+  range(key: Readonly<V>): [number, number] {
+    return [this.lowerBound(key).index, this.upperBound(key)];
+  }
+
+  slice(start: number, limit: number): V[] {
+    return this.contents.slice(start, limit);
+  }
+
+  *#sliceIterator(start: number, limit: number): Generator<V, void> {
+    for (let idx = start; idx < limit; ++idx)
+      yield this.contents[idx];
+  }
+
+  sliceRange(key: Readonly<V>): V[] {
+    const [start, limit] = this.range(key);
+    return this.slice(start, limit);
+  }
+
+  rangeIterator(key: Readonly<V>): Iterable<V> {
+    const [start, limit] = this.range(key);
+    return this.#sliceIterator(start, limit);
+  }
+}
+
+export class SortedMultiMap<K, V> {
+  private compareFn;
+  private contents: Array<[K, V]> = [];
+
+  constructor(compareFn: (lhs: K, rhs: K) => number, contents?: Array<[K, V]>) {
+    this.compareFn = (element: [K, V], key: K) => compareFn(element[0], key);
+    if (contents)
+      this.addMultiple(contents);
+  }
+
+  get size() {
+    return this.contents.length;
+  }
+
+  at(index: number): [K, V] | undefined {
+    return this.contents.at(index);
+  }
+
+  add(key: K, value: V): number {
+    const pos = this.upperBound(key);
+    this.contents.splice(pos, 0, [key, value]);
+    return pos;
+  }
+
+  addMultiple(values: Array<[K, V]>) {
+    for (const [key, value] of values) {
+      this.add(key, value);
+    }
+  }
+
+  delete(key: K): void {
+    const [start, limit] = this.range(key);
+    this.contents.splice(start, limit - start);
+  }
+
+  clear() {
+    this.contents.splice(0, this.contents.length);
+  }
+
+  lowerBound(key: Readonly<K>): { present: boolean; index: number } {
+    return binarySearchImpl(this.compareFn, this.contents, key, false);
+  }
+
+  upperBound(key: Readonly<K>): number {
+    return binarySearchImpl(this.compareFn, this.contents, key, true).index;
+  }
+
+  range(key: Readonly<K>): [number, number] {
+    return [this.lowerBound(key).index, this.upperBound(key)];
+  }
+
+  slice(start: number, limit: number): Array<[K, V]> {
+    return this.contents.slice(start, limit);
+  }
+
+  *#sliceIterator(start: number, limit: number): Generator<[K, V], void> {
+    for (let idx = start; idx < limit; ++idx)
+      yield this.contents[idx];
+  }
+
+  sliceRange(key: Readonly<K>): Array<[K, V]> {
+    const [start, limit] = this.range(key);
+    return this.slice(start, limit);
+  }
+
+  rangeIterator(key: Readonly<K>): Iterable<[K, V]> {
+    const [start, limit] = this.range(key);
+    return this.#sliceIterator(start, limit);
+  }
 }

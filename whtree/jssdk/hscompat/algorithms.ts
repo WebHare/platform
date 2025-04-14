@@ -1,8 +1,7 @@
-import { isDate, Money } from "@webhare/std";
-import { determineType, HareScriptType } from "./hson";
+import { compare, isDate, Money, type ComparableType } from "@webhare/std";
 import { defaultDateTime } from "./datetime";
 
-export type ComparableType = number | null | bigint | string | Date | Money | boolean | Buffer;
+export { compare, type ComparableType }; //for backwards compatibility - some external modules directly take compare from @webhare/hscompat/algorithms
 
 // needed for interface definitions, don't want to sprinkle the file with eslint-disables or disable globally
 
@@ -94,81 +93,6 @@ function binaryRecordSearchImpl<
     }
   }
   return { found, position: first };
-}
-
-function isBuffer(value: ComparableType): value is Buffer {
-  return Boolean(typeof value === "object" && value && "byteLength" in value);
-}
-
-export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
-  if (left === null)
-    return right === null ? 0 : -1;
-  else if (right === null)
-    return 1;
-
-  switch (typeof left) {
-    case "boolean": {
-      if (typeof right === "boolean")
-        return left !== right ? left < right ? -1 : 1 : 0;
-    } break;
-    case "number": {
-      switch (typeof right) {
-        case "bigint": {
-          const right_number = Number(right);
-          return left !== right_number ? left < right_number ? -1 : 1 : 0;
-        }
-        case "number": {
-          return left !== right ? left < right ? -1 : 1 : 0;
-        }
-        case "object": {
-          if (Money.isMoney(right))
-            return Money.cmp(left.toString(), right);
-        }
-      }
-    } break;
-    case "bigint": {
-      switch (typeof right) {
-        case "bigint": {
-          return left !== right ? left < right ? -1 : 1 : 0;
-        }
-        case "number": {
-          const left_number = Number(left);
-          return left_number !== right ? left_number < right ? -1 : 1 : 0;
-        }
-        case "object": {
-          if (Money.isMoney(right)) {
-            return Money.cmp(left.toString(), right);
-          }
-        }
-      }
-    } break;
-    case "string": {
-      if (typeof right === "string")
-        return left === right ? 0 : left < right ? -1 : 1;
-    } break;
-    case "object": {
-      if (Money.isMoney(left)) {
-        switch (typeof right) {
-          case "number":
-          case "bigint":
-            return Money.cmp(left, right.toString());
-          case "object": {
-            if (right === null) {
-              return 1;
-            } else if (Money.isMoney(right))
-              return Money.cmp(left, right);
-          }
-        }
-      } else if (isDate(left) && isDate(right)) {
-        const left_value = Number(left);
-        const right_value = Number(right);
-        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
-      } else if (isBuffer(left) && isBuffer(right)) {
-        return Buffer.compare(left, right);
-      }
-    } break;
-  }
-  throw new Error(`Cannot compare a ${HareScriptType[determineType(left)]} with a ${HareScriptType[determineType(right)]}`);
 }
 
 function groupCompare<

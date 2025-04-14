@@ -1,10 +1,10 @@
 import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
-import { emplace } from "@webhare/std/collections";
-import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
+import { emplace, SortedMultiSet } from "@webhare/std/collections";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { regExpFromWildcards } from "@webhare/std/strings";
 import { debugFlags } from "@webhare/env/src/envbackend";
+import { compareProperties } from "@webhare/std";
 
 /* The adhoc cache service is hosted by a local service together with the mainbridge of a
    process.
@@ -34,7 +34,7 @@ class LibraryData {
 
 class AdhocCacheData {
   libraries = new Map<string, LibraryData>;
-  expiries = new Array<{ expires: Date; libraryUri: string; hash: string }>;
+  expiries = new SortedMultiSet<{ expires: Date; libraryUri: string; hash: string }>(compareProperties(["expires", "libraryUri", "hash"]));
   expireCB: NodeJS.Timeout | undefined;
   hits = 0;
   requests = 0;
@@ -48,11 +48,8 @@ class AdhocCacheData {
       for (const [hash, item] of libraryData.items.entries()) {
         if (item.eventMaskRegExp?.exec(data.name)) {
           libraryData.items.delete(hash);
-          if (item.expires) {
-            const pos = recordLowerBound(this.expiries, { expires: item.expires, libraryUri, hash }, ["expires", "libraryUri", "hash"]);
-            if (pos.found)
-              this.expiries.splice(pos.position, 1);
-          }
+          if (item.expires)
+            this.expiries.delete({ expires: item.expires, libraryUri, hash });
         }
       }
       if (!libraryData.items.size)
@@ -87,9 +84,7 @@ class AdhocCacheData {
     if (!item.expires)
       return;
 
-    const pos = recordLowerBound(this.expiries, { expires: item.expires, libraryUri, hash }, ["expires", "libraryUri", "hash"]);
-    if (pos.found)
-      this.expiries.splice(pos.position, 1);
+    this.expiries.delete({ expires: item.expires, libraryUri, hash });
   }
 
   setCachedData(libraryUri: string, libraryModDate: bigint, hash: string, expires: Date | null, eventMasks: string[], value: unknown) {
@@ -116,8 +111,7 @@ class AdhocCacheData {
       console.error(`[ahc] set new item ${libraryUri} ${hash}, ${emplaced === newEntry ? "inserted" : "ignored, older library version"}`);
     }
     if (expires) {
-      const pos = recordUpperBound(this.expiries, { libraryUri, expires, hash }, ["expires", "libraryUri", "hash"]);
-      this.expiries.splice(pos, 0, { expires, libraryUri, hash });
+      const pos = this.expiries.add({ libraryUri, expires, hash });
       if (pos === 0) { //item is next to expire, reschedule expiry timer
         if (this.expireCB)
           clearTimeout(this.expireCB);
@@ -147,21 +141,23 @@ class AdhocCacheData {
   runExpiry() {
     const now = Date.now();
     let idx = 0;
-    for (; this.expiries.length > idx && this.expiries[idx].expires.getTime() <= now; ++idx) {
-      const rec = this.expiries[idx];
-      if (debugFlags.ahc)
-        console.error(`[ahc] remove item ${rec.libraryUri} ${rec.hash}, expired at ${rec.expires.toISOString()}`);
-      this.deleteItem(rec.libraryUri, rec.hash);
-    }
-    this.expiries.splice(0, idx);
+
+    for (; this.expiries.size > idx && this.expiries.at(idx)!.expires.getTime() <= now; ++idx)
+      /* do nothing, just deciding on the size of the range */;
+
+    const toexpire = this.expiries.slice(0, idx);
+
+    for (const exp of toexpire)  //Delete the item from the library. Also deletes from expires
+      this.deleteItem(exp.libraryUri, exp.hash);
+
     this.updateExpireCB();
   }
 
   private updateExpireCB() {
-    if (this.expiries.length) {
+    if (this.expiries.size) {
       //Clamp timeout to 1 day as adhoc cache values without ttl have infinite expiry, but timeout must stay within 31bits
       //But also minimum of 1 sec, as the item might already have expired
-      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.max(1, Math.min(86400 * 1000, this.expiries[0].expires.getTime() - Date.now())));
+      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Math.max(1, Math.min(86400 * 1000, this.expiries.at(0)!.expires.getTime() - Date.now())));
       this.expireCB.unref();
     } else
       this.expireCB = undefined;
@@ -172,7 +168,7 @@ class AdhocCacheData {
       clearTimeout(this.expireCB);
     this.expireCB = undefined;
     this.libraries.clear();
-    this.expiries.splice(0);
+    this.expiries.clear();
     this.hits = 0;
     this.requests = 0;
   }

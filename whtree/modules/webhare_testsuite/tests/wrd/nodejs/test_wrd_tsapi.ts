@@ -3,7 +3,6 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getExtendedWRDSchema, getWRDSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { type WRDAttributeTypeId, type SelectionResultRow, WRDGender, type IsRequired, type WRDAttr, type Combine, type WRDTypeBaseSettings, type WRDBaseAttributeTypeId } from "@mod-wrd/js/internal/types";
 import { WRDSchema, describeEntity, listSchemas, openSchemaById, type WRDInsertable, type WRDSchemaTypeOf, type WRDUpdatable } from "@webhare/wrd";
-import { type ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
@@ -15,7 +14,7 @@ import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settin
 import { isChange, type WRDTypeMetadata } from "@mod-wrd/js/internal/schema";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { Money, type AddressValue } from "@webhare/std";
+import { compare, Money, type AddressValue, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";

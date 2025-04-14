@@ -6,7 +6,7 @@
 import * as test from "@webhare/test";
 import { isBlob, Money, toCamelCase, toSnakeCase } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, wrdGuidToUUID, UUIDToWrdGuid, setHareScriptType } from "@webhare/hscompat";
-import { compare, lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
+import { lowerBound, recordRange, recordRangeIterator, upperBound } from "@webhare/hscompat/algorithms";
 import { getRoundedDateTime, localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, type IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { WebHareBlob } from "@webhare/services";
@@ -46,69 +46,6 @@ async function testBlobs() {
   test.assert(isBlob(blobbie), "It has to quack like a blob for toCamelCase/toSnakeCase to work");
   test.eq({ camelBlob: (b: Blob) => b === blobbie && "arrayBuffer" in b && !("arraybuffer" in b) && !("array_buffer" in b) }, toCamelCase({ camel_blob: blobbie }));
   test.eq({ camel_blob: (b: Blob) => b === blobbie && "arrayBuffer" in b && !("arraybuffer" in b) && !("array_buffer" in b) }, toSnakeCase({ camelBlob: blobbie }));
-}
-
-async function testCompare() {
-  test.eq(-1, compare(-1, 0));
-  test.eq(-1, compare(-1, BigInt(0)));
-  test.eq(-1, compare(-1, new Money("0")));
-  test.eq(-1, compare(BigInt(-1), 0));
-  test.eq(-1, compare(BigInt(-1), BigInt(0)));
-  test.eq(-1, compare(BigInt(-1), new Money("0")));
-  test.eq(-1, compare(new Money("-1"), 0));
-  test.eq(-1, compare(new Money("-1"), BigInt("0")));
-  test.eq(-1, compare(new Money("-1"), new Money("0")));
-  test.eq(-1, compare(null, -1));
-  test.eq(-1, compare(null, 0));
-  test.eq(-1, compare(null, 1));
-  test.eq(-1, compare(null, BigInt(-1)));
-  test.eq(-1, compare(null, BigInt(0)));
-  test.eq(-1, compare(null, BigInt(1)));
-  test.eq(-1, compare(null, new Money("-1")));
-  test.eq(-1, compare(null, new Money("0")));
-  test.eq(-1, compare(null, new Money("1")));
-  test.eq(-1, compare(null, new Date(-1)));
-  test.eq(-1, compare(null, new Date(0)));
-  test.eq(-1, compare(null, new Date(1)));
-  test.eq(-1, compare("a", "b"));
-  test.eq(-1, compare(new Date(1), new Date(2)));
-
-  test.eq(0, compare(0, 0));
-  test.eq(0, compare(0, BigInt(0)));
-  test.eq(0, compare(0, new Money("0")));
-  test.eq(0, compare(BigInt(0), 0));
-  test.eq(0, compare(BigInt(0), BigInt(0)));
-  test.eq(0, compare(BigInt(0), new Money("0")));
-  test.eq(0, compare(new Money("0"), 0));
-  test.eq(0, compare(new Money("0"), BigInt("0")));
-  test.eq(0, compare(new Money("0"), new Money("0")));
-  test.eq(0, compare(null, null));
-  test.eq(0, compare("a", "a"));
-  test.eq(0, compare(new Date(1), new Date(1)));
-
-  test.eq(1, compare(0, -1));
-  test.eq(1, compare(-1, null));
-  test.eq(1, compare(0, null));
-  test.eq(1, compare(1, null));
-  test.eq(1, compare(0, BigInt(-1)));
-  test.eq(1, compare(0, new Money("-1")));
-  test.eq(1, compare(BigInt(0), -1));
-  test.eq(1, compare(BigInt(-1), null));
-  test.eq(1, compare(BigInt(0), null));
-  test.eq(1, compare(BigInt(1), null));
-  test.eq(1, compare(BigInt(0), BigInt(-1)));
-  test.eq(1, compare(BigInt("0"), new Money("-1")));
-  test.eq(1, compare(new Money("0"), -1));
-  test.eq(1, compare(new Money("-1"), null));
-  test.eq(1, compare(new Money("0"), null));
-  test.eq(1, compare(new Money("1"), null));
-  test.eq(1, compare(new Money("0"), BigInt(-1)));
-  test.eq(1, compare(new Money("0"), new Money("-1")));
-  test.eq(1, compare("b", "a"));
-  test.eq(1, compare(new Date(2), new Date(1)));
-  test.eq(1, compare(new Date(-1), null));
-  test.eq(1, compare(new Date(0), null));
-  test.eq(1, compare(new Date(1), null));
 }
 
 async function testRecordLowerBound() {
@@ -578,7 +515,6 @@ function testOmitHareScriptDefaultValues() {
 test.runTests([
   testStrings,
   testBlobs,
-  testCompare,
   testRecordLowerBound,
   testRecordUpperBound,
   testRecordRange,

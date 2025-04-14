@@ -2,9 +2,9 @@ import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type AllowedFilterCondition
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { compare, type ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
+import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
