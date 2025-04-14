@@ -18,6 +18,8 @@ export { getRemoteIPAddress } from "./analytics";
 export { setupGTM, setupFormAnalyticsForGTM, pushToDataLayer, setupDataLayerTags } from "./gtm";
 export { setupLinksInNewWindow, type LinkOpenOptions } from "./linkhandler";
 
+export type * from "./gtm-types";
+
 // we shouldn't deprecate navigateTo exported from frontend. in fact it makes more sense to export it from frontend than env as it's browser-only
 export { navigateTo } from "@webhare/env";
 

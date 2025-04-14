@@ -1,4 +1,4 @@
-// @webhare/cli: allowautocomplete
+// @webhare/cli: Control WebHare bridge connections (ie. javascript processes)
 
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { type DebugMgrClientLink, DebugMgrClientLinkRequestType } from "@mod-system/js/internal/whmanager/debug";
@@ -22,7 +22,6 @@ async function getInspectorURL(process: string): Promise<string> {
 }
 
 run({
-  description: "Control WebHare bridge connections (ie. javascript processes)",
   subCommands:
   {
     "connections": {

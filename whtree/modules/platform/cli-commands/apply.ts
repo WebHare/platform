@@ -1,5 +1,4 @@
-// short: Reconfigures part of all of WebHare
-// @webhare/cli: allowautocomplete
+// @webhare/cli: Reconfigures part of all of WebHare
 
 import { type ConfigurableSubsystem, configurableSubsystems, type ApplyConfigurationOptions, executeApply, type ConfigurableSubsystemPart } from '@mod-platform/js/configure/applyconfig';
 import { run } from "@webhare/cli";

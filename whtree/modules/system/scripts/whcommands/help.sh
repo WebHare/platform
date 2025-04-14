@@ -20,9 +20,9 @@ right_pad()
 
 show_commandfile_help() # instr filename
 {
-  local COMMAND SHORT
-  SYNTAX="$(grep -ie "^\(#\|///\?\) *syntax: " "$2")"
-  SHORT="$(grep -ie "^\(#\|///\?\) *short: " "$2")"
+  local SHORT
+  SYNTAX="$(grep -iE "^(#|//) *syntax: " "$2")"
+  SHORT="$(grep -iE "^(#|//)( *short| @webhare/cli): " "$2")"
 
   SYNTAX="${SYNTAX#*: }"
   SHORT="${SHORT#*: }"
@@ -32,13 +32,7 @@ show_commandfile_help() # instr filename
 
   if [ -z "$SYNTAX" ]; then
     # If no SYNTAX, fallback to COMMAND - this includes the ccommand itself though and we prefer more flexibility than that..
-    COMMAND="$(grep -ie "^\(#\|///\?\) *command: " "$2")"   #deprecated
-    COMMAND="${COMMAND#*: }"
-    if [ -z "$COMMAND" ]; then
-      echo "$(right_pad "$1") $SHORT"
-    else
-      echo "$(right_pad "$COMMAND") $SHORT"
-    fi
+    echo "$(right_pad "$1") $SHORT"
   else
     echo "$(right_pad "$1 $SYNTAX") $SHORT"
   fi

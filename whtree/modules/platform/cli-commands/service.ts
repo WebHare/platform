@@ -1,3 +1,5 @@
+// @webhare/cli: Control the WebHare service manager
+
 import { getAllServices, getServiceManagerChildPids, getSpawnSettings } from '@mod-platform/js/bootstrap/servicemanager/gatherservices';
 import type { ServiceDefinition } from '@mod-platform/js/bootstrap/servicemanager/smtypes';
 import { launchService } from '@mod-platform/js/nodeservices/runner';
@@ -7,9 +9,6 @@ import { openBackendService, type GetBackendServiceInterface } from '@webhare/se
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { spawn } from 'child_process';
 import { kill } from 'process';
-
-//short: Control the WebHare service manager
-// @webhare/cli: allowautocomplete
 
 type ServiceManagerClient = GetBackendServiceInterface<"platform:servicemanager">;
 

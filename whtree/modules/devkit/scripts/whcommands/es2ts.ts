@@ -1,5 +1,4 @@
-// @webhare/cli: allowautocomplete
-// short: Convert a module's *.es files to TypeScript (disabling any linting/checking)
+// @webhare/cli: Convert a module's *.es files to TypeScript (disabling any linting/checking)
 
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { backendConfig, toResourcePath } from "@webhare/services";

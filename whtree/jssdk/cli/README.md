@@ -8,6 +8,8 @@ a command-line parser.
 You can use the command-line parser for simple scripts like:
 
 ```typescript
+// @webhare/cli: An example command using @webhare/cli
+
 import { run } from "@webhare/cli";
 
 run({
@@ -35,6 +37,8 @@ run({
 For scripts with sub-commands you can use the following form:
 
 ```typescript
+// @webhare/cli: An example with subcommands
+
 import { run } from "@webhare/cli";
 
 // runData is filled with data, containing the global options
@@ -76,6 +80,13 @@ const runData = run({
   }
 });
 ```
+
+### Header
+Each command using `@webhare/cli` that will not trigger side effects outside its
+call to `run()` (ie nothing happens until run() is invoked) should mark itself
+with a `// @webhare/cli: [short description]` header. This will be used to generate
+an overview of available commands and signals autocompletion that it will be safe
+to invoke this script to extract autocompletions.
 
 ### Flags
 Flags are simple switches (of type boolean) that can be `true` or `false`.
@@ -169,6 +180,25 @@ The following types have been predefined:
 - enumOption: Accepts a specific set of strings
 
 ### Autocompletion
+To enable autocompletion for an option you can need to define a custom type
+with parseValue and autoComplete eg:
+
+```typescript
+const assetPackOption = {
+  parseValue: (arg: string) => arg,
+  autoComplete: (mask: string) => {
+    //first complete to module name, then to the full name
+    const allpacks = getExtractedConfig("assetpacks").map(assetpack => assetpack.name);
+    return mask.includes(':') ? allpacks : [...new Set(allpacks.map(name => name.split(':')[0] + ':*'))];
+  }
+};
+
+...
+  arguments: [{ name: "[assetpack]", description: "Asset packs to list", type: assetPackOption }],
+```
+
+Autocomplete results should end in a wildcard (`*`) if the argument is not yet complete (eg a partial filename)
+
 The API for bash autocompletion support is still under development, and should
 be considered experimental (and subject to change in the future).
 

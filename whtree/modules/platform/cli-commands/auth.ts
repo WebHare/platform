@@ -1,4 +1,4 @@
-// @webhare/cli: allowautocomplete
+// @webhare/cli: Control WebHare users and rights
 
 import { WRDSchema } from '@mod-wrd/js/internal/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
@@ -30,7 +30,6 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
 }
 
 run({
-  description: "Control WebHare users and rights",
   /// Global options
   flags: {
     "j,json": { description: "Output in JSON format" }
