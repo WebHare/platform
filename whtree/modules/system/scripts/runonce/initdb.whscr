@@ -169,6 +169,14 @@ RECORD ARRAY folderchecklist:= [ [ id := whconstant_whfsid_repository   //folder
                                  ]
                                ];
 
+IF(GetEnvironmentVariable("WEBHARE_CI") != "") { //precreate /webhare-tests/ or EnsureWHFSTestRoot may race against itself (eg CI scripts versus webhare_testsuites:reset)
+  INSERT CELL[ id := whconstant_whfsid_webhare_tests
+             , parent := 0
+             , name := "webhare-tests"
+              , type := whconstant_whfstype_normalfolder
+              ] INTO folderchecklist AT END;
+}
+
 DATETIME initnow := GetCurrentDatetime();
 OBJECT trans := OpenPrimary();
 

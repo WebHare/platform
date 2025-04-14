@@ -176,7 +176,7 @@ async function getControlClient(): Promise<GetBackendServiceInterface<"platform:
     if ("slow" in (await Promise.race([client, warnDelay])))
       console.log("Waiting for assetpack control to be available...");
 
-    aborter.abort(); //prevents the 3s from keeping the process open
+    aborter.abort(); //prevents the 3s 'slow message' from keeping the process open
   }
   return await client;
 }
