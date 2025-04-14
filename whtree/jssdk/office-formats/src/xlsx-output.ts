@@ -1,8 +1,7 @@
 import { ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
-import { loadlib } from "@webhare/harescript";
-import { WebHareBlob } from "@webhare/services";
 import { encodeString, stdTypeOf, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
+import { createArchive } from "@webhare/zip";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
@@ -91,12 +90,11 @@ class WorksheetBuilder {
     return result;
   }
 
-  createRows(sheetSettings: FixedSpreadsheetOptions) {
+  *createRows(sheetSettings: FixedSpreadsheetOptions) {
     let currow = 1;
-    const rows: string[] = [];
 
     //Create header row
-    rows.push(createHeaderRow(sheetSettings));
+    yield createHeaderRow(sheetSettings);
     ++currow;
 
     const cols = [...sheetSettings.columns.entries()];
@@ -112,26 +110,37 @@ class WorksheetBuilder {
       }
 
       result += `</row>`;
-      rows.push(result);
+      yield result;
       ++currow;
     }
-    return rows;
   }
 }
 
 function createSheet(sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean) {
   const builder = new WorksheetBuilder;
   const rows = builder.createRows(sheetSettings);
-  const dimensions = getNameForColumn(sheetSettings.columns.length) + rows.length;
-  let result = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n`;
-  result += `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}">`;
-  result += `<dimension ref="A1:${dimensions}"/>`;
-  result += `<sheetViews><sheetView ${tabSelected ? `tabSelected="1"` : ""} workbookViewId="0"/></sheetViews><sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/><sheetData>`;
-  result += rows.join('');
-  result += `</sheetData>`;
-  result += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
+  const dimensions = getNameForColumn(sheetSettings.columns.length) + (sheetSettings.rows.length + 1);
+  let preamble = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n`;
+  preamble += `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}">`;
+  preamble += `<dimension ref="A1:${dimensions}"/>`;
+  preamble += `<sheetViews><sheetView ${tabSelected ? `tabSelected="1"` : ""} workbookViewId="0"/></sheetViews><sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/><sheetData>`;
+  let postample = `</sheetData>`;
+  postample += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
 
-  return result;
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(preamble));
+    },
+    pull(controller) {
+      const { done, value } = rows.next();
+      if (done) {
+        controller.enqueue(new TextEncoder().encode(postample));
+        controller.close();
+      } else {
+        controller.enqueue(new TextEncoder().encode(value));
+      }
+    },
+  });
 }
 
 /** Generate a XLSX file
@@ -141,33 +150,40 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
   const inSheets = "sheets" in options ? options.sheets : [options];
   const sheets = inSheets.map(sheet => validateAndFixRowsColumns({ timeZone: options.timeZone, ...sheet }));
 
-  //Create the worksheets
-  const sheetnames: SheetInfo[] = [];
-  const output = await loadlib("wh::filetypes/archiving.whlib").createNewArchive("zip");
-  const names = new Set<string>;
+  const archive = createArchive({
+    async build(controller) {
 
-  for (const [idx, sheet] of sheets.entries()) {
-    const useTitle = sheet.title ?? `Sheet${idx + 1}`;
-    if (!isValidSheetName(useTitle)) //TOOD merge into validateRowsColumns ? but it would also need to take over assigning titles then
-      throw new Error(`Invalid sheet name: ${useTitle}`);
+      //Create the worksheets
+      const sheetnames: SheetInfo[] = [];
+      const names = new Set<string>;
 
-    if (names.has(useTitle.toLowerCase()))
-      throw new Error(`Duplicate sheet name: ${useTitle}`);
+      for (const [idx, sheet] of sheets.entries()) {
+        const useTitle = sheet.title ?? `Sheet${idx + 1}`;
+        if (!isValidSheetName(useTitle)) //TOOD merge into validateRowsColumns ? but it would also need to take over assigning titles then
+          throw new Error(`Invalid sheet name: ${useTitle}`);
 
-    names.add(useTitle.toLowerCase());
+        if (names.has(useTitle.toLowerCase()))
+          throw new Error(`Duplicate sheet name: ${useTitle}`);
 
-    const sheetname = `sheet${idx + 1}.xml`;
-    const outputSheet = createSheet(sheet, idx === 0);
-    await output.addFile(`xl/worksheets/${sheetname}`, WebHareBlob.from(outputSheet), new Date);
-    sheetnames.push({ name: sheetname, title: useTitle });
-  }
+        names.add(useTitle.toLowerCase());
 
-  //Create the workbook
-  for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(sheetnames))) {
-    await output.addFile(fullpath, WebHareBlob.from(data), new Date);
-  }
+        const sheetname = `sheet${idx + 1}.xml`;
+        const outputSheet = createSheet(sheet, idx === 0);
+        await controller.addFile(`xl/worksheets/${sheetname}`, outputSheet, new Date);
+        sheetnames.push({ name: sheetname, title: useTitle });
+      }
 
-  const outblob = await output.makeBlob();
-  await output.close();
-  return new File([await outblob.arrayBuffer()], `${options?.title || "export"}.xlsx`, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      //Create the workbook
+      for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(sheetnames))) {
+        await controller.addFile(fullpath, data, new Date);
+      }
+    },
+  });
+
+  // XLSX files are small enough to be kept in memory
+  const buffers = new Array<Uint8Array>();
+  for await (const chunk of archive)
+    buffers.push(chunk);
+
+  return new File(buffers, `${options?.title || "export"}.xlsx`, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
