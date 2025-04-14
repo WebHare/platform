@@ -1,3 +1,5 @@
+// @webhare/cli: Manage asset packs
+
 import { loadAssetPacksConfig } from '@mod-platform/js/assetpacks/api';
 import type { AssetPackMiniStatus } from '@mod-platform/js/devsupport/devbridge';
 import { logValidationMessagesToConsole } from '@mod-platform/js/devsupport/messages';
@@ -11,7 +13,6 @@ import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/c
 
 let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 
-// @webhare/cli: allowautocomplete
 
 const argv = process.argv.slice(2).map(arg => {
   if (arg === "recompile") {
@@ -23,8 +24,6 @@ const argv = process.argv.slice(2).map(arg => {
 });
 
 const runData = run({
-  name: "wh assetpack",
-  description: "Manage asset packs",
   flags: {
     quiet: { default: false, description: "Don't report anything that's not an error" },
     "allow-missing": { default: false, description: "Do not fail if the masks don't match any package" },

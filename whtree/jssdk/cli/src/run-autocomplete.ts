@@ -70,16 +70,9 @@ export async function autoCompleteCLIRunScript(path: string, args: string[], opt
   if (options?.debug)
     console.error(`Autocompleting ${path} with args ${args}`);
   const fileData = await fs.readFile(path, "utf8");
-  const idx = fileData.indexOf("// @webhare/cli");
-  if (idx === -1) {
+  if (!fileData.match(/^\/\/ @webhare\/cli: /m)) { //We require a line starting exactly with "// @webhare/cli: "
     if (options?.debug)
-      console.error(`No \`// @webhare/cli: allowautocomplete\` comment found`);
-    return [];
-  }
-  const line = fileData.slice(idx, fileData.indexOf("\n", idx));
-  if (!line.split("--")[0].includes("allowautocomplete")) {
-    if (options?.debug)
-      console.error(`No \`// @webhare/cli: allowautocomplete\` comment found`);
+      console.error(`No "// @webhare/cli: " comment found`);
     return [];
   }
 
