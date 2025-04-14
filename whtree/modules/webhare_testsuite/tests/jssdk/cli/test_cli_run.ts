@@ -431,7 +431,7 @@ async function testCLIOptionTypes() {
 async function testCLIAutoCompletion() {
   // STORY: test auto completion
 
-  const mockData = {
+  const mockData: ParseData = {
     name: "testcli",
     description: "Test CLI",
     options: {
@@ -455,6 +455,22 @@ async function testCLIAutoCompletion() {
       }
     },
     subCommands: {
+      "check": {
+        description: "Check stuff",
+        arguments: [
+          {
+            name: "<stuff...>",
+            description: "Stuff to check",
+            type: {
+              parseValue: (arg: string) => arg,
+              autoComplete: (arg: string) => arg.startsWith("sub:") ? ["sub:123", "sub:456"] : ["sub:*"],
+            },
+          }
+        ],
+        async main({ args: { stuff } }: { args: { stuff: string[] } }) { //TODO shouldn't args.assetpacks be inferred? wh assetpack seems to do it in practice
+          stuff satisfies string[];
+        }
+      },
       "convert": {
         description: "Convert files",
         options: {
@@ -483,7 +499,7 @@ async function testCLIAutoCompletion() {
         ],
       },
     },
-  } as const satisfies ParseData;
+  };
 
   // Autocomplete options
   test.eq(["--1by1\n", "--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"]));
@@ -498,7 +514,7 @@ async function testCLIAutoCompletion() {
   test.eq(["--1by1=12345"], runAutoComplete(mockData, ["--1by1=1234"]));
 
   // Autocomplete subcommands
-  test.eq(["convert\n"], runAutoComplete(mockData, [""]));
+  test.eq(["check\n", "convert\n"], runAutoComplete(mockData, [""]));
   test.eq(["convert\n"], runAutoComplete(mockData, ["con"]));
   test.eq(["convert\n"], runAutoComplete(mockData, ["convert"]));
 
@@ -509,6 +525,10 @@ async function testCLIAutoCompletion() {
   test.eq(["-f\n"], runAutoComplete(mockData, ["convert", "-f"]));
   test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));
   test.eq(["--format=json\n"], runAutoComplete(mockData, ["convert", "--format=j"]));
+
+  //Lists
+  test.eq(["sub:"], runAutoComplete(mockData, ["check", "sub:123", "sub"]));
+  test.eq(["sub:123\n", "sub:456\n"], runAutoComplete(mockData, ["check", "sub:123", "sub:"]));
 
   // Autocomplete arguments
   test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["convert", "source"]));
@@ -602,6 +622,9 @@ async function runWHAutoComplete(line: string, point?: number) {
 async function testWHAutoComplete() {
   test.eq({ code: 0, output: "assetpack \n" }, await runWHAutoComplete(`wh assetpack`));
   test.eq({ code: 0, output: "autocompile \n" }, await runWHAutoComplete(`wh assetpack au`));
+  test.eq({ code: 0, output: "compile \n" }, await runWHAutoComplete(`wh assetpack compile`));
+  test.eq({ code: 0, output: /platform:/ }, await runWHAutoComplete(`wh assetpack compile `));
+  test.eq({ code: 0, output: "authormode \n" }, await runWHAutoComplete(`wh assetpack compile platform:aut`));
   // ':' is a word seperator when autocompleting, so only content after that should be returned
   test.eq({ code: 0, output: "system/scripts/whcommands/assetpack.ts \n" }, await runWHAutoComplete(`wh run mod::system/scripts/whcommands/asset`));
   test.eq({ code: 0, output: "autocompile \n" }, await runWHAutoComplete(`wh run mod::system/scripts/whcommands/assetpack.ts au`));

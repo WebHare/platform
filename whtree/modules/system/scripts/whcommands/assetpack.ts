@@ -13,6 +13,14 @@ import { buildRecompileSettings, recompile } from '@mod-platform/js/assetpacks/c
 
 let client: Promise<GetBackendServiceInterface<"platform:assetpacks">> | undefined;
 
+const assetPackOption = {
+  parseValue: (arg: string) => arg,
+  autoComplete: (mask: string) => {
+    //first complete to module name, then to the full name
+    const allpacks = getExtractedConfig("assetpacks").map(assetpack => assetpack.name);
+    return mask.includes(':') ? allpacks : [...new Set(allpacks.map(name => name.split(':')[0] + ':*'))];
+  }
+};
 
 const argv = process.argv.slice(2).map(arg => {
   if (arg === "recompile") {
@@ -62,7 +70,7 @@ const runData = run({
     },
     compile: {
       description: "Compile an asset pack. Use '*' to compile all",
-      arguments: [{ name: "<assetpacks...>", description: "Asset packs to recompile" }],
+      arguments: [{ name: "<assetpacks...>", description: "Asset packs to recompile", type: assetPackOption }],
       flags: {
         verbose: { default: false, description: "verbose log level" },
         foreground: { default: false, description: "Recompile in foreground, don't use any assetpack service" },
@@ -75,11 +83,11 @@ const runData = run({
           throw new Error("Cannot specify --development or --production without --foreground");
 
         if (options.foreground) {
-          process.exitCode = await runForegroundCompile(assetpacks, options) ? 0 : 1;
+          process.exitCode = await runForegroundCompile(assetpacks as string[], options) ? 0 : 1;
           return;
         }
 
-        const bundles = await getBundles(assetpacks, { onlyfailed: options.onlyfailed });
+        const bundles = await getBundles(assetpacks as string[], { onlyfailed: options.onlyfailed });
         if (!bundles.length) {
           if (!options.quiet)
             console.log("No assetpacks to recompile");
@@ -92,7 +100,7 @@ const runData = run({
         if (!options.quiet)
           console.log("Recompile scheduled, waiting to finish");
 
-        const success = await waitForCompilation(assetpacks, !options.quiet);
+        const success = await waitForCompilation(assetpacks as string[], !options.quiet);
         process.exitCode = success ? 0 : 1;
       }
     },
