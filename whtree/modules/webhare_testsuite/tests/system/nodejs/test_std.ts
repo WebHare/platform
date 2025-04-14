@@ -850,6 +850,27 @@ function testCompare() {
     test.eq(0, std.compare(Buffer.from("\x01\x02"), Buffer.from("\x01\x02")));
     test.eq(1, std.compare(Buffer.from("\x01\x02\x03"), Buffer.from("\x01\x02")));
   }
+
+  const list = [
+    { a: 1, b: 10, text: "value 1" },
+    { a: 3, b: 1, text: "second value" },
+    { a: 3, b: 1, text: "second value, again" },
+    { a: 3, b: 3, text: "value 3" },
+    { a: 5, b: 7, text: "last value" }
+  ];
+
+  const listDescOrder = [list[0], list[2], list[1], list[3], list[4]];
+
+  test.eq(list, std.shuffle([...list]).toSorted(std.compareProperties(["a", "b", "text"])));
+  test.eq(listDescOrder, std.shuffle([...list]).toSorted(std.compareProperties(["a", "b", ["text", "desc"]])));
+
+  //@ts-expect-error TS also detects the incorrect property list
+  test.throws(/Property 'text2' does not exist/, () => std.shuffle([...list]).toSorted(std.compareProperties(["a", "b", ["text2", "desc"]])));
+
+  //Create partial comparator - FIXME validation - order & asc/desc must match exactly
+  const topCompareFn = std.compareProperties(["a", "b", "text"]);
+  const partialCompareFn = topCompareFn.partialCompare(["a", "b"]);
+  test.eq([1, 3, 3, 3, 5], std.shuffle([...list]).toSorted(partialCompareFn).map(_ => _.a));
 }
 
 function testCaseChanging() {

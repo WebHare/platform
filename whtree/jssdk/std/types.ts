@@ -164,3 +164,36 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
   }
   throw new Error(`Cannot compare a ${stdTypeOf(left)} with a ${stdTypeOf(right)}`);
 }
+
+type Comparator<T extends number | string | symbol> = <E extends { [V in T]: null | boolean | number | string | Date }>(a: E, b: E) => -1 | 0 | 1;
+type PartialCompareCallback<T extends number | string | symbol> = (keys: T[]) => Comparator<T>;
+type ComparatorWithPartialCompare<T extends number | string | symbol> = Comparator<T> & { partialCompare: PartialCompareCallback<T> };
+
+/** Compare function for an array that sorts on the contents of the specified field names */
+export function compareProperties<T extends number | string | symbol>(properties: T | Array<T | [T, "asc" | "desc"]>): ComparatorWithPartialCompare<T> {
+  const props = Array.isArray(properties) ? properties : [properties];
+  type Arg = { [V in T]: null | boolean | number | string | Date };
+  const compareFn = (lhs: Arg, rhs: Arg) => {
+    for (const prop of props) {
+      const getField = Array.isArray(prop) ? prop[0] : prop;
+      const descending = Array.isArray(prop) && prop[1] === "desc";
+      if (lhs[getField] === undefined || rhs[getField] === undefined)
+        throw new Error(`Property '${String(getField)}' does not exist`);
+
+      const cmpResult = compare(lhs[getField], rhs[getField]);
+      if (cmpResult) {
+        if (descending)
+          return cmpResult < 0 ? 1 : -1;
+        else
+          return cmpResult;
+      }
+    }
+    return 0;
+  };
+
+  return Object.assign(compareFn, {
+    partialCompare: (partialProps: T | Array<T | [T, "asc" | "desc"]>) => {
+      return compareProperties(partialProps);
+    },
+  });
+}
