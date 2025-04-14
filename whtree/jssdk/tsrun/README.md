@@ -10,7 +10,7 @@ echo 'console.log(42 as number);' > test.ts
 ./node_modules/.bin/tsrun test.ts
 ```
 
-Note that tsrun doesn't do any TypeScript validation. For that you will still need to set up the TypeScript compiler and your
+Note that tsrun doesn't do any TypeScript validation. For that you will still need to set up the TypeScript compiler and you
 will need a tsconfig.json in its root, eg:
 
 ```json

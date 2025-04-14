@@ -340,29 +340,10 @@ export function stop(event: Event) {
   event.stopImmediatePropagation();
 }
 
-export class EventListenerSet {
-  listeners = new Array<{
-    node: HTMLElement;
-    type: string;
-    listener: EventListener;
-    options?: AddEventListenerOptions;
-  }>();
-
-  removeAll() {
-    for (const listener of this.listeners)
-      listener.node.removeEventListener(listener.type, listener.listener, listener.options);
-
-    this.listeners.splice(0); //clear array
-  }
-  [Symbol.dispose]() {
-    this.removeAll();
-  }
-}
-
 /** Add an event listener to HTMLElements inside a document (which allows us to ensure that 'target' is a HTMLElement for easier typings) */
-export function addDocEventListener<CurrentTargetType extends HTMLElement, Type extends keyof HTMLElementEventMap>(node: CurrentTargetType, type: Type, listener: (this: CurrentTargetType, ev: DocEvent<HTMLElementEventMap[Type], CurrentTargetType>) => void, options?: AddEventListenerOptions): void;
-export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void, options?: AddEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement, Type extends keyof HTMLElementEventMap>(node: CurrentTargetType, type: Type, listener: (this: CurrentTargetType, ev: DocEvent<HTMLElementEventMap[Type], CurrentTargetType>) => void | Promise<void>, options?: AddEventListenerOptions): void;
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void | Promise<void>, options?: AddEventListenerOptions): void;
 
-export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void, options?: AddEventListenerOptions): void {
+export function addDocEventListener<CurrentTargetType extends HTMLElement>(node: CurrentTargetType, type: string, listener: (this: CurrentTargetType, evt: DocEvent<Event, CurrentTargetType>) => void | Promise<void>, options?: AddEventListenerOptions): void {
   node.addEventListener(type, listener as EventListener, options);
 }

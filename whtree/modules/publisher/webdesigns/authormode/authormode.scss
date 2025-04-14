@@ -1,4 +1,4 @@
-@import "~dompack/components/dialog/mixins";
+@use "~dompack/components/dialog/mixins" as *;
 
 :root
 {
@@ -302,8 +302,6 @@ wh-authorbar
 
 .wh-authormode__dialog
 {
-  @include dompack-dialog;
-
   background: #ffffff;
   color: var(--wh-authorbar-black);
   font-family: roboto, arial, helvetica, sans-serif;
@@ -311,6 +309,8 @@ wh-authorbar
   line-height: 1.5em;
   padding: 25px;
   width: 410px;
+
+  @include dompack-dialog;
 
   h2
   {

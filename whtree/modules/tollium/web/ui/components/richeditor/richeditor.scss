@@ -1,4 +1,4 @@
-@import './internal/rtdcss.scss';
+@use './internal/rtdcss.scss' as *;
 
 .wh-forminput-rte
 {

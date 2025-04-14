@@ -10,6 +10,7 @@ import * as compileutils from './compileutils';
 import type { CaptureLoadPlugin } from './compiletask';
 import { debugFlags } from '@webhare/env';
 import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 function addUnderscoreToFilename(url: string) {
   const parts = url.split('/');
@@ -17,6 +18,26 @@ function addUnderscoreToFilename(url: string) {
   return parts.join('/');
 }
 
+class SassLogger {
+  warnings = new Array<esbuild.PartialMessage>();
+
+  warn = (message: string, opts: sass.LoggerWarnOptions) => {
+    this.warnings.push({
+      location: {
+        column: opts.span?.start.column ?? 0,
+        file: opts.span?.url?.pathname ?? "",
+        line: opts.span?.start.line ?? 0
+      },
+      text: message
+    });
+  };
+
+  debug = (message: string, opts: { span: sass.SourceSpan }) => {
+    // console.log("sass debug:", message, opts);
+  };
+}
+
+// Compiles SASS to CSS
 const SassImporter: sass.Importer = {
   canonicalize: async function (tocanonicalize: string, context: sass.CanonicalizeContext): Promise<URL | null> {
     let url = tocanonicalize;
@@ -65,18 +86,21 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
   setup: (build: esbuild.PluginBuild) => {
     build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args: esbuild.OnLoadArgs): Promise<esbuild.OnLoadResult> => {
       const errors = new Array<esbuild.PartialMessage>();
+      const logger = new SassLogger();
 
       let result;
       try {
         result = await sass.compileAsync(args.path, {
           importers: [SassImporter],
-          alertColor: false
+          alertColor: false,
+          // verbose: true,
+          logger
         });
       } catch (e) {
         if (e instanceof sass.Exception) {
           const splitstack = e.sassStack.split("\n")[0].match(/^(.*?) (\d+):(\d+)/);
           if (splitstack) {
-            errors.push({ text: e.message, location: { file: splitstack[1], line: parseInt(splitstack[2]), column: parseInt(splitstack[3]) } });
+            errors.push({ text: e.message, location: { file: resolve(splitstack[1]), line: parseInt(splitstack[2]), column: parseInt(splitstack[3]) } });
             return { errors };
           }
         }
@@ -90,7 +114,8 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
       return {
         contents: result.css,
         loader: "css",
-        watchFiles
+        watchFiles,
+        warnings: logger.warnings
       };
     });
   },

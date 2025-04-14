@@ -1,3 +1,5 @@
+@use "~@mod-tollium/web/ui/css/settings.scss" as *;
+
 @mixin tollium-downarrow
 {
   display: inline-block;

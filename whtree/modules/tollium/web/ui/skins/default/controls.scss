@@ -1,6 +1,6 @@
-@import "~@mod-publisher/js/forms/styles";
-@import "~@mod-tollium/web/ui/css/settings.scss";
-@import "./mixins.scss";
+@use "~@mod-publisher/js/forms/styles" as *;
+@use "~@mod-tollium/web/ui/css/settings.scss" as *;
+@use "./mixins.scss" as *;
 
 /* General menu styling */
 .wh-menu-detached.wh-scrollableview-canscroll-v .wh-menu
