@@ -248,13 +248,14 @@ class LoadedBundle {
 class AssetPackController implements BackendServiceController {
   bundles = new Map<string, LoadedBundle>();
   clients = new Set<AssetPackControlClient>();
+  firstConfig = Promise.withResolvers<void>();
 
   constructor(public config: AssetPacksConfig) {
     void subscribe("system:modulefolder.*", this.onChangedFile);
     void subscribe("system:npmlinkroot.filechange.*", this.onChangedFile);
     void subscribe("system:modulesupdate", () => void this.reload());
 
-    this.loadAssetPacks().catch(e => console.error(e));
+    this.loadAssetPacks().catch(e => console.error(e)).finally(() => this.firstConfig.resolve());
   }
 
   onChangedFile = (events: BackendEvent[]) => {
@@ -290,7 +291,11 @@ class AssetPackController implements BackendServiceController {
       console.log(`Configuration loaded, ${this.bundles.size} bundles active`);
   });
 
-  createClient(source: string) {
+  async createClient(source: string) {
+    /* avoid responding to clients until the initial configuration is loaded to prevent a race where eg 'wh assetpack check'
+       is very fast to connect to the newly created controller and we haven't completed our first loadAssetPacks() yet
+       leading to eg "Bundle 'webhare_testsuite:basetest' not found" from webhare_testsuite:resset */
+    await this.firstConfig.promise;
     const client = new AssetPackControlClient(this, source);
     this.clients.add(client);
     return client;
