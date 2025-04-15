@@ -200,7 +200,7 @@ export class ServiceHandlerBase {
   }
 }
 
-class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
+class WebHareService extends ServiceHandlerBase implements Disposable { //EXTEND IPCPortHandlerBase
   private _port: WebHareServiceIPCLinkType["Port"];
 
   constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionFactory, options: WebHareServiceOptions) {
@@ -212,6 +212,10 @@ class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
   close() {
     this._port.close();
     super.close();
+  }
+
+  [Symbol.dispose]() {
+    this.close();
   }
 }
 
