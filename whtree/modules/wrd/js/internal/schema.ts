@@ -440,7 +440,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options: { temp: true; importMode?: boolean }): Promise<number>;
-  insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options?: { temp?: boolean; importMode?: true }): Promise<number>;
+  insert<T extends keyof S & string>(type: T, value: Partial<WRDInsertable<S[T]>>, options: { temp?: boolean; importMode: true }): Promise<number>;
   insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number>;
 
   insert<T extends keyof S & string>(type: T, value: WRDInsertable<S[T]>, options?: { temp?: boolean; importMode?: boolean }): Promise<number> {
