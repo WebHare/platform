@@ -1,4 +1,4 @@
-import { type TaskRequest, type TaskResponse, readRegistryKey, scheduleTask } from "@webhare/services";
+import { type TaskRequest, type TaskResponse, openBackendService, readRegistryKey, scheduleTask } from "@webhare/services";
 import { beginWork } from "@webhare/whdb";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { sleep } from "@webhare/std";
@@ -26,10 +26,17 @@ export async function pingJS(req: TaskRequest<PingTask>): Promise<TaskResponse> 
   return req.resolveByCompletion({ pong: req.taskdata.ping, managedtaskid: req.taskid });
 }
 
-export async function cancellabletaskJS(req: TaskRequest<never>): Promise<TaskResponse> {
-  const port = bridge.connect("webhare_testsuite:cancellable_connectport_js", { global: true });
-  await sleep(20000);
-  port.send({ msg: "I'm still alive" });
+export async function cancellabletaskJS(req: TaskRequest<{ service?: string } | null>): Promise<TaskResponse> { //implements webhare_testsuite:cancellable_js
+  if (req.taskdata?.service) { //JS test
+    using service = await openBackendService<any>(req.taskdata.service);
+    await service.hello();
+    await sleep(20_000);
+    await service.imStillAlive();
+  } else { //HS test
+    const port = bridge.connect("webhare_testsuite:cancellable_connectport_js", { global: true });
+    await sleep(20000);
+    port.send({ msg: "I'm still alive" });
+  }
   await beginWork();
   return req.resolveByCompletion();
 }
@@ -53,11 +60,16 @@ export async function failingTaskJS(req: TaskRequest<{ temporary?: boolean; next
     return req.resolveByPermanentFailure("Permanent failure", { result: { type: "failed" } });
 }
 
-export async function doubleScheduleTaskJS(req: TaskRequest<{ t: number; iters: number; stage: number }>): Promise<TaskResponse> {
-  const link = bridge.connect("webhare_testsuite:doubleschedule_connectport_js", { global: true });
-  await link.activate();
-  link.send({ msg: `I'm alive ${req.taskdata.t}: stage ${req.taskdata.stage.toString().padStart(6, "0")}` });
-  link.close();
+export async function doubleScheduleTaskJS(req: TaskRequest<{ t: number; iters: number; stage: number; service?: string }>): Promise<TaskResponse> { ////Implements webhare_testsuite:doublescheduletask_js
+  if (req.taskdata.service) { //used by TS test
+    using service = await openBackendService<any>(req.taskdata.service);
+    await service.report(`I'm alive ${req.taskdata.t}: stage ${req.taskdata.stage.toString().padStart(6, "0")}`);
+  } else { //used by HS test
+    const link = bridge.connect("webhare_testsuite:doubleschedule_connectport_js", { global: true });
+    await link.activate();
+    link.send({ msg: `I'm alive ${req.taskdata.t}: stage ${req.taskdata.stage.toString().padStart(6, "0")}` });
+    link.close();
+  }
 
   await beginWork();
   if (req.taskdata.stage < req.taskdata.iters) {

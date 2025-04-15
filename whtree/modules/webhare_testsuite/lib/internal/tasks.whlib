@@ -5,6 +5,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 PUBLIC OBJECTTYPE PingTask EXTEND ManagedTaskBase //implements webhare_testsuite:ping AND webhare_testsuite:pingretry2
@@ -75,18 +76,29 @@ PUBLIC OBJECTTYPE EphPingTask EXTEND ManagedTaskBase
   }
 >;
 
-PUBLIC OBJECTTYPE CancellableTask EXTEND ManagedTaskBase
+PUBLIC OBJECTTYPE CancellableTask EXTEND ManagedTaskBase //implements webhare_testsuite:cancellable
 <
   INTEGER preparedata;
 
   UPDATE PUBLIC MACRO RunTask(RECORD data)
   {
-    OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:cancellable_connectport");
-    IF (NOT ObjectExists(link))
-      this->ResolveByCompletion(DEFAULT RECORD);
+    IF(CellExists(data,'service'))
+    {
+      OBJECT service := WaitForPromise(OpenWebHareService(data.service));
+      WaitForPromise(service->Hello());
+      Sleep(20 * 1000);
+      WaitForPromise(service->ImStillAlive());
+      service->CloseService();
+    }
+    ELSE
+    {
+      OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:cancellable_connectport");
+      IF (NOT ObjectExists(link))
+        this->ResolveByCompletion(DEFAULT RECORD);
 
-    Sleep(20 * 1000);
-    link->SendMessage([ msg := "I'm still alive" ]);
+      Sleep(20 * 1000);
+      link->SendMessage([ msg := "I'm still alive" ]);
+    }
 
     this->ResolveByCompletion(DEFAULT RECORD);
   }
@@ -138,7 +150,7 @@ PUBLIC STATIC OBJECTTYPE UserEditedTask EXTEND ManagedTaskBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE DoubleScheduleTask EXTEND ManagedTaskBase
+PUBLIC STATIC OBJECTTYPE DoubleScheduleTask EXTEND ManagedTaskBase //Implements webhare_testsuite:doublescheduletask
 <
   MACRO GotCommit(BOOLEAN iscommit)
   {
@@ -147,9 +159,18 @@ PUBLIC STATIC OBJECTTYPE DoubleScheduleTask EXTEND ManagedTaskBase
 
   UPDATE PUBLIC MACRO RunTask(RECORD taskdata)
   {
-    OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:doubleschedule_connectport");
-    link->SendMessage([ msg := `I'm alive ${taskdata.t}: stage ${Right(`00000${taskdata.stage}`, 6)}` ]);
-    link->Close();
+    IF (CellExists(taskdata, "service"))
+    { //used by TS test
+      OBJECT service := WaitForPromise(OpenWebHareService(taskdata.service));
+      WaitForPromise(service->Report(`I'm alive ${taskdata.t}: stage ${Right(`00000${taskdata.stage}`, 6)}`));
+      service->CloseService();
+    }
+    ELSE
+    { //used by HS test
+      OBJECT link := ConnectToGlobalIPCPort("webhare_testsuite:doubleschedule_connectport");
+      link->SendMessage([ msg := `I'm alive ${taskdata.t}: stage ${Right(`00000${taskdata.stage}`, 6)}` ]);
+      link->Close();
+    }
 
     IF (taskdata.stage < taskdata.iters)
     {

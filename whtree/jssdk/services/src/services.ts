@@ -20,8 +20,10 @@ export type { BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
-export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelManagedTasks } from "./tasks";
+
+export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";
 export type { TaskFunction, TaskResponse } from "./tasks";
+
 export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";

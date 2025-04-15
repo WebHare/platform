@@ -13,6 +13,7 @@
   <test script="test_registry.ts" />
   <test script="test_services.ts" />
   <test script="test_services_secrets.ts" />
+  <test script="test_tasks.ts" />
   <test script="test_sessions.ts" />
   <test script="test_servicemgr.ts" />
   <test script="test_resources.ts" />
