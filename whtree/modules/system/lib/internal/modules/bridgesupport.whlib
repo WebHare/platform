@@ -1,22 +1,7 @@
 <?wh
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
-
-PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD options)
-{
-  IF(CellExists(options,'openprimary') AND options.openprimary)
-    OpenPrimary();
-  IF(CellExists(options,'autocommit') AND options.autocommit)
-    GetPrimary()->BeginWork();
-
-  VARIANT retval := CallAnyPtrVA(MakeFunctionPtr(func), args);
-  IF(CellExists(options,'autocommit') AND options.autocommit)
-    GetPrimary()->CommitWork();
-
-  RETURN retval;
-}
 
 PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)
 {

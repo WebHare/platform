@@ -233,9 +233,6 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
       , [ name :=     "system:chromeheadlessrunner"
         , cmdline :=  "runscript mod::system/scripts/internal/chromeheadlessrunner.whscr"
         ]
-      , [ name :=     "system:thebridge"
-        , cmdline :=  "runscript --workerthreads 16 mod::system/scripts/internal/thebridge.whscr"
-        ]
       ];
 
   IF (NOT ReadRegistryKey("system.backend.development.manualdebugmgr"))
