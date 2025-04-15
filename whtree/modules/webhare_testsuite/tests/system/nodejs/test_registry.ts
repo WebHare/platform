@@ -9,21 +9,25 @@ import { beginWork, commitWork, db } from "@webhare/whdb";
 function testLowLevel() {
   test.eq({
     userprefix: "<overrideuser>.", module: "system", sep: ":", subnode: "node.subnode.", subkey: "subkey",
-    storenode: "<overrideuser>.system.node.subnode."
+    storenode: "<overrideuser>.system.node.subnode.",
+    storename: "<overrideuser>.system.node.subnode.subkey",
   }, splitRegistryKey("<overrideuser>.system:node.subnode.subkey"));
   test.eq({
     userprefix: "<overrideuser>.", module: "tollium", sep: ".", subnode: "savestate.", subkey: "150995d2891cb9d2982c8a82b5756ff6",
-    storenode: "<overrideuser>.tollium.savestate."
+    storenode: "<overrideuser>.tollium.savestate.",
+    storename: "<overrideuser>.tollium.savestate.150995d2891cb9d2982c8a82b5756ff6"
   }, splitRegistryKey("<overrideuser>.tollium.savestate.150995d2891cb9d2982c8a82b5756ff6"));
   test.eq({
     userprefix: "", module: "webhare_testsuite_base_node", sep: ".", subnode: "", subkey: "stupidvalue",
-    storenode: "webhare_testsuite_base_node."
+    storenode: "webhare_testsuite_base_node.",
+    storename: "webhare_testsuite_base_node.stupidvalue"
   }, splitRegistryKey("webhare_testsuite_base_node.stupidvalue"));
 
   test.throws(/Invalid registry key name/, () => splitRegistryKey("system.servicemanager.runonce.consilio:migrate_indices_v3"));
   test.eq({
     userprefix: "", module: "system", sep: ".", subnode: "servicemanager.runonce.", subkey: "consilio:migrate_indices_v3",
-    storenode: "system.servicemanager.runonce."
+    storenode: "system.servicemanager.runonce.",
+    storename: "system.servicemanager.runonce.consilio:migrate_indices_v3"
   }, splitRegistryKey("system.servicemanager.runonce.consilio:migrate_indices_v3", { acceptInvalidKeyNames: true }));
 }
 
@@ -32,20 +36,21 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
   //Read&Write have different responses to non existing keys whether is system or user registry, as one requires values to exist and the other requires fallback values to be provided
   await test.throws(foruser ? /Reading a user registry requires/ : /No such registry key/, () => readRegistryKey<number>(basename + "webhare_testsuite_base_node.stupidvalue", undefined, { acceptInvalidKeyNames }));
   test.eq(43, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
-  await test.throws(foruser ? /Writing a user registry requires/ : /No such registry key/, () => writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43));
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 44, { createIfNeeded: true });
+  await test.throws(foruser ? /Writing a user registry requires/ : /No such registry key/, () => writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 44, { createIfNeeded: true, acceptInvalidKeyNames });
   test.eq(44, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 45, { createIfNeeded: true });
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 45, { createIfNeeded: true, acceptInvalidKeyNames });
   test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 46, { initialCreate: true });
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 46, { initialCreate: true, acceptInvalidKeyNames });
   test.eq(45, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 43, { acceptInvalidKeyNames }));
-
+  await commitWork();
+  await beginWork();
   test.eq([{ name: basename + "webhare_testsuite_base_node.stupidvalue", value: 45 }], await readRegistryKeysByMask(basename + "webhare_testsuite_base_node.stupidvalue"));
 
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!"), { createIfNeeded: true });
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!"), { createIfNeeded: true, acceptInvalidKeyNames });
   test.eq("Hello, World!", await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
 
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!".repeat(1000)), { createIfNeeded: true });
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from("Hello, World!".repeat(1000)), { createIfNeeded: true, acceptInvalidKeyNames });
   test.eq("Hello, World!".repeat(1000), await (await readRegistryKey<WebHareBlob>(basename + "webhare_testsuite_base_node.blobvalue", WebHareBlob.from(""), { acceptInvalidKeyNames })).text());
 
   {
@@ -66,7 +71,7 @@ async function doKeyTests(basename: string, { acceptInvalidKeyNames = false } = 
   ], (await readRegistryNode(basename + "webhare_testsuite_base_node")).toSorted((lhs, rhs) => lhs.fullname.localeCompare(rhs.fullname)));
   test.eq(47, await readRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 47, { acceptInvalidKeyNames }));
 
-  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 48, { initialCreate: true });
+  await writeRegistryKey(basename + "webhare_testsuite_base_node.stupidvalue", 48, { initialCreate: true, acceptInvalidKeyNames });
   await deleteRegistryNode(basename + "webhare_testsuite_base_node");
   test.eq([], await readRegistryNode(basename + "webhare_testsuite_base_node"));
 }
