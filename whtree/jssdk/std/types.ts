@@ -165,35 +165,42 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
   throw new Error(`Cannot compare a ${stdTypeOf(left)} with a ${stdTypeOf(right)}`);
 }
 
-type Comparator<T extends number | string | symbol> = <E extends { [V in T]: null | boolean | number | string | Date }>(a: E, b: E) => -1 | 0 | 1;
-type PartialCompareCallback<T extends number | string | symbol> = (keys: T[]) => Comparator<T>;
-type ComparatorWithPartialCompare<T extends number | string | symbol> = Comparator<T> & { partialCompare: PartialCompareCallback<T> };
+/** Returns all property keys of an object type whose value is comparable */
+type ComparableFields<E extends object, K extends keyof E = keyof E> = K extends keyof E ? E[K] extends ComparableType ? K : never : never;
 
-/** Compare function for an array that sorts on the contents of the specified field names */
-export function compareProperties<T extends number | string | symbol>(properties: T | Array<T | [T, "asc" | "desc"]>): ComparatorWithPartialCompare<T> {
-  const props = Array.isArray(properties) ? properties : [properties];
-  type Arg = { [V in T]: null | boolean | number | string | Date };
-  const compareFn = (lhs: Arg, rhs: Arg) => {
-    for (const prop of props) {
-      const getField = Array.isArray(prop) ? prop[0] : prop;
-      const descending = Array.isArray(prop) && prop[1] === "desc";
-      if (lhs[getField] === undefined || rhs[getField] === undefined)
-        throw new Error(`Property '${String(getField)}' does not exist`);
+/** Type of array elements for keys in `compareProperties` */
+type ComparePropertiesArrayElement<E extends object> = ComparableFields<E> | [ComparableFields<E>, "asc" | "desc"];
 
-      const cmpResult = compare(lhs[getField], rhs[getField]);
-      if (cmpResult) {
-        if (descending)
-          return cmpResult < 0 ? 1 : -1;
-        else
-          return cmpResult;
-      }
+/** All possible types of object keys */
+type AnyKey = string | symbol | number;
+
+/** Extracts the property name from an array element of CompareProperties */
+type GetPropertyFromComparePropertiesArrayElement<T> = T extends AnyKey ? T : T extends [infer A, "asc" | "desc"] ? A : never;
+
+/** Get the list of properties referenced in the `compareProperties` keys list */
+type GetPropertiesFromComparePropertiesKeys<K extends AnyKey | Array<AnyKey | [AnyKey, "asc" | "desc"]>> = K extends AnyKey ? K : K extends Array<infer T> ? GetPropertyFromComparePropertiesArrayElement<T> : never;
+
+/** Get all proper prefixes of a tuple, excluding the empty tuple and the source tuple */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TuplePrefixes<K extends AnyKey | [...any[]]> = K extends [any] ? never : K extends [infer A, ...infer B] ? [A] | [A, ...TuplePrefixes<B>] : never;
+
+/** Template for possible keys value (needed to make TS understand that a tuple prefix of the keys is also a valid keys list */
+type PossibleFields<E extends object> = ComparableFields<E> | [ComparePropertiesArrayElement<E>, ...Array<ComparePropertiesArrayElement<E>>];
+
+
+export function compareProperties<const K extends ComparableFields<E> | [...Array<ComparePropertiesArrayElement<E>>], E extends object = Record<GetPropertiesFromComparePropertiesKeys<K>, ComparableType>>(fields: K) {
+  const compareList = (Array.isArray(fields) ? fields : [fields]).map((field): [keyof E, 1 | -1] => Array.isArray(field) ? [field[0], field[1] === "desc" ? -1 : 1] : [field, 1]);
+  const retval: (lhs: E, rhs: E) => number = (a, b) => {
+    for (const [field, negate] of compareList) {
+      if (a[field] === undefined || b[field] === undefined)
+        throw new Error(`Property '${String(field)}' does not exist`);
+      const res = negate * compare(a[field] as ComparableType, b[field] as ComparableType);
+      if (res)
+        return res;
     }
     return 0;
   };
-
-  return Object.assign(compareFn, {
-    partialCompare: (partialProps: T | Array<T | [T, "asc" | "desc"]>) => {
-      return compareProperties(partialProps);
-    },
+  return Object.assign(retval, {
+    partialCompare: <T extends TuplePrefixes<K> & PossibleFields<E>>(partialFields: T) => compareProperties<T, E>(partialFields)
   });
 }

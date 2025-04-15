@@ -972,6 +972,16 @@ function testCompare() {
   const topCompareFn = std.compareProperties(["a", "b", "text"]);
   const partialCompareFn = topCompareFn.partialCompare(["a", "b"]);
   test.eq([1, 3, 3, 3, 5], std.shuffle([...list]).toSorted(partialCompareFn).map(_ => _.a));
+
+  // @ts-expect-error Key list must be a proper prefix of the original list
+  void topCompareFn.partialCompare(["b"]);
+
+  const keys: string[] = ["a"];
+  const cmp = std.compareProperties(keys);
+  // Properties are 'string', so this accepts a record with only comparable members
+  test.throws(/Cannot compare/, () => cmp({ a: new Date }, { a: 1 }));
+  // @ts-expect-error Record witn non-comparable members are an error here
+  test.throws(/Cannot compare/, () => cmp({ a: new Blob }, { a: 1 }));
 }
 
 function testCaseChanging() {
