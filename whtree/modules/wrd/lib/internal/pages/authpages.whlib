@@ -170,7 +170,7 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase
     //We'll still check your new password though as it's nicer to dismiss it immediately if unusable, and not after repeating it right
     RECORD updateres := this->formcontext->GetWRDAuthPlugin()->ExecutePasswordReset(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"), ^passwordnew->value, [ dryrun := work->HasFailed() ]);
     IF(NOT updateres.success)
-      work->AddErrorFor(^passwordnew, updateres.error);
+      work->AddErrorFor(^passwordnew, updateres.message);
 
     IF(work->Finish())
       this->formcontext->GetWRDAuthPlugin()->LoginById(this->verifyresult.entityid, FALSE);
