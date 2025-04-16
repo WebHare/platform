@@ -294,7 +294,7 @@ class AssetPackController implements BackendServiceController {
   async createClient(source: string) {
     /* avoid responding to clients until the initial configuration is loaded to prevent a race where eg 'wh assetpack check'
        is very fast to connect to the newly created controller and we haven't completed our first loadAssetPacks() yet
-       leading to eg "Bundle 'webhare_testsuite:basetest' not found" from webhare_testsuite:resset */
+       leading to eg "Bundle 'webhare_testsuite:basetest' not found" from webhare_testsuite:reset */
     await this.firstConfig.promise;
     const client = new AssetPackControlClient(this, source);
     this.clients.add(client);
