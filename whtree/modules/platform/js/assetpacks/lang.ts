@@ -3,7 +3,6 @@
 
 import type * as esbuild from 'esbuild';
 import type { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask";
-import { parseResourcePath, toResourcePath } from "@webhare/services";
 import * as fs from "node:fs";
 import { emplace } from '@webhare/std';
 import { loadlib } from '@webhare/harescript';
@@ -14,23 +13,15 @@ type TextsMap = Map<string, ModuleTexts>;
 
 async function runLangLoader(languages: string[], resourcepath: string, source: string) {
   const warnings: string[] = [], dependencies: string[] = [];
-  const curmodule = parseResourcePath(toResourcePath(resourcepath))?.module;
   try {
-    if (!curmodule)
-      throw new Error("Could not determine module for resourcepath " + resourcepath); //was a warning but I don't see any proper way for the rest of the code to deal with empty strings here
-
     const langfile = JSON.parse(source) as { imports?: { [module: string]: string[] } };
 
     const alltexts: TextsMap = new Map();
     const filelist: string[] = [];
 
     if (langfile.imports) {
-      for (let module of Object.keys(langfile.imports)) {
+      for (const module of Object.keys(langfile.imports)) {
         const gids = Array.from(langfile.imports[module]);
-
-        // Use current module if not specified
-        if (!module)
-          module = curmodule;
 
         const moduletexts = emplace(alltexts, module, { insert: () => ({}) });
 
