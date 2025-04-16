@@ -51,12 +51,12 @@ type OptionsTemplate = {
   description?: string;
   type?: never;
   multiple?: boolean;
-};
+} | string;
 
 type FlagTemplate = {
   default?: boolean;
   description?: string;
-};
+} | string;
 
 /** An arguments, with an optional type */
 type Argument<J> = {
@@ -100,7 +100,7 @@ type OptArgBase = {
 
 // Ensures the defaults of options with type are compatible with the return type of the type.
 type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: "default" extends keyof Options[Key] ?
-  Simplify<Omit<OptionsTemplate, "default"> & { default: GetParsedType<Options[Key], string, false> }> :
+  Simplify<Omit<OptionsTemplate & object, "default"> & { default: GetParsedType<Options[Key], string, false> }> :
   OptionsTemplate;
 };
 
@@ -128,7 +128,9 @@ type NameOfArgument<A extends Argument<unknown>> = A["name"] extends `[${infer S
 type GetMultiple<Type, Multiple extends boolean | undefined> = Multiple extends true ? Type[] : Type;
 
 /// Get the parsed type for an option or an argument. Simplify<> is needed to work around some weird stuff in the TS compiler. `O extends object` doesn't seem to work here?
-type GetParsedType<O extends object, Default, Multiple extends boolean | undefined> = GetMultiple<Simplify<O> extends { readonly type: CLIArgumentType<any> } ? GetArgumentTypeType<Simplify<O>> : Default, Multiple>;
+type GetParsedType<O extends object | string, Default, Multiple extends boolean | undefined> = O extends object ?
+  (GetMultiple<Simplify<O> extends { readonly type: CLIArgumentType<any> } ? GetArgumentTypeType<Simplify<O>> : Default, Multiple>) :
+  Default;
 
 /// CamelCases a string separated by '-' or '_'
 type CamelCase<S extends string> = S extends `${infer P1}${"_" | "-"}${infer P2}${infer P3}`
@@ -145,10 +147,12 @@ type GetOptionListStoreName<K extends string> = K extends `${string},${infer E}`
 // Gets rid of the intersections within a type
 type Simplify<A extends object> = A extends object ? { [K in keyof A]: A[K] } : never;
 
+type IsMultiple<O extends OptionsTemplate> = O extends { multiple: true } ? true : false;
+
 /// Calculate the resulting values record for options
 type OptionsResult<Options extends Record<string, OptionsTemplate>, Flags extends Record<string, FlagTemplate>> = Simplify<
-  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? GetOptionListStoreName<Key> : never)]-?: GetParsedType<Options[Key], string, Options[Key]["multiple"]> } &
-  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? never : GetOptionListStoreName<Key>)]?: GetParsedType<Options[Key], string, Options[Key]["multiple"]> } &
+  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? GetOptionListStoreName<Key> : never)]-?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
+  { -readonly [Key in keyof Options & string as ("default" extends keyof Options[Key] ? never : GetOptionListStoreName<Key>)]?: GetParsedType<Options[Key], string, IsMultiple<Options[Key]>> } &
   { -readonly [Key in keyof Flags & string as GetOptionListStoreName<Key>]: boolean } &
   object>;
 
@@ -270,10 +274,11 @@ function registerOptsAndFlags(optMap: OptMap, parsedOpts: Record<string, unknown
       for (const key of keys.split(",")) {
         optMap.set(key, { storeName, isFlag: true, isGlobal, rec: flagRec });
       }
+      const defaultValue = typeof flagRec === "string" ? false : (flagRec.default ?? false);
       if (parsedOpts)
-        parsedOpts[storeName] = flagRec.default ?? false;
+        parsedOpts[storeName] = defaultValue;
       if (isGlobal && parsedGlobalOpts)
-        parsedGlobalOpts[storeName] = flagRec.default ?? false;
+        parsedGlobalOpts[storeName] = defaultValue;
     }
   }
   if (data.options) {
@@ -282,7 +287,7 @@ function registerOptsAndFlags(optMap: OptMap, parsedOpts: Record<string, unknown
       for (const key of keys.split(",")) {
         optMap.set(key, { storeName, isFlag: false, isGlobal, rec: optionRec });
       }
-      if ("default" in optionRec) {
+      if (typeof optionRec === "object" && "default" in optionRec) {
         if (parsedOpts)
           parsedOpts[storeName] = optionRec.default;
         if (isGlobal && parsedGlobalOpts)
@@ -372,7 +377,7 @@ export function parse<
             strValue = argv[i];
           }
 
-          const storeValue = rec.type ?
+          const storeValue = typeof rec === "object" && rec.type ?
             rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
             strValue;
 
@@ -416,7 +421,7 @@ export function parse<
               strValue = argv[++i];
             }
 
-            const storeValue = rec.type ?
+            const storeValue = typeof rec === "object" && rec.type ?
               rec.type.parseValue(strValue, { argName: `option ${JSON.stringify(key)}`, command: command?.[0] }) :
               strValue;
 
@@ -534,7 +539,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
   if (optionEntries.length) {
     print(`Options:`);
     for (const [name, option] of optionEntries) {
-      print(`  ${formatOptionNames(name).padEnd(secondColumnPadAt - 3, " ")} ${option.description || ""}${describeData(option)}`);
+      print(`  ${formatOptionNames(name).padEnd(secondColumnPadAt - 3, " ")} ${typeof option === "string" ? option : option.description || ""}${describeData(typeof option === "string" ? { description: option } : option)}`);
     }
   }
   if (data.subCommands) {
@@ -547,7 +552,7 @@ export function printHelp(data: ParseData, options: { error?: CLIError; command?
       if (cmdOptionEntries.length) {
         print(`  Options:`);
         for (const [name, option] of cmdOptionEntries) {
-          print(`    ${formatOptionNames(name).padEnd(secondColumnPadAt - 5, " ")} ${option.description || ""}${describeData(option)}`);
+          print(`    ${formatOptionNames(name).padEnd(secondColumnPadAt - 5, " ")} ${typeof option === "string" ? option : option.description || ""}${describeData(typeof option === "string" ? { description: option } : option)}`);
         }
       }
       if (commandRec.arguments?.length) {
@@ -637,7 +642,7 @@ export function run<
     } catch (e) {
       if (e instanceof CLIRuntimeError) {
         if (e.options.showHelp)
-          printHelp(data, { error: e });
+          printHelp(data, { error: e, command: e.command });
         else if (e.message)
           console.error(`Error: ${e.message}`);
         if (e.options.exitCode !== undefined)
@@ -757,7 +762,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
           ++i;
           if (i === argv.length - 1) {
             // autocompleting the argument of this option
-            if (optionRef.rec.type?.autoComplete) {
+            if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
               const completes = optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
               return completes.filter(c => c.startsWith(argv[i])).map(fixAutcompleteSuffix);
             }
@@ -767,7 +772,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
           // --long-opt=value, autocompleting the value
           if (parts.length > 1) {
             // Unknown options or flags can't take arguments
-            if (optionRef?.isFlag || !optionRef?.rec.type || !optionRef.rec.type.autoComplete)
+            if (optionRef?.isFlag || typeof optionRef?.rec !== "object" || !optionRef?.rec.type || !optionRef.rec.type.autoComplete)
               return [];
 
             const completes = optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
@@ -800,7 +805,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
         if (j + 1 < arg.length) {
           // option followed by immediate value
           if (isLast) {
-            if (optionRef.rec.type?.autoComplete) {
+            if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
               const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
               return completes.map(c => `${arg.slice(0, j + 1)}${c}`).filter(c => c.startsWith(arg));
             }
@@ -818,7 +823,7 @@ export function runAutoComplete(data: ParseData, argv: string[]): string[] {
 
         ++i;
         if (i === argv.length - 1) {
-          if (optionRef.rec.type?.autoComplete) {
+          if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
             const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0] });
             return completes.filter(c => c.startsWith(arg));
           }

@@ -1,4 +1,5 @@
 
+import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
 import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
@@ -304,6 +305,7 @@ async function testCLITypes() {
           },
           "cmd2": {
             flags: { b: { default: false } },
+            options: { s: {}, m: { multiple: true } },
             arguments: [{ name: "<f2>", type: enumOption(["y"]) }],
           },
           "cmd3": {
@@ -324,8 +326,8 @@ async function testCLITypes() {
       } | {
         cmd: "cmd2";
         args: { f2: "y" };
-        opts: { b: boolean };
-        specifiedOpts: Array<"b">;
+        opts: { b: boolean; s?: string; m?: string[] };
+        specifiedOpts: Array<"b" | "s" | "m">;
         globalOpts: object;
         specifiedGlobalOpts: never[];
       } | {
@@ -338,6 +340,28 @@ async function testCLITypes() {
       }, typeof res>>();
     }
 
+    {
+      const res = parse({
+        flags: { a: "description-a" },
+        options: { b: "description-b" },
+        subCommands: {
+          "cmd": {
+            flags: { c: "description-c" },
+            options: { d: "description-d" },
+          },
+        }
+      }, ["-v", "cmd", "-a"]);
+      void res;
+
+      test.typeAssert<test.Equals<{
+        cmd: "cmd";
+        args: object;
+        opts: { a: boolean; c: boolean; b?: string; d?: string };
+        specifiedOpts: Array<"a" | "b" | "c" | "d">;
+        globalOpts: { a: boolean; b?: string };
+        specifiedGlobalOpts: Array<"a" | "b">;
+      }, typeof res>>();
+    }
     parse({
       // @ts-expect-error default has the wrong type
       options: { a: { type: intOption({ start: 0, end: 10 }), default: "a" } },
@@ -359,11 +383,14 @@ async function testCLITypes() {
   });
 }
 
-async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<T> {
+async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<{ data: T; output: string }> {
+  let output = "";
+  using ref = addConsoleCallback((data) => output += data);
+  void ref;
   await new Promise<void>((resolve) => {
     r.onDone = resolve;
   });
-  return r;
+  return { data: r, output };
 }
 
 async function testCLIRun() {
@@ -410,10 +437,23 @@ async function testCLIRun() {
   // STORY: test CLIRuntimeError handling
   // TODO: intercept console.log and check for output
   test.eq(0, process.exitCode ?? 0);
-  await waitRunDone(run({
-    main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
-  }));
-  test.eq(1, process.exitCode);
+  {
+    const { output } = await waitRunDone(run({
+      options: { a: "option-a", b: { description: "option-b" } },
+      flags: { v: "flag-v", w: { description: "flag-w" } },
+      main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
+    }));
+
+    test.eq(1, process.exitCode);
+    test.eq(`Error: Test error
+
+Options:
+  -a                    option-a
+  -b                    option-b
+  -v                    flag-v
+  -w                    flag-w
+`, output);
+  }
   await waitRunDone(run({
     main() { throw new CLIRuntimeError("Test error", { exitCode: 2 }); }
   }));
