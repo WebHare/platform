@@ -1,16 +1,16 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { loadlib } from "@webhare/harescript";
-import { appendToArray, convertFlexibleInstantToDate, convertWaitPeriodToDate, sleep, throwError, type FlexibleInstant, type WaitPeriod } from "@webhare/std";
+import { appendToArray, convertFlexibleInstantToDate, convertWaitPeriodToDate, regExpFromWildcards, sleep, throwError, type FlexibleInstant, type WaitPeriod } from "@webhare/std";
 import { broadcastOnCommit, db, isWorkOpen, nextVals, onFinishWork, uploadBlob } from "@webhare/whdb";
 import { openBackendService } from "@webhare/services/src/backendservice.ts";
 import { subscribeToEventStream } from "@webhare/services/src/backendevents.ts";
 import { getStackTrace, type StackTrace } from "@webhare/js-api-tools";
 import { checkModuleScopedName } from "./naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { defaultDateTime, encodeHSON } from "@webhare/hscompat";
+import { decodeHSON, decodeHSONorJSONRecord, defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { logDebug, WebHareBlob } from "@webhare/services";
 import type { IPCMarshallableData } from "@webhare/hscompat/hson";
 import { debugFlags } from "@webhare/env";
+import { prependHSStackTrace, type ExceptionTrace } from "@webhare/harescript/src/wasm-support";
 
 interface TaskResponseFinished {
   type: "finished";
@@ -156,6 +156,42 @@ export async function scheduledTasks(tasktype: string, taskdatas: IPCMarshallabl
   return taskids;
 }
 
+interface ListTasksOptions {
+  /** createdafter Only return taskscreated on or after this date */
+  createdAfter?: FlexibleInstant;
+  /** Only return pending (not yet finally complete or failed) tasks */
+  onlyPending?: boolean;
+}
+
+/** List managed tasks
+    @param type - Type of the task (wildcards accepted)
+    @param searchparameters - Search parameters
+    @returns List of tasks
+*/
+export async function listTasks(type: string, searchparameters?: ListTasksOptions): Promise<Array<{
+  id: number;
+  created: Temporal.Instant;
+  type: string;
+}>> {
+
+  let query = db<PlatformDB>().
+    selectFrom("system.managedtasks").
+    select(["id", "creationdate", "tasktype"]).
+    where("tasktype", "like", type);
+
+  if (searchparameters?.onlyPending)
+    query = query.where("finished", "=", defaultDateTime);
+  if (searchparameters?.createdAfter)
+    query = query.where("creationdate", ">=", convertFlexibleInstantToDate(searchparameters.createdAfter));
+
+  const results = await query.execute();
+  return results.map(task => ({
+    id: task.id,
+    created: task.creationdate.toTemporalInstant(),
+    type: task.tasktype
+  }));
+}
+
 /** Schedule a managed task if this transaction commits
  *
  *  A managed task, once scheduled, will always attempt to complete, and is restarted when it or the task manager fails.
@@ -282,8 +318,21 @@ export async function scheduleTimedTask(taskname: string, options?: { when?: Fle
   };
 }
 
-export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: { acceptTimeout: false }): Promise<T>;
-export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: { acceptTimeout: boolean }): Promise<T | null>;
+interface RetrieveTaskResultOptions {
+  acceptCancel?: boolean;
+  acceptTempFailure?: boolean;
+  acceptTimeout?: boolean;
+  timeout?: WaitPeriod;
+}
+
+//legacy callers only use 'number' in practice, no WaitPeriod, and at most acceptTimeout as option, so easy to recognize
+/** @deprecated WH5.7 expects timeout to be combined into the options parameter */
+export async function retrieveTaskResult<T>(taskId: number, timeout: number, options?: { acceptTimeout: false }): Promise<T>;
+/** @deprecated WH5.7 expects timeout to be combined into the options parameter */
+export async function retrieveTaskResult<T>(taskId: number, timeout: number, options?: { acceptTimeout: boolean }): Promise<T | undefined>;
+
+export async function retrieveTaskResult<T>(taskId: number, options: RetrieveTaskResultOptions & { acceptTimeout: true }): Promise<T | undefined>;
+export async function retrieveTaskResult<T>(taskId: number, options?: RetrieveTaskResultOptions): Promise<T>;
 
 /** Get the result of a scheduled task
  * @param taskId - Task to look up
@@ -294,20 +343,55 @@ export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod,
  * @returns The result of the task
  * @throws if the task is cancelled, failed or timed out
  */
-export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: {
-  acceptCancel?: boolean;
-  acceptTempFailure?: boolean;
-  acceptTimeout?: boolean;
-}): Promise<T | null> {
+export async function retrieveTaskResult<T>(taskId: number, options?: RetrieveTaskResultOptions | number, options_old?: RetrieveTaskResultOptions): Promise<T | undefined> {
+  if (typeof options === "number") {
+    options = { ...options_old, timeout: options };
+  }
+  const maxwait = convertWaitPeriodToDate(options?.timeout ?? Infinity);
+
   options = {
     acceptCancel: false,
     acceptTempFailure: false,
     acceptTimeout: false,
     ...options
   };
+  delete options.timeout;
 
-  const maxwait = convertWaitPeriodToDate(timeout);
-  return await loadlib("mod::system/lib/tasks.whlib").retrieveManagedTaskResult(taskId, maxwait, options) as T;
+  if (isWorkOpen())
+    throw new Error("retrieveTaskResult cannot be invoked with open work");
+
+  using listener = subscribeToEventStream(`system:managedtasks.any.${taskId}`);
+  void (listener);
+
+  for (; ;) {
+    const taskinfo = await db<PlatformDB>().selectFrom("system.managedtasks").selectAll().where("id", "=", taskId).executeTakeFirst();
+    if (!taskinfo)
+      throw new Error(`No such task #${taskId}`);
+
+    const taskdone = taskinfo.finished.getTime() !== defaultDateTime.getTime();
+    if (taskinfo.lasterrors) {  //something is up)
+      if (taskinfo.iscancelled) {
+        if (!options.acceptCancel)
+          throw new Error(`Task ${taskinfo.tasktype} #${taskId} has been cancelled: ${taskinfo.lasterrors}`);
+      } else if (taskdone || !options.acceptTempFailure) {
+        const err = new Error(`Task ${taskinfo.tasktype} #${taskId} has${taskdone ? " permanently" : ""} failed: ${taskinfo.lasterrors}`);
+        if (taskinfo.stacktrace) {
+          const trace = decodeHSON(taskinfo.stacktrace) as ExceptionTrace;
+          prependHSStackTrace(err, trace);
+        }
+        throw err;
+      }
+    }
+
+    if (taskdone)
+      return !taskinfo.shortretval ? undefined : decodeHSONorJSONRecord(taskinfo.shortretval === "long" ? await taskinfo.longretval!.text() : taskinfo.shortretval) as T;
+
+    if (Date.now() > maxwait.getTime())
+      if (options.acceptTimeout)
+        return undefined;
+      else
+        throw new Error(`Timeout waiting for completion of task ${taskinfo.tasktype} #${taskId}`);
+  }
 }
 
 /// Handles cancelling running tasks after the commit
@@ -329,19 +413,24 @@ class TaskCancelHandler {
 /** Cancel managed tasks.
     @remarks Schedules cancellation of the specified managed tasks. When the promise returned by this function resolves, the
     changes have been written to the database. If any of the tasks are running, they will be stopped after the commit. After
-    all running tasks have been stopped, the `runningTasksStopped` promise returned by this function will be fulfilled.
-    @param taskids - Ids of the tasks that must be cancelled
+    all running tasks have been stopped, the `tasksCancelled` promise returned by this function will be fulfilled.
+    @param taskIds - Id or ids of the tasks that must be cancelled
     @returns - Promise that resolves when the cancellation has written to the database. The promise returned by
-    `runningTasksStopped()` will be resolved when all running tasks have been stopped.
+    `tasksCancelled()` will be resolved when all running tasks have been stopped.
 */
-export async function cancelManagedTasks(taskIds: number[]): Promise<{ runningTasksStopped(): Promise<void> }> {
+export async function cancelTask(taskIds: number[]): Promise<{ tasksCancelled(): Promise<void> }> {
+  // TODO should we offer a deleteTask like the HS API? But if so, you still need to go through cancellation so at most we'll add a {delete} option here?
+  if (!isWorkOpen())
+    throw new Error("cancelTask cannot be invoked without open work");
+
+  taskIds = typeof taskIds === "number" ? [taskIds] : taskIds;
   if (!taskIds.length)
-    return { runningTasksStopped: () => Promise.resolve() };
+    return { tasksCancelled: () => Promise.resolve() };
 
   const seenTaskTypes = (await db<PlatformDB>().selectFrom("system.managedtasks").select("tasktype").where("id", "in", taskIds).distinct().execute()).map(task => task.tasktype);
   await db<PlatformDB>()
     .updateTable("system.managedtasks")
-    .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by CancelManagedTasks" })
+    .set({ iscancelled: true, finished: new Date(), lasterrors: "Cancelled by cnacelTask" })
     .where("id", "in", taskIds)
     .execute();
 
@@ -352,5 +441,111 @@ export async function cancelManagedTasks(taskIds: number[]): Promise<{ runningTa
   // Make sure the commit handler is installed
   const handler = onFinishWork(() => new TaskCancelHandler, { uniqueTag: TaskCancelHandler.uniqueTag });
 
-  return { runningTasksStopped: () => handler.deferred.promise };
+  return {
+    tasksCancelled: () => handler.deferred.promise,
+  };
+}
+
+/** @deprecated Renamed to cancelTask in WH5.7 */
+export async function cancelManagedTasks(taskIds: number[]): Promise<{ runningTasksStopped(): Promise<void> }> {
+  const res = await cancelTask(taskIds);
+  return { runningTasksStopped: () => res.tasksCancelled() };
+}
+
+interface DescribedTask {
+  /** Creation date of the task */
+  created: Temporal.Instant;
+  /** Next time the task will be run */
+  nextAttempt: Temporal.Instant;
+  /** Type of the task (format: modulename:tasktypename) */
+  type: string;
+  /** Datetime when the task was marked as finished */
+  finished: Temporal.Instant | null;
+  /** If not empty, errors the task returned */
+  lastErrors: string;
+  /** Stack trace with errors */
+  trace: StackTrace;
+  /** Return value of the task */
+  result: object | null;
+  /** Task data */
+  data: IPCMarshallableData;
+  /** Metadata of this task */
+  metadata: Record<string, unknown>;
+  /** Number of failures */
+  failures: number;
+  /** Scheduled date after which the tasks can be executed */
+  notBefore: Temporal.Instant | null;
+}
+
+/** Describes a managed task
+    @param taskid - Id of the managed task
+    @param options - allowMissing: Don't throw if the task isn't found
+    @returns Managed task info */
+
+export async function describeTask(taskid: number, options: { allowMissing: true }): Promise<DescribedTask | null>;
+export async function describeTask(taskid: number, options?: { allowMissing: boolean }): Promise<DescribedTask>;
+
+export async function describeTask(taskid: number, options?: { allowMissing: boolean }): Promise<DescribedTask | null> {
+  const taskinfo = await db<PlatformDB>().selectFrom("system.managedtasks").selectAll().where("id", "=", taskid).executeTakeFirst();
+  if (!taskinfo)
+    if (options?.allowMissing)
+      return null;
+    else
+      throw new Error(`No such task #${taskid}`);
+
+  const data = decodeHSON(taskinfo.taskdata);
+  if (taskinfo.auxdata) //TODO we shouldn't decode auxdata unless explicitly requested, or just have a separate API for it. OR have the requester specify the fields
+    Object.assign(data as object, decodeHSON(await taskinfo.auxdata.text()) as IPCMarshallableData);
+
+  const rawMetadata = await db<PlatformDB>().selectFrom("system.managedtasksmeta").selectAll().where("task", "=", taskid).execute();
+  const metadata = Object.fromEntries(rawMetadata.map(row => [row.metakey, decodeHSON(row.metavalue)]));
+
+  const descr: DescribedTask = {
+    created: taskinfo.creationdate.toTemporalInstant(),
+    nextAttempt: taskinfo.nextattempt.toTemporalInstant(),
+    type: taskinfo.tasktype,
+    finished: taskinfo.finished && taskinfo.finished.getTime() > defaultDateTime.getTime() ? taskinfo.finished.toTemporalInstant() : null,
+    lastErrors: taskinfo.lasterrors,
+    trace: [],//FIXME taskinfo.stracktrace
+    result: taskinfo.shortretval ? decodeHSONorJSONRecord(taskinfo.shortretval) : null,
+    data: data,
+    metadata,
+    failures: taskinfo.failures,
+    notBefore: taskinfo.notbefore ? taskinfo.notbefore.toTemporalInstant() : null
+  };
+  return descr;
+}
+
+/** Retry pending managed tasks by ID or tyoe
+    @param taskids - ID(s) of tasks to retry or a type maks
+*/
+export async function retryTask(tasks: number | number[] | string): Promise<void> {
+  const now = new Date;
+  let flushtasksquery = db<PlatformDB>().
+    selectFrom("system.managedtasks").
+    select(["id", "tasktype", "nextattempt", "notbefore"]).
+    where("nextattempt", ">=", now).
+    where("notbefore", "<=", now).
+    where("finished", "=", defaultDateTime);
+  if (typeof tasks === "number")
+    flushtasksquery = flushtasksquery.where("id", "=", tasks);
+  else if (typeof tasks === "string")
+    flushtasksquery = flushtasksquery.where("tasktype", "~", regExpFromWildcards(tasks).source);
+  else
+    flushtasksquery = flushtasksquery.where("id", "in", tasks);
+
+  const flushtasks = await flushtasksquery.execute();
+  if (!flushtasks.length)
+    return;
+
+  const seentasktypes = new Set(flushtasks.map(_ => _.tasktype));
+  await db<PlatformDB>().
+    updateTable("system.managedtasks").
+    set({ nextattempt: now }).
+    where("id", "in", flushtasks.map(_ => _.id)).
+    execute();
+
+  broadcastOnCommit("system:managedtasks.any.changes");
+  for (const tasktype of seentasktypes)
+    broadcastOnCommit(`system:managedtasks.${tasktype}.changes`);
 }
