@@ -442,7 +442,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
     IF(HasSubfields(groupdescription))
       INSERT "wh-form__fieldgroup--hassubfields" INTO useclasses AT END;
 
-    BOOLEAN isrequired := groupdescription.required OR (groupdescription.type = "checkboxgroup" AND groupdescription.min >= 1);
+    BOOLEAN isrequired := groupdescription.required OR (groupdescription.type IN ["checkboxgroup","array"] AND groupdescription.min >= 1);
     IF(isrequired)
       INSERT "wh-form__fieldgroup--required" INTO useclasses AT END;
     IF(Length(groupdescription.errors)>0)
