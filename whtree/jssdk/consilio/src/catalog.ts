@@ -410,8 +410,9 @@ export async function doCreateCatalog(tag: string, options?: CatalogOptions): Pr
     throw new Error(`Invalid catalog tag '${tag}'`);
 
   // Index name should be unique
-  if ((await db<PlatformDB>().selectFrom("consilio.catalogs").where("name", '=', tag).execute()).length)
-    throw new Error(`Catalog with tag '${tag}' already exists`);
+  const existing = await db<PlatformDB>().selectFrom("consilio.catalogs").select("id").where("name", '=', tag).execute();
+  if (existing.length)
+    throw new Error(`Catalog with tag '${tag}' already exists with id #${existing[0].id}`);
 
   const indexid = await nextVal("consilio.catalogs.id");
   if (options?.suffixed && options?.managed)
