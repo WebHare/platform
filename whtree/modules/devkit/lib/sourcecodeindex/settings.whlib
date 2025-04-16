@@ -1,0 +1,5 @@
+<?wh
+PUBLIC CONSTANT RECORD devconstants :=
+    [ catalog_sourcecode := "devkit:sourcecode"
+    , contentsource_moduleresources := "devkit:moduleresources"
+    ];

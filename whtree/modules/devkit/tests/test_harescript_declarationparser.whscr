@@ -1,0 +1,738 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/markdown.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/harescript.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/testing.whlib";
+
+
+MACRO TestParse(RECORD expect, STRING script, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(SKIPTRACE)
+{
+  options := ValidateOptions(
+      [ nocompile :=    FALSE
+      , withcheck :=    FALSE
+      ], options);
+
+  RECORD ann := ParseDevTestAnnotation(script);
+  expect := ProcessExpectedWithAnnotation(expect, ann);
+
+  IF (NOT options.nocompile)
+  {
+    RECORD ARRAY compileerrors := TestCompile(ann.script);
+    IF (RecordExists(compileerrors))
+    {
+      PRINT(GetAnnotatedErrors(ann.script, compileerrors));
+      ABORT("Got compile error");
+    }
+  }
+
+  RECORD got := ParseHareScriptFileDeclarations(StringToBlob(ann.script));
+  TestEQMembers(expect, got, "*");
+}
+
+MACRO TestVariablesAndFunctions()
+{
+  TestParse(
+      [ libcomment := [ token := "/** Libcomment\n*/"
+                      , __position := "libcomment"
+                      ]
+      , variables :=  [ [ comment :=      DEFAULT RECORD
+                        , name :=         "teSt1"
+                        , __position :=   ""
+                        , ispublic :=     TRUE
+                        , type :=         "INTEGER"
+                        , isconstant :=   FALSE
+                        , objectname :=   ""
+                        , symboltype :=   "variable"
+                        ]
+                      , [ comment :=      [ token := `/// doc\n`
+                                          , __position := "test2_comment"
+                                          ]
+                        , name :=         "test2"
+                        , __position :=   ""
+                        , ispublic :=     FALSE
+                        , isconstant :=   TRUE
+                        ]
+                      ]
+      , functions :=  [ [ comment :=      [ token := "/** bla\n    bla\n*/" ]
+                        , name :=         "func1"
+                        , __position :=   ""
+                        , isaggregate :=  FALSE
+                        , isasync :=      FALSE
+                        , isgenerator :=  FALSE
+                        , isupdate :=     FALSE
+                        , isfunction :=   TRUE
+                        , ispublic :=     TRUE
+                        , type :=         "INTEGER"
+                        , isvararg :=     FALSE
+                        , deprecated :=   ""
+                        , objectname :=   ""
+                        , symboltype :=   "function"
+                        ]
+                      , [ name :=         "MyCount"
+                        , __position :=   ""
+                        , isaggregate :=  TRUE
+                        , isasync :=      FALSE
+                        , isgenerator :=  FALSE
+                        , isupdate :=     FALSE
+                        , isfunction :=   TRUE
+                        , params :=       [ [ type := "STRING ARRAY"
+                                            , name := "a"
+                                            , defaultvalue := `[ "default" ]`
+                                            ]
+                                          ]
+                        ]
+                      , [ name :=         "AMacro"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        ]
+                      , [ name :=         "AsyncF1"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "AsyncF2"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "AsyncF3"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        , isasync :=      TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "Generator1"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      FALSE
+                        , isgenerator :=  TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "Generator2"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      FALSE
+                        , isgenerator :=  TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "AsyncGenerator1"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      TRUE
+                        , isgenerator :=  TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "AsyncGenerator2"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , isasync :=      TRUE
+                        , isgenerator :=  TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "Vararg1"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        , isvararg :=     TRUE
+                        , type :=         ""
+                        , params :=       [ [ type := "INTEGER"
+                                            , name := "a"
+                                            , defaultvalue := ""
+                                            ]
+                                          , [ type := "VARIANT ARRAY"
+                                            , name := "args"
+                                            , defaultvalue := ""
+                                            ]
+                                          ]
+                        ]
+                      , [ name :=         "Vararg2"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        , isvararg :=     TRUE
+                        , type :=         ""
+                        ]
+                      , [ name :=         "Deprecated"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        , type :=         ""
+                        , deprecated :=   "message"
+                        ]
+                      ]
+      ], `
+<?wh
+
+/** Libcomment
+// <- libcomment
+*/
+
+PUBLIC INTEGER teSt1;
+//             ^
+
+/// doc
+//<- test2_comment
+CONSTANT FUNCTION PTR ARRAY test2;
+//                          ^
+
+/** bla
+    bla
+*/
+PUBLIC INTEGER FUNCTION func1()
+//                      ^
+{
+  INTEGER yeey;
+  RETURN 0;
+}
+
+INTEGER AGGREGATE FUNCTION MyCount(STRING ARRAY a DEFAULTSTO [ "default" ]) { RETURN LENGTH(a); }
+//                         ^
+
+MACRO AMacro() { }
+//    ^
+
+OBJECT ASYNC FUNCTION AsyncF1() { RETURN 1; }
+//                    ^
+
+ASYNC FUNCTION AsyncF2() { RETURN 1; }
+//             ^
+
+ASYNC MACRO AsyncF3() { }
+//          ^
+
+OBJECT FUNCTION *Generator1() { RETURN 1; }
+//               ^
+
+FUNCTION *Generator2() { RETURN 1; }
+//        ^
+
+OBJECT ASYNC FUNCTION *AsyncGenerator1() { RETURN 1; }
+//                     ^
+
+ASYNC FUNCTION *AsyncGenerator2() { RETURN 1; }
+//              ^
+
+MACRO Vararg1(INTEGER a, VARIANT ARRAY ...args) { }
+//    ^
+
+MACRO Vararg2(INTEGER a, VARIANT ARRAY args) __ATTRIBUTES__(VARARG) { }
+//    ^
+
+MACRO Deprecated(INTEGER a, VARIANT ARRAY args) __ATTRIBUTES__(DEPRECATED "message") { }
+//    ^
+
+`);
+
+  TestParse(
+      [ libcomment := [ token := "/** Libcomment\n*/"
+                      , __position := "libcomment"
+                      ]
+      , variables :=  [ [ comment :=      [ token := `/// var1\n`
+                                          , __position := "var1_comment"
+                                          ]
+                        , name :=         "var1"
+                        , __position :=   ""
+                        , ispublic :=     TRUE
+                        , type :=         "INTEGER"
+                        , isconstant :=   TRUE
+                        , objectname :=   ""
+                        , symboltype :=   "variable"
+                        ]
+                      , [ comment :=      DEFAULT RECORD
+                        , name :=         "var2"
+                        , ispublic :=     TRUE
+                        , type :=         "INTEGER"
+                        , isconstant :=   TRUE
+                        ]
+                      , [ comment :=      [ token := `///< var3\n`
+                                          , __position := "var3_comment"
+                                          ]
+                        , name :=         "var3"
+                        , ispublic :=     TRUE
+                        , type :=         "INTEGER"
+                        , isconstant :=   TRUE
+                        ]
+                      ]
+      ], `
+<?wh
+
+/** Libcomment
+// <- libcomment
+*/
+
+/// var1
+// <- var1_comment
+PUBLIC CONSTANT INTEGER
+var1 := 0,
+// <-
+/// var2
+var2 := 1,
+// <- var2
+var3 := 1; ///< var3
+// <- var3
+           // <- var3_comment
+`);
+
+  TestParse(
+      [ functions :=  [ [ name :=         "MyAbort"
+                        , __position :=   ""
+                        , isfunction :=   FALSE
+                        , ispublic :=     TRUE
+                        , isvararg :=     FALSE
+                        , params :=       [ [ type := "VARIANT"
+                                            , name := "errordata"
+                                            , defaultvalue := `"__no_error_value_set__"`
+                                            , __position := ""
+                                            ]
+                                          , [ type := "STRING"
+                                            , name := "format"
+                                            , defaultvalue := `""`
+                                            , __position := ""
+                                            ]
+                                          ]
+                        , symboltype :=   "function"
+                        ]
+                      ]
+
+      ], `
+<?wh
+PUBLIC MACRO MyAbort(VARIANT errordata DEFAULTSTO "__no_error_value_set__", STRING format DEFAULTSTO "") __ATTRIBUTES__(SKIPTRACE, TERMINATES) {}
+//           ^
+//                           ^
+//                                                                                 ^
+`);
+
+  TestParse(
+      [ functions :=  [ [ name :=         "Test"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , type :=         "FUNCTION PTR"
+                        , symboltype :=   "function"
+                        ]
+                      ]
+
+      ], `
+<?wh
+FUNCTION PTR FUNCTION Test() { RETURN DEFAULT FUNCTION PTR; }
+//                    ^
+`);
+
+  TestParse(
+      [ functions :=  [ [ name :=         "Test"
+                        , __position :=   ""
+                        , isfunction :=   TRUE
+                        , type :=         "FUNCTION PTR ARRAY"
+                        , symboltype :=   "function"
+                        ]
+                      ]
+
+      ], `
+<?wh
+FUNCTION PTR ARRAY FUNCTION Test() { RETURN DEFAULT FUNCTION PTR ARRAY; }
+//                          ^
+`);
+}
+
+MACRO TestSchemaTableDefs()
+{
+  TestParse(
+      [ variables :=  [ [ name :=         "tbl"
+                        , __position :=   ""
+                        , structure :=
+                              [ columns :=    [ [ type :=             "INTEGER"
+                                                , dbasename :=        "a"
+                                                , name :=             "a"
+                                                , comment :=          [ token := "/** a */"
+                                                                      , __position := "a_comment"
+                                                                      ]
+                                                , __position :=       ""
+                                                , readonly :=         FALSE
+                                                , warn_unindexed :=   FALSE
+                                                , nullexpr :=         ""
+                                                , iskey :=            FALSE
+                                                ]
+                                              , [ type :=             "INTEGER"
+                                                , dbasename :=        "bB"
+                                                , name :=             "c"
+                                                , __position :=       ""
+                                                , readonly :=         FALSE
+                                                , warn_unindexed :=   FALSE
+                                                , nullexpr :=         ""
+                                                , iskey :=            FALSE
+                                                ]
+                                              , [ type :=             "INTEGER"
+                                                , dbasename :=        "d"
+                                                , name :=             "d"
+                                                , __position :=       ""
+                                                , readonly :=         TRUE
+                                                , warn_unindexed :=   TRUE
+                                                , nullexpr :=         "4"
+                                                , iskey :=            FALSE
+                                                ]
+                                              ]
+                              , viewexpr :=   ""
+                              ]
+                        ]
+                      , [ name :=         "tbl2"
+                        , __position :=   ""
+                        , structure :=
+                              [ columns :=    [ [ type :=             "INTEGER"
+                                                , name :=             "e"
+                                                , __position :=       ""
+                                                , iskey :=            FALSE
+                                                ]
+                                              ]
+                              , viewexpr :=   `INTEGER "x" := 1 AND INTEGER "y" := 1`
+                              ]
+                        ]
+                      , [ name :=         "sch"
+                        , __position :=   ""
+                        , structure :=
+                              [ tables :=     [ [ name :=         "f"
+                                                , __position :=   ""
+                                                , dbasename :=    "f"
+                                                , comment :=      [ token := "/** f */"
+                                                                  , __position := "f_comment"
+                                                                  ]
+                                                , columns :=      [ [ name := "g"
+                                                                    , __position := ""
+                                                                    , comment :=          [ token := "/** g */"
+                                                                                          , __position := "g_comment"
+                                                                                          ]
+                                                                    ]
+                                                                  ]
+                                                ]
+                                              , [ dbasename :=    "h.i"
+                                                , __position :=       ""
+                                                , name :=         "j"
+                                                , columns :=      [ [ name := "k", iskey := TRUE, __position := "" ] ]
+                                                ]
+                                              ]
+                              ]
+                        ]
+                      ]
+      ], `
+<?wh
+TABLE< /** a */INTEGER a, INTEGER "bB" AS c, INTEGER d NULL := 4 __ATTRIBUTES__(READONLY, WARN_UNINDEXED) > tbl;
+//     ^ a_comment
+//                     ^
+//                                        ^
+//                                                   ^
+//                                                                                                          ^
+TABLE< INTEGER e; WHERE INTEGER "x" := 1 AND INTEGER "y" := 1 > tbl2;
+//             ^
+//                                                              ^
+SCHEMA< /** f */TABLE< /** g */INTEGER g > f, TABLE< INTEGER k; KEY k > h.i AS j > sch;
+//      ^ f_comment
+//              ^ f
+//                     ^ g_comment
+//                                     ^
+//                                            ^ j
+//                                                           ^
+//                                                                                 ^
+`);
+}
+
+MACRO TestObjectTypes()
+{
+  TestParse(
+      [ objecttypes :=  [ [ name :=                 "Type1"
+                          , __position :=           ""
+                          , linestart__position :=  "linestart"
+                          , lineend__position :=    "lineend"
+                          , isstatic :=             FALSE
+                          , ispublic :=             FALSE
+                          , symboltype :=           "objecttype"
+                          , members :=              [ [ name :=         "Member1"
+                                                      , symboltype :=   "member"
+                                                      , comment :=      [ token := "/** Member1 comment\n  */"
+                                                                        , __position := "member1_comment"
+                                                                        ]
+                                                      , isconstant :=   FALSE
+                                                      , type :=         "INTEGER"
+                                                      , objectname :=   "Type1"
+                                                      ]
+                                                    , [ name :=         "Member2"
+                                                      , __position :=   ""
+                                                      , objectname :=   "Type1"
+                                                      , type :=         "FUNCTION PTR ARRAY"
+                                                      ]
+                                                    ]
+                          , properties :=           [ [ comment :=      [ token := "/** prop_rw comment\n  */"
+                                                                        , __position := "prop_rw_comment"
+                                                                        ]
+                                                      , ispublic :=     FALSE
+                                                      , isupdate :=     FALSE
+                                                      , name :=         "prop_rw"
+                                                      , __position :=   ""
+                                                      , objectname :=   "Type1"
+                                                      , mode :=         "readwrite"
+                                                      , symboltype :=   "property"
+                                                      ]
+                                                    , [ name :=         "prop_w"
+                                                      , __position :=   ""
+                                                      , objectname :=   "Type1"
+                                                      , mode :=         "writeonly"
+                                                      , ispublic :=     FALSE
+                                                      , isupdate :=     TRUE
+                                                      ]
+                                                    , [ name :=         "prop_r"
+                                                      , __position :=   ""
+                                                      , objectname :=   "Type1"
+                                                      , mode :=         "readonly"
+                                                      , ispublic :=     TRUE
+                                                      , isupdate :=     FALSE
+                                                      ]
+                                                    ]
+                          , methods :=              [ [ name :=         "method1"
+                                                      ,  __position :=  ""
+                                                      , symboltype :=   "method"
+                                                      ]
+                                                    , [ name :=         "method2"
+                                                      , __position :=   ""
+                                                      ]
+                                                    , [ name :=         "method3"
+                                                      , __position :=   ""
+                                                      ]
+                                                    , [ name :=         "method4"
+                                                      , __position :=   ""
+                                                      ]
+                                                    , [ name :=         "method5"
+                                                      , __position :=   ""
+                                                      ]
+                                                    , [ name :=         "method6"
+                                                      , __position :=   ""
+                                                      ]
+                                                    ]
+                          ]
+                        , [ name :=                 "Type2"
+                          , __position :=           ""
+                          , baseobject :=           "Type1"
+                          ]
+                        ]
+      ], `
+<?wh
+
+OBJECTTYPE Type1
+// <- linestart
+//         ^
+<
+  /** Member1 comment
+//^ member1_comment
+  */
+  INTEGER Member1;
+//        ^
+
+  FUNCTION PTR ARRAY Member2;
+//                   ^
+
+  /** prop_rw comment
+//^ prop_rw_comment
+  */
+  PROPERTY prop_rw(member1, member2);
+//         ^
+  UPDATE PROPERTY prop_w(-, member2);
+//                ^
+  PUBLIC PROPERTY prop_r(member1, -);
+//                ^
+
+  MACRO method1() { }
+//      ^
+  ASYNC MACRO method2() __ATTRIBUTES__(EXTERNAL);
+//            ^
+  FUNCTION * method3() { RETURN 3; }
+//           ^
+  OBJECT FUNCTION * method4() { RETURN 4; }
+//                  ^
+  INTEGER FUNCTION method5() __ATTRIBUTES__(EXTERNAL);
+//                 ^
+  OBJECT ASYNC FUNCTION method6() { RETURN 6; }
+//                      ^
+
+>;
+// <- lineend
+
+OBJECTTYPE Type2 EXTEND Type1
+//         ^
+<
+>;
+`);
+}
+
+MACRO TestLoadLibs()
+{
+  TestParse(
+      [ loadlibs :=     [ [ resourcename :=         "mod::module/lib"
+                          , __position :=           "ll_1_resource"
+                          , exports :=              [ [ name := "eXport1"
+                                                      , __position :=   ""
+                                                      ]
+                                                    , [ name := "eXport2"
+                                                      , __position :=   ""
+                                                      , deprecated := "depr"
+                                                      ]
+                                                    ]
+                          ]
+                        ]
+      ], `
+<?wh
+
+LOADLIB "mod::module/lib" EXPORT eXport1,
+//      ^ ll_1_resource
+//                               ^
+  eXport2 __ATTRIBUTES__(DEPRECATED "depr");
+//^
+`, [ nocompile := TRUE ]);
+
+  TestParse(
+      [ loadlibs :=     [ [ resourcename :=         "wh::internal/formatter.whlib"
+                          , __position :=           "ll_1_resource"
+                          , exports :=              RECORD[]
+                          ]
+                        , [ resourcename :=         "wh::internal/transservices.whlib"
+                          , __position :=           "ll_2_resource"
+                          , exports :=              RECORD[]
+                          ]
+                        , [ resourcename :=         "wh::internal/interface.whlib"
+                          , __position :=           "ll_3_resource"
+                          , exports :=              [ [ name := "Tokenize", __position:= "" ]
+                                                    , [ name := "__HS_INTERNAL_AddAsyncContext", __position:= "" ]
+                                                    ]
+                          ]
+                        ]
+      ], `
+<?wh (* ISSYSTEMLIBRARY *)
+/** @short Base functions
+    @long The system functions library contains all generic functions that are necessary in
+          almost any HareScript file you'll write. You do not need to load the library to get
+          access to these functions, as they are always available */
+
+LOADLIB "wh::internal/formatter.whlib";
+//      ^ ll_1_resource
+LOADLIB "wh::internal/transservices.whlib";
+//      ^ ll_2_resource
+LOADLIB "wh::internal/interface.whlib" EXPORT Tokenize, __HS_INTERNAL_AddAsyncContext;
+//      ^ ll_3_resource
+//                                            ^
+//                                                      ^
+`, [ nocompile := TRUE ]);
+}
+
+
+MACRO TestOther()
+{
+  // This triggered a token reconsumption error
+  TestParse(CELL[],``);
+
+  // This triggered a multiple token reconsumption error
+  TestParse(
+      [ functions :=    [ [ name :=                 "__TOKENSTREAM_CREATE"
+                          , __position :=           ""
+                          ]
+                        ]
+      ], `
+<?wh
+INTEGER FUNCTION __TOKENSTREAM_CREATE() __ATTRIBUTES__(EXTERNAL "parser_format_tokenfilter");
+//               ^
+`);
+
+  TestParse(
+      [ libcomment := [ token := "/** Libcomment\n*/"
+                      , __position := "libcomment"
+                      ]
+      ], `
+<?wh (* ISSYSTEMLIBRARY *)
+
+/** Libcomment
+// <- libcomment
+*/
+`);
+}
+
+MACRO TestCheckHarescriptSymbolParsedComment()
+{
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=        ParseMarkDown("func")
+      ], `inline::
+<?wh
+
+/// Library comment
+
+/** func
+    @param a param1
+//         ^ error Documented parameter 'a' does not exist
+*/
+INTEGER FUNCTION a(INTEGER b) { RETURN 0; };
+
+`, [ mode := "check-harescript", symbol := "a" ]);
+
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=        ParseMarkDown("func")
+      ], `inline::
+<?wh
+
+/// Library comment
+
+/** func
+    @return bla
+//  ^ error This function does not have a return value
+*/
+MACRO a() { };
+`, [ mode := "check-harescript", symbol := "a" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=        ParseMarkDown("Func")
+      , params :=       [ [ variabletype := "datetime" ]
+                        , [ variabletype := "record" ]
+                        ]
+
+      , returnvalue :=  [ variabletype := "record" ]
+      , cells :=        [ [ name := "options.a", variabletype := "object" ]
+                        , [ name := "return.days", variabletype := "integer" ]
+                        , [ name := "return.msecs", variabletype := "integer" ]
+                        , [ name := "return.years", variabletype := "integer" ]
+                        ]
+      ], `inline::
+<?wh
+
+/// Library comment
+
+/** @short Func
+    @param fromdate Source date
+    @param options options
+    @cell(object) options.a options-a
+    @return retval
+    @cell(integer) return.days days
+    @cell(integer) return.msecs msecs
+    @cell(integer) return.years years
+*/
+PUBLIC RECORD FUNCTION Func(DATETIME fromdate, RECORD options) { RETURN CELL[]; }
+`, [ mode := "check-harescript", symbol := "Func" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      CELL[], `inline::
+<?wh
+
+/// Library comment
+
+/** @short Func
+    @param fromdate
+*/
+PUBLIC MACRO Func(DATETIME fromdate) { }
+`, [ mode := "check-harescript", symbol := "Func" ]);
+}
+
+RunTestFramework([ PTR TestVariablesAndFunctions
+                 , PTR TestSchemaTableDefs
+                 , PTR TestObjectTypes
+                 , PTR TestLoadLibs
+                 , PTR TestOther
+                 , PTR TestCheckHarescriptSymbolParsedComment
+                 ],
+                 [ usedatabase := FALSE
+                 ]);

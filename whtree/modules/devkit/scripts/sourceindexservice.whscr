@@ -1,0 +1,68 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+LOADLIB "mod::consilio/lib/catalogs.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+
+// wh services debug dev:sourceindexservice
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "debug", type := "switch" ]
+    ]);
+
+IF (NOT RecordExists(args))
+  TerminateScriptWithError("Syntax: wh run mod::devkit/scripts/sourceindexservice.whscr [ --debug ]");
+
+RECORD ARRAY sourcefiles_changed;
+INTEGER sourcefiles_changed_timer;
+
+MACRO OnSourceFileChange(STRING event, RECORD ARRAY msgs)
+{
+  //Get unique list of files changed
+  FOREVERY(RECORD msg FROM msgs)
+  {
+    IF(NOT CellExists(msg,'resourcename'))
+      CONTINUE; //file modified outside mod::
+
+    IF(args.debug)
+      Print(`Change reported: ${msg.resourcename}\n`);
+
+    // Register consilio source index changes
+    RECORD pos := RecordLowerBound(sourcefiles_changed, [ resourcename := msg.resourcename ], [ "RESOURCENAME" ]);
+    IF (NOT pos.found)
+    {
+      IF (sourcefiles_changed_timer = 0) //schedule timer if not done yet
+        sourcefiles_changed_timer := RegisterTimedCallback(AddTimeToDate(1000, GetCurrentDateTime()), PTR ScheduleFiles);
+
+      INSERT [ resourcename := msg.resourcename ] INTO sourcefiles_changed AT pos.position;
+    }
+  }
+}
+
+MACRO ScheduleFiles()
+{
+  sourcefiles_changed_timer := 0;
+
+  DATETIME now := GetCurrentDateTime();
+  OBJECT sourcecodeindex := OpenConsilioCatalog(devconstants.catalog_sourcecode)->OpenContentSource(devconstants.contentsource_moduleresources);
+
+  IF(args.debug)
+    Print(`Informing consilio about ${length(sourcefiles_changed)} changes\n`);
+
+  FOREVERY (RECORD rec FROM sourcefiles_changed)
+    sourcecodeindex->ReindexGroup(rec.resourcename);
+
+  sourcefiles_changed := RECORD[];
+}
+
+OpenPrimary();
+RegisterMultiEventCallback("system:modulefolder.*", PTR OnSourceFileChange);
+RunWebHareService("dev:sourceindexservice", DEFAULT MACRO PTR);

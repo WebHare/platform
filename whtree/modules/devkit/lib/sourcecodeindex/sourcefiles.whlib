@@ -1,0 +1,901 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/fs.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/harescript.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/topics.whlib";
+
+
+
+CONSTANT STRING ARRAY blacklist_paths :=
+    [ "system:* /xmlschema.xsd"      // Can't be parsed by our XSD parser
+    , "publisher:* /siteprofile_newsletter.xsd" // Has incomplete import statements (libxml2 workaround)
+    ];
+
+CONSTANT RECORD ARRAY types :=
+    [ [ extensionmask := "*.whscr",    type := "harescript" ]
+    , [ extensionmask := "*.whlib",    type := "harescript" ]
+    , [ extensionmask := "*.shtml",    type := "harescript" ]
+    , [ extensionmask := "*.js",       type := "javascript" ]
+    , [ extensionmask := "*.jsx",      type := "javascript" ]
+    , [ extensionmask := "*.es",       type := "javascript" ]
+    , [ extensionmask := "*.esx",      type := "javascript" ]
+    , [ extensionmask := "*.xml",      type := "xml" ]
+    , [ extensionmask := "*.css",      type := "css" ]
+    , [ extensionmask := "*.siteprl",  type := "harescript" ]
+    , [ extensionmask := "*.whsock",   type := "harescript" ]
+    , [ extensionmask := "*.md",       type := "documentation" ]
+    , [ extensionmask := "*.xsd",      type := "xsd" ]
+    ];
+
+PUBLIC STRING FUNCTION GetResourceType(STRING resourcename)
+{
+  FOREVERY (RECORD typerec FROM types)
+    IF (resourcename LIKE typerec.extensionmask)
+      RETURN typerec.type;
+
+  RETURN "";
+}
+
+STRING FUNCTION ResolveToAbsoluteSymbolLink(OBJECT fs, STRING baselink, STRING rellink)
+{
+  IF (rellink LIKE "%*" OR rellink LIKE "wh::*#*" OR rellink LIKE "mod::*#*")
+    RETURN rellink;
+
+  IF (rellink NOT LIKE "*#*")
+    THROW NEW Exception(`Unrecognized symbol relative link ${rellink}`);
+
+  IF (rellink LIKE "#*")
+    RETURN `${Tokenize(baselink, "#")[0]}#${Tokenize(rellink, "#")[1]}`;
+
+  STRING abslib := MakeAbsoluteResourcePath(Tokenize(baselink, "#")[0], Tokenize(rellink, "#")[0]);
+
+  RETURN `${abslib}#${Tokenize(rellink, "#")[1]}`;
+}
+
+RECORD ARRAY FUNCTION ListModuleSourceFiles(OBJECT fs, STRING module)
+{
+  STRING root := GetModuleInstallationRoot(module);
+  RECORD ARRAY groups;
+  STRING ARRAY worklist := [ "" ];
+
+  WHILE (LENGTH(worklist) != 0)
+  {
+    STRING path := worklist[0];
+    DELETE FROM worklist AT 0;
+
+    RECORD ARRAY elts := ReadDiskDirectory(root || path, "*");
+    FOREVERY (RECORD elt FROM elts)
+    {
+      IF (elt.type = 0)
+      {
+        STRING type := GetResourceType(elt.name);
+
+        STRING fullpath := module || ":" || root || path || elt.name;
+        FOREVERY (STRING mask FROM blacklist_paths)
+          IF (fullpath LIKE mask)
+            type := "";
+
+        IF (type != "")
+        {
+          STRING prefix := "mod::" || module || "/";
+          STRING curpath := path;
+          IF (path LIKE "whlibs/*" AND module = "system")
+          {
+            prefix := "wh::";
+            curpath := SubString(path, 7);
+          }
+
+          INSERT CELL[ resourcename := prefix || curpath || elt.name
+                     , elt.modified
+                     , type
+                     ] INTO groups AT END;
+        }
+      }
+      ELSE
+      {
+        IF (elt.name LIKE "compiled*" OR elt.name IN
+              [ "generated"
+              , ".svn"
+              , ".git"
+              , "node_modules"
+              , "bower_components"
+              ])
+          CONTINUE;
+
+        INSERT path || elt.name || "/" INTO worklist AT END;
+      }
+    }
+  }
+  RETURN groups;
+}
+
+PUBLIC BOOLEAN FUNCTION IsSourceFilePublic(STRING resourcename, STRING ARRAY publicmodules)
+{
+  // wrong for 'wh::', but isn't used for matching wh:: anyway
+  STRING modulename := Substitute(Tokenize(resourcename, "/")[0], "mod::", "");
+  IF (resourcename LIKE "wh::*")
+    modulename := "system";
+
+  IF (modulename NOT IN publicmodules)
+    RETURN FALSE;
+  IF (resourcename LIKE "wh::internal/*" OR resourcename LIKE "wh::*/internal/*")
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/lib/internal/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/lib/screens/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/lib/components/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/web/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/tests/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/tolliumapps/*`)
+    RETURN FALSE;
+  IF (resourcename LIKE `mod::${modulename}/webdesigns/*`)
+    RETURN FALSE;
+  IF (resourcename NOT LIKE "*.whlib")
+    RETURN FALSE;
+
+  RETURN TRUE;
+}
+
+/** Returns a listing of all source files in the core modules
+    @param modules List of modules to get the sourcefiles of
+    @param options Options
+    @cell options.fs Filesystem to use
+    @cell options.indexmodules List of builtin modules
+    @cell options.forexport Whether to include documentation and xsds too
+    @return List of source files
+    @cell return.ispublic Whether this is a public source file (based on the resource name)
+    @cell return.modified Modification date of the resource
+    @cell return.resourcename Name of the resource
+    @cell return.type One of 'harescript', 'javascript', 'xml', 'css'
+
+*/
+PUBLIC RECORD ARRAY FUNCTION ListAllSourceFiles(STRING ARRAY modules, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ indexmodules :=       whconstant_builtinmodules
+      , forexport :=          FALSE
+      , fs :=                 DEFAULT OBJECT
+      ], options);
+
+  RECORD ARRAY sourcefiles;
+
+  FOREVERY (STRING modulename FROM modules)
+  {
+    sourcefiles := sourcefiles CONCAT
+        SELECT *
+             , ispublic :=    IsSourceFilePublic(resourcename, options.indexmodules)
+          FROM ListModuleSourceFiles(options.fs ?? NEW DevFileSystem, modulename)
+         WHERE (options.forexport ? TRUE : type NOT IN [ "documentation", "xsd" ])
+      ORDER BY resourcename;
+  }
+
+  RETURN sourcefiles;
+}
+
+OBJECT symbolrefregex;
+
+/** Returns the regex used to parse symbol references
+    @return Regex for parsing Symbol references
+    Match values:
+    1. File reference (resource reference + hash sign or '%')
+    2. Resource reference + hash
+    3. Resource reference
+    4. Resource reference prefix
+    5. Symbol
+    6. Optional "::" symbol
+    7. Member symbol
+*/
+OBJECT FUNCTION GetSymbolRefRegEx()
+{
+  IF (NOT ObjectExists(symbolrefregex))
+    symbolrefregex := NEW RegEx("^((((mod::[_a-z0-9]+\/|wh::)[-a-zA-Z0-9_.\/]*)#)|%)([a-zA-Z_][a-zA-Z0-9_]*)(::([a-zA-Z_][a-zA-Z0-9_]*))?$");
+  RETURN symbolrefregex;
+}
+
+PUBLIC STRING ARRAY FUNCTION GetIndexModules(BOOLEAN publiconly, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ fs := DEFAULT OBJECT ], options);
+  OBJECT fs := options.fs ?? NEW DevFileSystem;
+
+  RETURN publiconly ? whconstant_builtinmodules : fs->DevGetInstalledModuleNames();
+}
+
+
+PUBLIC STATIC OBJECTTYPE SourceIndex
+<
+  /// @type(object #DevFileSystemBase) File system
+  PUBLIC OBJECT fs;
+
+  BOOLEAN skipdescriptions;
+
+  RECORD ARRAY sourcefiles;
+
+  /// List of resources that have been overridden with other source code
+  STRING ARRAY overrides;
+
+  /** @cell(record) topic @includecelldef #commentcontentbase.topic
+      @cell(string) name Name of the symbol
+      @cell(string) symboltype Type of symbol
+      @cell(record) libcomment Comment of the library
+      @cell(string) resourcename Resource where this symbol is defined
+      @cell(record) definition Wrapped definition @includecelldef #WrapObjectTypeSymbols.return.definition
+      @cell(string array) eventmasks Masks for events that invalidate this symbol
+      @cell(string) symbolref Full reference to the symbol (filename # name)
+  */
+  PUBLIC RECORD ARRAY public_symbols;
+
+  /// List of indexed modules
+  PUBLIC STRING ARRAY indexmodules;
+
+  STRING indexhash;
+  BOOLEAN filledpublicsymbollist;
+
+  BOOLEAN fulldocumentation;
+
+  /** Create a new SourceIndex
+      @param indexmodules List of modules to index
+      @param(object #DevFileSystemBase) fs File system
+      @cell options.fulldocumentation If TRUE, give back errors for missing documentation
+      @cell options.skipdescriptions If TRUE, don't parse the markdown descriptions
+  */
+  MACRO NEW(STRING ARRAY indexmodules, OBJECT fs, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ fulldocumentation := TRUE, skipdescriptions := FALSE ], options);
+    this->fs := fs ?? NEW DevFileSystem;
+
+    this->fulldocumentation := options.fulldocumentation;
+    this->skipdescriptions := options.skipdescriptions;
+    this->indexmodules := indexmodules;
+    this->indexhash := GetMD5Hash(EncodeHSON(SortArray(this->indexmodules)));
+  }
+
+  /** Parses a Harescript resource
+      @param resourcename Resource name
+      @param overridedata If not default, use this data
+      @return Parsed file
+      @cell return.value Parsed library
+      @cell return.value.resourcename Resource name
+      @cell return.value.ispublic Whether the library has a public URI
+      @cell return.value.type Type of the resource
+      @cell return.value.doc Parsed harescript file, with comments parsed @includecelldef #ParseHareScriptFileDeclarations.return
+      @cell return.value.doc.variables.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.doc.functions.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.doc.objecttypes.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.doc.objecttypes.members.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.doc.objecttypes.properties.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.doc.objecttypes.methods.parsedcomment @includecelldef #ParseCommentToken.return
+      @cell return.value.libcomment Library comment @includecelldef #ParseCommentToken.return
+      @cell return.eventmasks Event masks that invalidate the parsed library
+  */
+  RECORD FUNCTION GetCachableSourceFile(STRING resourcename, BLOB overridedata)
+  {
+    BLOB parsedata := overridedata ?? GetWebhareResource(resourcename);
+    RECORD doc := ParseHareScriptFileDeclarations(parsedata);
+    RECORD libcomment := ParseCommentToken(doc.libcomment, CELL[ symboltype := "library", this->fulldocumentation, this->skipdescriptions ]);
+    RECORD topic := libcomment.topic;
+
+    BOOLEAN isdefaultpublic := IsSourceFilePublic(resourcename, this->indexmodules);
+
+    INSERT CELL docpublic := (isdefaultpublic AND NOT RecordExists(libcomment.markedprivate)) OR RecordExists(libcomment.markedpublic) INTO doc;
+    INSERT CELL parsedcomment := libcomment INTO doc;
+
+    FOREVERY (RECORD rec FROM doc.variables)
+    {
+      RECORD parsedcomment := ParseCommentToken(rec.comment, CELL[ rec.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+      BOOLEAN docpublic := (doc.docpublic AND rec.ispublic AND rec.name NOT LIKE "__*" AND NOT RecordExists(parsedcomment.markedprivate)) OR RecordExists(parsedcomment.markedpublic);
+
+      INSERT CELL parsedcomment := parsedcomment INTO doc.variables[#rec];
+      INSERT CELL docpublic := docpublic INTO doc.variables[#rec];
+
+      IF (rec.type = "TABLE")
+      {
+        IF (RecordExists(rec.structure))
+        {
+          // TABLE x LIKE y doesn't have a structure
+          doc.variables[#rec].structure.columns :=
+              SELECT TEMPORARY col_parsedcomment := ParseCommentToken(comment, CELL[ symboltype := "column", this->fulldocumentation, this->skipdescriptions ])
+                   , *
+                   , parsedcomment := col_parsedcomment
+                   , docpublic :=     docpublic AND (NOT RecordExists(col_parsedcomment.markedprivate) OR RecordExists(col_parsedcomment.markedpublic))
+                FROM rec.structure.columns;
+        }
+      }
+      ELSE IF (rec.type = "SCHEMA")
+      {
+        IF (RecordExists(rec.structure))
+        {
+          // SCHEMA x LIKE y doesn't have a structure
+          doc.variables[#rec].structure.tables :=
+              SELECT TEMPORARY tbl_parsedcomment := ParseCommentToken(comment, CELL[ symboltype := "column", this->fulldocumentation, this->skipdescriptions ])
+                   , TEMPORARY tbl_docpublic := docpublic AND (NOT RecordExists(tbl_parsedcomment.markedprivate) OR RecordExists(tbl_parsedcomment.markedpublic))
+                   , *
+                   , parsedcomment := tbl_parsedcomment
+                   , docpublic :=     tbl_docpublic
+                   , columns :=       SELECT TEMPORARY col_parsedcomment := ParseCommentToken(comment, CELL[ symboltype := "column", this->fulldocumentation, this->skipdescriptions ])
+                                           , *
+                                           , docpublic :=     tbl_docpublic AND (NOT RecordExists(col_parsedcomment.markedprivate) OR RecordExists(col_parsedcomment.markedpublic))
+                                           , parsedcomment := col_parsedcomment
+                                        FROM columns
+                FROM rec.structure.tables;
+        }
+      }
+    }
+    FOREVERY (RECORD rec FROM doc.functions)
+    {
+      RECORD parsedcomment := ParseCommentToken(rec.comment, CELL[ rec.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+      BOOLEAN docpublic := (doc.docpublic AND rec.ispublic AND rec.name NOT LIKE "__*" AND NOT RecordExists(parsedcomment.markedprivate)) OR RecordExists(parsedcomment.markedpublic);
+      doc.functions[#rec] := CELL
+          [ ...ProcessSignatureOverride(rec, parsedcomment).symboldefinition
+          , parsedcomment
+          , docpublic
+          ];
+    }
+    FOREVERY (RECORD rec FROM doc.objecttypes)
+    {
+      RECORD parsedcomment := ParseCommentToken(rec.comment, CELL[ rec.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+      BOOLEAN docpublic := (doc.docpublic AND rec.ispublic AND rec.name NOT LIKE "__*" AND NOT RecordExists(parsedcomment.markedprivate)) OR RecordExists(parsedcomment.markedpublic);
+
+      FOREVERY (RECORD rec2 FROM rec.members)
+      {
+        RECORD mem_parsedcomment := ParseCommentToken(rec2.comment, CELL[ rec2.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+        BOOLEAN mem_docpublic := ((rec2.ispublic AND rec2.name NOT LIKE "__*" AND NOT RecordExists(mem_parsedcomment.markedprivate)) OR RecordExists(mem_parsedcomment.markedpublic));
+        rec.members[#rec2] := CELL
+            [ ...rec2
+            , parsedcomment :=    mem_parsedcomment
+            , docpublic :=        mem_docpublic
+            ];
+      }
+      FOREVERY (RECORD rec2 FROM rec.properties)
+      {
+        RECORD mem_parsedcomment := ParseCommentToken(rec2.comment, CELL[ rec2.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+        BOOLEAN mem_docpublic := ((rec2.ispublic AND rec2.name NOT LIKE "__*" AND NOT RecordExists(mem_parsedcomment.markedprivate)) OR RecordExists(mem_parsedcomment.markedpublic));
+        rec.properties[#rec2] := CELL
+            [ ...rec2
+            , parsedcomment :=    mem_parsedcomment
+            , docpublic :=        mem_docpublic
+            ];
+      }
+      FOREVERY (RECORD rec2 FROM rec.methods)
+      {
+        RECORD mem_parsedcomment := ParseCommentToken(rec2.comment, CELL[ rec2.symboltype, this->fulldocumentation, this->skipdescriptions ]);
+        BOOLEAN ispublic := rec2.ispublic OR (ToUppercase(rec2.name) = "NEW" AND rec.ispublic);
+        BOOLEAN mem_docpublic := ((ispublic AND rec2.name NOT LIKE "__*" AND NOT RecordExists(mem_parsedcomment.markedprivate)) OR RecordExists(mem_parsedcomment.markedpublic));
+        rec.methods[#rec2] := CELL
+            [ ...ProcessSignatureOverride(rec2, mem_parsedcomment).symboldefinition
+            , parsedcomment :=    mem_parsedcomment
+            , docpublic :=        mem_docpublic
+            ];
+      }
+
+      doc.objecttypes[#rec] := CELL
+          [ ...rec
+          , parsedcomment
+          , docpublic
+          ];
+    }
+
+    RETURN CELL
+        [ value :=      CELL[ resourcename
+                            , resourcemodtime := IsValueSet(overridedata) ? DEFAULT DATETIME : GetBlobModTime(parsedata)
+                            , ispublic :=       IsSourceFilePublic(resourcename, this->indexmodules)
+                            , doc.docpublic
+                            , type :=           GetResourceType(resourcename)
+                            , doc
+                            , libcomment
+                            ]
+        , eventmasks := GetResourceEventMasks([ resourcename ])
+        ];
+  }
+
+  /** Override the content of a library
+      @param resourcename Resource name of the library to override
+      @param data New data (DEFAULT BLOB to remove the override)
+  */
+  PUBLIC MACRO OverrideLibrary(STRING resourcename, BLOB data)
+  {
+    RECORD pos := RecordLowerBound(this->sourcefiles, CELL[ resourcename ], [ "RESOURCENAME" ]);
+    IF (pos.found)
+    {
+      DELETE FROM this->sourcefiles AT pos.position;
+      this->overrides := ArrayDelete(this->overrides, [ resourcename ]);
+    }
+    IF (NOT IsDefaultValue(data))
+    {
+      INSERT this->GetCachableSourceFile(resourcename, data).value INTO this->sourcefiles AT pos.position;
+      INSERT resourcename INTO this->overrides AT END;
+    }
+    this->public_symbols := RECORD[];
+  }
+
+  /** Returns a parsed source file
+      @param resourcename Resource name of the source file
+      @return Parsed source file @includecelldef #GetCachableSourceFile.return.value
+  */
+  PUBLIC RECORD FUNCTION GetSourceFile(STRING resourcename)
+  {
+    RECORD pos := RecordLowerBound(this->sourcefiles, CELL[ resourcename ], [ "resourcename" ]);
+    IF (pos.found AND this->sourcefiles[pos.position].resourcemodtime != DEFAULT DATETIME) // found and no override? check modtime
+    {
+      // Check if the file hasn't changed
+      BLOB resourcedata := GetWebhareResource(resourcename);
+      IF (this->sourcefiles[pos.position].resourcemodtime != GetBlobModTime(resourcedata))
+      {
+        DELETE FROM this->sourcefiles AT pos.position;
+        pos.found := FALSE;
+      }
+    }
+    IF (NOT pos.found)
+    {
+      RECORD data := GetAdhocCached(CELL
+          [ parsed_sourcefile := resourcename
+          , fskey := this->fs->GetCacheKey()
+          , this->fulldocumentation
+          , this->skipdescriptions
+          ], PTR this->GetCachableSourceFile(resourcename, DEFAULT BLOB));
+
+      INSERT data INTO this->sourcefiles AT pos.position;
+    }
+    RETURN this->sourcefiles[pos.position];
+  }
+
+  /// Read in all public source files, populating the public_symbols list
+  MACRO ReadPublicSourceFiles()
+  {
+    //we only index modules that actually offer a topic OR are in the builtin list
+    STRING ARRAY sourcemodules := SELECT AS STRING ARRAY DISTINCT module FROM GetAllTopics(this->fs) WHERE module IN this->indexmodules;
+    FOREVERY(STRING builtin FROM whconstant_builtinmodules)
+      IF(builtin NOT IN sourcemodules AND builtin IN this->indexmodules)
+        INSERT builtin INTO sourcemodules AT END;
+
+    FOREVERY (RECORD rec FROM ListAllSourceFiles(sourcemodules, CELL[ this->fs, this->indexmodules ]))
+      IF (rec.type = "harescript" AND rec.ispublic)
+        this->GetSourceFile(rec.resourcename);
+  }
+
+  /** Wraps raw symbols within metadata
+      @param symbols Symbols @includecelldef #commentcontentbase
+      @param (string) baseref Reference to the the container (either resource name of reference to the objecttype)
+      @return Wrapped symbols
+      @cell return.name Name of the symbol
+      @cell return.symboltype @includecelldef #public_symbols.symboltype
+      @cell return.urlpart URL part name for this symbol
+      @cell return.symbolref Full symbol reference of the object
+      @cell return.definition Definition of the object, with the members also wrapped @includecelldef #commentcontentbase
+      @cell return.definition.members List of members
+      @cell return.definition.members.name Name of the symbol
+      @cell return.definition.members.symboltype @includecelldef #public_symbols.symboltype
+      @cell return.definition.members.urlpart URL part name for this symbol
+      @cell return.definition.members.symbolref Full symbol reference of the object
+      @cell return.definition.members.definition Definition of the symbol
+      @cell return.definition.properties List of properties @includecelldef #WrapObjectTypeSymbols.return.definition.members
+      @cell return.definition.methods List of methods @includecelldef #WrapObjectTypeSymbols.return.definition.members
+  */
+  RECORD ARRAY FUNCTION WrapObjectTypeSymbols(RECORD ARRAY symbols, STRING baseref)
+  {
+    RETURN
+        SELECT TEMPORARY symbolref := baseref LIKE "*#*" ? `${baseref}::${name}` : `${baseref}#${name}`
+             , name
+             , symboltype
+             , urlpart :=     ToLowercase(name)
+             , definition :=  symboltype = "objecttype"
+                                  ? CELL[ ...symbols
+                                        , members :=    this->WrapObjectTypeSymbols(symbols.members, symbolref)
+                                        , properties := this->WrapObjectTypeSymbols(symbols.properties, symbolref)
+                                        , methods :=    this->WrapObjectTypeSymbols(symbols.methods, symbolref)
+                                        ]
+                                  : symbols
+             , symbolref :=   symbolref
+          FROM symbols;
+  }
+
+  MACRO RegisterSymbol(RECORD data)
+  {
+    INSERT CELL uname := ToUppercase(data.name) INTO data;
+    INSERT CELL urlpart := ToLowercase(data.name) INTO data;
+    RECORD pos := RecordLowerBound(this->public_symbols, CELL[ data.uname, data.resourcename ], [ "UNAME", "RESOURCENAME" ]);
+    IF (pos.found)
+      RETURN;
+
+    IF (data.symboltype = "objecttype")
+    {
+      data.definition.members := this->WrapObjectTypeSymbols(data.definition.members, data.symbolref);
+      data.definition.properties := this->WrapObjectTypeSymbols(data.definition.properties, data.symbolref);
+      data.definition.methods := this->WrapObjectTypeSymbols(data.definition.methods, data.symbolref);
+    }
+
+    INSERT data INTO this->public_symbols AT pos.position;
+  }
+
+  RECORD FUNCTION ParseSymbolReference(STRING reference, STRING context)
+  {
+    STRING ARRAY contextparts := Tokenize(context || "#", "#");
+    STRING name;
+
+    STRING resourcename;
+    IF (reference NOT LIKE "*#*" OR reference LIKE "#*")
+    {
+      resourcename := contextparts[0];
+      IF (reference LIKE "#*")
+        name := SubString(reference, 1);
+      ELSE
+        name := reference;
+    }
+    ELSE
+    {
+      resourcename := MakeAbsoluteResourcePath(contextparts[0], Tokenize(reference, "#")[0]);
+      name := Tokenize(reference, "#")[1];
+    }
+
+    RETURN CELL
+        [ resourcename
+        , name
+        ];
+  }
+
+  PUBLIC MACRO GatherPublicSymbolsInLibrary(STRING liburi)
+  {
+    RECORD lib := this->GetSourceFile(liburi);
+
+    FOREVERY (RECORD rec FROM lib.doc.variables CONCAT lib.doc.functions CONCAT lib.doc.objecttypes)
+    {
+      IF (rec.docpublic)
+      {
+        this->RegisterSymbol(CELL
+            [ topic :=                rec.parsedcomment.topic ?? lib.libcomment.topic
+            , rec.name
+            , rec.symboltype
+            , lib.libcomment
+            , lib.resourcename
+            , definition :=           rec
+            , eventmasks :=           GetResourceEventMasks(STRING[ lib.resourcename ])
+            , symbolref :=            `${lib.resourcename}#${rec.name}`
+            ]);
+      }
+    }
+  }
+
+  /** Get the list of symbols from a library exported by other, documented libraries
+      @param resourcename Definition path of symbols
+      @return List of exported symbols
+      @cell return.resourcename Library that exports this symbol
+      @cell return.name name of the symbol
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetSymbolsExportedByLibs(STRING resourcename)
+  {
+    // ADDME: process overrides too
+    RECORD ARRAY results := RunConsilioSearch(devconstants.catalog_sourcecode, CQAnd(
+        [ CQMatch("definitionpath", "=", resourcename)
+        , CQMatch("type", "IN", [ "variable", "function", "objecttype" ])
+        , CQMatch("ispublic", "=", "true")
+        ]), [ count := -1 ]).results;
+
+    RECORD ARRAY publiclibs :=
+        SELECT resourcename :=    groupid
+             , doc :=             this->GetSourceFile(groupid).doc
+          FROM results
+      GROUP BY groupid;
+
+    RETURN JoinArrays((
+        SELECT resourcename :=  groupid
+             , name
+          FROM results), "resourcename", publiclibs, [ doc := DEFAULT RECORD ]);
+  }
+
+  MACRO GatherPublicSymbols()
+  {
+    RECORD ARRAY public_libs :=
+        SELECT *
+          FROM this->sourcefiles
+         WHERE ispublic
+           AND type = "harescript";
+
+    FOREVERY (RECORD lib FROM public_libs)
+      this->GatherPublicSymbolsInLibrary(lib.resourcename);
+  }
+
+  MACRO DisambiguateSymbols()
+  {
+    // Get the public names with multiple definitions in public libraries
+    STRING ARRAY u_ambiguous_symbols :=
+        SELECT AS STRING ARRAY Any(ToUppercase(name))
+          FROM this->public_symbols
+      GROUP BY ToUppercase(name)
+        HAVING Count(*) > 1;
+
+    this->public_symbols :=
+        SELECT *
+             , isambiguous :=   ToUppercase(name) IN u_ambiguous_symbols
+             , urlpart :=       ToLowercase(name)
+          FROM this->public_symbols
+      ORDER BY RecordExists(topic) ? topic.name : ""
+             , name
+             , resourcename;
+
+    // Get the names that are ambigous within their topic
+    RECORD ARRAY topic_ambiguous :=
+        SELECT TEMPORARY topicname :=  Any(RecordExists(topic) ? topic.name : "")
+             , topic :=   topicname
+             , name :=    ToUppercase(Any(name))
+             , c :=       0
+          FROM this->public_symbols
+      GROUP BY RecordExists(topic) ? topic.name : "", ToUppercase(name)
+        HAVING Count(*) > 1
+      ORDER BY topicname, ToUppercase(Any(name));
+
+    FOREVERY (RECORD rec FROM this->public_symbols)
+    {
+      RECORD pos := RecordLowerBound(topic_ambiguous, CELL[ topic := RecordExists(rec.topic) ? rec.topic.name : "", name := ToUppercase(rec.name )], [ "TOPIC", "NAME" ]);
+      IF (NOT pos.found)
+        CONTINUE;
+
+      topic_ambiguous[pos.position].c := topic_ambiguous[pos.position].c + 1;
+      this->public_symbols[#rec].urlpart := topic_ambiguous[pos.position].c || "_" || rec.name;
+    }
+  }
+
+  MACRO FillPublicSymbolsList()
+  {
+    this->ReadPublicSourceFiles();
+    this->GatherPublicSymbols();
+    this->DisambiguateSymbols();
+    this->filledpublicsymbollist := TRUE;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetPublicSymbols()
+  {
+    IF (NOT this->filledpublicsymbollist)
+      this->FillPublicSymbolsList();
+
+    RETURN this->public_symbols;
+  }
+
+  PUBLIC STRING FUNCTION GetObjectTypeImportFrom(STRING resourcename, STRING objtype)
+  {
+    RETURN this->fs->GetObjectTypeImportFrom(resourcename, objtype);
+  }
+
+  /** Locates symbol references of the form %name (no members!)
+      @param name Name of the public symbol
+      @return If found, library and name of the symbol
+      @cell return.resourcename Resource of the symbol
+      @cell return.name Declaration name of the symbol
+  */
+  RECORD FUNCTION LocatePublicSymbol(STRING name)
+  {
+    RECORD overridesymbol;
+    FOREVERY (STRING override FROM this->overrides)
+    {
+      RECORD lib := this->GetSourceFile(override);
+      overridesymbol :=
+          SELECT *
+               , resourcename :=    override
+            FROM lib.doc.variables CONCAT lib.doc.functions CONCAT lib.doc.objecttypes AS rec
+           WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name)
+             AND rec.docpublic
+             AND (RecordExists(lib.libcomment.topic) ? TRUE : RecordExists(rec.parsedcomment.topic));
+
+      IF (RecordExists(overridesymbol))
+        RETURN CELL[ overridesymbol.resourcename, overridesymbol.name ];
+    }
+
+    RECORD result := RunConsilioSearch(devconstants.catalog_sourcecode, CQAnd(
+        [ CQMatch("name", "=", ToUppercase(name))
+        , CQMatch("type", "IN", [ "variable", "function", "objecttype" ])
+        , CQHas("topic")
+        ])).results;
+    IF (NOT RecordExists(result) OR result.groupid IN this->overrides)
+      THROW NEW Exception(`No such symbol '%${name}' found`);
+
+    RETURN CELL[ resourcename := result.groupid, result.name ];
+  }
+
+  /** Looks up a (wrapped) symbol by resource name and symbol name. Looks in all symbols usable in
+      that file, also public symbols in loadlib'ed resources
+      @param resourcename Resource to find the symbol in
+      @param name Name of the symbol
+      @return Symbol (if found) @includecelldef #WrapObjectTypeSymbols.return
+  */
+  RECORD FUNCTION LookupSymbolByResourceAndName(STRING resourcename, STRING name)
+  {
+    STRING ARRAY visited;
+
+    BOOLEAN foundloadlib := TRUE;
+    WHILE (foundloadlib)
+    {
+      IF (resourcename IN visited)
+        THROW NEW Exception(`Resource ${resourcename} loadlibs itself recursively`);
+      INSERT resourcename INTO visited AT END;
+
+      RECORD lib := this->GetSourceFile(resourcename);
+
+      RECORD symbol :=
+          SELECT *
+            FROM lib.doc.variables CONCAT lib.doc.functions CONCAT lib.doc.objecttypes
+           WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+
+      IF (RecordExists(symbol))
+      {
+        RETURN CELL
+            [ ...this->WrapObjectTypeSymbols([ symbol ], resourcename)[0]
+            , resourcename
+            , topic :=          symbol.parsedcomment.topic ?? lib.libcomment.topic
+            ];
+      }
+
+      foundloadlib := FALSE;
+
+      // Search in exports first, that's cheaper
+      FOREVERY (RECORD ll FROM lib.doc.loadlibs)
+        FOREVERY (RECORD exp FROM ll.exports)
+          IF (ToUppercase(exp.name) = ToUppercase(name))
+          {
+            resourcename := ll.resourcename;
+            foundloadlib := TRUE;
+          }
+
+      IF (NOT foundloadlib)
+      {
+        // Go into the loadlib next
+        FOREVERY (RECORD ll FROM lib.doc.loadlibs)
+        {
+          RECORD srclib := this->GetSourceFile(ll.resourcename);
+          IF (RecordExists(
+              SELECT
+                FROM srclib.doc.variables CONCAT srclib.doc.functions CONCAT srclib.doc.objecttypes
+               WHERE ToUppercase(COLUMN name) = ToUppercase(name)
+                 AND ispublic))
+          {
+            resourcename := ll.resourcename;
+            foundloadlib := TRUE;
+            BREAK;
+          }
+
+          // Also search in exports
+          FOREVERY (RECORD subll FROM srclib.doc.loadlibs)
+            FOREVERY (RECORD exp FROM subll.exports)
+              IF (ToUppercase(exp.name) = ToUppercase(name))
+              {
+                resourcename := ll.resourcename;
+                foundloadlib := TRUE;
+                BREAK;
+              }
+          IF (foundloadlib)
+            BREAK;
+        }
+      }
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  RECORD FUNCTION LookupMember(RECORD objtype, STRING name)
+  {
+    IF (objtype.symboltype != "objecttype")
+      THROW NEW Exception(`Symbol '${objtype.symbolref}' is not an objecttype`);
+
+    STRING ARRAY visited;
+
+    RECORD ARRAY objtypes := [ objtype ];
+    WHILE (RecordExists(objtypes))
+    {
+      RECORD symbol := objtypes[0];
+      DELETE FROM objtypes AT 0;
+
+      // protect against infinite recursion
+      IF (symbol.symbolref IN visited)
+        THROW NEW Exception(`Objecttype ${symbol.symbolref} extends itself recursively`);
+      INSERT symbol.symbolref INTO visited AT END;
+
+      RECORD membersymbol :=
+          SELECT ...symbol
+               , ...membersymbol
+            FROM (symbol.definition.members CONCAT symbol.definition.properties CONCAT symbol.definition.methods) AS membersymbol
+           WHERE ToUppercase(COLUMN name) = ToUppercase(VAR name);
+
+      IF (RecordExists(membersymbol))
+        RETURN membersymbol;
+
+      IF (symbol.definition.baseobject != "")
+      {
+        RECORD baseobjtype := this->LookupSymbolByResourceAndName(symbol.resourcename, symbol.definition.baseobject);
+        INSERT baseobjtype INTO objtypes AT 0;
+      }
+    }
+
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC RECORD FUNCTION LookupSymbolByRelativeRef(STRING baseref, STRING symbolref)
+  {
+    IF (symbolref LIKE "#*")
+    {
+      STRING objref := baseref;
+      IF (objref LIKE "*#*::*")
+        objref := Left(objref, SearchLastSubString(objref, "::"));
+
+      RECORD basesymbol := this->GetSymbolDefinition(objref);
+      IF (basesymbol.symboltype = "objecttype")
+      {
+        RECORD membersymbol := this->LookupMember(basesymbol, SubString(Substitute(symbolref, "::", ""), 1));
+        IF (RecordExists(membersymbol))
+          RETURN membersymbol;
+      }
+
+      IF (symbolref LIKE "#::*")
+        THROW NEW Exception(`Could not resolve relative reference '${symbolref}' from '${baseref}'`);
+    }
+
+    STRING fullref := ResolveToAbsoluteSymbolLink(this->fs, baseref, symbolref);
+    RETURN this->GetSymbolDefinition(fullref);
+  }
+
+  PUBLIC RECORD FUNCTION GetSymbolDefinition(STRING symbolreference)
+  {
+    OBJECT r := GetSymbolRefRegEx();
+    RECORD ARRAY parts := r->Exec(symbolreference);
+    IF (NOT RecordExists(parts))
+      THROW NEW Exception(`Illegal symbol reference syntax, got '${symbolreference}'`);
+
+    IF (parts[1].value LIKE "%*")
+    {
+      RECORD loc := this->LocatePublicSymbol(parts[5].value);
+      IF (NOT RecordExists(loc))
+        THROW NEW Exception(`No such symbol '%${parts[5].value}' found`);
+
+      // Redo the symbolreference parsing with the canonical reference
+      parts := r->Exec(`${loc.resourcename}#${loc.name}${parts[6].value}`);
+    }
+
+    RECORD symbol := this->LookupSymbolByResourceAndName(parts[3].value, parts[5].value);
+
+    IF (parts[6].value != "")
+    {
+      IF (NOT RecordExists(symbol))
+        THROW NEW Exception(`No such symbol '${parts[1].value}${parts[5].value}' found`);
+
+      symbol := this->LookupMember(symbol, parts[7].value);
+    }
+
+    IF (NOT RecordExists(symbol))
+      THROW NEW Exception(`No such symbol '${symbolreference}' found`);
+
+    RETURN CELL
+        [ symbol.name
+        , symbol.resourcename
+        , symbol.symboltype
+        , symbol.definition
+        , symbol.topic
+        , symbol.symbolref
+        ];
+  }
+
+  /** Returns the list of eventmasks that signal any change to the source index
+      @return Event masks
+  */
+  PUBLIC STRING ARRAY FUNCTION GetEventMasks()
+  {
+    STRING ARRAY result;
+    FOREVERY (STRING module FROM this->indexmodules)
+      result := result CONCAT GetResourceEventMasks([ `mod::${module}/*` ]);
+    RETURN GetSortedSet(result);
+  }
+>;

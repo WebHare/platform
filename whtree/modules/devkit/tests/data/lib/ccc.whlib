@@ -1,0 +1,7 @@
+<?wh
+/** Second
+    @topic dev-test/second
+    @public
+*/
+
+PUBLIC CONSTANT INTEGER position_ccc := 3;

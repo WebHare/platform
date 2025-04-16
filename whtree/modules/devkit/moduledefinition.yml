@@ -1,1 +1,4 @@
-{}
+managedServices:
+  sourcecodeindex:
+    script: scripts/sourceindexservice.whscr
+    run: always

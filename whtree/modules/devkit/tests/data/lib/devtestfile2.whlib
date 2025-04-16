@@ -1,0 +1,15 @@
+<?wh
+
+PUBLIC OBJECTTYPE o2base
+<
+  PUBLIC STRING o2basestring;
+>;
+
+OBJECTTYPE o2intermediate EXTEND o2base
+<
+>;
+
+OBJECTTYPE o2 EXTEND o2intermediate
+<
+  PUBLIC STRING o2string;
+>;

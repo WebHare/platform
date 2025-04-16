@@ -1,0 +1,865 @@
+<?wh
+
+LOADLIB "wh::filetypes/markdown.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/support.whlib";
+
+
+/** Content of a parsed comment
+    @cell(record) short Short description @includecelldef #ParseMarkDownContent.return
+    @cell(record) long Long description @includecelldef #ParseMarkDownContent.return
+    @cell(record array) examples Examples @includecelldef #ParseMarkDownContent.return
+    @cell(record) topic Topic
+    @cell(record) topic.name Topic name
+    @cell(record) topic.section Topic section
+    @cell(integer) topic.line Relevant line number for the topic
+    @cell(integer) topic.col Relevant column number for the topic
+    @cell(record) topic.sectionpos Position for section
+    @cell(integer) topic.sectionpos.line Relevant line number for the section
+    @cell(integer) topic.sectionpos.col Relevant column number for the section
+    @cell(record array) params Parameters
+    @cell(string) params.type Type ('param'', 'return', 'type', 'cell')
+    @cell(string) params.variabletype Type of the variable
+    @cell(record array) params.objecttypes List of possible objecttypes
+    @cell(string) params.objecttypes.objtype Object type
+    @cell(integer) params.objecttypes.line Line number of the object type reference
+    @cell(integer) params.objecttypes.col Column number number of the object type reference
+    @cell(record array) params.name Name of the parameter
+    @cell(integer) params.line Line number
+    @cell(integer) params.col Column number
+    @cell(record array) params.description @includecelldef #ParseMarkDownContent.return
+    @cell(record array) params.includecelldefs Cells to include
+    @cell(string) params.includecelldefs.cellreference Reference for cells to include
+    @cell(integer) params.includecelldefs.line Line number of the cells reference
+    @cell(integer) params.includecelldefs.col Column number number of the cells reference
+    @cell(record array) cells Cell descriptions @includecelldef #commentcontentbase.params
+    @cell(record) variabletype Description of variable type #commentcontentbase.params
+    @cell(record array) errors List of errors parsing this comment
+    @cell(string) errors.message Error message
+    @cell(integer) errors.line Relevant line number for the error message
+    @cell(integer) errors.col Relevant column number for the error message
+    @cell(record array) warnings List of warnings parsing this comment
+    @cell(string) warnings.message Warning message
+    @cell(integer) warnings.line Relevant line number for the warning message
+    @cell(integer) warnings.col Relevant column number for the warning message
+    @cell(record) markedpublic If set, describes why this token is marked public
+    @cell(string) markedpublic.reason Reason for marking public
+    @cell(record) markedprivate If set, describes why this token is marked private
+    @cell(string) markedprivate.reason Reason for marking private
+    @cell(record) canonicalloadlib Override the loadlib that should be used to get this symbol
+    @cell(string) canonicalloadlib.resourcename Resource name
+    @cell(integer) canonicalloadlib.line Relevant line number for the resource name
+    @cell(integer) canonicalloadlib.col Relevant column number for the resource name
+    @cell(record) signature Signature override
+    @cell(string) signature.signature Signature override text
+    @cell(integer) signature.line Relevant line number for the signature override
+    @cell(integer) signature.col Relevant column number for the signature override
+    @cell(record) relevantsymbols List of relevant symbols
+    @cell(string) relevantsymbols.symbolreference Symbol reference
+    @cell(integer) relevantsymbols.line Relevant line number for the relevant symbol
+    @cell(integer) relevantsymbols.col Relevant column number for the relevant symbol
+*/
+PUBLIC CONSTANT RECORD commentcontentbase :=
+    [ isdefault :=          TRUE
+    , short :=              DEFAULT RECORD // markdown record
+    , long :=               DEFAULT RECORD // markdown record
+    , examples :=           DEFAULT RECORD ARRAY // markdown records
+    , topic :=              DEFAULT RECORD // [ topic := "topic", section := "topic section" ]
+    , params :=             DEFAULT RECORD ARRAY
+    , cells :=              DEFAULT RECORD ARRAY
+    , returnvalue :=        DEFAULT RECORD
+    , variabletype :=       DEFAULT RECORD
+    , errors :=             DEFAULT RECORD ARRAY
+    , warnings :=           DEFAULT RECORD ARRAY
+    , markedpublic :=       DEFAULT RECORD
+    , markedprivate :=      DEFAULT RECORD
+    , canonicalloadlib :=   DEFAULT RECORD
+    , signature :=          DEFAULT RECORD
+    , relevantsymbols :=    DEFAULT RECORD ARRAY
+    , schemadef :=          DEFAULT RECORD
+    ];
+
+/// Allowed symbol type
+PUBLIC CONSTANT STRING ARRAY symboltypes :=
+    [ "library", "variable", "function", "objecttype", "member", "property", "method", "signature", "component"
+    , "schema", "table", "column"
+    ];
+
+/** Parses a documentation comment
+    @param token Token to parse @includecelldef #commentcontentbase
+    @param options Options
+    @cell options.tabwidth Tab width in document (for parsing Markdown)
+    @cell options.symboltype Type of symbol. One of "library", "variable", "function", "objecttype", "member", "property", "method", "signature", "component", "schema", "table", "column"
+    @cell options.fulldocumentation If TRUE, give back errors for missing documentation
+    @cell options.skipdescriptions If TRUE, don't parse the markdown descriptions
+    @return Parsed comment @includecelldef #commentcontentbase
+*/
+PUBLIC RECORD FUNCTION ParseCommentToken(RECORD token, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tabwidth :=   2
+      , symboltype := ""
+      , fulldocumentation := TRUE
+      , skipdescriptions := FALSE
+      ], options,
+      [ required :=   [ "symboltype" ]
+      , enums :=      [ symboltype := symboltypes
+                      ]
+      ]);
+
+  IF (NOT RecordExists(token))
+    RETURN commentcontentbase;
+
+  STRING text := token.token;
+
+  // Remove comment closing if present
+  IF (Left(text, 2) = "/*" AND Right(text, 2) = "*/")
+    text := Left(text, LENGTH(text) - 2);
+
+  // tokens don't begin with whitespace, ending whitespace isn't significant
+  text := TrimWhitespace(text);
+
+  OBJECT p := NEW StringParser(text);
+
+  IF (NOT p->TryParse("///") AND NOT p->TryParse("/**"))
+    RETURN commentcontentbase;
+
+  IF(p->TryParse("/") OR p->TryParse("*")) //this might just be "//////////" or "/**********" - ignore those
+    RETURN commentcontentbase;
+
+  BOOLEAN inline := p->TryParse("<");
+
+  RETURN ParseTokenInternal(p->remaining_data, CELL[ token.line, col := token.col + 3 + (inline?1:0), options.tabwidth, options.fulldocumentation, options.symboltype ]);
+}
+
+/** Parses a documentation text
+    @param text Documentation text to parse
+    @param options Options
+    @cell options.line Line number of comment
+    @cell options.col Column number of comment
+    @cell options.tabwidth Tab width in document (for parsing Markdown)
+    @cell options.symboltype Type of symbol. One of "library", "variable", "function", "objecttype", "member", "property", "method", "schema", "table", "column"
+    @cell options.fulldocumentation If TRUE, give back errors for missing documentation
+    @cell options.skipdescriptions If TRUE, don't parse the markdown descriptions
+    @return Parsed comment @includecelldef #commentcontentbase
+*/
+PUBLIC RECORD FUNCTION ParseCommentText(STRING text, RECORD options)
+{
+  options := ValidateOptions(
+      [ tabwidth :=   2
+      , symboltype := ""
+      , fulldocumentation := TRUE
+      , skipdescriptions := FALSE
+      , line :=       0
+      , col :=        0
+      ], options,
+      [ required :=   [ "symboltype", "line" ]
+      , enums :=      [ symboltype := symboltypes
+                      ]
+      ]);
+
+  IF (TrimWhitespace(text) = "")
+    RETURN commentcontentbase;
+
+  RETURN ParseTokenInternal(text, CELL[ options.line, options.col, options.tabwidth, options.fulldocumentation, options.symboltype, options.skipdescriptions ]);
+}
+
+/** Returns an empty comment record
+    @return Empty comment @includecelldef #commentcontentbase
+*/
+PUBLIC RECORD FUNCTION GetEmptyComment()
+{
+  RETURN commentcontentbase;
+}
+
+RECORD FUNCTION ParseTokenInternal(STRING text, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ line :=       1
+      , col :=        1
+      , tabwidth :=   2
+      , symboltype := ""
+      , fulldocumentation := TRUE
+      , skipdescriptions := FALSE
+      ], options);
+
+  RECORD ARRAY errors;
+
+  RECORD ARRAY items;
+  RECORD current := CELL[ type := "short", lines := STRING[], isvalid := TRUE, options.line, options.col ];
+
+  STRING ARRAY gotsections;
+
+  // Normalize newlines
+  text := Substitute(text, "\r\n", "\n");
+
+  // First, split up the comment in lines
+  STRING ARRAY lines := Tokenize(text, "\n");
+  FOREVERY (STRING line FROM lines)
+  {
+    RECORD spaces := ParseInitialSpaces(line, -1, (#line = 0 ? options.col : 1), options.tabwidth);
+
+    OBJECT p := NEW StringParser(spaces.line);
+    IF (p->TryParse("@"))
+    {
+      STRING type := p->ParseWhileInSet(p->set_alpha || p->set_digit);
+      BOOLEAN isvalid := type IN [ "library", "topic", "topicshort", "short", "long", "param", "cell", "return", "example", "public", "private", "type", "loadlib", "signature", "see", "schemadef" ];
+      IF (NOT isvalid)
+      {
+        // inline type?
+        IF (type IN [ "includecelldef" ])
+        {
+          INSERT line INTO current.lines AT END;
+          CONTINUE;
+        }
+
+        INSERT [ message := `Unknown comment tag @${type} found`, line := options.line + #line, col := spaces.relcolumn ] INTO errors AT END;
+      }
+      ELSE
+      {
+        IF (p->current NOT IN [ "", " ", "\t", "(" ])
+        {
+          INSERT [ message := `Expected whitespace after @${type}`, line := options.line + #line, col := spaces.relcolumn + LENGTH(type) + 1 ] INTO errors AT END;
+          isvalid := FALSE;
+        }
+
+        IF (isvalid AND type NOT IN [ "param", "cell", "example" ])
+        {
+          IF (type IN gotsections)
+          {
+            INSERT [ message := `Multiple tags of type @${type} found`, line := options.line + #line, col := spaces.relcolumn ] INTO errors AT END;
+            isvalid := FALSE;
+          }
+          ELSE
+            INSERT type INTO gotsections AT END;
+        }
+      }
+
+      IF (LENGTH(current.lines) != 0 AND current.isvalid)
+        INSERT current INTO items AT END;
+
+      current := CELL[ type, lines := STRING[ p->remaining_data ], isvalid, line := options.line + #line, col := spaces.relcolumn ];
+    }
+    ELSE
+    {
+      INSERT line INTO current.lines AT END;
+    }
+  }
+
+  IF (LENGTH(current.lines) != 0 AND current.isvalid)
+    INSERT current INTO items AT END;
+
+  RETURN ParseCommentItemContent(items, errors, CELL[ options.tabwidth, options.symboltype, options.fulldocumentation, options.skipdescriptions ]);
+}
+
+STRING FUNCTION GetTagLinesContent(STRING ARRAY lines, RECORD options)
+{
+  INTEGER minspaces := -1;
+  FOREVERY (STRING line FROM lines)
+    IF (#line != 0)
+    {
+      RECORD spaces := ParseInitialSpaces(line, -1, 1, options.tabwidth);
+      IF (spaces.line != "" AND (minspaces = -1 OR spaces.gotspaces < minspaces))
+        minspaces := spaces.gotspaces;
+    }
+
+  STRING text;
+  FOREVERY (STRING line FROM lines)
+  {
+    // Ignore all spaces from the first line
+    IF (#line = 0)
+      text := ParseInitialSpaces(line, -1, 1, options.tabwidth).line;
+    ELSE
+      text := text || "\n" || ParseInitialSpaces(line, minspaces, 1, options.tabwidth).line;
+  }
+
+  IF (CellExists(options, "wrapcode") AND options.wrapcode)
+    text := "``````````harescript" || text || "\n``````````";
+
+  RETURN text;
+}
+
+/** Parses markdown content
+    @param lines Markdown content
+    @param options Options
+    @cell options.tabwidth Width of tabs
+    @cell options.wrapcode Wrap with a Harescript code block
+    @cell options.skipdescriptions If TRUE, don't parse the markdown descriptions
+    @return Markdown tree @includecelldef wh::filetypes/markdown.whlib#ParseMarkDown.return
+*/
+RECORD FUNCTION ParseMarkDownContent(STRING ARRAY lines, RECORD options)
+{
+  IF (options.skipdescriptions)
+    RETURN DEFAULT RECORD;
+
+  STRING text := GetTagLinesContent(lines, options);
+  RETURN ParseMarkDown(text, CELL[ flavor := "webhare", options.tabwidth ]);
+}
+
+OBJECTTYPE ItemContentParser EXTEND StringParser
+<
+  RECORD item;
+  RECORD options;
+  RECORD initialposition;
+
+  MACRO NEW(RECORD item, RECORD options)
+  : StringParser(Detokenize(item.lines, "\n"))
+  {
+    this->item := item;
+    this->options := options;
+    this->initialposition := this->SaveState();
+  }
+
+  PUBLIC RECORD FUNCTION GetCurrentLocation()
+  {
+    INTEGER dist := this->GetDistanceFromState(this->initialposition);
+    IF (dist < 0)
+      THROW NEW Exception(`State does not lie before or at current state`);
+
+    STRING ARRAY lines := Tokenize(this->GetLastParsed(dist), "\n");
+
+    INTEGER col := GetColumnAfterText(lines[END - 1], LENGTH(lines) = 1 ? this->item.col + LENGTH(this->item.type) + 1 : 1, this->options.tabwidth);
+    RETURN CELL[ line := this->item.line + LENGTH(lines) - 1, col ];
+  }
+
+  PUBLIC RECORD FUNCTION GetLocationAtState(RECORD state)
+  {
+    RECORD curstate := this->SaveState();
+    this->RestoreState(state);
+    RECORD retval := this->GetCurrentLocation();
+    this->RestoreState(curstate);
+    RETURN retval;
+  }
+
+>;
+
+RECORD FUNCTION ParseDescription(OBJECT p)
+{
+  STRING text;
+  RECORD ARRAY errors;
+  RECORD ARRAY includecelldefs;
+  WHILE (NOT p->eof)
+  {
+    text := text || p->ParseWhileNotInSet("@");
+    RECORD atpos := p->SaveState();
+    IF (p->TryParse("@includecelldef"))
+    {
+      IF (p->ParseWhileInSet(p->set_alpha || p->set_digit || "_-") != "")
+        p->RestoreState(atpos);
+      ELSE
+      {
+        p->ParseWhileInSet(" \t");
+        RECORD refpos := p->SaveState();
+        STRING cellreference := p->ParseWhileInSet(p->set_alpha || p->set_digit || "_-#:/.%");
+
+        INSERT CELL
+            [ cellreference
+            , ...p->GetLocationAtState(refpos)
+            ] INTO includecelldefs AT END;
+
+        STRING spaces := p->ParseWhileInSet(" \t");
+        IF (p->current NOT IN [ "", "\n" ])
+        {
+          IF (spaces = "")
+            INSERT CELL[ message := `Could not parse symbol reference`, ...p->GetCurrentLocation() ] INTO errors AT END;
+          ELSE
+            INSERT CELL[ message := "Expected a newline after @includecelldef", ...p->GetCurrentLocation() ] INTO errors AT END;
+          p->ParseWhileNotInSet("\n");
+        }
+        CONTINUE;
+      }
+    }
+    // ADDME: error if includecelldef isn't spelled correctly?
+    text := text || (p->TryParse("@") ? "@" : "");
+  }
+  RETURN CELL[ text, errors, includecelldefs ];
+}
+
+
+CONSTANT STRING ARRAY valid_types :=
+    [ "boolean"
+    , "string"
+    , "integer"
+    , "integer64"
+    , "money"
+    , "float"
+    , "datetime"
+    , "record"
+    , "object"
+    , "blob"
+    , "function ptr"
+    , "macro ptr"
+    , "weakobject"
+    , "boolean array"
+    , "string array"
+    , "integer array"
+    , "integer64 array"
+    , "money array"
+    , "float array"
+    , "datetime array"
+    , "record array"
+    , "object array"
+    , "blob array"
+    , "function ptr array"
+    , "macro ptr array"
+    , "variant array"
+    , "weakobject array"
+    ];
+
+RECORD FUNCTION ParseCommentItemContent(RECORD ARRAY items, RECORD ARRAY errors, RECORD options)
+{
+  RECORD content := commentcontentbase;
+  content.errors := errors;
+
+  IF (LENGTH(items) != 0)
+    content.isdefault := FALSE;
+
+  STRING ARRAY opencells, closedcells;
+
+  FOREVERY (RECORD item FROM items)
+  {
+    // Remove trailing empty lines
+    WHILE (NOT IsDefaultValue(item.lines) AND IsDefaultValue(item.lines[END - 1]))
+      DELETE FROM item.lines AT END - 1;
+
+    SWITCH (item.type)
+    {
+      CASE "short"
+      {
+        IF (RecordExists(content.short))
+          INSERT CELL[ message := "Cannot have both @type and @short descriptions", item.line, item.col ] INTO content.errors AT END;
+        ELSE
+          content.short := ParseMarkDownContent(item.lines, options);
+      }
+      CASE "long"       { content.long := ParseMarkDownContent(item.lines, options); }
+      CASE "example"
+      {
+        INSERT ParseMarkDownContent(item.lines, CELL[ ...options, wrapcode := TRUE ]) INTO content.examples AT END;
+      }
+      CASE "public"
+      {
+        IF (RecordExists(content.markedprivate))
+        {
+          INSERT CELL[ message := "Cannot have both @private and @public tags", item.line, item.col ] INTO content.errors AT END;
+          // @public takes precedence
+          content.markedprivate := DEFAULT RECORD;
+        }
+        content.markedpublic := [ reason := TrimWhitespace(Detokenize(item.lines,' ')) ];
+      }
+      CASE "private"
+      {
+        IF (RecordExists(content.markedpublic))
+          INSERT CELL[ message := "Cannot have both @private and @public tags", item.line, item.col ] INTO content.errors AT END;
+        ELSE
+          content.markedprivate := [ reason := TrimWhitespace(Detokenize(item.lines,' ')) ];
+      }
+      CASE "topic"
+      {
+        OBJECT p := NEW ItemContentParser(item, options);
+        p->ParseWhileInSet(" \n\t");
+        RECORD pos := p->GetCurrentLocation();
+
+        STRING name := p->ParseWhileInSet(p->set_alpha);
+        IF (name != "")
+          name := name || p->ParseWhileInSet(p->set_alpha || p->set_digit || "-");
+        p->ParseWhileInSet(" \n\t");
+
+        IF (name = "")
+          INSERT CELL[ message := "Illegal topic name", ...pos ] INTO content.errors AT END;
+        ELSE IF (NOT p->TryParse("/"))
+          INSERT CELL[ message := "Expected '/' after topic name", ...p->GetCurrentLocation() ] INTO content.errors AT END;
+        ELSE
+        {
+          p->ParseWhileInSet(" \n\t");
+          RECORD sectionpos := p->GetCurrentLocation();
+          STRING section := p->ParseWhileInSet(p->set_alpha || p->set_digit || "-_");
+          IF (section = "")
+            INSERT CELL[ message := "Expected a topic section name", ...sectionpos ] INTO content.errors AT END;
+          ELSE
+          {
+            IF (p->ParseWhileInSet(" \n\t") = "" AND NOT p->eof)
+              INSERT CELL[ message := "Expected a valid topic section name", ...sectionpos ] INTO content.errors AT END;
+            ELSE IF (NOT p->eof)
+              INSERT CELL[ message := "Extra text after topic section name", ...p->GetCurrentLocation() ] INTO content.errors AT END;
+            ELSE
+              content.topic := CELL[ name, section, ...pos, sectionpos ];
+          }
+        }
+      }
+      CASE "cell", "param", "return", "type"
+      {
+        IF (options.symboltype NOT IN [ "variable", "function", "objecttype", "member", "property", "method", "signature" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+        IF (options.symboltype IN [ "variable", "objecttype", "member", "property" ] AND item.type IN [ "param", "return" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+        IF (options.symboltype IN [ "function", "method", "objecttype" ] AND item.type IN [ "type" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+
+        OBJECT p := NEW ItemContentParser(item, options);
+
+        RECORD ARRAY objecttypes;
+        STRING variabletype;
+
+        RECORD initialstate := p->SaveState();
+        RECORD beforespaces := initialstate;
+        STRING initialspaces := p->ParseWhileInSet(" \n\t");
+        IF (p->TryParse("("))
+        {
+          p->ParseWhileInSet(" \n\t");
+
+          RECORD typestartstate := p->SaveState();
+          variabletype := p->ParseWhileInSet(p->set_alpha || p->set_digit);
+
+          p->ParseWhileInSet(" \n\t");
+
+          IF (variabletype IN [ "function", "macro" ])
+          {
+            IF (NOT p->TryParse("ptr"))
+            {
+              INSERT CELL[ message := "Expected 'ptr'", ...p->GetCurrentLocation() ] INTO content.errors AT END;
+              CONTINUE;
+            }
+            ELSE
+            {
+              variabletype := `${variabletype} ptr`;
+              p->ParseWhileInSet(" \n\t");
+            }
+          }
+
+          IF (p->TryParse("array"))
+          {
+            variabletype := `${variabletype} array`;
+            p->ParseWhileInSet(" \n\t");
+          }
+
+          IF (variabletype = "")
+            INSERT CELL[ message := `Expect a typename`, ...p->GetCurrentLocation() ] INTO content.errors AT END;
+          ELSE IF (variabletype NOT IN valid_types)
+          {
+            FOREVERY (STRING t FROM valid_types)
+              IF (variabletype = Substitute(t, " ", ""))
+              {
+                variabletype := t;
+                INSERT CELL[ message := "Please use spaces in typenames", ...p->GetLocationAtState(typestartstate) ] INTO content.warnings AT END;
+              }
+            IF (variabletype NOT IN valid_types)
+            {
+              INSERT CELL[ message := `Unknown typename '${variabletype}'`, ...p->GetLocationAtState(typestartstate) ] INTO content.errors AT END;
+              CONTINUE;
+            }
+          }
+
+          IF (variabletype IN [ "object", "object array" ])
+          {
+            WHILE (p->current NOT IN [ "", ")" ])
+            {
+              RECORD location := p->GetCurrentLocation();
+              STRING objtype := p->ParseWhileInSet(p->set_alpha || p->set_digit || "_-#:/.%");
+              INSERT CELL
+                  [ objtype
+                  , ...location
+                  ] INTO objecttypes AT END;
+
+              STRING interspaces := p->ParseWhileInSet(" \n\t");
+              IF (interspaces = "")
+                BREAK;
+            }
+
+            IF (p->current NOT IN [ "", ")" ])
+            {
+              INSERT CELL[ message := `Could not parse symbol reference`, ...p->GetCurrentLocation() ] INTO content.errors AT END;
+              p->ParseWhileNotInSet(")");
+            }
+          }
+
+          IF (NOT p->TryParse(")"))
+          {
+            INSERT CELL[ message := "Expected ')'", ...p->GetCurrentLocation() ] INTO content.errors AT END;
+            CONTINUE;
+          }
+
+          beforespaces := p->SaveState();
+          initialspaces := p->ParseWhileInSet(" \n\t)");
+        }
+
+        // Parse the name/cell reference after @param and @cell
+        STRING name;
+        RECORD namepos;
+        IF (item.type NOT IN [ "type", "return" ])
+        {
+          namepos := p->GetCurrentLocation();
+          name := p->ParseWhileNotInSet(" \t\r\n");
+
+          IF (name = "")
+          {
+            INSERT CELL[ message := item.type = "param" ? "Expected a name here" : "Expected a cell reference here", ...p->GetLocationAtState(beforespaces) ] INTO content.errors AT END;
+            CONTINUE;
+          }
+
+          beforespaces := p->SaveState();
+          initialspaces := p->ParseWhileInSet(" \n\r\t)");
+        }
+
+        // No description is not fatal, type data might be handy
+        //IF (TrimWhitespace(p->remaining_data) = "" AND options.fulldocumentation AND item.type != "type")
+        //  INSERT CELL[ message := "Expected a description here", ...p->GetLocationAtState(beforespaces) ] INTO content.errors AT END;
+
+        RECORD descriptionpos := p->GetCurrentLocation();
+
+        RECORD ARRAY includecelldefs;
+
+        RECORD parseddesc := ParseDescription(p);
+
+        includecelldefs := parseddesc.includecelldefs;
+        STRING text := parseddesc.text;
+        content.errors := content.errors CONCAT parseddesc.errors;
+
+        RECORD description := ParseMarkDownContent(Tokenize(text, "\n"), options);
+
+        IF (item.type = "type" AND TrimWhitespace(text) != "")
+        {
+          IF (RecordExists(content.short))
+            INSERT CELL[ message := "Cannot have both @type and @short descriptions", ...descriptionpos ] INTO content.errors AT END;
+          ELSE
+            content.short := description;
+          description := ParseMarkDownContent([ "" ], options);
+        }
+
+        RECORD rec := CELL
+            [ item.type
+            , variabletype
+            , objecttypes
+            , name
+            , line :=             (namepos ?? item).line
+            , col :=              (namepos ?? item).col
+            , description
+            , includecelldefs
+            ];
+
+        SWITCH (item.type)
+        {
+          CASE "cell"
+          {
+            IF (ToLowercase(name) IN closedcells CONCAT opencells)
+            {
+              INSERT CELL[ message := `Multiple @cell specifications found for '${rec.name}'`, ...namepos ] INTO content.errors AT END;
+              CONTINUE;
+            }
+
+            STRING parents := Left(name, SearchLastSubString(name, "."));
+            IF (parents = "")
+            {
+              IF (options.symboltype IN [ "function", "method" ])
+                INSERT CELL[ message := "Please specify cells as <paramname>.cellname or return.cellname", ...namepos ] INTO content.errors AT END;
+            }
+            ELSE IF (ToLowercase(parents) NOT IN closedcells CONCAT opencells)
+            {
+              IF (ToLowercase(parents) = "return")
+                0; //  INSERT CELL[ message := "No documentation for return value", ...namepos ] INTO content.errors AT END;
+              ELSE IF (options.symboltype IN [ "function", "method" ] AND parents NOT LIKE "*.*")
+              {
+                IF (parents = "options") // this is the one we allow to be skipped
+                {
+                  INSERT
+                      [ type :=             "param"
+                      , variabletype :=     "record"
+                      , objecttypes :=      RECORD[]
+                      , name :=             "options"
+                      , line :=             (namepos ?? item).line
+                      , col :=              (namepos ?? item).col
+                      , description :=      ParseMarkDown("Options")
+                      , includecelldefs :=  RECORD[]
+                      ] INTO content.params AT END;
+                }
+                //ELSE
+                //  INSERT CELL[ message := `No documentation for parameter '${parents}'`, ...namepos ] INTO content.errors AT END;
+              }
+              //ELSE
+              //{
+              //  INSERT CELL[ message := `No documentation for cell '${parents}'`, ...namepos ] INTO content.errors AT END;
+              //}
+
+              INSERT ToLowercase(parents) INTO opencells AT END;
+            }
+            ELSE IF (ToLowercase(parents) NOT IN opencells)
+            {
+              INSERT CELL[ message := "Cell specification ordering error", ...namepos ] INTO content.errors AT END;
+              INSERT ToLowercase(parents) INTO opencells AT END;
+            }
+
+            INSERT rec INTO content.cells AT END;
+
+            STRING ARRAY nowclosed := SELECT AS STRING ARRAY s FROM ToRecordArray(opencells, "s") WHERE ToLowercase(name) NOT LIKE s || ".*";
+            closedcells := closedcells CONCAT nowclosed;
+            opencells := ArrayDelete(opencells, nowclosed) CONCAT [ ToLowercase(name) ];
+          }
+          CASE "param"
+          {
+            closedcells := closedcells CONCAT opencells;
+            opencells := STRING[];
+
+            IF (rec.name LIKE "*.*")
+            {
+              INSERT CELL[ message := `The name '${rec.name}' is not a valid HareScript token identifier`, ...namepos ] INTO content.errors AT END;
+              CONTINUE;
+            }
+
+            opencells := [ ToLowercase(name) ];
+
+            IF (ToLowercase(rec.name) IN closedcells)
+            {
+              INSERT CELL[ message := `Multiple @param specifications found for parameter '${rec.name}'`, ...namepos ] INTO content.errors AT END;
+              CONTINUE;
+            }
+
+            INSERT rec INTO content.params AT END;
+          }
+          CASE "return"
+          {
+            closedcells := closedcells CONCAT opencells;
+            opencells := [ "return" ];
+
+            IF ("return" IN closedcells)
+            {
+              INSERT CELL[ message := "Cell specification ordering error", item.line, item.col ] INTO content.errors AT END;
+              CONTINUE;
+            }
+
+            content.returnvalue := rec;
+          }
+          CASE "type"
+          {
+            content.variabletype := rec;
+          }
+        }
+      }
+      CASE "loadlib"
+      {
+        IF (options.symboltype NOT IN [ "variable", "function", "objecttype", "member", "property", "method", "signature" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+
+        OBJECT p := NEW ItemContentParser(item, options);
+
+        p->ParseWhileInSet(" \t\r\n");
+        RECORD location := p->GetCurrentLocation();
+        STRING resourcename := p->ParseWhileInSet(p->set_alpha || p->set_digit || "_:/.%");
+
+        IF (resourcename = "")
+          INSERT CELL[ message := "Missing resource name", ...location ] INTO content.errors AT END;
+        ELSE IF (p->ParseWhileInSet(" \t\r\n") != "" AND NOT p->eof)
+          INSERT CELL[ message := "Illegal resource name", ...location ] INTO content.errors AT END;
+        ELSE IF (NOT p->eof)
+          INSERT CELL[ message := "Extra text after resource name", ...location ] INTO content.errors AT END;
+        ELSE
+          content.canonicalloadlib := CELL[ resourcename, ...location ];
+      }
+      CASE "signature"
+      {
+        IF (options.symboltype NOT IN [ "function", "method" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+
+        OBJECT p := NEW ItemContentParser(item, options);
+
+        p->ParseWhileInSet(" \t\r\n");
+        RECORD location := p->GetCurrentLocation();
+
+        STRING signature := TrimWhitespace(p->remaining_data);
+        content.signature := CELL[ signature, ...location ];
+      }
+      CASE "see"
+      {
+        OBJECT p := NEW ItemContentParser(item, options);
+
+        WHILE (NOT p->eof)
+        {
+          p->ParseWhileInSet(" \t\r\n");
+          RECORD location := p->GetCurrentLocation();
+          STRING symbolreference := p->ParseWhileInSet(p->set_alpha || p->set_digit || "_-#:/.%");
+
+          IF (p->current NOT IN [ "", " ", "\t", "\n", "," ] OR symbolreference = "")
+          {
+            INSERT CELL[ message := `Could not parse symbol reference`, ...p->GetCurrentLocation() ] INTO content.errors AT END;
+            BREAK;
+          }
+          ELSE
+          {
+            // is this a naked string symbol? Convert to a reletive reference then
+            IF (symbolreference NOT LIKE "*.*"
+                AND symbolreference NOT LIKE "*#*"
+                AND symbolreference NOT LIKE "%*")
+            {
+              symbolreference := "#" || symbolreference;
+            }
+
+            IF (RecordExists(SELECT FROM content.relevantsymbols WHERE ToUppercase(COLUMN symbolreference) = ToUppercase(VAR symbolreference)))
+              INSERT CELL[ message := `Symbol reference mentioned twice`, ...p->GetCurrentLocation() ] INTO content.errors AT END;
+            ELSE
+              INSERT CELL[ symbolreference, ...location ] INTO content.relevantsymbols AT END;
+          }
+          p->ParseWhileInSet(" \t\r\n");
+          p->TryParse(","); // comma is optional
+        }
+      }
+      CASE "schemadef"
+      {
+        IF (options.symboltype NOT IN [ "variable" ])
+        {
+          INSERT CELL[ message := `Tag @${item.type} is not allowed for this symbol (of type '${options.symboltype}')`, item.line, item.col ] INTO content.errors AT END;
+          CONTINUE;
+        }
+
+        OBJECT p := NEW ItemContentParser(item, options);
+
+        p->ParseWhileInSet(" \t\r\n");
+        RECORD location := p->GetCurrentLocation();
+
+        STRING schemadef := TrimWhitespace(p->remaining_data);
+        content.schemadef := CELL[ schemadef, ...location ];
+      }
+      DEFAULT
+      {
+        IF (item.isvalid)
+          ABORT(`Item type ${item.type} not handled`);
+      }
+    }
+  }
+
+  content.errors := SELECT * FROM content.errors ORDER BY line, col, message;
+  content.warnings := SELECT * FROM content.warnings ORDER BY line, col, message;
+
+  RETURN content;
+}
+
+PUBLIC STRING FUNCTION GetTopicStringFromParsedComment(RECORD parsedcomment, STRING librarytopic)
+{
+  IF (RecordExists(parsedcomment.markedprivate) AND NOT RecordExists(parsedcomment.markedpublic))
+    RETURN ""; // no topic for symbols that have been marked private
+  IF (NOT RecordExists(parsedcomment) OR NOT RecordExists(parsedcomment.topic))
+    RETURN librarytopic;
+  RETURN `${parsedcomment.topic.name}/${parsedcomment.topic.section}`;
+}
+
+PUBLIC BOOLEAN FUNCTION IsMarkedPrivate(RECORD comment, STRING symboltype)
+{
+  RETURN RecordExists(comment)
+         AND ToUppercase(comment.token) LIKE "*@PRIVATE*"
+         AND RecordExists(ParseCommentToken(comment, [ symboltype := symboltype ]).markedprivate);
+
+}

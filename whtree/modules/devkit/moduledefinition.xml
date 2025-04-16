@@ -1,0 +1,15 @@
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta>
+    <version>5.7.0</version>  <!-- temporary, we should eliminate this XML file ASAP -->
+  </meta>
+
+  <consilio>
+    <catalog tag="sourcecode" priority="-1">
+      <customsource contentobject="mod::devkit/lib/sourcecodeindex/consilio.whlib#SourceCodeConsilioIndex"
+                    tag="moduleresources" />
+    </catalog>
+    <catalog tag="www_webhare_dev" />
+  </consilio>
+
+</module>

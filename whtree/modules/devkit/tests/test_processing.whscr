@@ -1,0 +1,133 @@
+<?wh
+
+LOADLIB "wh::filetypes/markdown.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/fs.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/processing.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/sourcefiles.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/testing.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+
+OBJECT fs;
+OBJECT source;
+
+MACRO TestPrep()
+{
+  fs := NEW DevFileSystem;
+  source := NEW SourceIndex(["dev"], fs);
+}
+
+ASYNC MACRO TestProcessing()
+{
+  TestAnnotatedCommentParse(source,
+      [ params :=       [ [ name := "p1", objecttypes := RECORD[] ]
+                        , [ name := "p2", objecttypes := RECORD[] ]
+                        , [ name := "p3", objecttypes := [ [ objtype := "mod::devkit/tests/data/lib/override.whlib#vo" ] ] ]
+                        ]
+      ], `inline::
+<?wh
+/// library comment
+
+RECORD vx;
+OBJECTTYPE vo< >;
+
+/** @param(object #nosuchobject) p1 No such object found
+//                ^ error No such symbol 'mod::devkit/tests/data/lib/override.whlib#nosuchobject' found
+    @param(object #vx) p2 Wrong type
+//                ^ error Referenced symbol 'mod::devkit/tests/data/lib/override.whlib#vx' is not an OBJECTTYPE
+    @param(object #vo) p3 Good
+*/
+PUBLIC MACRO vfo(OBJECT p1, OBJECT p2, OBJECT p3) {}
+`, [ mode := "expandcells", symbol := "vfo", resourcename := Resolve("data/lib/override.whlib") ]);
+
+
+  RECORD symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#a2"));
+
+  RECORD parsed := ParseCommentToken(symbol.definition.comment, CELL[ symbol.symboltype ]);
+  parsed := ExpandSymbolCellDefs(fs, symbol.resourcename, symbol, parsed, source);
+
+  TestEQMembers(
+      [ [ name :=   "b", description := ParseMarkDown("b-cell") ]
+      , [ name :=   "b.c" ]
+      , [ name :=   "b.e" ]
+      , [ name :=   "b.d" ]
+      , [ name :=   "c" ]
+      ], parsed.cells, "*");
+
+  symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#exttestobjtype::propd"));
+  parsed := ParseCommentToken(symbol.definition.comment, CELL[ symbol.symboltype ]);
+  parsed := ExpandSymbolCellDefs(fs, symbol.resourcename, symbol, parsed, source);
+  TestEQ(ParseMarkDown("A secret property"), parsed.short);
+
+  symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#exttestobjtype::Method"));
+  parsed := ParseCommentToken(symbol.definition.comment, CELL[ symbol.symboltype ]);
+  parsed := ExpandSymbolCellDefs(fs, symbol.resourcename, symbol, parsed, source);
+  TestEQ(ParseMarkDown("A documented method"), parsed.short);
+
+  OBJECT catalog := OpenConsilioCatalog(devconstants.catalog_sourcecode);
+  OBJECT contentsource := catalog->OpenContentSource(devconstants.contentsource_moduleresources);
+  FOREVERY (STRING groupid FROM [ Resolve("data/lib/includecelldef.whlib") ])
+    contentsource->ReindexGroup(groupid, [ rebuild := TRUE, foreground := TRUE ]);
+  catalog->Refresh();
+
+  TestAnnotatedCommentParse(source,
+      [ cells :=        [ [ name := "x1", description := ParseMarkDown("cell1") ]
+                        , [ name := "x1.a2", description := ParseMarkDown("cell2") ]
+                        , [ name := "x3", description := ParseMarkDown("cell3"), variabletype := "string" ]
+                        , [ name := "x4", description := ParseMarkDown("x4"), variabletype := "record" ]
+                        , [ name := "x4.c1", description := ParseMarkDown("cell4") ]
+                        , [ name := "x4.c1.c2", description := ParseMarkDown("cell5") ]
+                        , [ name := "x6", description := ParseMarkDown("cell6") ]
+                        ]
+      ], Resolve("data/lib/includecelldef.whlib"), [ mode := "expandcells", symbol := "vx" ]);
+
+  TestAnnotatedCommentParse(source,
+      [ cells :=        [ [ name := "a", description := ParseMarkDown("Param a") ]
+                        , [ name := "r", description := ParseMarkDown("Return") ]
+                        ]
+      ], Resolve("data/lib/includecelldef.whlib"), [ mode := "expandcells", symbol := "vt" ]);
+
+  symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#func"));
+  parsed := ParseCommentToken(symbol.definition.comment, CELL[ symbol.symboltype ]);
+  parsed := ExpandSymbolCellDefs(fs, symbol.resourcename, symbol, parsed, source);
+
+  TestEqMembers(parsed,
+      [ short :=        ParseMarkDown("Func")
+      , params :=       [ [ name := "fromdate" ]
+                        , [ name := "options" ]
+                        ]
+
+      , returnvalue :=  CELL[]
+      , cells :=        [ [ name := "options.a" ]
+                        , [ name := "return.days" ]
+                        , [ name := "return.msecs" ]
+                        , [ name := "return.years" ]
+                        ]],"short,params,returnvalue,cells");
+
+  RECORD funcparsed := parsed;
+
+  symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#funcouter"));
+  parsed := ParseCommentToken(symbol.definition.comment, CELL[ symbol.symboltype ]);
+  parsed := ExpandSymbolCellDefs(fs, symbol.resourcename, symbol, parsed, source);
+
+  TestEQMembers(funcparsed, parsed, "*,-includecelldefs,-line,-col");
+}
+
+MACRO TestScanning()
+{
+  RECORD symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile.whlib#o1"));
+  TestEq(TRUE, RecordExists(symbol));
+
+  symbol := source->GetSymbolDefinition(Resolve("data/lib/devtestfile2.whlib#o2"));
+  TestEq(TRUE, RecordExists(symbol));
+}
+
+RunTestFramework([ PTR TestPrep
+                 , PTR TestProcessing
+                 , PTR TestScanning
+                 ]);

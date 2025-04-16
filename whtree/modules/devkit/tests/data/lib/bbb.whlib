@@ -1,0 +1,7 @@
+<?wh
+/** First
+    @topic dev-test/first
+    @public
+*/
+
+PUBLIC CONSTANT INTEGER position_bbb := 1;

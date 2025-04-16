@@ -2227,7 +2227,7 @@ PUBLIC OBJECTTYPE SymbolSearch EXTEND TolliumScreenBase
     RECORD res;
     TRY
     {
-      FUNCTION PTR executedocsearch := MakeFunctionPtr("mod::dev/lib/internal/api.whlib#ExecuteDocSearch");
+      FUNCTION PTR executedocsearch := MakeFunctionPtr("mod::devkit/lib/sourcecodeindex/api.whlib#ExecuteDocSearch");
 
       IF (NOT ValidateFunctionPtr(executedocsearch, TypeID(RECORD), [ TypeID(STRING), TypeID(STRING) ]))
         THROW NEW Exception("Cannot execute search, ExecuteDocSearch in the 'dev' module doesn't have the right signature");

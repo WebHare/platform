@@ -1,0 +1,121 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+/** Parses a topic XML file
+    @param topic Topic tag
+    @param indoc Topic XML file data
+    @return Parsed topic
+    @cell(string) return.name Topic tag
+    @cell(string) return.title Topic title
+    @cell(string) return.shortdescription Topic short description
+    @cell(string array) return.docorder List of basenames for all documents, to determine rendering order
+    @cell(record array) return.sections List of sections
+    @cell(string) return.sections.name Section name
+    @cell(string) return.sections.title Section title
+    @cell(string) return.sections.description Description
+*/
+PUBLIC RECORD FUNCTION ParseTopic(STRING topic, BLOB indoc)
+{
+  RECORD basedata :=
+      [ name :=             topic
+      , title :=            topic
+      , shortdescription := ""
+      , docorder :=         STRING[]
+      , sections :=         RECORD[]
+      ];
+
+  //FIXME validate
+  IF (Length(indoc) > 0)
+  {
+    OBJECT xml := MakeXMLDocument(indoc);
+    IF (ObjectExists(xml->documentelement))
+    {
+      basedata := CELL[ ...basedata
+                      , title := xml->documentelement->GetAttribute("title") ?? basedata.title
+                      , shortdescription := xml->documentelement->GetAttribute("shortdescription")
+                      , docorder := ParseXSList(xml->documentelement->GetAttribute("docorder"))
+                      ];
+
+      FOREVERY (OBJECT xml_section FROM xml->documentelement->ListChildren("http://www.webhare.net/xmlns/dev/topic", "section"))
+      {
+        INSERT CELL
+            [ name :=         xml_section->GetAttribute("name")
+            , title :=        xml_section->GetAttribute("title")
+            , description :=  xml_section->GetAttribute("description")
+            ] INTO basedata.sections AT END;
+      }
+    }
+  }
+
+  RETURN basedata;
+}
+
+
+RECORD FUNCTION GetCachableTopics(OBJECT fs, STRING ARRAY modules)
+{
+  STRING ARRAY eventmasks := [ "wh:softreset" ]; // for module updates
+  FOREVERY (STRING module FROM modules)
+    eventmasks := eventmasks CONCAT GetResourceEventMasks([ `mod::${module}/*` ]);
+
+  RECORD ARRAY topics;
+  FOREVERY(STRING mod FROM modules)
+  {
+    STRING resbase := `mod::${mod}/doc/topics/`;
+    RECORD ARRAY moduletopics :=
+        SELECT name
+             , topicinfo :=       ParseTopic(name, GetWebhareResource(resourcepath || "/topic.xml", [ allowmissing := TRUE ]))
+             , resourcepath
+             , module :=          mod
+          FROM ReadWebHareResourceFolder(resbase)
+         WHERE isfolder
+           AND name = ToLowercase(GetSafeName(name));
+
+    topics := topics CONCAT moduletopics;
+    eventmasks := eventmasks CONCAT GetResourceEventMasks(
+        [ `mod::${mod}/doc/topics/`
+        , ...SELECT AS STRING ARRAY resourcepath FROM moduletopics
+        ]);
+  }
+
+  RETURN
+      [ value :=        topics
+      , eventmasks :=   GetSortedSet(eventmasks)
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetAllTopics(OBJECT fs, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ builtin :=    FALSE
+      ], options);
+
+  STRING ARRAY modules := options.builtin
+      ? whconstant_builtinmodules
+      : fs->DevGetInstalledModuleNames();
+
+  RECORD ARRAY topics;
+  FOREVERY (RECORD topic FROM GetAdhocCached(CELL
+      [ "topics"
+      , modules
+      , fskey :=      fs->GetCacheKey()
+      ], PTR GetCachableTopics(fs, modules)))
+  {
+    RECORD info := CELL[ ...topic.topicinfo
+                       , sublink :=         topic.name
+                       , resourcepath :=    topic.resourcepath
+                       , module :=          topic.module
+                       ];
+    INSERT info INTO topics AT END;
+  }
+
+  RETURN topics;
+}

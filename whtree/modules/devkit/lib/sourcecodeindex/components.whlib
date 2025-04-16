@@ -1,0 +1,257 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/internal/componentparser.whlib";
+
+LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+
+
+RECORD FUNCTION FSResourceLoader(OBJECT fs, STRING url, STRING id)
+{
+  IF (url = "http://www.w3.org/2001/xml.xsd")
+    RETURN DEFAULT RECORD;
+  IF (url NOT LIKE "mod::*")
+    THROW NEW Exception(`Unsupported XSD import reference ${url}`);
+  RETURN
+      [ success :=    TRUE
+      , data :=       GetWebhareResource(url)
+      , filename :=   url
+      ];
+}
+
+
+RECORD FUNCTION GetComponentsXMLSchema(OBJECT fs, STRING resourcepath)
+{
+  BLOB data := GetWebhareResource(resourcepath);
+
+  OBJECT domimpl := NEW XMLDomImplementation;
+  data := CanonicalizeWebhareSchemaLocations(data);
+  domimpl->RegisterEntityLoader(PTR FSResourceLoader(fs, #1, #2));
+  OBJECT doc := domimpl->MakeXMLSchema(data, "", TRUE);
+
+  RECORD ARRAY files := RECORD[ [ path := resourcepath ], ...doc->referencedfiles ];
+
+  IF(ObjectExists(doc))
+  {
+    RECORD ARRAY errors := doc->GetParseErrors();
+    IF(Length(errors)>0)
+      THROW NEW RetrieveResourceException(resourcepath, "", (SELECT *, resourcename := resourcepath FROM errors));
+  }
+
+  RETURN CELL
+      [ doc :=    ObjectExists(doc) AND ObjectExists(doc->documentelement) ? doc : DEFAULT OBJECT
+      , files
+      , domimpl
+      ];
+}
+
+
+
+
+
+
+
+
+RECORD ARRAY FUNCTION GetModelGroupChoiceElements(OBJECT xsd, RECORD model_group)
+{
+  model_group := xsd->ResolveReference(model_group);
+  IF (model_group.compositor != "choice")
+    ABORT(model_group.compositor);
+
+  RECORD ARRAY elements;
+  FOREVERY (RECORD particle FROM model_group.particles)
+  {
+    RECORD term := xsd->ResolveReference(xsd->ResolveReference(particle).term);
+    IF (term.type != "element")
+      ABORT(term);
+    INSERT term INTO elements AT END;
+  }
+
+  RETURN elements;
+}
+
+RECORD FUNCTION ParseAnnotation(OBJECT comp)
+{
+  IF (LENGTH(comp->user_information) = 0)
+    RETURN GetEmptyComment();
+
+  STRING text;
+  FOREVERY (OBJECT node FROM comp->user_information)
+    text := text || node->textcontent || "\n";
+
+  RETURN ParseCommentText(text, [ symboltype := "component", line := comp->user_information[0]->linenum ]);
+}
+
+RECORD FUNCTION GetAnnotiationUserDocumentation(OBJECT node)
+{
+  RECORD comment := [ line := node->source_xml_node->linenum, col := 0, text := "" ];
+
+  FOREVERY (OBJECT annotation FROM node->annotations)
+    FOREVERY (OBJECT userinfo FROM annotation->user_information)
+      IF (TrimWhitespace(userinfo->textcontent) != "")
+        comment := [ line := userinfo->linenum, col := 0, text := TrimWhitespace(userinfo->textcontent) ];
+
+  RETURN comment;
+}
+
+RECORD ARRAY FUNCTION ParseFormNodeAttributes(OBJECT node)
+{
+  RECORD ARRAY retval;
+
+  OBJECT ARRAY attrs := node->type_definition->attribute_uses;
+  FOREVERY(OBJECT attr FROM attrs)
+  {
+    OBJECT decl := attr->attribute_declaration;
+    OBJECT attrtype := decl->type_definition;
+
+    RECORD comment := GetAnnotiationUserDocumentation(decl);
+
+    RECORD fieldrec := CELL
+        [ decl->name
+        , parsedcomment :=  ParseCommentText(comment.text, CELL[ symboltype := "component", comment.line ])
+        , recordtype :=     "attribute"
+        ];
+
+    INSERT fieldrec INTO retval AT END;
+  }
+
+  RETURN retval;
+}
+
+/** Parses a components xsd, returns the elements for the adhoccache
+    @param fs Filesystem fore resource lookup
+    @param resourcename Component resource
+    @return Cacheable list of components
+    @cell(string array) return.eventmasks Invalidation eventmasks
+    @cell(record array) return.value  List of components
+    @cell return.value.name Name of the component
+    @cell return.value.componenttype Type ('tolliumcomponent', 'formcomponent', 'formhandler')
+    @cell return.value.resourcename name of the source resource
+    @cell return.value.parsedcomment Parsed comment
+    @cell return.value.topic Topic
+    @cell return.value.attributes List of attributes of the component
+    @cell return.value.attributes.name Attribute name
+    @cell return.value.attributes.parsedcomment Parsed comment
+    @cell return.value.attributes.recordtype Record type ('attribute', 'tid' for valid attributes)
+*/
+RECORD FUNCTION GetCachableComponentElements(OBJECT fs, STRING resourcename)
+{
+  RECORD ARRAY components;
+  STRING ARRAY eventmasks;
+
+  IF (resourcename IN SELECT AS STRING ARRAY COLUMN resourcename FROM fs->DevGetComponentSources("tolliumcomponents"))
+  {
+    RECORD docinfo := GetComponentsXMLSchema(fs, resourcename);
+    eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM docinfo.files);
+
+    RECORD retval := ParseComponentsXSD(resourcename, docinfo.doc, docinfo.files, CELL[ docinfo.domimpl, withcomments := TRUE ]);
+
+    RECORD libparsedcomment := ParseCommentText(retval.comment.text, CELL[ symboltype := "component", retval.comment.line ]);
+    STRING libtopic := GetTopicStringFromParsedComment(libparsedcomment, "");
+
+    components :=
+        SELECT TEMPORARY parsedcomment := ParseCommentText(comment.text, CELL[ symboltype := "component", comment.line ])
+             , name
+             , componenttype :=   "tolliumcomponent"
+             , resourcename :=    resourcename
+             , parsedcomment :=   parsedcomment
+             , topic :=           GetTopicStringFromParsedComment(parsedcomment, libtopic)
+             , attributes :=      (SELECT name
+                                        , parsedcomment :=   ParseCommentText(comment.text, CELL[ symboltype := "component", comment.line ])
+                                        , recordtype :=      (CellExists(xml_fields, "recordtype") ? recordtype : "attribute")
+                                     FROM xml_fields
+                                    WHERE CellExists(xml_fields, "comment"))
+          FROM retval.components
+         WHERE type = "component"
+      ORDER BY name;
+  }
+  ELSE IF (resourcename IN SELECT AS STRING ARRAY COLUMN resourcename FROM fs->DevGetComponentSources("formcomponents"))
+  {
+    RECORD docinfo := GetComponentsXMLSchema(fs, resourcename);
+    eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM docinfo.files);
+
+    RECORD retval := ParseFormDefComponents(resourcename, docinfo.doc, CELL[ docinfo.domimpl, withcomments := TRUE ]);
+
+    RECORD libparsedcomment := ParseCommentText(retval.comment.text, CELL[ symboltype := "component", retval.comment.line ]);
+    STRING libtopic := GetTopicStringFromParsedComment(libparsedcomment, "");
+
+    // A node can contain multiple components, de-duplicate them
+    components :=
+        SELECT AS RECORD ARRAY Any(rec)
+          FROM (retval.components CONCAT retval.handlers) AS rec
+      GROUP BY name, componenttype;
+
+    components :=
+        SELECT TEMPORARY parsedcomment := ParseCommentText(comment.text, CELL[ symboltype := "component", comment.line ])
+             , name
+             , componenttype
+             , resourcename :=    resourcename
+             , parsedcomment :=   parsedcomment
+             , topic :=           GetTopicStringFromParsedComment(parsedcomment, libtopic)
+             , attributes :=      ParseFormNodeAttributes(componentxsdnode)
+          FROM retval.components CONCAT retval.handlers
+      ORDER BY componenttype = "formhandler", name;
+  }
+  ELSE
+    ABORT(`Resource ${resourcename} is not a component resource`);
+
+
+  RETURN CELL
+      [ eventmasks
+      , value :=          components
+      ];
+}
+
+/** Parses a components xsd, returns the elements for the adhoccache
+    @param fs Filesystem fore resource lookup
+    @param resourcename Component resource
+    @return @includecelldef #GetCachableComponentElements.return.value
+*/
+PUBLIC RECORD ARRAY FUNCTION GetComponentElements(OBJECT fs, STRING resourcename)
+{
+  RETURN GetAdhocCached(CELL
+      [ "componentelements"
+      , fs := fs->GetCacheKey()
+      , resourcename
+      ], PTR GetCachableComponentElements(fs, resourcename));
+}
+
+RECORD FUNCTION ParseElement(OBJECT xsd, RECORD element)
+{
+  element.type_definition := xsd->ResolveReference(element.type_definition);
+
+  RECORD retval := CELL
+      [ element.name
+      , element.target_namespace
+      , parsedcomment :=    RecordExists(element.type_definition.annotations)
+                                ? element.type_definition.annotations.userdata.parsedcomment
+                                : GetEmptyComment()
+      , attributes :=     DEFAULT RECORD ARRAY
+      ];
+
+  FOREVERY (RECORD attruse FROM element.type_definition.attribute_uses)
+  {
+    attruse := xsd->ResolveReference(attruse);
+    attruse.attribute_declaration := xsd->ResolveReference(attruse.attribute_declaration);
+
+    RECORD type := xsd->ResolveReference(attruse.attribute_declaration.type_definition);
+
+    INSERT CELL
+        [ attruse.attribute_declaration.name
+        , attruse.attribute_declaration.target_namespace
+        , parsedcomment :=    RecordExists(attruse.attribute_declaration.annotations)
+                                  ? attruse.attribute_declaration.annotations.userdata.parsedcomment
+                                  : GetEmptyComment()
+        , simpletype :=       type.target_namespace = "http://www.w3.org/2001/XMLSchema" ? type.name : ""
+        ] INTO retval.attributes AT END;
+  }
+
+  RETURN retval;
+}

@@ -1,0 +1,44 @@
+<?wh
+
+/** Library comment
+    @topic dev-test/symbols
+    @public
+*/
+
+/** @cell a1 cell1
+    @cell a1.a2 cell2
+*/
+RECORD va;
+
+/** @cell(string) b1 cell3
+*/
+PUBLIC RECORD vb;
+
+/** @cell c1 cell4
+    @cell c1.c2 cell5
+*/
+RECORD vc;
+
+/** @cell d1 cell6
+*/
+RECORD vd;
+
+/** @cell x1 @includecelldef #va.a1
+    @cell x3 @includecelldef %vb.b1
+    @cell x4 x4 @includecelldef includecelldef.whlib#vc
+    @cell x6 @includecelldef mod::devkit/tests/data/lib/includecelldef.whlib#vd.d1
+*/
+RECORD vx;
+
+OBJECTTYPE vo
+<
+  /** @param a Param a
+      @return Return
+  */
+  RECORD FUNCTION sy(RECORD  a) { RETURN DEFAULT RECORD; }
+>;
+
+/** @cell a @includecelldef includecelldef.whlib#vo::sy.a
+    @cell r @includecelldef includecelldef.whlib#vo::sy.return
+*/
+RECORD vt;

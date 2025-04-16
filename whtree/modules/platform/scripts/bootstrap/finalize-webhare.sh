@@ -59,7 +59,7 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
 (
   cd "$WEBHARE_DIR/modules" ;
   # shellcheck disable=SC2207,SC2010
-  COREMODULES=( $(ls | grep -v webhare_testsuite) )
+  COREMODULES=( $(ls | grep -Ev '^(webhare_testsuite|devkit)$') )
 
   logWithTime "Precompiling HareScript code"
 
