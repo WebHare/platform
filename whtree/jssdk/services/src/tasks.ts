@@ -326,9 +326,9 @@ interface RetrieveTaskResultOptions {
 }
 
 //legacy callers only use 'number' in practice, no WaitPeriod, and at most acceptTimeout as option, so easy to recognize
-/** @deprecated WH5.7 expects timeout to becombined into the options parameter */
+/** @deprecated WH5.7 expects timeout to be combined into the options parameter */
 export async function retrieveTaskResult<T>(taskId: number, timeout: number, options?: { acceptTimeout: false }): Promise<T>;
-/** @deprecated WH5.7 expects timeout to becombined into the options parameter */
+/** @deprecated WH5.7 expects timeout to be combined into the options parameter */
 export async function retrieveTaskResult<T>(taskId: number, timeout: number, options?: { acceptTimeout: boolean }): Promise<T | undefined>;
 
 export async function retrieveTaskResult<T>(taskId: number, options: RetrieveTaskResultOptions & { acceptTimeout: true }): Promise<T | undefined>;
@@ -494,7 +494,7 @@ export async function describeTask(taskid: number, options?: { allowMissing: boo
       throw new Error(`No such task #${taskid}`);
 
   const data = decodeHSON(taskinfo.taskdata);
-  if (taskinfo.auxdata) //TODO we shouldn't decode axudata unless explicitly requested, or just have a separate API for it. OR have the requester specify the fields
+  if (taskinfo.auxdata) //TODO we shouldn't decode auxdata unless explicitly requested, or just have a separate API for it. OR have the requester specify the fields
     Object.assign(data as object, decodeHSON(await taskinfo.auxdata.text()) as IPCMarshallableData);
 
   const rawMetadata = await db<PlatformDB>().selectFrom("system.managedtasksmeta").selectAll().where("task", "=", taskid).execute();
