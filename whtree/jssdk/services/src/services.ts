@@ -3,7 +3,6 @@ declare module "@webhare/services" {
 }
 
 import * as fs from "node:fs";
-import { getBridgeService, type InvokeOptions } from "./bridgeservice";
 import { backendConfig } from "./config";
 import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
@@ -80,19 +79,6 @@ export async function isWebHareRunning() {
   } catch (e) {
     return false;
   }
-}
-
-/** Asynchronously invoke a HareScript fuction
-
-    @param func - Reference to the function (in the form 'resourcename#functionname'). HareScipt and JavaScript functions are both supported.
-    @param args - Arguments
-    @param options - openPrimary
-    @returns Promise resolving to the final function's value
-    @deprecated Use \@webhare/harescript's loadlib instead
-*/
-export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
-  //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
-  return (await getBridgeService()).invokeAnyFunction(func, args, options || {});
 }
 
 /** @deprecated From WH5.7+, we'll rename RichDocument to RichTextDocument to strictly match the RTD initials */
