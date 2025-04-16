@@ -48,7 +48,7 @@ async function testCLIMainParse() {
 
   test.eq({
     cmd: undefined,
-    args: {},
+    args: { arg: "a" },
     opts: { verbose: true, output: "test", num: 3 },
     specifiedOpts: ["verbose", "output", "num"],
     globalOpts: { verbose: true, output: "test", num: 3 },
@@ -61,8 +61,8 @@ async function testCLIMainParse() {
       "output": { default: "", description: "Override output location" },
       "num": { default: 0, description: "Override output location", type: intOption() },
     },
-    arguments: [],
-  }, ["-v", "--output", "test", "--num", "3"]));
+    arguments: [{ name: "[arg]", type: enumOption(["a", "b", "c"]), }],
+  }, ["-v", "--output", "test", "--num", "3", "a"]));
 
   async function testOptionsParse(args: string[]) {
     const res = parse({
@@ -243,14 +243,14 @@ async function testCLITypes() {
           "d": { default: "aa" },
           "e": { type: intOption({ start: 0, end: 10 }) },
         },
-        arguments: [{ name: "<f1>" }, { name: "[f2]" }, { name: "[f3...]" }],
+        arguments: [{ name: "<f1>", type: enumOption(["x"]) }, { name: "[f2]" }, { name: "[f3...]" }],
       }, []);
       void res;
 
       test.typeAssert<test.Equals<{
         cmd?: undefined;
         args: {
-          f1: string;
+          f1: "x";
           f2?: string;
           f3: string[];
         };
@@ -304,7 +304,7 @@ async function testCLITypes() {
           },
           "cmd2": {
             flags: { b: { default: false } },
-            arguments: [{ name: "<f2>" }],
+            arguments: [{ name: "<f2>", type: enumOption(["y"]) }],
           },
           "cmd3": {
             options: {},
@@ -323,7 +323,7 @@ async function testCLITypes() {
         specifiedGlobalOpts: never[];
       } | {
         cmd: "cmd2";
-        args: { f2: string };
+        args: { f2: "y" };
         opts: { b: boolean };
         specifiedOpts: Array<"b">;
         globalOpts: object;

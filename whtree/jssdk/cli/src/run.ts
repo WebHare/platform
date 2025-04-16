@@ -172,7 +172,7 @@ type ArgumentsResult<Arguments extends ReadonlyArray<Argument<unknown>>> = [Argu
 
 /// Calculate the resulting values record for main functions
 type MainData<Rec extends OptArgBase, Cmd extends string | null = null, ExtraOpts extends OptArgBase | null = null> = Simplify<{
-  args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & OptArgBase["arguments"] & {}>>;
+  args: NarrowTruthy<ArgumentsResult<Rec["arguments"] & {}>>;
   opts: NarrowTruthy<Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
   specifiedOpts: Array<keyof Simplify<OptionsResult<Rec["options"] & {}, Rec["flags"] & {}> & (ExtraOpts extends object ? OptionsResult<ExtraOpts["options"] & object, ExtraOpts["flags"] & object> : object)>>;
 } & (Cmd extends string ? { cmd: Cmd } : { cmd?: undefined })>;
