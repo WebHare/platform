@@ -1,7 +1,7 @@
 import { getBestMatch } from "@webhare/js-api-tools";
 import { registerRun } from "./run-autocomplete";
 
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+/* eslint-disable @typescript-eslint/ban-types */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /// Type that can be returned by main() functions
 type CommandReturn = void | number | Promise<void> | Promise<number>;
