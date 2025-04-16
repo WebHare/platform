@@ -185,7 +185,7 @@ async function testCLISubCommandParse() {
 
   test.eq({
     cmd: "cmd",
-    args: { f1: "a" },
+    args: { f1: "a", f2: "b" },
     opts: { v: true, a: true },
     specifiedOpts: ["v", "a"],
     globalOpts: { v: true },
@@ -195,14 +195,14 @@ async function testCLISubCommandParse() {
     subCommands: {
       "cmd": {
         flags: { a: { default: false } },
-        arguments: [{ name: "<f1>" }],
+        arguments: [{ name: "<f1>" }, { name: "<f2>" }],
       },
       "cmd2": {
         flags: { b: { default: false } },
-        arguments: [{ name: "<f2>" }],
+        arguments: [{ name: "<f3>" }],
       },
     }
-  }, ["-v", "cmd", "-a", "a"]));
+  }, ["-v", "cmd", "-a", "a", "b"]));
 
   test.eq({
     cmd: undefined,
@@ -337,6 +337,25 @@ async function testCLITypes() {
         specifiedGlobalOpts: never[];
       }, typeof res>>();
     }
+
+    parse({
+      // @ts-expect-error default has the wrong type
+      options: { a: { type: intOption({ start: 0, end: 10 }), default: "a" } },
+    }, []);
+
+    parse({
+      options: {
+        a: {
+          // @ts-expect-error default has the wrong type
+          default: true,
+        }
+      }, flags: {
+        b: {
+          // @ts-expect-error default has the wrong type
+          default: "a",
+        }
+      }
+    }, []);
   });
 }
 
@@ -434,11 +453,13 @@ async function testCLIAutoCompletion() {
   const mockData: ParseData = {
     name: "testcli",
     description: "Test CLI",
-    options: {
+    flags: {
       "verbose,v": {
         description: "Enable verbose mode",
         default: false,
       },
+    },
+    options: {
       "output,o": {
         description: "Output file",
         type: {

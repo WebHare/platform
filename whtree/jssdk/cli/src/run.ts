@@ -70,23 +70,23 @@ type SubCommandTemplate = {
   description?: string;
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
-  arguments?: [...Array<Argument<unknown>>];
+  arguments?: readonly [...Array<Argument<unknown>>];
   main?: unknown;
 };
 
 export type ParseData = {
   name?: string;
   description?: string;
-  options?: object; // validated by sanitization
-  flags?: object; // validated by sanitization
-  arguments?: ReadonlyArray<Argument<unknown>>; // validated by sanitization
+  options?: Record<string, OptionsTemplate>;
+  flags?: Record<string, FlagTemplate>;
+  arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: never;
   main?: unknown;
 } | {
   name?: string;
   description?: string;
-  options?: object; // validated by santization
-  flags?: object; // validated by sanitization
+  options?: Record<string, OptionsTemplate>;
+  flags?: Record<string, FlagTemplate>;
   arguments?: ReadonlyArray<Argument<unknown>>;
   subCommands?: Record<string, SubCommandTemplate>;
 };
@@ -94,35 +94,23 @@ export type ParseData = {
 type OptArgBase = {
   options?: Record<string, OptionsTemplate>;
   flags?: Record<string, FlagTemplate>;
-  arguments?: Array<Argument<unknown>>;
+  arguments?: readonly [...Array<Argument<unknown>>];
   subCommands?: Record<string, SubCommandTemplate>;
 };
 
 // Ensures the defaults of options with type are compatible with the return type of the type.
 type SanitizeOptions<Options extends Record<string, OptionsTemplate>> = { [Key in keyof Options]: "default" extends keyof Options[Key] ?
-  Simplify<Omit<Options[Key], "default"> & { default: GetParsedType<Options[Key], string, false> }> :
-  Options[Key];
+  Simplify<Omit<OptionsTemplate, "default"> & { default: GetParsedType<Options[Key], string, false> }> :
+  OptionsTemplate;
 };
-
-type SanitizeFlags<ThisArgument extends FlagTemplate> = ThisArgument;
 
 /// Sanitizes the options and arguments of subcommands
 type SanitizeSubCommandOptArgs<SubCommands extends Record<string, SubCommandTemplate>> = { [Key in keyof SubCommands]: SanitizeOptArgs<SubCommands[Key]> & SubCommandTemplate };
-
-/// Sanitizes a single argument. FIXME: probably not needed, check if validation of arguments is ok
-type SanitizeArgument<ThisArgument extends Argument<any>> = ThisArgument; // extends { type: CLIArgumentType<any> } ? ThisArgument : ThisArgument extends { type?: any } ? Omit<ThisArgument, "type"> & { type: CLIArgumentType<any> } : ThisArgument;
-type SanitizeArguments<Arguments extends Array<Argument<any>>> = Arguments extends [infer FirstArgument extends Argument<any>, ...infer RestArguments extends Array<Argument<any>>] ? [SanitizeArgument<FirstArgument>, ...SanitizeArguments<RestArguments>] : [];
 
 /// Sanitize the options and arguments of a record, and subcommands if present
 type SanitizeOptArgs<O extends OptArgBase> =
   (O extends { options: {} } ? {
     options: SanitizeOptions<O["options"]>;
-  } : {}) &
-  (O extends { flags: {} } ? {
-    flags: SanitizeFlags<O["flags"]>;
-  } : {}) &
-  (O extends { arguments: {} } ? {
-    arguments: SanitizeArguments<O["arguments"]>;
   } : {}) &
   (O extends { subCommands: {} } ? {
     subCommands: SanitizeSubCommandOptArgs<O["subCommands"]>;
@@ -191,11 +179,33 @@ type MainDeclarations<Rec extends OptArgBase, Cmd extends string | null = null, 
     main: (data: MainData<Rec, Cmd, ExtraOpts>) => CommandReturn;
   });
 
-/// Infers the type of the options and arguments of a record
-type GetRootOptionsArguments<T> = { [K in keyof T & ("options" | "flags" | "arguments")]: T[K] };
+/// The type of the options and arguments of a record
+type PickRootOptionsArguments<T> = { [K in keyof T & ("options" | "flags" | "arguments")]: T[K] };
 
-/// Infers the type of the options and arguments of the subcommands of a record
-type GetSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: GetRootOptionsArguments<T[K][C]> } };
+/** If used as intersection part of a function parameter type, and T isn't known yet, T will be inferred as an object
+ * with the types of the properties "options", "flags" and "arguments" of the argument. We must make sure no main() is
+ * swept up, because that fixes the signature of the function, and we cannot change it anymore based on the options and
+ * arguments. This type returns unknown, so when used as `InferRootOptionsArguments<X> & ParseData` only ParseData will
+ * remain as result type - so invalid typed data will be picked up by the compiler.
+ * @example
+ * ```ts
+ * function test<T>(data: InferRootOptionsArguments<T> & ParseData) {}
+ * // when calling `test({ options: { a: { default: 0 } }, description: "descr" })`, T will be inferred as `{ options: { a: {} } }`,
+ * // but the type of InferRootOptionsArguments<T> will be `unknown`.
+ * ```
+ */
+type InferRootOptionsArguments<T> = PickRootOptionsArguments<T> extends symbol ? PickRootOptionsArguments<T> : unknown;
+
+/// Get only the subcommands and their options and arguments of the subcommands of a record
+type PickSubCommandOptionsArguments<T> = { [K in keyof T & "subCommands"]: { [C in keyof T[K]]: PickRootOptionsArguments<T[K][C]> } };
+
+/** Same as InferRootOptionsArguments but for the subcommands. Note: this construction does not pick up type literals or
+ * tuples (for the subcommand arguments) when using PickSubCommandOptionsArguments directly would. Those are not actually
+ * needed in this module, so there is no problem here, but it might be worth while to find out why. It does pick up
+ * literals for argument names (but that might be because when used as `InferSubCommandOptionsArguments<T> & ParseData`
+ * it gets influenced by the name of the argument, which is defined as a union of string literals).
+*/
+type InferSubCommandOptionsArguments<T> = PickSubCommandOptionsArguments<T> extends symbol ? PickSubCommandOptionsArguments<T> : unknown;
 
 /// Convert {} to object for options. For some reason, `& object` doesn't work here
 type NarrowTruthy<O> = {} extends Required<O> ? object : O;
@@ -294,7 +304,7 @@ export function parse<
   const E extends object,
   const S extends object
 >(
-  data: GetRootOptionsArguments<E> & GetSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S>>,
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S>>,
   argv: string[]
 ): ParseResult<E & S, E & S, null> {
   const parsedOpts: Record<string, unknown> = {};
@@ -569,7 +579,7 @@ export function run<
   const E extends object,
   const S extends object
 >(
-  data: GetRootOptionsArguments<E> & GetSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>>,
+  data: InferRootOptionsArguments<E> & InferSubCommandOptionsArguments<S> & NoInfer<ParseData & SanitizeOptArgs<E & S> & MainDeclarations<E & S>>,
   options: {
     argv?: string[];
   } = {}

@@ -88,7 +88,7 @@ async function startupHS() {
 
 run({
   flags: {
-    "v,verbose": { desceription: "Enable verbose logging" },
+    "v,verbose": { description: "Enable verbose logging" },
   }, async main({ opts }) {
     verbose ||= opts.verbose;
     await runStep("updateGeneratedFiles", async () => preDatabaseBootstrapTS());
