@@ -980,7 +980,7 @@ function testCompare() {
   const cmp = std.compareProperties(keys);
   // Properties are 'string', so this accepts a record with only comparable members
   test.throws(/Cannot compare/, () => cmp({ a: new Date }, { a: 1 }));
-  // @ts-expect-error Record witn non-comparable members are an error here
+  // @ts-expect-error Record with non-comparable members are an error here
   test.throws(/Cannot compare/, () => cmp({ a: new Blob }, { a: 1 }));
 }
 
