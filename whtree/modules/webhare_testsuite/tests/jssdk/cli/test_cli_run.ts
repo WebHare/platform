@@ -1,4 +1,5 @@
 
+import { addConsoleCallback } from "@mod-system/js/internal/whmanager/bridge";
 import { intOption, enumOption, floatOption, parse, run, CLIRuntimeError, runAutoComplete, type ParseData } from "@webhare/cli/src/run";
 import { parseCommandLine } from "@webhare/cli/src/run-autocomplete";
 import { backendConfig } from "@webhare/services";
@@ -48,7 +49,7 @@ async function testCLIMainParse() {
 
   test.eq({
     cmd: undefined,
-    args: {},
+    args: { arg: "a" },
     opts: { verbose: true, output: "test", num: 3 },
     specifiedOpts: ["verbose", "output", "num"],
     globalOpts: { verbose: true, output: "test", num: 3 },
@@ -61,8 +62,8 @@ async function testCLIMainParse() {
       "output": { default: "", description: "Override output location" },
       "num": { default: 0, description: "Override output location", type: intOption() },
     },
-    arguments: [],
-  }, ["-v", "--output", "test", "--num", "3"]));
+    arguments: [{ name: "[arg]", type: enumOption(["a", "b", "c"]), }],
+  }, ["-v", "--output", "test", "--num", "3", "a"]));
 
   async function testOptionsParse(args: string[]) {
     const res = parse({
@@ -185,7 +186,7 @@ async function testCLISubCommandParse() {
 
   test.eq({
     cmd: "cmd",
-    args: { f1: "a" },
+    args: { f1: "a", f2: "b" },
     opts: { v: true, a: true },
     specifiedOpts: ["v", "a"],
     globalOpts: { v: true },
@@ -195,14 +196,14 @@ async function testCLISubCommandParse() {
     subCommands: {
       "cmd": {
         flags: { a: { default: false } },
-        arguments: [{ name: "<f1>" }],
+        arguments: [{ name: "<f1>" }, { name: "<f2>" }],
       },
       "cmd2": {
         flags: { b: { default: false } },
-        arguments: [{ name: "<f2>" }],
+        arguments: [{ name: "<f3>" }],
       },
     }
-  }, ["-v", "cmd", "-a", "a"]));
+  }, ["-v", "cmd", "-a", "a", "b"]));
 
   test.eq({
     cmd: undefined,
@@ -243,14 +244,14 @@ async function testCLITypes() {
           "d": { default: "aa" },
           "e": { type: intOption({ start: 0, end: 10 }) },
         },
-        arguments: [{ name: "<f1>" }, { name: "[f2]" }, { name: "[f3...]" }],
+        arguments: [{ name: "<f1>", type: enumOption(["x"]) }, { name: "[f2]" }, { name: "[f3...]" }],
       }, []);
       void res;
 
       test.typeAssert<test.Equals<{
         cmd?: undefined;
         args: {
-          f1: string;
+          f1: "x";
           f2?: string;
           f3: string[];
         };
@@ -304,7 +305,8 @@ async function testCLITypes() {
           },
           "cmd2": {
             flags: { b: { default: false } },
-            arguments: [{ name: "<f2>" }],
+            options: { s: {}, m: { multiple: true } },
+            arguments: [{ name: "<f2>", type: enumOption(["y"]) }],
           },
           "cmd3": {
             options: {},
@@ -323,9 +325,9 @@ async function testCLITypes() {
         specifiedGlobalOpts: never[];
       } | {
         cmd: "cmd2";
-        args: { f2: string };
-        opts: { b: boolean };
-        specifiedOpts: Array<"b">;
+        args: { f2: "y" };
+        opts: { b: boolean; s?: string; m?: string[] };
+        specifiedOpts: Array<"b" | "s" | "m">;
         globalOpts: object;
         specifiedGlobalOpts: never[];
       } | {
@@ -337,14 +339,58 @@ async function testCLITypes() {
         specifiedGlobalOpts: never[];
       }, typeof res>>();
     }
+
+    {
+      const res = parse({
+        flags: { a: "description-a" },
+        options: { b: "description-b" },
+        subCommands: {
+          "cmd": {
+            flags: { c: "description-c" },
+            options: { d: "description-d" },
+          },
+        }
+      }, ["-v", "cmd", "-a"]);
+      void res;
+
+      test.typeAssert<test.Equals<{
+        cmd: "cmd";
+        args: object;
+        opts: { a: boolean; c: boolean; b?: string; d?: string };
+        specifiedOpts: Array<"a" | "b" | "c" | "d">;
+        globalOpts: { a: boolean; b?: string };
+        specifiedGlobalOpts: Array<"a" | "b">;
+      }, typeof res>>();
+    }
+    parse({
+      // @ts-expect-error default has the wrong type
+      options: { a: { type: intOption({ start: 0, end: 10 }), default: "a" } },
+    }, []);
+
+    parse({
+      options: {
+        a: {
+          // @ts-expect-error default has the wrong type
+          default: true,
+        }
+      }, flags: {
+        b: {
+          // @ts-expect-error default has the wrong type
+          default: "a",
+        }
+      }
+    }, []);
   });
 }
 
-async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<T> {
+async function waitRunDone<T extends { onDone?: () => void }>(r: T): Promise<{ data: T; output: string }> {
+  let output = "";
+  using ref = addConsoleCallback((data) => output += data);
+  void ref;
   await new Promise<void>((resolve) => {
     r.onDone = resolve;
   });
-  return r;
+  return { data: r, output };
 }
 
 async function testCLIRun() {
@@ -391,10 +437,23 @@ async function testCLIRun() {
   // STORY: test CLIRuntimeError handling
   // TODO: intercept console.log and check for output
   test.eq(0, process.exitCode ?? 0);
-  await waitRunDone(run({
-    main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
-  }));
-  test.eq(1, process.exitCode);
+  {
+    const { output } = await waitRunDone(run({
+      options: { a: "option-a", b: { description: "option-b" } },
+      flags: { v: "flag-v", w: { description: "flag-w" } },
+      main() { throw new CLIRuntimeError("Test error", { showHelp: true }); }
+    }));
+
+    test.eq(1, process.exitCode);
+    test.eq(`Error: Test error
+
+Options:
+  -a                    option-a
+  -b                    option-b
+  -v                    flag-v
+  -w                    flag-w
+`, output);
+  }
   await waitRunDone(run({
     main() { throw new CLIRuntimeError("Test error", { exitCode: 2 }); }
   }));
@@ -434,11 +493,13 @@ async function testCLIAutoCompletion() {
   const mockData: ParseData = {
     name: "testcli",
     description: "Test CLI",
-    options: {
+    flags: {
       "verbose,v": {
         description: "Enable verbose mode",
         default: false,
       },
+    },
+    options: {
       "output,o": {
         description: "Output file",
         type: {

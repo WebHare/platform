@@ -1433,6 +1433,8 @@ let bridgeimpl: LocalBridge | undefined;
 
 type ConsoleLogItemSource = Omit<ConsoleLogItem, 'data'> & { loggedlocation: boolean };
 
+const consoleCallbacks = new Set<(data: string, { isError }: { isError: boolean }) => void>();
+
 function hookConsoleLog() {
   const source: ConsoleLogItemSource = {
     method: "",
@@ -1483,6 +1485,9 @@ function hookConsoleLog() {
       if (getCodeContext().consoleLog.length > 100)
         getCodeContext().consoleLog.shift();
     }
+    for (const consoleCallback of consoleCallbacks) {
+      consoleCallback(tolog, { isError: oldstream === process.stderr });
+    }
     return retval;
   }
 
@@ -1522,6 +1527,15 @@ process.on('uncaughtExceptionMonitor', (error, origin) => {
 async function callProcessExit() {
   await bridge.ensureDataSent();
   process_exit_backup.call(process, 1);
+}
+
+export function addConsoleCallback(callback: (data: string, { isError }: { isError: boolean }) => void) {
+  consoleCallbacks.add(callback);
+  return {
+    [Symbol.dispose]() {
+      consoleCallbacks.delete(callback);
+    }
+  };
 }
 
 process.on('uncaughtException', (error) => void callProcessExit());

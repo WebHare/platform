@@ -14,10 +14,10 @@ import { parseTyped } from '@webhare/std';
 import { getTypedStringifyableData } from '@mod-webhare_testsuite/js/ci/testdata';
 import { createFirstPartyToken } from '@webhare/auth';
 import { WRDSchema } from '@webhare/wrd';
-import type { JsschemaSchemaType } from 'wh:wrd/webhare_testsuite';
+import type { Platform_BasewrdschemaSchemaType } from '@mod-platform/generated/wrd/webhare';
 import { runInWork } from '@webhare/whdb';
 
-const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
+const jsAuthSchema = new WRDSchema<Platform_BasewrdschemaSchemaType>("webhare_testsuite:testschema");
 
 async function testRPCCaller() {
   const servicebaseurl = "http://127.0.0.1/.wh/rpc/webhare_testsuite/testapi/";

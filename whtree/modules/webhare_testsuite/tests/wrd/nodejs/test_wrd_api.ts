@@ -284,7 +284,9 @@ async function testRequired() {
   await wrdschema.createType("testRequiredLink", { metaType: "link", left: "testRequiredDom", right: "testRequiredDom" });
   await newdomtype.createAttribute("testFree", { attributeType: "string", isRequired: true });
 
+  // @ts-expect-error -- missing required attribute testFree
   await test.throws(/Required attribute/, wrdschema.insert("testRequiredDom", {}));
+  // @ts-expect-error -- missing required attribute wrdLeftEntity & wrdRightEntity
   await test.throws(/Required attribute/, wrdschema.insert("testRequiredLink", {}));
 
   await whdb.commitWork();
