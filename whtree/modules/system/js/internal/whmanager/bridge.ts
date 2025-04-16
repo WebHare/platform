@@ -1359,6 +1359,8 @@ let bridgeimpl: LocalBridge | undefined;
 
 type ConsoleLogItemSource = Omit<ConsoleLogItem, 'data'> & { loggedlocation: boolean };
 
+const consoleCallbacks = new Set<(data: string, { isError }: { isError: boolean }) => void>();
+
 function hookConsoleLog() {
   const source: ConsoleLogItemSource = {
     method: "",
@@ -1409,6 +1411,9 @@ function hookConsoleLog() {
       if (getCodeContext().consoleLog.length > 100)
         getCodeContext().consoleLog.shift();
     }
+    for (const consoleCallback of consoleCallbacks) {
+      consoleCallback(tolog, { isError: false });
+    }
     return retval;
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1428,6 +1433,9 @@ function hookConsoleLog() {
       getCodeContext().consoleLog.push(consoleLogItem);
       if (getCodeContext().consoleLog.length > 100)
         getCodeContext().consoleLog.shift();
+    }
+    for (const consoleCallback of consoleCallbacks) {
+      consoleCallback(tolog, { isError: true });
     }
     return retval;
   };
@@ -1464,3 +1472,12 @@ process.on('unhandleRejection', async (reason, promise) => {
   await bridge.ensureDataSent();
   process_exit_backup.call(process, 1);
 });
+
+export function addConsoleCallback(callback: (data: string, { isError }: { isError: boolean }) => void) {
+  consoleCallbacks.add(callback);
+  return {
+    [Symbol.dispose]() {
+      consoleCallbacks.delete(callback);
+    }
+  };
+}

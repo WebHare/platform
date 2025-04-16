@@ -14,6 +14,7 @@
   <test name="baselibs"   path="baselibs/" />
 
   <test name="wrd"        path="wrd/" />
+  <test name="jssdk"        path="jssdk/" />
 
   <group name="checkmodules">
     <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
