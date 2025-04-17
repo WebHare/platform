@@ -11,6 +11,7 @@ import type { CaptureLoadPlugin } from './compiletask';
 import { debugFlags } from '@webhare/env';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { emplace } from '@webhare/std';
 
 function addUnderscoreToFilename(url: string) {
   const parts = url.split('/');
@@ -18,10 +19,41 @@ function addUnderscoreToFilename(url: string) {
   return parts.join('/');
 }
 
-class SassLogger {
+//Maximum number of deprecation warnings to show per build and per type
+const maxSeparateDeprecationWarnings = 5;
+
+class SassLoggerSession { //one SassLoggerSession is instantiated per build process
+  deprecationCounts = new Map<string, number>();
+
+  buildLogger() {
+    return new SassLogger(this);
+  }
+
+  flush(): { warnings?: esbuild.PartialMessage[] } {
+    if ([...this.deprecationCounts].some(([, count]) => count > maxSeparateDeprecationWarnings)) {
+      const totals = [...this.deprecationCounts].map(([id, count]) => `${id}: ${count}`).join(", ");
+      return { warnings: [{ text: `Not all deprecation warnings were printed. Totals: (${totals})` }] };
+    }
+    return {};
+  }
+}
+
+class SassLogger { //one SassLogger is instantiated per build, so ideal for counting deprecations
   warnings = new Array<esbuild.PartialMessage>();
 
+  constructor(public session: SassLoggerSession) {
+  }
+
   warn = (message: string, opts: sass.LoggerWarnOptions) => {
+    if (opts.deprecation) {
+      const count = emplace(this.session.deprecationCounts, opts.deprecationType.id, {
+        insert: () => 1,
+        update: (old) => old + 1
+      });
+      if (count > maxSeparateDeprecationWarnings)
+        return;
+    }
+
     this.warnings.push({
       location: {
         column: opts.span?.start.column ?? 0,
@@ -33,7 +65,7 @@ class SassLogger {
   };
 
   debug = (message: string, opts: { span: sass.SourceSpan }) => {
-    // console.log("sass debug:", message, opts);
+    console.log("sass debug:", message, opts);
   };
 }
 
@@ -84,9 +116,11 @@ const SassImporter: sass.Importer = {
 export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } = {}) => ({
   name: "sass",
   setup: (build: esbuild.PluginBuild) => {
+    const session = new SassLoggerSession();
+
     build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args: esbuild.OnLoadArgs): Promise<esbuild.OnLoadResult> => {
       const errors = new Array<esbuild.PartialMessage>();
-      const logger = new SassLogger();
+      const logger = session.buildLogger();
 
       let result;
       try {
@@ -117,6 +151,10 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
         watchFiles,
         warnings: logger.warnings
       };
+    });
+
+    build.onEnd((result) => {
+      return session.flush();
     });
   },
 });
