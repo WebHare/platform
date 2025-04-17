@@ -17,6 +17,7 @@ export { type IfWebHare };
 export interface FileToUpdate {
   path: string;
   module: string; //'platform' for builtin modules
+  requireDb?: boolean; //requires an online database - skip if --nodb
   type: GeneratorType;
   generator: (options: GenerateContext) => Promise<string>;
 }

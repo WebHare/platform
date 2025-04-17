@@ -112,8 +112,8 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
   };
 }
 
-async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; showUnchanged?: boolean, modules?: string[] } = {}) {
-  const files = filelist.filter(file => appliesToModule(file.module, options.modules));
+async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; showUnchanged?: boolean; modules?: string[] } = {}) {
+  const files = filelist.filter(file => !(file.requireDb && options.nodb) && appliesToModule(file.module, options.modules));
   const generated = files.map(file => file.generator(context).catch(e => {
     console.error(`Error generating ${file.path}: ${(e as Error)?.message}`);
     if (options.verbose)
