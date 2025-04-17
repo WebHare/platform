@@ -35,7 +35,7 @@ RECORD ARRAY FUNCTION ParseQueryRecursive(OBJECT parser, BOOLEAN toplevel)
 
   WHILE (TRUE)
   {
-    // Eat whtiespace
+    // Eat whitespace
     parser->ParseWhileInSet(" ");
 
     BOOLEAN isclose := parser->TryParse(")");
