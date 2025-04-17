@@ -3,6 +3,7 @@ import { readLogLines } from "@webhare/services";
 import { buildPxlParser } from "../logging/pxllog";
 import { openFileOrFolder } from "@webhare/whfs";
 import type { RPCContext } from "@webhare/router";
+import { waitForPublishCompletion } from "@webhare/test-backend";
 
 export function filterTestService() {
   /* As we give pretty anonymous users access to potentially sensitive data (eg logs) we should only be avialable on development servers ... and we expect users to protect their dev servers!
@@ -46,5 +47,9 @@ export const testService = {
       throw new Error("Invalid hash for obj #" + id);
 
     return { id, whfsPath: fsobj.whfsPath, sitePath: fsobj.sitePath, name: fsobj.name, link: fsobj.link };
+  },
+
+  async waitForPublishCompletion(context: RPCContext, args: Parameters<typeof waitForPublishCompletion>) {
+    return await waitForPublishCompletion(...args);
   }
 };

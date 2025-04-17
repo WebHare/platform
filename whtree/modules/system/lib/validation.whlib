@@ -418,7 +418,6 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     @cell(boolean) options.perfectcompile @includecelldef #GetModuleValidationConfig.return.perfectcompile
     @cell(boolean) options.nomissingtids  @includecelldef #GetModuleValidationConfig.return.nomissingtids
     @cell(boolean) options.nowarnings  @includecelldef #GetModuleValidationConfig.return.nowarnings
-    @cell(boolean) options.documentation  @includecelldef #GetModuleValidationConfig.return.documentation
     @cell(string array) options.eslintmasks  @includecelldef #GetModuleValidationConfig.return.eslintmasks
     @return Validation results
     @cell(record array) return.hints List of hints
@@ -459,7 +458,7 @@ PUBLIC RECORD FUNCTION ValidateSingleFile(STRING resourcename, RECORD options DE
   IF(CellExists(options,"overridedata")) //uncacheable
     RETURN ValidateDocument(resourcename, options).value;
   ELSE
-    RETURN GetAdhocCached(CELL[ resourcename, options.onlytids, options.documentation ], PTR ValidateDocument(resourcename, options));
+    RETURN GetAdhocCached(CELL[ resourcename, options.onlytids ], PTR ValidateDocument(resourcename, options));
 }
 
 /** Returns the string for a validation error from an XML (without column number)
@@ -532,14 +531,12 @@ PUBLIC MACRO PrintValidationMessages(RECORD file)
 
 /** Validate a single file using the module configuration for validation options
     @param resname resource name
-    @cell(boolean) options.documentation Validate documentation, defaults to TRUE
     @cell(blob) options.overridedata If present, use this data as the source data
     @return %includecelldef #ValidateSingleFile.return
 */
 PUBLIC RECORD FUNCTION ValidateSingleFileAdhoc(STRING resname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions( [ documentation := FALSE
-                              , overridedata := DEFAULT BLOB
+  options := ValidateOptions( [ overridedata := DEFAULT BLOB
                               ], options, [ optional := ["overridedata"] ]);
 
   TRY

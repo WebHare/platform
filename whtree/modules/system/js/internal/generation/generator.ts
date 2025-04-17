@@ -112,8 +112,8 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
   };
 }
 
-async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; modules?: string[] } = {}) {
-  const files = filelist.filter(file => appliesToModule(file.module, options.modules));
+async function generateFiles(filelist: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean; showUnchanged?: boolean; modules?: string[] } = {}) {
+  const files = filelist.filter(file => !(file.requireDb && options.nodb) && appliesToModule(file.module, options.modules));
   const generated = files.map(file => file.generator(context).catch(e => {
     console.error(`Error generating ${file.path}: ${(e as Error)?.message}`);
     if (options.verbose)
@@ -127,21 +127,13 @@ async function generateFiles(filelist: FileToUpdate[], context: GenerateContext,
     if (content === null) //already failed
       continue;
 
-    try {
-      const currentdata = await readFile(file.path, 'utf8');
-      if (currentdata === content) {
-        if (options?.verbose)
-          console.log(`Keeping file ${file.path}`);
-        continue;
-      }
-    } catch (ignore) {
-    }
-
     let updated = false;
     if (!options?.dryRun)
       updated = !(await storeDiskFile(file.path, content, { overwrite: true, mkdir: true, onlyIfChanged: true })).skipped;
     if (updated && options?.verbose)
       console.log(`Updated ${file.path}`);
+    if (!updated && options?.showUnchanged)
+      console.log(`Keeping file ${file.path}`);
   }
 }
 

@@ -10,7 +10,6 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
                                           , nomissingtids := FALSE
                                           , nowarnings := FALSE
-                                          , documentation := FALSE
                                           , eslintmasks := STRING[ "*.ts", "*.tsx" ]
                                           , formatmasks := STRING[]
                                           , formatexcludemasks := STRING[]
@@ -26,7 +25,6 @@ PUBLIC RECORD defaultvalidationoptions := [ perfectcompile := FALSE
     @cell(boolean) return.perfectcompile Whether to fail validation when any harescript file has a warning
     @cell(boolean) return.nomissingtids Whether to fail validation when any tids are missing
     @cell(boolean) return.nowarnings Whether to fail validation when any warnings are found (does not necessarily include warnings added since 2024)
-    @cell(boolean) return.documentation Whether to validate documentation
     @cell(string array) return.eslintmasks List of masks for files to validate with eslint
     @topic testframework/validation
     @public
