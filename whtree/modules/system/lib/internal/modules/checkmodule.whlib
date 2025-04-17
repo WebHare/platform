@@ -100,7 +100,6 @@ OBJECTTYPE CheckerObject
                                      , onlytids := FALSE
                                      , filemask := ""
                                      , color := FALSE
-                                     , documentation := FALSE
                                      , nowarnings := FALSE
                                      , hidehints := FALSE
                                      , checktypescript := TRUE
@@ -164,7 +163,6 @@ OBJECTTYPE CheckerObject
 
       RECORD result := ValidateSingleFile(toscan, [ onlytids := this->options.onlytids
                                                   , ...GetValidationOptionsFromConfig(this->validateconfig)
-                                                  , documentation := this->options.documentation
                                                   ]);
 
       FOREVERY(RECORD issue FROM result.errors)

@@ -384,9 +384,6 @@ PUBLIC RECORD FUNCTION RunHSValidator(BLOB doc_blob, STRING resourcename, RECORD
   OBJECT devcheck;
   IF(NOT options.onlytids)
   {
-    IF (options.documentation AND IsModuleInstalled("dev"))
-      devcheck := AsyncCallFunctionFromJob("mod::dev/lib/validation.whlib#ValidateSourceFileDocumentation", resourcename, [ overridedata := doc_blob ]);
-
     RECORD res := CompileFromSource(resourcename, doc_blob);
 
     CONSTANT INTEGER ARRAY hints := [ 29  //UnusedLoadlib
