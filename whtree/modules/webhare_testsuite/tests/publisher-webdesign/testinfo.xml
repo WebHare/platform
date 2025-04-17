@@ -1,5 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <test script="basetest-moduledesign.whscr"/>
   <test script="gziptest.whscr"/>
   <test script="urlhistory.whscr"/>
   <test script="assetmgrtest.whscr"/>
@@ -19,4 +18,5 @@
   </group>
   <test script="test_structureddata.whscr"/>
   <jstest file="test_gallery.ts" />
+  <test script="basetest-moduledesign.whscr"/>
 </group>

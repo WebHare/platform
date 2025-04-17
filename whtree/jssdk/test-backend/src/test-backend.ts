@@ -7,8 +7,8 @@ declare module "@webhare/test-backend" {
 
 import { beginWork, db } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
-import { openFileOrFolder, openFolder } from "@webhare/whfs";
-import { throwError } from "@webhare/std";
+import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
+import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -119,6 +119,38 @@ export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type
     selectFrom("wrd.auditevents").selectAll().where("wrdschema", "=", await w.getId()).orderBy("creationdate desc").limit(1).executeTakeFirstOrThrow();
 
   return unmapAuthEvent(eventRecord);
+}
+
+/** Wait for publication to complete
+    @param startingpoint - Folder or file we're waiting to complete republishing (recursively)
+    @param options - Options for waiting
+    @param deadline - Maximum time to wait (defaults to 5 minutes)
+    @param reportFrequency - If set, frequency (in ms) to report we're still waiting
+    @param skipEventCompletion - Do not wait for publisher (republish) events to complete processing
+    @param acceptErrors - Accept any error in the publication (WebHare 4.33+)
+    @param expectErrorsFor - Explicit file IDs we accept and expect an error for */
+export async function waitForPublishCompletion(startingpoint: number | string, options: {
+  deadline?: WaitPeriod;
+  reportFrequency?: number;
+  skipEventCompletion?: boolean;
+  acceptErrors?: boolean;
+  expectErrorsFor?: number[];
+} = {}): Promise<void> {
+  const deadline = convertWaitPeriodToDate(options.deadline ?? 5 * 60 * 1000);
+
+  let target;
+  if (typeof startingpoint === "string" && startingpoint.match(/^https?:/)) {
+    const urlinfo = await lookupURL(startingpoint);
+    if (!urlinfo?.folder)
+      throw new Error(`Invalid URL ${startingpoint}`);
+    target = await openFolder(urlinfo.folder);
+  } else {
+    target = await openFileOrFolder(startingpoint);
+  }
+
+  const opts = { ...options, deadline };
+  if (!await loadlib("mod::publisher/lib/control.whlib").WaitForPublishCompletion(target.id, opts))
+    throw new Error(`Publication of ${target.whfsPath} (#${startingpoint}) isn't completing`);
 }
 
 //By definition we re-export all of whtest and @webhare/test

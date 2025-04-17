@@ -3,6 +3,7 @@ import * as test from '@webhare/test-frontend';
 test.runTests(
   [
     async function () {
+      await test.waitForPublishCompletion(test.getTestSiteRoot() + 'photoalbum/');
       await test.load(test.getTestSiteRoot() + 'photoalbum/');
 
       //verify the images

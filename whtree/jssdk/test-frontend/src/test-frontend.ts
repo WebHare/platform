@@ -152,6 +152,13 @@ export async function describeObjRef(objref: string) {
   return await rpc("platform:frontendtests").describeObjRef(objref);
 }
 
+//our waitForPublishCompletion is expected to be compatible with the backend version
+import type { waitForPublishCompletion as backendWaitForPublishCompletion } from "@webhare/test-backend";
+
+export async function waitForPublishCompletion(...args: Parameters<typeof backendWaitForPublishCompletion>) {
+  return await rpc("platform:frontendtests").waitForPublishCompletion(args);
+}
+
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
 

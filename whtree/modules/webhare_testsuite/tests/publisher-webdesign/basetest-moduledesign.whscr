@@ -17,6 +17,8 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 MACRO TestTestSite()
 {
+  WaitForPublishCompletion(OpenTestsuiteSite()->id);
+
   //some things can already be tested using the webhare testsuite site, so do those first
   OBJECT staticpage := OpenTestsuiteSite()->OpenByPath("testpages/staticpage");
   TestEq(TRUE, testfw->browser->GotoWebPage(OpenTestsuiteSite()->webroot || "testpages/staticpage"));
