@@ -1,0 +1,320 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+LOADLIB "mod::consilio/lib/search.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+
+
+
+RECORD FUNCTION GetUncachedSuggestions(OBJECT suggest, STRING item)
+{
+  STRING ARRAY items;
+  IF (item LIKE '*"*' OR LENGTH(item) <= 2 OR item LIKE "*:*")
+    items := [ Substitute(item, '"', "") ];
+  ELSE
+  {
+    items := SELECT AS STRING ARRAY text FROM suggest->GetSuggestions(item, 50);
+    IF (LENGTH(items) = 0)
+      items := [ item ];
+  }
+  RETURN
+      [ ttl :=    10 * 1000
+      , value :=  items
+      ];
+}
+
+RECORD ARRAY FUNCTION ParseQueryRecursive(OBJECT parser, BOOLEAN toplevel)
+{
+  RECORD ARRAY items;
+
+  WHILE (TRUE)
+  {
+    // Eat whitespace
+    parser->ParseWhileInSet(" ");
+
+    BOOLEAN isclose := parser->TryParse(")");
+    IF (parser->eof OR (NOT toplevel AND isclose))
+      RETURN items;
+
+    IF (isclose)
+      CONTINUE;
+
+    RECORD item :=
+        [ required :=   parser->TryParse("+")
+        , type :=       ""
+        , item :=       ""
+        , subitems :=   DEFAULT RECORD ARRAY
+        ];
+
+    parser->ParseWhileInSet(" ");
+
+    isclose := parser->TryParse(")");
+    IF (parser->eof OR (NOT toplevel AND isclose))
+      RETURN items;
+    IF (isclose)
+      CONTINUE;
+
+    IF (parser->TryParse("("))
+    {
+      item.type := "multiple";
+      item.subitems := ParseQueryRecursive(parser, FALSE);
+    }
+    ELSE
+    {
+      IF (parser->TryParse('"'))
+      {
+        item.type := "quoted";
+        item.item := parser->ParseWhileNotInSet('"');
+        parser->TryParse('"');
+      }
+      ELSE
+      {
+        item.item := parser->ParseWhileNotInSet(' +()');
+        item.type := item.item LIKE "*:*" ? "field" : "word";
+      }
+    }
+
+    INSERT item INTO items AT END;
+  }
+}
+
+RECORD ARRAY FUNCTION ParseQuery(STRING query)
+{
+  query := TrimWhitespace(NormalizeWhitespace(query));
+  OBJECT parser := NEW StringParser(query);
+
+  RETURN ParseQueryRecursive(parser, TRUE);
+}
+
+STRING FUNCTION EncodeQueryItem(RECORD item)
+{
+  STRING prefix := item.required ? "+" : "";
+  IF (item.type != "multiple")
+    RETURN prefix || item.item;
+  ELSE
+    RETURN prefix || "(" || EncodeQuery(item.subitems) || ")";
+}
+
+STRING FUNCTION EncodeQuery(RECORD ARRAY items)
+{
+  STRING ARRAY result;
+  FOREVERY (RECORD sub FROM items)
+    INSERT EncodeQueryItem(sub) INTO result AT END;
+  RETURN Detokenize(result, " ");
+}
+
+RECORD ARRAY FUNCTION HandleSuggestions(OBJECT fs, OBJECT suggest, RECORD ARRAY items)
+{
+  STRING ARRAY allsuggestions;
+
+  FOREVERY (RECORD item FROM items)
+  {
+    IF (item.type = "word")
+    {
+      STRING ARRAY suggestions := GetAdhocCached([ type := "searchsuggestion", item := item.item, fskey := fs->GetCacheKey() ], PTR GetUncachedSuggestions(suggest, item.item));
+      items[#item] :=
+          [ required := item.required
+          , type :=     "multiple"
+          , subitems := SELECT required :=  FALSE
+                             , type :=      "word"
+                             , item :=      value
+                          FROM ToRecordArray(suggestions, "VALUE")
+          ];
+
+      allsuggestions := allsuggestions CONCAT suggestions;
+    }
+    ELSE IF (item.type = "quoted" AND item.item NOT LIKE "* *")
+      INSERT item.item INTO allsuggestions AT END;
+    ELSE
+      ABORT(item);
+  }
+  IF (LENGTH(allsuggestions) != 0)
+  {
+    INSERT
+        [ required := TRUE
+        , type :=     "multiple"
+        , subitems := SELECT required :=  FALSE
+                           , type :=      "field"
+                           , item :=      "name:" || value
+                        FROM ToRecordArray(allsuggestions, "VALUE")
+        ] INTO items AT END;
+  }
+  RETURN items;
+}
+
+STRING FUNCTION GetLink(STRING docbaselink, STRING objectid)
+{
+  STRING ARRAY toks := Tokenize(objectid,'#');
+
+  STRING link := docbaselink || Substitute(EncodeURL(toks[0]),'%3A',':');
+
+  //we'll namespace the anchors, mostly to avoid conflicts with anchors code wants to use
+  STRING identifier := ToLowercase(Detokenize(ArraySlice(toks,2),'/'));
+  IF (identifier != "")
+    link := link || "#goto-" || EncodeURL(identifier);
+
+  RETURN link;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ExecuteDocSearch2(STRING searchingfor, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+    [ docbaselink := ""
+    , searchtype := "symbolsearch"
+    ], options, [ enums := [ searchtype := [ "symbolsearch", "loadlibs" ]]]);
+
+  IF (searchingfor = "")
+    RETURN RECORD[];
+
+  STRING docbaselink := options.docbaselink ?? GetPrimaryWebhareInterfaceURL() || "reference/";
+  RECORD query;
+
+/* TODO
+
+  OBJECT suggest := OpenSuggestObject(devconstants.catalog_sourcecode);
+  suggest->document_count := "fast";
+
+  items := HandleSuggestions(fs, suggest, items);
+  dumpvalue(items,'tree');
+  STRING query := EncodeQuery(items);
+  dumpvalue(query);
+*/
+
+  searchingfor := ToUppercase(searchingfor);
+
+  IF(options.searchtype = "loadlibs")
+    query := CQAnd([ CQMatch("name", "=", searchingfor)
+                   , CQMatch("sourcetype", "=", "harescript")
+                   , CQMatch("type", "IN", ["function", "objecttype", "variable"])
+                   ]);
+  ELSE
+    query := CQMatch("name", "=", searchingfor);
+
+
+  RECORD results := RunConsilioSearch(devconstants.catalog_sourcecode, query, [ count := 100 ]);
+
+//  IF(options.)
+
+//    output := output CONCAT SELECT AS STRING ARRAY DISTINCT groupid FROM searcher->Search('+name:"' || symbol || '" +sourcetype:"harescript" +(type:"function" type:"objecttype")', 0, -1).results WHERE groupid != hsdocinfo.libpath AND groupid NOT IN loaded;
+
+//  OBJECT fs := NEW DevFileSystem;
+
+//  RECORD ARRAY items := ParseQuery(querystring);
+//  dumpvalue(items);
+  RECORD retval := [ results := DEFAULT RECORD ARRAY
+                   , noquery := FALSE
+                   ];
+//  //PRINT("Items: " || AnyToString(items, "tree"));
+
+//  OBJECT suggest := OpenSuggestObject(devconstants.catalog_sourcecode);
+//  suggest->document_count := "fast";
+
+
+////  LogDebug("docsapi", "symbol query", query);
+
+  RECORD ARRAY rows;
+//  OBJECT search := OpenSearchObject("", devconstants.catalog_sourcecode);
+//  search->donthighlight := TRUE;
+
+  //ABORT(query);
+  //RECORD results := search->Search(query, 0, 100);
+  rows :=
+      SELECT objectid
+           , path
+           , type
+           , name :=      objtype = "" ? name : objtype || "::" || name
+           , position :=  position
+           , line :=      ToInteger(Tokenize(position, ":")[0], 1)
+           , col :=       ToInteger(Tokenize(position || ":", ":")[1], 1)
+           , link :=      GetLink(docbaselink, objectid)
+           , ispublic
+           , objtype
+           , definition :=  CellExists(results, "DEFINITION") ? definition : ""
+           , commenttext := CellExists(results, "COMMENTTEXT") ? commenttext : ""
+           , definitionpath := CellExists(results, "DEFINITIONPATH") ? definitionpath : ""
+           , canonicalloadlib := CellExists(results, "CANONICALLOADLIB") ? canonicalloadlib : ""
+        FROM results.results;
+
+  RETURN rows;
+}
+
+PUBLIC RECORD FUNCTION ExecuteDocSearch(STRING docbaselink, STRING querystring) //debugger entry point, keeping it but we should be hooking into the debugger!
+{
+  RETURN CELL[noquery := FALSE, results := ExecuteDocSearch2(querystring, CELL[docbaselink]) ];
+}
+
+RECORD FUNCTION GetCacheableSchemaDefinitions()
+{
+  OBJECT search := OpenSearchObject("", devconstants.catalog_sourcecode);
+
+  RECORD ARRAY xsdfiles := search->Search("+type:file +sourcetype:xsd",0,100).results;
+  xsdfiles := SELECT link := GetLink("",objectid)
+                   , objectid
+                   , namespace
+                FROM xsdfiles
+            ORDER BY ToUppercase(objectid);
+
+  RETURN [ ttl := 5 * 60 * 1000
+         , value := xsdfiles
+         ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetDocSchemaDefinitions(OBJECT fs, STRING docbaselink)
+{
+  RECORD ARRAY xsdfiles := GetAdhocCached([ type := "getdoctopfilegroups", fskey := fs->GetCacheKey() ], PTR GetCacheableSchemaDefinitions);
+  UPDATE xsdfiles SET link := docbaselink || link;
+  RETURN xsdfiles;
+}
+
+/** @short Deconstructs the given symbol into it's component parts.
+    @long Will deconstruct the given symbol string, breaking it apart based on
+          camel casing, underscores and numbers.
+    @param(string) symbol The symbol to deconstruct
+    @return Returns a STRING ARRAY of parts from the symbol.
+    @example
+DumpValue(DeconstructSymbol("FindObjectsByMemberValue"), 'tree');
+// ['Find', 'Objects', 'By', 'Member', 'Value']
+DumpValue(DeconstructSymbol("CreateEntity"), 'tree');
+// ['Create', 'Entity']
+DumpValue(DeconstructSymbol("CreateEntity2"), 'tree');
+// ['Create', 'Entity', '2']
+DumpValue(DeconstructSymbol("some_variable_name"), 'tree');
+// ['some', 'variable', 'name']
+DumpValue(DeconstructSymbol("__some_variable_name"), 'tree');
+// ['some', 'variable', 'name']
+*/
+PUBLIC STRING ARRAY FUNCTION DeconstructSymbol(STRING symbol)
+{
+  STRING ARRAY output;
+  INTEGER ARRAY positions;
+  IF(symbol LIKE "__*")
+    symbol := Right(symbol, Length(symbol) - 2);
+
+  STRING ARRAY parts := Tokenize(symbol, "");
+  STRING current;
+  FOREVERY(STRING char FROM parts)
+    IF(ToUpperCase(char) = char OR char = "_" OR #char = 0)
+      INSERT #char INTO positions AT END;
+
+  FOREVERY(INTEGER pos FROM positions)
+  {
+    STRING part;
+    IF(#pos < Length(positions) - 1)
+      part := Substring(symbol, pos, positions[#pos + 1] - pos);
+    ELSE
+      part := Substring(symbol, pos, Length(symbol));
+
+    IF(Left(part, 1) = "_")
+      part := Right(part, Length(part) - 1);
+
+    INSERT part INTO output AT END;
+  }
+
+  RETURN output;
+}

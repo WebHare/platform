@@ -1,0 +1,532 @@
+﻿<?wh
+
+LOADLIB "wh::filetypes/html.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/validation.whlib";
+LOADLIB "wh::xml/internal/flatxsd.whlib";
+
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+
+STATIC OBJECTTYPE XSDDocExtracter
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT flatxsd;
+
+  STRING ARRAY show_namespaces;
+
+  /** Map from element id to meta element id.
+      @cell id Element id
+      @cell metaid Meta element id
+  */
+  RECORD ARRAY metamap;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public variables
+  //
+
+  /** Meta elements contains all found elements, combined on element name & element type. Sorted on metaid.
+      @cell metaid Meta element id
+      @cell name Name of the element
+      @cell elttypeid Element type id
+      @cell target_namespace Element target namespace
+      @cell type Reference to element type
+      @cell elements List of elements that are combined into this meta element
+      @cell referenced_from List of meta ids this meta element is referenced from
+  */
+  PUBLIC RECORD ARRAY metaelements;
+
+  /** List of simple types
+      @cell name Type name
+      @cell target_namespace Target namesapce
+      @cell definition Definition
+  */
+  PUBLIC RECORD ARRAY simpletypes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW(OBJECT flatxsd, STRING ARRAY show_namespaces)
+  {
+    this->flatxsd := flatxsd;
+    this->show_namespaces := show_namespaces;
+    this->SpiderElements();
+    this->GetSimpleTypes();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  RECORD FUNCTION GetMetaId(RECORD elt)
+  {
+    RECORD pos := RecordLowerBound(this->metamap, [ id := elt.id ], [ "ID" ]);
+    IF (NOT pos.found)
+      THROW NEW Exception("Nonexisting elt #"||elt.id);
+    RECORD r := this->metamap[pos.position];
+    RETURN [ metaid := r.metaid, linkid := r.linkid ];
+  }
+
+  /** Walks through XSD tree, records all found elements into metaelements and metamap
+  */
+  MACRO SpiderElements()
+  {
+    // Within this function, metaelements is sorted on name, elttypeid, target_namespace. Resorting is done afterwards.
+
+    RECORD ARRAY rootelements := this->flatxsd->toplevelrecords;
+/*        SELECT *
+          FROM this->flatxsd->toplevelrecords
+        WHERE type = "element";*/
+
+    /** @cell id
+    */
+    RECORD ARRAY visited;
+
+    INTEGER metacounter;
+
+    RECORD ARRAY worklist := rootelements;
+    WHILE (LENGTH(worklist) != 0)
+    {
+      RECORD elt := worklist[LENGTH(worklist) - 1];
+      DELETE FROM worklist AT LENGTH(worklist) - 1;
+      IF (NOT RecordExists(elt))
+        CONTINUE;
+
+      RECORD pos := RecordLowerBound(visited, [ id := elt.id ], [ "ID" ]);
+      IF (pos.found)
+        CONTINUE;
+
+      INSERT [ id := elt.id ] INTO visited AT pos.position;
+
+      elt := this->flatxsd->ResolveReference(elt);
+
+      SWITCH (elt.type)
+      {
+      CASE "element"
+        {
+          pos := RecordLowerBound(this->metaelements,
+              [ name :=             elt.name
+              , elttypeid :=        elt.type_definition.id
+              , target_namespace := elt.target_namespace
+              ], [ "NAME", "ELTTYPEID", "TARGET_NAMESPACE" ]);
+          IF (NOT pos.found)
+          {
+            metacounter := metacounter + 1;
+            INSERT
+                [ target_namespace := elt.target_namespace
+                , name :=             elt.name
+                , elttypeid :=         elt.type_definition.id
+                , elements :=         DEFAULT RECORD ARRAY
+                , type :=             elt.type_definition // a ref
+                , metaid :=           metacounter
+                , referenced_from :=  DEFAULT RECORD ARRAY
+                , location :=         elt.location
+                ] INTO this->metaelements AT pos.position;
+          }
+          INSERT elt INTO this->metaelements[pos.position].elements AT END;
+          INSERT [ id := elt.id, metaid := this->metaelements[pos.position].metaid ] INTO this->metamap AT RecordLowerBound(this->metamap, [ id := elt.id ], ["ID"]).position;
+
+          INSERT elt.type_definition INTO worklist AT END;
+        }
+      CASE "complextype"
+        {
+          INSERT elt.base_type_definition INTO worklist AT END;
+          IF (RecordExists(elt.content_type))
+            INSERT elt.content_type.content INTO worklist AT END;
+        }
+      CASE "particle"
+        {
+          INSERT elt.term INTO worklist AT END;
+        }
+      CASE "modelgroup"
+        {
+          worklist := worklist CONCAT elt.particles;
+        }
+      }
+    }
+
+    // Sorting metaelements correctly
+    this->metaelements :=
+        SELECT *
+          FROM this->metaelements
+      ORDER BY metaid;
+
+    RECORD ARRAY namegroups :=
+        SELECT name
+             , elts :=    GroupedValues(elts)
+          FROM this->metaelements AS elts
+      GROUP BY name;
+
+    FOREVERY (RECORD namegroup FROM namegroups)
+    {
+      FOREVERY (RECORD elt FROM namegroup.elts)
+      {
+        RECORD pos := RecordLowerBound(this->metaelements, [ metaid := elt.metaid ], [ "METAID" ]);
+        STRING linkid := namegroup.name || (LENGTH(namegroup.elts) = 1 ? "" : "-" || #elt + 1);
+        INSERT CELL linkid := linkid INTO this->metaelements[pos.position];
+      }
+    }
+
+    FOREVERY (RECORD elt FROM this->metamap)
+    {
+      RECORD pos := RecordLowerBound(this->metaelements, [ metaid := elt.metaid ], [ "METAID" ]);
+      INSERT CELL linkid := this->metaelements[pos.position].linkid INTO this->metamap[#elt];
+    }
+
+    FOREVERY (RECORD metaelt FROM this->metaelements)
+    {
+      RECORD ARRAY referenced_from;
+      FOREVERY (RECORD elt FROM metaelt.elements)
+        referenced_from := referenced_from CONCAT this->GetElementReferencedFromMetaElements(elt);
+
+      this->metaelements[#metaelt].referenced_from :=
+          SELECT DISTINCT metaid, linkid, name
+            FROM referenced_from
+        ORDER BY linkid;
+
+      DELETE CELL elements FROM this->metaelements[#metaelt];
+    }
+
+    FOREVERY (RECORD metaelt FROM this->metaelements)
+    {
+      RECORD type := this->flatxsd->ResolveReference(metaelt.type);
+
+      RECORD contents :=
+          [ simpletype :=   DEFAULT RECORD
+          , complextype :=  DEFAULT RECORD
+          , attrs :=        DEFAULT RECORD ARRAY
+          ];
+
+      IF (RecordExists(type))
+      {
+        IF (type.type = "complextype")
+        {
+          FOREVERY (RECORD use FROM type.attribute_uses)
+          {
+            use := this->flatxsd->ResolveReference(use);
+            RECORD decl := this->flatxsd->ResolveReference(use.attribute_declaration);
+
+            RECORD constraint := use.value_constraint;
+            IF (NOT RecordExists(constraint))
+              constraint := decl.value_constraint;
+
+            RECORD rec :=
+                [ name :=                     decl.name
+                , target_namespace :=         decl.target_namespace
+                , required :=                 use.required
+                , value_constraint_default := RecordExists(constraint) AND constraint.type = "default"
+                , value_constraint_fixed :=   RecordExists(constraint) AND constraint.type = "fixed"
+                , value_constraint_value :=   RecordExists(constraint) ? constraint.value : ""
+                , type :=                     this->EncodeSimpleType(decl.type_definition, FALSE)
+                , annotations :=              this->GetAnnotations(use) || this->GetAnnotations(decl)
+                ];
+
+            INSERT rec INTO contents.attrs AT END;
+          }
+        }
+
+        IF (type.type = "simpletype" OR type.type = "primitivetype" OR (type.type = "complextype" AND RecordExists(type.content_type) AND type.content_type.type = "simple"))
+          contents.simpletype := this->EncodeSimpleType(type, FALSE);
+        IF (type.type = "complextype" AND RecordExists(type.content_type) AND type.content_type.type = "complex")
+          contents.complextype := this->EncodeParticle(type.content_type.content);
+      }
+
+      INSERT CELL contents := contents INTO this->metaelements[#metaelt];
+      INSERT CELL annotations := this->GetAnnotations(type) INTO this->metaelements[#metaelt];
+    }
+  }
+
+  /** Get the list of meta elements an element is referenced from
+      @param elt Element
+      @return Meta elements
+  */
+  RECORD ARRAY FUNCTION GetElementReferencedFromMetaElements(RECORD elt)
+  {
+    /** @cell id
+    */
+    RECORD ARRAY visited;
+
+    /** @cell metaid
+    */
+    RECORD ARRAY result;
+
+    RECORD ARRAY worklist := elt.referenced_from;
+    WHILE (LENGTH(worklist) != 0)
+    {
+      elt := worklist[LENGTH(worklist) - 1];
+      DELETE FROM worklist AT LENGTH(worklist) - 1;
+      IF (NOT RecordExists(elt))
+        CONTINUE;
+
+      RECORD pos := RecordLowerBound(visited, [ id := elt.id ], [ "ID" ]);
+      IF (pos.found)
+        CONTINUE;
+
+      INSERT [ id := elt.id ] INTO visited AT pos.position;
+
+      elt := this->flatxsd->ResolveReference(elt);
+
+      IF (elt.type = "element")
+      {
+        RECORD metamappos := RecordLowerBound(this->metamap, [ id := elt.id ], [ "ID" ]);
+        IF (NOT metamappos.found)
+          ABORT(this->metamap, "boxed");
+
+        RECORD mapelt := this->metamap[metamappos.position];
+        INTEGER metaid := mapelt.metaid;
+        metamappos := RecordLowerBound(result, [ metaid := metaid ], [ "METAID" ]);
+        IF (NOT metamappos.found)
+          INSERT [ metaid := metaid, linkid := mapelt.linkid, name := elt.name ] INTO result AT metamappos.position;
+      }
+      ELSE
+        worklist := worklist CONCAT elt.referenced_from;
+    }
+
+    RETURN
+        SELECT *
+          FROM result
+      ORDER BY linkid;
+  }
+
+  RECORD FUNCTION EncodeParticle(RECORD particle)
+  {
+    particle := this->flatxsd->ResolveReference(particle);
+    RECORD term := this->flatxsd->ResolveReference(particle.term);
+
+    RECORD res :=
+        [ min_occurs :=                 particle.min_occurs
+        , max_occurs :=                 particle.max_occurs
+        , max_occurs_unbounded :=       particle.max_occurs = unbounded_max_int
+        , occurs_one :=                 particle.min_occurs = 1 AND particle.max_occurs = 1
+        , occurs_optional :=            particle.min_occurs = 0 AND particle.max_occurs = 1
+        , occurs_optionalunbounded :=   particle.min_occurs = 0 AND particle.max_occurs = unbounded_max_int
+        , occurs_oneormore :=           particle.min_occurs = 1 AND particle.max_occurs = unbounded_max_int
+        , element :=                    DEFAULT RECORD
+        , modelgroup :=                 DEFAULT RECORD
+        , wildcard :=                   DEFAULT RECORD
+        ];
+
+    SWITCH (term.type)
+    {
+    CASE "wildcard"
+      {
+        res.wildcard :=
+            [ nsc_type_any :=                     term.namespace_constraint.type = "any"
+            , nsc_type_not :=                     term.namespace_constraint.type = "not"
+            , nsc_type_set :=                     term.namespace_constraint.type = "set"
+            , namespace_constraint_type :=        term.namespace_constraint.type
+            , namespace_constraint_namespaces :=  term.namespace_constraint.namespaces
+            , process_contents :=                 term.process_contents
+            , namespace_constraint_namespaces_list := ""
+            ];
+        FOREVERY (STRING s FROM res.wildcard.namespace_constraint_namespaces)
+          res.wildcard.namespace_constraint_namespaces[#s] := "{" || s || "}";
+        res.wildcard.namespace_constraint_namespaces_list := Detokenize(res.wildcard.namespace_constraint_namespaces, ",");
+      }
+    CASE "element"
+      {
+        res.element := this->GetMetaId(term);
+        INSERT CELL name := term.name INTO res.element;
+      }
+    CASE "modelgroup"
+      {
+        res.modelgroup :=
+            [ is_all :=       term.compositor = "all"
+            , is_choice :=    term.compositor = "choice"
+            , is_sequence :=  term.compositor = "sequence"
+            , particles :=    DEFAULT RECORD ARRAY
+            , one_particle := LENGTH(term.particles) = 1
+            ];
+
+        FOREVERY (RECORD subparticle FROM term.particles)
+        {
+          RECORD rec := this->EncodeParticle(subparticle);
+
+          IF (RecordExists(rec.modelgroup) AND rec.occurs_one AND
+              ((term.compositor = "choice" AND rec.modelgroup.is_choice) OR (term.compositor = "sequence" AND rec.modelgroup.is_sequence)))
+            res.modelgroup.particles := res.modelgroup.particles CONCAT rec.modelgroup.particles;
+          ELSE
+            INSERT rec INTO res.modelgroup.particles AT END;
+        }
+
+        res.modelgroup.particles :=
+            SELECT *
+              FROM res.modelgroup.particles
+          ORDER BY NOT RecordExists(element), RecordExists(element) ? ToUppercase(element.name) : "";
+      }
+    }
+    RETURN res;
+  }
+
+  RECORD FUNCTION EncodeSimpleType(RECORD type, BOOLEAN want_toplevel)
+  {
+    IF (NOT RecordExists(type))
+      RETURN type;
+
+    type := this->flatxsd->ResolveReference(type);
+
+    RECORD rec :=
+        [ name :=                       type.name
+        , lname :=                      Tolowercase(type.name)
+        , target_namespace :=           type.target_namespace
+        , fullname :=                   (type.target_namespace = ""
+                                            ? ""
+                                            : (type.target_namespace = "http://www.w3.org/2001/XMLSchema"
+                                                  ? "xs:"
+                                                  : "{" || type.target_namespace || "}")
+                                            ) || type.name
+        , annotations :=                this->GetAnnotations(type)
+        , is_owntoplevel :=             type.registered_toplevel AND type.target_namespace IN this->show_namespaces
+        , is_toplevel :=                type.registered_toplevel
+        , is_primitive :=               type.type = "primitivetype"
+        , is_variety_atomic :=          type.type = "simpletype" AND type.variety = "atomic"
+        , is_variety_list :=            type.type = "simpletype" AND type.variety = "list"
+        , is_variety_union :=           type.type = "simpletype" AND type.variety = "union"
+        , primitive_type_definition :=  DEFAULT RECORD
+        , item_type_definition :=       DEFAULT RECORD
+        , member_type_definitions :=    DEFAULT RECORD ARRAY
+        , facets :=                     DEFAULT RECORD ARRAY
+        , base_type_definition :=       DEFAULT RECORD
+        ];
+
+    RECORD ARRAY referenced_from;
+    IF (rec.is_owntoplevel)
+      referenced_from := this->GetElementReferencedFromMetaElements(type);
+
+    INSERT CELL referenced_from := referenced_from INTO rec;
+
+    IF ((NOT want_toplevel AND type.registered_toplevel) OR type.type = "primitivetype")
+      RETURN rec;
+
+    IF (type.type = "complextype")
+      type := this->flatxsd->ResolveReference(type.content_type.content);
+
+    rec.primitive_type_definition :=  this->EncodeSimpleType(type.primitive_type_definition, FALSE);
+    rec.item_type_definition :=       this->EncodeSimpleType(type.item_type_definition, FALSE);
+    rec.base_type_definition :=       this->EncodeSimpleType(type.base_type_definition, FALSE);
+
+    FOREVERY (RECORD mrec FROM type.member_type_definitions)
+      INSERT this->EncodeSimpleType(mrec, FALSE) INTO rec.member_type_definitions AT END;
+
+    FOREVERY (RECORD facet FROM type.facets)
+    {
+      RECORD frec :=
+          [ is_emumeration :=     facet.type = "enumeration"
+          , is_pattern :=         facet.type = "pattern"
+          , is_maxlength :=       facet.type = "maxlength"
+          , enumeration_vals :=   facet.type = "enumeration"
+                  ? (SELECT COLUMN value
+                          , annotations := this->GetAnnotations(value)
+                       FROM facet.value)
+                  : DEFAULT RECORD ARRAY
+          , pattern :=            facet.type = "pattern" ? facet.value : ""
+          , maxlength :=          facet.type = "maxlength" ? facet.value : ""
+          ];
+
+      INSERT frec INTO rec.facets AT END;
+    }
+
+    RETURN rec;
+  }
+
+  MACRO GetSimpleTypes()
+  {
+    this->simpletypes :=
+        SELECT name
+             , target_namespace
+             , definition :=    this->EncodeSimpleType(rec, true)
+             , annotations :=   this->GetAnnotations(rec)
+             , location
+          FROM this->flatxsd->toplevelrecords AS rec
+        WHERE type = "simpletype"
+          AND target_namespace IN this->show_namespaces
+     ORDER BY name;
+
+    // Disable own toplevel, else everything will become a self-link
+    FOREVERY (RECORD rec FROM this->simpletypes)
+      this->simpletypes[#rec].definition.is_owntoplevel := FALSE;
+  }
+
+  STRING FUNCTION GetAnnotations(RECORD elt)
+  {
+    STRING res;
+    FOREVERY (RECORD ann FROM elt.annotations)
+      res := res || ann.userdata.html;
+
+    RETURN res;
+  }
+>;
+
+STRING FUNCTION ParseAnnotationHTML(OBJECT annotationnode)
+{
+  OBJECT html := NEW HtmlRewriter;
+  html->parsemode := "block";
+
+  STRING result;
+  FOREVERY (OBJECT node FROM annotationnode->xmlnode->childnodes->GetCurrentElements())
+    IF (node->localname = "documentation")
+    {
+      html->ParseXmlNodeContents(annotationnode->xmlnode);
+      result := result || html->parsed_text;
+    }
+  RETURN result;
+}
+
+RECORD FUNCTION LoadExternalSchema(STRING url, STRING id)
+{
+  RETURN WebHareDynamicLoader(url, id);
+}
+
+PUBLIC RECORD FUNCTION ParseXSD(BLOB indata, STRING name)
+{
+  OBJECT xmldomimpl := NEW XMLDomImplementation;
+  //xmldomimpl->entityloader := PTR loadexternalschema;
+  xmldomimpl->RegisterEntityLoader(PTR WebHareDynamicLoader);
+  OBJECT parser := CreateXSD2001Parser(xmldomimpl);
+
+  OBJECT myxsd := MakeXMLDocument(indata);
+  ParseXSDSchema(parser, myxsd->documentelement, name);
+//  DumpValue(parser->elements,'html');
+
+  STRING target_ns := myxsd->documentelement->GetAttribute("targetNamespace");
+
+  OBJECT myflatxsd := NEW FlatXSD;
+  myflatxsd->keep_annotation_nodes := TRUE;
+  myflatxsd->record_locations := TRUE;
+  myflatxsd->user_annotation_parse_functions :=
+      [ [ name := "html"
+        , func := PTR ParseAnnotationHTML
+        ]
+      ];
+  myflatxsd->ReadFromXSDParser(parser);
+
+  OBJECT doc := NEW XSDDocExtracter(myflatxsd, [ target_ns ]);
+
+/*  IF (GetWebVariable("robtest") != "")
+  {
+    PRINT("X3 Simpletypes:<br/>" || AnyToString(doc->simpletypes, "htmltree"));
+    PRINT("X3 Elements:<br/>" || AnyToString(doc->metaelements, "htmltree"));
+  }*/
+
+//FIXME where are the simpletypes ?
+
+  RETURN
+      [ target_ns :=        target_ns
+      , simpletypes :=      (SELECT *
+                                  , elementid := "goto-" || Tolowercase(simpletypes.name)
+                               FROM doc->simpletypes)
+      , elements :=         (SELECT *
+                                  , elementid := "goto-" || Tolowercase(metaelements.name)
+                               FROM doc->metaelements
+                              WHERE metaelements.target_namespace = VAR target_ns
+                              ORDER BY COLUMN name)
+      ];
+}

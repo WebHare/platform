@@ -1,0 +1,6 @@
+<?wh
+/** Third
+    @topic dev-test/third
+    @public
+*/
+PUBLIC CONSTANT INTEGER position_aaa := 4;

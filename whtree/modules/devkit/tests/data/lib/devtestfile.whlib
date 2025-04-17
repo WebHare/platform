@@ -1,0 +1,79 @@
+<?wh
+
+/** Library comment (needed, otherwise a1's comment would become the library comment)
+    @topic dev-test/symbols
+    @public
+*/
+
+
+/** @cell b b-cell
+    @cell b.c b-c
+    @cell b.d b-d
+    @cell b.e e
+*/
+PUBLIC RECORD a1;
+
+/** @cell b @includecelldef #a1.b
+    @cell b.d b-d override
+    @cell c @includecelldef %a1.b.c
+*/
+PUBLIC RECORD a2;
+
+PUBLIC OBJECTTYPE o1
+<
+>;
+
+
+/** @short Func
+    @param fromdate Source date
+    @param options options
+    @cell(object) options.a options-a
+    @return retval
+    @cell(integer) return.days days
+    @cell(integer) return.msecs msecs
+    @cell(integer) return.years years
+*/
+PUBLIC RECORD FUNCTION Func(DATETIME fromdate, RECORD options) { RETURN CELL[]; }
+
+/** @short Func
+    @param fromdate @includecelldef #func.fromdate
+    @param options @includecelldef #func.options
+    @return @includecelldef #func.return
+*/
+PUBLIC RECORD FUNCTION FuncOuter(DATETIME fromdate, RECORD options) { RETURN Func(fromdate, options); }
+
+///Test object type
+PUBLIC OBJECTTYPE testobjtype
+< /** A
+      @cell a1 A-a1
+  */
+  RECORD a;
+
+  /** @cell a @includecelldef #testobjtype::a
+  */
+  RECORD b;
+
+  /// A property
+  PUBLIC PROPERTY propc(b,b);
+
+  /** A secret property
+      @private */
+  PUBLIC PROPERTY propd(b,b);
+
+  /// A documented method
+  PUBLIC MACRO Method() {}
+>;
+
+///Extended Test object type
+PUBLIC OBJECTTYPE exttestobjtype EXTEND testobjtype
+< // inherit documentation from testobjtype
+  UPDATE PUBLIC PROPERTY propd(b,b);
+  // inherit documentation from testobjtype
+  UPDATE PUBLIC MACRO Method() {}
+>;
+
+
+/** @topic dev-test/override
+    @short Topic override test
+*/
+PUBLIC INTEGER topicoverride;

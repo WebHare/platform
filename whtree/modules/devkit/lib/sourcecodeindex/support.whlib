@@ -1,0 +1,79 @@
+<?wh
+
+LOADLIB "wh::util/stringparser.whlib";
+
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+PUBLIC RECORD FUNCTION ParseInitialSpaces(STRING line, INTEGER maxspaces, INTEGER relcolumn, INTEGER tabwidth)
+{
+  INTEGER gotspaces;
+  FOR (INTEGER i := 0; maxspaces < 0 OR i < maxspaces; i := i + 1)
+  {
+    IF (line LIKE " *")
+      line := SubString(line, 1);
+    ELSE IF (line NOT LIKE "\t*")
+      BREAK;
+    ELSE
+      line := RepeatText(" ", tabwidth - ((relcolumn - 1) % tabwidth) - 1) || SubString(line, 1);
+    gotspaces := gotspaces + 1;
+    relcolumn := relcolumn + 1;
+  }
+  RETURN CELL[ line, gotspaces, relcolumn, eol := IsDefaultValue(line) ];
+}
+
+PUBLIC INTEGER FUNCTION GetColumnAfterText(STRING line, INTEGER relcolumn, INTEGER tabwidth)
+{
+  OBJECT p := NEW StringParser(line);
+  WHILE (NOT p->eof)
+  {
+    relcolumn := relcolumn + LENGTH(p->ParseWhileNotInSet("\t\n"));
+    IF (p->TryParse("\t"))
+      relcolumn := relcolumn + tabwidth - ((relcolumn - 1) % tabwidth);
+    IF (p->TryParse("\n"))
+      relcolumn := 1;
+  }
+  RETURN relcolumn;
+}
+
+PUBLIC STRING FUNCTION ExpandTabs(STRING text, INTEGER relcolumn, INTEGER tabwidth, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ fordebugdisplay :=   FALSE
+      ], options);
+
+  STRING result;
+  FOR (INTEGER i := 0; i < LENGTH(text); i := i + 1)
+  {
+    STRING c := SubString(text, i, 1);
+    IF (c = "\n")
+    {
+      result := result || "\n";
+      relcolumn := 1;
+    }
+    ELSE IF (c != "\t")
+    {
+      result := result || c;
+      relcolumn := relcolumn + 1;
+    }
+    ELSE
+    {
+      INTEGER tablen := tabwidth - ((relcolumn - 1) % tabwidth);
+      result := result || (options.fordebugdisplay ? "→" || RepeatText("_", tablen - 1) : RepeatText(" ", tablen));
+      relcolumn := relcolumn + tablen;
+    }
+  }
+  RETURN result;
+}
+
+PUBLIC BOOLEAN FUNCTION IsBuiltinResource(STRING resourcename)
+{
+  IF (resourcename LIKE "wh::*" OR resourcename LIKE "whres::*")
+    RETURN TRUE;
+
+  IF (resourcename NOT LIKE "mod::*")
+    RETURN FALSE;
+
+  STRING module := SubString(Tokenize(resourcename, "/")[0], 5);
+  RETURN module IN whconstant_builtinmodules;
+}

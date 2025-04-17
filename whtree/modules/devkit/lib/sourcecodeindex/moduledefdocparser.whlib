@@ -1,0 +1,184 @@
+﻿<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+
+
+/** Parses the database schema definition in a moduledefinitionb
+    @param fs Filesystem fore resource lookup
+    @param resourcename Moduledefinition resource
+    @return Cacheable list of database schemas and tables
+    @cell(string array) return.eventmasks Invalidation eventmasks
+    @cell return.value List of database schemas and tables
+    @cell return.value.name Name of the element
+    @cell return.value.schemaname Name of the schema
+    @cell return.value.resourcename Source resourcename
+    @cell return.value.elttype Type ('databaseschema', 'databasetable')
+    @cell return.value.parsedcomment Parsed comment @includecelldef #ParseCommentText.return
+    @cell return.value.topic Topic
+    @cell return.value.tables List of tables in a database schema
+    @cell return.value.tables.name Name of the table
+    @cell return.value.tables.parsedcomment Parsed comment @includecelldef #ParseCommentText.return
+    @cell return.value.columns List of columns in a database tabke
+    @cell return.value.columns.name Name of the column
+    @cell return.value.columns.parsedcomment Parsed comment @includecelldef #ParseCommentText.return
+
+*/
+PUBLIC RECORD FUNCTION CachableParseModuleDefinitionDocumentation(OBJECT fs, STRING resourcename)
+{
+  BLOB data := GetWebhareResource(resourcename);
+
+  OBJECT xmldoc := MakeXMLDocument(data);
+  IF (NOT ObjectExists(xmldoc))
+  {
+    RETURN
+        [ eventmasks :=     GetResourceEventMasks([ resourcename ])
+        , value :=          RECORD[]
+        ];
+  }
+
+  OBJECT specs := xmldoc->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema");
+  IF (LENGTH(specs->GetCurrentElements()) = 0)
+  {
+    RETURN
+        [ eventmasks :=     GetResourceEventMasks([ resourcename ])
+        , value :=          RECORD[]
+        ];
+  }
+
+  OBJECT specnode := specs->GetCurrentElements()[0];
+
+  STRING modname := GetModuleNameFromResourcePath(resourcename);
+  RECORD spec := ParseWHDBSchemaSpec(modname, specnode);
+  RECORD schemacomment := spec.documentation ?? [ text := "", line := 0 ];
+
+  RECORD parsedcomment := ParseCommentText(schemacomment.text, CELL[ symboltype := "schema", schemacomment.line ]);
+  STRING schematopic := GetTopicStringFromParsedComment(parsedcomment, "");
+
+  RECORD ARRAY parts :=
+      [ CELL
+        [ spec.name
+        , schemaname :=       modname
+        , elttype :=          "schema"
+        , resourcename :=     resourcename
+        , location :=         spec.location
+        , comment :=          schemacomment
+        , parsedcomment
+        , topic :=            GetTopicStringFromParsedComment(parsedcomment, "")
+        , tables :=           (SELECT TEMPORARY comment := documentation ?? [ text := "", line := 0 ]
+                                    , name :=            ToLowercase(name)
+                                    , comment :=         comment
+                                    , parsedcomment :=   ParseCommentText(comment.text, CELL[ symboltype := "component", comment.line ])
+                                 FROM spec.tables)
+        ]
+      ];
+
+  parts := parts CONCAT
+      SELECT TEMPORARY comment := documentation ?? [ text := "", line := 0 ]
+           , TEMPORARY parsedcomment := ParseCommentText(comment.text, CELL[ symboltype := "table", comment.line ])
+           , name :=            ToLowercase(name)
+           , schemaname :=      modname
+           , elttype :=         "table"
+           , resourcename :=    resourcename
+           , location
+           , comment :=         comment
+           , parsedcomment :=   parsedcomment
+           , topic :=           GetTopicStringFromParsedComment(parsedcomment, parts[0].topic)
+           , columns :=         SELECT TEMPORARY comment := cols.documentation ?? [ text := "", line := 0 ]
+                                     , TEMPORARY parsedcomment := ParseCommentText(comment.text, CELL[ symboltype := "column", comment.line ])
+                                     , name
+                                     , location
+                                     , comment :=         comment
+                                     , parsedcomment :=   parsedcomment
+                                     , declinfo :=        [ binary :=      ToUppercase(dbtype) = "BYTEA"
+                                                          , foreignkey :=  references_table != ""
+                                                          , primarykey :=  ToUppercase(tables.primarykey) = ToUppercase(name)
+                                                          ]
+                                  FROM cols
+        FROM spec.tables;
+
+  RETURN CELL
+      [ eventmasks :=     GetResourceEventMasks([ resourcename ])
+      , value :=          parts
+      ];
+}
+
+/** Parses a components xsd, returns the elements for the adhoccache
+    @param fs Filesystem fore resource lookup
+    @param resourcename Component resource
+    @return @includecelldef #CachableParseModuleDefinitionDocumentation.return.value
+*/
+PUBLIC RECORD ARRAY FUNCTION ParseModuleDefinitionDocumentation(OBJECT fs, STRING resourcename)
+{
+  RETURN GetAdhocCached(CELL
+      [ "moduledefinition"
+      , fs := fs->GetCacheKey()
+      , resourcename
+      ], PTR CachableParseModuleDefinitionDocumentation(fs, resourcename));
+}
+
+/** Enriches the documentation of a SCHEMA variable with the schema referenced
+    in their `@schemadef`
+    @param fs Filesystem
+    @param symbol Symbol to enrich
+    @return Enriched symbol
+*/
+PUBLIC RECORD FUNCTION EnrichSchemaDefinitionWithTables(OBJECT fs, RECORD symbol)
+{
+  IF (NOT RecordExists(symbol.parsedcomment) OR NOT RecordExists(symbol.parsedcomment.schemadef))
+    RETURN symbol;
+
+  STRING modulename := symbol.parsedcomment.schemadef.schemadef;
+  IF (modulename NOT IN fs->DevGetInstalledModuleNames())
+    RETURN symbol;
+
+  STRING __resourcename := `mod::${modulename}/moduledefinition.xml`;
+  RECORD ARRAY parts := ParseModuleDefinitionDocumentation(fs, __resourcename);
+
+  RECORD structure := symbol.structure;
+  FOREVERY (RECORD tbl FROM structure.tables)
+  {
+    RECORD dtbl :=
+        SELECT *
+          FROM parts
+         WHERE elttype = "table"
+           AND ToUppercase(name) = ToUppercase(tbl.dbasename);
+
+    IF (NOT RecordExists(dtbl))
+      CONTINUE;
+
+    IF (tbl.parsedcomment.isdefault AND NOT dtbl.parsedcomment.isdefault)
+    {
+      tbl.comment := dtbl.comment;
+      tbl.parsedcomment := CELL[ __resourcename, ...dtbl.parsedcomment ];
+    }
+
+    FOREVERY (RECORD col FROM tbl.columns)
+    {
+      RECORD dcol :=
+          SELECT *
+            FROM dtbl.columns
+           WHERE ToUppercase(name) = ToUppercase(col.dbasename);
+
+      IF (NOT RecordExists(dcol))
+        CONTINUE;
+
+      INSERT CELL declinfo := dcol.declinfo INTO tbl.columns[#col];
+
+      IF (col.parsedcomment.isdefault OR dcol.parsedcomment.isdefault)
+        CONTINUE;
+
+      tbl.columns[#col].comment := dcol.comment;
+      tbl.columns[#col].parsedcomment := CELL[ __resourcename, ...dcol.parsedcomment ];
+    }
+    structure.tables[#tbl] := tbl;
+  }
+
+  symbol.structure := structure;
+  RETURN symbol;
+}

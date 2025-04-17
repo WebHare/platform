@@ -1,0 +1,1255 @@
+<?wh
+
+/* debug
+
+wh consilio:manualindex dev:sourcecodeindex
+*/
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/api.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/components.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/fs.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/harescript.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/moduledefdocparser.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/sourcefiles.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/xsdparser.whlib";
+
+LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
+
+
+STRING ARRAY blacklist_paths :=
+    [ "*/xmlschema.xsd"      // Can't be parsed by our XSD parser
+    , "*/siteprofile_newsletter.xsd" // Has incomplete import statements (libxml2 workaround)
+    ];
+
+/** Parses the topic from a symbol comment
+    @param comment Comment token comments.whlib#ParseCommentToken.comment
+    @param symboltype @includecelldef comments.whlib#ParseCommentToken.options.symboltype
+    @param librarytopic Fallback topic
+    @return Topic (in the form 'name / section')
+*/
+STRING FUNCTION GetTopicStringFromToken(RECORD comment, STRING symboltype, STRING librarytopic)
+{
+  RECORD parsed_comment := ParseCommentToken(comment, CELL[ symboltype ]);
+  IF (RecordExists(parsed_comment.markedprivate))
+    RETURN ""; // no topic for symbols that have been marked private
+  IF (NOT RecordExists(parsed_comment) OR NOT RecordExists(parsed_comment.topic))
+    RETURN librarytopic;
+  RETURN `${parsed_comment.topic.name}/${parsed_comment.topic.section}`;
+}
+
+RECORD FUNCTION ParseHarescript(OBJECT source, STRING resourcename)
+{
+  RECORD sourcefile := source->GetSourceFile(resourcename);
+  RECORD doc := sourcefile.doc;
+  INSERT CELL ispublic := sourcefile.ispublic INTO doc;
+
+  doc.functions := SELECT *, definitionpath := "", isdocreexport := FALSE FROM doc.functions;
+  doc.variables := SELECT *, definitionpath := "", isdocreexport := FALSE FROM doc.variables;
+  doc.objecttypes := SELECT *, definitionpath := "", isdocreexport := FALSE FROM doc.objecttypes;
+
+  INSERT CELL librarytopic := GetTopicStringFromParsedComment(doc.parsedcomment, "") INTO doc;
+
+  RECORD retval;// := ParseHareScriptFileDeclarations(data);
+
+  FOREVERY (RECORD load FROM doc.loadlibs)
+  {
+    IF (LENGTH(load.exports) = 0)
+      CONTINUE;
+
+    TRY
+    {
+      STRING loadlib_abspath := MakeAbsoluteResourcePath(resourcename, load.resourcename);
+      RECORD parsedload := source->GetSourceFile(loadlib_abspath).doc;
+
+      FOREVERY (RECORD exp FROM load.exports)
+      {
+        STRING type;
+        RECORD def := SELECT * FROM parsedload.functions WHERE ToUppercase(name) = ToUppercase(exp.name);
+        IF (RecordExists(def))
+          type := "functions";
+        ELSE
+        {
+          def := SELECT * FROM parsedload.variables WHERE ToUppercase(name) = ToUppercase(exp.name);
+          IF (RecordExists(def))
+            type := "variables";
+          ELSE
+          {
+            def := SELECT * FROM parsedload.objecttypes WHERE ToUppercase(name) = ToUppercase(exp.name);
+            IF (RecordExists(def))
+              type := "objecttypes";
+          }
+        }
+
+        IF (type != "")
+        {
+          INSERT CELL definitionpath := loadlib_abspath INTO def;
+          INSERT CELL isdocreexport := def.docpublic INTO def;
+          def.docpublic := FALSE; // never document re-exports
+          def.line := exp.line;
+          def.col := exp.col;
+          SWITCH (type)
+          {
+            CASE "functions"      { INSERT def INTO doc.functions AT END; }
+            CASE "variables"      { INSERT def INTO doc.variables AT END; }
+            CASE "objecttypes"    { INSERT def INTO doc.objecttypes AT END; }
+          }
+        }
+        ELSE
+        {
+          // Re-export, example in mod::consilio/lib/api.whlib (symbol 'require_required')
+        }
+      }
+    }
+    CATCH;
+  }
+
+  RETURN doc;
+}
+
+//Wrapper which should normalize/postprocess as needed for opensearch storage
+RECORD FUNCTION MakeResult(RECORD indata)
+{
+  indata := EnforceStructure(CELL[], indata);
+  indata.name := ToUppercase(indata.name);
+
+  RECORD fetchobjectresult :=
+          CELL[ status := "result"
+              , document_fields := CELL[ ...indata, DELETE modtime ]
+              , indexdate := indata.modtime
+              ];
+
+  RETURN fetchobjectresult;
+}
+
+/* Testcode:
+   wh run mod::consilio/scripts/fetcher.whscr --checkgroupbytag publisher:modresources --groupid mod::system/data/moduledefinition.xsd
+   */
+
+PUBLIC STATIC OBJECTTYPE SourceCodeConsilioIndex EXTEND CustomContentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  OBJECT fs;
+
+  OBJECT source;
+
+  // ---------------------------------------------------------------------------
+  //
+  // The Rest
+  //
+
+  MACRO NEW()
+  {
+    this->fs := NEW DevFileSystem;
+    this->source := NEW SourceIndex(this->fs->DevGetInstalledModuleNames(), this->fs, [ fulldocumentation := FALSE, skipdescriptions := TRUE ]);
+  }
+
+  PUBLIC UPDATE MACRO PrepareForIndexing()
+  {
+    IF(NOT HavePrimaryTransaction()) //we are directly invoked so..
+      OpenPrimary();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetMapping()
+  {
+    RETURN
+        [ [ name := "title",            value := "", suggested := TRUE ]
+        , [ name := "type",             value := "", type := "keyword" ]
+        , [ name := "path",             value := "", type := "keyword" ] // export path
+        , [ name := "definitionpath",   value := "", type := "keyword" ] // definition path (ignoring re-exports)
+        , [ name := "name",             value := "", type := "keyword" ] // last part of fullname
+        , [ name := "fullname",         value := "", type := "keyword" ]
+        , [ name := "objtype",          value := "", type := "keyword" ]
+        , [ name := "docpublic",        value := FALSE ]
+        , [ name := "ispublic",         value := FALSE ]
+        , [ name := "position",         value := "", type := "keyword" ]
+        , [ name := "definition",       value := "", type := "keyword"  ]
+        , [ name := "sourcetype",       value := "", type := "keyword"  ]
+        , [ name := "namespace",        value := "", type := "keyword"  ]
+        , [ name := "objectcount",      value := 0 ]
+        , [ name := "commenttext",      value := "" ]
+        //FIXME we wanted this but it crashes consilio (cannot combine arrays with suggested)
+        //, [ name := "symbolparts",      value := STRING[], type := "keyword", suggested := TRUE ]
+        , [ name := "symbolparts",      value := "", type := "keyword", suggested := TRUE ]
+        , [ name := "topic",            value := "", type := "keyword"  ]
+        , [ name := "canonicalloadlib", value := "", type := "keyword" ]
+        ];
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetObjectListFields()
+  {
+    RETURN [ "type", "objectcount" ];
+  }
+
+  RECORD ARRAY FUNCTION WrapResources(STRING ARRAY resourcenames)
+  {
+    RECORD ARRAY groups;
+    DATETIME now := GetCurrentDateTime();
+    FOREVERY(STRING res FROM resourcenames)
+    {
+      DATETIME modified := GetBlobModTime(GetWebhareResource(res, [ allowmissing := TRUE ]));
+      INSERT [ id :=                res
+             , requiredindexdate := modified
+             ] INTO groups AT END;
+    }
+    RETURN groups;
+  }
+
+  RECORD ARRAY FUNCTION GetModuleGroupsByDiskScan(STRING module)
+  {
+    STRING root := GetModuleInstallationRoot(module);
+    RECORD ARRAY groups;
+    STRING ARRAY worklist := [ "" ];
+
+    WHILE (LENGTH(worklist) != 0)
+    {
+      STRING path := worklist[0];
+      DELETE FROM worklist AT 0;
+
+      RECORD ARRAY elts := ReadDiskDirectory(root || path, "*");
+      FOREVERY (RECORD elt FROM elts)
+      {
+        IF (elt.type = 0)
+        {
+          BOOLEAN any_match;
+          FOREVERY (STRING ext FROM
+                [ "*.whscr"
+                , "*.whlib"
+                , "*.shtml"
+                , "*.xml"
+                , "*.css"
+                , "*.siteprl"
+                , "*.whsock"
+                ])
+            IF (elt.name LIKE ext)
+              any_match := TRUE;
+
+          STRING fullpath := root || path || elt.name;
+          FOREVERY (STRING mask FROM blacklist_paths)
+            IF (fullpath LIKE mask)
+              any_match := FALSE;
+
+          IF (any_match)
+          {
+            STRING prefix := "mod::" || module || "/";
+            STRING curpath := path;
+            IF (path LIKE "whlibs/*" AND module = "system")
+            {
+              prefix := "wh::";
+              curpath := SubString(path, 7);
+            }
+
+            INSERT [ id := prefix || curpath || elt.name
+                   , requiredindexdate := elt.modified
+                   ] INTO groups AT END;
+          }
+        }
+        ELSE
+        {
+          IF (elt.name LIKE "compiled*" OR elt.name IN
+                [ "generated"
+                , ".svn"
+                , ".git"
+                , "node_modules"
+                , "bower_components"
+                ])
+            CONTINUE;
+
+          INSERT path || elt.name || "/" INTO worklist AT END;
+        }
+      }
+    }
+    RETURN groups;
+  }
+
+  /** Each group is one source file
+      @param indexdate Indexdate
+      @return List of consilio groups
+  */
+  PUBLIC UPDATE RECORD FUNCTION ListGroups(DATETIME indexdate)
+  {
+     RECORD result :=
+        [ status :=  "result"
+        , groups :=  DEFAULT RECORD ARRAY
+        ];
+
+    FOREVERY (STRING module FROM this->fs->DevGetInstalledModuleNames())
+    {
+      result.groups := result.groups
+                       CONCAT
+                       this->GetModuleGroupsByDiskScan(module)
+                       CONCAT //FIXME why GetModuleGroupsFromDef ? doesn't GetModuleGroupsByDiskScan pick the files up ?
+                       this->WrapResources(this->fs->GetModuleGroupsFromDef(module));
+    }
+
+    result.groups := SELECT id, requiredindexdate := Max(requiredindexdate) FROM result.groups
+                   GROUP BY id
+                   ORDER BY id LIKE "wh::*" DESC
+                           , GetModuleNameFromResourcePath(id) IN VAR whconstant_builtinmodules
+                               ? SearchElement(VAR whconstant_builtinmodules, GetModuleNameFromResourcePath(id))
+                               : 999;
+
+    RETURN result;
+  }
+
+  RECORD FUNCTION GetResource(STRING resname)
+  {
+    BLOB data := GetWebhareResource(resname);
+    DATETIME modtime := GetBlobModTime(data);
+
+    RETURN
+        [ data :=     data
+        , modtime :=  modtime
+        ];
+  }
+
+  RECORD FUNCTION GetCachableFileDocs(STRING resname)
+  {
+    // Early out for unknown extensions
+    STRING extension := GetExtensionFromPath(resname);
+    STRING filename := GetNameFromPath(resname);
+    IF (extension NOT IN
+        [ ".whscr", ".whlib", ".shtml", ".tpl", ".html", ".whsock"
+        , ".xsd"
+        , ".js", ".jsx", ".es", ".esx"
+        , ".css"
+        ] AND filename NOT IN [ "moduledefinition.xml" ])
+    {
+      RETURN
+          [ ttl :=    30 * 1000
+          , value :=
+                [ sourcetype := "unknown-" || GetExtensionFromPath(resname)
+                , modtime := DEFAULT DATETIME
+                , objects := DEFAULT RECORD ARRAY
+                ]
+          ];
+    }
+
+    RECORD datarec := this->GetResource(resname);
+
+    BLOB data := datarec.data;
+    DATETIME modtime := datarec.modtime;
+
+    STRING filetype := extension;
+    IF (filename = "moduledefinition.xml")
+      filetype := "moduledefinition";
+
+    RECORD retval;
+    SWITCH (filetype)
+    {
+      CASE ".whscr", ".whlib", ".shtml", ".tpl", ".html", ".whsock"
+      {
+        retval := ParseHarescript(this->source, resname);
+
+        RECORD ARRAY objects :=
+            [ [ id := resname || "#file" ] ] CONCAT
+            (SELECT id := resname || "#function#" || name FROM retval.functions) CONCAT
+            (SELECT id := resname || "#variable#" || name FROM retval.variables) CONCAT
+            (SELECT id := resname || "#objecttype#" || name FROM retval.objecttypes);
+
+        FOREVERY (RECORD type FROM retval.objecttypes)
+        {
+          objects := objects CONCAT
+              (SELECT id := resname || "#method#" || type.name || "#" || name FROM type.methods) CONCAT
+              (SELECT id := resname || "#member#" || type.name || "#" || name FROM type.members) CONCAT
+              (SELECT id := resname || "#property#" || type.name || "#" || name FROM type.properties);
+        }
+
+        INSERT CELL sourcetype := "harescript" INTO retval;
+        INSERT CELL modtime := modtime INTO retval;
+        INSERT CELL objects := objects INTO retval;
+      }
+      CASE ".xsd"
+      {
+//        TRY
+        {
+          retval := ParseXSD(CanonicalizeWebhareSchemaLocations(data), resname);
+        }
+
+        RECORD ARRAY component_elements;
+        RECORD source :=
+            SELECT *
+              FROM this->fs->DevGetComponentSources("tolliumcomponents") CONCAT this->fs->DevGetComponentSources("formcomponents")
+             WHERE resourcename = resname;
+
+        IF (RecordExists(source) AND NOT source.skipdocumentation)
+          component_elements := GetComponentElements(this->fs, source.resourcename);
+
+        INSERT CELL component_elements := component_elements INTO retval;
+
+
+//        LogDebug("system:docs", "Cell target_namespace exists in elements: " || AnyToString(CellExists(retval.elements, "target_namespace"), 'tree'));
+//        LogDebug("system:docs", "Cell target_namespace exists in simpletypes : " || AnyToString(CellExists(retval.simpletypes, "target_namespace"), 'tree'));
+  /*      CATCH (OBJECT e)
+        {
+          // Ignoring crash
+          LogDebug("system:docs", "XSD parser exception for " || resname, e->EncodeForIPC());
+
+          retval :=
+              [ elements :=     DEFAULT RECORD ARRAY
+              , simpletypes :=  DEFAULT RECORD ARRAY
+              , target_ns :=    "(parse error)"
+              ];
+        }
+*/
+
+        // Prune unneeded data, costly to place in the adhoccache
+
+
+        retval.elements :=
+            SELECT linkid
+                 , name
+                 , contents :=
+                      [ attrs :=    SELECT name
+                                         , target_namespace
+                                      FROM contents.attrs
+                      ]
+                 , target_namespace
+                 , location
+              FROM retval.elements
+             WHERE target_namespace = retval.target_ns;
+
+        retval.simpletypes :=
+            SELECT name
+                 , location
+              FROM retval.simpletypes
+             WHERE target_namespace = retval.target_ns;
+
+        RECORD ARRAY objects :=
+            [ [ id := resname || "#file" ] ] CONCAT
+            (SELECT id := resname || "#element#" || linkid FROM retval.elements) CONCAT
+            (SELECT id := resname || "#simpletype#" || name FROM retval.simpletypes) CONCAT
+            (SELECT id := resname || "#component#" || name FROM retval.component_elements);
+
+        FOREVERY (RECORD elt FROM retval.elements)
+        {
+          objects := objects CONCAT
+              (SELECT id := resname || "#attribute#" || elt.linkid || "#" || name FROM elt.contents.attrs);
+        }
+
+        INSERT CELL sourcetype := "xsd" INTO retval;
+        INSERT CELL modtime := modtime INTO retval;
+        INSERT CELL objects := objects INTO retval;
+      }
+      CASE ".css"
+      {
+        // Just add the file
+        retval :=
+            [ sourcetype := "css"
+            , modtime :=    modtime
+            , objects :=    [ [ id := resname || "#file" ] ]
+            ];
+      }
+      CASE "moduledefinition"
+      {
+        RECORD ARRAY parts := ParseModuleDefinitionDocumentation(this->fs, resname);
+
+        retval := CELL
+            [ sourcetype :=   "moduledefinition"
+            , parts
+            , modtime :=      modtime
+            , objects :=      SELECT id :=    elttype = "databaseschema"
+                                                  ? `${resname}#schema#${schemaname}`
+                                                  : `${resname}#table#${schemaname}#${ToLowercase(name)}`
+                                FROM parts
+            ];
+      }
+      CASE ".xml", ".siteprl"
+      {
+        // Just add the file. ADDME: parse screen files
+        retval :=
+            [ sourcetype := "xml"
+            , modtime :=    modtime
+            , objects :=    [ [ id := resname || "#file" ] ]
+            ];
+      }
+      DEFAULT
+      {
+        retval :=
+            [ sourcetype := "unknown-" || GetExtensionFromPath(resname)
+            , modtime := modtime
+            , objects := DEFAULT RECORD ARRAY
+            ];
+      }
+    }
+
+    RETURN
+        [ ttl :=          30 * 1000
+        , value :=        retval
+        , eventmasks :=   GetResourceEventMasks([ resname ])
+        ];
+  }
+
+  /** Every identifier in a file is an object. The file itself is also an object (type:file)
+      @param indexdate Index date
+      @param groupid Group ID
+      @param current_objects Current objects
+      @return Objects
+  */
+  PUBLIC UPDATE RECORD FUNCTION ListObjects2(DATETIME indexdate, STRING groupid, RECORD ARRAY current_objects)
+  {
+    RECORD file :=
+        SELECT *
+          FROM current_objects
+         WHERE CellExists(current_objects, "type")
+                    ? type = "file"
+                    : FALSE;
+
+    // We have a file object in consilio?
+    IF (RecordExists(file))
+    {
+      // Resource's modification date is the same as the index date of that file object?
+      TRY
+      {
+        RECORD resdata := this->GetResource(groupid);
+        IF (resdata.modtime = file.indexdate)
+        {
+          // Check if the rest objects were from the same source file
+          RECORD ARRAY good_objs := SELECT * FROM current_objects WHERE COLUMN commanddate = file.commanddate;
+          IF (LENGTH(good_objs) = ToInteger(file.objectcount, -1))
+          {
+            // Check if this script hasn't changed since then
+            IF (GetHarescriptLibraryInfo(Resolve("")).compile_id < file.commanddate)
+            {
+              RETURN
+                  [ status :=   "result"
+                  , objects :=  SELECT id
+                                     , requiredindexdate := resdata.modtime
+                                  FROM current_objects
+                  ];
+            }
+          }
+        }
+      }
+      CATCH (OBJECT< RetrieveResourceException > e) // file is gone
+      {
+        RETURN
+            [ status :=   "result"
+            , objects :=  DEFAULT RECORD ARRAY
+            ];
+      }
+    }
+
+
+    RECORD data := GetAdHocCached(CELL[ path := groupid, fskey := this->fs->GetCacheKey() ], PTR this->GetCachableFileDocs(groupid));
+
+    RETURN
+        [ status :=   "result"
+        , objects :=  SELECT *, requiredindexdate := data.modtime FROM data.objects
+        ];
+  }
+
+  /** @short Get a single object
+      @param indexdate Index date
+      @param groupid Group ID
+      @param objectid Object ID
+      @return The result
+      @cell return.status "result" if call succeeded, "error" if an error ocurred
+      @cell return.error If the call did not succeed, this cell may contain an error message
+      @cell return.document_body The document's body text
+      @cell return.document_fields List of fields and values to index (prefix DATETIME fields with "date_")
+      @cell return.objects New objects found within the group
+      @cell return.objects.id Id of the object
+      @cell return.links All links found in the object
+      @cell return.links.link Link URL
+      @cell return.links.text Link text
+      @cell return.links.type Link type
+  */
+  PUBLIC UPDATE RECORD FUNCTION FetchObject(DATETIME indexdate, STRING groupid, STRING objectid)
+  {
+    STRING ARRAY idparts := Tokenize(objectid, "#");
+
+    RECORD data := GetAdHocCached([ path := groupid, fskey := this->fs->GetCacheKey() ], PTR this->GetCachableFileDocs(groupid));
+    SWITCH (data.sourcetype)
+    {
+      CASE "harescript"
+      {
+        RETURN this->FetchHarescriptObject(indexdate, groupid, objectid, idparts, data);
+      }
+      CASE "javascript"
+      {
+        RETURN this->FetchJavascriptObject(indexdate, groupid, objectid, idparts, data);
+      }
+      CASE "xsd"
+      {
+        RETURN this->FetchXSDObject(indexdate, groupid, objectid, idparts, data);
+      }
+      CASE "css"
+      {
+        RETURN this->FetchCSSObject(indexdate, groupid, objectid, idparts, data);
+      }
+      CASE "xml"
+      {
+        RETURN this->FetchXMLObject(indexdate, groupid, objectid, idparts, data);
+      }
+      CASE "moduledefinition"
+      {
+        RETURN this->FetchModuleDefinitionObject(indexdate, groupid, objectid, idparts, data);
+      }
+    }
+    RETURN [ status := "error", error := "Unhandled source type '" || data.sourcetype || "'" ];
+  }
+
+  RECORD FUNCTION FetchHarescriptObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN
+            [ status := "result"
+            , document_fields :=
+                  [ type :=           "file"
+                  , path :=           groupid
+                  , title :=          "file " || groupid
+                  , name :=           SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname :=       groupid
+                  , objtype :=        ""
+                  , ispublic :=       data.ispublic AND data.docpublic
+                  , docpublic :=      data.docpublic
+                  , position :=       ""
+                  , suggestfields :=  "title"
+                  , definition :=     "File " || groupid
+                  , sourcetype :=     "harescript"
+                  , objectcount :=    LENGTH(data.objects)
+                  , commenttext :=    RecordExists(data.libcomment) ? data.libcomment.token : ""
+                  , symbolparts :=    ""
+                  , definitionpath := ""
+                  , topic :=          data.docpublic ? data.librarytopic : ""
+                  ]
+            , indexdate := data.modtime
+            ];
+      }
+      CASE "function"
+      {
+        RECORD rec := SELECT * FROM data.functions WHERE name = idparts[2];
+        IF (RecordExists(rec))
+        {
+          IF (RecordExists(rec.parsedcomment.signature))
+            rec := ProcessSignatureOverride(rec, rec.parsedcomment).symboldefinition;
+
+          STRING definition :=
+              (rec.isasync
+                  ? "ASYNC " || (rec.isfunction ? "FUNCTION " : "MACRO ")
+                  : (rec.type = "" ? "MACRO " : rec.type || " FUNCTION ")) ||
+              (rec.isgenerator ? "*" : "") ||
+              idparts[2] || "(";
+
+          FOREVERY (RECORD arg FROM rec.params)
+          {
+            IF (#arg != 0)
+              definition := definition || ", ";
+            definition := definition || arg.type || " " || (#arg = LENGTH(rec.params) - 1 AND rec.isvararg ? "..." : "") || arg.name;
+          }
+          definition := definition || ")";
+
+          RETURN MakeResult(
+                CELL[ type :=           "function"
+                    , path :=           groupid
+                    , name :=           idparts[2]
+                    , fullname :=       idparts[2]
+                    , objtype :=        ""
+                    , title :=          "function " || groupid || " " || idparts[2]
+                    , ispublic :=       rec.ispublic AND (rec.docpublic OR rec.isdocreexport)
+                    , docpublic :=      rec.docpublic
+                    , position :=       rec.line || ":" || rec.col
+                    , suggestfields :=  "title"
+                    , definition :=     definition
+                    , sourcetype :=     "harescript"
+                    , commenttext :=    RecordExists(rec.comment) ? rec.comment.token : ""
+                    , symbolparts :=    Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , definitionpath := rec.definitionpath
+                    , topic :=          rec.isdocreexport OR NOT rec.docpublic ? "" : GetTopicStringFromParsedComment(rec.parsedcomment, data.librarytopic)
+                    , canonicalloadlib := RecordExists(rec.parsedcomment.canonicalloadlib) ? rec.parsedcomment.canonicalloadlib.resourcename : ""
+                    , data.modtime
+                    ]);
+        }
+      }
+      CASE "variable"
+      {
+        RECORD rec := SELECT * FROM data.variables WHERE name = idparts[2];
+        IF (RecordExists(rec))
+        {
+          RETURN MakeResult(
+                CELL[ type :=           "variable"
+                    , path :=           groupid
+                    , name :=           idparts[2]
+                    , fullname :=       idparts[2]
+                    , objtype :=        ""
+                    , title :=          "variable " || groupid || " " || idparts[2]
+                    , ispublic :=       rec.ispublic AND (rec.docpublic OR rec.isdocreexport)
+                    , docpublic :=      rec.docpublic
+                    , position :=       rec.line || ":" || rec.col
+                    , suggestfields :=  "title"
+                    , definition :=     rec.type || " " || idparts[2]
+                    , sourcetype :=     "harescript"
+                    , commenttext :=    RecordExists(rec.comment) ? rec.comment.token : ""
+                    , symbolparts :=    Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , definitionpath := rec.definitionpath
+                    , topic :=          rec.isdocreexport OR NOT rec.docpublic ? "" : GetTopicStringFromParsedComment(rec.parsedcomment, data.librarytopic)
+                    , canonicalloadlib := RecordExists(rec.parsedcomment.canonicalloadlib) ? rec.parsedcomment.canonicalloadlib.resourcename : ""
+                    , data.modtime
+                    ]);
+        }
+      }
+      CASE "objecttype"
+      {
+        RECORD rec := SELECT * FROM data.objecttypes WHERE name = idparts[2];
+        IF (RecordExists(rec))
+        {
+          RECORD constructor :=
+              SELECT *
+                FROM rec.methods
+               WHERE name = "NEW";
+
+          STRING definition := "OBJECTTYPE " || idparts[2] || "(";
+
+          IF (RecordExists(constructor))
+          {
+            FOREVERY (RECORD arg FROM constructor.params)
+            {
+              IF (#arg != 0)
+                definition := definition || ", ";
+              definition := definition || arg.type || " " || (#arg = LENGTH(constructor.params) - 1 AND constructor.isvararg ? "..." : "") || arg.name;
+            }
+          }
+          definition := definition || ")";
+
+          RETURN MakeResult(
+                CELL[ type :=           "objecttype"
+                    , path :=           groupid
+                    , name :=           idparts[2]
+                    , fullname :=       idparts[2]
+                    , objtype :=        ""
+                    , title :=          "objecttype " || groupid || " " || idparts[2]
+                    , ispublic :=       rec.ispublic AND (rec.docpublic OR rec.isdocreexport)
+                    , docpublic :=      rec.docpublic
+                    , position :=       rec.line || ":" || rec.col
+                    , suggestfields :=  "title"
+                    , definition :=     definition
+                    , sourcetype :=     "harescript"
+                    , commenttext :=    RecordExists(rec.comment) ? rec.comment.token : ""
+                    , symbolparts :=    Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , definitionpath := rec.definitionpath
+                    , topic :=          rec.isdocreexport OR NOT rec.docpublic ? "" : GetTopicStringFromParsedComment(rec.parsedcomment, data.librarytopic)
+                    , canonicalloadlib := RecordExists(rec.parsedcomment.canonicalloadlib) ? rec.parsedcomment.canonicalloadlib.resourcename : ""
+                    , data.modtime
+                    ]);
+        }
+      }
+      CASE "method", "property", "member"
+      {
+        // Lookup objecttype
+        RECORD objrec := SELECT * FROM data.objecttypes WHERE name = idparts[2];
+        IF (RecordExists(objrec))
+        {
+          SWITCH (idparts[1])
+          {
+            CASE "method"
+            {
+              RECORD rec := SELECT * FROM objrec.methods WHERE name = idparts[3];
+              IF (RecordExists(rec))
+              {
+                IF (RecordExists(rec.parsedcomment.signature))
+                  rec := ProcessSignatureOverride(rec, rec.parsedcomment).symboldefinition;
+
+                STRING definition :=
+                    (rec.isasync
+                        ? "ASYNC " || (rec.isfunction ? "FUNCTION " : "MACRO ")
+                        : (rec.type = "" ? "MACRO " : rec.type || " FUNCTION ")) ||
+                    (rec.isgenerator ? "*" : "") ||
+                    idparts[2] || "::" || idparts[3] || "(";
+                FOREVERY (RECORD arg FROM rec.params)
+                {
+                  IF (#arg != 0)
+                    definition := definition || ", ";
+                  definition := definition || arg.type || " " || (#arg = LENGTH(rec.params) - 1 AND rec.isvararg ? "..." : "") || arg.name;
+                }
+                definition := definition || ")";
+
+                RETURN MakeResult(
+                      CELL[ type :=           "method"
+                          , path :=           groupid
+                          , name :=           idparts[3]
+                          , fullname :=       idparts[2] || "::" || idparts[3]
+                          , objtype :=        idparts[2]
+                          , title :=          "method " || groupid || " " || idparts[2] || " " || idparts[3]
+                          , ispublic :=       rec.ispublic AND rec.docpublic
+                          , docpublic :=      rec.docpublic
+                          , position :=       rec.line || ":" || rec.col
+                          , suggestfields :=  "title"
+                          , definition :=     definition
+                          , sourcetype :=     "harescript"
+                          , commenttext :=    RecordExists(rec.comment) ? rec.comment.token : ""
+                          , symbolparts :=    Detokenize(DeconstructSymbol(idparts[3]), " ")
+                          , definitionpath := objrec.definitionpath
+                          , topic :=          ""
+                          , data.modtime
+                          ]);
+              }
+            }
+            CASE "member"
+            {
+              RECORD rec := SELECT * FROM objrec.members WHERE name = idparts[3];
+              IF (RecordExists(rec))
+              {
+                RETURN MakeResult(
+                      CELL[ type :=           "member"
+                          , path :=           groupid
+                          , name :=           idparts[3]
+                          , fullname :=       idparts[2] || "::" || idparts[3]
+                          , objtype :=        idparts[2]
+                          , title :=          "member " || groupid || " " || idparts[2] || " " || idparts[3]
+                          , ispublic :=       rec.docpublic
+                          , docpublic :=      rec.docpublic
+                          , position :=       rec.line || ":" || rec.col
+                          , suggestfields :=  "title"
+                          , definition :=     rec.type || " " || idparts[2] || "::" || idparts[3]
+                          , sourcetype :=     "harescript"
+                          , commenttext :=    RecordExists(rec.comment) ? rec.comment.token : ""
+                          , symbolparts :=    Detokenize(DeconstructSymbol(idparts[3]), " ")
+                          , definitionpath := objrec.definitionpath
+                          , topic :=          ""
+                          , data.modtime
+                          ]);
+              }
+            }
+            CASE "property"
+            {
+              RECORD rec := SELECT * FROM objrec.properties WHERE name = idparts[3];
+              IF (RecordExists(rec))
+              {
+                RETURN MakeResult(
+                      CELL[ type :=           "property"
+                          , path :=           groupid
+                          , name :=           idparts[3]
+                          , fullname :=       idparts[2] || "::" || idparts[3]
+                          , objtype :=        idparts[2]
+                          , title :=          "property " || groupid || " " || idparts[2] || " " || idparts[3]
+                          , ispublic :=       rec.docpublic
+                          , docpublic :=      rec.docpublic
+                          , position :=       rec.line || ":" || rec.col
+                          , suggestfields :=  "title"
+                          , definition :=     "PROPERTY " || idparts[2] || "::" || idparts[3]
+                          , sourcetype :=     "harescript"
+                          , symbolparts :=    Detokenize(DeconstructSymbol(idparts[3]), " ")
+                          , definitionpath := objrec.definitionpath
+                          , topic :=          ""
+                          , data.modtime
+                          ]);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+  RECORD FUNCTION FetchJavascriptObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN
+            [ status := "result"
+            , document_fields :=
+                  [ type :=     "file"
+                  , path :=     groupid
+                  , title :=    "file " || groupid
+                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname := groupid
+                  , objtype :=  ""
+                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , position := ""
+                  , suggestfields := "title"
+                  , definition := "File " || groupid
+                  , sourcetype := "javascript"
+                  , symbolparts := ""
+                  , objectcount := LENGTH(data.objects)
+                  ]
+            , indexdate := data.modtime
+            ];
+      }
+      CASE "variable", "function", "method", "member", "class"
+      {
+        RECORD rec :=
+            SELECT *
+              FROM data.allvars
+             WHERE type = idparts[1]
+               AND COLUMN left = idparts[2];
+
+        IF (RecordExists(rec))
+        {
+          STRING objtype := Left(idparts[2], SearchLastSubString(idparts[2], ".")) || ".";
+          objtype := Substitute(objtype, ".prototype.", ".");
+          objtype := Left(objtype, LENGTH(objtype) - 1);
+
+          RETURN MakeResult(
+                CELL[ type :=     idparts[1]
+                    , path :=     groupid
+                    , title :=    idparts[1] || " " || groupid || " " || idparts[2]
+                    , name :=     SubString(idparts[2], SearchLastSubString(idparts[2], ".") + 1)
+                    , fullname := idparts[2]
+                    , objtype :=  objtype
+                    , position :=  rec.location.line || ":" || (rec.location."column" + 1)
+                    , ispublic := "true"
+                    , docpublic := "true"
+                    , suggestfields := "title"
+                    , definition := idparts[1] || " " || idparts[2] || rec.args
+                    , sourcetype := "javascript"
+                    , commenttext := rec.comment
+                    , symbolparts := Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , data.modtime
+                    ]);
+        }
+      }
+    }
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+  RECORD FUNCTION FetchXSDObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN
+            [ status := "result"
+            , document_fields :=
+                  [ type :=     "file"
+                  , path :=     groupid
+                  , title :=    "file " || groupid
+                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname := groupid
+                  , objtype :=  ""
+                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , position := ""
+                  , suggestfields := "title"
+                  , definition := "File " || groupid
+                  , sourcetype := "xsd"
+                  , namespace := data.target_ns
+                  , objectcount := LENGTH(data.objects)
+                  , symbolparts := Detokenize(DeconstructSymbol(groupid), " ")
+                  ]
+            , indexdate := data.modtime
+            ];
+      }
+      CASE "element"
+      {
+        RECORD elt :=
+            SELECT *
+              FROM data.elements
+             WHERE linkid = idparts[2];
+
+        IF (RecordExists(elt))
+        {
+          STRING commenttext := "&lt;" || elt.name;
+          FOREVERY (RECORD attr FROM SELECT * FROM elt.contents.attrs ORDER BY name)
+          {
+            IF ((#attr % 4) = 0)
+              commenttext := commenttext || "\n";
+            commenttext := commenttext || " " || attr.name || "=...";
+          }
+          commenttext := commenttext || "&gt;";
+
+          RETURN MakeResult(
+                CELL[ type :=     idparts[1]
+                    , path :=     groupid
+                    , title :=    "element " || groupid || " " || elt.name
+                    , name :=     elt.name
+                    , fullname := "{" || elt.target_namespace || "}" || elt.name
+                    , objtype :=  ""
+                    , ispublic := "true"
+                    , docpublic := "true"
+                    , position := RecordExists(elt.location) ? elt.location.line || ":1" : ""
+                    , suggestfields := "title"
+                    , definition := idparts[1] || " <" || elt.name || ">"
+                    , sourcetype := "xsd"
+                    , namespace := elt.target_namespace
+                    , commenttext := commenttext
+                    , symbolparts := Detokenize(DeconstructSymbol(groupid), " ")
+                    , data.modtime
+                    ]);
+        }
+      }
+      CASE "attribute"
+      {
+        RECORD elt :=
+            SELECT *
+              FROM data.elements
+             WHERE linkid = idparts[2];
+
+        IF (RecordExists(elt))
+        {
+          RECORD attr :=
+              SELECT *
+                FROM elt.contents.attrs
+               WHERE name = idparts[3];
+
+          IF (RecordExists(attr))
+          {
+            RETURN
+                [ status := "result"
+                , document_fields :=
+                      [ type :=     idparts[1]
+                      , path :=     groupid
+                      , title :=    "attribute " || groupid || " " || elt.name || " " || idparts[3]
+                      , name :=     idparts[3]
+                      , fullname := "{" || elt.target_namespace || "}" || elt.name || " {" || attr.target_namespace || "}" || idparts[3]
+                      , objtype :=  ""
+                      , ispublic := "true"
+                      , docpublic := "true"
+                      , position := ""
+                      , suggestfields := "title"
+                      , definition := idparts[1] || " <" || elt.name || " " || idparts[3] || "='...' />"
+                      , sourcetype := "xsd"
+                      , namespace := elt.target_namespace || " " || attr.target_namespace
+                      , symbolparts := Detokenize(DeconstructSymbol(idparts[3]), " ")
+                      ]
+                , indexdate := data.modtime
+                ];
+          }
+        }
+      }
+      CASE "simpletype"
+      {
+        RECORD simpletype :=
+            SELECT *
+              FROM data.simpletypes
+             WHERE name = idparts[2];
+
+        IF (RecordExists(simpletype))
+        {
+          RETURN MakeResult(
+                CELL[ type :=     idparts[1]
+                    , path :=     groupid
+                    , title :=    "simpletype " || groupid || " " || idparts[1]
+                    , name :=     idparts[2]
+                    , fullname := idparts[2]
+                    , objtype :=  ""
+                    , ispublic := "true"
+                    , docpublic := "true"
+                    , position := ""
+                    , suggestfields := "title"
+                    , definition := idparts[1] || " " || idparts[2]
+                    , sourcetype := "xsd"
+                    , namespace := data.target_ns
+                    , symbolparts := Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , data.modtime
+                    ]);
+        }
+      }
+
+      CASE "component"
+      {
+        RECORD component :=
+            SELECT *
+              FROM data.component_elements
+             WHERE name = idparts[2];
+
+        IF (RecordExists(component))
+        {
+          RETURN MakeResult(
+                CELL[ type :=     idparts[1]
+                    , path :=     groupid
+                    , title :=    "component " || groupid || " " || idparts[2]
+                    , name :=     idparts[2]
+                    , fullname := idparts[2]
+                    , objtype :=  ""
+                    , ispublic := "true"
+                    , docpublic := "true"
+                    , position := ""
+                    , suggestfields := "title"
+                    , definition := `<${idparts[2]}>`
+                    , sourcetype := "xsd"
+                    , namespace := data.target_ns
+                    , symbolparts := Detokenize(DeconstructSymbol(idparts[2]), " ")
+                    , topic :=    component.topic
+                    , data.modtime
+                    ]);
+        }
+        ELSE ABORT(idparts);
+      }
+
+
+    }
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+  RECORD FUNCTION FetchCSSObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN MakeResult(
+              CELL[ type :=     "file"
+                  , path :=     groupid
+                  , title :=    "file " || groupid
+                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname := groupid
+                  , objtype :=  ""
+                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , position := ""
+                  , suggestfields := "title"
+                  , definition := "File " || groupid
+                  , sourcetype := "css"
+                  , objectcount := LENGTH(data.objects)
+                  , symbolparts := ""
+                  , data.modtime
+                  ]);
+      }
+    }
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+  RECORD FUNCTION FetchXMLObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN
+            [ status := "result"
+            , document_fields :=
+                  [ type :=     "file"
+                  , path :=     groupid
+                  , title :=    "file " || groupid
+                  , name :=     SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname := groupid
+                  , objtype :=  ""
+                  , ispublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , docpublic := (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , position := ""
+                  , suggestfields := "title"
+                  , definition := "File " || groupid
+                  , sourcetype := "xml"
+                  , objectcount := LENGTH(data.objects)
+                  , symbolparts := ""
+                  ]
+            , indexdate := data.modtime
+            ];
+      }
+    }
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+  RECORD FUNCTION FetchModuleDefinitionObject(DATETIME indexdate, STRING groupid, STRING objectid, STRING ARRAY idparts, RECORD data)
+  {
+    SWITCH (idparts[1])
+    {
+      CASE "file"
+      {
+        RETURN MakeResult(
+              CELL[ type :=           "databaseschema"
+                  , path :=           groupid
+                  , title :=          "file " || groupid
+                  , name :=           SubString(groupid, SearchLastSubString(groupid, "/") + 1)
+                  , fullname :=       groupid
+                  , objtype :=        ""
+                  , ispublic :=       (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , docpublic :=      (groupid NOT LIKE "*internal/*" AND groupid NOT LIKE "*tests/*")
+                  , position :=       ""
+                  , suggestfields :=  "title"
+                  , definition :=     "File " || groupid
+                  , sourcetype :=     "moduledefinition"
+                  , symbolparts :=    ""
+                  , objectcount :=    LENGTH(data.objects)
+                  , data.modtime
+                  ]);
+      }
+      CASE "schema"
+      {
+        RECORD elt :=
+            SELECT *
+              FROM data.parts
+             WHERE elttype = "databaseschema"
+               AND name = idparts[2];
+
+        IF (RecordExists(elt))
+        {
+          RETURN MakeResult(
+                CELL[ type :=           "databaseschema"
+                    , path :=           groupid
+                    , title :=          "schema " || elt.name
+                    , name :=           elt.name
+                    , fullname :=       groupid
+                    , objtype :=        ""
+                    , ispublic :=       "true"
+                    , docpublic :=      "true"
+                    , position :=       RecordExists(elt.location) ? elt.location.line || ":1" : ""
+                    , suggestfields :=  "title"
+                    , definition :=     `Schema ${elt.name}`
+                    , commenttext :=    elt.comment.text
+                    , sourcetype :=     "moduledefinition"
+                    , objectcount :=    LENGTH(elt.tables) + 1
+                    , symbolparts :=    Detokenize(DeconstructSymbol(groupid), " ")
+                    , topic :=          elt.topic
+                    , data.modtime
+                    ]);
+        }
+      }
+      CASE "table"
+      {
+        RECORD elt :=
+            SELECT *
+              FROM data.parts
+             WHERE schemaname = idparts[2]
+               AND name = idparts[3];
+
+        IF (RecordExists(elt))
+        {
+          RETURN MakeResult(
+                CELL[ type :=           idparts[1]
+                    , path :=           groupid
+                    , title :=          `table ${elt.schemaname}.${elt.name}`
+                    , name :=           elt.name
+                    , fullname :=       `${elt.schemaname}.${elt.name}`
+                    , objtype :=        ""
+                    , ispublic :=       "true"
+                    , docpublic :=      "true"
+                    , position :=       RecordExists(elt.location) ? elt.location.line || ":1" : ""
+                    , suggestfields :=  "title"
+                    , definition :=     `Table ${elt.schemaname}.${elt.name}`
+                    , sourcetype :=     "moduledefinition"
+                    , commenttext :=    elt.comment.text
+                    , symbolparts :=    Detokenize(DeconstructSymbol(groupid), " ")
+                    , topic :=          elt.topic
+                    , data.modtime
+                    ]);
+        }
+      }
+    }
+
+    ABORT(idparts);
+
+    RETURN [ status := "error", error := "Could not find object '" || objectid || "'" ];
+  }
+
+>;

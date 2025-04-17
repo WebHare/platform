@@ -1,0 +1,88 @@
+<?wh
+
+LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+
+STRING module_ns := "http://www.webhare.net/xmlns/system/moduledefinition";
+
+
+RECORD FUNCTION CachedLibDump(STRING resourcename)
+{
+  RECORD dump := __HS_LIBDUMP(resourcename);
+  IF (NOT dump.success)
+    THROW NEW Exception(dump.errors[0].message);
+  RETURN
+      [ value :=        dump.objs
+      , eventmasks :=   GetResourceEventMasks([ resourcename ])
+      ];
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetCompiledLibraryObjectTypes(STRING resourcename)
+{
+  RETURN GetAdhocCached(CELL[ resourcename ], PTR CachedLibDump(resourcename));
+}
+
+
+PUBLIC STATIC OBJECTTYPE DevFileSystem
+<
+  UPDATE PUBLIC STRING ARRAY FUNCTION DevGetInstalledModuleNames()
+  {
+    //locally you'll get all the modules, in prod (www.webhare.dev) limit to official modules
+    RETURN GetDtapStage()="development" ? GetInstalledModuleNames() : whconstant_builtinmodules;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetObjectTypeImportFrom(STRING resourcename, STRING objtype)
+  {
+    RECORD ARRAY objs := GetCompiledLibraryObjectTypes(resourcename);
+    RETURN SELECT AS STRING importfrom FROM objs WHERE ToUppercase(name) = ToUppercase(objtype);
+  }
+
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetModuleGroupsFromDef(STRING module)
+  {
+    STRING ARRAY resnames;
+
+    RECORD moduledef := GetWebhareModuleInfo(module);
+    IF (NOT RecordExists(moduledef))
+      RETURN resnames;
+
+    resnames := resnames CONCAT moduledef.basesiteprofiles;
+    resnames := resnames CONCAT
+        SELECT AS STRING ARRAY resourcename
+          FROM GetComponentSources("tolliumcomponents") CONCAT GetComponentSources("formcomponents")
+         WHERE COLUMN module = VAR module AND NOT skipdocumentation;
+
+    OBJECT modxml := GetModuleDefinitionXML(module);
+    IF(ObjectExists(modxml))
+    {
+      // documentation > xmlschemas > xmlschema nodes
+      FOREVERY(OBJECT node FROM modxml->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition","xmlschema")->GetCurrentElements())
+        IF(node->GetAttribute("path") != "" AND NOT ParseXSBoolean(node->GetAttribute("skipdocumentation")))
+          INSERT "mod::" || module || "/data/" || node->GetAttribute("path") INTO resnames AT END;
+    }
+    RETURN resnames;
+  }
+
+  UPDATE PUBLIC STRING FUNCTION GetCacheKey()
+  {
+    RETURN "webhare";
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION DevGetComponentSources(STRING gettype)
+  {
+    RETURN
+        SELECT *
+          FROM GetComponentSources(gettype)
+         WHERE module IN this->DevGetInstalledModuleNames();
+  }
+
+>;

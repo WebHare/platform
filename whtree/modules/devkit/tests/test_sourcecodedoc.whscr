@@ -1,0 +1,86 @@
+<?wh
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/consilio.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+OBJECT idx;
+
+MACRO TestSourceCodeDoc()
+{
+  idx := NEW SourceCodeConsilioIndex();
+
+  RECORD ARRAY objects := idx->ListObjects2(DEFAULT DATETIME, "mod::system/lib/cache.whlib", DEFAULT RECORD ARRAY).objects;
+  //dumpvalue(objects,'boxed');
+
+  TestEq(TRUE, RecordExists(SELECT FROM objects WHERE id = "mod::system/lib/cache.whlib#file"));
+  //TODO validate contents of eg 'myattr' attribute
+
+  RECORD wrapcachedimage := idx->FetchObject(DEFAULT DATETIME, "mod::system/lib/cache.whlib", "mod::system/lib/cache.whlib#function#WrapCachedImage");
+  //dumpvalue(wrapcachedimage,'tree');
+  TestEq('WRAPCACHEDIMAGE', wrapcachedimage.document_fields.name); //currently stored uppercase, consider restoring mixedcase, see https://gitlab.webhare.com/webharebv/codekloppers/-/issues/584#note_138733
+  TestEq('WrapCachedImage', wrapcachedimage.document_fields.fullname);
+  TestEq('mod::system/lib/cache.whlib', wrapcachedimage.document_fields.path);
+  TestEq(TRUE, wrapcachedimage.document_fields.ispublic);
+
+  RECORD legacy_openwrdschema := idx->FetchObject(DEFAULT DATETIME, "mod::wrd/lib/objectapi.whlib", "mod::wrd/lib/objectapi.whlib#function#OpenWRDSchema");
+  TestEq(FALSE, legacy_openwrdschema.document_fields.ispublic);
+
+  RECORD exported_makexmldocumentfromhtml := idx->FetchObject(DEFAULT DATETIME, "wh::filetypes/xml.whlib", "wh::filetypes/xml.whlib#function#MakeXMLDocumentFromHTML");
+
+  TestEq(TRUE, exported_makexmldocumentfromhtml.document_fields.ispublic); // can be loadlib'ed from this poimt
+  TestEq(FALSE, exported_makexmldocumentfromhtml.document_fields.docpublic); // is documented at this point
+
+  RECORD resolvetoabsoluteurl := idx->FetchObject(DEFAULT DATETIME, "wh::internet/urls.whlib", "wh::internet/urls.whlib#function#ResolveToAbsoluteURL");
+  TestEq('wh::internet/urls.whlib', resolvetoabsoluteurl.document_fields.canonicalloadlib);
+}
+
+MACRO TestGroups()
+{
+  RECORD ARRAY groups := idx->ListGroups(DEFAULT DATETIME).groups;
+  /*
++--------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------+
+|ID                                                                                                                                          |REQUIREDINDEXDATE            |
++--------------------------------------------------------------------------------------------------------------------------------------------+-----------------------------+
+|'mod::system/moduledefinition.xml'                                                                                                          |2017-04-15 (105) 21:44:30.000|
+|'mod::system/data/newsitem-structure.xml'                                                                                                   |2015-12-24 (358) 14:38:51.000|
+|'mod::system/language/default.xml'                                                                                                          |2017-04-16 (106) 13:12:50.000|
+|'mod::system/language/nl.xml'                                                                                                               |2017-04-15 (105) 21:44:30.000|
+*/
+
+  // Check for some resources that should be present
+  FOREVERY (STRING path FROM
+      [ "mod::publisher/data/components.xsd"
+      , "mod::publisher/data/forms/formdef.xsd"
+      , "mod::publisher/data/publisher.siteprl.xml"
+      , "mod::publisher/data/siteprofile.xsd"
+      , "mod::publisher/js/richcontent/video.css"
+      , "mod::publisher/language/default.xml"
+      , "mod::publisher/lib/database.whlib"
+      , "mod::publisher/lib/internal/support.whlib"
+      , "mod::publisher/moduledefinition.xml"
+      , "mod::publisher/tolliumapps/filemanager/main.xml"
+      , "mod::publisher/tolliumapps/dashboard/contenttypes.xml"
+      , "mod::publisher/scripts/republish.whscr"
+      , "mod::publisher/tolliumapps/formedit/formcomponent.whlib"
+      , "mod::system/data/wrdschemas/usermgmt.wrdschema.xml"
+      , "mod::system/whres/xml/catalog.xml"
+      , "mod::tollium/web/ui/comm.whsock"
+      , "mod::devkit/tests/test_sourcecodedoc.whscr"
+      , "wh::datetime.whlib"
+      , "wh::internal/any.whlib"
+      ])
+  {
+    TestEq(1, Length(SELECT FROM groups WHERE id = path), path);
+  }
+
+  // Check if all returned resources actually exist
+  FOREVERY (RECORD doc FROM groups)
+    TestEq(TRUE, RecordExists(RetrieveWebHareResource(doc.id, [ allowmissing := TRUE ])), doc.id);
+}
+
+RunTestframework([ PTR TestSourceCodeDoc
+                 , PTR TestGroups
+                 ]
+                 );

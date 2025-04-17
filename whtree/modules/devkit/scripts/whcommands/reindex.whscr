@@ -1,0 +1,76 @@
+<?wh
+// short: Trigger reindex of source file
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::consilio/lib/api.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+
+RECORD args := ParseArguments(GetConsoleArguments(),
+    [ [ name := "foreground", type := "switch" ]
+    , [ name := "filemasks", type := "paramlist", required := TRUE ]
+    ]);
+
+IF (NOT RecordExists(args) OR Length(args.filemasks) = 0)
+  TerminateScriptWithError("Syntax: wh devkit:reindex file/path");
+
+OpenPrimary();
+OBJECT sourcecodeindex := OpenConsilioCatalog(devconstants.catalog_sourcecode)->OpenContentSource(devconstants.contentsource_moduleresources);
+
+STRING ARRAY masks;
+FOREVERY(STRING mask FROM args.filemasks)
+{
+  IF (SearchSubString(mask, "*") != -1) //we assume wildcard-less domains will refer to a path on disk
+  {
+    INSERT mask INTO masks aT END;
+    CONTINUE;
+  }
+
+  IF (mask NOT LIKE "*::*")
+  {
+    mask := IsPathAbsolute(mask) ? mask : MergePath(GetCurrentPath(), mask);
+
+    RECORD lookup := GetDiskFileProperties(mask);
+    IF (NOT RecordExists(lookup))
+      TerminateScriptWithError(`No such file/directory ${mask}`);
+
+    STRING resource := GetResourceNameFromDiskPath(mask);
+    IF (resource = "")
+      TerminateScriptWithError(`Could not translate ${mask} to a valid resource`);
+
+    mask := resource;
+  }
+
+  IF(mask LIKE "*/") //appears to refer to a directory
+  {
+    INSERT mask || "*" INTO masks AT END;
+  }
+  ELSE //apears to refer to a file, but also support it as a directory just in case
+  {
+    INSERT mask INTO masks AT END;
+    INSERT mask || "/*" INTO masks AT END;
+  }
+}
+
+BOOLEAN FUNCTION __MatchesAnyMask(STRING lookfor, STRING ARRAY _masks)
+{
+  FOREVERY(STRING mask FROM _masks)
+    IF(ToUppercase(lookfor) LIKE ToUppercase(mask))
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+STRING ARRAY validgroups := SELECT AS STRING ARRAY groupid
+                              FROM sourcecodeindex->ListGroups()
+                             WHERE __MatchesAnyMask(groupid,masks);
+
+FOREVERY(STRING grp FROM validgroups)
+{
+  PRINT(`${args.foreground ? "Processing" : "Scheduling"} ${grp}\n`);
+  sourcecodeindex->ReindexGroup(grp, [ foreground := args.foreground, rebuild := TRUE ]);
+}

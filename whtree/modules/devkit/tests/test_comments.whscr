@@ -1,0 +1,393 @@
+<?wh
+
+LOADLIB "wh::filetypes/markdown.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/testing.whlib";
+
+
+
+MACRO TestCommentParsing()
+{
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=          ParseMarkDown("This library rocks")
+      , long :=           ParseMarkDown("first line\n  second line\n    code\nlowest indent")
+      , examples :=       [ ParseMarkDown("```harescript\nExample 1\n  Indented line\n```"), ParseMarkDown("````harescript\n```\n Example 2\n```\n````") ]
+      , topic :=          [ name := "consilio", section := "api" ]
+      , markedprivate :=  DEFAULT RECORD
+/*      , documents :=      [ [ symbolreference :=    "type1"
+                            , __position :=         "type1"
+                            ]
+                          , [ symbolreference :=    "mod::lib/bla#bla"
+                            , __position :=         "blalib"
+                            ]
+                          ] // references to extra documented symbols*/
+      , errors :=         RECORD[]
+      , warnings :=       RECORD[]
+      ], `inline::
+<?wh
+
+/** @topic consilio/api
+    @short
+
+    This library rocks
+
+    @long first line
+        second line
+          code
+      lowest indent
+    @example
+Example 1
+  Indented line
+    @example
+    \`\`\`
+     Example 2
+    \`\`\`
+*/
+`);
+/*
+    @documents type1 mod::lib/bla#bla
+//             ^
+//                   ^blalib
+*/
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ params :=         [ [ name :=           "p1"
+                            , variabletype :=   ""
+                            , description :=    ParseMarkDown("")
+                            , __position :=     ""
+                            ]
+                          , [ name :=           "p2"
+                            , variabletype :=   ""
+                            , description :=    ParseMarkDown("param2")
+                            ]
+                          , [ name :=           "p3"
+                            , variabletype :=   "record array"
+                            , description :=    ParseMarkDown("param3")
+                            ]
+                          ]
+      , cells :=          [ [ name :=           "p3.p4"
+                            , variabletype :=   "object"
+                            , objecttypes :=   [ [ objtype := "myobjtype", __position := "myobjtype" ] ]
+                            , description :=    ParseMarkDown("cell1")
+                            , __position :=     ""
+                            ]
+                          , [ name :=           "return.r1"
+                            , variabletype :=   "object array"
+                            , objecttypes :=    [ [ objtype := "myobjtype2", __position := "myobjtype2" ]
+                                                , [ objtype := "myobjtype3", __position := "myobjtype3" ]
+                                                ]
+                            , description :=    ParseMarkDown("ret1")
+                            ]
+                          , [ name :=           "return.r2"
+                            , variabletype :=   "function ptr array"
+                            , description :=    ParseMarkDown("ret2")
+                            ]
+                          ]
+      , returnvalue :=    [ name :=           ""
+                          , variabletype :=   ""
+                          , objecttypes :=    RECORD[]
+                          , description :=    ParseMarkDown("Somuch")
+                          ]
+      , errors :=         RECORD[]
+      , warnings :=       RECORD[]
+      ], `inline::
+<?wh
+/** @param p1
+//         ^
+    @param p2 param2
+    @param(record array) p3 param3
+    @cell(object myobjtype) p3.p4 cell1
+//               ^
+//                          ^
+    @return Somuch
+    @cell(object array myobjtype2 myobjtype3) return.r1 ret1
+//                     ^
+//                                ^
+    @cell(function ptr array) return.r2 ret2
+*/
+`, [ symboltype := "function" ]);
+
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=          ParseMarkDown("Private stuff")
+      , long :=           DEFAULT RECORD
+      , examples :=       RECORD[]
+      , topic :=          DEFAULT RECORD
+      , markedprivate :=  [ reason := "" ]
+  //    , documents :=      RECORD[]
+      , params :=         RECORD[]
+      , cells :=          RECORD[]
+      , returnvalue :=    DEFAULT RECORD
+      , errors :=         RECORD[]
+      , warnings :=       RECORD[]
+      ], `inline::
+<?wh
+
+/** Private stuff
+    @private*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=          ParseMarkDown("Private stuff")
+      , long :=           DEFAULT RECORD
+      , examples :=       RECORD[]
+      , topic :=          DEFAULT RECORD
+      , markedprivate :=  [ reason := "this is a big secret" ]
+//      , documents :=      RECORD[]
+      , params :=         RECORD[]
+      , cells :=          RECORD[]
+      , returnvalue :=    DEFAULT RECORD
+      , errors :=         RECORD[]
+      , warnings :=       RECORD[]
+      ], `inline::
+<?wh
+
+/** Private stuff
+    @private this is a big secret */
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=          ParseMarkDown("Short stuff")
+      , long :=           ParseMarkDown("Long stuff")
+      , examples :=       RECORD[]
+  //    , documents :=      RECORD[]
+      , params :=         [ [ name :=         "name"
+                            , description :=  ParseMarkDown("description")
+                            ]
+                          , [ name :=         "name2"
+                            , description :=  ParseMarkDown("description")
+                            ]
+                          ]
+      , cells :=          RECORD[]
+      , returnvalue :=    DEFAULT RECORD
+      , errors :=         RECORD[]
+      , warnings :=       RECORD[]
+      ], `inline::
+<?wh
+
+/**                 Short stuff
+    @long           Long stuff
+    @param(string)  name description
+    @param(string)          name2         description
+*/
+`, [ symboltype := "function" ]);
+
+  // Optional 'options' parameter for cells
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ short :=          ParseMarkDown("Short stuff")
+      , params :=         [ [ name :=           "options"
+                            , description :=    ParseMarkDown("Options")
+                            ]
+                          ]
+      , cells :=          [ [ name :=           "options.test"
+                            , description :=    ParseMarkDown("Test option")
+                            , __position :=     ""
+                            ]
+                          ]
+      ], `inline::
+<?wh
+
+/** Short stuff
+    @cell options.test Test option
+//        ^
+*/
+`, [ symboltype := "function" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ canonicalloadlib :=   [ resourcename := "mod::devkit/lib/dummy.whlib"
+                              , __position := "a"
+                              ]
+      ], `inline::
+<?wh
+
+/** @loadlib mod::devkit/lib/dummy.whlib
+//           ^ a
+*/
+`, [ symboltype := "function" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ signature :=      [ signature := "RECORD FUNCTION Test()"
+                          , __position := "signature"
+                          ]
+      ], `inline::
+<?wh
+
+/** @signature RECORD FUNCTION Test()
+//             ^ signature
+*/
+`, [ symboltype := "function" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT,
+      [ relevantsymbols :=  [ [ symbolreference := "#a"
+                              , __position := "a"
+                              ]
+                            , [ symbolreference := "x#b"
+                              , __position := "b"
+                              ]
+                            , [ symbolreference := "%c"
+                              , __position := "c"
+                              ]
+                            ]
+      ], `inline::
+<?wh
+
+/** @see a x#b %c
+//       ^ a
+  //       ^ b
+//             ^ c
+*/
+`, [ symboltype := "function" ]);
+
+}
+
+
+MACRO TestFeedback()
+{
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/** @topic*consilio
+//        ^ error Expected whitespace after @topic
+    @topic consilio/api
+    @topic consilio/api
+//  ^ error Multiple tags of type @topic found
+*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+/** @topic consilio
+//                 ^ error Expected '/' after topic name
+*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+/** @topic consilio/
+//                  ^ error Expected a topic section name
+*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+/** @topic consilio/a^*&()
+//                  ^ error Expected a valid topic section name
+*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+/** @topic consilio/api more text
+//                      ^ error Extra text after topic section name
+*/
+`);
+
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/** @faulty
+//  ^ error Unknown comment tag @faulty found
+    @param (functionptr)  name  title
+//          ^ warning Please use spaces in typenames
+    @cell(integer
+//               ^ error Expected ')'
+    @cell(function)
+//                ^ error Expected 'ptr'
+    @cell(illegal)
+//        ^ error Unknown typename 'illegal'
+    @cell(  function  ptr  array  ) name2 title
+//                                  ^ error Please specify cells as <paramname>.cellname or return.cellname
+     @cell(  object  array  name  name  ) name3 title
+//                                        ^ error Please specify cells as <paramname>.cellname or return.cellname
+
+    @param(function ptr)
+//                      ^ error Expected a name here
+    @param
+//        ^ error Expected a name here
+    @cell(integer)
+//                ^ error Expected a cell reference here
+    @param name4
+    @cell name4.test
+    @cell name4.test2.test descr
+    @return
+
+    @cell name5 x
+//        ^ error Please specify cells as <paramname>.cellname or return.cellname
+    @cell name5.test3 x
+    @cell name5.test3.testa x
+    @cell name5.test4 x
+    @cell name5.test3.testb x
+//        ^ error Cell specification ordering error
+    @param(object #validref) p1 No such object exists
+    @param(object @aaa) p2 Illegal character in symbol reference
+//                ^ error Could not parse symbol reference
+    @return
+//  ^ error Multiple tags of type @return found
+*/
+`, [ symboltype := "function" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/// @topic forms
+
+/** @cell return.a value
+    @return Return value
+//  ^ error Cell specification ordering error
+*/
+RECORD FUNCTION x() { RETURN CELL[]; }
+`, [ symbol := "x" ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/** @public
+    @private
+//  ^ error Cannot have both @private and @public tags
+*/
+`);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/** @private
+    @public
+//  ^ error Cannot have both @private and @public tags
+*/
+`);
+}
+
+MACRO TestTabHandling()
+{
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/** \t @topic*forms
+//  \t       ^ error Expected whitespace after @topic
+\t@ topic*forms
+\t// <- error Unknown comment tag @ found
+*/
+`, [ tabwidth := 8 ]);
+
+  TestAnnotatedCommentParse(DEFAULT OBJECT, DEFAULT RECORD, `inline::
+<?wh
+
+/**
+\t@cell(\tobject\tname\t@\tname\ttitle
+\t      \t      \t    \t// <- error Could not parse symbol reference
+\t      \t      \t    \t \t    \t     // <- error Expected ')'
+*/
+
+`, [ tabwidth := 8, symboltype := "function" ]);
+
+}
+
+RunTestFramework([ PTR TestCommentParsing
+                 , PTR TestFeedback
+                 , PTR TestTabHandling
+                 ],
+                 [ usedatabase := FALSE
+                 ]);

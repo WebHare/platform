@@ -1,0 +1,293 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::regex.whlib";
+LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::internal/hsselftests.whlib";
+
+LOADLIB "mod::consilio/lib/catalogs.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/fs.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/harescript.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/processing.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/support.whlib";
+PUBLIC MACRO EnsureSourceReindexed(STRING ARRAY scripts)
+{
+  OBJECT catalog := OpenConsilioCatalog(devconstants.catalog_sourcecode);
+  Print(catalog->GetStorageInfo()||'\n');
+
+  OBJECT contentsource := catalog->OpenContentSource(devconstants.contentsource_moduleresources);
+  contentsource->UpdateMultiple((SELECT action := "reindex", groupid FROM ToRecordArray(scripts,"groupid")), [ rebuild := TRUE, foreground := TRUE ]);
+
+  Print("indexed necessary files\n");
+}
+
+PUBLIC RECORD FUNCTION ParseAnnotatedScript(STRING resource, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(SKIPTRACE)
+{
+  options := ValidateOptions(
+      [ tabwidth :=     2
+      ], options);
+
+  RECORD ann := ParseDevTestAnnotation(BlobToString(GetWebhareResource(resource)), CELL[ options.tabwidth ]);
+
+  RECORD ARRAY compileerrors := TestCompile(ann.script);
+  IF (RecordExists(compileerrors))
+  {
+    PRINT(GetAnnotatedErrors(ann.script, compileerrors, CELL[ options.tabwidth ]));
+    ABORT("Got compile error");
+ }
+
+ RETURN CELL
+    [ ann
+    , ann.script
+    , options.tabwidth
+    ];
+}
+
+PUBLIC RECORD FUNCTION TestAnnotatedScriptResult(RECORD parsed, RECORD expect, RECORD got) __ATTRIBUTES__(SKIPTRACE)
+{
+  expect := [ errors := RECORD[], warnings := RECORD[], ...expect ];
+  expect := ProcessExpectedWithAnnotation(expect, parsed.ann);
+
+  expect.errors := expect.errors CONCAT SELECT message, line, col FROM parsed.ann.locations WHERE id = "error";
+  expect.warnings := expect.warnings CONCAT SELECT message, line, col FROM parsed.ann.locations WHERE id = "warning";
+
+  expect.errors := SELECT * FROM expect.errors ORDER BY line, col, message;
+  expect.warnings := SELECT * FROM expect.warnings ORDER BY line, col, message;
+
+  got.errors := SELECT * FROM got.errors ORDER BY line, col, message;
+  got.warnings := SELECT * FROM got.warnings ORDER BY line, col, message;
+
+  TRY
+  {
+    TestEQMembers(CELL[ expect.errors, expect.warnings], CELL[ got.errors, got.warnings ], "*");
+  }
+  FINALLY (OBJECT e)
+    IF (ObjectExists(e))
+    {
+      RECORD ARRAY messages :=
+          (SELECT line, col, color := "red", type := "error", orgmessage := message, message := "expect error: " || message FROM expect.errors) CONCAT
+          (SELECT line, col, color := "red", type := "error", orgmessage := message, message := "got    error: " || message FROM got.errors) CONCAT
+          (SELECT line, col, color := "red", type := "warning", orgmessage := message, message := "expect warning: " || message FROM expect.warnings) CONCAT
+          (SELECT line, col, color := "red", type := "warning", orgmessage := message, message := "got    warning: " || message FROM got.warnings);
+
+      messages := SELECT * FROM messages ORDER BY line, col, message, type;
+
+      FOREVERY (RECORD rec FROM messages)
+        IF (#rec != 0 AND rec.message LIKE "got*")
+        {
+          RECORD prev := messages[#rec-1];
+          IF (RecordExists(prev) AND EncodeJSON(CELL[ ...prev, DELETE message ]) = EncodeJSON(CELL[ ...rec, DELETE message ]))
+          {
+            messages[#rec].color := "green";
+            messages[#rec-1].color := messages[#rec].color;
+          }
+        }
+
+      PRINT(GetAnnotatedErrors(parsed.script, messages, CELL[ parsed.tabwidth ]));
+      THROW e;
+    }
+
+  RETURN expect;
+}
+
+PUBLIC MACRO TestAnnotatedCommentParse(OBJECT source, RECORD expect, STRING resource, RECORD options DEFAULTSTO DEFAULT RECORD) __ATTRIBUTES__(SKIPTRACE)
+{
+  options := ValidateOptions(
+      [ tabwidth :=     2
+      , symboltype :=   ""
+      , symbol :=       ""
+      , mode :=         ""
+      , resourcename := ""
+      ], options,
+      [ enums :=      [ mode := [ "", "check-harescript", "expandcells" ]
+                      ]
+      ]);
+
+  OBJECT fs := NEW DevFileSystem;
+
+  RECORD parsed := ParseAnnotatedScript(resource, CELL[ options.tabwidth ]);
+
+  RECORD lib := ParseHareScriptFileDeclarations(StringToBlob(parsed.script));
+
+  RECORD ARRAY symbols :=
+      [ [ name :=   "",   symbol :=   DEFAULT RECORD, comment :=  lib.libcomment ] ];
+
+  FOREVERY (RECORD rec FROM lib.variables CONCAT lib.functions)
+    INSERT CELL[ rec.name, symbol := rec, rec.comment ] INTO symbols AT END;
+  FOREVERY (RECORD rec FROM lib.objecttypes)
+  {
+    INSERT CELL[ rec.name, symbol := rec, rec.comment ] INTO symbols AT END;
+    FOREVERY (RECORD rec2 FROM rec.members CONCAT rec.properties CONCAT rec.methods)
+      INSERT CELL[ name := `${rec.name}::${rec2.name}`, symbol := rec, rec.comment ] INTO symbols AT END;
+  }
+
+  RECORD todo := SELECT * FROM symbols WHERE name = options.symbol;
+  IF (NOT RecordExists(todo))
+    THROW NEW Exception(`No such symbol '${options.symbol}'`);
+
+  IF (NOT RecordExists(todo.comment))
+    THROW NEW Exception(`No comment for symbol '${options.symbol ?? "library comment"}'`);
+
+  TestEQ(TRUE, RecordExists(todo.comment));
+
+  STRING symboltype := options.symboltype ?? (RecordExists(todo.symbol) ? todo.symbol.symboltype : "library");
+  RECORD got := ParseCommentToken(todo.comment, CELL[ options.tabwidth, symboltype ]);
+
+  IF (options.mode = "check-harescript")
+    got := CheckHarescriptSymbolParsedComment(options.resourcename, todo.symbol, got, CELL[ source ]);
+  ELSE IF (options.mode = "expandcells")
+  {
+    IF (options.resourcename != "")
+      source->OverrideLibrary(options.resourcename, StringToBlob(parsed.script));
+
+    TRY
+      got := ExpandSymbolCellDefs(fs, options.resourcename ?? resource, CELL[ todo.name, todo.symbol.symboltype, definition := todo.symbol ], got, source);
+    FINALLY
+    {
+      IF (options.resourcename != "")
+        source->OverrideLibrary(options.resourcename, DEFAULT BLOB);
+    }
+
+  }
+
+  expect := TestAnnotatedScriptResult(parsed, expect, got);
+
+  TestEQMembers(expect, got, "*");
+}
+
+PUBLIC RECORD FUNCTION ParseDevTestAnnotation(STRING test, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tabwidth :=   2
+      ], options);
+
+  IF (test LIKE "\n*")
+    test := SubString(test, 1);
+
+  OBJECT rex := NEW RegEx("^((([ \t]*)//[ \t]*)(\\^|<-)[ \t]*)(([-a-zA-Z_0-9]+)( (.*))?)?$");
+  RECORD ARRAY ares;
+  RECORD ARRAY locations;
+  STRING script;
+
+  STRING lastline;
+  INTEGER line;
+  FOREVERY (STRING linetext FROM Tokenize(test, "\n"))
+  {
+    RECORD ARRAY matches := rex->Exec(linetext);
+    //DumpValue(CELL[ linetext, matches ]);
+    IF (RecordExists(matches))
+    {
+      INTEGER col := matches[4].value = "<-"
+          ? GetColumnAfterText(matches[3].value, 1, options.tabwidth)
+          : GetColumnAfterText(matches[2].value, 1, options.tabwidth);
+      STRING id := matches[6].value;
+
+      IF (id = "")
+      {
+        OBJECT p := NEW StringParser(SubString(ExpandTabs(lastline, 1, options.tabwidth), col - 1));
+        id := p->ParseWhileInSet(p->set_alpha || p->set_digit || "_.");
+      }
+
+      INSERT CELL
+          [ id
+          , message :=  matches[8].value
+          , line
+          , col
+          ] INTO locations AT END;
+    }
+    ELSE
+    {
+      line := line + 1;
+      script := script || linetext || "\n";
+      lastline := linetext;
+    }
+  }
+
+  RETURN CELL[ script, locations ];
+}
+
+RECORD FUNCTION LookupPosition(RECORD annotation, STRING position)
+{
+  RECORD location := SELECT line, col FROM annotation.locations WHERE id = position;
+  IF (NOT RecordExists(location))
+    THROW NEW Exception(`No such position ${position}`);
+  RETURN location;
+}
+
+PUBLIC VARIANT FUNCTION ProcessExpectedWithAnnotation(VARIANT expect, RECORD annotation)
+{
+  IF (TypeID(expect) = TypeID(RECORD ARRAY))
+    RETURN SELECT AS RECORD ARRAY ProcessExpectedWithAnnotation(rec, annotation) FROM RECORD ARRAY(expect) AS rec;
+  ELSE IF (TypeID(expect) = TypeID(RECORD))
+  {
+    IF (CellExists(expect, "__position"))
+    {
+      expect := CELL[ ...expect, DELETE __position, ...LookupPosition(annotation, expect.__position ?? expect.name) ];
+    }
+
+    FOREVERY (RECORD rec FROM UnpackRecord(expect))
+      IF (TypeID(rec.value) IN [ TypeID(RECORD), TypeID(RECORD ARRAY) ])
+        expect := CellUpdate(expect, rec.name, ProcessExpectedWithAnnotation(rec.value, annotation));
+      ELSE IF (rec.name LIKE "*__POSITION")
+      {
+        IF (rec.name LIKE "LINE*")
+          expect := CellInsert(expect, Substitute(rec.name, "__POSITION", ""), LookupPosition(annotation, rec.value).line);
+        ELSE
+          ABORT(rec.name);
+        expect := CellDelete(expect, rec.name);
+      }
+  }
+  RETURN expect;
+}
+
+STRING FUNCTION EncodeParam(STRING param, BOOLEAN required)
+{
+  IF (param = "" AND NOT required)
+    RETURN "";
+
+  RETURN ((param LIKE `* *`) OR (param LIKE `*"*`))
+    ? `"${Substitute(param, `"`, `\\"`)}" `
+    : `${param} `;
+}
+
+PUBLIC STRING FUNCTION GetAnnotatedErrors(STRING script, RECORD ARRAY messages, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ tabwidth :=   2
+      ], options);
+
+  STRING res;
+  FOREVERY (STRING line FROM Tokenize(ExpandTabs(script, 1, options.tabwidth, [ fordebugdisplay := TRUE ]), "\n"))
+  {
+    RECORD ARRAY relevant_messages :=
+        SELECT *
+          FROM messages
+         WHERE COLUMN line = VAR #line + 1;
+
+    // Skip empty first line
+    IF (#line = 0 AND line = "" AND NOT RecordExists(relevant_messages))
+      CONTINUE;
+
+    res := res || line || "\n";
+    FOREVERY (RECORD msg FROM relevant_messages)
+    {
+      STRING color := CellExists(msg, "color") ? msg.color : "";
+      IF (color != "")
+        res := res || AnsiCMD(color);
+
+      res := res || (msg.col < 3 ? Left("  ", msg.col - 1) || "// <-" : "//" || RepeatText(" ", msg.col - 3) || "^ ");
+      IF (CellExists(msg, "iserror"))
+        res := res || `${msg.iserror ? "E" : "W"}:${msg.code} ${EncodeParam(msg.param1, msg.param2 != "")}${EncodeParam(msg.param2, FALSE)}# `;
+      res := res || msg.message || (color = "" ? "" : AnsiCMD("reset")) || "\n";
+    }
+  }
+
+  RETURN res;
+}

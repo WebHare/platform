@@ -1,0 +1,1601 @@
+﻿<?wh
+
+LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/fs.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/support.whlib";
+LOADLIB "mod::devkit/lib/sourcecodeindex/topics.whlib";
+
+
+INTEGER FUNCTION OpenHareScriptFile(BLOB hsfile) __ATTRIBUTES__(EXTERNAL);
+MACRO CloseHarescriptFile(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+
+/** @short Grab a token from a HareScript file
+    @param id ID of HareScript file to read
+    @return Token, or a non-existing record if EOF has been reached
+    @cell return.rawtoken Raw token text
+    @cell return.token Processed token text (converted newlines, etc.)
+    @cell return.iswhitespace True if this token is only whitespace
+    @cell return.istype True if this token is a harescript type
+    @cell return.isexternaldata True if this token contains data outside <?wh processor tags
+    @cell return.line Linenumber of this token
+    @cell return.col Column position of this token
+*/
+RECORD FUNCTION GetHareScriptFileToken(INTEGER id) __ATTRIBUTES__(EXTERNAL);
+
+/** Returns whether this token is a string
+    @param tok Token to test
+    @return TRUE if the function is a string token (not a template string!)
+*/
+BOOLEAN FUNCTION IsStringToken(STRING tok)
+{
+  RETURN Left(tok,1) IN ['"', '\''];
+}
+
+STRING FUNCTION DecodeStringToken(STRING tok)
+{
+  RETURN DecodeJava(Substring(tok, 1, length(tok)-2));
+}
+
+CONSTANT INTEGER max_reconsumption := 2;
+
+/** Parser for declarations in a HareScript file
+*/
+STATIC OBJECTTYPE HarescriptDeclarationsParser
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  /// HareScript file token reader
+  INTEGER hsfile;
+
+  /// Current token
+  RECORD currenttoken;
+
+  /// Next token to return from [GetNextHareScriptToken](#HarescriptDeclarationsParser::GetNextHareScriptToken).
+  RECORD ARRAY reconsumedtokens;
+
+  /// Last 2 token before current token, reversed order (last is at 0)
+  RECORD ARRAY lasttokens;
+
+  /** Library comment
+      @type @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+  */
+  RECORD libcomment;
+
+  /** List of loadlibs
+      @cell(string) resourcename Imported library
+      @cell(integer) line Line number
+      @cell(integer) col Column number
+      @cell(record array) exports List of exports
+      @cell(string) exports.name Name of exported symbol
+      @cell(integer) exports.line Line number
+      @cell(integer) exports.col Column number
+      @cell(string) exports.deprecated Deprication message
+  */
+  RECORD ARRAY loadlibs;
+
+  /** List of variables
+      @cell(record) comment Documentation comment @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+      @cell(string) name Variable name
+      @cell(integer) line Line number
+      @cell(integer) col Column number
+      @cell(boolean) ispublic Whether the variable is public
+      @cell(string) type Variable type
+      @cell(boolean) isconstant Whether the variable is a constant.
+      @cell(string) objectname Name of relevant object (for members)
+      @cell(string) symboltype Type of symbol ('variable')
+      @cell(record) structure Structure for schema and table variables
+      @cell(record) structure.tables List of tables in a schema definition
+      @cell(record) structure.tables.columns List of columns
+      @cell(string) structure.tables.columns.type Type of the column
+      @cell(string) structure.tables.columns.name Name of the column
+      @cell(string) structure.tables.columns.dbasename Database name of the column
+      @cell(boolean) structure.tables.columns.readonly The column is readonly
+      @cell(boolean) structure.tables.columns.warn_unindexed Signals the column is not indexed by the database
+      @cell(boolean) structure.tables.columns.binary Signals the column contains binary data
+      @cell(string) structure.tables.columns.nullexpr Value that NULLs will be translated to/from
+      @cell(boolean) structure.tables.columns.iskey Whether this column is a key
+      @cell(string) structure.tables.name Name of the table
+      @cell(string) structure.tables.dbasename Database name for the table
+      @cell(string) structure.tables.viewexpr View expression
+      @cell(record) structure.columns Columns for a table definition @includecelldef #variables.structure.tables.columns
+      @cell(string) structure.viewexpr View expression for a table definition
+  */
+  RECORD ARRAY variables;
+
+  /** List of functions
+      @cell(record) comment Documentation comment @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+      @cell(string) name Function name
+      @cell(integer) line Line number
+      @cell(integer) col Column number
+      @cell(boolean) isaggregate Whether the function is an aggregate function
+      @cell(boolean) isasync Whether the function is an async function
+      @cell(boolean) isgenerator Whether the function is a generator function
+      @cell(boolean) isupdate Whether this is an update
+      @cell(boolean) isfunction Always TRUE
+      @cell(boolean) ispublic Whether the function is public
+      @cell(string) type Return type
+      @cell(boolean) isvararg Whether the function has variable arguments
+      @cell(string) deprecated Deprecation message
+      @cell(string) objectname Name of relevant object (for methods)
+      @cell(record array) params List of parameter types
+      @cell(string) params.type Type
+      @cell(string) params.name Name of the parameter
+      @cell(string) params.defaultvalue Default value for the parameter
+      @cell(string) symboltype Type of symbol ('function')
+  */
+  RECORD ARRAY functions;
+
+  /** List of objecttypes
+      @cell(record) comment Documentation comment @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+      @cell(string) name Object type name
+      @cell(integer) line Line number
+      @cell(integer) col Column number
+      @cell(integer) linestart Line with the start of the objecttype declaration
+      @cell(integer) lineend Last line of the objecttype declaration
+      @cell(boolean) ispublic Whether the object type is public
+      @cell(boolean) isstatic Whether the object type is static
+      @cell(string) objectname Name of the object
+      @cell(record array) members Member variables @includecelldef #HarescriptDeclarationsParser::variables
+      @cell(string) members.symboltype Type of symbol ('member')
+      @cell(record array) properties Properties
+      @cell(record) properties.comment Documentation comment @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+      @cell(string) properties.name Name of the property
+      @cell(integer) properties.line Line number
+      @cell(integer) properties.col Column number
+      @cell(string) properties.ispublic Whether the property type is static
+      @cell(string) properties.mode 'readwrite', 'readonly', 'writeonly'
+      @cell(string) properties.objectname  Name of relevant object
+      @cell(record array) methods Member functions @includecelldef #HarescriptDeclarationsParser::functions
+      @cell(string) methods.symboltype Type of symbol ('method')
+      @cell(string) symboltype Type of symbol ('objecttype')
+  */
+  RECORD ARRAY objecttypes;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor
+  //
+
+  MACRO NEW(INTEGER hsfile)
+  {
+    this->hsfile := hsfile;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Parser base functions
+  //
+
+  /** Returns next harescript token, skips whitespace (when requested) and external data, gives back comments
+      @param skip_comments Whether to skip comments
+      @param skip_whitespace Whether to skip whitespace
+      @return Record describing next token
+      @cell return.token Token text
+      @cell return.iswhitespace True if this token is only whitespace
+      @cell return.istype True if this token is a harescript type
+      @cell return.isexternaldata True if this token contains data outside <?wh processor tags
+      @cell return.line Linenumber of this token
+      @cell return.col Column position of this token
+  */
+  RECORD FUNCTION GetNextHareScriptToken(BOOLEAN skip_comments, BOOLEAN skip_whitespace DEFAULTSTO TRUE)
+  {
+    RECORD tok;
+    WHILE(TRUE)
+    {
+      IF (RecordExists(this->reconsumedtokens))
+      {
+        tok := this->reconsumedtokens[0];
+        DELETE FROM this->reconsumedtokens AT 0;
+      }
+      ELSE
+        tok := GetHareScriptFileToken(this->hsfile);
+      IF(RecordExists(tok) AND (tok.isexternaldata OR (tok.iswhitespace AND skip_whitespace)))
+        CONTINUE;
+      IF (skip_comments AND RecordExists(tok) AND LEFT(tok.token, 2) IN [ "/*", "//" ])
+        CONTINUE;
+      this->lasttokens := RECORD[ this->currenttoken, ...ArraySlice(this->lasttokens, 0, max_reconsumption - 1) ];
+      this->currenttoken := tok;
+      RETURN tok;
+    }
+  }
+
+  /// Reconsume the current token (place it back in the queue)
+  MACRO ReconsumeCurrentToken()
+  {
+    IF (IsDefaultValue(this->lasttokens))
+      THROW NEW Exception(`Cannot reconsume more then ${max_reconsumption} tokens after each other`);
+//    ELSE IF (IsDefaultValue(this->currenttoken))
+//      THROW NEW Exception(`Cannot reconsume when no token has been retrieved yet`);
+
+    INSERT this->currenttoken INTO this->reconsumedtokens AT 0;
+    this->currenttoken := this->lasttokens[0];
+    DELETE FROM this->lasttokens AT 0;
+  }
+
+  /** Returns next harescript token, skips whitespace (when requested) and external data, gives back comments. Also groups type names from
+      multiple tokens into a single token (eg. `MACRO PTR ARRAY`). Reconsumes max 1 token.
+      @param skip_comments Whether to skip comments
+      @return Record describing next token
+      @cell return.token Token text
+      @cell return.iswhitespace True if this token is only whitespace
+      @cell return.istype True if this token is a harescript type
+      @cell return.isexternaldata True if this token contains data outside <?wh processor tags
+      @cell return.line Linenumber of this token
+      @cell return.col Column position of this token
+  */
+  RECORD FUNCTION GetInterestingHSToken(BOOLEAN skip_comments)
+  {
+    RECORD tok;
+    WHILE(TRUE)
+    {
+      tok := this->GetNextHareScriptToken(skip_comments);
+      IF(RecordExists(tok) AND ToUppercase(tok.token) IN ["MACRO", "FUNCTION"]) //this may be a type
+      {
+        RECORD tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(NOT RecordExists(tok2) OR ToUppercase(tok2.token) != "PTR")
+        {
+          //Too bad
+          this->ReconsumeCurrentToken();
+          RETURN tok;
+        }
+
+        tok.token := tok.token || " " || tok2.token;
+        tok.istype := TRUE;
+
+        //Very interesting, this is a MACRO or FUNCTION PTR ... Perhaps even an array?
+        tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(NOT RecordExists(tok2) OR ToUppercase(tok2.token) != "ARRAY")
+        {
+          this->ReconsumeCurrentToken();
+          this->currenttoken := tok;
+          RETURN tok;
+        }
+
+        tok.token := tok.token || " " || tok2.token;
+        this->currenttoken := tok;
+        RETURN tok;
+      }
+
+      IF (RecordExists(tok) AND tok.istype)
+      {
+        //Harescript simple types... but perhaps it's an ARRAY version of that type
+        RECORD tok2 := this->GetNextHareScriptToken(TRUE);
+        IF(NOT RecordExists(tok2) OR ToUppercase(tok2.token) != "ARRAY")
+        {
+          //Too bad
+          this->ReconsumeCurrentToken();
+          RETURN tok;
+        }
+        tok.token := tok.token || " " || tok2.token;
+      }
+
+      this->currenttoken := tok;
+      RETURN tok;
+    }
+  }
+
+  BOOLEAN FUNCTION EatCompilerDirective()
+  {
+    IF (this->currenttoken.token = "(")
+    {
+      RECORD next := this->GetNextHareScriptToken(FALSE);
+      IF (NOT RecordExists(next) OR next.token != "*")
+      {
+        this->ReconsumeCurrentToken();
+        RETURN FALSE;
+      }
+
+      /// ADDME: ifversion support
+
+      next := this->GetNextHareScriptToken(FALSE);
+      WHILE (TRUE)
+      {
+        WHILE (RecordExists(next) AND next.token != "*")
+          next := this->GetNextHareScriptToken(FALSE);
+        next := this->GetNextHareScriptToken(FALSE);
+        IF (NOT RecordExists(next) OR next.token = ")")
+          RETURN TRUE;
+      }
+    }
+    RETURN FALSE;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Specific parsers
+  //
+
+  /** Parses an expression from the current position, returns the expression without comments
+      @param extra_terminators Extra terminators for the top-level expression
+      @return The expression without comments
+  */
+  STRING FUNCTION ParseExpression(STRING ARRAY extra_terminators DEFAULTSTO DEFAULT STRING ARRAY)
+  {
+    STRING ARRAY terminators;
+    STRING value;
+
+    WHILE (TRUE)
+    {
+      RECORD tok := this->GetNextHareScriptToken(TRUE, FALSE);
+      IF(NOT RecordExists(tok))
+        BREAK;
+
+      IF (tok.token = ";")
+      {
+        this->ReconsumeCurrentToken();
+        BREAK;
+      }
+
+      IF (LENGTH(terminators) = 0)
+      {
+        IF (tok.token=',' OR tok.token=')' OR ToUppercase(tok.token) IN extra_terminators)
+        {
+          this->ReconsumeCurrentToken();
+          BREAK;
+        }
+      }
+      ELSE IF (tok.token = terminators[0])
+        DELETE FROM terminators AT 0;
+
+      IF (tok.token = "(")
+        INSERT ")" INTO terminators AT 0;
+      ELSE IF (tok.token = "[")
+        INSERT "]" INTO terminators AT 0;
+      ELSE IF (tok.token = "${")
+        INSERT "}" INTO terminators AT 0;
+
+      value := value || tok.token;
+    }
+    RETURN TrimWhitespace(value);
+  }
+
+  /** Parses an `__ATTRIBUTES__` specification
+      @return Updates for info
+      @cell(string) return.deprecated Deprecation message
+      @cell(boolean) return.isvararg TRUE for VARARG functions
+  */
+  RECORD FUNCTION ParseAttributes()
+  {
+    IF (NOT RecordExists(this->currenttoken) OR this->currenttoken.token != "__ATTRIBUTES__")
+      RETURN DEFAULT RECORD;
+
+    // Parse '('
+    this->GetNextHareScriptToken(TRUE);
+
+    // Loop
+    RECORD spec;
+    RECORD tok := this->GetNextHareScriptToken(TRUE);
+    WHILE (RecordExists(tok) AND tok.token != ")")
+    {
+      SWITCH (ToUpperCase(tok.token))
+      {
+        CASE "DEPRECATED"
+        {
+          IF (NOT CellExists(spec, "deprecated"))
+            INSERT CELL deprecated := "" INTO spec;
+
+          tok := this->GetNextHareScriptToken(TRUE);
+          IF (tok.token LIKE "'*" OR tok.token LIKE "\"*") // string token?
+            spec.deprecated := DecodeJSON(tok.token);
+          ELSE
+          {
+            spec.deprecated := "Deprecated";
+          }
+        }
+        CASE "VARARG"
+        {
+          IF (NOT CellExists(spec, "isvararg"))
+            INSERT CELL isvararg := TRUE INTO spec;
+        }
+      }
+
+      tok := this->GetNextHareScriptToken(TRUE);
+    }
+
+    // Eat ')'
+    IF (RecordExists(tok))
+      this->GetNextHareScriptToken(TRUE);
+
+    RETURN spec;
+  }
+
+  /// Skips the rest of the declaration/function definition (until the ';' or last '}')
+  MACRO SkipDeclarationRest()
+  {
+    RECORD token := this->currenttoken;
+
+    INTEGER bracedepth := 0;
+    WHILE (RecordExists(token))
+    {
+      IF ((token.token = ";" AND bracedepth = 0) OR (token.token = "}" AND bracedepth = 1))
+        BREAK;
+
+      IF (token.token = "{" OR token.token = "${")
+        bracedepth := bracedepth + 1;
+      ELSE IF (token.token = "}")
+        bracedepth := bracedepth - 1;
+      token := this->GetInterestingHSToken(TRUE);
+    }
+  }
+
+  MACRO ParseLoadLib()
+  {
+    RECORD token := this->GetInterestingHSToken(TRUE);
+    RECORD lltoken := token;
+
+    IF (IsStringToken(lltoken.token))
+    {
+      RECORD ARRAY exports;
+
+      token := this->GetInterestingHSToken(TRUE);
+      IF (RecordExists(token) AND ToUppercase(token.token) = "EXPORT")
+      {
+        WHILE (TRUE)
+        {
+          token := this->GetInterestingHSToken(TRUE);
+
+          IF (RecordExists(token))
+          {
+            RECORD info :=
+                [ name :=       token.token
+                , line :=       token.line
+                , col :=        token.col
+                , deprecated := ""
+                ];
+
+            token := this->GetInterestingHSToken(TRUE);
+
+            RECORD attrs := this->ParseAttributes();
+            info := MakeReplacedRecord(info, attrs);
+
+            INSERT info INTO exports AT END;
+          }
+          ELSE
+            token := this->GetInterestingHSToken(TRUE);
+
+          IF (NOT RecordExists(token) OR token.token != ",")
+            BREAK;
+        }
+      }
+
+      INSERT [ resourcename :=  DecodeStringToken(lltoken.token)
+             , line :=          lltoken.line
+             , col :=           lltoken.col
+             , exports :=       exports
+             ] INTO this->loadlibs AT END;
+    }
+
+    IF (token.token != ";")
+      this->SkipDeclarationRest();
+  }
+
+  /** Parses a function. Call just before parsing the name.
+      @param comment Optional commenttoken @includecelldef #HarescriptDeclarationsParser::GetNextHareScriptToken.return
+      @param props Function properties
+      @cell(boolean) props.ispublic @includecelldef #HarescriptDeclarationsParser::functions.ispublic
+      @cell(boolean) props.isupdate @includecelldef #HarescriptDeclarationsParser::functions.isupdate
+      @cell(boolean) props.isasync @includecelldef #HarescriptDeclarationsParser::functions.isasync
+      @cell(string) props.type @includecelldef #HarescriptDeclarationsParser::functions.type
+      @cell(string) props.isfunction @includecelldef #HarescriptDeclarationsParser::functions.isfunction
+      @cell(string) props.objectname @includecelldef #HarescriptDeclarationsParser::functions.objectname
+      @return Function record @includecelldef #HarescriptDeclarationsParser::functions
+  */
+  RECORD FUNCTION ParseFunction(RECORD comment, RECORD props)
+  {
+    // Get the name of the function
+    RECORD tok := this->GetInterestingHSToken(TRUE);
+    IF (NOT RecordExists(tok))
+      RETURN DEFAULT RECORD;
+
+    BOOLEAN isgenerator := tok.token = "*";
+    IF (isgenerator) // Generator (Syntax: FUNCTION* generatorname)
+      tok := this->GetInterestingHSToken(TRUE);
+    IF (NOT RecordExists(tok))
+      RETURN DEFAULT RECORD;
+
+    INTEGER line := tok.line;
+    INTEGER col := tok.col;
+    STRING name := tok.token;
+    tok := this->GetInterestingHSToken(TRUE); //Skip the opening parenthesis
+
+    RECORD ARRAY params;
+    BOOLEAN isvararg;
+
+    WHILE (TRUE) //Loop through the arguments
+    {
+      // Expect a type
+      tok := this->GetInterestingHSToken(TRUE);
+      IF (NOT RecordExists(tok))
+        RETURN DEFAULT RECORD;
+
+      IF (tok.token = ")" OR NOT tok.istype)
+        BREAK;
+
+      STRING type := ToUppercase(tok.token);
+
+      // Expect the name (or ...name)
+      tok := this->GetInterestingHSToken(TRUE);
+      IF (NOT RecordExists(tok))
+        RETURN DEFAULT RECORD;
+
+      IF (tok.token = "...")
+      {
+        isvararg := TRUE;
+        tok := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(tok))
+          RETURN DEFAULT RECORD;
+      }
+
+      RECORD argtoken := tok;
+
+      tok := this->GetInterestingHSToken(TRUE);
+      IF (NOT RecordExists(tok))
+        RETURN DEFAULT RECORD;
+
+      // Parse default value
+      STRING defaultvalue;
+      IF (ToUpperCase(tok.token) IN [ "DEFAULTSTO", ":=" ])
+      {
+        defaultvalue := this->ParseExpression();
+        tok := this->GetInterestingHSToken(TRUE);
+      }
+      ELSE
+      {
+        //Loop until ',' or ')'
+        WHILE (TRUE)
+        {
+          IF (NOT RecordExists(tok) OR tok.token=',' OR tok.token=')')
+            BREAK;
+
+          tok := this->GetInterestingHSToken(TRUE);
+        }
+      }
+
+      IF (NOT RecordExists(tok))
+        RETURN DEFAULT RECORD;
+
+      INSERT CELL[ type, name := argtoken.token, defaultvalue, argtoken.line, argtoken.col ] INTO params AT END;
+
+      IF (tok.token = ')') //this was the last argument
+        BREAK;
+    }
+
+    IF (tok.token = ")")
+      this->GetNextHareScriptToken(TRUE);
+
+    RECORD funcinfo := CELL
+        [ comment
+        , name
+        , line
+        , col
+        , props.isasync
+        , props.isaggregate
+        , isgenerator
+        , props.isupdate
+        , props.isfunction
+        , props.ispublic
+        , type :=         isgenerator ? "" : props.type
+        , isvararg
+        , deprecated := ""
+        , props.objectname
+        , params
+        , symboltype :=   props.objectname = "" ? "function" : "method"
+        ];
+
+    // Caller will skip the function body
+    RETURN CELL[ ...funcinfo, ...this->ParseAttributes() ];
+  }
+
+  RECORD FUNCTION ParseProperty(RECORD comment, RECORD props)
+  {
+    RECORD nametoken := this->GetInterestingHSToken(TRUE);
+    IF (NOT RecordExists(nametoken))
+      RETURN DEFAULT RECORD;
+
+    RECORD tok := this->GetInterestingHSToken(TRUE);
+    IF (tok.token != "(")
+      RETURN DEFAULT RECORD;
+
+    STRING getterexpr := this->ParseExpression();
+    BOOLEAN havegetter := getterexpr != '-';
+
+    tok := this->GetInterestingHSToken(TRUE);
+    IF (NOT RecordExists(tok) OR tok.token != ",")
+      RETURN DEFAULT RECORD;
+
+    STRING setterexpr := this->ParseExpression();
+    BOOLEAN havesetter := setterexpr != '-';
+
+    RETURN CELL
+        [ comment
+        , name :=           nametoken.token
+        , nametoken.line
+        , nametoken.col
+        , mode :=           havesetter ? havegetter ? "readwrite" : "writeonly" : "readonly"
+        , props.isupdate
+        , props.ispublic
+        , props.objectname
+        , symboltype :=     "property"
+        ];
+  }
+
+  /** Parses an object type
+      @param comment Comment token
+      @param props Properties
+      @cell props.ispublic @includecelldef #HarescriptDeclarationsParser::objecttypes.ispublic
+      @cell props.isstatic @includecelldef #HarescriptDeclarationsParser::objecttypes.isstatic
+      @return @includecelldef #HarescriptDeclarationsParser::objecttypes
+  */
+  RECORD FUNCTION ParseObjectType(RECORD comment, RECORD props)
+  {
+    RECORD nametoken := this->GetNextHareScriptToken(TRUE);
+    IF (NOT RecordExists(nametoken))
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY methods, members, properties;
+    INTEGER linestart := nametoken.line, lineend := nametoken.line;
+
+    RECORD token := this->GetNextHareScriptToken(TRUE);
+    STRING baseobject;
+    IF (RecordExists(token) AND ToUppercase(token.token) = "EXTEND")
+    {
+      token := this->GetNextHareScriptToken(TRUE);
+      baseobject := RecordExists(token) ? token.token : "";
+      token := this->GetNextHareScriptToken(TRUE);
+    }
+
+    //INSERT CELL base := baseobject INTO objinfo;
+    RECORD objattrs := this->ParseAttributes();
+
+    token := this->currenttoken;
+
+    // Parse the objecttype contents. Don't return on error in here, partial documentation is handy while writing code
+    RECORD lastcomment;
+    BOOLEAN isupdate;
+    BOOLEAN ispublic;
+    WHILE (TRUE)
+    {
+      RECORD oldtoken := token;
+      token := this->GetInterestingHSToken(FALSE);
+      IF (NOT RecordExists(token) OR token.token = ">")
+      {
+        lineend := RecordExists(token) ? token.line : oldtoken.line; // for module checker
+        BREAK;
+      }
+
+      // Eat compiler directives
+      IF (RecordExists(token) AND token.token = "(" AND this->EatCompilerDirective())
+        CONTINUE;
+
+      // We're expecting a function, property or function here (or a comment)
+      IF (LEFT(token.token, 2) IN [ "/*", "//" ])
+      {
+        IF (SubString(token.token, 1, 1) = SubString(token.token, 2, 1))
+          lastcomment := token;
+        ELSE
+          lastcomment := DEFAULT RECORD;
+        CONTINUE;
+      }
+
+      STRING tok := ToUppercase(token.token);
+
+      IF (tok IN [ "PUBLIC", "PRIVATE" ])
+      {
+        ispublic := tok = "PUBLIC";
+        CONTINUE;
+      }
+
+      // functions and properties in an OBJECTTYPE can have an UPDATE
+      IF (tok = "UPDATE")
+      {
+        isupdate := TRUE;
+        CONTINUE;
+      }
+
+       //Might have an upcoming FUNCTION definition!
+      IF (token.istype)
+      {
+        STRING type := tok;
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+
+        tok := ToUppercase(token.token);
+
+        BOOLEAN isaggregate;
+        IF (tok="AGGREGATE")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF (NOT RecordExists(token))
+            BREAK;
+          tok := ToUppercase(token.token);
+          isaggregate := TRUE;
+        }
+
+        BOOLEAN isasync;
+        IF (tok="ASYNC")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF (NOT RecordExists(token))
+            BREAK;
+          tok := ToUppercase(token.token);
+          isasync := TRUE;
+        }
+
+        IF (tok = "FUNCTION")
+        {
+          IF (isasync)
+            type := "";
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate, isasync, isaggregate, type, isfunction := TRUE, objectname := nametoken.token ]);
+          IF (RecordExists(func))
+          {
+            INSERT func INTO methods AT END;
+          }
+        }
+        ELSE
+        {
+          INSERT CELL
+              [ comment :=      lastcomment
+              , name :=         token.token
+              , token.line
+              , token.col
+              , ispublic
+              , isconstant :=   FALSE
+              , type
+              , objectname :=   nametoken.token
+              , symboltype :=   "member"
+              ] INTO members AT END;
+        }
+      }
+      ELSE IF (tok = "MACRO")
+      {
+        RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic := ispublic OR ToUppercase(nametoken.token) = "NEW", isupdate, isasync := FALSE, isaggregate := FALSE, type := "", isfunction := FALSE, objectname := nametoken.token ]);
+        IF (RecordExists(func))
+          INSERT func INTO methods AT END;
+      }
+      ELSE IF (tok = "FUNCTION")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (token.token = "*")
+        {
+          this->ReconsumeCurrentToken();
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate := FALSE, isasync := FALSE, isaggregate := FALSE, type := "", isfunction := TRUE, objectname := nametoken.token ]);
+          IF (RecordExists(func))
+            INSERT func INTO methods AT END;
+        }
+      }
+      ELSE IF (tok = "ASYNC")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (ToUppercase(token.token) IN [ "MACRO", "FUNCTION" ])
+        {
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate, isasync := TRUE, isaggregate := FALSE, type := "", isfunction := ToUppercase(token.token) = "FUNCTION", objectname := nametoken.token ]);
+          IF (RecordExists(func))
+            INSERT func INTO methods AT END;
+        }
+      }
+      ELSE IF (tok = "PROPERTY")
+      {
+        RECORD prop := this->ParseProperty(lastcomment, CELL[ ispublic, isupdate, objectname := nametoken.token ]);
+        IF (RecordExists(prop))
+          INSERT prop INTO properties AT END;
+      }
+
+      lastcomment := DEFAULT RECORD;
+      isupdate := FALSE;
+      ispublic := FALSE;
+
+      this->SkipDeclarationRest();
+    }
+
+    RETURN CELL
+        [ comment
+        , name :=     nametoken.token
+        , nametoken.line
+        , nametoken.col
+        , baseobject
+        , linestart
+        , lineend
+        , props.ispublic
+        , props.isstatic
+        , members
+        , properties
+        , methods
+        , symboltype :=   "objecttype"
+        , objectname :=   ""
+        ];
+  }
+
+  RECORD FUNCTION ParseSchemaFieldSpecification()
+  {
+    // INV: currenttoken is '<'
+    RECORD ARRAY tables;
+
+    RECORD lastcomment;
+    WHILE (TRUE)
+    {
+      RECORD token := this->GetInterestingHSToken(FALSE);
+
+      // Record comments
+      IF (Left(token.token,2) IN ["/*","//"])
+      {
+        //if not a real docgen comment (start with /** or ///) , skip it!
+        IF (Substring(token.token, 1, 1) = Substring(token.token, 2, 1))
+          lastcomment := token;
+        ELSE
+          lastcomment := DEFAULT RECORD;
+
+        CONTINUE;
+      }
+
+      IF (ToUppercase(token.token) = "TABLE")
+      {
+        RECORD tabletoken := token;
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+
+        RECORD tabledef;
+        BOOLEAN islike := token.token != "<";
+        IF (NOT islike)
+        {
+          tabledef := this->ParseTableFieldSpecification();
+          token := this->GetInterestingHSToken(TRUE);
+          IF (NOT RecordExists(token))
+            BREAK;
+        }
+
+        STRING name := IsStringToken(token.token) ? DecodeStringToken(token.token) : token.token;
+        STRING dbasename := name;
+
+        token := this->GetInterestingHSToken(TRUE);
+        IF (RecordExists(token) AND token.token = ".")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF (RecordExists(token))
+          {
+            name := IsStringToken(token.token) ? DecodeStringToken(token.token) : token.token;
+            dbasename := `${dbasename}.${name}`;
+            token := this->GetInterestingHSToken(TRUE);
+          }
+        }
+
+        IF (RecordExists(token) AND ToUppercase(token.token) = "AS")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF (RecordExists(token))
+          {
+            name := IsStringToken(token.token) ? DecodeStringToken(token.token) : token.token;
+            token := this->GetInterestingHSToken(TRUE);
+          }
+        }
+
+        IF (islike)
+        {
+          // Skip LIKE for now
+          WHILE (TRUE)
+          {
+            token := this->GetInterestingHSToken(TRUE);
+            IF (NOT RecordExists(token) OR token.token IN [ ",", ">" ])
+            {
+              this->ReconsumeCurrentToken();
+              BREAK;
+            }
+          }
+        }
+        ELSE
+        {
+          INSERT CELL
+              [ name
+              , dbasename
+              , comment :=    lastcomment
+              , tabletoken.line
+              , tabletoken.col
+              , ...tabledef
+              ] INTO tables AT END;
+        }
+      }
+
+      lastcomment := DEFAULT RECORD;
+      IF (NOT RecordExists(token) OR token.token = ">")
+        BREAK;
+      WHILE (RecordExists(token) AND token.token != ",")
+        token := this->GetInterestingHSToken(TRUE);
+    }
+
+    RETURN CELL[ tables ];
+  }
+
+  RECORD FUNCTION ParseTableFieldSpecification()
+  {
+    RECORD tabledef :=
+        [ columns :=    RECORD[]
+        , viewexpr :=   ""
+        ];
+
+    // INV: currenttoken is '<'
+
+    RECORD lastcomment;
+    WHILE (TRUE)
+    {
+      RECORD token := this->GetInterestingHSToken(FALSE);
+      IF (NOT RecordExists(token) OR token.token = ">")
+        BREAK;
+      IF (token.token = ",")
+        CONTINUE;
+
+      // Parse a comment if present
+      IF (LEFT(token.token, 2) IN [ "/*", "//" ])
+      {
+        IF (SubString(token.token, 1, 1) = SubString(token.token, 2, 1))
+          lastcomment := token;
+        ELSE
+          lastcomment := DEFAULT RECORD;
+        CONTINUE;
+      }
+
+      STRING type := token.token;
+
+      token := this->GetInterestingHSToken(TRUE);
+      IF (NOT RecordExists(token))
+        BREAK;
+
+      RECORD nametoken := token;
+      STRING dbasename := IsStringToken(token.token) ? DecodeStringToken(token.token) : token.token;
+      STRING name := dbasename;
+      token := this->GetInterestingHSToken(TRUE);
+      IF (RecordExists(token) AND ToUppercase(token.token) = "AS")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (RecordExists(token))
+        {
+          nametoken := token;
+          name := IsStringToken(token.token) ? DecodeStringToken(token.token) : token.token;
+          token := this->GetInterestingHSToken(TRUE);
+        }
+      }
+
+      STRING nullexpr;
+      IF (RecordExists(token) AND ToUppercase(token.token) = "NULL")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (RecordExists(token) AND token.token = ":=")
+        {
+          nullexpr := this->ParseExpression([ ">", "__ATTRIBUTES__" ]);
+          token := this->GetInterestingHSToken(TRUE);
+        }
+      }
+
+      BOOLEAN readonly;
+      BOOLEAN warn_unindexed;
+      BOOLEAN binary;
+
+      IF (RecordExists(token) AND ToUppercase(token.token) = "__ATTRIBUTES__")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        WHILE (RecordExists(token) AND token.token != ")")
+        {
+          IF (ToUppercase(token.token) = "READONLY")
+            readonly := TRUE;
+          IF (ToUppercase(token.token) = "WARN_UNINDEXED")
+            warn_unindexed := TRUE;
+          IF (ToUppercase(token.token) = "BINARY")
+            binary := TRUE;
+          token := this->GetInterestingHSToken(TRUE);
+        }
+        IF (RecordExists(token))
+          token := this->GetInterestingHSToken(TRUE);
+      }
+
+      INSERT CELL
+          [ type
+          , dbasename
+          , name
+          , nametoken.line
+          , nametoken.col
+          , comment :=      lastcomment
+          , readonly
+          , warn_unindexed
+          , binary
+          , nullexpr
+          , iskey := FALSE
+          ] INTO tabledef.columns AT END;
+
+      lastcomment := DEFAULT RECORD;
+
+      // Eat extra stuff
+      WHILE (RecordExists(token) AND token.token NOT IN [ ",", ";", ">" ])
+        token := this->GetInterestingHSToken(TRUE);
+
+      IF (NOT RecordExists(token) OR token.token = ">")
+        BREAK;
+
+      IF (token.token = ";")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (RecordExists(token) AND ToUppercase(token.token) = "KEY")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          WHILE (RecordExists(token) AND ToUppercase(token.token) != ">")
+          {
+            IF (token.token != ",")
+              UPDATE tabledef.columns SET iskey := TRUE WHERE ToUppercase(COLUMN name) = ToUppercase(token.token);
+            token := this->GetInterestingHSToken(TRUE);
+          }
+        }
+        ELSE IF (RecordExists(token) AND ToUppercase(token.token) = "WHERE")
+        {
+          tabledef.viewexpr := this->ParseExpression([ ">" ]);
+          token := this->GetInterestingHSToken(TRUE);
+        }
+
+        WHILE (RecordExists(token) AND token.token != ">")
+          token := this->GetInterestingHSToken(TRUE);
+
+        BREAK;
+      }
+    }
+
+    RETURN tabledef;
+  }
+
+  /** Parses a script file
+      @param options Options @@includecelldef #Execute.options
+  */
+  MACRO ParseScript(RECORD options)
+  {
+    // First grab a library comment
+    RECORD token := this->GetInterestingHSToken(FALSE);
+
+    // Eat compiler directives
+    WHILE (RecordExists(token) AND token.token = "(" AND this->EatCompilerDirective())
+      token := this->GetInterestingHSToken(FALSE);
+
+    IF (RecordExists(token) AND Left(token.token,2) IN ["/*","//"] AND Substring(token.token,1,1) = Substring(token.token,2,1)) //a docgen comment
+      this->libcomment := token;
+    ELSE IF (RecordExists(token))
+      this->ReconsumeCurrentToken();
+
+    IF (options.onlylibrarycomment)
+      RETURN;
+
+    // And now parse the file itself
+    RECORD lastcomment;
+    WHILE (TRUE)
+    {
+      token := this->GetInterestingHSToken(FALSE);
+      IF (NOT RecordExists(token)) //EOF
+        BREAK;
+
+      // Eat compiler directives
+      IF (RecordExists(token) AND token.token = "(" AND this->EatCompilerDirective())
+        CONTINUE;
+
+      STRING tok := ToUppercase(token.token);
+
+      // Parse LOADLIBs
+      IF(tok = "LOADLIB")
+      {
+        this->ParseLoadLib();
+        lastcomment := DEFAULT RECORD;
+        CONTINUE;
+      }
+
+      // Record comments
+      IF (Left(tok,2) IN ["/*","//"])
+      {
+        //if not a real docgen comment (start with /** or ///) , skip it!
+        IF (Substring(tok, 1, 1) = Substring(tok, 2, 1))
+          lastcomment := token;
+        ELSE
+          lastcomment := DEFAULT RECORD;
+
+        CONTINUE;
+      }
+
+      // Try to eat a `PUBLIC` or `PRIVATE` here..
+      BOOLEAN ispublic := tok = "PUBLIC";
+      IF (ispublic OR tok = "PRIVATE")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+        tok := ToUppercase(token.token);
+      }
+
+      // Eat `CONSTANT`
+      BOOLEAN isconstant := tok = "CONSTANT" OR tok = "__CONSTREF";
+      IF (isconstant)
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+        tok := ToUppercase(token.token);
+      }
+
+       // Current token is a type, might be a function
+      IF (token.istype)
+      {
+        STRING type := tok;
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+
+        // Parse `AGGREGATE`
+        BOOLEAN isaggregate;
+        tok := ToUppercase(token.token);
+        IF (tok = "AGGREGATE")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF (NOT RecordExists(token))
+            BREAK;
+          tok := ToUppercase(token.token);
+          isaggregate := TRUE;
+        }
+
+        // Parse `ASYNC`
+        BOOLEAN isasync;
+        IF (tok = "ASYNC")
+        {
+          token := this->GetInterestingHSToken(TRUE);
+          IF(NOT RecordExists(token))
+            BREAK;
+          tok:=ToUppercase(token.token);
+          isasync := TRUE;
+        }
+
+        // Expect `FUNCTION`
+        IF (tok = "FUNCTION")
+        {
+          IF (isasync)
+            type := "";
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate := FALSE, isasync, isaggregate, type, isfunction := TRUE, objectname := "" ]);
+          IF (RecordExists(func))
+            INSERT func INTO this->functions AT END;
+        }
+        ELSE
+        {
+          RECORD structure;
+          IF (tok = "<")
+          {
+            IF (type = "SCHEMA")
+            {
+              structure := this->ParseSchemaFieldSpecification();
+            }
+            ELSE IF (type = "TABLE")
+            {
+              structure := this->ParseTableFieldSpecification();
+            }
+            ELSE
+            {
+              // Skip table/schema definitions
+              IF (tok = "<")
+              {
+                INTEGER depth := 1;
+                WHILE (TRUE)
+                {
+                  token := this->GetInterestingHSToken(TRUE);
+                  IF(NOT RecordExists(token) OR depth = 0)
+                    BREAK;
+                  IF (token.token = ">")
+                    depth := depth - 1;
+                  ELSE IF (token.token = "<")
+                    depth := depth + 1;
+                }
+              }
+            }
+            token := this->GetInterestingHSToken(TRUE);
+          }
+
+          BOOLEAN no_skip_decl_rest;
+          WHILE (RecordExists(token))
+          {
+            RECORD nametoken := token;
+            RECORD inlinecomment;
+
+            token := this->GetInterestingHSToken(TRUE);
+            IF (RecordExists(token) AND token.token = ":=")
+            {
+              this->ParseExpression();
+              token := this->GetInterestingHSToken(TRUE);
+            }
+
+            BOOLEAN have_more;
+            IF (RecordExists(token) AND token.token IN [ ",", ";" ])
+            {
+              IF (token.token = ",")
+                have_more := TRUE;
+              ELSE
+                no_skip_decl_rest := TRUE;
+
+              WHILE (RecordExists(token))
+              {
+                token := this->GetInterestingHSToken(FALSE);
+                BOOLEAN iscomment := RecordExists(token) AND Left(token.token,2) IN ["/*","//"] AND Substring(token.token, 1, 1) = Substring(token.token, 2, 1);
+                IF (iscomment AND SubString(token.token, 3, 1) = "<")
+                {
+                  inlinecomment := token;
+                  IF (have_more)
+                    token := this->GetInterestingHSToken(TRUE);
+                  BREAK;
+                }
+                ELSE IF (NOT have_more)
+                {
+                  this->ReconsumeCurrentToken();
+                  BREAK;
+                }
+                ELSE IF (NOT iscomment)
+                  BREAK;
+              }
+            }
+
+            INSERT CELL
+                [ comment :=      inlinecomment ?? lastcomment
+                , name :=         nametoken.token
+                , nametoken.line
+                , nametoken.col
+                , ispublic
+                , isconstant
+                , type
+                , structure
+                , objectname :=   ""
+                , symboltype :=   "variable"
+                ] INTO this->variables AT END;
+
+            IF (NOT have_more)
+              BREAK;
+
+            lastcomment := DEFAULT RECORD;
+          }
+
+          IF (no_skip_decl_rest)
+          {
+            lastcomment := DEFAULT RECORD;
+            CONTINUE;
+          }
+        }
+      }
+      ELSE IF (tok = "MACRO")
+      {
+        RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate := FALSE, isasync := FALSE, isaggregate := FALSE, type := "", isfunction := FALSE, objectname := "" ]);
+        IF (RecordExists(func))
+          INSERT func INTO this->functions AT END;
+      }
+      ELSE IF (tok = "ASYNC")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (ToUppercase(token.token) IN [ "MACRO", "FUNCTION" ])
+        {
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate := FALSE, isasync := TRUE, isaggregate := FALSE, type := "", isfunction := ToUppercase(token.token) = "FUNCTION", objectname := "" ]);
+          IF (RecordExists(func))
+            INSERT func INTO this->functions AT END;
+        }
+      }
+      ELSE IF (tok = "FUNCTION")
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (token.token = "*")
+        {
+          this->ReconsumeCurrentToken();
+          RECORD func := this->ParseFunction(lastcomment, CELL[ ispublic, isupdate := FALSE, isasync := FALSE, isaggregate := FALSE, type := "", isfunction := TRUE, objectname := "" ]);
+          IF (RecordExists(func))
+            INSERT func INTO this->functions AT END;
+        }
+      }
+      ELSE IF (tok = "STATIC") // STATIC OBJECTTYPE
+      {
+        token := this->GetInterestingHSToken(TRUE);
+        IF (NOT RecordExists(token))
+          BREAK;
+        tok := ToUppercase(token.token);
+        IF (tok = "OBJECTTYPE")
+        {
+          RECORD objtype := this->ParseObjectType(lastcomment, CELL[ ispublic, isstatic := TRUE ]);
+          IF (RecordExists(objtype))
+            INSERT objtype INTO this->objecttypes AT END;
+        }
+      }
+      ELSE IF (tok = "OBJECTTYPE")
+      {
+        RECORD objtype := this->ParseObjectType(lastcomment, CELL[ ispublic, isstatic := FALSE ]);
+        IF (RecordExists(objtype))
+          INSERT objtype INTO this->objecttypes AT END;
+      }
+
+      this->SkipDeclarationRest();
+      lastcomment := DEFAULT RECORD;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  /** Parses a library
+      @param options Options
+      @cell options.onlylibrarycomment Whether to stop after reading the library comment
+      @return Parsed library
+      @cell return.libcomment @includecelldef #libcomment
+      @cell return.loadlibs @includecelldef #loadlibs
+      @cell return.variables @includecelldef #variables
+      @cell return.functions @includecelldef #functions
+      @cell return.objecttypes @includecelldef #objecttypes
+  */
+  PUBLIC RECORD FUNCTION Execute(RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(
+        [ onlylibrarycomment :=  FALSE
+        ], options);
+
+    this->ParseScript(options);
+    RETURN CELL
+        [ this->libcomment
+        , this->loadlibs
+        , this->variables
+        , this->functions
+        , this->objecttypes
+        ];
+  }
+
+  /// Release resources
+  PUBLIC MACRO Close()
+  {
+    IF (this->hsfile != 0)
+      CloseHarescriptFile(this->hsfile);
+    this->hsfile := 0;
+  }
+>;
+
+
+/** @short Parse a library and extract its declarations
+    @param(blob) library Blob containing the library to parse
+    @return Data about the parsed
+    @cell return.functions Record array of functions inside the parsed script
+    @cell return.variables List of variables in the parsed script
+    @cell return.loadlibs Record array of direct loadlibs of the parsed script
+    @cell return.errors An array of (line,error) records describing any parse errors found
+    @cell return.objecttypes List of objecttypes in the parsed script
+    @cell return.libcomment Library comment
+*/
+PUBLIC RECORD FUNCTION ParseHareScriptFileDeclarations(BLOB library)
+{
+  INTEGER hsfile := OpenHareScriptFile(library);
+
+  OBJECT parser := NEW HarescriptDeclarationsParser(hsfile);
+  TRY
+  {
+    RETURN parser->Execute();
+  }
+  FINALLY
+    parser->Close();
+}
+
+/** @short Get the library's initial comment
+    @param(blob) library Blob containing the library to parse
+    @return Library comment token @includecelldef #GetHareScriptFileToken.return
+*/
+PUBLIC RECORD FUNCTION GetHareScriptFileLibraryComment(BLOB library)
+{
+  INTEGER hsfile := OpenHareScriptFile(library);
+
+  OBJECT parser := NEW HarescriptDeclarationsParser(hsfile);
+  TRY
+  {
+    RETURN parser->Execute([ onlylibrarycomment := TRUE ]).libcomment;
+  }
+  FINALLY
+    parser->Close();
+}
+
+/** Replaces a symboldefinition by the signature override in a symbol defininition
+    @param symboldefinition Symbol definition
+    @param parsedcomment Parsed comment @includecelldef comments.whlib#commentcontentbase
+    @return Updated symbol definition and errors
+    @cell return.symboldefinition Updated symbol definition
+    @cell return.errors @includecelldef comments.whlib#commentcontentbase.errors
+*/
+PUBLIC RECORD FUNCTION ProcessSignatureOverride(RECORD symboldefinition, RECORD parsedcomment)
+{
+  RECORD ARRAY errors;
+
+  IF (symboldefinition.symboltype IN [ "function", "method" ] AND RecordExists(parsedcomment.signature))
+  {
+    STRING prefix := "<?wh " || (symboldefinition.symboltype = "method" ? ` OBJECTTYPE ${symboldefinition.objectname} <` : "");
+
+    IF (parsedcomment.signature.line = 1)
+      parsedcomment.signature.col := parsedcomment.signature.col - LENGTH(prefix);
+
+    STRING script := prefix || RepeatText("\n", parsedcomment.signature.line - 1) || RepeatText(" ", parsedcomment.signature.col - 1) || parsedcomment.signature.signature || "\n";
+
+    RECORD decls := ParseHareScriptFileDeclarations(StringToBlob(script));
+    RECORD newdecl := symboldefinition.symboltype = "function"
+        ? decls.functions
+        : decls.objecttypes[0].methods;
+
+    IF (NOT RecordExists(newdecl))
+      INSERT CELL[ message := `The signature is not a valid ${symboldefinition.symboltype} signature`, parsedcomment.signature.line, parsedcomment.signature.col ] INTO errors AT END;
+    ELSE
+    {
+      IF (ToUppercase(newdecl.name) != ToUppercase(symboldefinition.name))
+        INSERT CELL[ message := `The name in signature does not match the symbol name`, newdecl.line, newdecl.col ] INTO errors AT END;
+
+      symboldefinition := CELL
+          [ ...symboldefinition
+          , ...newdecl
+          , symboldefinition.ispublic
+          , symboldefinition.comment
+          , symboldefinition.name
+          , symboldefinition.line
+          , symboldefinition.col
+          ];
+    }
+  }
+  RETURN CELL[ symboldefinition, errors ];
+}
+
+RECORD FUNCTION GetPublicSymbolInSourceFile(RECORD lib, STRING searchfor)
+{
+  searchfor := ToUppercase(searchfor);
+
+  FOREVERY(STRING part FROM ["functions", "variables", "objecttypes"])
+    FOREVERY(RECORD identifier FROM GetCell(lib.doc, part))
+      IF(identifier.ispublic AND ToUppercase(identifier.name) = searchfor)
+        RETURN [ type := part, symbol := identifier ];
+
+  FOREVERY (RECORD load FROM lib.doc.loadlibs)
+    FOREVERY (RECORD exp FROM load.exports)
+      IF (ToUppercase(exp.name) = searchfor)
+        RETURN [ type := "export", symbol := exp ];
+
+  RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION CheckHarescriptSymbolParsedComment(STRING resourcename, RECORD symboldefinition, RECORD parsedcomment, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ fulldocumentation :=    TRUE
+      , source :=               DEFAULT OBJECT
+      ], options);
+
+  IF (RecordExists(parsedcomment.topic))
+  {
+    OBJECT fs := NEW DevFileSystem;
+    RECORD ARRAY topics := GetAllTopics(fs, [ builtin := IsBuiltinResource(resourcename) ]);
+
+    RECORD topic := SELECT * FROM topics WHERE name = parsedcomment.topic.name;
+    IF (NOT RecordExists(topic))
+      INSERT CELL[ message := `No such topic '${parsedcomment.topic.name}'`, parsedcomment.topic.line, parsedcomment.topic.col ] INTO parsedcomment.errors AT END;
+    ELSE
+    {
+      RECORD section := SELECT * FROM topic.sections WHERE name = parsedcomment.topic.section;
+      IF (NOT RecordExists(section))
+        INSERT CELL[ message := `No such section '${parsedcomment.topic.section}' in topic '${parsedcomment.topic.name}'`, ...parsedcomment.topic.sectionpos ] INTO parsedcomment.errors AT END;
+    }
+  }
+
+  IF (RecordExists(parsedcomment.canonicalloadlib) AND ObjectExists(options.source))
+  {
+    TRY
+    {
+      RECORD lib := options.source->GetSourceFile(parsedcomment.canonicalloadlib.resourcename);
+      RECORD match := GetPublicSymbolInSourceFile(lib, symboldefinition.name);
+
+      IF (NOT RecordExists(match))
+        INSERT CELL[ message := `Symbol '${symboldefinition.name}' is not exported by library '${parsedcomment.canonicalloadlib.resourcename}'`
+                   , parsedcomment.canonicalloadlib.line
+                   , parsedcomment.canonicalloadlib.col
+                   ] INTO parsedcomment.errors AT END;
+    }
+    CATCH (OBJECT e)
+    {
+      INSERT CELL[ message := `Could not load library '${parsedcomment.canonicalloadlib.resourcename}': ${e->what}`
+                 , parsedcomment.canonicalloadlib.line
+                 , parsedcomment.canonicalloadlib.col
+                 ] INTO parsedcomment.errors AT END;
+    }
+  }
+
+  IF (NOT RecordExists(symboldefinition))
+    RETURN parsedcomment;
+
+  IF (symboldefinition.symboltype IN [ "function", "method" ])
+  {
+    BOOLEAN have_comment := RecordExists(symboldefinition.comment);
+    RECORD sigrec := ProcessSignatureOverride(symboldefinition, parsedcomment);
+
+    parsedcomment.errors := parsedcomment.errors CONCAT sigrec.errors;
+    symboldefinition := sigrec.symboldefinition;
+
+    RECORD upd := CELL
+        [ params :=       RECORD[]
+        , cells :=        RECORD[]
+        , returnvalue :=  DEFAULT RECORD
+        ];
+
+    RECORD ARRAY extra_errors;
+
+    FOREVERY (RECORD param FROM symboldefinition.params)
+    {
+      RECORD rec := SELECT * FROM parsedcomment.params WHERE ToLowercase(name) = param.name;
+      DELETE FROM parsedcomment.params WHERE ToLowercase(name) = param.name;
+
+      IF (NOT RecordExists(rec))
+      {
+        //IF (have_comment AND options.fulldocumentation)
+        //  INSERT CELL[ message := `No documentation for parameter '${param.name}'`, param.line, param.col ] INTO extra_errors AT END;
+        rec := CELL
+            [ symboldefinition.line
+            , symboldefinition.col
+            , param.name
+            , variabletype :=     ToLowercase(param.type)
+            , description :=      DEFAULT RECORD
+            , objecttypes :=      RECORD[]
+            , includecelldefs :=  RECORD[]
+            ];
+      }
+      ELSE
+      {
+        // copy variable type from parameter
+        IF (rec.variabletype = "")
+          rec.variabletype := ToLowercase(param.type);
+      }
+
+      INSERT rec INTO upd.params AT END;
+      upd.cells := upd.cells CONCAT SELECT * FROM parsedcomment.cells WHERE ToLowercase(name) LIKE param.name || ".*";
+      DELETE FROM parsedcomment.cells WHERE ToLowercase(name) LIKE param.name || ".*";
+    }
+
+    IF (RecordExists(parsedcomment.params))
+    {
+      RECORD param := parsedcomment.params[0];
+      INSERT CELL[ message := `Documented parameter '${param.name}' does not exist`, param.line, param.col ] INTO extra_errors AT END;
+    }
+
+    IF (symboldefinition.isfunction)
+    {
+      upd.returnvalue := parsedcomment.returnvalue;
+      parsedcomment.returnvalue := DEFAULT RECORD;
+
+      IF (NOT RecordExists(upd.returnvalue) AND NOT symboldefinition.isasync AND NOT symboldefinition.isgenerator)
+      {
+        upd.returnvalue := CELL
+            [ symboldefinition.line
+            , symboldefinition.col
+            , name :=             ""
+            , variabletype :=     ToLowercase(symboldefinition.type)
+            , description :=      DEFAULT RECORD
+            , objecttypes :=      RECORD[]
+            , includecelldefs :=  RECORD[]
+            ];
+
+        //IF (have_comment AND options.fulldocumentation)
+        //  INSERT CELL[ message := `No documentation for return value`, symboldefinition.line, symboldefinition.col ] INTO extra_errors AT END;
+      }
+      ELSE IF (RecordExists(upd.returnvalue))
+      {
+        IF (upd.returnvalue.variabletype = "")
+          upd.returnvalue.variabletype := ToLowercase(symboldefinition.type);
+
+        upd.cells := upd.cells CONCAT SELECT * FROM parsedcomment.cells WHERE ToLowercase(name) LIKE "return.*";
+        DELETE FROM parsedcomment.cells WHERE ToLowercase(name) LIKE "return.*";
+      }
+    }
+    ELSE IF (RecordExists(parsedcomment.returnvalue))
+    {
+      INSERT CELL[ message := `This function does not have a return value`, parsedcomment.returnvalue.line, parsedcomment.returnvalue.col ] INTO extra_errors AT END;
+    }
+
+    parsedcomment := CELL[ ...parsedcomment, ...upd ];
+    IF (NOT IsDefaultValue(extra_errors))
+    {
+      // Avoid duplicate errors
+      DELETE FROM extra_errors WHERE message IN (SELECT AS STRING ARRAY message FROM parsedcomment.errors);
+      parsedcomment.errors := SELECT * FROM parsedcomment.errors CONCAT extra_errors ORDER BY line, col, message;
+    }
+  }
+  RETURN parsedcomment;
+}

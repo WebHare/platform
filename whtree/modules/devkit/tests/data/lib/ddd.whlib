@@ -1,0 +1,13 @@
+<?wh
+/** First
+    @topic dev-test/first
+    @public
+*/
+PUBLIC CONSTANT INTEGER position_ddd := 2;
+
+/** This is a secret macro.
+    @private don't tell anyone*/
+PUBLIC MACRO secret()
+//           ^
+{
+}

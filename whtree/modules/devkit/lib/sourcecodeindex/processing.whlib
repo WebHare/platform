@@ -1,0 +1,302 @@
+<?wh
+
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::devkit/lib/sourcecodeindex/comments.whlib";
+
+
+RECORD FUNCTION SplitCellReference(STRING cellref)
+{
+  INTEGER hashpos := SearchSubString(cellref, "#");
+  INTEGER dotpos := SearchSubString(cellref, ".", hashpos);
+  IF (dotpos = -1)
+    dotpos := LENGTH(cellref);
+
+  RETURN
+      [ symbolref := Left(cellref, dotpos)
+      , cellpath := SubString(cellref, dotpos + 1)
+      ];
+}
+
+RECORD ARRAY FUNCTION GetReferencedCells(RECORD parsedcomment, STRING cellpath)
+{
+  RECORD ARRAY allcells := parsedcomment.params CONCAT parsedcomment.cells;
+  IF (RecordExists(parsedcomment.returnvalue))
+    allcells := [ CELL[ ...parsedcomment.returnvalue, name := "return" ] ] CONCAT allcells;
+
+  RECORD ARRAY cells :=
+      SELECT *
+           , name :=    SubString(name, LENGTH(cellpath) + 1)
+        FROM allcells
+       WHERE ToUppercase(name) = ToUppercase(cellpath)
+          OR ToUppercase(name) LIKE ToUppercase(cellpath || ".*");
+
+  RETURN cells;
+}
+
+PUBLIC RECORD FUNCTION ExpandSymbolCellDefsInternal(OBJECT fs, STRING resourcename, RECORD symbol, RECORD parsedcomment, OBJECT sourceindex, STRING ARRAY path, RECORD options, RECORD orgref)
+{
+  STRING baselink := symbol.definition.objectname = ""
+      ? `${resourcename}#${symbol.name}`
+      : `${resourcename}#${symbol.definition.objectname}::${symbol.name}`;
+
+  INTEGER pos := SearchElement(path, baselink);
+  INSERT baselink INTO path AT END;
+  IF (pos != -1)
+  {
+    IF (pos = 0) // only report at original location, not at deeper loops
+      INSERT CELL[ message := `Recursive inclusion of cell definition, path: ${Detokenize(ArraySlice(path, pos), ", ")}`, orgref.resourcename, orgref.line, orgref.col ] INTO parsedcomment.errors AT END;
+    RETURN parsedcomment;
+  }
+
+  IF (parsedcomment.isdefault AND symbol.definition.symboltype IN [ "method", "property" ] AND symbol.definition.isupdate)
+  {
+    STRING objtyperef := `${resourcename}#${symbol.definition.objectname}`;
+    RECORD objsymbol := sourceindex->GetSymbolDefinition(objtyperef);
+    IF (NOT RecordExists(objsymbol))
+    {
+      INSERT CELL[ message := `Could not find the objecttype symbol '${objtyperef}'`, orgref.resourcename, orgref.line, orgref.col ] INTO parsedcomment.errors AT END;
+      RETURN parsedcomment;
+    }
+
+    WHILE (objsymbol.definition.baseobject != "")
+    {
+      TRY
+        objsymbol := sourceindex->LookupSymbolByRelativeRef(objtyperef, `#${objsymbol.definition.baseobject}`);
+      CATCH
+      {
+        IF (pos = 0) // only report at original location, not at deeper loops
+          INSERT CELL[ message := `Could not find the parent objecttype symbol '${objtyperef}'`, orgref.resourcename, orgref.line, orgref.col ] INTO parsedcomment.errors AT END;
+        RETURN parsedcomment;
+      }
+
+      RECORD rec :=
+          SELECT *
+            FROM (symbol.definition.symboltype = "method" ? objsymbol.definition.methods : objsymbol.definition.properties)
+           WHERE ToUppercase(name) = ToUppercase(symbol.name);
+
+      IF (RecordExists(rec) AND NOT rec.definition.parsedcomment.isdefault)
+        RETURN ExpandSymbolCellDefsInternal(fs, objsymbol.resourcename, rec, rec.definition.parsedcomment, sourceindex, path, options, CELL[ objsymbol.resourcename, rec.definition.line, rec.definition.col ]);
+
+      objtyperef := objsymbol.symbolref;
+    }
+
+    RETURN parsedcomment;
+  }
+
+  RECORD ARRAY allcells, leftcells := parsedcomment.cells;
+  FOREVERY (RECORD rec FROM parsedcomment.params CONCAT (RecordExists(parsedcomment.returnvalue) ? RECORD[ parsedcomment.returnvalue ] : RECORD[]))
+  {
+    INSERT CELL[ __iscell := FALSE, ...rec, name := rec.name ?? "return" ] INTO allcells AT END;
+    STRING mask := (rec.name ?? "return") || ".*";
+    allcells := allcells CONCAT SELECT __iscell := TRUE, * FROM leftcells WHERE ToUppercase(name) LIKE ToUppercase(mask);
+    DELETE FROM leftcells WHERE ToUppercase(name) LIKE ToUppercase(mask);
+  }
+  IF (RecordExists(parsedcomment.variabletype))
+    INSERT CELL[ __iscell := FALSE, ...parsedcomment.variabletype ] INTO allcells AT END;
+
+  allcells := allcells CONCAT SELECT __iscell := TRUE, * FROM leftcells;
+
+  STRING ARRAY ugotcells := SELECT AS STRING ARRAY ToUppercase(name ?? "return") FROM allcells;
+
+  RECORD ARRAY retcells;
+  FOREVERY (RECORD rec FROM allcells)
+  {
+    RECORD ARRAY extracells;
+
+    RECORD ARRAY valid_objecttypes;
+    FOREVERY (RECORD objtype FROM rec.objecttypes)
+    {
+      TRY
+      {
+        RECORD objsymbol := sourceindex->LookupSymbolByRelativeRef(baselink, objtype.objtype);
+        IF (NOT CellExists(objsymbol, "symbolref"))
+          ABORT(objsymbol);
+        IF (objsymbol.symboltype != "objecttype")
+        {
+          INSERT CELL[ message := `Referenced symbol '${objsymbol.symbolref}' is not an OBJECTTYPE`, resourcename, objtype.line, objtype.col ] INTO parsedcomment.errors AT END;
+          CONTINUE;
+        }
+
+        objtype.objtype := objsymbol.symbolref;
+        INSERT objtype INTO valid_objecttypes AT END;
+      }
+      CATCH (OBJECT e)
+      {
+        IF (NOT RecordExists(orgref)) // no errors when recursed once
+          INSERT CELL[ message := e->what, resourcename, objtype.line, objtype.col ] INTO parsedcomment.errors AT END;
+        CONTINUE;
+      }
+    }
+
+    IF (NOT IsDefaultValue(rec.objecttypes) AND NOT rec.__iscell)
+    {
+      // not a cell, update the param/returnvalue
+      IF (rec.name = "return" AND RecordExists(parsedcomment.returnvalue))
+        parsedcomment.returnvalue.objecttypes := valid_objecttypes;
+      ELSE
+        UPDATE parsedcomment.params SET objecttypes := valid_objecttypes WHERE name = rec.name;
+    }
+
+    rec.objecttypes := valid_objecttypes;
+
+    FOREVERY (RECORD def FROM rec.includecelldefs)
+    {
+      RECORD splitref := SplitCellReference(def.cellreference);
+
+      RECORD refdsymbol;
+      TRY
+      {
+        refdsymbol := sourceindex->LookupSymbolByRelativeRef(baselink, splitref.symbolref);
+      }
+      CATCH (OBJECT e)
+      {
+        IF (NOT RecordExists(orgref)) // no errors when recursed once
+          INSERT CELL[message := e->what, resourcename, def.line, def.col ] INTO parsedcomment.errors AT END;
+        CONTINUE;
+      }
+
+      IF (NOT RecordExists(refdsymbol.definition.comment))
+      {
+        IF (NOT RecordExists(orgref) AND options.fulldocumentation) // no errors when recursed once
+          INSERT CELL[ message := `Referenced symbol '${splitref.symbolref}' is not documented`, resourcename, def.line, def.col ] INTO parsedcomment.errors AT END;
+        CONTINUE;
+      }
+
+      RECORD ARRAY newcells;
+
+      RECORD refdparsedcomment := ParseCommentToken(refdsymbol.definition.comment, CELL[ refdsymbol.symboltype ]);
+      refdparsedcomment := ExpandSymbolCellDefsInternal(fs, refdsymbol.resourcename, refdsymbol, refdparsedcomment, sourceindex, path, options, CELL[ ...def, resourcename ]);
+
+      RECORD usedoc;
+      IF (splitref.cellpath = "")
+      {
+        IF (refdsymbol.symboltype NOT IN [ "variable", "property", "member" ])
+        {
+          IF (NOT RecordExists(orgref)) // no errors when recursed once
+            INSERT CELL[ message := `Cannot reference all the cells of a ${refdsymbol.symboltype}`, resourcename, def.line, def.col ] INTO parsedcomment.errors AT END;
+          CONTINUE;
+        }
+
+        newcells := refdparsedcomment.cells;
+        usedoc := [ description := refdparsedcomment.short, variabletype := ToLowercase(refdsymbol.definition.type) ];
+      }
+      ELSE
+        newcells := GetReferencedCells(refdparsedcomment, splitref.cellpath);
+
+      IF (NOT RecordExists(newcells))
+      {
+        IF (NOT RecordExists(orgref)) // no errors when recursed once
+          INSERT CELL[ message := `No cell found when searching for '${splitref.cellpath}' in symbol '${refdsymbol.symbolref}'`, resourcename, def.line, def.col ] INTO parsedcomment.errors AT END;
+
+        CONTINUE;
+      }
+
+      IF (NOT RecordExists(rec.description) OR LENGTH(rec.description.children) = 0)
+      {
+        // Copy description from referenced cell
+        RECORD refcell := usedoc ?? RECORD(SELECT * FROM newcells WHERE name = "");
+        IF (RecordExists(refcell) AND RecordExists(refcell.description) AND LENGTH(refcell.description.children) != 0)
+        {
+          rec.description := refcell.description;
+          IF (NOT rec.__iscell)
+          {
+            // not a cell, update the param/returnvalue
+            IF (rec.name = "return" AND RecordExists(parsedcomment.returnvalue))
+              parsedcomment.returnvalue.description := refcell.description;
+            ELSE
+            {
+              UPDATE parsedcomment.params
+                 SET description := refcell.description
+               WHERE name = rec.name;
+            }
+          }
+        }
+        ELSE IF (options.fulldocumentation)
+          INSERT CELL[ message := `No description found in referenced cell`, resourcename, def.line, def.col ] INTO parsedcomment.errors AT END;
+      }
+
+      IF (rec.variabletype = "")
+      {
+        RECORD refcell := usedoc ?? RECORD(SELECT * FROM newcells WHERE name = "");
+        IF (refcell.variabletype != "")
+        {
+          rec.variabletype := refcell.variabletype;
+          IF (NOT rec.__iscell)
+          {
+            // not a cell, update the param/returnvalue
+            IF (rec.name = "return" AND RecordExists(parsedcomment.returnvalue))
+              parsedcomment.returnvalue.variabletype := refcell.variabletype;
+            ELSE
+            {
+              UPDATE parsedcomment.params
+                 SET variabletype := refcell.variabletype
+               WHERE name = rec.name;
+            }
+          }
+        }
+      }
+
+      newcells :=
+          SELECT *
+               , name :=            name = "" ? `${rec.name}` : `${rec.name}.${name}`
+            FROM newcells;
+
+      DELETE FROM newcells WHERE ToUppercase(name) IN ugotcells;
+
+      STRING ARRAY newcellnames := SELECT AS STRING ARRAY ToUppercase(name) FROM newcells;
+      extracells := (SELECT * FROM extracells WHERE ToUppercase(name) NOT IN newcellnames) CONCAT newcells;
+    }
+
+    IF (rec.__iscell)
+      INSERT CELL[ ...rec, DELETE __iscell, DELETE __uname ] INTO retcells AT END;
+
+    retcells := retcells CONCAT extracells;
+  }
+
+  // FIXME: correct ordering?
+  parsedcomment.cells := retcells;
+
+  RETURN parsedcomment;
+}
+
+PUBLIC RECORD FUNCTION ExpandSymbolCellDefs(OBJECT fs, STRING resourcename, RECORD symbol, RECORD parsedcomment, OBJECT sourceindex, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(
+      [ fulldocumentation :=    TRUE
+      ], options);
+
+  parsedcomment := ExpandSymbolCellDefsInternal(fs, resourcename, symbol, parsedcomment, sourceindex, STRING[], options, DEFAULT RECORD);
+
+  STRING baselink := symbol.definition.objectname = ""
+      ? `${resourcename}#${symbol.name}`
+      : `${resourcename}#${symbol.definition.objectname}::${symbol.name}`;
+
+  IF (RecordExists(parsedcomment.canonicalloadlib))
+  {
+    STRING org_resourcename := parsedcomment.canonicalloadlib.resourcename;
+    parsedcomment.canonicalloadlib.resourcename := MakeAbsoluteResourcePath(Tokenize(baselink, "#")[0], parsedcomment.canonicalloadlib.resourcename);
+    IF (LENGTH(GetWebhareResource(parsedcomment.canonicalloadlib.resourcename, [ allowmissing := TRUE ])) = 0)
+      INSERT CELL[ message := `Could not find loadlib resource '${org_resourcename}'`, resourcename, parsedcomment.canonicalloadlib.line, parsedcomment.canonicalloadlib.col ] INTO parsedcomment.errors AT END;
+  }
+
+  RECORD ARRAY validrefs;
+  FOREVERY (RECORD rec FROM parsedcomment.relevantsymbols)
+  {
+    RECORD refdsymbol;
+
+    TRY
+    {
+      refdsymbol := sourceindex->LookupSymbolByRelativeRef(baselink, rec.symbolreference);
+    }
+    CATCH (OBJECT e)
+    {
+      INSERT CELL[ message := e->what, resourcename, rec.line, rec.col ] INTO parsedcomment.errors AT END;
+      CONTINUE;
+    }
+    INSERT CELL[ ...rec ] INTO validrefs AT END;
+  }
+  parsedcomment.relevantsymbols := validrefs;
+
+  RETURN parsedcomment;
+}
