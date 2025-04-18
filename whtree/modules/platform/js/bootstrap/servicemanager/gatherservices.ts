@@ -75,7 +75,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
 };
 
 export function getSpawnSettings(serviceManagerId: string, service: ServiceDefinition) {
-  const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationroot}bin/${service.cmd[0]}`;
+  const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationRoot}bin/${service.cmd[0]}`;
   const args = service.cmd.slice(1);
 
   return {

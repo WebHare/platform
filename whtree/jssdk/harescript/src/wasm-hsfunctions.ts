@@ -430,12 +430,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
   wasmmodule.registerExternalFunction("__SYSTEM_WHCOREPARAMETERS::R:", (vm, id_set) => {
     id_set.setJSValue({
-      installationroot: backendConfig.installationroot,
-      basedataroot: backendConfig.dataroot,
-      varroot: backendConfig.dataroot,
-      ephemeralroot: backendConfig.dataroot + "ephemeral/",
-      logroot: backendConfig.dataroot + "log/",
-      moduledirs: [...getFullConfigFile().modulescandirs, backendConfig.installationroot + "modules/"] // always filled, no need to cast
+      installationroot: backendConfig.installationRoot,
+      basedataroot: backendConfig.dataRoot,
+      varroot: backendConfig.dataRoot,
+      ephemeralroot: backendConfig.dataRoot + "ephemeral/",
+      logroot: backendConfig.dataRoot + "log/",
+      moduledirs: [...getFullConfigFile().modulescandirs, backendConfig.installationRoot + "modules/"] // always filled, no need to cast
     });
   });
   wasmmodule.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {

@@ -52,9 +52,9 @@ function getEnvironment(unsafeEnv: boolean): Record<string, string> {
 export function getMyApplicabilityInfo({ unsafeEnv = false } = {}): WebHareVersionInfo {
   return {
     versionnum: getVersionInteger(),
-    version: backendConfig.buildinfo.version,
+    version: backendConfig.whVersion,
     dtapstage: backendConfig.dtapstage,
-    servername: backendConfig.servername,
+    servername: backendConfig.serverName,
     modules: Object.keys(backendConfig.module),
     env: getEnvironment(unsafeEnv)
   };
@@ -170,8 +170,8 @@ export function getGeneratedFilePath(module: string, type: string, path: string)
   if (module === "platform" && type === "schema")
     return toFSPath(`mod::platform/generated/${path}`);
   if (module === "platform" && type !== 'extracts')
-    return backendConfig.installationroot + "modules/platform/generated/" + path;
-  return backendConfig.dataroot + "config/" + path;
+    return backendConfig.installationRoot + "modules/platform/generated/" + path;
+  return backendConfig.dataRoot + "config/" + path;
 }
 
 export function appliesToModule(module: string, moduleList?: string[]) {

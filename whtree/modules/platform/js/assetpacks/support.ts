@@ -9,7 +9,7 @@ import type { AssetPackState } from "./types";
 export type BundleSettings = Awaited<ReturnType<typeof readBundleSettings>>;
 
 function getBasePath(isPlatform: boolean): string {
-  return isPlatform ? toFSPath("mod::platform/generated/") : `${backendConfig.dataroot}generated/platform/`;
+  return isPlatform ? toFSPath("mod::platform/generated/") : `${backendConfig.dataRoot}generated/platform/`;
 }
 
 export function getBundleMetadataPath(bundle: string): string {

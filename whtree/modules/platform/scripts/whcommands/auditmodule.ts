@@ -16,7 +16,7 @@ function getPackageDirs(module: string): string[] {
   const pkgdirs = [];
   if (module === "platform") {
     //include whtree/
-    pkgdirs.push(backendConfig.installationroot);
+    pkgdirs.push(backendConfig.installationRoot);
     //include builtin modules
     for (const mod of whconstant_builtinmodules)
       if (mod !== module) //prevent loop

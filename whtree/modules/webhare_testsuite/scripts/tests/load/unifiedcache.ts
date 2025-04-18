@@ -8,7 +8,7 @@ import { rmSync } from "node:fs";
 run({
   main: async function () {
     //clean up img cache first
-    rmSync(backendConfig.dataroot + "caches/platform/uc", { recursive: true, force: true });
+    rmSync(backendConfig.dataRoot + "caches/platform/uc", { recursive: true, force: true });
 
     const testsitejs = await test.getTestSiteJS();
     const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");

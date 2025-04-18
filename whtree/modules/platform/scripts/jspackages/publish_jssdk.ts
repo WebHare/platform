@@ -49,7 +49,7 @@ run({
     const inDocker = process.env["WEBHARE_IN_DOCKER"] === "1";
     const workdir = opts.workDir || await mkdtemp(join(inDocker ? "/var/tmp/" : tmpdir(), "publish_jssdk."));
     console.log(`Work dir: ${workdir}`);
-    const [majorText, minorText] = backendConfig.buildinfo.version.split(".");
+    const [majorText, minorText] = backendConfig.whVersion.split(".");
     const major = parseInt(majorText);
     const minor = parseInt(minorText);
     if (!major || isNaN(minor) || minor >= 100)

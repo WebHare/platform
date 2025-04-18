@@ -114,7 +114,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
   }
 
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
-  const basedir = backendConfig.dataroot + "log";
+  const basedir = backendConfig.dataRoot + "log";
   const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
   const logfiles = (await listDirectory(basedir, { allowMissing: true })).filter(_ => _.name.match(filter)).sort();
 

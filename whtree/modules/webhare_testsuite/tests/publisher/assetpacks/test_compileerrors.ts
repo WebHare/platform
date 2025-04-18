@@ -204,7 +204,7 @@ async function testCompileerrors() {
 
     const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/publisher/js/internal/polyfills/all.ts")));
   }
 
   console.log("scss files dependencies");
@@ -230,7 +230,7 @@ async function testCompileerrors() {
 
     const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/system/js/wh/rpc.ts")));
     test.assert(filedeps.includes(backendConfig.module.webhare_testsuite.root + "lib/webservicetest.whlib"));
   }
 
@@ -241,9 +241,9 @@ async function testCompileerrors() {
 
     const filedeps = mapDepPaths(result.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/nl.xml")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/tollium/language/default.xml")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/tollium/language/nl.xml")));
   }
 
   console.log("combine-deps pulls all these in as dependencies");
@@ -258,12 +258,12 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.scss")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/default.xml")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/language/nl.xml")));
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/publisher/js/internal/polyfills/all.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/system/js/wh/rpc.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/tollium/language/default.xml")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "jssdk/gettid/src/internal.ts"))); //for registerTexts
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/tollium/language/nl.xml")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
     const missingdeps = mapDepPaths(result.missingDependencies);
     test.assert(missingdeps.length === 0);
@@ -276,7 +276,7 @@ async function testCompileerrors() {
 
     const filedeps = mapDepPaths(result.fileDependencies);
 
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/system/js/dompack/browserfix/reset.css")));
 
     const css = fs.readFileSync(result.outputpath + "/ap.css").toString();
     test.assert(css.match(/.test2{.*margin-left:1px.*}/));
@@ -325,7 +325,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/publisher/js/internal/polyfills/all.ts")));
 
     result = await compileAdhocTestBundle({ ...baseconfig, entryPoint: __dirname + "/dependencies/typescript/test-typescript-in-js.ts" }, false); //verify we cannot load TypeScript in JS
     test.assert(result.errors.length > 0);
@@ -340,7 +340,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript.tsx")), 'test-typescript.tsx');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript-2.tsx")), 'test-typescript-2.tsx'); // loaded by test-typescript.tsx
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/folder/index.tsx")), 'typescript/index.tsx'); // loaded by test-typescript.tsx
-    test.assert(filedeps.includes(path.join(backendConfig.installationroot, "modules/publisher/js/internal/polyfills/all.ts")));
+    test.assert(filedeps.includes(path.join(backendConfig.installationRoot, "modules/publisher/js/internal/polyfills/all.ts")));
   }
 }
 

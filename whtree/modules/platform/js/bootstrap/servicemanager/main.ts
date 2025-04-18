@@ -101,7 +101,7 @@ function updateTitle(title: string) {
 }
 
 function updateVisibleState() {
-  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.servername}`);
+  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.serverName}`);
 }
 
 function shouldRun(name: string, service: ServiceDefinition): boolean | null {
@@ -271,7 +271,7 @@ class ProcessManager {
 
 function unlinkServicestateFiles() {
   try {
-    const servicestatepath = backendConfig.dataroot + "ephemeral/system.servicestate";
+    const servicestatepath = backendConfig.dataRoot + "ephemeral/system.servicestate";
     fs.mkdirSync(servicestatepath, { recursive: true });
     for (const file of fs.readdirSync(servicestatepath))
       fs.unlinkSync(servicestatepath + "/" + file);
@@ -450,7 +450,7 @@ class ServiceManager {
 
         if (!this.isSecondaryManager) {
           try {
-            fs.unlinkSync(backendConfig.dataroot + ".webhare.pid");
+            fs.unlinkSync(backendConfig.dataRoot + ".webhare.pid");
           } catch (e) {
             console.error("Failed to remove webhare.pid file", e);
           }
@@ -535,7 +535,7 @@ async function verifyUpgrade() {
     return;
   }
 
-  const error = isInvalidWebHareUpgrade(config.version, backendConfig.buildinfo.version);
+  const error = isInvalidWebHareUpgrade(config.version, backendConfig.whVersion);
   if (error) {
     smLog(error);
     smLog(`Aborting - if you want to ignore this version check failure, delete ${getVersionFile()} at your own risk!`);
@@ -558,8 +558,8 @@ async function setConfigAndVersion() {
   const fullconfig = getFullConfigFile();
   const versionInfo: WebHareVersionFile = {
     ...backendConfig.buildinfo,
-    basedataroot: backendConfig.dataroot,
-    installationroot: backendConfig.installationroot,
+    basedataroot: backendConfig.dataRoot,
+    installationroot: backendConfig.installationRoot,
     baseport: fullconfig.baseport,
     moduledirs: fullconfig.modulescandirs,
     docker: Boolean(process.env.WEBHARE_IN_DOCKER),
@@ -595,7 +595,7 @@ class ServiceManagerManager {
       }
     });
 
-    smLog(`Starting WebHare ${backendConfig.buildinfo.version} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
+    smLog(`Starting WebHare ${backendConfig.whVersion} in ${backendConfig.dataRoot} at ${getRescueOrigin()}`, { buildinfo: backendConfig.buildinfo });
 
     if (!this.secondary) {
       // Update configuration, clear debug settings
@@ -603,7 +603,7 @@ class ServiceManagerManager {
 
       //remove old servicestate files
       unlinkServicestateFiles();
-      await storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+      await storeDiskFile(backendConfig.dataRoot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
     }
 
     await mgr.startStage(Stage.Bootup);
@@ -664,7 +664,7 @@ run({
     "include": { default: "", description: "Only manage services that match this mask" },
     "exclude": { default: "", description: "Do not manage services that match this mask" },
   }, async main({ opts }) {
-    if (!backendConfig.dataroot) {
+    if (!backendConfig.dataRoot) {
       console.error("Cannot start WebHare. Data root not set");
       return 1;
     }
@@ -673,8 +673,8 @@ run({
     verbose = opts.verbose || debugFlags.startup || false;
 
     //Setting up logs must be one of the first things we do so log() works and even verifyUpgrade can write there
-    fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
-    logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
+    fs.mkdirSync(backendConfig.dataRoot + "log", { recursive: true });
+    logfile = new RotatingLogFile(opts.secondary ? null : backendConfig.dataRoot + "log/servicemanager", { stdout: true });
 
     if (!opts.secondary) { //verify we're allowed to run
       await verifyStrayProcesses();

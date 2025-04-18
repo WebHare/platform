@@ -14,7 +14,7 @@ run({
   },
   arguments: [{ name: "<files...>", description: "Files to validate" }],
   main: async function main({ opts, args }) {
-    const jssdk = `${backendConfig.installationroot}jssdk/`;
+    const jssdk = `${backendConfig.installationRoot}jssdk/`;
     let anyErrors = false;
 
     for (let file of args.files) {

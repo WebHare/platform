@@ -54,7 +54,7 @@ export async function createModule(subpath: string, modulename: string, options:
     throw new Error(`A module named '${modulename}' already exists`);
 
   const creationdate = new Date();
-  const destpath = backendConfig.dataroot + "installedmodules/" + (subpath ? subpath + "/" : "") + modulename;
+  const destpath = backendConfig.dataRoot + "installedmodules/" + (subpath ? subpath + "/" : "") + modulename;
   if (statSync(destpath, { throwIfNoEntry: false }))
     throw new Error(`The directory '${destpath}' already exists`);
 
@@ -64,7 +64,7 @@ export async function createModule(subpath: string, modulename: string, options:
     defaultlanguage: options.defaultLanguage,
     description: options.description || '',
     creationdate: creationdate.toISOString().substr(0, 10),
-    servername: backendConfig.servername
+    servername: backendConfig.serverName
   };
 
   mkdirSync(destpath, { recursive: true });

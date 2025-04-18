@@ -75,7 +75,7 @@ export async function isWebHareRunning() {
   /* TODO it would be better to attempt to connect to the bridge to test online-ness *if* we can get the bridge to immediately report it cannot connect?
           pid analysis is even less reliable in node as we can't test process names */
   try {
-    const pidfile = fs.readFileSync(backendConfig.dataroot + ".webhare.pid", 'utf-8');
+    const pidfile = fs.readFileSync(backendConfig.dataRoot + ".webhare.pid", 'utf-8');
     const pid = parseInt(pidfile);
     return Boolean(pid);
   } catch (e) {

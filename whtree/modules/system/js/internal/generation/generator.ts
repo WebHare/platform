@@ -42,8 +42,8 @@ import { parseDocAsXML } from "./xmlhelpers";
 import { pick } from "@webhare/std";
 
 function getPaths() {
-  const installedBaseDir = backendConfig.dataroot + "config/";
-  const builtinBaseDir = backendConfig.installationroot + "modules/platform/generated/";
+  const installedBaseDir = backendConfig.dataRoot + "config/";
+  const builtinBaseDir = backendConfig.installationRoot + "modules/platform/generated/";
 
   return { installedBaseDir, builtinBaseDir };
 }
@@ -185,10 +185,10 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
       await deleteRecursive(join(root, subdir), { keep: _ => keepfiles.has(_.fullPath), ...deleteOpts });
 
   //Delete pre-wh5.7 config locations. We'll do this every time for a while until we're sure noone is switching branches to pre-5.7
-  await deleteRecursive(backendConfig.dataroot + 'storage/system/generated/config', deleteOpts);
+  await deleteRecursive(backendConfig.dataRoot + 'storage/system/generated/config', deleteOpts);
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/registry', deleteOpts);
   await deleteRecursive(backendConfig.module["platform"].root + 'generated/whdb', deleteOpts);
-  await rm(backendConfig.dataroot + 'storage/system/js/publicconfig.json', { force: true });
+  await rm(backendConfig.dataRoot + 'storage/system/js/publicconfig.json', { force: true });
   return;
 }
 

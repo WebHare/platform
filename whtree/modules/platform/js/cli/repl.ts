@@ -19,7 +19,7 @@ whrepl.setupHistory(toFSPath("storage::system/whrepl_history"), () => { });
 
 //expose all @webhare libraries on demand.
 async function setupWhRepl() {
-  for (const dir of await listDirectory(backendConfig.installationroot + "jssdk")) {
+  for (const dir of await listDirectory(backendConfig.installationRoot + "jssdk")) {
     //map all @webhare/ dirs to a symbol, but translate eg jsonrpc-client to jsonrpcClient
     Object.defineProperty(whrepl.context, toCamelCase(dir.name.replaceAll('-', '_')), {
       get: () => {

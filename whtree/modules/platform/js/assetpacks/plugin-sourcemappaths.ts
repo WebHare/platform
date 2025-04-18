@@ -17,10 +17,10 @@ export default (outdir: string) => ({
         for (let i = 0, e = jsondata.sources.length; i < e; ++i) {
           let newpath = path.join(outdir, jsondata.sources[i]);
           newpath = toResourcePath(newpath, { keepUnmatched: true });
-          if (newpath.startsWith(backendConfig.installationroot + "jssdk/"))
-            newpath = '@webhare/' + newpath.substring(backendConfig.installationroot.length + 6);
-          if (newpath.startsWith(backendConfig.installationroot + "node_modules/"))
-            newpath = newpath.substring(backendConfig.installationroot.length);
+          if (newpath.startsWith(backendConfig.installationRoot + "jssdk/"))
+            newpath = '@webhare/' + newpath.substring(backendConfig.installationRoot.length + 6);
+          if (newpath.startsWith(backendConfig.installationRoot + "node_modules/"))
+            newpath = newpath.substring(backendConfig.installationRoot.length);
 
           jsondata.sources[i] = newpath;
           continue;

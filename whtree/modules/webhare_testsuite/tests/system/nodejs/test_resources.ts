@@ -74,9 +74,9 @@ async function testPaths() {
   test.eq(services.backendConfig.module.system.root + "lib", services.toFSPath("mod::system/lib"));
   test.eq(services.backendConfig.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
 
-  test.eq(services.backendConfig.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
-  test.eq(services.backendConfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
-  test.eq(services.backendConfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
+  test.eq(services.backendConfig.dataRoot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
+  test.eq(services.backendConfig.dataRoot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
+  test.eq(services.backendConfig.dataRoot + "storage/system/", services.toFSPath("storage::system"));
 
   test.eq(/^https?:.*/, services.backendConfig.backendURL);
 

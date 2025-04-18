@@ -66,7 +66,7 @@ export function getCompileServerOrigin() {
 }
 
 export function getVersionInteger(): number {
-  const versioninfo = backendConfig.buildinfo.version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  const versioninfo = backendConfig.whVersion.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (versioninfo) {
     const major = parseInt(versioninfo[1]);
     const minor = parseInt(versioninfo[2]);
@@ -74,11 +74,11 @@ export function getVersionInteger(): number {
     if (major >= 5 && minor < 100 && patch < 100)
       return major * 10000 + minor * 100 + patch;
   }
-  throw new Error(`Version '${backendConfig.buildinfo.version}' is not convertible to a legacy version integer`);
+  throw new Error(`Version '${backendConfig.whVersion}' is not convertible to a legacy version integer`);
 }
 
 export function getVersionFile() {
-  return (backendConfig.dataroot ?? throwError("dataroot not set")) + "webhare.version";
+  return (backendConfig.dataRoot ?? throwError("dataroot not set")) + "webhare.version";
 }
 
 export function isRestoredWebHare(): boolean {
@@ -142,7 +142,7 @@ export function getExtractedConfig(which: "wrdschemas"): WRDSchemasExtract;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {
-  return getCacheableJSONConfig(`${backendConfig.dataroot}config/extracts/${which}.json`);
+  return getCacheableJSONConfig(`${backendConfig.dataRoot}config/extracts/${which}.json`);
 }
 
 export function getExtractedHSConfig(which: "siteprofiles"): CachedSiteProfiles;

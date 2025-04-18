@@ -40,7 +40,7 @@ async function cleanupOldUploads() {
 async function rotateLogs() {
   //TODO log rotation should be configurable in system:config. 30 days was the original hardcoded value
   //TODO manage all log files, take over from whmanager ?
-  const logdir = backendConfig.dataroot + "log";
+  const logdir = backendConfig.dataRoot + "log";
   const cutoff = convertWaitPeriodToDate("-P30D");
   for (const log of await listDirectory(logdir, { allowMissing: true })) {
     if (!log.name.startsWith("servicemanager."))

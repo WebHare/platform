@@ -38,7 +38,7 @@ export function toFSPath(resource: string, { allowUnmatched = false, keepUnmatch
       throw new Error(`No such resource: no such module '${modulename}'`);
     }
 
-    const basedir = namespace === "mod" ? modinfo.root : `${backendConfig.dataroot}storage/${modulename}/`;
+    const basedir = namespace === "mod" ? modinfo.root : `${backendConfig.dataRoot}storage/${modulename}/`;
 
     if (nextslash === -1)
       return basedir; //we'll always terminate a path like `mod::system` with a slash

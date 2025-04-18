@@ -162,7 +162,7 @@ function getPossibleNodeModulePaths(startingpoint: string) {
       pathinfo.subpath = pathinfo.subpath.substring(0, pathinfo.subpath.lastIndexOf("/"));
     }
 
-  paths.push(services.backendConfig.dataroot + "node_modules");
+  paths.push(services.backendConfig.dataRoot + "node_modules");
   return paths;
 }
 
@@ -261,7 +261,7 @@ export async function recompile(data: RecompileSettings): Promise<AssetPackState
     // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
     // , metafile:true
 
-    nodePaths: [services.backendConfig.dataroot + "node_modules/"],
+    nodePaths: [services.backendConfig.dataRoot + "node_modules/"],
     resolveExtensions: [".js", ".ts", ".tsx", ".es"], //es must be last so it can re-export .ts(x) without using extensions
     logLevel: data.logLevel || 'silent'
   };
