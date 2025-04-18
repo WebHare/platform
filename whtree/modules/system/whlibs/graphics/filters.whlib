@@ -156,7 +156,7 @@ PUBLIC STRING FUNCTION GfxPackImageResizeMethod(RECORD resizemethod)
     packeddata.format := packeddata.format + 0x80;
 
   STRING packageformat := method=0 ? methodnoneformat : methodsizeformat;
-  BOOLEAN havequality := packeddata.quality != 85;
+  BOOLEAN havequality := packeddata.quality != 0;
   IF(havequality)
   {
     method := method + 0x20; //Set quality flag
@@ -233,7 +233,7 @@ PUBLIC RECORD FUNCTION GfxUnpackImageResizeMethod(STRING packedmethod)
          , format := packformats[packformat]
          , bgcolor := dropbgcolor ? 0x00FFFFFF : unpacked.bgcolor
          , noforce := noforce
-         , quality := havequality ? unpacked.quality : 85
+         , quality := havequality ? unpacked.quality : 0
          , grayscale := grayscale
          , hblur := (blur BITRSHIFT 15) BITAND 0x7FFF
          , vblur := blur BITAND 0x7FFF

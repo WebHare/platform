@@ -617,10 +617,10 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
       THROW NEW Exception("Invalid height '" || method.setheight || "' in resize method");
   }
 
-  IF(CellExists(method, "quality") AND (method.quality <= 0 OR method.quality > 100))
-    THROW NEW Exception("Invalid quality " || method.quality || " in resize method - must be in the range 1-100");
+  IF(CellExists(method, "quality") AND (method.quality < 0 OR method.quality > 100))
+    THROW NEW Exception("Invalid quality " || method.quality || " in resize method - must be in the range 1-100 or 0 for the default");
   ELSE IF(NOT CellExists(method,'quality'))
-    INSERT CELL quality := 85 INTO method;
+    INSERT CELL quality := 0 INTO method;
 
   IF(CellExists(method, "format") AND method.format NOT IN ["","image/png","image/jpeg","image/gif","image/avif","image/webp"])
     THROW NEW Exception("Invalid output format '" || method.format || "' in resize method");
@@ -680,11 +680,19 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
 {
   method := ValidateResizeMethod(method);
 
-  INTEGER quality := CellExists(method, "quality") ? method.quality : 85;
   INTEGER hblur := CellExists(method, "hblur") ? method.hblur : 0;
   INTEGER vblur := CellExists(method, "vblur") ? method.vblur : 0;
   STRING forcetype := CellExists(method, "format") ? method.format : "";
   STRING outtype := forcetype != "" ? forcetype : scannedblob.mimetype = "image/x-bmp" ? "image/png" : scannedblob.mimetype = "image/tiff" ? "image/jpeg" : scannedblob.mimetype;
+  CONSTANT RECORD default_qualities := [
+    "image/jpeg":= 85,
+    "image/png":= 100,
+    "image/gif":= 100,
+    "image/webp":= 80,
+    "image/avif":= 50
+  ];
+
+  INTEGER quality := (CellExists(method, "quality") ? method.quality : 0) ?? GetCell(default_qualities, outtype);
   INTEGER rotate;
   BOOLEAN mirror;
   BOOLEAN issideways;
@@ -710,7 +718,7 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
                   , renderheight := height
                   , bgcolor := method.bgcolor
                   , noforce := method.noforce
-                  , quality := method.quality
+                  , quality := quality
                   , grayscale := method.grayscale
                   , rotate := rotate
                   , mirror := mirror

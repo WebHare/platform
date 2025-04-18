@@ -12,7 +12,6 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeBMP } from "./bmp-to-raw";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
-export const DefaultJpegQuality = 85;
 
 //cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
@@ -388,7 +387,7 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
 
   return {
     bgColor: 0x00ffffff,
-    quality: DefaultJpegQuality,
+    quality: 0,
     noForce: true,
     blur: 0,
     width: 0,
@@ -415,8 +414,16 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
 
   method = validateResizeMethod(method);
 
-  const quality = method?.quality ?? DefaultJpegQuality;
   const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
+  const defaultQualities = {
+    "image/jpeg": 85,
+    "image/png": 100,
+    "image/gif": 100,
+    "image/webp": 80,
+    "image/avif": 50
+  };
+  const quality = method?.quality || defaultQualities[outtype];
+
   const instr: ResizeSpecs = {
     outWidth: resource.width,
     outHeight: resource.height,
@@ -539,7 +546,7 @@ export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
   //fixOrientation: enforced in TS. this bit goes into format, the rest of the bigflags go into method
   format += 0x80;
 
-  const havequality = validatedMethod.quality !== DefaultJpegQuality;
+  const havequality = validatedMethod.quality !== 0;
   if (havequality)
     method += 0x20; //Set quality flag
 

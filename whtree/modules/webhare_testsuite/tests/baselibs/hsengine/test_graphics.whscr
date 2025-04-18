@@ -20,24 +20,24 @@ MACRO FilterTest()
   RECORD example_tiff := [ width := 320, height := 240, mimetype := "image/tiff", rotation := 0, mirrored := FALSE ];
   RECORD example_refpoint := [ width := 320, height := 240, mimetype := "image/png", rotation := 0, mirrored := FALSE, refpoint := [ x := 180, y := 180 ] ];
 
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_png, [ method := "none" ]));
 
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none", format := "image/png" ]));
 
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none", format := "image/png", noforce := TRUE ]));
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none", format := "image/png", noforce := FALSE ]));
 
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 180, y := 180 ] ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 180, y := 180 ] ]
         , ExplainImageProcessing( example_refpoint, [ method := "none", format := "image/png", noforce := FALSE ]));
 
 
   TestThrowsLike("Invalid output format ' ' in resize method", PTR ExplainImageProcessing( example_bmp, [ method := "none", format := " " ]));
 
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none", format := "" ]));
 
   //non web formats should still be converted (tiff->jpeg, bmp->png)
@@ -45,9 +45,9 @@ MACRO FilterTest()
         , ExplainImageProcessing( example_tiff, [ method := "none" ]));
   TestEq( [ outwidth := 320, outheight := 240, outtype := "image/jpeg", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_tiff, [ method := "none", noforce := FALSE ]));
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none" ]));
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := FALSE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , ExplainImageProcessing( example_bmp, [ method := "none", noforce := FALSE ]));
 
   //Fit reduces a too-big input canvas and will return a canvas of varying size. Fitcanvas will always return a canvas of setwidth x setheight and center the image
@@ -106,13 +106,13 @@ MACRO FilterTest()
         );
 
   //refpoint is irrelevant for cutoffs (but still scaled)
-  TestEq( [ outwidth := 120, outheight := 90, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 68 ] ]
+  TestEq( [ outwidth := 120, outheight := 90, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 68 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "fit", setwidth:=120,setheight:=120 ]));
-  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 180, y := 180 ] ]
+  TestEq( [ outwidth := 320, outheight := 240, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 180, y := 180 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "fit", setwidth:=320,setheight:=0 ]));
 
   //refpoint is irrelevant for cutoffs (but still scaled)
-  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 15, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 83 ] ]
+  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 15, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 83 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "fitcanvas", setwidth:=120,setheight:=120 ]));
 
 
@@ -158,11 +158,11 @@ MACRO FilterTest()
         );
 
   //refpoint is irrelevant for cutoffs (but still scaled)
-  TestEq( [ outwidth := 120, outheight := 90, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 68 ] ]
+  TestEq( [ outwidth := 120, outheight := 90, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 68 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "scale", setwidth:=120,setheight:=120 ]));
 
   //refpoint is irrelevant for cutoffs (but still scaled)
-  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 15, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 83 ] ]
+  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 15, renderwidth := 120, renderheight := 90, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 68, y := 83 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "scalecanvas", setwidth:=120,setheight:=120 ]));
 
 
@@ -192,7 +192,7 @@ MACRO FilterTest()
         );
 
   //in the output, the image must be rendered somewhat more to the left (-23 (22.5) instead of -20)
-  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := -23, rendery := 0, renderwidth := 160, renderheight := 120, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 67, y := 90 ] ]
+  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := -23, rendery := 0, renderwidth := 160, renderheight := 120, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 67, y := 90 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "fill", setwidth:=120,setheight:=120 ]));
 
 
@@ -229,7 +229,7 @@ MACRO FilterTest()
         );
 
   //in the output, the image must be rendered somewhat more to the left and top (-68 (67.5) instead of -60 and -105 instead of -70)
-  TestEq( [ outwidth := 200, outheight := 100, outtype := "image/png", renderx := -68, rendery := -105, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 112, y := 75 ] ]
+  TestEq( [ outwidth := 200, outheight := 100, outtype := "image/png", renderx := -68, rendery := -105, renderwidth := 320, renderheight := 240, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 112, y := 75 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "crop", setwidth:=200,setheight:=100 ]));
 
 
@@ -240,7 +240,7 @@ MACRO FilterTest()
         , ExplainImageProcessing(example_jpg, [ method := "stretch", setwidth:=320,setheight:=120 ]));
 
   //refpoint is irrelevant for cutoffs (but still scaled)
-  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 120, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 67, y := 90 ] ]
+  TestEq( [ outwidth := 120, outheight := 120, outtype := "image/png", renderx := 0, rendery := 0, renderwidth := 120, renderheight := 120, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 100, grayscale := FALSE, rotate := 0, mirror := FALSE, hblur := 0, vblur := 0, refpoint := [ x := 67, y := 90 ] ]
         , ExplainImageProcessing(example_refpoint, [ method := "stretch", setwidth:=120,setheight:=120 ]));
 
 
@@ -370,6 +370,9 @@ MACRO MethodPacking()
   TestEq(FALSE, finalmethod.fixorientation);
 
   finalmethod := GfxUnpackImageResizeMethod(GfxPackImageResizeMethod([ method := "fitcanvas", setwidth := 125, setheight := 131, fixorientation := TRUE]));
+  TestEq([ method := "fitcanvas", setwidth := 125, setheight := 131, format := "", bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 0, grayscale := FALSE, fixorientation := TRUE, hblur := 0, vblur := 0 ], finalmethod);
+
+  finalmethod := GfxUnpackImageResizeMethod(GfxPackImageResizeMethod([ method := "fitcanvas", setwidth := 125, setheight := 131, fixorientation := TRUE,quality := 85]));
   TestEq([ method := "fitcanvas", setwidth := 125, setheight := 131, format := "", bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, fixorientation := TRUE, hblur := 0, vblur := 0 ], finalmethod);
 
   finalmethod := GfxUnpackImageResizeMethod(GfxPackImageResizeMethod([method:="none"]));
