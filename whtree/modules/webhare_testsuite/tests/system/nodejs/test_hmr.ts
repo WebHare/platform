@@ -22,6 +22,7 @@ async function testFileEdits() {
   const path_dyn1 = require.resolve("./hmrlibs/dyn1.ts");
   const path_static = require.resolve("./hmrlibs/static.ts");
   const path_resource = require.resolve("./hmrlibs/resource.txt");
+  const path_resource2 = require.resolve("./hmrlibs/resource2.txt");
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
   const { dynimport } = require(path_root);
@@ -85,10 +86,25 @@ async function testFileEdits() {
   await test.wait(async () => !require.cache[path_dyn1]);
   await dynimport(path_dyn1);
 
+  // Test resource originally registered with mod:: path
   test.eq({
     "root.ts": 1,
     "dep.ts": 4,
     "dyn1.ts": 8,
+    "dep2.ts": 6,
+    "static.ts": 7
+  }, map);
+
+  // Update a resource marked as loaded by dyn1
+  await storeDiskFile(path_resource2, fs.readFileSync(path_resource2, "utf-8"), { overwrite: true });
+
+  await test.wait(async () => !require.cache[path_dyn1]);
+  await dynimport(path_dyn1);
+
+  test.eq({
+    "root.ts": 1,
+    "dep.ts": 4,
+    "dyn1.ts": 9,
     "dep2.ts": 6,
     "static.ts": 7
   }, map);

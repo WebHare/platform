@@ -57,6 +57,7 @@ STATIC OBJECTTYPE GetconfigPortHandler EXTEND IPCPortHandlerBase
 
       RECORD lastconfig := CallFunctionFromJob("mod::system/lib/internal/webserver/reloadconfig.whlib", "ReloadPreviousConfig", config);
       StoreDiskFile(this->saved_configpath, EncodeHSONBlob(lastconfig), [ overwrite := TRUE ]);
+      StoreDiskFile(this->saved_configpath || ".json", EncodeJSONBlob(lastconfig), [ overwrite := TRUE ]);
     }
     CATCH (OBJECT e)
     {
@@ -126,6 +127,7 @@ STATIC OBJECTTYPE GetconfigPortHandler EXTEND IPCPortHandlerBase
     RECORD lastconfig := CallFunctionFromJob("mod::system/lib/internal/webserver/reloadconfig.whlib#ReloadConfig");
     // Save this configuration to disk (StoreDiskFile doesnt normally overwrite inplace, so this is safe)
     StoreDiskFile(this->saved_configpath, EncodeHSONBlob(lastconfig), [ overwrite := TRUE ]);
+    StoreDiskFile(this->saved_configpath || ".json", EncodeJSONBlob(lastconfig), [ overwrite := TRUE ]);
     // Signal the waiters for this reload. You might accidentally wait for an earlier reload, but only urlhistory uses it... see if urlhistory test can do without
     BroadcastEvent("system:internal.webserver.didconfigreload", DEFAULT RECORD);
     RETURN lastconfig.reloadstatus;
