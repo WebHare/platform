@@ -20,7 +20,7 @@ export type { SiteRequest, WebDesignFunction, ResponseBuilder } from './siterequ
 export {
   RestRequest
 } from './restrequest';
-export type { DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction, RestResponseType, RestDefaultErrorBody } from './restrequest';
+export type { DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction, RestDefaultErrorMapperFunction, RestResponseType, RestDefaultErrorBody } from './restrequest';
 export { getAssetPackIntegrationCode } from "./concepts";
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 export { type WebHareOpenAPIDocument, type OpenAPIServiceInitializationContext } from "./openapi";

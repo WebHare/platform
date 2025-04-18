@@ -156,7 +156,7 @@ async function testAuthorization() {
   {
     const res = await authService.get("/dummy");
     test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
-    test.eq({ error: "Dude where's my key?" }, res.body);
+    test.eq({ message: "Dude where's my key?" }, res.body);
   }
 
   {
@@ -181,7 +181,8 @@ async function testAuthorization() {
   {
     const res = await authServiceWithToken.post("/dummy", {});
     test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
-    test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, res.body);
+    // error should be mapped by the error mapper
+    test.eq({ message: "Authorization is required for this endpoint" }, res.body);
   }
 }
 
@@ -429,7 +430,7 @@ async function verifyPublicParts() {
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
   test.eq("Authorization", deniedcall.headers.get("www-authenticate"));
-  test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
+  test.eq({ message: "Dude where's my key?" }, await deniedcall.json());
 
   // Test decoding of encoded variables
   const validatecall = await fetch(userapiroot + "validateoutput?test=with%2F");

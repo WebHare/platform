@@ -4,6 +4,8 @@ info:
   title: Test openapi service without auth function
   version: 0.0.1-alpha
 
+x-webhare-default-error-mapper: authtests.ts#mapDefaultError
+
 paths:
   "/dummy":
     get:

@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestParams, RestRequest, type WebResponse, HTTPMethod, type RestAuthorizationFunction, type RestImplementationFunction, HTTPSuccessCode, type OpenAPIServiceInitializationContext, type WebHareOpenAPIDocument, type RestDefaultErrorMapperFunction } from "@webhare/router";
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
@@ -158,6 +158,7 @@ export class RestAPI {
   outputValidation: OpenAPIValidationMode | null = null;
   crossdomainOrigins: string[] = [];
   handlerInitHook: string | null = null;
+  defaultErrorMapper: string | null = null;
 
   async init(def: object, specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string }) {
     this.serviceName = name;
@@ -193,6 +194,9 @@ export class RestAPI {
        so we need a few cast below to build the routes ...*/
     this.def = parsed as WebHareOpenAPIDocument;
     const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveJSResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
+
+    if (this.def["x-webhare-default-error-mapper"])
+      this.defaultErrorMapper = resolveJSResource(specresourcepath, this.def["x-webhare-default-error-mapper"]);
 
     // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-implementation)
     // Read the API paths
@@ -245,9 +249,7 @@ export class RestAPI {
       // Get the handler for this worker
       let workerHandler = this.handlers.get(worker);
       if (!workerHandler) {
-        const defaultErrorMapper = this.def?.["x-webhare-default-error-mapper"] ?? "";
-
-        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, defaultErrorMapper, this.handlerInitHook));
+        this.handlers.set(worker, workerHandler = await worker.callFactory<Handler>("@mod-system/js/internal/openapi/restapi.ts#getWorkerRestAPIHandler", this.serviceName, this.routes, this.def?.components?.schemas?.defaulterror ?? null, this.defaultErrorMapper, this.handlerInitHook));
       }
       const encodedTransfer = req.encodeForTransfer();
       return await workerHandler.handleRequest.callWithTransferList(encodedTransfer.transferList, encodedTransfer.value, relurl, logger);
@@ -307,7 +309,7 @@ export class WorkerRestAPIHandler {
   /// Build error responses for errors other than operation result errors (method not found, validation failures, etc)
   private async buildErrorResponse(status: HTTPErrorCode, error: string): Promise<WebResponse> {
     if (this.defaultErrorMapper) {
-      const mapperFunction = await importJSFunction<(data: { status: HTTPErrorCode; error: string }) => WebResponse>(this.defaultErrorMapper);
+      const mapperFunction = await importJSFunction<RestDefaultErrorMapperFunction>(this.defaultErrorMapper);
       return mapperFunction({ status, error });
     }
     return createJSONResponse(status, { status, error });

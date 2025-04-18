@@ -159,5 +159,10 @@ export interface RestFailedAuthorization {
 export type RestAuthorizationResult<AuthInternal = unknown, LogInfo = LoggableRecord> = RestSuccessfulAuthorization<AuthInternal, LogInfo> | RestFailedAuthorization;
 
 /** Signature for a x-webhare-authorization function */
-export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;
 export type RestAuthorizationFunction = (request: RestRequest) => Promise<RestAuthorizationResult>;
+
+/** Signature for a x-webhare-implementation function */
+export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;
+
+/** Signature for a x-webhare-default-error-mapper function */
+export type RestDefaultErrorMapperFunction = (data: { status: HTTPErrorCode; error: string }) => Promise<WebResponse>;
