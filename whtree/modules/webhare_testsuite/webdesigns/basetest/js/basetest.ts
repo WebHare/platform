@@ -5,7 +5,6 @@ import * as dialogapi from 'dompack/api/dialog';
 import PollWebtool from "@mod-publisher/js/webtools/poll";
 import ForumCommentsWebtool from "@mod-publisher/js/webtools/forumcomments";
 import * as adaptivecontent from '@mod-publisher/js/contentlibraries/adaptivecontent';
-import * as forms from '@mod-publisher/js/forms';
 import * as formrpc from '@mod-publisher/js/forms/rpc';
 import { verifyHareScriptAddress } from "@webhare/forms/src/address";
 
@@ -61,7 +60,6 @@ dompack.register('.wh-gallery', node => setupGallery(node));
 /////////////////////////////////////////////////////////
 // Forms
 
-forms.setup({ validate: true });
 dompack.register('.wh-poll', node => new PollWebtool(node));
 dompack.register('.wh-forumcomments', node => new ForumCommentsWebtool(node));
 
@@ -92,7 +90,7 @@ import * as ga4 from '@mod-publisher/js/analytics/ga4';
 import * as gtm from '@mod-publisher/js/analytics/gtm';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 import { floatAsyncHandler } from '@mod-webhare_testsuite/js/testhelpers';
-import { setupDataLayerTags, setupFormAnalytics, setupFormAnalyticsForGTM } from '@webhare/frontend';
+import { setupDataLayerTags, setupFormAnalyticsForGTM } from '@webhare/frontend';
 
 window.revokeConsent = function () { consenthandler.setConsent([]); };
 
@@ -153,8 +151,6 @@ window.geoip_getIPInfo = geoip.getIPInfo;
 window.whintegration_config = whintegration.config;
 window.formrpc_submitForm = formrpc.submitForm;
 window.formrpc_validateAddress = verifyHareScriptAddress;
-
-setupFormAnalytics();
 
 if (urlparams.has("gtmFormEvents"))
   setupFormAnalyticsForGTM({ eventPrefix: urlparams.get("gtmFormEvents") || '' });
