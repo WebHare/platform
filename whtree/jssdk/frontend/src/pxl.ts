@@ -66,6 +66,6 @@ export function setupFormAnalytics(options?: { eventPrefix: string }): void {
       if (key !== "event" && ["string", "number", "boolean"].includes(typeof val))
         formeventdata[`formmeta_${key}`] = val;
 
-    sendPxl<PxlData>(`${prefix}${e.detail.event}`, formeventdata);
+    sendPxl<PxlData>(`${prefix}${e.detail.event}`, formeventdata, e.detail.event === "abandoned" ? { beacon: true } : undefined);
   });
 }
