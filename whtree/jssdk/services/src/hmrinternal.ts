@@ -80,15 +80,16 @@ export function registerAsNonReloadableLibrary(mod: NodeModule) {
 }
 
 function resolveResource(path: string) {
-  let libraryuri = path.split("#")[0];
-  if (libraryuri.startsWith("mod::"))
-    libraryuri = "@mod-" + libraryuri.substring(5);
-  return libraryuri.startsWith("@mod-") ? toFSPath(libraryuri) : libraryuri;
+  if (path.startsWith("mod::"))
+    return toFSPath(path);
+  if (!path.startsWith("/"))
+    throw new Error(`The path should either be an absolute disk path or a resource path starting with "mod::"`);
+  return path;
 }
 
 /** Register a resource as a dependency for the a module. If the dependency is modified the module will be invalidated (and thus be reloaded when requested again).
     @param mod - The module which will be invalidated when the resource changes. You should use `module` for this parameter
-    @param resourcePath - The path to the resource to watch
+    @param resourcePath - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
 */
 export function registerResourceDependency(mod: NodeModule, path: string) {
   path = resolveResource(path);
@@ -106,7 +107,7 @@ export function registerResourceDependency(mod: NodeModule, path: string) {
 
 /** Register a callback that is invoked when the specified resource is modified. The callback is invoked only once and discarded if the module itself is invalidated.
     @param mod - The module whose invalidation will deactivate the callback. You should use `module` for this parameter
-    @param resourcePath - The path to the resource to watch
+    @param resourcePath - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
     @param callback - The callback that will be invoked once when the resource is modified
  */
 export function addResourceChangeListener(mod: NodeModule, resourcePath: string, callback: () => void) {
