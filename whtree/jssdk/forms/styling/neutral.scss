@@ -1,4 +1,4 @@
-@import "~@mod-publisher/js/forms/fields/datetime.scss";
+@use "~@mod-publisher/js/forms/fields/datetime.scss" as datetime;
 
 // Array field styling
 
@@ -36,7 +36,7 @@
 // Date and time styling
 .datetime
 {
-  @include wh-datetime;
+  @include datetime.wh-datetime;
 
   &__togglepicker:before
   {
@@ -45,8 +45,5 @@
   &__reset:before
   {
     content:"x";
-  }
-  &__picker
-  {
   }
 }

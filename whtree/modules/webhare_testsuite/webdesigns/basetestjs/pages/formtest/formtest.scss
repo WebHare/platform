@@ -1,8 +1,8 @@
-@import '~@mod-publisher/js/forms/styles';
+@use '~@mod-publisher/js/forms/styles' as formstyles;
 
 @at-root
 {
-  @include wh-form-flex;
+  @include formstyles.wh-form-flex;
 }
 .wh-form__label
 {

@@ -1,4 +1,4 @@
-@import '~@mod-publisher/js/forms/styles';
+@use '~@mod-publisher/js/forms/styles' as formstyles;
 
 :root {
   --wh-imgedit-margin: 15px;    //padding from image to the edge
@@ -8,7 +8,7 @@
 
 @at-root
 {
-  @include wh-form-flex;
+  @include formstyles.wh-form-flex;
 }
 .wh-form__label
 {
