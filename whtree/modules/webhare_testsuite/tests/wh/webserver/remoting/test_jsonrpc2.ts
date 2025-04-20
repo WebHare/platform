@@ -9,7 +9,6 @@ import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
 import type { MyService } from '@mod-webhare_testsuite/js/jsonrpc/type';
 import { createClient } from "@webhare/jsonrpc-client";
 import { backendBase, initEnv } from '@webhare/env/src/envbackend';
-import { DTAPStage } from '@webhare/env';
 
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
@@ -66,7 +65,7 @@ async function testTypedClient() {
 
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
-  initEnv(DTAPStage.Development, "http://127.0.0.1:65500/");
+  initEnv("development", "http://127.0.0.1:65500/");
   await test.throws(/fetch failed/, () => noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
 
   const myservice1 = noAuthJSService.withOptions({ baseUrl: backendConfig.backendURL });
@@ -93,7 +92,7 @@ async function testTypedClient() {
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
   test.eqPartial({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 
-  initEnv(DTAPStage.Development, save_backend_setting); //restore it just in case future tests rely on it
+  initEnv("development", save_backend_setting); //restore it just in case future tests rely on it
 
   //Test lock abandonment
   await noAuthJSService.lockWork();

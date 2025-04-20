@@ -1,6 +1,6 @@
 //We implement the backend version of getWHDebugFlags so bridge can access us without going through a recursive dep
 
-import { DTAPStage } from "./concepts";
+import type { DTAPStage } from "./concepts";
 
 /// List global polyfills currently active. This may be needed to align TypeScript hosts configuration
 export const globalPolyfills: string[] = [];
@@ -136,10 +136,10 @@ export function registerDebugConfigChangedCallback(cb: () => void) {
 }
 
 /** DTAP stage set for this WebHare */
-let dtapStage: DTAPStage = DTAPStage.Production as const;
+let dtapStage: DTAPStage = "production";
 
-/** Whether we should (pretend) to be live/production ... true on production and acceptance */
-let isLive: boolean = true;
+/** @deprecated We now recommend checking dtapStage against production/acceptance Explicitly */
+let isLive: boolean = dtapStage === "production" || dtapStage === "acceptance";
 
 /** The backend base URL. Used for eg. autoconfiguring JSON/RPC */
 let backendBase = "";
@@ -147,12 +147,12 @@ let backendBase = "";
 //deprecated variants
 /** @deprecated For WH5.4 and up use 'dtapStage' */
 let dtapstage: DTAPStage = dtapStage;
-/** @deprecated For WH5.4 and up use 'isLive' */
+/** @deprecated For WH5.4 and up compare 'dtapStage' for production or acceptance */
 let islive: boolean = isLive;
 
 export function initEnv(setDtapStage: DTAPStage, setBackendBase: string) {
   dtapStage = setDtapStage;
-  isLive = dtapStage === DTAPStage.Production || dtapStage === DTAPStage.Acceptance;
+  isLive = dtapStage === "production" || dtapStage === "acceptance";
   backendBase = setBackendBase;
 
   dtapstage = dtapStage;

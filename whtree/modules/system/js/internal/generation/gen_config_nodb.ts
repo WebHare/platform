@@ -4,16 +4,16 @@
 import * as fs from "node:fs";
 import { omit, pick } from "@webhare/std/collections";
 import type { RecursivePartial } from "@webhare/js-api-tools";
-import { DTAPStage } from "@webhare/env/src/concepts";
+import type { DTAPStage } from "@webhare/env/src/concepts";
 import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";
 import { isValidModuleName } from "@webhare/services/src/naming";
 
-function appendSlashWhenMissing(path: string) {
+export function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";
 }
 
-function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
-  return Object.values(DTAPStage).includes(dtapstage as DTAPStage);
+export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
+  return ["production", "acceptance", "test", "development"].includes(dtapstage);
 }
 
 type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "buildinfo" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
@@ -33,7 +33,7 @@ export function generateNoDBConfig(): NoDBConfig {
   if (!dataRoot)
     throw new Error("Invalid WEBHARE_DATAROOT");
   if (!installationRoot)
-    throw new Error("Cannot determine the WebHare installation root");
+    throw new Error("Cannot determine the WebHare ¯installation root");
 
   const modulescandirs = [dataRoot + "installedmodules/"];
 
@@ -108,7 +108,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
   const nodbconfig = generateNoDBConfig();
 
   const publicdata: BackendConfiguration = {
-    dtapstage: DTAPStage.Production,
+    dtapstage: "production",
     serverName: "",
     servername: "",
     backendURL: "",

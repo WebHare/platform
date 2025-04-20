@@ -6,7 +6,6 @@ import type { WebRequestInfo } from '@mod-system/js/internal/types';
 import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
 import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
 import { backendBase, initEnv } from '@webhare/env/src/envbackend';
-import { DTAPStage } from '@webhare/env';
 import { rpc, type GetRPCClientInterface, type RPCResponse } from "@webhare/rpc";
 import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
@@ -106,7 +105,7 @@ async function testTypedClient() {
 
   //Verify that modifying the base URL breaks them
   const save_backend_setting = backendBase;
-  initEnv(DTAPStage.Development, "http://127.0.0.1:65500/");
+  initEnv("development", "http://127.0.0.1:65500/");
   await test.throws(/fetch failed/, () => testAPIService.validateEmail("nl", "pietje@webhare.dev"));
 
   const myservice1 = testAPIService.withOptions({ baseUrl: backendConfig.backendURL });
@@ -138,7 +137,7 @@ async function testTypedClient() {
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });
   test.eqPartial({ authorization: "grizzly bearer", "x-test": "test" }, (await serviceWithMoreHeaders.describeMyRequest()).requestHeaders);
 
-  initEnv(DTAPStage.Development, save_backend_setting); //restore it just in case future tests rely on it
+  initEnv("development", save_backend_setting); //restore it just in case future tests rely on it
 
   //Test lock abandonment
   await testAPIService.lockWork();

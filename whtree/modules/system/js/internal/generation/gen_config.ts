@@ -4,21 +4,12 @@
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { decodeHSON } from "@webhare/hscompat/hson";
-import { DTAPStage } from "@webhare/env/src/concepts";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";
 
-import { updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
+import { appendSlashWhenMissing, isValidDTAPStage, updateWebHareConfigWithoutDB, type PartialConfigFile } from "./gen_config_nodb";
 import { reloadBackendConfig } from "../configuration";
-
-function appendSlashWhenMissing(path: string) {
-  return !path || path.endsWith("/") ? path : path + "/";
-}
-
-function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
-  return Object.values(DTAPStage).includes(dtapstage as DTAPStage);
-}
 
 async function rawReadRegistryKey<T>(pgclient: WHDBPgClient, key: string): Promise<T | undefined> {
   const res = await pgclient.query<{ data: string }>("SELECT data FROM system.flatregistry WHERE name = $1", [key]);
@@ -51,9 +42,7 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
         if (!dtapstage)
           return finalconfig;
 
-        finalconfig.public.dtapstage = isValidDTAPStage(dtapstage)
-          ? dtapstage
-          : DTAPStage.Production;
+        finalconfig.public.dtapstage = isValidDTAPStage(dtapstage) ? dtapstage : "production";
       }
 
       const servername = await rawReadRegistryKey<string>(pgclient, "system.global.servername");

@@ -1,7 +1,7 @@
 /* frontend-config parses the wh-config object in the browser and mocks any missing data. @webhare/env does not actually expose this config, @webhare/frontend does
    The frontend configuration is built in the SiteResponse's 'frontendConfig' member */
 
-import { DTAPStage } from "@webhare/env/src/concepts";
+import type { DTAPStage } from "@webhare/env/src/concepts";
 import { debugFlags, initEnv } from "@webhare/env/src/envbackend";
 import { getBrowserDebugFlags } from "@webhare/env/src/init-browser";
 import type { FrontendDataTypes } from "@webhare/frontend";
@@ -37,18 +37,18 @@ export interface WHConfigScriptData_OldPublishFields {
 
 //fallback names with deprecation warnings
 export interface WHConfigScriptData_LegacyFields {
-  //TODO: once 5.4 is the expected baseline everwhere: /** @deprecated use import { isLive } from "@webhare/env"; in WH5.4 */
+  /** @deprecated Use dtapStage in WH5.4+ */
   islive: boolean;
-  //TODO: once 5.4 is the expected baseline everwhere:/** @deprecated use import { dtapStage } from "@webhare/env"; in WH5.4 */
+  /** @deprecated Use `dtapStage` from "\@webhare/env"; in WH5.4+ */
   dtapstage: DTAPStage;
-  //TODO: once 5.4 is the expected baseline everwhere:/** @deprecated Renamed to siteRoot in WH5.4 */
+  /** @deprecated Use `getSiteRoot` from "\@webhare/frontend"; in WH5.7+ */
   siteroot: string;
 }
 
 type Configured = Partial<WHConfigScriptData & WHConfigScriptData_OldPublishFields & { dtapStage?: DTAPStage }>;
 let config: Configured | undefined;
 let siteroot;
-let dtapStage = DTAPStage.Production;
+let dtapStage: DTAPStage = "production";
 
 //if document is undefined, we're serverside or in a worker
 const whconfigel = typeof document !== "undefined" ? document.querySelector('script#wh-config') : null;
@@ -77,7 +77,7 @@ export const frontendConfig = {
   siteRoot: siteroot,
   //deprecated variables:
   dtapstage: dtapStage,
-  islive: ([DTAPStage.Production, DTAPStage.Acceptance]).includes(dtapStage!),
+  islive: (["production", "acceptance"]).includes(dtapStage!),
   siteroot
 } as WHConfigScriptData & WHConfigScriptData_LegacyFields; //in a future version we can either obsolete or even drop '& WHConfigScriptData_LegacyFields' and validation will fail without breaking existing JS code
 
