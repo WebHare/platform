@@ -160,10 +160,16 @@ export function createWebResponseFromTransferData(data: WebResponseForTransfer):
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string | ArrayBuffer | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
+export function createWebResponse(body: string | ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
   const headers = new Headers(options?.headers);
   if (!headers.get("content-type") && body !== undefined)
     headers.set("content-type", body instanceof ArrayBuffer ? "application/octet-stream" : "text/html;charset=utf-8");
+
+  const copy = body; // need to do the instanceof test on a separate variable, otherwise TS will narrow 'body' to never
+  if (typeof body === "object" && "stream" in body && !(copy instanceof Blob)) {
+    // A WebHareBlob can't be used as a body directly (because it isn't a real Blob), but its stream can.
+    body = body.stream();
+  }
 
   return new WebResponse(body, { status: options?.status ?? HTTPSuccessCode.Ok, headers });
 }
