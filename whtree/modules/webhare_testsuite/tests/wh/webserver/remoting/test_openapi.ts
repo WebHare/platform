@@ -32,6 +32,7 @@ async function testService() {
   {
     const res = await service.get("/users");
     test.eq(HTTPSuccessCode.Ok, res.status);
+    console.log(res);
     test.eq([
       { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
       { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
@@ -77,9 +78,9 @@ async function testService() {
 
   {
     const res = await service.post("/users", pietje);
-    test.eq(HTTPSuccessCode.Created, res.status);
+    test.assert(res.status === HTTPSuccessCode.Created);
     test.eqPartial({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, res.body);
-    //@ts-expect-error TODO can we fix TS not properly inferring it's a succesful body? Perhaps due to '201 Created' instead of '200'?
+    test.assert(typeof res.body.id !== "undefined");
     test.assert(res.body.id > 0);
   }
 
@@ -111,18 +112,16 @@ async function testService() {
 
   {
     const res = await service.get("/validateoutput", { params: { test: "with/" } });
-    test.eq(HTTPErrorCode.BadRequest, res.status);
-    //@ts-expect-error TODO can TS infer body has to have error?
-    test.eq(`Illegal type: "with/"`, res.body.error);
+    test.assert(res.status === HTTPErrorCode.BadRequest);
+    test.eq(`Illegal type: "with/"`, res.body.message);
   }
 
 
   {
     //@ts-expect-error TS also detects the invalid url
     const res = await service.get("/validateoutput/with%2F");
-    test.eq(HTTPErrorCode.BadRequest, res.status);
-    //@ts-expect-error TODO can TS infer body has to have error?
-    test.eq(`Illegal path type: "with/"`, res.body.error);
+    test.assert(res.status === HTTPErrorCode.BadRequest);
+    test.eq(`Illegal path type: "with/"`, res.body.message);
   }
 }
 
@@ -156,31 +155,32 @@ async function testAuthorization() {
   {
     const res = await authService.get("/dummy");
     test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
+    test.assert(res.status === HTTPErrorCode.Unauthorized && "body" in res);
     test.eq({ message: "Dude where's my key?" }, res.body);
   }
 
   {
     const res = await authServiceWithToken.get("/dummy");
-    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
     test.eq("Bearer secret", res.body);
   }
 
   { //NOTE not sure why this test was doubled previously?
     const res = await authServiceWithToken.get("/dummy");
-    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
     test.eq("Bearer secret", res.body);
   }
 
   {
     const authServiceWithToken2 = new OpenAPIAuthtestsClient(authFetch, { bearerToken: "secret2" });
     const res = await authServiceWithToken2.get("/dummy");
-    test.eq(HTTPSuccessCode.Ok, res.status);
+    test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
     test.eq("Bearer secret2", await res.body);
   }
 
   {
     const res = await authServiceWithToken.post("/dummy", {});
-    test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
+    test.assert(res.status === HTTPErrorCode.Unauthorized, "Should not be getting NotImplemented - access checks go first!");
     // error should be mapped by the error mapper
     test.eq({ message: "Authorization is required for this endpoint" }, res.body);
   }
@@ -271,8 +271,7 @@ async function testCORS() {
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("https://webhare.dev:1234", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/GET/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
-    test.eq('', res.body); // dummy service not actually executed, only preflight
+    test.assert(!("body" in res)); // dummy service not actually executed, only preflight
   }
 
   {
@@ -287,8 +286,7 @@ async function testCORS() {
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("http://example.org", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/POST/, res.headers.get("Access-Control-Allow-Methods")); // preflight header
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
-    test.eq('', res.body); // dummy service not actually executed, only preflight
+    test.assert(!("body" in res)); // dummy service not actually executed, only preflight
   }
 
   {
@@ -303,8 +301,7 @@ async function testCORS() {
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("https://example.com", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(/authorization/, res.headers.get("Access-Control-Allow-Headers")); // preflight header
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
-    test.eq('', res.body); // dummy service not actually executed, only preflight
+    test.assert(!("body" in res)); // dummy service not actually executed, only preflight
   }
 
   {
@@ -318,7 +315,6 @@ async function testCORS() {
     });
     test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
     test.eq(/Cannot match origin 'https:\/\/www.example.com'/, res.headers.get("X-WebHare-CORS-Error"));
-
   }
 
   {
@@ -332,10 +328,7 @@ async function testCORS() {
     });
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
-    test.eq('', res.body); // dummy service not actually executed, only preflight
-
-
+    test.assert(!("body" in res)); // dummy service not actually executed, only preflight
   }
 
   { // Direct calls
@@ -349,9 +342,8 @@ async function testCORS() {
     test.eq("http://localhost", res.headers.get("Access-Control-Allow-Origin"));
     test.eq(null, res.headers.get("Access-Control-Allow-Methods")); // direct call doesn't contain preflight headers
     test.eq(null, res.headers.get("Access-Control-Allow-Headers")); // direct call doesn't contain preflight headers
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    //@ ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
     test.eq("bearer secretf", res.body);
-
   }
 
   {
@@ -363,7 +355,7 @@ async function testCORS() {
     });
     test.eq(HTTPSuccessCode.Ok, res.status);
     test.eq(null, res.headers.get("Access-Control-Allow-Origin"));
-    //@ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
+    //@ ts-expect-error FIXME openapi invoke doesn't understand that it might return non-JSON bod
     test.eq("bearer secretg", res.body);
   }
 }
@@ -435,11 +427,11 @@ async function verifyPublicParts() {
   // Test decoding of encoded variables
   const validatecall = await fetch(userapiroot + "validateoutput?test=with%2F");
   test.eq(HTTPErrorCode.BadRequest, validatecall.status);
-  test.eq(`Illegal type: "with/"`, (await validatecall.json()).error);
+  test.eq(`Illegal type: "with/"`, (await validatecall.json()).message);
 
   const validatepathcall = await fetch(userapiroot + "validateoutput/with%2F");
   test.eq(HTTPErrorCode.BadRequest, validatepathcall.status);
-  test.eq(`Illegal path type: "with/"`, (await validatepathcall.json()).error);
+  test.eq(`Illegal path type: "with/"`, (await validatepathcall.json()).message);
 
   const extendedapiroot = services.backendConfig.backendURL + ".webhare_testsuite/openapi/extendedservice/";
   const extendedopenapi = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
@@ -499,13 +491,13 @@ function testInternalTypes() {
   test.typeAssert<test.Equals<HTTPErrorCode | HTTPSuccessCode.Ok | HTTPSuccessCode.PartialContent, restrequest.JSONResponseCodes<TestResponses>>>();
   test.typeAssert<test.Equals<HTTPSuccessCode.Created | HTTPSuccessCode.PartialContent, restrequest.RawResponseCodes<TestResponses>>>();
 
-  test.typeAssert<test.Equals<{ code: number }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>>>();
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>>>();
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>>>();
+  test.typeAssert<test.Equals<{ code: number }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>["response"]>>();
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>["response"]>>();
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string }, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>["response"]>>();
   // When both json and non-json are accepted, returns the JSON format
-  test.typeAssert<test.Equals<string, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.PartialContent>>>();
+  test.typeAssert<test.Equals<string, restrequest.ResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.PartialContent>["response"]>>();
   // Test with override of default error
-  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string; extra: string }, restrequest.JSONResponseForCode<TestResponses, { status: HTTPErrorCode; error: string; extra: string }, HTTPErrorCode.BadRequest>>>();
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string; extra: string }, restrequest.ResponseForCode<TestResponses, { status: HTTPErrorCode; error: string; extra: string }, HTTPErrorCode.BadRequest>["response"]>>();
 
   // just type-check the following code, don't run it
   const f = false;
@@ -587,6 +579,30 @@ async function testGeneratedClient() { //test the client online
   }
 }
 
+async function testFileTransfer() {
+  using serviceFetch = await getDirectOpenAPIFetch("webhare_testsuite:testservice");
+  const client = new OpenAPITestserviceClient(serviceFetch);
+
+  {
+    const res = await client.get("/file/{type}", { params: { type: "text" } });
+    test.assert(res.status === HTTPSuccessCode.Ok && !("body" in res));
+    test.eq("Hello world", await res.response.text());
+  }
+
+  {
+    const res = await client.get("/file/{type}", { params: { type: "xml" } });
+    test.assert(res.status === HTTPSuccessCode.Ok && !("body" in res));
+    test.assert(!("body" in res));
+    test.eq("<text>Hello world</text>", await res.response.text());
+  }
+
+  {
+    const res = await client.get("/file/{type}", { params: { type: "json" } });
+    test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
+    test.eq({ json: true }, res.body);
+  }
+}
+
 test.runTests([
   testService,
   testAuthorization,
@@ -595,5 +611,6 @@ test.runTests([
   verifyPublicParts,
   testInternalTypes,
   testLogFile,
-  testGeneratedClient
+  testGeneratedClient,
+  testFileTransfer,
 ]);

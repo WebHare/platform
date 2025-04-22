@@ -1,19 +1,26 @@
-import type { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
-import type { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
-import type { JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
+import type { HTTPErrorCode, HTTPMethod, HTTPStatusCode } from "@webhare/router";
+import type { DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, OperationResponseTypes } from "./types";
+import type { ResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, type RestService } from "@mod-system/js/internal/openapi/openapiservice";
 import { WebHareBlob } from "@webhare/services";
-import type { OpenAPIClientFetch } from "@webhare/openapi-service";
+import type { OpenAPIClientFetch, OpenAPIWebResponse } from "@webhare/openapi-service";
 
 
-type OpenAPIResponse<BodyType> = {
-  status: HTTPErrorCode | HTTPStatusCode;
+// Response when the content-type indicates a JSON response
+type OpenAPIJsonResponse<BodyType> = {
+  status: HTTPStatusCode;
   headers: Headers;
   contenttype: string;
-  ///Body. JSON decoded if the response indicated JSON output, raw otherwise
+  ///Body, JSON decoded
   body: BodyType;
 };
 
+type OpenAPINonJsonResponse = {
+  status: HTTPStatusCode;
+  headers: Headers;
+  contenttype: string;
+  response: OpenAPIWebResponse;
+};
 
 /** Base type for parameter types. Only strings, numbers and booleans are allowed as parameters */
 type ParamsBaseType = Record<string, string | number | boolean | string[]>;
@@ -35,17 +42,23 @@ type ParamOptions<Paths extends object, Path extends keyof Paths, Method extends
   ? { params?: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType; encoding?: ParameterEncoding } | undefined
   : { params: GetParametersType<GetOperationByPathAndMethod<Paths, Path, Method>> & ParamsBaseType; encoding?: ParameterEncoding };
 
+type OpenAPIResponseFromOperationResponse<OperationResponse extends { status: HTTPStatusCode; isjson: boolean; response: unknown }> =
+  (OperationResponse extends { isjson: infer IsJson; response: infer Response } ?
+    ((true extends IsJson ? OpenAPIJsonResponse<Response> : never) |
+      (false extends IsJson ? OpenAPINonJsonResponse : never)) :
+    never) & { status: OperationResponse["status"] };
+
 /** Union of all allowed response types for an operation, by operation record
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type OpResponseTypesInternal<Responses extends RestResponsesBase, DefaultErrorFormat extends RestDefaultErrorBody, Status extends ReturnedStatusCodes<Responses> = ReturnedStatusCodes<Responses>> = Status extends any
-  ? { status: Status } & OpenAPIResponse<JSONResponseForCode<Responses, DefaultErrorFormat, Status>>
+type OpResponseTypesInternal<Responses extends RestResponsesBase, DefaultErrorFormat extends object, Status extends ReturnedStatusCodes<Responses> = ReturnedStatusCodes<Responses>> = Status extends any
+  ? OpenAPIResponseFromOperationResponse<ResponseForCode<Responses, DefaultErrorFormat, Status>>
   : never;
 
 /** Union of all allowed response types for an operation, by path and method
  */
-type OpResponseTypes<Paths extends object, Components extends ComponentsBase, Path extends keyof Paths, Method extends string> =
-  OpResponseTypesInternal<JSONResponseTypes<GetOperationByPathAndMethod<Paths, Path, Method & Exclude<keyof Paths[Path], "parameters">>>, DefaultErrorType<Components>>;
+export type OpResponseTypes<Paths extends object, Components extends object, Path extends keyof Paths, Method extends string> =
+  OpResponseTypesInternal<OperationResponseTypes<GetOperationByPathAndMethod<Paths, Path, Method & Exclude<keyof Paths[Path], "parameters">>>, DefaultErrorType<Paths, Components>>;
 
 /** Body type, by path and method
  */
@@ -62,7 +75,7 @@ type MethodOptions<Paths extends object, Path extends keyof Paths, Method extend
 
 /** Typed OpenAPI client
  */
-export class TypedOpenAPIClient<Paths extends object, Components extends ComponentsBase> {
+export class TypedOpenAPIClient<Paths extends object, Components extends object> {
   readonly service: string | OpenAPIClientFetch;
   defaultheaders: Record<string, string> = {};
   private viaservice: string | undefined;
@@ -84,12 +97,29 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       this.defaultheaders["Authorization"] = "Bearer " + (options?.bearerToken || options?.bearertoken);
   }
 
+  async invoke(method: string, route: string, requestbody: string | null, options: {
+    headers?: Record<string, string>;
+    contentType?: string | null;
+    params?: ParamsBaseType;
+    encoding?: ParameterEncoding;
+    alwaysReturnResponse: true;
+  }): Promise<OpenAPINonJsonResponse>;
+
   async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {
     headers?: Record<string, string>;
     contentType?: string | null;
     params?: ParamsBaseType;
     encoding?: ParameterEncoding;
-  }): Promise<OpResponseTypes<Paths, Components, Path, Method>> {
+    alwaysReturnResponse?: boolean;
+  }): Promise<OpResponseTypes<Paths, Components, Path, Method>>;
+
+  async invoke<Path extends PathsForMethod<Paths, Method>, Method extends string>(method: string, route: string, requestbody: string | null, options?: {
+    headers?: Record<string, string>;
+    contentType?: string | null;
+    params?: ParamsBaseType;
+    encoding?: ParameterEncoding;
+    alwaysReturnResponse?: boolean;
+  }): Promise<OpResponseTypes<Paths, Components, Path, Method> | OpenAPINonJsonResponse> {
     const fetchoptions = {
       method,
       headers: { ...this.defaultheaders, ...options?.headers },
@@ -135,7 +165,6 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       }
     }
 
-    let retval;
     const finalroute = url.toString().substring(prefix.length);
     if (this.viaservice) {
       this.serviceinstance ??= await getServiceInstance(this.viaservice);
@@ -144,16 +173,16 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       }, finalroute);
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
-      const responsebody = contenttype.split(';')[0] === "application/json" ? JSON.parse(await res.body.text()) : res.body;
-      retval = { status: res.status, headers, contenttype, body: responsebody };
+      const responsebody = JSON.parse(await res.body.text());
+      return { status: res.status, headers, contenttype, body: responsebody } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
     } else {
       const call = typeof this.service === "string" ? await fetch(this.service + finalroute, fetchoptions) : await this.service(finalroute, fetchoptions);
       const contenttype = call.headers.get("Content-Type") || "";
-      const responsebody = contenttype.split(';')[0] === "application/json" ? await call.json() : await call.text();
-      retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
+      if (contenttype.split(';')[0] === "application/json" && !options?.alwaysReturnResponse) {
+        return { status: call.status, headers: call.headers, contenttype, body: await call.json(), } as unknown as OpResponseTypes<Paths, Components, Path, Method>;
+      } else
+        return { status: call.status, headers: call.headers, contenttype, response: call };
     }
-
-    return retval as OpResponseTypes<Paths, Components, Path, Method>;
   }
 
   async get<Path extends PathsForMethod<Paths, "get">>(route: Path, ...options: MethodOptions<Paths, Path, Exclude<keyof Paths[Path], "parameters"> & "get">): Promise<OpResponseTypes<Paths, Components, Path, "get">> {

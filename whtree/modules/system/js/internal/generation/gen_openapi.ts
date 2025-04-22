@@ -403,10 +403,6 @@ ${isservice ? `import type { OperationIds, OpenApiTypedRestAuthorizationRequest,
 ` : ``}import type { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { TypedOpenAPIClient, type TypedClientRequestBody, type TypedClientResponse, type GetClientTypeParams, type PathsForMethod } from "@mod-system/js/internal/openapi/openapitypedclient";
 
-/* If you get an error in this file that says that components doesn't extend from ComponentsBase, make sure that your
- * components.schemas.defaulterror object extends from \`{ error: string; status: number }\`.
-*/
-
 ${result}
 
 /** API client class for this API.

@@ -391,13 +391,16 @@ export class WorkerRestAPIHandler {
           responseschema = this.defaultErrorSchema;
         }
         if (responseschema) {
-          const start = performance.now();
-          const validator = this.getValidator(responseschema);
-          const success = validator(await response.clone().json());
-          logger.timings.responsevalidation = performance.now() - start;
+          // skip validation when `"format": "binary"` is set in the schema
+          if (!("format" in responseschema) || responseschema.format !== "binary") {
+            const start = performance.now();
+            const validator = this.getValidator(responseschema);
+            const success = validator(await response.clone().json());
+            logger.timings.responsevalidation = performance.now() - start;
 
-          if (!success) {
-            throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${formatAjvError(validator.errors ?? [])}`);
+            if (!success) {
+              throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${formatAjvError(validator.errors ?? [])}`);
+            }
           }
         }
       } else if (!(response.status in HTTPErrorCode)) {

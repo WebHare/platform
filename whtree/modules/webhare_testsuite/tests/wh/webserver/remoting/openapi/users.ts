@@ -1,6 +1,7 @@
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestRequest, type RestSuccessfulAuthorization, type WebResponse } from "@webhare/router";
 import * as services from "@webhare/services";
+import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import type { TypedRestRequest } from "wh:openapi/webhare_testsuite/testservice";
@@ -21,6 +22,10 @@ interface MyRestRequest extends RestRequest {
 
 export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthorization> {
   return { authorized: true, authorization: null };
+}
+
+export async function mapDefaultError({ status, error }: { status: HTTPErrorCode; error: string }) {
+  return createJSONResponse(status, { message: error });
 }
 
 export async function reset() {
@@ -79,19 +84,41 @@ export async function deleteUser(req: MyRestRequest): Promise<WebResponse> {
 export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
   switch (req.params.test) {
     case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
-    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { error: `See other people` });
+    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
     case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal type: ${JSON.stringify(req.params.test)}`, p: req.params });
+  return createJSONResponse(HTTPErrorCode.BadRequest, { message: `Illegal type: ${JSON.stringify(req.params.test)}`, p: req.params });
 }
 
 export async function validatePathOutput(req: MyRestRequest): Promise<WebResponse> {
   switch (req.params.test) {
     case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
-    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { error: `See other people` });
+    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { message: `See other people` });
     case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal path type: ${JSON.stringify(req.params.test)}`, p: req.params });
+  return createJSONResponse(HTTPErrorCode.BadRequest, { message: `Illegal path type: ${JSON.stringify(req.params.test)}`, p: req.params });
+}
+
+export async function getFile(req: TypedRestRequest<unknown, "/file/{type}">): Promise<WebResponse> {
+  switch (req.params.type) {
+    case "text": {
+      return req.createRawResponse(HTTPSuccessCode.Ok, new Blob(["Hello world"]), { headers: { "Content-Type": "text/plain" } });
+    }
+    case "xml": {
+      const resultBlob = new WebHareNativeBlob(new Blob(["<text>Hello world</text>"]));
+      console.log(`resultBLob text: `, await resultBlob.text());
+      return req.createRawResponse(HTTPSuccessCode.Ok, new WebHareNativeBlob(new Blob(["<text>Hello world</text>"])), { headers: { "Content-Type": "text/xml" } });
+    }
+    case "json": {
+      // test sending a database file
+      await whdb.beginWork();
+      const blobToUpload = services.WebHareBlob.from(`{"json":true}`);
+      const uploadedBlob = await whdb.uploadBlob(blobToUpload);
+      await whdb.commitWork();
+      return req.createRawResponse(HTTPSuccessCode.Ok, uploadedBlob, { headers: { "Content-Type": "application/json" } });
+    }
+  }
+  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal file type: ${JSON.stringify(req.params.type)}`, p: req.params });
 }
