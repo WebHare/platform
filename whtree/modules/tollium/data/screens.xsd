@@ -782,11 +782,6 @@ To change a <xs:attribute /> for adding descriptions
         </xs:complexType>
       </xs:element>
       <xs:element name="br">
-        <xs:annotation>
-          <xs:documentation>
-            FIXME: documentation
-          </xs:documentation>
-        </xs:annotation>
       </xs:element>
       <xs:element name="ifparam" type="LangTextIf">
         <xs:annotation>
@@ -1568,7 +1563,6 @@ To change a <xs:attribute /> for adding descriptions
     </xs:attribute>
   </xs:complexType>
 
-  <!-- FIXME: Doc -->
   <xs:attributeGroup name="OnExecuteGroup">
     <xs:attribute name="onexecute" type="NotimplementedOrHandler">
       <xs:annotation>
@@ -1838,7 +1832,6 @@ To change a <xs:attribute /> for adding descriptions
     <xs:attribute name="type">
       <xs:simpleType>
         <xs:restriction base="xs:string">
-          <!-- FIXME: documentation -->
           <xs:enumeration value="single" />
           <xs:enumeration value="flex" />
           <xs:enumeration value="line" />
@@ -3247,11 +3240,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="buttontid" type="Tid">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="button" type="xs:string">
       <xs:annotation>
@@ -3261,11 +3249,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="descriptiontid" type="Tid">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="description" type="xs:string">
       <xs:annotation>
@@ -3846,7 +3829,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="overlaycontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
@@ -3854,7 +3836,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="cellcontextmenu" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
@@ -3862,7 +3843,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="onselect" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
@@ -3873,7 +3853,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="onoverlayresize" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
@@ -3887,7 +3866,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="action" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
@@ -3895,7 +3873,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="openaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
@@ -3903,7 +3880,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="contextclickaction" type="ComponentRef">
       <xs:annotation>
         <xs:documentation>
@@ -3911,7 +3887,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="selectmode" type="SelectMode" default="none">
       <xs:annotation>
         <xs:documentation>
@@ -3919,7 +3894,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="cols" type="Integers">
       <xs:annotation>
         <xs:documentation>
@@ -3927,7 +3901,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="colwidth" type="Size">
       <xs:annotation>
         <xs:documentation>
@@ -3935,7 +3908,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="colminwidth" type="AbsSize">
       <xs:annotation>
         <xs:documentation>
@@ -3943,7 +3915,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="rows" type="Integers">
       <xs:annotation>
         <xs:documentation>
@@ -3951,7 +3922,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="rowheight" type="Size">
       <xs:annotation>
         <xs:documentation>
@@ -3959,7 +3929,6 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
-    <!-- FIXME: Doc -->
     <xs:attribute name="rowminheight" type="AbsSize">
       <xs:annotation>
         <xs:documentation>
@@ -5210,11 +5179,6 @@ To change a <xs:attribute /> for adding descriptions
         <xs:appinfo>
           <tai:callbacksignature arguments="record string" />
         </xs:appinfo>
-        <xs:documentation>
-
-            ADDME
-
-        </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="openaction" type="ComponentRef">
@@ -5830,9 +5794,6 @@ To change a <xs:attribute /> for adding descriptions
               <xs:appinfo>
                 <tai:callbacksignature arguments="record" />
               </xs:appinfo>
-              <xs:documentation>
-                <!-- FIXME: Doc -->
-              </xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="onnext" type="tc:Handler">

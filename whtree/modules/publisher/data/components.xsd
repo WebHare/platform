@@ -497,11 +497,6 @@
     <xs:attributeGroup ref="tc:ComponentBase" />
     <xs:attributeGroup ref="FSContentsOverviewOptions" />
     <xs:attribute name="selectmode" type="s:SelectMode" default="none">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- Fixme: doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="emptytid" type="sc:Tid" default="publisher:components.filelist.empty">
       <xs:annotation>
@@ -566,9 +561,6 @@
         <xs:appinfo>
           <tai:callbacksignature arguments="record" />
         </xs:appinfo>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="onsortorderchange" type="tc:Handler">
@@ -584,56 +576,23 @@
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="openaction" type="tc:ComponentRef">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="hidefolders" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="hidefiles" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="groupfolders" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="showprotected" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="filteritems" type="tc:Handler">
       <xs:annotation>
         <xs:appinfo>
           <tai:callbacksignature arguments="recordarray" returntype="recordarray" />
         </xs:appinfo>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="columnheaders" type="xs:boolean" default="true">
-      <xs:annotation>
-        <xs:documentation>
-          <!-- FIXME: Doc -->
-        </xs:documentation>
-      </xs:annotation>
     </xs:attribute>
     <xs:attribute name="showcolumns">
       <xs:annotation>
