@@ -57,8 +57,10 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
       }
 
       const servername = await rawReadRegistryKey<string>(pgclient, "system.global.servername");
-      if (typeof servername === "string")
+      if (typeof servername === "string") {
+        finalconfig.public.serverName = servername;
         finalconfig.public.servername = servername;
+      }
 
       const webrootres = await pgclient.query<{ webroot: string }>("SELECT webhare_proc_sites_webroot(outputweb, outputfolder) AS webroot FROM system.sites WHERE id = $1", [whconstant_whfsid_webharebackend]);
       if (typeof webrootres.rows?.[0]?.webroot === "string")

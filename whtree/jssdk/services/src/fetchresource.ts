@@ -22,7 +22,7 @@ async function returnResource(diskloc: string, metadata: FetchedFileMetadata) {
 export async function getCachePaths(url: string) {
   //TODO should we set up a two level cache?
   const hash = hashUrl(url);
-  const cachedir = `${backendConfig.dataroot}caches/platform/fetch/`;
+  const cachedir = `${backendConfig.dataRoot}caches/platform/fetch/`;
   const diskloc = cachedir + hash + '.dat';
   const metaloc = cachedir + hash + '.json';
 
@@ -83,7 +83,7 @@ export async function getFetchResourceCacheCleanups(cleanupAfterMs: number, onDe
   //tracks .json files
   const seenJsons = new Set<string>();
 
-  const items = await listDirectory(`${backendConfig.dataroot}caches/platform/fetch/`, { allowMissing: true });
+  const items = await listDirectory(`${backendConfig.dataRoot}caches/platform/fetch/`, { allowMissing: true });
   for (const file of items) {
     if (file.name.endsWith('.dat')) {
       seenDats.add(file.fullPath);

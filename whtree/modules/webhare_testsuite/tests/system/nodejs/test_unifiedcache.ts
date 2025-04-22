@@ -11,7 +11,7 @@ import { promises as fs } from "node:fs";
 import { listDirectory } from "@webhare/system-tools";
 
 async function clearUnifiedCache() {
-  const ucCacheDir = backendConfig.dataroot + "caches/platform/uc/";
+  const ucCacheDir = backendConfig.dataRoot + "caches/platform/uc/";
 
   for (const elt of await listDirectory(ucCacheDir, { allowMissing: true })) {
     // Only delete dirs with 3 hex digits

@@ -25,7 +25,7 @@ export function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
     */
     if (inpath.startsWith('@mod-')) {
       // The directory should exist, so we can realpath that part
-      const inpathdir = path.join(services.backendConfig.dataroot, "node_modules/", path.dirname(inpath));
+      const inpathdir = path.join(services.backendConfig.dataRoot, "node_modules/", path.dirname(inpath));
       inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
       paths = [];
     }

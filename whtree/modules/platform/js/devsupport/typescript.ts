@@ -45,12 +45,12 @@ function mapDiagnostics(basedir: string, diagnostics: ts.Diagnostic[]): Validati
 
 export async function checkUsingTSC(modulename: string, options?: { files: string[] }): Promise<ValidationMessageWithType[]> {
   const isPlatform = modulename === "jssdk" || whconstant_builtinmodules.includes(modulename);
-  const projectRoot = isPlatform ? backendConfig.installationroot : backendConfig.module[modulename].root;
+  const projectRoot = isPlatform ? backendConfig.installationRoot : backendConfig.module[modulename].root;
   const projectFile = projectRoot + "tsconfig.json";
   if (!isPlatform) //Update if needed
     await storeDiskFile(projectFile, await generateTSConfigTextForModule(modulename), { overwrite: true, onlyIfChanged: true });
 
-  const tsbuildinfodir = backendConfig.dataroot + "caches/platform/typescript";
+  const tsbuildinfodir = backendConfig.dataRoot + "caches/platform/typescript";
   await mkdir(tsbuildinfodir, { recursive: true });
 
   const { program, diagnostics } = await prepTSHost(projectFile, { setFiles: options?.files, ignoreErrors: true, tsBuildInfoFile: path.join(tsbuildinfodir, modulename + ".tsbuildinfo") });

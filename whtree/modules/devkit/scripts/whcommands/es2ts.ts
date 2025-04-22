@@ -29,7 +29,7 @@ run({
     if (!root)
       throw new CLIRuntimeError(`Module ${args.module} not found`);
 
-    if (root.startsWith(backendConfig.installationroot))
+    if (root.startsWith(backendConfig.installationRoot))
       throw new CLIRuntimeError(`Module ${args.module} is a builtin module and cannot be converted`);
 
     const status = await simpleGit({ baseDir: root }).status();

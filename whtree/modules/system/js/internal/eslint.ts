@@ -18,13 +18,13 @@ export async function handleLintingCommand(resourcepath: string, contents: strin
   /* TODO resetup validation and eslinting to support batch validation, entering/exiting this API per file is time waster. And we would be doing
      all platform modules + jssdk in a single command, eliminating some oddness around path handling here */
 
-  const isjssdk = resourcepath.startsWith('direct::' + backendConfig.installationroot + "jssdk/");
+  const isjssdk = resourcepath.startsWith('direct::' + backendConfig.installationRoot + "jssdk/");
   const module = isjssdk ? "jssdk" : parseResourcePath(resourcepath)?.module;
   if (!module)
     throw new Error(`No module found for '${resourcepath}`);
 
   const isPlatform = isjssdk || whconstant_builtinmodules.includes(module);
-  const tsconfigRootDir = isPlatform ? backendConfig.installationroot : backendConfig.module[module].root;
+  const tsconfigRootDir = isPlatform ? backendConfig.installationRoot : backendConfig.module[module].root;
   // Treat any module shipped with WebHare (including testsuite & devkit) as requiring strict validation - there's no reason we can can't ensure strict correctness given that platform is CI-d as a whole
   // We should mark this in the moduledefinition so other modules can go strict as well, but for now we'll just hardcode.. (can't do tricks with paths, CI installs webhare_testsuite in a different location than source)
   const isStrict = isPlatform || ["webhare_testsuite", "devkit"].includes(module);

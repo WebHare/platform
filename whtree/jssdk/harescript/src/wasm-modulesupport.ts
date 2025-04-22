@@ -150,19 +150,19 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getTempDir() {
-    return process.env.WEBHARE_TEMP || path.join(backendConfig.dataroot || "tmp/");
+    return process.env.WEBHARE_TEMP || path.join(backendConfig.dataRoot || "tmp/");
   }
 
   getWHResourceDir() {
-    return path.join(backendConfig.installationroot, "modules/system/whres/");
+    return path.join(backendConfig.installationRoot, "modules/system/whres/");
   }
 
   getDataRoot() {
-    return backendConfig.dataroot;
+    return backendConfig.dataRoot;
   }
 
   getInstallationRoot() {
-    return backendConfig.installationroot;
+    return backendConfig.installationRoot;
   }
 
   getCompileCache() {

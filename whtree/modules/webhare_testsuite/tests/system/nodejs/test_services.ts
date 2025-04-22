@@ -11,6 +11,7 @@ import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
 import type { TestClass } from "./data/calls2";
+import { getVersionInteger } from "@mod-system/js/internal/configuration";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -51,6 +52,8 @@ async function testServices() {
 
   test.assert(services.backendConfig);
   test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
+  test.eq(/^[\d]+\.[\d].[\d]+$/, services.backendConfig.whVersion, "Assert semantic version - and assuming we'll never want build suffixes etc in this version");
+  test.assert(getVersionInteger() > 0, "Make sure getVersionInteger() doesn't fail/throw");
 
   //@ts-expect-error Verify invoking LoadJSFunction without a type signature is a TS error
   await importJSFunction("@webhare/services#log");
@@ -86,12 +89,13 @@ async function testServices() {
   //get WebHare configuration
   const whconfig = await loadlib("mod::system/lib/configure.whlib").GetWebHareConfiguration();
   // console.log(services.backendConfig, whconfig);
-  test.eq(whconfig.basedataroot, services.backendConfig.dataroot);
+  test.eq(whconfig.basedataroot, services.backendConfig.dataRoot);
 
-  ensureProperPath(services.backendConfig.dataroot);
-  ensureProperPath(services.backendConfig.installationroot);
+  ensureProperPath(services.backendConfig.dataRoot);
+  ensureProperPath(services.backendConfig.installationRoot);
 
-  test.throws(/The WebHare configuration is read-only/, () => { if (services.backendConfig) (services.backendConfig as any).dataroot = "I touched it"; });
+  //@ts-expect-error TS knows the config is readonly
+  test.throws(/The WebHare configuration is read-only/, () => services.backendConfig.dataRoot = "I touched it");
 
   test.eq(await loadlib("mod::system/lib/configure.whlib").GetModuleInstallationRoot("system") as string, services.backendConfig.module.system.root);
   ensureProperPath(services.backendConfig.module.system.root);
@@ -484,12 +488,12 @@ async function testLogs() {
   test.eq(hsline.value["@id"], (await logreader2.next()).value["@id"], "ContinueAfter should have started after 'hardlogline'");
 
   try { //if betatest.20241205.log exists (ie you ran this test before) it will interfere with the logreader, so delete it
-    await rm(services.backendConfig.dataroot + "log/betatest.20241205.log");
+    await rm(services.backendConfig.dataRoot + "log/betatest.20241205.log");
   } catch (ignore) {
   }
 
   // Historic files reading. First write two lines:
-  await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241204.log",
+  await storeDiskFile(services.backendConfig.dataRoot + "log/betatest.20241204.log",
     `{ "@timestamp": "2024-12-04T12:00:00.000Z", "line": 1 }\n{ "@timestamp": "2024-12-04T13:00:00.000Z", "line": 2 }\n`, { overwrite: true });
 
   const logreader_1204 = services.readLogLines<{ line: number }>("webhare_testsuite:test", { start: new Date("2024-12-04"), limit: new Date("2024-12-06") });
@@ -503,7 +507,7 @@ async function testLogs() {
   test.eq(true, (await logreader_1204b.next()).done); //shouldn't find anything yet
 
   //Add line on the next day
-  await storeDiskFile(services.backendConfig.dataroot + "log/betatest.20241205.log",
+  await storeDiskFile(services.backendConfig.dataRoot + "log/betatest.20241205.log",
     `{ "@timestamp": "2024-12-05T12:00:00.000Z", "line": 3 }\n{ "@timestamp": "2024-12-05T13:00:00.000Z", "line": 4 }\n`, { overwrite: true });
 
   //Try to read more lines, it's there now

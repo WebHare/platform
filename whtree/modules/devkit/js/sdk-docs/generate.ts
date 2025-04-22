@@ -15,7 +15,7 @@ const blacklistModules = [
 
 export async function setupDocGenerator() {
   const entryPoints = [];
-  for (const pkg of await listDirectory(backendConfig.installationroot + "jssdk")) {
+  for (const pkg of await listDirectory(backendConfig.installationRoot + "jssdk")) {
     if (blacklistModules.includes(pkg.name))
       continue;
 
@@ -37,7 +37,7 @@ export async function setupDocGenerator() {
   // TypeDoc's tsconfig.json/package.json/typedoc.json option readers
   const app = await TypeDoc.Application.bootstrapWithPlugins({
     "entryPoints": entryPoints,
-    "tsconfig": backendConfig.installationroot + "tsconfig.json",
+    "tsconfig": backendConfig.installationRoot + "tsconfig.json",
     "name": "WebHare Platform SDK",
     // "entryPointStrategy": "packages",
     "includeVersion": true,

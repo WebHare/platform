@@ -18,8 +18,8 @@ type DataRootItem = {
 };
 
 function getDataRootNodeModules(): DataRootItem[] {
-  const installationroot = backendConfig.installationroot;
-  const whdataroot = backendConfig.dataroot;
+  const installationroot = backendConfig.installationRoot;
+  const whdataroot = backendConfig.dataRoot;
 
   const items: DataRootItem[] = Object.entries(backendConfig.module).
     map(([name, settings]) => (
@@ -96,7 +96,7 @@ export function getTSPolyfills() {
 
 async function buildTSConfig(node_modules: DataRootItem[]) {
   const tsconfig = {
-    extends: backendConfig.installationroot + "tsconfig.json",
+    extends: backendConfig.installationRoot + "tsconfig.json",
     compilerOptions: {
       paths: await getTSPaths(node_modules, ""),
       baseUrl: "."
@@ -182,10 +182,10 @@ export async function updateTypeScriptInfrastructure(options?: { verbose?: boole
     }
   }
 
-  const whdatamods = backendConfig.dataroot + "node_modules/";
+  const whdatamods = backendConfig.dataRoot + "node_modules/";
   await mkdir(whdatamods, { recursive: true });
 
-  await updateFile(backendConfig.dataroot + "eslint.config.mjs",
+  await updateFile(backendConfig.dataRoot + "eslint.config.mjs",
     `import { relaxedConfig } from "@webhare/eslint-config";
 export default relaxedConfig;
 `);
@@ -196,7 +196,7 @@ export default relaxedConfig;
      directories when the link starts with '@'.
      With the following engine restrictions and setting engine-strict to true, we prevent npm from running at all.
   */
-  await updateFile(backendConfig.dataroot + "package.json", JSON.stringify({
+  await updateFile(backendConfig.dataRoot + "package.json", JSON.stringify({
     engines: {
       npm: "not-allowed",
       yarn: "not-allowed",
@@ -204,7 +204,7 @@ export default relaxedConfig;
     }
   }, null, 2) + '\n');
 
-  await updateFile(backendConfig.dataroot + ".npmrc", `engine-strict=true\n`);
+  await updateFile(backendConfig.dataRoot + ".npmrc", `engine-strict=true\n`);
 
   const datarootitems = getDataRootNodeModules();
   await syncLinks(whdatamods, datarootitems, true); //Add verbose support to syncLinks? but it's a lot of noise
@@ -218,7 +218,7 @@ export default relaxedConfig;
     ]
   };
 
-  await updateFile(backendConfig.dataroot + "tsconfig.json", formatTSConfig(dataRootConfig));
+  await updateFile(backendConfig.dataRoot + "tsconfig.json", formatTSConfig(dataRootConfig));
 
   /* Generate tsconfig.jsons for all modules. Considered going without tsconfig.jsons on non-dev setups but
      - this breaks ESLint validation whose TSLint plugins look up tsconfig.json. we'd have to manually set up those plugins then

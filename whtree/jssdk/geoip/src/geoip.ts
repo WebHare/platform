@@ -35,7 +35,7 @@ async function lookup<T extends keyof DBs>(type: T): Promise<((ip: string) => Re
     const lib = await maxmindlib;
     if (!dbs?.[type]) { //noone raced us to it
       dbs ||= {};
-      dbs[type] = lib.open(backendConfig.dataroot + `geoip/geoip-${type}.mmdb`);
+      dbs[type] = lib.open(backendConfig.dataRoot + `geoip/geoip-${type}.mmdb`);
     }
   }
 

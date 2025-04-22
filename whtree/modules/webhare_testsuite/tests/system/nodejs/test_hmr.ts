@@ -160,7 +160,7 @@ export function func3() { return Number(file.trim()); }
 `
   });
 
-  const loaderfilepath = backendConfig.installationroot + "jssdk/services/src/resourcetools.ts";
+  const loaderfilepath = backendConfig.installationRoot + "jssdk/services/src/resourcetools.ts";
 
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));

@@ -5,7 +5,7 @@ import { query } from "@webhare/whdb";
 import { readFile } from "node:fs/promises";
 
 async function readPlatformConf(): Promise<Record<string, string>> {
-  const source = await readFile(backendConfig.installationroot + "etc/platform.conf", "utf8");
+  const source = await readFile(backendConfig.installationRoot + "etc/platform.conf", "utf8");
   const result: Record<string, string> = {};
   for (const line of source.split("\n")) {
     const [key, value] = line.split("=");
@@ -47,7 +47,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
     });
   }
 
-  const curVersion = parseInt(await readFile(backendConfig.dataroot + "postgresql/db/PG_VERSION", "utf8"));
+  const curVersion = parseInt(await readFile(backendConfig.dataRoot + "postgresql/db/PG_VERSION", "utf8"));
   const expectVersion = (await readPlatformConf());
   if (curVersion < parseInt(expectVersion["postgres_major"]) && dtapStage === "development") { //TODO stop limiting to development
     issues.push({
@@ -56,7 +56,7 @@ async function checkPostgres(): Promise<CheckResult[]> {
     });
   }
 
-  for (const unusedDb of await listDirectory(backendConfig.dataroot + "postgresql", { mask: "db.*" })) {
+  for (const unusedDb of await listDirectory(backendConfig.dataRoot + "postgresql", { mask: "db.*" })) {
     if (unusedDb.name === "db.switchto") {
       issues.push({
         type: "system:checker.pg.switchto",

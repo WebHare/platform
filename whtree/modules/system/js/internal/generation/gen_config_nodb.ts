@@ -16,26 +16,26 @@ function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
   return Object.values(DTAPStage).includes(dtapstage as DTAPStage);
 }
 
-type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataroot" | "installationroot" | "module" | "buildinfo"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
+type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "buildinfo" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
 
 type ModuleScanData = ModuleData & { creationdate: Date };
 type ModuleScanMap = Map<string, ModuleScanData>;
 
 export function generateNoDBConfig(): NoDBConfig {
   let baseport = Number(process.env.WEBHARE_BASEPORT || "0");
-  const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
-  const installationroot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");
+  const dataRoot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
+  const installationRoot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");
 
   if (baseport === 0)
     baseport = 13679; //default port, needed for backwards compatibility
   if (baseport < 1024 || baseport > 65500)
     throw new Error("Invalid WEBHARE_BASEPORT");
-  if (!dataroot)
+  if (!dataRoot)
     throw new Error("Invalid WEBHARE_DATAROOT");
-  if (!installationroot)
+  if (!installationRoot)
     throw new Error("Cannot determine the WebHare installation root");
 
-  const modulescandirs = [dataroot + "installedmodules/"];
+  const modulescandirs = [dataRoot + "installedmodules/"];
 
   const env_modulepaths = process.env.WEBHARE_MODULEPATHS ?? "";
   if (env_modulepaths) {
@@ -57,7 +57,7 @@ export function generateNoDBConfig(): NoDBConfig {
   const buildinfo_keys = (["committag", "version", "branch", "origin", "builddatetime", "builddate", "buildtime"]) satisfies Array<keyof typeof buildinfo>;
 
   try {
-    const buildinfo_lines = fs.readFileSync(installationroot + "modules/platform/generated/buildinfo").toString().split("\n");
+    const buildinfo_lines = fs.readFileSync(installationRoot + "modules/platform/generated/buildinfo").toString().split("\n");
     for (const line of buildinfo_lines) {
       const eqpos = line.indexOf("=");
       if (eqpos !== -1) {
@@ -77,17 +77,22 @@ export function generateNoDBConfig(): NoDBConfig {
   const scanmap: ModuleScanMap = new Map;
   for (const moduledir of modulescandirs)
     scanModuleFolder(scanmap, moduledir, true, false);
-  scanModuleFolder(scanmap, installationroot + "modules/", true, true);
+  scanModuleFolder(scanmap, installationRoot + "modules/", true, true);
 
   const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, { root: data.root }]));
   const retval: NoDBConfig = {
     baseport,
     modulescandirs,
     public: {
+      dataRoot: dataRoot,
+      installationRoot: installationRoot,
+      module,
+      whVersion: buildinfo.version,
+
+      //legacy/obsolete data:
       buildinfo,
-      dataroot,
-      installationroot,
-      module
+      dataroot: dataRoot,
+      installationroot: installationRoot,
     }
   };
 
@@ -104,6 +109,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
 
   const publicdata: BackendConfiguration = {
     dtapstage: DTAPStage.Production,
+    serverName: "",
     servername: "",
     backendURL: "",
     ...oldconfig?.public,

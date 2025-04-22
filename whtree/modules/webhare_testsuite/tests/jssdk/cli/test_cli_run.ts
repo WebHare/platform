@@ -663,7 +663,7 @@ async function runWHAutoComplete(line: string, point?: number) {
   if (point !== undefined) {
     env.COMP_POINT = point.toString();
   }
-  const subProcess = child_process.spawn(backendConfig.installationroot + "/bin/wh", ["__autocomplete_wh"], {
+  const subProcess = child_process.spawn(backendConfig.installationRoot + "/bin/wh", ["__autocomplete_wh"], {
     stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
     detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
     env,

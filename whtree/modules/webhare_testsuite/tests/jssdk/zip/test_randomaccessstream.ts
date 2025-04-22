@@ -45,7 +45,7 @@ async function testRandomAccessReadStream() {
     await using arrayBufferStream = await RandomAccessReadStream.from(sourceData);
     await using blobStream = await RandomAccessReadStream.from(new Blob([sourceData]));
 
-    const tmpDir = process.env.WEBHARE_TEMP || path.join(backendConfig.dataroot || "tmp/");
+    const tmpDir = process.env.WEBHARE_TEMP || path.join(backendConfig.dataRoot || "tmp/");
     const tempname = path.join(tmpDir, "$tmp$" + Math.random());
     await fs.writeFile(tempname, sourceData, { flag: "wx" });
     await using fileStream = await RandomAccessReadStream.fromDisk(tempname);

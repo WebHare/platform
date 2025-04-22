@@ -27,7 +27,7 @@ export async function handleFormattingCommand(indata: FormattingCommand): Promis
     vscode: false,
     vscodeFile: null,
     tsfmt: true,
-    tsfmtFile: backendConfig.installationroot + "tsfmt.json",
+    tsfmtFile: backendConfig.installationRoot + "tsfmt.json",
   };
 
   const contents = Buffer.from(indata.data, "base64").toString("utf-8");

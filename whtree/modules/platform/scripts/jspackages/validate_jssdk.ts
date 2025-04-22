@@ -25,7 +25,7 @@ run({
     const axioms = await readAxioms();
     let anyIssues = false;
 
-    for (const pkg of await listDirectory(backendConfig.installationroot + "/jssdk")) {
+    for (const pkg of await listDirectory(backendConfig.installationRoot + "/jssdk")) {
       const issues: Array<{
         message: string;
         toFix?: () => void;
@@ -84,9 +84,9 @@ run({
 
     const globalissues = [];
 
-    if (!existsSync(backendConfig.installationroot + "node_modules/esbuild/bin/esbuild"))
+    if (!existsSync(backendConfig.installationRoot + "node_modules/esbuild/bin/esbuild"))
       globalissues.push("esbuild is not installed in our root");
-    else if (existsSync(backendConfig.installationroot + "jssdk/tsrun/node_modules/esbuild/bin/esbuild"))
+    else if (existsSync(backendConfig.installationRoot + "jssdk/tsrun/node_modules/esbuild/bin/esbuild"))
       globalissues.push("tsrun has its own esbuild but there should be only one version around");
 
     if (globalissues.length) {

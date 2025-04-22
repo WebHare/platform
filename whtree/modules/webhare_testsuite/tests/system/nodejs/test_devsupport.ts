@@ -4,8 +4,8 @@ import { backendConfig } from "@webhare/services";
 import { existsSync } from "node:fs";
 
 async function testDevBridge() {
-  test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataroot + "config/wrd/example.ts"));
-  test.eq("@mod-platform/generated/db/platform", devbridge.getImportPath(backendConfig.installationroot + "modules/platform/generated/db/platform.ts"));
+  test.eq("wh:wrd/example", devbridge.getImportPath(backendConfig.dataRoot + "config/wrd/example.ts"));
+  test.eq("@mod-platform/generated/db/platform", devbridge.getImportPath(backendConfig.installationRoot + "modules/platform/generated/db/platform.ts"));
 
   const test_platform_files = await devbridge.getGeneratedFiles({ module: "platform" });
   test.eqPartial({ importPath: '@mod-platform/generated/db/platform' }, test_platform_files.find(_ => _.type === "db"));
@@ -40,8 +40,8 @@ async function testDevBridge() {
   const parseresult = await devbridge.getParsedSiteProfile("mod::publisher/data/siteprofiles/shorturl.siteprl.xml");
   test.eq("publisher:siteprofile.shorturl", parseresult.gid);
 
-  test.assert(existsSync(backendConfig.dataroot + "node_modules/@types/node"), "The node symlink must exist, or modules may not get node builtin types");
-  test.assert(existsSync(backendConfig.dataroot + "node_modules/@types/node/buffer.d.ts"), "Test one of the expected files");
+  test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node"), "The node symlink must exist, or modules may not get node builtin types");
+  test.assert(existsSync(backendConfig.dataRoot + "node_modules/@types/node/buffer.d.ts"), "Test one of the expected files");
 }
 
 

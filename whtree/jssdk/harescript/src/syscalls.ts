@@ -40,7 +40,7 @@ export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number 
 export function webHareConfig() {
   return {
     servertype: backendConfig.dtapstage,
-    servername: backendConfig.servername,
+    servername: backendConfig.serverName,
     primaryinterfaceurl: backendConfig.backendURL,
     __eventmasks: [
       "system:registry.system.global",
@@ -119,7 +119,7 @@ export function localizeDateTime(_hsvm: HareScriptVM, params: {
 //TODO cache the country mapping - allow users to get a subset?
 let countrycodes: string[] | undefined;
 export function getCountryList(hsvm: HareScriptVM, { locales }: { locales: string[] }): Array<Record<string, string>> {
-  countrycodes ||= [...Object.keys(JSON.parse(readFileSync(backendConfig.installationroot + "node_modules/country-list-js/data/iso_alpha_3.json", "utf8")))].sort();
+  countrycodes ||= [...Object.keys(JSON.parse(readFileSync(backendConfig.installationRoot + "node_modules/country-list-js/data/iso_alpha_3.json", "utf8")))].sort();
   const regionmaps = locales.map(lang => ({ lang, names: new Intl.DisplayNames(lang, { type: "region" }) }));
   return countrycodes.map(code => ({
     code: code,
