@@ -60,7 +60,6 @@ function onFoundMatch(evt)
   let opennode = evt.target.closest(".closed");
   while(opennode)
   {
-    console.info("remove .closed on", opennode);
     opennode.classList.remove("closed");
     opennode.classList.add("open");
     opennode = evt.target.closest("closed");
