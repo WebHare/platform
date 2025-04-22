@@ -5,7 +5,7 @@ import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
 import type { WebHareService } from "@webhare/services/src/backendservicerunner";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
-import { DefaultJpegQuality, explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
 import { mkdir, open, readFile } from "fs/promises";
@@ -80,13 +80,13 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
 
   const outputformat = method.format || suggestImageFormat(infile.mediaType);
   if (outputformat === "image/webp")
-    return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless } };
+    return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless, quality: explain.quality } };
   if (outputformat === "image/avif")
-    return { extract, extend, resize, format: "avif" as const, formatOptions: { lossless } };
+    return { extract, extend, resize, format: "avif" as const, formatOptions: { lossless, quality: explain.quality } };
   if (outputformat === "image/gif")
     return { extract, extend, resize, format: "gif" as const, formatOptions: null };
   if (outputformat === "image/jpeg")
-    return { extract, extend, resize, format: "jpeg" as const, formatOptions: { quality: method.quality ?? DefaultJpegQuality } };
+    return { extract, extend, resize, format: "jpeg" as const, formatOptions: { quality: explain.quality } };
   if (outputformat === "image/png")
     return { extract, extend, resize, format: "png" as const, formatOptions: null };
 

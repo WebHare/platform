@@ -83,7 +83,7 @@ async function testResizeMethods() {
     resize: null,
     extend: { top: 108, bottom: 108, left: 36, right: 36, background: { r: 255, g: 0, b: 0, alpha: 1 } },
     format: "avif",
-    formatOptions: { lossless: false }
+    formatOptions: { lossless: false, quality: 50 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fitcanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
@@ -91,7 +91,7 @@ async function testResizeMethods() {
     resize: { width: 100, height: 100, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
     extend: null,
     format: "avif",
-    formatOptions: { lossless: false }
+    formatOptions: { lossless: false, quality: 50 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 100, width: 100, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
@@ -99,7 +99,7 @@ async function testResizeMethods() {
     resize: { width: 500, height: 500, fit: 'contain', background: { r: 255, g: 0, b: 0, alpha: 1 } },
     extend: null,
     format: "avif",
-    formatOptions: { lossless: false }
+    formatOptions: { lossless: false, quality: 50 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "scalecanvas", height: 500, width: 500, format: "image/avif", bgColor: 0xFFFF0000 }));
 
   test.eq({
@@ -107,7 +107,7 @@ async function testResizeMethods() {
     resize: null,
     extend: null,
     format: "avif",
-    formatOptions: { lossless: true }
+    formatOptions: { lossless: true, quality: 50 }
   }, getSharpResizeOptions(examplePng, { method: "none", format: "image/avif" }));
 
   test.eq({
@@ -115,24 +115,32 @@ async function testResizeMethods() {
     resize: { width: 100, height: 100, fit: 'cover' },
     extend: null,
     format: "avif",
-    formatOptions: { lossless: false }
+    formatOptions: { lossless: false, quality: 50 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/avif", bgColor: 0xFFFF0000 }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eq({
+    extract: { height: 284, left: 73, top: 0, width: 283 },
+    resize: { width: 100, height: 100, fit: 'cover' },
+    extend: null,
+    format: "webp",
+    formatOptions: { lossless: false, quality: 80 }
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/webp", bgColor: 0xFFFF0000 }));
+
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(examplePng, { method: "none" }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none", format: "image/png" }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: true }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: false }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 } }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 } }
     , explainImageProcessing(examplerefPoint, { method: "none", format: "image/png", noForce: false }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none" }));
 
   //non web formats should still be converted (tiff->jpeg, bmp->png)
@@ -140,9 +148,9 @@ async function testResizeMethods() {
     , explainImageProcessing(exampleTiff, { method: "none" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleTiff, { method: "none", noForce: false }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none", noForce: false }));
 
   //Fit reduces a too-big input canvas and will return a canvas of varying size. Fitcanvas will always return a canvas of setWidth x setHeight and center the image
@@ -202,16 +210,16 @@ async function testResizeMethods() {
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
-    outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
+    outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
   }, explainImageProcessing(examplerefPoint, { method: "fit", width: 120, height: 120 }));
 
   test.eqPartial({
-    outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 }
+    outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 }
   }, explainImageProcessing(examplerefPoint, { method: "fit", width: 320, height: 0 }));
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
-    outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
+    outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
   }, explainImageProcessing(examplerefPoint, { method: "fitcanvas", width: 120, height: 120 }));
 
 
@@ -258,13 +266,13 @@ async function testResizeMethods() {
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
-    outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
+    outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
   }
     , explainImageProcessing(examplerefPoint, { method: "scale", width: 120, height: 120 }));
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
-    outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
+    outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
   }
     , explainImageProcessing(examplerefPoint, { method: "scalecanvas", width: 120, height: 120 }));
 
@@ -295,7 +303,7 @@ async function testResizeMethods() {
 
   //in the output, the image must be rendered somewhat more to the left (-23 (22.5) instead of -20)
   test.eqPartial({
-    outWidth: 120, outHeight: 120, outType: "image/png", renderX: -23, renderY: 0, renderWidth: 160, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 67, y: 90 }
+    outWidth: 120, outHeight: 120, outType: "image/png", renderX: -23, renderY: 0, renderWidth: 160, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 67, y: 90 }
   }, explainImageProcessing(examplerefPoint, { method: "fill", width: 120, height: 120 }));
 
   test.eq({
@@ -327,10 +335,10 @@ async function testResizeMethods() {
 
 async function testImgMethodPacking() {
   let finalmethod;
-  const unpack = await loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
+  const unpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
 
   finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131 }));
-  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 85, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
+  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
 
   finalmethod = await unpack(packImageResizeMethod({ method: "none" }));
   test.eq(true, finalmethod.fixorientation);
@@ -350,11 +358,12 @@ async function testImgMethodPacking() {
 }
 
 async function testImgCacheTokens() {
+  const exampleJpeg = { width: 320, height: 240, mediaType: "image/jpeg", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetaData;
   const examplePng = { width: 320, height: 240, mediaType: "image/png", hash: "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", rotation: 0, mirrored: false, refPoint: null, dbLoc: { source: 1, id: 123, cc: 456 } } as ResourceMetaData;
   const exampleRefPoint = { ...examplePng, refPoint: { x: 120, y: 180 } };
 
-  async function analyze(suburl: string) {
-    return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").AnalyzeUnifiedURLToken(`i${suburl}/image.png`);
+  async function analyze(suburl: string, extension: ".png" | ".jpg") {
+    return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").AnalyzeUnifiedURLToken(`i${suburl}/image${extension}`);
   }
   async function getHSUC(...args: unknown[]) {
     return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").GetUCSubUrl(...args);
@@ -366,7 +375,7 @@ async function testImgCacheTokens() {
   const pngJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, examplePng, 1, '.png');
   const pngHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
   test.eq(pngJsTok, pngHsTok);
-  test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25 } } }, await analyze(pngHsTok));
+  test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 0 } } }, await analyze(pngHsTok, '.png'));
 
   const refPointJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, exampleRefPoint, 1, '.png');
   const refPointHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, 1, 123, 456, '.png');
@@ -375,6 +384,18 @@ async function testImgCacheTokens() {
 
   const testdate = new Date(2021, 1, 1, 12, 34, 56, 789);
   test.eq(await getHSCC(testdate), getUnifiedCC(testdate));
+
+  //85 is the default quality for jpeg, but we'll now encoce
+  const jpegJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, exampleJpeg, 1, '.jpg');
+  const jpegJsTokExplicit85 = getUCSubUrl({ method: "fill", width: 25, height: 25, quality: 85 }, exampleJpeg, 1, '.jpg');
+  const jpegHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.jpg');
+  const jpegHsTokExplicit85 = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, quality: 85 }, examplePng, 1, 1, 123, 456, '.jpg');
+
+  test.eq(jpegJsTok, jpegHsTok);
+  test.eq(jpegJsTokExplicit85, jpegHsTokExplicit85);
+
+  test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 0 } } }, await analyze(jpegJsTok, '.jpg'));
+  test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 85 } } }, await analyze(jpegJsTokExplicit85, '.jpg'));
 }
 
 async function fetchUCLink(url: string, expectType: string) {
@@ -387,7 +408,7 @@ async function fetchUCLink(url: string, expectType: string) {
   return { resource: fetchData, finalurl, fetchBuffer };
 }
 
-async function compareSharpImages(expect: Sharp | string, actual: Sharp, maxMSE = 0) {
+async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMSE = 0, maxMSE = 0 } = {}) {
   if (typeof expect === "string")
     expect = await createSharpImage(expect);
 
@@ -406,6 +427,8 @@ async function compareSharpImages(expect: Sharp | string, actual: Sharp, maxMSE 
   const mse = totalDiff / (rawActual.info.width * rawActual.info.height * rawActual.info.channels);
   if (mse > maxMSE)
     throw new Error(`MSE too high: ${mse} > ${maxMSE}`);
+  if (mse < minMSE)
+    throw new Error(`MSE too low: ${mse} < ${minMSE}`);
 }
 
 async function testImgCache() {
@@ -416,7 +439,8 @@ async function testImgCache() {
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true })).link);
-  await fetchUCLink(wrappedBeagle.link, "image/jpeg");
+  const dlSnowBeagle = await fetchUCLink(wrappedBeagle.link, "image/jpeg");
+  const snowBeagleJpeg = await createSharpImage(dlSnowBeagle.fetchBuffer);
 
   const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
   const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none" });
@@ -429,13 +453,25 @@ async function testImgCache() {
   const dlFishWebp = await fetchUCLink(wrappedGoldfishWebp.link, "image/webp");
   await compareSharpImages(imgFishPng, await createSharpImage(dlFishWebp.fetchBuffer));
 
+  //verify compatibility setting does something
+  const snowBeagleWebp10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/webp", quality: 10 }).link, "image/webp");
+  const snowBeagleWebp90 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/webp", quality: 90 }).link, "image/webp");
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleWebp10.fetchBuffer), { minMSE: 10, maxMSE: 40 });
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleWebp90.fetchBuffer), { minMSE: 1, maxMSE: 5 });
+
   //convert to AVIF using imagecache
   const wrappedGoldfishAvif = goldfishpng.data.toResized({ method: "none", format: "image/avif" });
   test.eq(/\/goudvis\.avif$/, wrappedGoldfishAvif.link, "Should not contain 'png' in the name");
   const dlFishAvif = await fetchUCLink(wrappedGoldfishAvif.link, "image/avif");
-  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), 0.20);
+  await compareSharpImages(imgFishPng, await createSharpImage(dlFishAvif.fetchBuffer), { maxMSE: 0.20 });
 
-  const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon we have typings
+  //verify compatibility setting does something
+  const snowBeagleAvif10 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 10 }).link, "image/avif");
+  const snowBeagleAvif90 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 90 }).link, "image/avif");
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif10.fetchBuffer), { minMSE: 10, maxMSE: 80 });
+  await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif90.fetchBuffer), { minMSE: 0.1, maxMSE: 3 });
+
+  const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true });
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
   test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none", fixorientation: true })).link);
@@ -447,7 +483,7 @@ async function testImgCache() {
 
   const homersbrainPNG = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.png", { getImageMetadata: true });
   const homersbrainSharp = await createSharpImage(await homersbrainPNG.resource.arrayBuffer());
-  await compareSharpImages(homersbrainSharp, await createSharpImage(dlHomersbrainWebp.fetchBuffer), 0);
+  await compareSharpImages(homersbrainSharp, await createSharpImage(dlHomersbrainWebp.fetchBuffer));
 
   //test rotation fixing
   const landscape5 = await testsitejs.openFile("photoalbum/landscape_5.jpg");
@@ -455,7 +491,7 @@ async function testImgCache() {
   const dlLandscape5 = await fetchUCLink(wrappedLandscape5.link, "image/avif");
   const landscape_proper = await ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_5-fixed.jpg", { getImageMetadata: true });
   const landscapeSharp = await createSharpImage(await landscape_proper.resource.arrayBuffer());
-  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), 50);
+  await compareSharpImages(landscapeSharp, await createSharpImage(dlLandscape5.fetchBuffer), { maxMSE: 50 });
 }
 
 async function testFileCache() {
