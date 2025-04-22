@@ -40,17 +40,18 @@ export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob |
 
   const paths = await getFilePaths(blobpartid, true);
   await storeDiskFile(paths.temppath, "stream" in blob ? blob.stream() : blob, { overwrite: true });
+  let finallength;
   try {
+    finallength = (await stat(paths.temppath)).size;
+    if (!finallength) {
+      // Stream with 0 bytes, remove the file
+      await unlink(paths.temppath);
+      return WebHareBlob.from("");
+    }
     await rename(paths.temppath, paths.fullpath);
   } catch (e) {
     await unlink(paths.temppath);
     throw e;
-  }
-  const finallength = (await stat(paths.fullpath)).size;
-  if (!finallength) {
-    // Stream with 0 bytes, remove the file
-    await unlink(paths.fullpath);
-    return WebHareBlob.from("");
   }
 
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
