@@ -5,7 +5,7 @@ import { FileEditElement } from './fileeditbase';
 import { emplace } from '@webhare/std';
 import { getTid } from '@webhare/gettid';
 import { getFileAsDataURL } from '@webhare/upload';
-import { setFieldError } from '@mod-publisher/js/forms';
+import { setFieldError } from '@mod-publisher/js/forms/internal/customvalidation';
 
 let revoker: FinalizationRegistry<string> | undefined;
 const cachedURLs = new WeakMap<File, string>();

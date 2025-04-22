@@ -9,7 +9,7 @@ import './internal/requiredstyles.css';
 import { type SetFieldErrorData, getValidationState, setFieldError, setupValidator, updateFieldError } from './internal/customvalidation';
 import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
-import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike } from '@webhare/forms/src/domsupport';
+import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike, getFieldName } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
@@ -153,7 +153,7 @@ function getPageIdx(state: PageState, page: number | HTMLElement) {
 }
 
 function getErrorFields(validationresult: ValidationResult) {
-  return validationresult.failed.map(field => getName(field) || field.dataset.whFormGroupFor || "?")
+  return validationresult.failed.map(field => getFieldName(field) || field.dataset.whFormGroupFor || "?")
     .sort()
     .filter((value, index, self) => self.indexOf(value) === index) //unique filter
     .join(" ");
@@ -189,10 +189,6 @@ function doDelayValidation() {
     releasePendingValidations();
 
   delayvalidation = true;
-}
-
-function getName(field: HTMLElement) {
-  return field.dataset.whFormName || (field as HTMLInputElement).name || "";
 }
 
 function releasePendingValidations() {
@@ -301,6 +297,9 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
   }
 
+  protected __formStarted() { //we can remove this once we merge formbase + rpc
+  }
+
   protected sendFormEvent(event?: FormAnalyticsSubEvents) {
     const now = Date.now();
 
@@ -314,6 +313,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       //The user has interacted, start the clock!
       this._firstinteraction = now; //set for calculation base *and* to prevent endless loops
       this.sendFormEvent({ event: "started" });
+      this.__formStarted();
     }
 
     if (!event)
@@ -1313,7 +1313,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       if (skiparraymembers && field.closest(".wh-form__arrayrow"))
         continue;
 
-      const name = getName(field);
+      const name = getFieldName(field);
       if (!name)
         continue;
 

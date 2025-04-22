@@ -18,6 +18,10 @@ export type FormAnalyticsSubEvents = {
   event: "slow";
   waitfor: "submit";
 } | {
+  event: "abandoned";
+  pagenum: number;
+  lastfocused: string;
+} | {
   event: "nextpage" | "previouspage";
   targetpagenum: number;
   targetpagetitle: string;

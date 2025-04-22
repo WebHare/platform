@@ -12,6 +12,7 @@ import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
 import { SingleFileUploader, type UploadResult } from '@webhare/upload';
+import { getFieldName } from '@webhare/forms/src/domsupport';
 
 function unpackObject(formvalue: FormResultValue): RPCFormInvokeBase["vals"] {
   return Object.entries(formvalue).map(_ => ({ name: _[0], value: _[1] }));
@@ -220,6 +221,29 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     }
   }
 
+  protected __formStarted() { //we can remove this once we merge formbase + rpc
+    dompack.addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
+    addEventListener("pagehide", this.#onUnload);
+  }
+
+  #lastFocused = "";
+
+  #recordLastFocus = (evt: dompack.DocEvent<FocusEvent>) => {
+    if (this.node.contains(evt.target)) {
+      const name = getFieldName(evt.target) || evt.target.dataset.whFormGroupFor;
+      if (name)
+        this.#lastFocused = name;
+    }
+  };
+
+  #onUnload = () => {
+    this.sendFormEvent({
+      event: 'abandoned',
+      lastfocused: this.#lastFocused,
+      pagenum: this.getCurrentPageNumber()
+    });
+  };
+
   async submit(extradata?: object): Promise<{ result?: FormSubmitEmbeddedResult }> {
     //ADDME timeout and free the form after some time
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
@@ -301,6 +325,7 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
       if (result.success) {
         this.sendFormEvent({ event: 'submitted' });
         if (dompack.dispatchCustomEvent(this.node, "wh:form-submitted", { bubbles: true, cancelable: true, detail: eventdetail })) {
+          removeEventListener("unload", this.#onUnload);
           merge.run(this.node, { form: await this.getFormValue() });
 
           //FIXME why is going to 'thank you' not in the formbase?

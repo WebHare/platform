@@ -1,10 +1,14 @@
 /* TODO Move consilio pxl here eventually, but limit how much we actually want to export */
 import { sendPxlEvent, type PxlEventData, type PxlOptions } from "@mod-consilio/js/pxl";
+import { dtapStage } from "@webhare/env";
 import type { FormAnalyticsEvent } from "@webhare/forms";
 import type { PxlDataTypes } from "@webhare/frontend";
 export { setPxlOptions, getPxlId as getPxlUserId, getPxlSessionId } from "@mod-consilio/js/pxl";
 
 export type PxlData = Record<string, string | number | boolean>;
+
+// Track listener installation. Especially needed during the transition from @mod-publisher/js/forms to @webhare/frontend. After the transition we might not need stack traces anymore
+const activeListenPrefixes = new Map<string, Error>;
 
 // Combine with `string & {}` to prevent TypeScript from eliminating `keyof PxlDataTypes`
 type AllowedKeys = keyof PxlDataTypes | (string & {});
@@ -48,12 +52,20 @@ export function sendPxl<DataType extends (Event extends keyof PxlDataTypes ? Nee
      - `eventPrefix`. Prefix to use. Default is `platform:form_` but existing integrations may (also) require `publisher:form`
 */
 export function setupFormAnalytics(options?: { eventPrefix: string }): void {
+  const prefix = options?.eventPrefix || "platform:form_";
+  const registered = activeListenPrefixes.get(prefix);
+  if (registered)
+    if (dtapStage !== "production")
+      return console.error(`Duplicate setupFormAnalytics for prefix '${prefix}', earlier registration: `, registered);
+
+  activeListenPrefixes.set(prefix, new Error); //getStackTrace() would have been nicer, but doensn't get sourcemapped in the console
+
   addEventListener("wh:form-analytics", (e: FormAnalyticsEvent) => {
     const formeventdata: { [K in `formmeta_${string}`]: string | number | boolean } = {};
     for (const [key, val] of Object.entries(e.detail))
       if (key !== "event" && ["string", "number", "boolean"].includes(typeof val))
         formeventdata[`formmeta_${key}`] = val;
 
-    sendPxl<PxlData>(`${options?.eventPrefix || "platform:form_"}${e.detail.event}`, formeventdata);
+    sendPxl<PxlData>(`${prefix}${e.detail.event}`, formeventdata, e.detail.event === "abandoned" ? { beacon: true } : undefined);
   });
 }

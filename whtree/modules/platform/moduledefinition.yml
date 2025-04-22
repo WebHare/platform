@@ -107,6 +107,11 @@ pxlEvents:
     includeFields: form_nextpage
   form_submitted:
     includeFields: form_started
+  form_abandoned:
+    includeFields: form_started
+    fields:
+      formmeta_pagenum: integer
+      formmeta_lastfocused: keyword
 
 wrdSchemas:
   basewrdschema:

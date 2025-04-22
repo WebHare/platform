@@ -12,6 +12,7 @@ import FormBase, { type FormSubmitEmbeddedResult } from './formbase';
 import RPCFormBase from './rpc';
 import { setupForms, registerHandler } from '@webhare/forms';
 import { isLive } from '@webhare/env';
+import { setupFormAnalytics } from '@webhare/frontend/src/pxl';
 
 export { FormBase, RPCFormBase, setFieldError, setupValidator, type FormSubmitEmbeddedResult };
 
@@ -37,5 +38,8 @@ export function setup(options: unknown) {
 setupForms({
   handlers: { "publisher:form": form => new FormBase(form) as RPCFormBase }
 });
+
+// We assume if you're importing @mod-publisher/js/forms you don't know about having to do setupFormAnalytics to keep analytics in WH 5.7+
+setupFormAnalytics();
 
 export { legacyRegisterFormHandler as registerHandler };

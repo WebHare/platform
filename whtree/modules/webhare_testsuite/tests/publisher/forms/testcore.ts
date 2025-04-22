@@ -579,10 +579,21 @@ test.runTests(
       test.eq(5542, JSON.parse(test.qR('#coreformsubmitresponse').textContent!).extradata.submitextradata);
     },
 
+    'Test unload event when halfway form',
+    async function () {
+      const start = new Date();
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue'); //also setting up for the next test
+      const formevent = await test.wait(async () => (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_abandoned"))[0]);
+      test.eqPartial({
+        mod_platform: {
+          formmeta_lastfocused: "password",
+          formmeta_pagenum: 0
+        }
+      }, formevent);
+    },
+
     'Test core',
     async function () {
-      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue');
-
       test.eq('', test.qR('input[name=number]').value);
       test.eq('0', test.qR('input[name=numberemptyvalue]').value);
       quickFillDefaultRequiredFields();
