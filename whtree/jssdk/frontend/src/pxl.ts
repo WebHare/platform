@@ -58,7 +58,7 @@ export function setupFormAnalytics(options?: { eventPrefix: string }): void {
     if (dtapStage !== "production")
       return console.error(`Duplicate setupFormAnalytics for prefix '${prefix}', earlier registration: `, registered);
 
-  activeListenPrefixes.set(prefix, new Error); //getStackTrace() would have been nicer, but doensn't get sourcemapped in the console
+  activeListenPrefixes.set(prefix, new Error); //getStackTrace() would have been nicer, but doesn't get sourcemapped in the console
 
   addEventListener("wh:form-analytics", (e: FormAnalyticsEvent) => {
     const formeventdata: { [K in `formmeta_${string}`]: string | number | boolean } = {};
