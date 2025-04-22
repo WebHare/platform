@@ -1,12 +1,7 @@
 // Types shared between front- and backend
 
 /** The DTAP stages */
-export enum DTAPStage {
-  Development = "development",
-  Test = "test",
-  Acceptance = "acceptance",
-  Production = "production"
-}
+export type DTAPStage = "development" | "test" | "acceptance" | "production";
 
 export type ConsoleLogItemLocation = {
   filename: string;

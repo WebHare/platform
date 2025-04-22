@@ -1,7 +1,7 @@
 import { decodeString, encodeString } from '@webhare/std';
 import type { CompiledLanguageFile, GetTidHooks, LanguagePart, LanguageText, RecursiveLanguageTexts, TidParam } from './types';
 import { getGetTidHooks } from './hooks';
-import { debugFlags, isLive } from '@webhare/env';
+import { debugFlags, dtapStage, isLive } from '@webhare/env';
 
 
 
@@ -40,7 +40,7 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
         compiled = loader(module, langCode, compiled?.registered ?? new Map);
       } catch (e) {
         // loading failed, erase the loaded texts (keep the registered texts, though)
-        if (!isLive || debugFlags.gtd) {
+        if (dtapStage !== "production" || debugFlags.gtd) {
           console.error(e);
         }
         const texts = compiled?.registered ?? new Map;
