@@ -1,4 +1,4 @@
-import type { RestRequest, HTTPErrorCode, HTTPSuccessCode, RestDefaultErrorBody } from "@webhare/router";
+import type { RestRequest, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 
 
 type NeverFallback<A, B> = [A] extends [never] ? B : A;
@@ -56,6 +56,15 @@ export type SquashObjectType<T extends object> = SquashObjectTypeInner<{ a: T }>
 */
 type SquashObjectTypeInner<T extends { a: object }> = keyof T["a"] extends never ? object : { [K in keyof T["a"]]: T["a"][K] };
 
+/** Returns a union of all values of an object type */
+export type ObjectValues<T> = T extends object ? T[keyof T] : never;
+
+/** For a response object, return the JSON schemas of all error responses */
+export type GetErrorResponses<R extends object> = R extends object ? ObjectValues<{ [K in keyof R as K extends HTTPErrorCode ? K : never]: R[K] extends { content: { "application/json": infer C extends object } } ? C : never }> : never;
+
+/** Return a union of all error responses */
+export type AllErrorResponses<Paths extends object> = GetErrorResponses<GetOperationResponses<AllOperationsOfPath<Paths>>>;
+
 /** Given a parameters object (`{ path: { param1: string }; query: { queryparam?: string } }`), returns `{ param1: string, queryparam?: string }`.
  * @typeParam MergeParameters - Parameters object
  */
@@ -68,10 +77,10 @@ export type MergeParameters<Parameters extends object> = Parameters extends obje
 */
 export type GetOperationResponses<Operation extends object> = Operation extends { responses: infer Responses } ? Responses & object : object;
 
-/** Returns true if a mediatypes object contains "application/json", false if it contains anything else. Returns boolean (= true | false) if it contains application/json and something else.
+/** Returns true if a mediatypes object contains "application/json", false if it contains anything else. Returns boolean (= true | false) if it contains application/json and something else (or equals never)
  * @typeParam MediaTypes - Media types object (is contents of 'content' of a response)
 */
-export type IsMediaTypeJSON<MediaTypes extends object, K extends keyof MediaTypes = keyof MediaTypes> = K extends "application/json" ? true : false;
+export type IsMediaTypeJSON<MediaTypes extends object, K extends keyof MediaTypes = keyof MediaTypes> = [MediaTypes] extends [never] ? boolean : (K extends "application/json" ? true : false);
 
 /** Returns the content of the appliction/json mediatype, if it exists on the response object. Uses UnionToIntersection to combine schemas of a union of responses
  * @typeParam Response - Response object
@@ -82,17 +91,17 @@ export type GetJSONContent<Response> = NeverFallback<Response extends { "content
  * @typeParam Responses - Operation responses object
  * @typeParam ResponseCode - Should not be provided, needed to enumerate all keys of R
  */
-export type JSONResponseTypesFromResponses<Responses extends object, ResponseCode extends keyof Responses = keyof Responses> = ResponseCode extends keyof Responses
+export type ResponseTypesFromResponses<Responses extends object, ResponseCode extends keyof Responses = keyof Responses> = ResponseCode extends keyof Responses
   ? (ResponseCode extends HTTPErrorCode // error codes must be JSON and extend RestDefaultErrorBody
     ? {
       status: ResponseCode;
       isjson: true;
-      response: GetJSONContent<Responses[ResponseCode]> extends RestDefaultErrorBody ? GetJSONContent<Responses[ResponseCode]> : RestDefaultErrorBody;
+      response: GetJSONContent<Responses[ResponseCode]>/* extends RestDefaultErrorBody ? GetJSONContent<Responses[ResponseCode]> : RestDefaultErrorBody*/;
     }
     : (ResponseCode extends HTTPSuccessCode
       ? {
         status: ResponseCode;
-        isjson: NeverFallback<Responses[ResponseCode] extends { "content": infer MediaTypes extends object } ? IsMediaTypeJSON<MediaTypes> : never, false>;
+        isjson: NeverFallback<Responses[ResponseCode] extends { "content": infer MediaTypes extends object } ? IsMediaTypeJSON<MediaTypes> : never, boolean>;
         response: GetJSONContent<Responses[ResponseCode]>;
       }
       : never))
@@ -101,7 +110,7 @@ export type JSONResponseTypesFromResponses<Responses extends object, ResponseCod
 /** Calculates the response types for a (union of) operation(s)
  * @typeParam Operation - Operation object
  */
-export type JSONResponseTypes<Operation extends object> = JSONResponseTypesFromResponses<GetOperationResponses<Operation>>;
+export type OperationResponseTypes<Operation extends object> = ResponseTypesFromResponses<GetOperationResponses<Operation>>;
 
 /** Calculates the body types for a (union of) operation(s)
  * @typeParam Operation - Operation object
@@ -122,11 +131,7 @@ export type GetParametersType<Operation extends object> = SquashObjectType<Opera
 /** Extracts the defaulterror type from the components, if it properly extends RestDefaultErrorBody
  * @typeParam Components - Components from generated openapi ts file
  */
-export type DefaultErrorType<Components extends ComponentsBase> = Components extends { schemas: { defaulterror: infer E extends RestDefaultErrorBody } } ? E : RestDefaultErrorBody;
-
-/** When the components of anp OpenAPI specification specify a defaulterror, it should extend from RestDefaultErrorBody
- */
-export type ComponentsBase = { schemas?: never } & object | { schemas: { defaulterror?: never } & object } | { schemas: { defaulterror: RestDefaultErrorBody } };
+export type DefaultErrorType<Paths extends object, Components extends object> = Components extends { schemas: { defaulterror: infer E extends object } } ? E : AllErrorResponses<Paths>;
 
 /** Type override for a RestRequest that gives proper types to all the data and nethods of RestRequest.
  * @typeParam Auth - Format of authorization data
@@ -134,10 +139,10 @@ export type ComponentsBase = { schemas?: never } & object | { schemas: { default
  * @typeParam Components - Components from generated openapi ts file
  * @typeParam OperationId - Operation id, eg. "/path" (for all operations of a path) or "get /path"
  */
-export type OpenApiTypedRestRequest<Auth, Paths extends object, Components extends ComponentsBase, OperationId extends OperationIds<Paths>> = RestRequest<Auth, GetParametersType<GetOperation<Paths, OperationId> & { _path: object }>, GetBodyType<GetOperation<Paths, OperationId>>, JSONResponseTypes<GetOperation<Paths, OperationId>>, DefaultErrorType<Components>>;
+export type OpenApiTypedRestRequest<Auth, Paths extends object, Components extends object, OperationId extends OperationIds<Paths>> = RestRequest<Auth, GetParametersType<GetOperation<Paths, OperationId> & { _path: object }>, GetBodyType<GetOperation<Paths, OperationId>>, OperationResponseTypes<GetOperation<Paths, OperationId>>, DefaultErrorType<Paths, Components>>;
 
 /** Type override for a RestRequest that is used for authorization functions
  * @typeParam Paths - Paths from generated openapi ts file
  * @typeParam Components - Components from generated openapi ts file
  */
-export type OpenApiTypedRestAuthorizationRequest<Paths extends object, Components extends object> = RestRequest<never, object, unknown, JSONResponseTypes<GetOperation<Paths, keyof Paths & string>>, DefaultErrorType<Components>>;
+export type OpenApiTypedRestAuthorizationRequest<Paths extends object, Components extends object> = RestRequest<never, object, unknown, OperationResponseTypes<GetOperation<Paths, keyof Paths & string>>, DefaultErrorType<Paths, Components>>;

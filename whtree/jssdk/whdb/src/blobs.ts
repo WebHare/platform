@@ -30,8 +30,8 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
 
 const uploadedblobs = new WeakMap<WebHareBlob, string>();
 
-export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob): Promise<WebHareBlob> {
-  if (blob.size === 0 || uploadedblobs.get(blob))
+export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
+  if ("size" in blob && (blob.size === 0 || uploadedblobs.get(blob)))
     return blob;
 
   const blobpartid = generateRandomId('hex', 16);
@@ -39,15 +39,24 @@ export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob):
   const databaseid = "AAAB" + blobpartid;
 
   const paths = await getFilePaths(blobpartid, true);
-  await storeDiskFile(paths.temppath, await blob.getStream(), { overwrite: true });
+  await storeDiskFile(paths.temppath, "stream" in blob ? blob.stream() : blob, { overwrite: true });
+  let finallength;
   try {
+    finallength = (await stat(paths.temppath)).size;
+    if (!finallength) {
+      // Stream with 0 bytes, remove the file
+      await unlink(paths.temppath);
+      return WebHareBlob.from("");
+    }
     await rename(paths.temppath, paths.fullpath);
   } catch (e) {
     await unlink(paths.temppath);
     throw e;
   }
-  const finallength = (await stat(paths.fullpath)).size;
+
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
+  if (!("stream" in blob))
+    blob = await WebHareBlob.fromDisk(paths.fullpath);
 
   uploadedblobs.set(blob, databaseid);
   blob.__registerPGUpload(databaseid);

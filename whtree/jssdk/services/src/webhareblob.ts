@@ -26,12 +26,12 @@ export abstract class WebHareBlob implements Blob {
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
-  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView): WebHareBlob {
+  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView | ArrayBufferView): WebHareBlob {
     if (typeof str === "string")
       return new WebHareMemoryBlob(new TextEncoder().encode(str));
     if ("readUInt8" in str || str instanceof Uint8Array) // Buffer or Uint8Array
       return new WebHareMemoryBlob(str);
-    if ("byteOffset" in str && "byteLength" in str) // Other typed array, DataView
+    if ("byteOffset" in str && "byteLength" in str) // Other typed array (ArrayBufferView), DataView
       return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str.buffer, str.byteOffset, str.byteLength));
     return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str));
   }

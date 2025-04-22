@@ -175,6 +175,35 @@ paths:
           "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#validatePathOutput
 
+  "/file/{type}":
+    parameters:
+    - in: path
+      name: type
+      required: true
+      schema:
+        type: string
+        enum: [ "text", "xml", "json" ]
+    get:
+      responses:
+        "200":
+          description: Response
+          content:
+            text/plain:
+              schema:
+                type: string
+                format: binary
+            application/json: {}
+
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
+      x-webhare-implementation: users.ts#getFile
+
 components:
   responses:
    default400:

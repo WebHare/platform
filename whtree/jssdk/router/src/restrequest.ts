@@ -11,7 +11,7 @@ export type RestResponsesBase =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for signature
   { status: HTTPSuccessCode; isjson: true; response: any } |
   { status: HTTPSuccessCode; isjson: false } |
-  { status: HTTPErrorCode; isjson: true; response: RestDefaultErrorBody };
+  { status: HTTPErrorCode; isjson: true; response: unknown };
 
 /// Default, you can send every response code as json or as raw
 export type DefaultRestResponses =
@@ -49,23 +49,29 @@ type DisallowExtraPropsRecursive<Actual extends Contract, Contract> = Contract e
       : Contract)
     : Contract);
 
+/** For responses specified in Responses, returns the type of the JSON body */
+export type ResponseForCode<
+  Responses extends RestResponsesBase,
+  DefaultErrorFormat extends object,
+  C extends JSONResponseCodes<Responses>
+> = C extends Responses["status"]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for type inference
+  ? (Responses extends { response: any } ? C extends Responses["status"] ? Responses : never : never) // This allowes numeric status codes. To disallow them, use `? (Responses & { status: C; response: any })["response"]` instead
+  : (C extends HTTPErrorCode ? { status: C; isjson: true; response: DefaultErrorFormat } : never); // for non-specified error codes, falls back to DefaultErrorFormat
 
 /** For responses specified in Responses, returns the type of the JSON body */
 export type JSONResponseForCode<
   Responses extends RestResponsesBase,
-  DefaultErrorFormat extends RestDefaultErrorBody,
+  DefaultErrorFormat extends object,
   C extends JSONResponseCodes<Responses>
-> = C extends Responses["status"]
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for type inference
-  ? (Responses extends { response: any } ? C extends Responses["status"] ? Responses["response"] : never : never) // This allowes numberic status codes. To disallow them, use `? (Responses & { status: C; response: any })["response"]` instead
-  : (C extends HTTPErrorCode ? DefaultErrorFormat : never); // for non-specified error codes, falls back to DefaultErrorFormat
+> = ResponseForCode<Responses, DefaultErrorFormat, C>["response"];
 
 export class RestRequest<
   Authorization = unknown,
   Params extends object = DefaultRestParams,
   Body = unknown,
   Responses extends RestResponsesBase = DefaultRestResponses,
-  DefaultErrorFormat extends RestDefaultErrorBody = RestDefaultErrorBody
+  DefaultErrorFormat extends object = RestDefaultErrorBody
 > {
   ///The original WebRequest we received
   readonly webRequest: WebRequest;
@@ -124,7 +130,7 @@ export class RestRequest<
    * @param body - The body of the response to return
    * @param options - Optional statuscode and headers
    */
-  createRawResponse<Status extends RawResponseCodes<Responses>>(status: Status, body: string, options?: { headers?: Record<string, string> }) {
+  createRawResponse<Status extends RawResponseCodes<Responses>>(status: Status, body: string | Blob | ReadableStream<Uint8Array>, options?: { headers?: Record<string, string> }) {
     return createWebResponse(body, { status, headers: options?.headers });
   }
 }
@@ -159,5 +165,10 @@ export interface RestFailedAuthorization {
 export type RestAuthorizationResult<AuthInternal = unknown, LogInfo = LoggableRecord> = RestSuccessfulAuthorization<AuthInternal, LogInfo> | RestFailedAuthorization;
 
 /** Signature for a x-webhare-authorization function */
-export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;
 export type RestAuthorizationFunction = (request: RestRequest) => Promise<RestAuthorizationResult>;
+
+/** Signature for a x-webhare-implementation function */
+export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;
+
+/** Signature for a x-webhare-default-error-mapper function */
+export type RestDefaultErrorMapperFunction = (data: { status: HTTPErrorCode; error: string }) => Promise<WebResponse>;

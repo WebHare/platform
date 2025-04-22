@@ -1,4 +1,4 @@
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestAuthorizationFunction, type RestAuthorizationResult, type RestImplementationFunction, type RestRequest } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, type RestAuthorizationFunction, type RestAuthorizationResult, type RestDefaultErrorMapperFunction, type RestImplementationFunction, type RestRequest } from "@webhare/router";
 
 export async function denyAll(req: RestRequest): Promise<RestAuthorizationResult> {
   return { authorized: false };
@@ -10,7 +10,7 @@ export async function needSecret(req: RestRequest): Promise<RestAuthorizationRes
     return {
       authorized: false,
       response: createJSONResponse(HTTPErrorCode.Unauthorized, {
-        error: "Dude where's my key?"
+        message: "Dude where's my key?"
       }, {
         headers: { "WWW-Authenticate": "Authorization" }
       })
@@ -23,7 +23,12 @@ export async function getDummy(req: RestRequest) {
   return createJSONResponse(HTTPSuccessCode.Ok, (req.authorization as any).key);
 }
 
+export async function mapDefaultError({ status, error }: { status: HTTPErrorCode; error: string }) {
+  return createJSONResponse(status, { message: error });
+}
+
 //validate signatures
 denyAll satisfies RestAuthorizationFunction;
 getDummy satisfies RestImplementationFunction;
 needSecret satisfies RestAuthorizationFunction;
+mapDefaultError satisfies RestDefaultErrorMapperFunction;

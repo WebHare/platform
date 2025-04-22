@@ -137,7 +137,7 @@ class Work implements WorkObject {
     return result;
   }
 
-  async uploadBlob(data: WebHareBlob): Promise<WebHareBlob> {
+  async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
     if (!this.open)
       throw new Error(`Work is already closed`);
     if (!this.conn.pgclient)
@@ -396,7 +396,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     return this.checkState(true).rollback();
   }
 
-  async uploadBlob(data: WebHareBlob): Promise<WebHareBlob> {
+  async uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
     return this.checkState(true).uploadBlob(data);
   }
 
@@ -545,7 +545,7 @@ export function rollbackWork() {
 /** Upload a blob to the database
  *  @returns Uploaded version of the blob. If the blob was uploaded earlier, the same WHDBBlob is returned
 */
-export async function uploadBlob(data: WebHareBlob): Promise<WebHareBlob> {
+export async function uploadBlob(data: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
   return getConnection().uploadBlob(data);
 }
 
