@@ -12,22 +12,24 @@ export type ServersideCookieOptions = CookieOptions & {
 };
 
 export function buildCookieHeader(name: string, value: string, options?: ServersideCookieOptions) {
-  value = encodeURIComponent(value);
+  let header = `${name}=${encodeURIComponent(value)}`;
   if (options?.domain)
-    value += ';domain=' + options?.domain;
-  value += ';path=' + (options?.path || '/');
-  if (options?.expires)
-    value += ';expires=' + ("toUTCString" in options.expires ? options.expires.toUTCString() : options.expires.toString());
+    header += ';domain=' + options?.domain;
+  header += ';path=' + (options?.path || '/');
+  if (!value) //clearing a cookie, so ignore expires/duration and just set 1970
+    header += ';expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  else if (options?.expires) //we need toUTCString to give us the proper Date formatting
+    header += ';expires=' + ("epochMilliseconds" in options.expires ? new Date(options.expires.epochMilliseconds) : options.expires).toUTCString();
   else if (options?.duration) {
     const date = new Date();
     date.setTime(date.getTime() + options?.duration * 24 * 60 * 60 * 1000);
-    value += ';expires=' + date.toUTCString();
+    header += ';expires=' + date.toUTCString();
   }
   if (options?.secure)
-    value += ';secure';
+    header += ';secure';
   if (options?.sameSite)
-    value += ';SameSite=' + options?.sameSite;
+    header += ';SameSite=' + options?.sameSite;
   if (options?.httpOnly) //NOTE browsers cannot effectively set this
-    value += ';HttpOnly';
-  return `${name}=${value}`;
+    header += ';HttpOnly';
+  return header;
 }
