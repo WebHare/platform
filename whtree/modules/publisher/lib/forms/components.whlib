@@ -315,10 +315,14 @@ PUBLIC OBJECTTYPE FormFieldBase
     RETURN STRING[this->name];
   }
 
-  PUBLIC MACRO __SetInfoText(RECORD newtext)
+  PUBLIC MACRO SetInfoText(RECORD newtext)
   {
     //TODO make public API as soon as we're sure how caching of infotext with big embedded objects will be done safely
     this->infotext := newtext;
+  }
+
+  PUBLIC MACRO __SetInfoText(RECORD newtext) { //Pre-5.7 compatibility
+    this->SetInfoText(newtext);
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetOptions()
@@ -804,8 +808,10 @@ PUBLIC STATIC OBJECTTYPE SelectFormFieldBase EXTEND ComposedFormFieldBase
   {
     this->selectfield->SetValueIfValid(val);
   }
-  UPDATE PUBLIC MACRO __SetInfoText(RECORD newtext)
-  {
+  UPDATE PUBLIC MACRO SetInfoText(RECORD newtext) {
+    this->selectfield->SetInfoText(newtext);
+  }
+  UPDATE PUBLIC MACRO __SetInfoText(RECORD newtext) { //Pre-5.7 compatibility
     this->selectfield->__SetInfoText(newtext);
   }
 >;

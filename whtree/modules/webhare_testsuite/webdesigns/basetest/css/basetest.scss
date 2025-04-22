@@ -1,11 +1,11 @@
-@import "~dompack/components/dialog/mixins";
-@import "~dompack/components/pulldown/mixins";
-@import "~@mod-publisher/js/webtools/pollstyles";
+@use "~dompack/components/dialog/mixins" as dialog;
+@use "~dompack/components/pulldown/mixins" as pulldown;
+@use "~@mod-publisher/js/webtools/pollstyles" as pollstyles;
 
 @at-root
 {
-  @include wh-poll-flex;
-  @include wh-poll-results-percentage;
+  @include pollstyles.wh-poll-flex;
+  @include pollstyles.wh-poll-results-percentage;
 }
 
 /* Global page, HTML5 setup, style reset */
@@ -40,7 +40,7 @@ body
 
 .mydialog
 {
-  @include dompack-dialog;
+  @include dialog.dompack-dialog;
 
   &__holder
   {
@@ -91,7 +91,7 @@ body
 
 .mypulldown
 {
-  @include dompack-pulldown(28px);
+  @include pulldown.dompack-pulldown(28px);
   &__current
   {
     display:inline-block;

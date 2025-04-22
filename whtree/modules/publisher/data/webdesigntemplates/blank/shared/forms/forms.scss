@@ -1,10 +1,10 @@
 //Form styling
-@import '~@mod-publisher/js/forms/styles';
+@use '~@mod-publisher/js/forms/styles' as formstyles;
 
 
 @at-root
 {
-  @include wh-form-flex; //Use flex layout
+  @include formstyles.wh-form-flex; //Use flex layout
 }
 
 .wh-form__label
