@@ -9,7 +9,7 @@ import { createVM, loadlib } from "@webhare/harescript";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
-import { WebHareNativeBlob } from "@webhare/services/src/webhareblob";
+import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 
 async function cleanup() {
@@ -67,15 +67,23 @@ async function testQueries() {
   await uploadBlob(thisisablob);
   test.eq(thisisablob_id, __getBlobDatabaseId(thisisablob), "Reupload should have no effect - we verify that by ensuring the databaseid is unchanged");
 
+  const blobFromStream = await uploadBlob(new ReadableStream({ start(controller) { controller.enqueue(Buffer.from("this is a blob uploaded from a stream")); controller.close(); } }));
+  test.eq("this is a blob uploaded from a stream", await blobFromStream.text());
+
+  const emptyBlobFromStream = await uploadBlob(new ReadableStream({ start(controller) { controller.close(); } }));
+  test.eq(0, emptyBlobFromStream.size);
+  test.assert(emptyBlobFromStream instanceof WebHareMemoryBlob);
+
   const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
-  const moreids: number[] = await nextVals("webhare_testsuite.exporttest.id", 4);
-  test.eq(4, moreids.length);
+  const moreids: number[] = await nextVals("webhare_testsuite.exporttest.id", 5);
+  test.eq(5, moreids.length);
   test.assert(!moreids.includes(nextid));
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "This is a goldfish", datablob: goudvis.resource }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[0], text: "This is a text", datablob: thisisablob }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[1], text: "This is another text" }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[2], text: "This is an empty blob", datablob: emptyblob }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[3], text: "This is a native blob", datablob: thisisastreamblob }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[4], text: "This is a blob uploaded from a stream", datablob: blobFromStream }).execute();
   await commitWork();
 
   const tablecontents = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
@@ -84,7 +92,8 @@ async function testQueries() {
     { id: moreids[0], text: 'This is a text' },
     { id: moreids[1], text: 'This is another text' },
     { id: moreids[2], text: 'This is an empty blob' },
-    { id: moreids[3], text: 'This is a native blob' }
+    { id: moreids[3], text: 'This is a native blob' },
+    { id: moreids[4], text: 'This is a blob uploaded from a stream' },
   ], tablecontents);
   test.assert(tablecontents[1].datablob);
   test.eq(14, tablecontents[1].datablob.size);
