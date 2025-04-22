@@ -319,8 +319,8 @@ async function testAuthAPI() {
 
   //Test the frontend login RPC - do we see the proper cache headers
   const testsiteurl = new URL((await test.getTestSiteJS()).webRoot!);
-  let seenheaders = false;
-  await rpc("platform:authservice", {
+  let seenheaders = false, seenexpiry = 0;
+  const loginres = await rpc("platform:authservice", {
     onBeforeRequest(url, requestInit) {
       url.searchParams.set("pathname", testsiteurl.pathname);
       requestInit.headers.set("origin", testsiteurl.origin);
@@ -329,9 +329,24 @@ async function testAuthAPI() {
       test.eq("no-store", response.headers.get("cache-control"));
       test.eq("no-cache", response.headers.get("pragma"));
       seenheaders = true;
+
+      const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
+      test.eq(1, setcookie.length);
+      const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+      test.assert(setCookieExpiry);
+      seenexpiry = Date.parse(setCookieExpiry![0].substring(8));
+
+      const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0]);
+      test.eq(2, deletecookies.length, "we should have 2 other cookies");
+      const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+      test.assert(deleteCookieExpiry);
+      test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
     }
   }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
+
   test.assert(seenheaders, "verify onResponse isn't skipped");
+  test.assert(loginres.loggedIn);
+  test.eq(seenexpiry, loginres.expires.getTime());
 
   await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
 
