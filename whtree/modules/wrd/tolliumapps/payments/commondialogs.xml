@@ -37,9 +37,9 @@
                   minheight="8x"
                   ongetrows="GetProviders"
                   openaction="editprovider"
+                  rowkeytype="entityid"
                   selectcontextmenu="selectcontextmenu"
-                  selectmode="single"
-                  rowkeytype="entityid">
+                  selectmode="single">
               <column name="title" type="text" tid="~title" />
               <column name="type" type="text" />
               <column name="tag" type="text" />

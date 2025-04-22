@@ -51,7 +51,6 @@
         <addheader header="X-Content-Type-Options" value="nosniff" />
         <addheader header="Referrer-Policy" value="no-referrer" />
       </webrule>
-
       <openapi path="/.wh/api/v1/" service="platform:api" />
 
       <!-- protect the testportal page from being accessed on non-development servers -->
