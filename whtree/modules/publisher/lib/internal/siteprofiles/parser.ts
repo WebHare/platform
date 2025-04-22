@@ -290,7 +290,7 @@ function resolveType(baseScope: string | null, type: string) {
   return `${baseScope}.${type}`;
 }
 
-function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
+function parseEditProps(gid: ResourceParserContext, baseScope: string | null, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
   const rules = new Array<CSPApplyRule["extendproperties"][0]>;
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
@@ -300,8 +300,17 @@ function parseEditProps(baseScope: string | null, editProps: Sp.ApplyEditProps):
       name: ""
     };
 
-    if (prop.layout)
-      rule.layout = prop.layout;
+    if (prop.layout) {
+      if (typeof prop.layout === "object" && "tabs" in prop.layout)
+        rule.layout = {
+          tabs: prop.layout.tabs.map((tab) => ({
+            title: gid.resolveTid({ title: tab.title, tid: tab.tid }),
+            layout: tab.layout
+          }))
+        };
+      else
+        rule.layout = prop.layout;
+    }
 
     if (prop.override) {
       rule.override = [];
@@ -346,12 +355,12 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   };
 }
 
-function parseApply(module: string, siteprofile: string, baseScope: string | null, apply: Sp.Apply): ParsedApplyRule {
+function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string | null, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: parseApplyTo(apply.to),
     yaml: true,
-    applyindex: 0,
+    applyindex,
     applynodetype: "apply",
     col: 0,
     customnodes: [],
@@ -360,7 +369,7 @@ function parseApply(module: string, siteprofile: string, baseScope: string | nul
     mailtemplates: [],
     modifyfiletypes: [],
     modifyfoldertypes: [],
-    extendproperties: apply.editProps ? parseEditProps(baseScope, apply.editProps) : [],
+    extendproperties: apply.editProps ? parseEditProps(gid, baseScope, apply.editProps) : [],
     formdefinitions: [],
     hookintercepts: [],
     line: 0,
@@ -423,7 +432,7 @@ class ResourceParserContext {
   }
 
   /** Resolve a tid */
-  resolveTid(potentialTidObject: { name: string; title?: string; tid?: string }): string {
+  resolveTid(potentialTidObject: { name?: string; title?: string; tid?: string }): string {
     const resolved = resolveTid(this.gid, potentialTidObject);
     if (resolved && !resolved.startsWith(':') && this.onTid)
       this.onTid(this.resourcename, resolved);
@@ -490,8 +499,8 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
     result.contenttypes.push(ctype);
   }
 
-  for (const apply of sp.apply || []) {
-    result.rules.push(parseApply(module, resource, baseScope, apply));
+  for (const [applyindex, apply] of (sp.apply || []).entries()) {
+    result.rules.push(parseApply(rootParser, module, resource, baseScope, applyindex, apply));
   }
 
   return result;

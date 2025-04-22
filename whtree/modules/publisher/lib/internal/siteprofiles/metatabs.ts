@@ -3,7 +3,7 @@ import { getType } from "@webhare/whfs/src/describe";
 import { openFileOrFolder, openFolder } from "@webhare/whfs";
 import type { FieldLayout, ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
 import { mergeConstraints, suggestTolliumComponent, type AnyTolliumComponent } from "@mod-platform/js/tollium/valueconstraints";
-import { toCamelCase, toSnakeCase, isTruthy, type ToSnakeCase, nameToSnakeCase } from "@webhare/std";
+import { toCamelCase, toSnakeCase, type ToSnakeCase, nameToSnakeCase } from "@webhare/std";
 import type { CSPApplyRule, CSPContentType, CSPMember, CSPMemberOverride, CustomFieldsLayout } from "@webhare/whfs/src/siteprofiles";
 import { parseYamlComponent } from "./parser";
 
@@ -38,12 +38,41 @@ interface MetaTabsWithHSInfo extends MetaTabs {
 
 type ExtendProperties = CSPApplyRule["extendproperties"][0];
 
-function determineLayout(matchtype: CSPContentType, layout: CustomFieldsLayout): CSPMember[] {
+/** Calculate the tabs to render for this YAML SP layout: */
+function determineLayout(matchtype: CSPContentType, layout: CustomFieldsLayout): Array<{
+  title: string;
+  members: CSPMember[];
+}> {
   if (layout === "all")
-    return matchtype.members;
+    return [
+      {
+        title: "",
+        members: matchtype.members
+      }
+    ];
 
-  //if explicitly set, use that
-  return layout.map(name => matchtype.members.find(_ => _.jsname === name)).filter(isTruthy);
+  const inTabs = Array.isArray(layout) ? [{ title: "", layout }] : layout.tabs;
+
+  const outtabs = [];
+  const seen = new Set<string>;
+  for (const tab of inTabs) {
+    const outmembers = [];
+    for (const field of tab.layout) {
+      if (seen.has(field))
+        continue; //eliminate duplicates
+
+      seen.add(field);
+      const member = matchtype.members.find(_ => _.jsname === field);
+      if (!member)
+        continue; //skip if not found
+
+      outmembers.push(member);
+    }
+    if (outmembers.length)
+      outtabs.push({ title: tab.title, members: outmembers });
+  }
+
+  return outtabs;
 }
 
 function toYamlComponent(comp: NonNullable<CSPMember["component"]>, constraints: ValueConstraints | null): AnyTolliumComponent {
@@ -69,7 +98,6 @@ function determineComponent(constraints: ValueConstraints | null, setComponent: 
 
 export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<MetaTabs> {
   const cf = await applytester.__getCustomFields();
-
   const pertype: Record<string, ExtendProperties[]> = {};
 
   //First gather all rules per type in their apply order
@@ -119,43 +147,47 @@ export async function describeMetaTabs(applytester: WHFSApplyTester): Promise<Me
       continue; //no layout received, nothing to show
 
     //gather the members to display
-    const mainsection: MetadataSection = {
-      title: matchtype.title || matchtype.scopedtype || matchtype.namespace,
-      fields: []
-    };
-    const addsections: MetadataSection[] = [];
+    const sections: MetadataSection[] = [];
 
-    for (const member of determineLayout(matchtype, lastlayout)) {
-      const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
-      const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
+    for (const tab of determineLayout(matchtype, lastlayout)) { //for every tab in the layout
+      const section: MetadataSection = { //prepare the section. we may still discard this tab if all fields are layout: section
+        title: tab.title || matchtype.title || matchtype.scopedtype || matchtype.namespace,
+        fields: []
+      };
+      sections.push(section);
 
-      const component = determineComponent(constraints, override?.component ?? member.component);
-      if (override?.props) {
-        const compname: string = Object.keys(component)[0];
-        component[compname] = { ...component[compname]!, ...toCamelCase(override.props) };
+      for (const member of tab.members) { // for every member in the tab
+        const override = overrides[member.jsname!]; //has to exist as we wouldn't be processing non-yaml types
+        const constraints = mergeConstraints(member.constraints ?? null, override?.constraints ?? null);
+
+        const component = determineComponent(constraints, override?.component ?? member.component);
+        if (override?.props) {
+          const compname: string = Object.keys(component)[0];
+          component[compname] = { ...component[compname]!, ...toCamelCase(override.props) };
+        }
+
+        const fieldTitle = override?.title || member.title || (":" + member.jsname!);
+        const useLayout = override?.layout || member.layout;
+
+        let addtoSection = section; //to which section we'll add (either 'section' or a separate tab)
+        if (useLayout === 'section') {
+          addtoSection = { title: fieldTitle, fields: [] };
+          sections.push(addtoSection);
+        }
+
+        addtoSection.fields.push({
+          name: member.jsname!,
+          title: override?.title || member.title || (":" + member.jsname!),
+          layout: useLayout,
+          constraints,
+          component
+        });
       }
-
-      const fieldTitle = override?.title || member.title || (":" + member.jsname!);
-      const useLayout = override?.layout || member.layout;
-      let addtoSection = mainsection;
-
-      if (useLayout === 'section') {
-        addtoSection = { title: fieldTitle, fields: [] };
-        addsections.push(addtoSection);
-      }
-
-      addtoSection.fields.push({
-        name: member.jsname!,
-        title: override?.title || member.title || (":" + member.jsname!),
-        layout: useLayout,
-        constraints,
-        component
-      });
     }
 
     metasettings.types.push({
       namespace: matchtype.namespace,
-      sections: [...(mainsection.fields.length ? [mainsection] : []), ...addsections]
+      sections: sections.filter(section => section.fields.length > 0),
     });
   }
 

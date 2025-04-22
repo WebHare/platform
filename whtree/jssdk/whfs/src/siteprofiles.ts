@@ -222,7 +222,13 @@ export interface CSPMemberOverride extends CSPMemberBasics {
   props?: Record<string, unknown>;
 }
 
-export type CustomFieldsLayout = string[] | "all";
+/** Field layout as stored in the site profile. We couldn't preprocess this as our parser doesn't necessarily have the full type info when parsing these, so we need to allow 'all' */
+export type CustomFieldsLayout = string[] | "all" | {
+  tabs: Array<{
+    title: string;
+    layout: string[];
+  }>;
+};
 
 export interface CSPApplyRule {
   tos: CSPApplyTo[];

@@ -2,9 +2,26 @@ import * as test from "@webhare/test-backend";
 import { parseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { CSPMemberType } from "@webhare/whfs/src/siteprofiles";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 async function parseSP(content: string) {
   return await parseSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml", decodeYAML(content));
+}
+
+async function testSPCompiler() {
+  const csp = getExtractedHSConfig("siteprofiles");
+  const basetestjs_yamlrules = csp.applies.filter(rule => rule.siteprofile.endsWith("/basetestjs.siteprl.yml"));
+  test.eqPartial([
+    {
+      applyindex: 0
+    }, {
+      applyindex: 1
+    }, {
+      applyindex: 2,
+    }, {
+      applyindex: 3
+    }
+  ], basetestjs_yamlrules);
 }
 
 async function testSPYaml() {
@@ -484,6 +501,7 @@ apply:
 }
 
 test.runTests([
+  testSPCompiler,
   testSPYaml,
   testComplexTo
 ]);
