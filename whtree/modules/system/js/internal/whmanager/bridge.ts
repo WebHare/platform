@@ -103,8 +103,14 @@ interface Bridge extends EventSource<BridgeEvents> {
   */
   log(logname: string, logdata: LoggableRecord): void;
 
-  /** Write a line to the debug log file
+  /** Write a preformatted line to a log file
+      @param logname - Name of the log file
+      @param logline - Line to log
   */
+  logRaw(logname: string, logline: string): void;
+
+  /** Write a line to the debug log file
+*/
   logDebug(logsource: string, logdata: LoggableRecord): void;
 
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
@@ -447,7 +453,10 @@ class LocalBridge extends EventSource<BridgeEvents> {
   }
 
   log(logname: string, logrecord: LoggableRecord): void {
-    const logline = formatLogObject(new Date, logrecord);
+    this.logRaw(logname, formatLogObject(new Date, logrecord));
+  }
+
+  logRaw(logname: string, logline: string): void {
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.Log,
       logname,
