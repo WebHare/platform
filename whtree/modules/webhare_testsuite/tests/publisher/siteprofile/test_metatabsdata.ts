@@ -189,10 +189,10 @@ async function getMockTestApplyTester(name: string) {
 }
 
 async function testAllTypes() {
-  const metatabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
-  test.eq([":WTS base test", ":Folksonomy tags", ":WTS Generic", ":rich"], metatabs?.types.map(t => t.sections.map(s => s.title)).flat());
+  const allpropsTabs = await describeMetaTabs(await getMockTestApplyTester("allprops"));
+  test.eq([":WTS base test", ":Folksonomy tags", ":WTS Generic", ":rich"], allpropsTabs?.types.map(t => t.sections.map(s => s.title)).flat());
 
-  const wtsgenerictab = metatabs!.types[1].sections[0];
+  const wtsgenerictab = allpropsTabs!.types[1].sections[0];
   test.eqPartial({ title: ":str" }, wtsgenerictab.fields.find(_ => _.name === 'str'));
   test.eqPartial({ component: { fileedit: {} } }, wtsgenerictab.fields.find(_ => _.name === 'blub')); //TODO but shouldn't it actually be an image?
   test.eqPartial([
@@ -207,6 +207,14 @@ async function testAllTypes() {
   const missingSuggestions = wtsgenerictab.fields.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
   //TODO can we solve these all? at least prevent more from appearing
   test.eq(["aRecord", "aTypedRecord", "anArray", "anInstance", "strArray"], missingSuggestions.map(_ => _.name).sort());
+
+  const manualTabs = await describeMetaTabs(await getMockTestApplyTester("manualtabs"));
+  // console.dir(manualTabs, { depth: 10 });
+  test.eqPartial([
+    { title: ":Tab 1", fields: [{ name: "anyField" }, { name: "numberField" }, { name: "whUser" }] },
+    { title: ":Folksonomy tags", fields: [{ name: "folksonomy" }] },
+    { title: "webhare_testsuite:webdesigns.basetestjs.tab2", fields: [{ name: "rtd" }, { name: "checkIt" }] }
+  ], manualTabs?.types[0].sections);
 }
 
 test.runTests([

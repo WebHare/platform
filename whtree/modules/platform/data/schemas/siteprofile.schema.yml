@@ -269,6 +269,7 @@ $defs:
         - seotitle
 
   ApplyEditProps:
+    description: Set up an editor for these metadata fields
     type: array
     items:
       type: object
@@ -276,15 +277,39 @@ $defs:
       required: [type]
       properties:
         type:
+          description: The type of the metadata field
           type: string
         layout:
           oneOf:
-            - type: string
+            - description: All defined fields on a single tab
+              type: string
               enum:
                 - all
-            - type: array
+            - description: A single tab with with the specified fields
+              type: array
               items:
                 type: string
+            - description: Explicitly set up tabs with their fields
+              type: object
+              additionalProperties: false
+              required: [tabs]
+              properties:
+                tabs:
+                  type: array
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [layout]
+                    properties:
+                      title:
+                        type: string
+                      tid:
+                        type: string
+                      layout:
+                        type: array
+                        items:
+                          type: string
+
         override:
           type: object
           additionalProperties:

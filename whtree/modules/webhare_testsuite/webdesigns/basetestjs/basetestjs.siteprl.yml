@@ -126,3 +126,14 @@ apply:
     editProps:
       - type: global.genericTestType
         layout: all
+
+  - to:
+      pathMatch: manualtabs
+    editProps:
+      - type: baseTestProps
+        layout:
+          tabs:
+          - title: Tab 1
+            layout: [anyField, numberField, folksonomy, whUser]
+          - tid: .tab2
+            layout: [anyField, rtd,  checkIt]

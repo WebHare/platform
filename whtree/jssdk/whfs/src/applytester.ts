@@ -401,16 +401,21 @@ export class WHFSApplyTester {
   }
 
   /** List all matching apply rules
-   * @param propname -- Only return rules that have this property set
+   * @param propname -- Only return rules that have this property set. null to get all rules
    */
-  private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop, yamlonly = false) {
+  private async getMatchingRules<Prop extends keyof CSPApplyRule>(propname: Prop | null, yamlonly = false) {
     const siteprofs = getExtractedHSConfig("siteprofiles");
     //Mark the Prop as never null or we wouldn't have returned it
     const resultset: Array<{ [key in Prop]: NonNullable<CSPApplyRule[Prop]> } & Omit<CSPApplyRule, Prop>> = [];
     for (const rule of siteprofs.applies) {
-      const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
-      if (!propvalue || (Array.isArray(propvalue) && !propvalue.length) || (yamlonly && !rule.yaml))
-        continue; //even if it matches, this rule wouldn't be interesting
+      if (yamlonly && !rule.yaml)
+        continue;
+
+      if (propname) { //test if the property is set, skip actual matching if there isn't anything interesting in this rule
+        const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
+        if (!propvalue || (Array.isArray(propvalue) && !propvalue.length) || (yamlonly && !rule.yaml))
+          continue;
+      }
 
       if (await this.applyIsMatch(rule))
         resultset.push(rule);
@@ -424,6 +429,11 @@ export class WHFSApplyTester {
       baseprops: await this.getMatchingRules('baseproperties', true),
       extendprops: await this.getMatchingRules('extendproperties', true)
     };
+  }
+
+  //Debugging API. get all current matches
+  async __getAllMatches({ yamlonly = false } = {}) {
+    return this.getMatchingRules(null, yamlonly);
   }
 
   async getPluginData(namespace: string, name: string): Promise<Omit<CSPPluginDataRow, '__attributes' | '__location'> | null> {

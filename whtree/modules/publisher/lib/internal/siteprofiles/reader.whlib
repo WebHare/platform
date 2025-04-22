@@ -1056,6 +1056,9 @@ STATIC OBJECTTYPE ApplyRuleTester
           RETURN FALSE;
         IF (CellExists(element, "FILETYPE") AND element.filetype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.filetype, FALSE))
           RETURN FALSE;
+        //WHFSTYPE is used by YML rules
+        IF (CellExists(element, "WHFSTYPE") AND element.whfstype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.whfstype, this->objinfo.obj.isfolder))
+          RETURN FALSE;
         IF (CellExists(element, "CONTENTFILETYPE") AND element.contentfiletype!="" AND NOT this->MatchType(this->GetContentType(), element.contentfiletype, FALSE))
           RETURN FALSE;
 
