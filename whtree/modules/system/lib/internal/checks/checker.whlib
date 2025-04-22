@@ -6,7 +6,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/debug.whlib";

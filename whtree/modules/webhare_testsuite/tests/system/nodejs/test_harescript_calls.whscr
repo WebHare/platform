@@ -1,9 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::javascript.whlib";
 

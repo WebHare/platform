@@ -2,7 +2,6 @@
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";

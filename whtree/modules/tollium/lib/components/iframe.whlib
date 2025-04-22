@@ -7,8 +7,6 @@ LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::publisher/lib/publisher.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
