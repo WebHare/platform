@@ -123,32 +123,33 @@ class ControlledCall {
 
   async _completeCall(method: string, requestStack: StackTrace | null, fetchpromise: Promise<Response>) {
     let response;
-    try {
-      for (; ;) { //loop to handle "429 Conflict"s
+    for (; ;) { //loop to handle "429 Conflict"s
+      try { //we should only guard the fetch call and specifically *not* the onResponse callback
         response = await fetchpromise;
-        this.options.onResponse?.(response); //allow hooks to capture headers
+      } catch (exception) {
+        if (this.client.debug)
+          console.log(`[rpc] Exception invoking '${method}'`, exception);
 
-        if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
-          const retryafter = parseInt(response.headers.get("Retry-After") || "");
-          if (this.client.debug)
-            console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
-
-          await new Promise(resolve => setTimeout(resolve, retryafter * 1000));
-          fetchpromise = fetch(this._callurl, this._fetchoptions);
-          continue;
-        }
-        break;
+        if (this.aborted)
+          throw new Error(`RPC Aborted`);
+        else if (this.timedout)
+          throw new Error(`RPC Timeout: timeout was set to ${this.timeout} milliseconds`);
+        else
+          throw new Error(`RPC Failed: exception: ` + exception);
       }
-    } catch (exception) {
-      if (this.client.debug)
-        console.log(`[rpc] Exception invoking '${method}'`, exception);
 
-      if (this.aborted)
-        throw new Error(`RPC Aborted`);
-      else if (this.timedout)
-        throw new Error(`RPC Timeout: timeout was set to ${this.timeout} milliseconds`);
-      else
-        throw new Error(`RPC Failed: exception: ` + exception);
+      this.options.onResponse?.(response); //allow hooks to capture headers
+
+      if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
+        const retryafter = parseInt(response.headers.get("Retry-After") || "");
+        if (this.client.debug)
+          console.warn(`[rpc] We are being throttled (429 Too Many Requests) - retrying after ${retryafter} seconds`);
+
+        await new Promise(resolve => setTimeout(resolve, retryafter * 1000));
+        fetchpromise = fetch(this._callurl, this._fetchoptions);
+        continue;
+      }
+      break;
     }
 
     let jsonresponse: RPCResponse;
