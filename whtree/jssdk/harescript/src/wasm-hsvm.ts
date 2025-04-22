@@ -29,7 +29,7 @@ export interface StartupOptions {
   consoleArguments?: string[];
   /// A hook that is executed when the main script is done but before it is cleaned up. HSVM/wasmmodule state should still be accessible
   onScriptDone?: (exception: Error | null) => void | Promise<void>;
-  __unrefMainTimer?: boolean;
+  implicitLifetime?: boolean;
 }
 
 export type MessageList = Array<{
@@ -179,7 +179,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   private onOutput: undefined | ((output: Buffer) => void);
   private gotErrorCallbackId = 0;  //id of error callback provided to the C++ code
   private onErrors: undefined | ((errors: Buffer) => void);
-  __unrefMainTimer: boolean;
+  implicitLifetime: boolean;
   mainTimer?: NodeJS.Timer;
   keepAliveLocks = new Set<string>();
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
@@ -213,7 +213,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
     //by default a HSVM will write to stdout but not stderr, that always requires setup
     this.captureErrors(this.writeToStderr.bind(this));
 
-    this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
+    this.implicitLifetime = startupoptions?.implicitLifetime || false;
+    if (this.implicitLifetime) {
+      process.on('beforeExit', this.#beforeExit);
+    }
   }
 
   captureOutput(onOutput: (output: Buffer) => void) {
@@ -317,6 +320,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
       exception = e;
       throw e;
     } finally {
+      //Clean up #beforeExit listener
+      if (this.implicitLifetime)
+        process.off('beforeExit', this.#beforeExit);
+
       //When the script is done, we clean up
       if (this.onScriptDone)
         await this.onScriptDone(exception instanceof Error ? exception : null);
@@ -363,6 +370,13 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
   }
 
+  #beforeExit = () => {
+    (async () => {
+      await this.call("wh::ipc.whlib#CancelEventLoop");
+      await bridge.ensureDataSent(); //ensure all data is sent. we run in beforeExit and probably can't rely on a future bridge beforeExit handler
+    })().then(() => { }, () => { }); //ignore errors
+  };
+
   _getHSVM() {
     return this;
   }
@@ -401,7 +415,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     const isMainTimer = !this.permissionSystem.anyRequestsInFlight();
     if (isMainTimer) {
       this.mainTimer = waiter.timer;
-      if (this.__unrefMainTimer && !this.keepAliveLocks.size)
+      if (this.implicitLifetime && !this.keepAliveLocks.size)
         waiter.timer.unref();
     }
     const res = await waiter.promise;
@@ -806,7 +820,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     else
       this.keepAliveLocks.delete(subsystem);
 
-    if (this.mainTimer && this.__unrefMainTimer && this.mainTimer.hasRef() !== Boolean(this.keepAliveLocks.size)) {
+    if (this.mainTimer && this.implicitLifetime && this.mainTimer.hasRef() !== Boolean(this.keepAliveLocks.size)) {
       if (this.keepAliveLocks.size)
         this.mainTimer.ref();
       else
