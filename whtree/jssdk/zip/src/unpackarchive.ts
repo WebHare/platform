@@ -28,6 +28,8 @@ class UnpackArchiveDirectory extends UnpackArchiveEntry {
 }
 
 class UnpackArchiveFile extends UnpackArchiveEntry {
+  declare type: "file";
+
   #reader: ZipArchiveReader;
 
   readonly size: number;
