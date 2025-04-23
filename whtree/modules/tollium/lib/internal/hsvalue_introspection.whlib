@@ -203,7 +203,11 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
           RETURN DEFAULT RECORD;
 
         // intextlink (from contenttype members of type "intextlink" or value from the Publisher's <intextlink> component)
-        IF (this->gathermetadata AND CellExists(value, "externallink") AND CellExists(value, "internallink"))
+        IF (this->gathermetadata
+            AND CellExists(value, "externallink")
+            AND CellExists(value, "internallink")
+            AND TypeID(value.externallink) = TypeID(STRING)
+            AND TypeID(value.internallink) = TypeID(INTEGER))
           RETURN this->GetIntExtLinkDescription(value);
 
         RETURN this->GetRecordDescription(value, level + 1);
@@ -768,7 +772,6 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
     STRING varinfo;
     STRING varcontent;                                    // dump of the contents of the data
-    STRING jscommand;                               // javascript commands
 
     BOOLEAN hasChildren  := FALSE;
     BOOLEAN expanded     := TRUE;                   // tree opened or closed
@@ -964,17 +967,15 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
       }
       ELSE
       {
-        RETURN '<li class="isarray ' || (expanded ? 'open' : 'closed')
-            || '"><div class="toggleme header' || (isprivate ? ' private' : '')
-            || '" '|| jscommand ||'>' || infohdr || '\
-                   </div>\
-                 <ul>' || varcontent || "</ul>\
-                </li>\n";
+        RETURN `<li class="isarray ${expanded ? 'open' : 'closed'}"">
+                  <div class="toggleme header ${isprivate ? ' private' : ''}">${infohdr}</div>
+                  <ul ${expanded ? '' : ' hidden="until-found"'}>${varcontent}</ul>
+                </li>\n`;
       }
     }
     ELSE
     {
-      RETURN '<li '|| jscommand || (isprivate ? 'class="private"' : '') || '>' || infohdr || varcontent || "</li>\n";
+      RETURN '<li ' || (isprivate ? 'class="private"' : '') || '>' || infohdr || varcontent || "</li>\n";
     }
   }
 
@@ -1061,7 +1062,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
 
             typename := "FUNCTION PTR"; // NOTE: we don't need to specify it's active :P
             varinfo := name;
-            varcontent := '<div class="content"\
+            varcontent := '<div class="content">\
                             definition = ' || returnTypeStr || ' (' || DeTokenize(paramslist,", ") || ')<br />\n\
                             library = '    || fptrRecord.library || '<br />\n\
                             function = '   || fptrRecord."function" /*getCell(fptrRecord,'function')*/ || '<br />\n\

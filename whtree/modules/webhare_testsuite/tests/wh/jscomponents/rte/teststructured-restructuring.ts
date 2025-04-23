@@ -4,7 +4,7 @@ import * as test from "@mod-tollium/js/testframework";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const JSONRPC = require("@mod-system/js/net/jsonrpc");
 
-import ParsedStructure from "@mod-tollium/web/ui/components/richeditor/internal/parsedstructure";
+import { ParsedStructure } from "@mod-tollium/web/ui/components/richeditor/internal/parsedstructure";
 
 // Runs restructuring tests from mod::webhare_testsuite/tests/publisher/rtd/restructuringtests.whlib
 

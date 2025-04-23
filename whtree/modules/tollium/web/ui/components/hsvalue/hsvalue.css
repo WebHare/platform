@@ -29,8 +29,13 @@ ul ul
 li.isarray { margin-top: 8px; }
 li.isarray + li { margin-top: 8px; }
 
-li.isarray.open > ul { border-top: 1px solid transparent; }
-li.isarray.open > ul { border-top: 1px solid #777777; }
+/*li.isarray.open > ul { border-top: 1px solid transparent; }*/
+li.isarray.open > ul
+{
+  margin-top: 1px;
+  border-top: 1px solid #777777;
+  padding-top: 1px;
+}
 
 li.isarray ul { background-color: #F0F0F0; }
 li.isarray ul ul { background-color: #E8E8E8; }
@@ -49,7 +54,9 @@ li.isarray > ul > li > .header { padding-left: 24px; }
   .closed ul
 , .closed .interpreted
 , .closed .content
-{ display: none; }
+{
+/* hidden using hidden="until-found" so content can still be searched through (even when hidden) */
+}
 
 .vtype /* variable type */
 {
@@ -70,7 +77,11 @@ li.isarray > ul > li > .header { padding-left: 24px; }
   color: #BBBBBB;
 }
 
-li { list-type: none; list-style-position: inside; padding-left: 5px; }
+li
+{
+  list-style-position: inside;
+  padding-left: 5px;
+}
 
 li.closed
 {
