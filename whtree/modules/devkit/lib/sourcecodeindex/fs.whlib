@@ -4,8 +4,6 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 
-LOADLIB "mod::devkit/lib/sourcecodeindex/settings.whlib";
-
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";

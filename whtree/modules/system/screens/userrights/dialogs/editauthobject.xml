@@ -12,7 +12,12 @@
     <body spacers="none">
       <tabs name="maintabs">
         <tab tid="~properties">
-          <textedit composition="unitentity" cellname="wrd_title" name="wrd_title" maxlength="256" required="true" tid="~name" />
+          <textedit composition="unitentity"
+                    cellname="wrd_title"
+                    name="wrd_title"
+                    maxlength="256"
+                    required="true"
+                    tid="~name" />
           <textarea composition="unitentity" cellname="whuser_comment" height="4gr" tid="~comments" />
           <spacer name="extensionpoint" visible="false" />
         </tab>

@@ -15,16 +15,10 @@
     </body>
   </screen>
 
-  <screen name="selectuserrole"
-          width="100x"
-          height="16gr"
-          allowresize="true"
-          gid=".selectuserrole"
-          savestate="size"
-          title="">
+  <screen name="selectuserrole" width="100x" height="16gr" allowresize="true" gid=".selectuserrole" savestate="size" title="">
     <actions>
       <action name="dosubmit" onexecute="submit" tid="~ok">
-        <enableon source="selectuserrole->unitcontents->userandrolelist" min="1" requirefocus="true"/>
+        <enableon source="selectuserrole->unitcontents->userandrolelist" min="1" requirefocus="true" />
       </action>
     </actions>
 

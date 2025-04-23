@@ -14,6 +14,7 @@
 
   <servicemanager>
     <runonce script="scripts/runonce/migrate-postings.whscr" tag="migrate_postings" when="poststart" />
+
     <task runat="53  3 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="maintenance_task" description="Publisher maintenance task" />
     <task runat="33  3 * * *" runtz="maintenance" script="scripts/tasks/cleanupwebtoolresults.whscr" tag="cleanup_webtool_results" description="Cleanup outdated Webtools form results" />
     <task runat="17  2 * * *" runtz="maintenance" script="scripts/tasks/archiveoutput.whscr" tag="archiveoutput" description="Move folders not associated with a site to the archive" />
@@ -389,9 +390,11 @@
       <d:documentation>A table containing all the forums. Typicially every FS forum object that
         was activated at least once, has an associated forum object</d:documentation>
       <d:integer name="id" nullable="0" ondelete="cascade" references="system.fs_objects" unique="true" />
-<!--      <d:varchar name="uuid" maxlength="64">
+
+<!-- <d:varchar name="uuid" maxlength="64">
         <d:documentation>Deprecated</d:documentation>
       </d:varchar>  -->
+
       <!-- <d:integer name="postertype" ondelete="set default" references="wrd.types">
         <d:documentation>WRD type with which posters are associated.</d:documentation>
       </d:integer> -->
@@ -436,20 +439,23 @@
       </d:datetime>
     </d:table>
     -->
-
     <d:table name="forumpostings" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="forum" ondelete="cascade" references=".forums" /> <!-- FIXME nullable=0 as soon as forum migration is complete -->
+      <d:integer name="forum" ondelete="cascade" references=".forums" />  <!-- FIXME nullable=0 as soon as forum migration is complete -->
+
       <!-- FIXME drop these obsolete columns, including topic -->
       <d:integer name="topic" />
       <d:integer name="inreplyto" ondelete="set default" references=".forumpostings" />
+
       <!-- <d:varchar name="subject" maxlength="256">
         <d:documentation>Post's subject, for forums that allow subjects on individual posts</d:documentation>
       </d:varchar> -->
       <d:datetime name="creationdate" nullable="0" />
       <d:datetime name="modificationdate" nullable="0" />
+
       <!-- <d:integer name="postingtype" /> -->
       <d:varchar name="content" maxlength="4096" />
+
       <!-- <d:boolean name="attachments" /> -->
       <d:varchar name="postersource" maxlength="128" />
       <d:varchar name="postername" maxlength="128" />
