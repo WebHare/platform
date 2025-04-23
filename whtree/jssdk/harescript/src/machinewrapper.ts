@@ -27,7 +27,7 @@ export class HSVMWrapper implements HSVM_HSVMSource {
     this.vm = new WeakRef(vm);
     this.currentgroup = vm.currentgroup;
     if (debugFlags.vmlifecycle) //also report whether this VM's mainloop will block
-      console.log(`[${vm.currentgroup}] HSVMWrapper created, mainloop: ${vm.__unrefMainTimer ? "non-blocking" : "retaining"}`);
+      console.log(`[${vm.currentgroup}] HSVMWrapper created, mainloop: ${vm.implicitLifetime ? "non-blocking" : "retaining"}`);
     vmfinalizer.register(this, vm, this);
     this.done = vm.run(script);
   }

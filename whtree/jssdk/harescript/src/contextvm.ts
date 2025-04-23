@@ -5,8 +5,8 @@ import { type HSVMWrapper, createVM } from "./machinewrapper";
 import { HSVMSymbol } from "./wasm-support";
 
 async function allocateCodeContextHSVM() {
-  /// this makes sure the eventloop won't keep the process alive as the global root context (and its HSVM) is never discarded
-  const vm = await createVM({ __unrefMainTimer: true });
+  /// implicitLifetime ensures the eventloop won't keep the process alive as the global root context (and its HSVM) is never discarded
+  const vm = await createVM({ implicitLifetime: true });
   await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepared it anwyway, so open it
   return vm;
 }

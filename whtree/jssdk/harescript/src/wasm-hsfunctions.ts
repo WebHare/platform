@@ -622,7 +622,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       const decoded = JSON.parse(text.getString());
       log(logfile.getString(), decoded);
     } catch (e) {
-      log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+      bridge.logRaw(logfile.getString(), text.getString());
     }
   });
 
