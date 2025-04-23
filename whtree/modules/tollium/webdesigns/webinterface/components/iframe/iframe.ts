@@ -12,6 +12,8 @@ import type { HostMessage, GuestMessage, HostRuntimeMessage } from '@webhare/tol
 import { getAssetPackIntegrationCode } from '@webhare/router/src/concepts';
 import { debugFlags } from '@webhare/env';
 import { theme } from "@webhare/tollium-iframe-api/styling";
+import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
+import { getTid } from '@webhare/gettid';
 
 interface IframeAttributes extends ComponentStandardAttributes {
   sandbox: string;
@@ -344,6 +346,61 @@ export default class ObjIFrame extends ComponentBase {
 
       case "post": { //forward message to server
         this.queueMessage("post", { msg, origin });
+        return;
+      }
+
+      case "runSimpleScreen": {
+        const buttons: Array<{ name: string; title: string }> = [];
+        let defaultbutton: string | undefined = undefined;
+        let icon: "confirmation" | "error" | "information" | "question" | "unrecoverable" | "warning" | undefined = undefined;
+        switch (msg.type) {
+          case "verify": {
+            buttons.push(
+              { name: "yes", title: getTid("~yes") },
+              { name: "no", title: getTid("~no") },
+            );
+            defaultbutton = "no";
+            icon = "warning";
+            break;
+          }
+          case "confirm":
+          case "question": {
+            buttons.push(
+              { name: "yes", title: getTid("~yes") },
+              { name: "no", title: getTid("~no") },
+            );
+            if (msg.type === "confirm")
+              defaultbutton = "yes";
+            icon = "question";
+            break;
+          }
+          case "error": {
+            buttons.push(
+              { name: "ok", title: getTid("~ok") },
+            );
+            defaultbutton = "ok";
+            icon = "error";
+            break;
+          }
+          case "warning": {
+            buttons.push(
+              { name: "ok", title: getTid("~ok") },
+            );
+            defaultbutton = "ok";
+            icon = "warning";
+            break;
+          }
+          default: {
+            buttons.push(
+              { name: "ok", title: getTid("~ok") },
+            );
+            defaultbutton = "ok";
+            icon = "information";
+          }
+        }
+        void runSimpleScreen(this.owner.hostapp, { text: msg.message, title: msg.title, buttons, defaultbutton, icon }).then(button => {
+          this.postTypedMessage({ tollium_iframe: "screenResult", id: msg.id, button });
+        });
         return;
       }
 
