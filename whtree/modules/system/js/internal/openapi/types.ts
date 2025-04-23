@@ -92,11 +92,11 @@ export type GetJSONContent<Response> = NeverFallback<Response extends { "content
  * @typeParam ResponseCode - Should not be provided, needed to enumerate all keys of R
  */
 export type ResponseTypesFromResponses<Responses extends object, ResponseCode extends keyof Responses = keyof Responses> = ResponseCode extends keyof Responses
-  ? (ResponseCode extends HTTPErrorCode // error codes must be JSON and extend RestDefaultErrorBody
+  ? (ResponseCode extends HTTPErrorCode // error codes must be JSON
     ? {
       status: ResponseCode;
       isjson: true;
-      response: GetJSONContent<Responses[ResponseCode]>/* extends RestDefaultErrorBody ? GetJSONContent<Responses[ResponseCode]> : RestDefaultErrorBody*/;
+      response: GetJSONContent<Responses[ResponseCode]>;
     }
     : (ResponseCode extends HTTPSuccessCode
       ? {
