@@ -176,8 +176,9 @@ export class RestAPI {
 
     // Activate hooks (FIXME how to flush them?)
     if (initHook) {
+      await using context = new CodeContext("initHook", { initHook });
       const tocall = await importJSFunction<OpenAPIInitHookFunction>(initHook);
-      await tocall({ name: name, spec: bundled });
+      await context.run(() => tocall({ name: name, spec: bundled }));
     }
 
     // Parse the OpenAPI definition. Make a structured clone of bundled, because validate modifies the incoming data

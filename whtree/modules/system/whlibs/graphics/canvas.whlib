@@ -1325,11 +1325,6 @@ PUBLIC OBJECT FUNCTION CreateTextRenderer()
   RETURN NEW TextRenderer();
 }
 
-PUBLIC RECORD FUNCTION GetImageResizeInstruction(INTEGER width, INTEGER height, STRING mimetype, RECORD method) __ATTRIBUTES__(DEPRECATED "GetImageResizeInstruction cannot handle rotated photos. Use ExplainImageProcessing for resize information that considers rotation")
-{
-  RETURN ExplainImageProcessing( [ width := width, height := height, mimetype := mimetype, rotation := 0, mirrored := FALSE, refpoint := DEFAULT RECORD ], method);
-}
-
 PUBLIC OBJECT FUNCTION __CreateCanvasWithCanvasID(INTEGER id) //entry point for canvas marshaller
 {
   RETURN NEW GraphicsCanvas(id);
