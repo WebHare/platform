@@ -47,6 +47,7 @@ export type ConfigFile = {
   baseport: number;
   modulescandirs: string[];
   public: BackendConfiguration;
+  defaultImageFormat: "keep" | "image/webp" | "image/avif";
   secrets: {
     cache: string;
     cookie: string;

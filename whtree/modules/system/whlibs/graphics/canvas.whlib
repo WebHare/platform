@@ -1289,7 +1289,9 @@ PUBLIC OBJECT FUNCTION CreateCanvasFromRawBlob(BLOB infile, RECORD inputformat)
 */
 PUBLIC OBJECT FUNCTION CreateResizedCanvasFromBlob(BLOB infile, RECORD method) {
   RECORD filerec := CellInsert(ScanBLob(infile), "data", infile);
-  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(filerec, CELL[...method, noforce := FALSE]); //noforce: ensure canvas is loaded, even if nothing changed
+
+  //this is a pretty low level api that can't easily hook into the registry, just assume the intention was to keep and that new users just should avoid this api
+  RECORD outinfo := __MyGfxResizeImageBlobWithMethod(filerec, CELL[ format := "keep", ...method, noforce := FALSE]); //noforce: ensure canvas is loaded, even if nothing changed
   IF(NOT RecordExists(outinfo))
     RETURN DEFAULT OBJECT;
 

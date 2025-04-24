@@ -60,6 +60,7 @@ async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean
       finalconfig.secrets.cache = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";
       finalconfig.secrets.debug = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.debugsecret") ?? finalconfig.secrets.debug ?? "";
       finalconfig.secrets.gcm = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.gcmsecret") ?? finalconfig.secrets.gcm ?? "";
+      finalconfig.defaultImageFormat = (await rawReadRegistryKey<ConfigFile["defaultImageFormat"]>(pgclient, "platform.cache.defaultimageformat") || 'keep') ?? finalconfig.defaultImageFormat ?? "keep";
 
       return finalconfig;
     } finally {

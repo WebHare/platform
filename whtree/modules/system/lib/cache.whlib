@@ -89,7 +89,8 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
           analyzed.extension := info.extension;
         }
 
-        IF(IsWasm())
+        mimetype := GetImageMimetype(analyzed.extension);
+        IF(IsWasm() OR mimetype IN ["image/webp","image/avif"])
         {
           STRING jsresulttxt :=
                   CallJS("@mod-platform/js/cache/imgcache.ts#returnImageForCache",
@@ -105,7 +106,6 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
           content := __ProcessImage(info, analyzed.item);
         }
 
-        mimetype := GetImageMimetype(analyzed.extension);
       }
       ELSE
       {
@@ -129,6 +129,9 @@ PUBLIC RECORD FUNCTION GetCachedDataFromURL(STRING url, RECORD options DEFAULTST
     */
 PUBLIC RECORD FUNCTION WrapImageField(STRING field, RECORD method)
 {
+  IF(NOT CellExists(method,'format'))
+    method := CELL[ ...method, format := GetDefaultImageOutputFormat() ];
+
   method := ValidateResizeMethod(method);
   RETURN [ __queryfield := "" //indicated that this is a query wrapper. this would otherwise crash, as you can't select an empty field name
          , type := "wrapimage"
@@ -258,6 +261,9 @@ PUBLIC RECORD FUNCTION WrapCachedImage(RECORD wrappedimage, RECORD processingmet
 
   RECORD cleanedmethod := processingmethod;
   DELETE CELL baseurl, filename FROM cleanedmethod;
+
+  IF(NOT CellExists(cleanedmethod,'format'))
+    cleanedmethod := CELL[ ...cleanedmethod, format := GetDefaultImageOutputFormat() ];
 
   RECORD explained := ExplainImageProcessing(wrappedimage, cleanedmethod);
 

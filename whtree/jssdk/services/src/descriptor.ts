@@ -15,7 +15,7 @@ const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust ima
 
 //cropcanvas and stretch* are deprecated, but we still need to be able to unpack them if they come from HareScript
 const packMethods = [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"] as const;
-const outputFormats = [null, "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const;
+const outputFormats = ["keep", "image/jpeg", "image/gif", "image/png", "image/webp", "image/avif"] as const; //outputFormats mirrors graphics.whlib __packformats
 
 const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
 const DefaultMediaType = "application/octet-stream";
@@ -45,7 +45,7 @@ export type ResizeMethod = {
   method: ResizeMethodName;
   quality?: number;
   blur?: number;
-  format?: OutputFormatName;
+  format?: "keep" | OutputFormatName;
   bgColor?: number | "transparent";
   noForce?: boolean;
   grayscale?: boolean;
@@ -53,11 +53,16 @@ export type ResizeMethod = {
   height?: number;
 };
 
+/** PackableResizeMethod is ResizeMethod without local defaults that are encoded into the packet.
+    Currently that excludes an unspecified format as we expect that to be resolved to either 'keep' or an explicit format
+    depending on the configured defaultImageFormnat */
+export type PackableResizeMethod = ResizeMethod & Required<Pick<ResizeMethod, "format">>;
+
 type ResourceResizeOptions = Partial<ResizeMethod> & LinkMethod;
 export interface ResizeSpecs {
   outWidth: number;
   outHeight: number;
-  outType: Exclude<typeof outputFormats[number], null>;
+  outType: Exclude<typeof outputFormats[number], "keep">;
   renderX: number;
   renderY: number;
   renderWidth: number;
@@ -374,14 +379,14 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   };
 }
 
-function validateResizeMethod(resizemethod: ResizeMethod) {
+function validateResizeMethod(resizemethod: PackableResizeMethod) {
   const method = packMethods.indexOf(resizemethod.method);
   if (method < 0)
     throw new Error(`Unrecognized method '${resizemethod.method}'`);
   if (['stretch-x', 'stretch-y', 'stretch', 'cropcanvas', 'crop'].includes(resizemethod.method))
     throw new Error(`Resize method '${resizemethod.method}' is deprecated and not supported in JavaScript or for WebP/AVIF image formats`);
 
-  const format = outputFormats.indexOf(resizemethod.format ?? null);
+  const format = outputFormats.indexOf(resizemethod.format ?? "keep");
   if (format < 0)
     throw new Error(`Unrecognized format '${resizemethod.format}'`);
 
@@ -398,15 +403,15 @@ function validateResizeMethod(resizemethod: ResizeMethod) {
   } satisfies ResizeMethod & { methodIdx: number; formatIdx: number };
 }
 
-export function suggestImageFormat(mediaType: string): OutputFormatName {
+export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName, "keep"> {
   if (mediaType === "image/x-bmp")
     return "image/png";
   if (mediaType === "image/tiff")
     return "image/jpeg";
-  return mediaType as OutputFormatName;
+  return mediaType as Exclude<OutputFormatName, "keep">;
 }
 
-export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod): ResizeSpecs {
+export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
   if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
@@ -414,7 +419,7 @@ export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" 
 
   method = validateResizeMethod(method);
 
-  const outtype: ResizeSpecs["outType"] = method.format || suggestImageFormat(resource.mediaType);
+  const outtype: ResizeSpecs["outType"] = method.format && method.format !== "keep" ? method.format : suggestImageFormat(resource.mediaType);
   const defaultQualities = {
     "image/jpeg": 85,
     "image/png": 100,
@@ -535,7 +540,7 @@ function getResizeInstruction(instr: ResizeSpecs, method: ResizeMethod): ResizeS
   return instr;
 }
 
-export function packImageResizeMethod(resizemethod: ResizeMethod): ArrayBuffer {
+export function packImageResizeMethod(resizemethod: PackableResizeMethod): ArrayBuffer {
   const validatedMethod = validateResizeMethod(resizemethod);
   let method = validatedMethod.methodIdx;
   let format = validatedMethod.formatIdx;
@@ -598,7 +603,7 @@ export function getUnifiedCC(date: Date) {
   return parts.days ^ parts.msecs;
 }
 
-export function getUCSubUrl(scaleMethod: ResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
+export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
   if (!fileData.dbLoc)
     throw new Error("Cannot use toResize on a resource not backed by a supported database location");
 
@@ -666,11 +671,14 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
   if (dataType === 2 && options?.method)
     throw new Error("A cached file cannot have a scale method. Did you mean to use one of the image APIs ?");
 
-  const mimetype = (dataType === 1 ? options?.format : "") || metaData.mediaType;
+  //If options.format is explicitly set, use that or the original mimetype is format is explicitly 'keep'.
   const embed = dataType === 1 || options?.embed === true;
   const allowanyextension = options?.allowAnyExtension === true;
   const validextensions = [];
   if (dataType === 1) {
+    const setFormat = options?.format || getFullConfigFile().defaultImageFormat;
+
+    const mimetype = setFormat === 'keep' ? metaData.mediaType : setFormat;
     if (mimetype === "image/jpeg")
       validextensions.push("jpg");
     else if (mimetype === "image/png" || mimetype === "image/x-bmp" || mimetype === "image/tiff")
@@ -686,7 +694,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     //HS did: return ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier. or we should be able to do file hosting with preset mimetypes (not extension based)
   } else {
     //TOOD HS allowed the extendable mimetype table to be used but that's getting too complex for here I think. should probably reconsider unifiedcache-file usage once we run into this
-    const ext = getExtensionForMediaType(mimetype);
+    const ext = getExtensionForMediaType(metaData.mediaType);
     validextensions.push(ext ? ext.substring(1) : "bin");  //'bin' was the fallback application/octet-stream extension in WebHare. as long as we do extension-base mimetypeing on imgcache downloads, we *must* attach an extension for safety
   }
 
@@ -712,7 +720,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
     filename = slugify(filename) ?? (options?.method ? 'image' : 'file'); //then sanitize it
   }
 
-  const packet = getUCSubUrl(options?.method ? options as ResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
+  const packet = getUCSubUrl(options?.method ? options as PackableResizeMethod : null, metaData, dataType, useextension ? '.' + useextension : '');
   let suffix = dataType === 1 ? "i" : embed ? "e" : "f";
   suffix += packet;
   suffix += '/' + encodeURIComponent((filename?.substring(0, 80) ?? "data") + (useextension ? '.' + useextension : ''));

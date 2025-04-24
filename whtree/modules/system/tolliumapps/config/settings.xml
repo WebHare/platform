@@ -70,6 +70,12 @@
             <option rowkey="test" />
             <option rowkey="development" />
           </select>
+          <heading tid=".caching" doclink="system:globalsettings/caching" />
+          <select name="defaultimageformat" type="pulldown">
+            <option rowkey="" tid=".defaultimageformat-keepsource" />
+            <option rowkey="image/webp" title="WEBP" />
+            <option rowkey="image/avif" title="AVIF" />
+          </select>
           <heading tid=".harescript" />
           <line>
             <textedit composition="tweaks" cellname="scripttimeout" width="8x" tid=".scripttimeout" valuetype="integer" />
