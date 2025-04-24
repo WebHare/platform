@@ -82,6 +82,8 @@ export class RestRequest<
   readonly webRequest: WebRequest;
   ///The relative request path, starting with '/'
   readonly path: string;
+  ///The route, starting with '/'
+  readonly route: string;
   ///Rest parameters received
   readonly params: Params;
   ///The parsed body of the request (if this operation accepts an application/json body)
@@ -90,9 +92,10 @@ export class RestRequest<
   ///Authorization result
   authorization: Authorization;
 
-  constructor(webRequest: WebRequest, path: string, params: Params, body: Body) {
+  constructor(webRequest: WebRequest, path: string, route: string, params: Params, body: Body) {
     this.webRequest = webRequest;
     this.path = path;
+    this.route = route;
     this.params = params;
     this.body = body;
     this.authorization = null as Authorization;

@@ -605,6 +605,17 @@ async function testFileTransfer() {
     test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
     test.eq({ json: true }, res.body);
   }
+
+  {
+    const res = await client.get("/getcontext/{id}", { params: { id: "json" } });
+    test.assert(res.status === HTTPSuccessCode.Ok && "body" in res);
+    test.eq({
+      route: "/getcontext/{id}",
+      params: { id: "json" },
+      path: "/getcontext/json",
+    }, res.body);
+  }
+
 }
 
 test.runTests([

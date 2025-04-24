@@ -24,10 +24,6 @@ export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthoriz
   return { authorized: true, authorization: null };
 }
 
-export async function mapDefaultError({ status, error }: { status: HTTPErrorCode; error: string }) {
-  return createJSONResponse(status, { message: error });
-}
-
 export async function reset() {
   await createWRDTestSchema();
   return createJSONResponse(HTTPSuccessCode.NoContent, null);
@@ -121,4 +117,12 @@ export async function getFile(req: TypedRestRequest<unknown, "/file/{type}">): P
     }
   }
   return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal file type: ${JSON.stringify(req.params.type)}`, p: req.params });
+}
+
+export function getContext(req: TypedRestRequest<unknown, "/getcontext/{id}">) {
+  return req.createJSONResponse(HTTPSuccessCode.Ok, {
+    route: req.route,
+    params: req.params,
+    path: req.path,
+  });
 }

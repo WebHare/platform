@@ -505,8 +505,10 @@ export class WorkerRestAPIHandler {
       }
     }
 
+    const route = match.route.path.join("/");
+
     // Create the request object
-    const restreq = new RestRequest(req, relurl, params, body);
+    const restreq = new RestRequest(req, relurl, route, params, body);
 
     let authresult;
     {
