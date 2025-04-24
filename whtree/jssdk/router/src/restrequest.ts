@@ -1,6 +1,7 @@
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import type { WebRequest } from "./request";
 import { createJSONResponse, createWebResponse, type HTTPErrorCode, type HTTPSuccessCode, type WebResponse } from "./response";
+import type { Simplify } from "@mod-system/js/internal/util/algorithms";
 
 export type RestDefaultErrorBody = { status: HTTPErrorCode; error: string };
 
@@ -66,6 +67,10 @@ export type JSONResponseForCode<
   C extends JSONResponseCodes<Responses>
 > = ResponseForCode<Responses, DefaultErrorFormat, C>["response"];
 
+export type MakeStatusOptional<T extends object> = Simplify<Partial<Pick<T, "status" & keyof T>> & Omit<T, "status">>;
+
+declare const error: unique symbol;
+
 export class RestRequest<
   Authorization = unknown,
   Params extends object = DefaultRestParams,
@@ -108,20 +113,23 @@ export class RestRequest<
   ) {
     return createJSONResponse(status, jsonbody, options);
   }
-  /** Create a webresponse for an error response, returning a JSON body
+  /** Create a webresponse for an error response, returning a JSON body. Only allowed when the return body can
+   * contain a 'status' property.
    * @param status - Status code to return
    * @param jsonbody - The JSON body to return
    * @param options - Optional statuscode and headers
    */
   createErrorResponse<
     Status extends HTTPErrorCode,
-    ResponseBody extends Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">
+    ResponseBody extends JSONResponseForCode<Responses, DefaultErrorFormat, Status> & object
   >(
     status: Status,
-    jsonbody: ResponseBody & DisallowExtraPropsRecursive<ResponseBody, Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">>,
+    jsonbody: ResponseBody extends { status?: number } ?
+      MakeStatusOptional<ResponseBody & DisallowExtraPropsRecursive<ResponseBody, JSONResponseForCode<Responses, DefaultErrorFormat, Status>>> :
+      { [error]: "Cannot use this function, the error schema doesn't contain a 'status' property" },
     options?: { headers?: Record<string, string> }
   ) {
-    return createJSONResponse(status, { status, ...jsonbody }, options);
+    return createJSONResponse(status, { status, ...jsonbody as object }, options);
   }
 
   /** Create a webresponse for a successfull response, returning a raw file

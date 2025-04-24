@@ -131,7 +131,10 @@ export type GetParametersType<Operation extends object> = SquashObjectType<Opera
 /** Extracts the defaulterror type from the components, if it properly extends RestDefaultErrorBody
  * @typeParam Components - Components from generated openapi ts file
  */
-export type DefaultErrorType<Paths extends object, Components extends object> = Components extends { schemas: { defaulterror: infer E extends object } } ? E : AllErrorResponses<Paths>;
+export type DefaultErrorType<Paths extends object, Components extends object> =
+  Components extends { schemas: { defaulterror: infer E extends object } } ? E :
+  Components extends { schemas: { defaultError: infer E extends object } } ? E :
+  AllErrorResponses<Paths>;
 
 /** Type override for a RestRequest that gives proper types to all the data and nethods of RestRequest.
  * @typeParam Auth - Format of authorization data

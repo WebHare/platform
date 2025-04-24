@@ -504,6 +504,7 @@ function testInternalTypes() {
   if (f) {
     const req: restrequest.RestRequest<null, object, null, TestResponses, restrequest.RestDefaultErrorBody> = null as any;
     const req_errdef: restrequest.RestRequest<null, object, null, TestResponses, { status: HTTPErrorCode; error: string; extra: string }> = null as any;
+    const req_nonstderrdef: restrequest.RestRequest<null, object, null, TestResponses, { error: string; extra: string }> = null as any;
 
     req.createJSONResponse(HTTPSuccessCode.Ok, { code: 3 });
     // @ts-expect-error -- Not allowed to add extra properties
@@ -532,6 +533,9 @@ function testInternalTypes() {
     req.createRawResponse(HTTPSuccessCode.PartialContent, "blabla");
     // @ts-expect-error -- not allowed for json-only apis
     req.createRawResponse(HTTPSuccessCode.Ok, "blabla");
+
+    // @ts-expect-error -- not for errors where the body doesn't have a 'status' property
+    req_nonstderrdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found", extra: "extra" });
   }
 }
 
