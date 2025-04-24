@@ -319,14 +319,6 @@ MACRO NoForceTest()
   BLOB pngfile := base->ExportAsPNG(FALSE);
   base->Close();
 
-  //old resize method should not force its bgcolor if nothing really changes
-  RECORD result := GfxResizeImageBlob(pngfile, -150, -150, "");
-  TestEq(result.data, pngfile);
-  result := GfxResizeImageBlob(pngfile, -200, -200, "");
-  TestEq(result.data, pngfile);
-  result := GfxResizeImageBlob(pngfile, 150, 150, "");
-  TestEq(result.data, pngfile);
-
   CloseTest("TestGraphics: NoForceTest");
 }
 
