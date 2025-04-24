@@ -29,6 +29,8 @@ export type WebRequestTransferData = {
 export type RPCContext = {
   /** The RPC request */
   request: SupportedRequestSubset; //reduced to SupportedRequestSubset so we can move towards Response without users expecting any WebResponse-unique fields
+  /** The function/method invoked (unrelated to the request.method which is currently always POST for WebHare RPCs) */
+  method: string;
   /** Get the URL of the caller */
   getOriginURL: () => string | null;
   /** Get the WRDAuth verified user that made the call (based on either login cookie or authorization header ) */
@@ -40,7 +42,7 @@ export type RPCContext = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- no RPC matches unknown, we need to accept any argument
 export type RPCAPI = Record<string, (context: RPCContext, ...args: any[]) => unknown | Promise<unknown>>;
 
-export type RPCFilter = (context: RPCContext, method: string, args: unknown[]) => Promise<{ result?: unknown } | void> | { result?: unknown } | void;
+export type RPCFilter = (context: RPCContext, args: unknown[]) => Promise<{ result?: unknown } | void> | { result?: unknown } | void;
 
 //TODO ideally we'll support the full Request interface so that some calls can rely on a public interface https://developer.mozilla.org/en-US/docs/Web/API/Request instead of WebRequest
 export type SupportedRequestSubset = Pick<Request, "method" | "headers" | "url" | "json" | "text">;

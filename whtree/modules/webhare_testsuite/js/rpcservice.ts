@@ -8,12 +8,12 @@ import { getTestSiteJS } from "./wts-backend";
 import { WRDSchema } from "@webhare/wrd";
 import { prepareFrontendLogin } from "@webhare/auth";
 
-export async function filterAPI(context: RPCContext, method: string, args: unknown[]) {
+export async function filterAPI(context: RPCContext, args: unknown[]) {
   if (context.request.headers.get("filter") === "throw")
     throw new Error("Intercepted");
-  if (method === "echo" && args[0] === -42)
+  if (context.method === "echo" && args[0] === -42)
     return { result: [-43] };
-  if (method === "echo" && args[0] === -43)
+  if (context.method === "echo" && args[0] === -43)
     return {};
 }
 
