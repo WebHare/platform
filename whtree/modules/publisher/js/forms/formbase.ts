@@ -236,6 +236,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   private isInteractive = true;
   /** Did we warn about old style form controls? */
   private didLegacyWarning = false;
+  /** Are we currently in the _submit handler? (prevent duplicate submit attemps while eg. inside onBeforeSubmit) */
+  private inSubmit = false;
 
   readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
 
@@ -556,8 +558,15 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     await this._submit(null, extradata);
   }
 
+  /** Override beforeSubmit to have a last chance to block/confirm actual form submission
+   * @returns true to continue submitting
+  */
+  async beforeSubmit(extradata: ExtraData): Promise<boolean> {
+    return true;
+  }
+
   async _submit(evt: SubmitEvent | null, extradata: ExtraData) {
-    if (this.node.classList.contains('wh-form--submitting')) //already submitting
+    if (this.node.classList.contains('wh-form--submitting') || this.inSubmit) //already submitting
       return;
 
     //A form element's default button is the first submit button in tree order whose form owner is that form element.
@@ -577,12 +586,20 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     }
 
     try {
-      if (!dompack.dispatchCustomEvent(this.node, 'wh:form-beforesubmit', { bubbles: true, cancelable: true })) //allow parsley to hook into us
+      this.inSubmit = true;
+      if (!await this.beforeSubmit(extradata))
         return;
+
+      /* DEPRECATED - Switch to onBeforeSubmit in 5.7+ */
+      if (!dompack.dispatchCustomEvent(this.node, 'wh:form-beforesubmit', { bubbles: true, cancelable: true })) { //allow parsley to hook into us
+        console.error("The use of wh:form-beforesubmit is deprecated and will be removed in a future version. Use onBeforeSubmit instead");
+        return;
+      }
 
       await this._doSubmit(evt, extradata);
     } finally {
       tempbutton?.remove();
+      this.inSubmit = false;
     }
   }
 
