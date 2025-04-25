@@ -11,7 +11,7 @@ export function filterTestService() {
           does break Incognito testing though, a middleground may be *either* logged in *or* connecting from a local ip?
   */
   if (dtapStage !== "development")
-    throw new Error("FrontendTestService is only available on development servers");
+    throw new Error("FrontendTestService is only available on development servers, we are: " + dtapStage);
 }
 
 export const testService = {
