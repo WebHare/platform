@@ -1,6 +1,8 @@
 ﻿<?wh
 LOADLIB "wh::float.whlib";
 
+PUBLIC CONSTANT STRING ARRAY __packformats := [/*0*/"keep",/*1*/"image/jpeg",/*2*/"image/gif",/*3*/"image/png",/*4*/"image/webp",/*5*/"image/avif"];
+
 INTEGER FUNCTION __DRAWLIB_V2_VALIDATEDRAWID(INTEGER id) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 INTEGER FUNCTION __DRAWLIB_V2_VALIDATEFONTID(INTEGER id) __ATTRIBUTES__(EXTERNAL "whmod_graphics");
 
@@ -581,7 +583,10 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
   IF(NOT CellExists(method,'method'))
     THROW NEW Exception("Missing required cell 'method'");
 
-  IF(method.method IN ["stretch","stretch-x","stretch-y","crop","cropcanvas"] AND CellExists(method,'format') AND method.format IN ["image/webp", "image/avif"])
+ IF(NOT CellExists(method,'format'))
+    THROW NEW Exception("Missing required cell 'format'");
+
+  IF(method.method IN ["stretch","stretch-x","stretch-y","crop","cropcanvas"] AND method.format IN ["image/webp", "image/avif"])
     THROW NEW Exception("Resize method '" || method.method || "' is deprecated and not supported for modern image formats");
 
   IF(method.method NOT IN ["none","fit","fitcanvas","scale","scalecanvas","fill","stretch","stretch-x","stretch-y","crop","cropcanvas"])
@@ -622,10 +627,8 @@ PUBLIC RECORD FUNCTION ValidateResizeMethod(RECORD method)
   ELSE IF(NOT CellExists(method,'quality'))
     INSERT CELL quality := 0 INTO method;
 
-  IF(CellExists(method, "format") AND method.format NOT IN ["","image/png","image/jpeg","image/gif","image/avif","image/webp"])
+  IF(method.format NOT IN __packformats)
     THROW NEW Exception("Invalid output format '" || method.format || "' in resize method");
-  ELSE IF(NOT CellExists(method, "format"))
-    INSERT CELL format := "" INTO method;
 
   IF(NOT CellExists(method,'noforce'))
     INSERT CELL noforce := TRUE INTO method;
@@ -683,7 +686,7 @@ PUBLIC RECORD FUNCTION ExplainImageProcessing(RECORD scannedblob, RECORD method)
   INTEGER hblur := CellExists(method, "hblur") ? method.hblur : 0;
   INTEGER vblur := CellExists(method, "vblur") ? method.vblur : 0;
   STRING forcetype := CellExists(method, "format") ? method.format : "";
-  STRING outtype := forcetype != "" ? forcetype : scannedblob.mimetype = "image/x-bmp" ? "image/png" : scannedblob.mimetype = "image/tiff" ? "image/jpeg" : scannedblob.mimetype;
+  STRING outtype := forcetype != "keep" ? forcetype : scannedblob.mimetype = "image/x-bmp" ? "image/png" : scannedblob.mimetype = "image/tiff" ? "image/jpeg" : scannedblob.mimetype;
   CONSTANT RECORD default_qualities := [
     "image/jpeg":= 85,
     "image/png":= 100,

@@ -1288,10 +1288,13 @@
         <text tid="autodenyipv6">Automatically deny IPv6 access to URLs, if a global IPv4 deny exists</text>
         <text tid="branding">Branding</text>
         <text tid="cachesecret">Image cache key</text>
+        <text tid="caching">Caching</text>
         <text tid="checkipallowmask">IPs allowed to /webhare/check/</text>
         <text tid="commaexplain">(comma separated)</text>
         <text tid="cookiesecret">Cookie encryption key</text>
         <text tid="dashboardbackground">Background</text>
+        <text tid="defaultimageformat">Image output format</text>
+        <text tid="defaultimageformat-keepsource">Keep source format</text>
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Title top right:</text>
         <text tid="docroot">from</text>

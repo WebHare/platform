@@ -1102,10 +1102,13 @@
         <text tid="autodenyipv6">Weiger IPv6 toegang voor URL's als er een globaal IPv4 weigering bestaat</text>
         <text tid="branding">Huisstijl</text>
         <text tid="cachesecret">Afbeeldingscache sleutel</text>
+        <text tid="caching">Caching</text>
         <text tid="checkipallowmask">IPs voor /webhare/check</text>
         <text tid="commaexplain">(kommagescheiden)</text>
         <text tid="cookiesecret">Cookie encryptie sleutel</text>
         <text tid="dashboardbackground">Achtergrond</text>
+        <text tid="defaultimageformat">Afbeelding uitvoerformaat</text>
+        <text tid="defaultimageformat-keepsource">Gebruik bronformaat</text>
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Titel rechtsboven:</text>
         <text tid="docroot">vanaf</text>

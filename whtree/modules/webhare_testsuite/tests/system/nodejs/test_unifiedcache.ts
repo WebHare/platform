@@ -40,7 +40,7 @@ async function testResizeMethods() {
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 25, height: 25 }));
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 25, height: 25, format: "keep" }));
 
   //Scale === fit when shrinking
   test.eq({
@@ -49,7 +49,7 @@ async function testResizeMethods() {
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 25, height: 25 }));
+  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 25, height: 25, format: "keep" }));
 
   //Scale to bigger size
   test.eq({
@@ -58,7 +58,7 @@ async function testResizeMethods() {
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 244, height: 400 }));
+  }, getSharpResizeOptions(exampleKikkertje, { method: "scale", width: 244, height: 400, format: "keep" }));
 
   //Fix rounding error
   test.eq({
@@ -67,7 +67,7 @@ async function testResizeMethods() {
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleSnowbeagle, { method: "scale", height: 500 }));
+  }, getSharpResizeOptions(exampleSnowbeagle, { method: "scale", height: 500, format: "keep" }));
 
   //Fit to bigger size - should be ignored!
   test.eq({
@@ -76,7 +76,7 @@ async function testResizeMethods() {
     extend: null,
     format: "jpeg",
     formatOptions: { quality: 85 }
-  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 244, height: 400 }));
+  }, getSharpResizeOptions(exampleKikkertje, { method: "fit", width: 244, height: 400, format: "keep" }));
 
   test.eq({
     extract: null,
@@ -127,7 +127,7 @@ async function testResizeMethods() {
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/webp", bgColor: 0xFFFF0000 }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(examplePng, { method: "none" }));
+    , explainImageProcessing(examplePng, { method: "none", format: "keep" }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
     , explainImageProcessing(exampleBmp, { method: "none", format: "image/png" }));
@@ -141,170 +141,170 @@ async function testResizeMethods() {
     , explainImageProcessing(examplerefPoint, { method: "none", format: "image/png", noForce: false }));
 
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none" }));
+    , explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
 
   //non web formats should still be converted (tiff->jpeg, bmp->png)
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "none" }));
+    , explainImageProcessing(exampleTiff, { method: "none", format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "none", noForce: false }));
+    , explainImageProcessing(exampleTiff, { method: "none", noForce: false, format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none" }));
+    , explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", noForce: false }));
+    , explainImageProcessing(exampleBmp, { method: "none", noForce: false, format: "keep" }));
 
   //Fit reduces a too-big input canvas and will return a canvas of varying size. Fitcanvas will always return a canvas of setWidth x setHeight and center the image
 
   //equal dimensions
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 320, height: 240 }));
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 320, height: 240, format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 320, height: 240 }));
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 320, height: 240, format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "fit", width: 320, height: 240 }));
+    , explainImageProcessing(exampleTiff, { method: "fit", width: 320, height: 240, format: "keep" }));
 
   //on a 640X480 canvas, fit won't change a thing. fitcanvas will grow it.
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 480, format: "keep" })
   );
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 160, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 480, format: "keep" })
   );
 
   //on a 200x100 canvas, fit should go for 134x100. fitcanvas should still go for 200x100 but horizontally center it
   test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 100 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 100, format: "keep" })
   );
   test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: 33, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 100 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 100, format: "keep" })
   );
 
   //Fitting to 640x0 (fit: 320x240, fitcanvas: 640x240)
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 0, format: "keep" })
   );
   test.eqPartial({ outWidth: 640, outHeight: 240, outType: "image/jpeg", renderX: 160, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 0, format: "keep" })
   );
   //Fitting to 200x0 canvas, fit should go for 200x150. fitcanvas agrees
   test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 0, format: "keep" })
   );
   test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 0, format: "keep" })
   );
   //Fitting to 0x480 (fit: 320x240, fitcanvas: 320x480)
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 480, format: "keep" })
   );
   test.eqPartial({ outWidth: 320, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 480, format: "keep" })
   );
   //Fitting to 0x100 canvas, fit should go for 134x100. fitcanvas agrees
   test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 100 })
+    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 100, format: "keep" })
   );
   test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 100 })
+    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 100, format: "keep" })
   );
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
-  }, explainImageProcessing(examplerefPoint, { method: "fit", width: 120, height: 120 }));
+  }, explainImageProcessing(examplerefPoint, { method: "fit", width: 120, height: 120, format: "keep" }));
 
   test.eqPartial({
     outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 }
-  }, explainImageProcessing(examplerefPoint, { method: "fit", width: 320, height: 0 }));
+  }, explainImageProcessing(examplerefPoint, { method: "fit", width: 320, height: 0, format: "keep" }));
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
-  }, explainImageProcessing(examplerefPoint, { method: "fitcanvas", width: 120, height: 120 }));
+  }, explainImageProcessing(examplerefPoint, { method: "fitcanvas", width: 120, height: 120, format: "keep" }));
 
 
   //Scale
 
   //equal dimensions
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 320, height: 240 }));
+    , explainImageProcessing(exampleJpg, { method: "scale", width: 320, height: 240, format: "keep" }));
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 320, height: 240 }));
+    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 320, height: 240, format: "keep" }));
 
   //on a 640X480 canvas, scale and scalecanvas will grow it.
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 480, format: "keep" })
   );
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 480, format: "keep" })
   );
 
   //on a 640X400 canvas, scale and scalecanvas will grow it, but scalecanvas will return 640x400, scale will return 534x400
   test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 400, format: "keep" })
   );
   test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 53, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 400, format: "keep" })
   );
 
 
   //on a 640X0 canvas, scale and scalecanvas will grow it.
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 0, format: "keep" })
   );
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 0, format: "keep" })
   );
 
   //on a 0x400 canvas, scale and scalecanvas will grow it.
   test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 0, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "scale", width: 0, height: 400, format: "keep" })
   );
   test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 0, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 0, height: 400, format: "keep" })
   );
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
   }
-    , explainImageProcessing(examplerefPoint, { method: "scale", width: 120, height: 120 }));
+    , explainImageProcessing(examplerefPoint, { method: "scale", width: 120, height: 120, format: "keep" }));
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
   }
-    , explainImageProcessing(examplerefPoint, { method: "scalecanvas", width: 120, height: 120 }));
+    , explainImageProcessing(examplerefPoint, { method: "scalecanvas", width: 120, height: 120, format: "keep" }));
 
   //Fill
 
   //equal dimensions
   test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 320, height: 240 }));
+    , explainImageProcessing(exampleJpg, { method: "fill", width: 320, height: 240, format: "keep" }));
 
   //fill to 640X480 canvas, simply stretches it
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 480 })
+    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 480, format: "keep" })
   );
 
   //fill to 640x400, render a 640x480 picture but position it at -40
   test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: -40, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 400, format: "keep" })
   );
 
   //fill to 640x0, render a 640x480 picture
   test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 0 })
+    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 0, format: "keep" })
   );
   //fill to 0x400, render a 534x400 picture
   test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 0, height: 400 })
+    , explainImageProcessing(exampleJpg, { method: "fill", width: 0, height: 400, format: "keep" })
   );
 
   //in the output, the image must be rendered somewhat more to the left (-23 (22.5) instead of -20)
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: -23, renderY: 0, renderWidth: 160, renderHeight: 120, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 67, y: 90 }
-  }, explainImageProcessing(examplerefPoint, { method: "fill", width: 120, height: 120 }));
+  }, explainImageProcessing(examplerefPoint, { method: "fill", width: 120, height: 120, format: "keep" }));
 
   test.eq({
     extract: { height: 240, left: 46, top: 0, width: 240 },
@@ -312,7 +312,7 @@ async function testResizeMethods() {
     extend: null,
     format: "png",
     formatOptions: null
-  }, getSharpResizeOptions(examplerefPoint, { method: "fill", width: 120, height: 120 }));
+  }, getSharpResizeOptions(examplerefPoint, { method: "fill", width: 120, height: 120, format: "keep" }));
 
   //test refpoints in corners
   test.eq({
@@ -321,7 +321,7 @@ async function testResizeMethods() {
     extend: null,
     format: "png",
     formatOptions: null
-  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 0, y: 0 } }, { method: "fill", width: 120, height: 120 }));
+  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 0, y: 0 } }, { method: "fill", width: 120, height: 120, format: "keep" }));
 
 
   test.eq({
@@ -330,19 +330,19 @@ async function testResizeMethods() {
     extend: null,
     format: "png",
     formatOptions: null
-  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 319, y: 239 } }, { method: "fill", width: 120, height: 120 }));
+  }, getSharpResizeOptions({ ...examplerefPoint, refPoint: { x: 319, y: 239 } }, { method: "fill", width: 120, height: 120, format: "keep" }));
 }
 
 async function testImgMethodPacking() {
   let finalmethod;
   const unpack = loadlib("wh::graphics/filters.whlib").GfxUnpackImageResizeMethod;
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131 }));
-  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
+  finalmethod = await unpack(packImageResizeMethod({ method: "fitcanvas", width: 125, height: 131, format: "keep" }));
+  test.eq({ method: "fitcanvas", setwidth: 125, setheight: 131, format: "keep", bgcolor: 0x00FFFFFF, noforce: true, quality: 0, grayscale: false, fixorientation: true, hblur: 0, vblur: 0 }, finalmethod);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none" }));
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "keep" }));
   test.eq(true, finalmethod.fixorientation);
-  test.eq("", finalmethod.format);
+  test.eq("keep", finalmethod.format);
 
   finalmethod = await unpack(packImageResizeMethod({ method: "none", format: "image/png" }));
   test.eq(true, finalmethod.fixorientation);
@@ -352,7 +352,7 @@ async function testImgMethodPacking() {
   test.eq(true, finalmethod.fixorientation);
   test.eq("image/gif", finalmethod.format);
 
-  finalmethod = await unpack(packImageResizeMethod({ method: "none", blur: 4321 }));
+  finalmethod = await unpack(packImageResizeMethod({ method: "none", blur: 4321, format: "keep" }));
   test.eq(4321, finalmethod.hblur);
   test.eq(4321, finalmethod.vblur);
 }
@@ -372,13 +372,13 @@ async function testImgCacheTokens() {
     return await loadlib("mod::system/lib/internal/cache/imgcache.whlib").GetUnifiedCC(date);
   }
 
-  const pngJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, examplePng, 1, '.png');
-  const pngHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.png');
+  const pngJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25, format: "keep" }, examplePng, 1, '.png');
+  const pngHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, format: "keep" }, examplePng, 1, 1, 123, 456, '.png');
   test.eq(pngJsTok, pngHsTok);
   test.eqPartial({ item: { type: 1, id: 123, cc: 456, resizemethod: { method: 'fill', setwidth: 25, setheight: 25, quality: 0 } } }, await analyze(pngHsTok, '.png'));
 
-  const refPointJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, exampleRefPoint, 1, '.png');
-  const refPointHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, exampleRefPoint, 1, 1, 123, 456, '.png');
+  const refPointJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25, format: "keep" }, exampleRefPoint, 1, '.png');
+  const refPointHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, format: "keep" }, exampleRefPoint, 1, 1, 123, 456, '.png');
   test.assert(refPointJsTok !== pngJsTok, "A refpoint should affect the hash so the tokens cannot match");
   test.eq(refPointJsTok, refPointHsTok);
 
@@ -386,10 +386,10 @@ async function testImgCacheTokens() {
   test.eq(await getHSCC(testdate), getUnifiedCC(testdate));
 
   //85 is the default quality for jpeg, but we'll now encoce
-  const jpegJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25 }, exampleJpeg, 1, '.jpg');
-  const jpegJsTokExplicit85 = getUCSubUrl({ method: "fill", width: 25, height: 25, quality: 85 }, exampleJpeg, 1, '.jpg');
-  const jpegHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25 }, examplePng, 1, 1, 123, 456, '.jpg');
-  const jpegHsTokExplicit85 = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, quality: 85 }, examplePng, 1, 1, 123, 456, '.jpg');
+  const jpegJsTok = getUCSubUrl({ method: "fill", width: 25, height: 25, format: "keep" }, exampleJpeg, 1, '.jpg');
+  const jpegJsTokExplicit85 = getUCSubUrl({ method: "fill", width: 25, height: 25, quality: 85, format: "keep" }, exampleJpeg, 1, '.jpg');
+  const jpegHsTok = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, format: "keep" }, examplePng, 1, 1, 123, 456, '.jpg');
+  const jpegHsTokExplicit85 = await getHSUC({ method: "fill", setWidth: 25, setHeight: 25, quality: 85, format: "keep" }, examplePng, 1, 1, 123, 456, '.jpg');
 
   test.eq(jpegJsTok, jpegHsTok);
   test.eq(jpegJsTokExplicit85, jpegHsTokExplicit85);
@@ -433,17 +433,18 @@ async function compareSharpImages(expect: Sharp | string, actual: Sharp, { minMS
 
 async function testImgCache() {
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
+  console.log(fish);
   test.throws(/Cannot use toResize/, () => fish.toResized({ method: "none" }));
 
   const testsitejs = await test.getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
-  const wrappedBeagle = snowbeagle.data.toResized({ method: "none" });
-  test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true })).link);
+  const wrappedBeagle = snowbeagle.data.toResized({ method: "none", format: "keep" });
+  test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true, format: "keep" })).link);
   const dlSnowBeagle = await fetchUCLink(wrappedBeagle.link, "image/jpeg");
   const snowBeagleJpeg = await createSharpImage(dlSnowBeagle.fetchBuffer);
 
   const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
-  const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none" });
+  const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none", format: "keep" });
   const dlFishPng = await fetchUCLink(wrappedGoldfishPng.link, "image/png");
   const imgFishPng = await createSharpImage(dlFishPng.fetchBuffer);
 
@@ -472,9 +473,9 @@ async function testImgCache() {
   await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif90.fetchBuffer), { minMSE: 0.1, maxMSE: 3 });
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
-  const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true });
+  const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true, format: "keep" });
   await fetchUCLink(wrappedKikker.link, "image/jpeg");
-  test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none", fixorientation: true })).link);
+  test.eq(wrappedKikker.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(kikkerdata.arraytest[0].blobcell, { method: "none", fixorientation: true, format: "keep" })).link);
 
   //test BMP to WEBP
   const homersbrainBMP = await testsitejs.openFile("photoalbum/homersbrain.bmp");
@@ -553,10 +554,10 @@ async function testWRDImgCache() {
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);
   test.assert(wrappedGoldfish);
-  const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none" }).link;
+  const fetchedGoldFishLink = wrappedGoldfish.testImage!.toResized({ method: "none", format: "keep" }).link;
   test.eq(/goudvis\.png$/, fetchedGoldFishLink);
   const fetchedGoldFish = await fetchUCLink(fetchedGoldFishLink, "image/png");
-  test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none", fixorientation: true })).link);
+  test.eq(fetchedGoldFishLink, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(wrappedGoldfish.testImage, { method: "none", fixorientation: true, format: "keep" })).link);
   const fetchedGoldFishDirect = await fetchUCLink(wrappedGoldfish.testImage!.toLink(), "image/png");
   test.eq(fetchedGoldFish.resource.hash, fetchedGoldFishDirect.resource.hash);
 }

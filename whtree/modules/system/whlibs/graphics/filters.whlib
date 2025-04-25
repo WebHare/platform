@@ -73,44 +73,6 @@ PUBLIC MACRO   GfxMultiplyCanvas(INTEGER CanvasID1, INTEGER CanvasID2)
         __DRAWLIB_V2_MultiplyCanvas(CanvasID1, CanvasID2);
 }
 
-/** @short Reprocess and resize an image
-    @long This function takes an image and converts it to the requested output format, setting
-          both image format and dimensions. Width and height can be either maximized or forced
-          by using positive or negative pixel values. The image aspect ratio is maintained as
-          much as possible
-    @param inblob Input image blob
-    @param setwidth Width to set, in pixels. >0 to force, <0 to maximize, 0 to ignore
-    @param setheight Height to set, in pixels. >0 to force, <0 to maximize, 0 to ignore
-    @param format Output format. If empty, format is not changed. Otherwise one of "image/jpeg", "image/gif" or "image/png" will be used
-    @return Record describing the output image, or a non-existing record if the file was not recognized as an image
-    @cell return.data Image data (as a blob)
-    @cell return.width New image width
-    @cell return.height New image height
-    @cell return.mimetype New image mimetype
-*/
-PUBLIC RECORD FUNCTION GfxResizeImageBlob(BLOB inblob, INTEGER setwidth, INTEGER setheight, STRING format, INTEGER bgcolor DEFAULTSTO 0x00FFFFFF)
-{
-  STRING methodname;
-  IF(setwidth=0 AND setheight=0)
-    methodname := "none";
-  ELSE IF(setwidth<0 AND setheight<0)
-    methodname := "fit";
-  ELSE IF(setwidth<0 AND setheight>0)
-    methodname := "stretch-y";
-  ELSE IF(setwidth>0 AND setheight<0)
-    methodname := "stretch-x";
-  ELSE
-    methodname := "stretch";
-
-  RECORD resizemethod := [ method := methodname
-                         , setwidth := setwidth < 0 ? -setwidth : setwidth
-                         , setheight := setheight < 0 ? -setheight : setheight
-                         , format := format
-                         , bgcolor := bgcolor
-                         ];
-  RETURN GfxResizeImageBlobWithMethod(inblob, resizemethod);
-}
-
 /** @short Reprocess, resize and crop an image
     @long This function takes an image and converts it to the requested output format, setting
           both image format and dimensions. First the image is resized and the cropped in the
@@ -135,7 +97,6 @@ PUBLIC RECORD FUNCTION GfxResizeCropImageBlob(BLOB inblob, INTEGER setwidth, INT
 STRING ARRAY packmethods := [/*0*/"none",/*1*/"fit",/*2*/"scale",/*3*/"fill",/*4*/"stretch",/*5*/"fitcanvas",/*6*/"scalecanvas",/*7*/"stretch-x",/*8*/"stretch-y",/*9*/"crop",/*10*/"cropcanvas"];
 STRING methodnoneformat := "format:C";
 STRING methodsizeformat := "setwidth:S,setheight:S,format:C";
-STRING ARRAY packformats := [/*0*/"",/*1*/"image/jpeg",/*2*/"image/gif",/*3*/"image/png",/*4*/"image/webp",/*5*/"image/avif"];
 
 /** @short Pack any supported resize method into a small 8-bit string */
 PUBLIC STRING FUNCTION GfxPackImageResizeMethod(RECORD resizemethod)
@@ -145,7 +106,7 @@ PUBLIC STRING FUNCTION GfxPackImageResizeMethod(RECORD resizemethod)
   INTEGER method := SearchElement(packmethods, resizemethod.method);
   RECORD packeddata := [ setwidth := CellExists(resizemethod,"setwidth") ? resizemethod.setwidth : 0
                        , setheight := CellExists(resizemethod,"setheight") ? resizemethod.setheight : 0
-                       , format := SearchElement(packformats, resizemethod.format)
+                       , format := SearchElement(__packformats, resizemethod.format)
                        , bgcolor := resizemethod.bgcolor
                        , quality := resizemethod.quality
                        ];
@@ -223,14 +184,14 @@ PUBLIC RECORD FUNCTION GfxUnpackImageResizeMethod(STRING packedmethod)
     RETURN DEFAULT RECORD;
 
   INTEGER packformat := unpacked.format BITAND 0x7F;
-  IF(packformat <0 OR packformat >= Length(packformats))
+  IF(packformat <0 OR packformat >= Length(__packformats))
     RETURN DEFAULT RECORD;
 
   RETURN [ method := packmethods[method]
          , setwidth := method = 0 ? 0 : unpacked.setwidth
          , setheight := method = 0 ? 0 : unpacked.setheight
          , fixorientation := unpacked.format BITAND 0x80 = 0x80
-         , format := packformats[packformat]
+         , format := __packformats[packformat]
          , bgcolor := dropbgcolor ? 0x00FFFFFF : unpacked.bgcolor
          , noforce := noforce
          , quality := havequality ? unpacked.quality : 0

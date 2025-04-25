@@ -37,6 +37,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^displayname->value := ReadRegistryKey("system.backend.layout.title");
     ^checkipallowmask->value := ReadRegistryKey("system.backend.check.ipallowmask");
     ^allowpasswordreset->value := ReadRegistryKey("system.backend.security.allowpasswordreset");
+    ^defaultimageformat->SetValueIfValid(ReadRegistryKey("platform.cache.defaultimageformat"));
 
     OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
     IF(ObjectExists(dashboardbg))
@@ -90,7 +91,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION Submit()
   {
-    BOOLEAN recheckindex;
     OBJECT work := this->BeginWork();
 
     IF (work->HasFailed())
@@ -156,6 +156,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^smtp->WriteToRegistry();
     ^geonames->WriteToRegistry();
     ^geoip2->WriteToRegistry();
+    WriteRegistryKey("platform.cache.defaultimageformat", ^defaultimageformat->value);
 
     STRING setdocroot := ^embeddeddocs->value ? ^docroot->value : "";
     IF(setdocroot != ReadRegistryKey("system.services.webhare.docroot"))

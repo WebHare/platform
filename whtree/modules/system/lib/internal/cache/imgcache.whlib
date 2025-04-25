@@ -151,6 +151,14 @@ PUBLIC INTEGER FUNCTION GetUnifiedCC(DATETIME creationdate)
    RETURN GetDayCount(creationdate) BITXOR GetMsecondCount(creationdate);
 }
 
+PUBLIC STRING FUNCTION GetDefaultImageOutputFormat() {
+  IF(NOT got_defaultformat) {
+    defaultformat := GetEnvironmentVariable("WEBHARE_DEFAULT_IMAGE_FORMAT") ?? ReadRegistryKey("platform.cache.defaultimageformat", [ cachettl := 15 * 60 * 1000 ]) ?? "keep";
+    got_defaultformat := TRUE;
+  }
+  RETURN defaultformat;
+}
+
 /** datatype: 1= img, 2 file, 3 embed
     sourcetype: 1 = system:whfs
           2 = system:whfssettings
@@ -175,35 +183,16 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
     objinfo := GetObjInfo(sourcetype, sourceid);
 
   IF(datatype = 1 AND NOT CellExists(options,'format'))
-  {
-    IF(NOT got_defaultformat)
-    {
-      defaultformat := ReadRegistryKey("platform.cache.defaultimageformat", [ cachettl := 15 * 60 * 1000 ]);
-      got_defaultformat := TRUE;
-    }
+    options := CELL[ ...options, format := GetDefaultImageOutputFormat() ];
 
-    IF(defaultformat != "")
-      options := CELL[ ...options, format := defaultformat ];
-  }
-
-  STRING mimetype := datatype = 1 AND CellExists(options,'format') ? options.format : "";
   RECORD filedata := SplitBlobSetting(objinfo.settingdata, DEFAULT BLOB, 0);
-  IF(NOT RecordExists(filedata))
-  {
-    IF(sourcetype = 1) //unconverted file? this may happen as long as not everyone is at least one upgrade past 4.12+ (ie we're no longer doing a scandata upgrade)
-    {
-      filedata := ScanBlob((SELECT AS BLOB data FROM system.fs_objects WHERE id = sourceid), '');
-    }
-    ELSE
-    {
-      THROW NEW Exception(`Received invalid filedata for sourcetype #${sourcetype} source #${sourceid}`);
-    }
-  }
-  IF(mimetype = "" AND RecordExists(filedata))
-    mimetype := filedata.mimetype;
-  IF(mimetype = "" AND sourcetype = 1)
-    mimetype := ScanBlob((SELECT AS BLOB data FROM system.fs_objects WHERE id = sourceid), '').mimetype;
+  IF(NOT RecordExists(filedata))  //unconverted file? this may happen as long as not everyone is at least one upgrade past 4.12+ (ie we're no longer doing a scandata upgrade)
+    filedata := ScanBlob((SELECT AS BLOB data FROM system.fs_objects WHERE id = sourceid), '');
 
+  IF(datatype = 1 AND filedata.mimetype NOT IN STRING[...__packformats, "image/x-bmp", "image/tiff"])
+    RETURN "";
+
+  STRING mimetype := datatype = 1 AND options.format != "keep" ? options.format : filedata.mimetype;
   STRING filename;
   BOOLEAN embed := datatype = 1 OR (CellExists(options,'embed') AND options.embed=TRUE);
 
@@ -234,8 +223,7 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
       validextensions := [ ".avif" ];
     ELSE IF(mimetype="image/webp")
       validextensions := [ ".webp" ];
-    ELSE
-      RETURN ""; //if someone got an incorrect filetype into something that should have been an image, don't crash on render - should have been prevented earlier.
+    //All cases of __packformats should have been handled now
   }
   ELSE
   {
@@ -260,8 +248,6 @@ PUBLIC STRING FUNCTION GetUnifiedCacheURL(STRING baseurl, INTEGER datatype, INTE
     useextension := validextensions[0];
 
   STRING packet := GetUCSubUrl(scalemethod, filedata, datatype, sourcetype, sourceid, cc, useextension);
-  IF(packet = "")
-    RETURN "";
 
   STRING suffix := datatype=1 ? "i" : embed ? "e" : "f";
   suffix := suffix || packet;

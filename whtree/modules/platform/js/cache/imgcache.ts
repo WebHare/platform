@@ -5,7 +5,7 @@ import { debugFlags } from "@webhare/env";
 import { BackendServiceConnection, runBackendService } from "@webhare/services";
 import type { WebHareService } from "@webhare/services/src/backendservicerunner";
 import { decodeBMP } from "@webhare/services/src/bmp-to-raw";
-import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type ResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
+import { explainImageProcessing, suggestImageFormat, type OutputFormatName, type PackableResizeMethod, type ResizeMethodName, type ResourceMetaData, type Rotation } from "@webhare/services/src/descriptor";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { __getBlobDiskFilePath } from "@webhare/whdb/src/blobs";
 import { mkdir, open, readFile } from "fs/promises";
@@ -37,7 +37,7 @@ interface HSImgCacheRequest {
   };
 }
 
-export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: ResizeMethod) {
+export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod) {
   // https://sharp.pixelplumbing.com/api-resize
   let extract: SharpRegion | null = null;
   let resize: SharpResizeOptions | null = null;
@@ -78,7 +78,7 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
   } else if (method.method !== 'none')
     throw new Error("Unsupported resize method for avif/webp: " + method.method);
 
-  const outputformat = method.format || suggestImageFormat(infile.mediaType);
+  const outputformat = method.format === "keep" ? suggestImageFormat(infile.mediaType) : method.format;
   if (outputformat === "image/webp")
     return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless, quality: explain.quality } };
   if (outputformat === "image/avif")
@@ -100,11 +100,11 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
     refPoint: request.refpoint
   };
 
-  const method: ResizeMethod = {
+  const method: PackableResizeMethod = {
     blur: Math.min(request.item.resizemethod.hblur, request.item.resizemethod.vblur),
     width: request.item.resizemethod.setwidth,
     height: request.item.resizemethod.setheight,
-    format: request.item.resizemethod.format || null,
+    format: request.item.resizemethod.format,
     bgColor: request.item.resizemethod.bgcolor,
     noForce: request.item.resizemethod.noforce,
     grayscale: request.item.resizemethod.grayscale,
@@ -117,7 +117,7 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
   return await img.toBuffer();
 }
 
-export async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: ResizeMethod) {
+export async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: PackableResizeMethod) {
   // Read first two bytes of sourceimage
   const header = new Uint8Array(2);
   const fd = await open(sourceimage, 'r');

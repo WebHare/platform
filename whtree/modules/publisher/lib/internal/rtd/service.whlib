@@ -433,7 +433,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
             embed := backedimg;
           }
 
-          INSERT CELL url := GetCachedImageLink(embed, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE ])
+          //For performance, keep the original image format so we especially avoid slow AVIF transcoding during RTD editing
+          //TODO: don't burden the image cache with temporary RTE files
+          INSERT CELL url := GetCachedImageLink(embed, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE, format := "keep" ])
                  INTO embed;
           INSERT embed INTO this->embedded AT END;
         }
@@ -487,7 +489,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
       contentid := GenerateUFS128BitId();
 
     RECORD backedimg := CreateTempUploadedFile(WrapBlob(data,filename))->GetWrapped();
-    RECORD forserver := WrapCachedImage(backedimg, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE ]);
+    RECORD forserver := WrapCachedImage(backedimg, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE, format := "keep" ]);
 
     INSERT CELL contentid := contentid
               , url := forserver.link

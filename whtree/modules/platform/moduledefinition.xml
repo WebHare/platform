@@ -102,7 +102,7 @@
 
   <moduleregistry>
     <node name="cache">
-      <string name="defaultimageformat" />
+      <string name="defaultimageformat" description="Default image format. Supported values are '' (keep), 'image/webp' and 'image/avif'"/>
       <integer name="keepucdays" description="Keep unified cache items for at least this many days" initialval="7" />
     </node>
   </moduleregistry>

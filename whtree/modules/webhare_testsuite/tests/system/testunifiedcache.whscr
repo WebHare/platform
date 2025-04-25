@@ -53,7 +53,7 @@ MACRO ImgCacheTest()
   // Verify calculations
   TestEqMembers(
      [ item := [cc := 456 ]],
-     AnalyzeUnifiedURLToken(`i${GetUCSubUrl([ method := "scale", setwidth:=25, setheight:=25], [ hash := "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refpoint := default record ], 1, 1, 123, 456, '.png')}/image.png`), '*');
+     AnalyzeUnifiedURLToken(`i${GetUCSubUrl([ method := "scale", setwidth:=25, setheight:=25, format := "keep"], [ hash := "u4HI1_mWV8E0UWndfoBvwsQr4PxwK7pdZLzYjWSw_0Q", refpoint := default record ], 1, 1, 123, 456, '.png')}/image.png`), '*');
 
   // Insert a simple image into the publisher
 
@@ -72,8 +72,8 @@ MACRO ImgCacheTest()
   BLOB toupload2 := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
   homer := root->CreateFile( [ data := toupload2, publish := FALSE, name := "homersbrain.bmp" ]);
 
-  STRING legacy_badkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25]);
-  STRING badkikkerlink := GetCachedImageLink(kikkertje->GetWrapped(), [ method := "scale", setwidth:=25, setheight:=25, baseurl := baseurl]);
+  STRING legacy_badkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, format := "keep"]);
+  STRING badkikkerlink := GetCachedImageLink(kikkertje->GetWrapped(), [ method := "scale", setwidth:=25, setheight:=25, baseurl := baseurl, format := "keep" ]);
   TestEqLike("*/kwaak.jpg", badkikkerlink);
 
   TestEQ(legacy_badkikkerlink, Substitute(badkikkerlink,"kwaak.jpg","data.jpg"));
@@ -83,9 +83,9 @@ MACRO ImgCacheTest()
   // invalidate legacy_badkikkerlink and badkikkerlink by updating the creationdate
   UPDATE system.fs_objects SET creationdate:=AddTimeToDate(1,creationdate) WHERE id=kikkertje->id;
 
-  STRING goodkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25]);
-  STRING bigkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250]);
-  STRING poorkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, quality := 25]);
+  STRING goodkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, format := "keep"]);
+  STRING bigkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, format := "keep"]);
+  STRING poorkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "stretch", setwidth:=250, setheight:=250, quality := 25, format := "keep"]);
 
   TestEq(FALSE, testfw->browser->GotoWebPage(goodkikkerlink), testfw->browser->url);
   TestEq("no-cache", testfw->browser->GetResponseHeader("Cache-Control")); //A valid 'but not yet' hash should return a no-cache header
@@ -121,7 +121,7 @@ MACRO ImgCacheTest()
   //'beautiful' links should be created using the 'filename' option now
   //setting a wrong extension simply causes us to postfix the correct one
   STRING renamedkikkerlink;
-  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
+  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png", format := "keep" ]);
   TestEqLike("*/kikker.jpg", renamedkikkerlink);
 
   RECORD wrappedinfo;
@@ -139,21 +139,21 @@ MACRO ImgCacheTest()
   TestEq(default_imgcache, testfw->browser->GetResponseHeader("Cache-Control"));
   TestEq(lastmod, testfw->browser->GetResponseHeader("Last-Modified"), "Last-modification time mismatch between first (cache generating) and second (cache filling) request");
 
-  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker" ]);
+  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker", format := "keep" ]);
   link_kikker := renamedkikkerlink;
   TestEqLike("*/kikker.jpg", renamedkikkerlink);
-  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.jpg" ]);
+  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.jpg", format := "keep" ]);
   TestEQLike("*/kikker.jpg", renamedkikkerlink);
 
   Testeq(TRUE, testfw->browser->GotoWebPage(renamedkikkerlink), testfw->browser->url);
 
   //Dashes shouldn't confuse us
-  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "k-i-k-k-e-r.jpg" ]);
+  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "k-i-k-k-e-r.jpg", format := "keep" ]);
   TestEQLike("*/k-i-k-k-e-r.jpg", renamedkikkerlink);
   Testeq(TRUE, testfw->browser->GotoWebPage(renamedkikkerlink), testfw->browser->url);
 
   //Spaces and other odd stuff should be urlencoded
-  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "k i%k&k?e;r.jpg" ]);
+  renamedkikkerlink := GetCachedFSImageURL(baseurl, kikkertje->id, [ method := "scale", setwidth:=25, setheight:=25, filename := "k i%k&k?e;r.jpg", format := "keep" ]);
   TestEQLike("*/k%20i%25k%26k%3Fe%3Br.jpg", renamedkikkerlink);
   Testeq(TRUE, testfw->browser->GotoWebPage(renamedkikkerlink), testfw->browser->url);
 
@@ -169,7 +169,7 @@ MACRO ImgCacheTest()
   TestEq(TRUE, testfw->browser->GotoWebPage(poorkikkerlink || "/frogger.jpg"));
   TestEq(TRUE, Length(bigkikker) > Length(testfw->browser->content)); //high quality frogger must be a bigger file
 
-  STRING homerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25 ]);
+  STRING homerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, format := "keep"]);
   TestEq(TRUE, testfw->browser->GotoWebPage(homerlink), testfw->browser->url); //succeeds, x-bmp is now not supported and converted to image/png
   TestEq("image/png", testfw->browser->contenttype);
 
@@ -223,7 +223,7 @@ MACRO ImgCacheTest()
   TestEq(`#000001 url("${wrapped.link}") 0.1563% 0.2083%/cover`, wrapped.css);
 
   //Grayscale homer
-  STRING grayhomerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "none", grayscale := TRUE ]);
+  STRING grayhomerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "none", grayscale := TRUE, format := "keep" ]);
   TestEq(TRUE, testfw->browser->GotoWebPage(grayhomerlink)); //succeeds, x-bmp is now not supported and converted to image/png
   TestEq("image/png", testfw->browser->contenttype);
   link_grayscalehomer := grayhomerlink;
@@ -248,11 +248,18 @@ MACRO ImgCacheTest()
 
   // Get data directly (with use of current database transaction)
   testfw->BeginWork();
-  STRING smallgrayhomerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE ]);
+  STRING smallgrayhomerlink := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "keep"]);
   cacheddata := GetCachedDataFromURL(smallgrayhomerlink);
   TestEq("image/png", cacheddata.mimetype);
   //TestEq(FALSE, cacheddata.filename LIKE "*/*", `Filename ${cacheddata.filename} may not contain slashes`);
   TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
+
+  // Ensure we can parse image/webp links, even if won't convert them in HS
+  STRING smallgrayhomerlink_webp := GetCachedFSImageURL(baseurl, homer->id, [ method := "scale", setwidth:=25, setheight:=25, grayscale := TRUE, format := "image/webp" ]);
+  cacheddata := GetCachedDataFromURL(smallgrayhomerlink_webp);
+  TestEq("image/webp", cacheddata.mimetype);
+  TestEq(25, Max[]([ INTEGER(ScanBlob(cacheddata.data).height), ScanBlob(cacheddata.data).width ]), "GetCachedDataFromURL for FSImages did not resize");
+
   testfw->CommitWork();
 }
 
@@ -264,9 +271,9 @@ MACRO ImgCacheSourcesTest()
   testfw->CommitWork();
 
   RECORD img := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
-  RECORD kikkerinstance_nofilenamegiven := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25 ]);
+  RECORD kikkerinstance_nofilenamegiven := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, format := "keep" ]);
   TestEqLike("*/kikker.jpg", kikkerinstance_nofilenamegiven.link);
-  RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png" ]);
+  RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, filename := "kikker.png", format := "keep" ]);
   TestEqLike("*/kikker.jpg", kikkerinstance.link);
 
   RECORD wrappedinfo;
@@ -285,6 +292,8 @@ MACRO NotTheImageTest()
 
   //shouldn't crash but return empty strings
   TestEq("", GetCachedImageLink(img, [ method := "none" ]));
+  TestEq("", GetCachedImageLink(img, [ method := "none", format := "keep" ]));
+  TestEq("", GetCachedImageLink(img, [ method := "none", format := "image/webp" ]));
   TestEq(DEFAULT RECORD, WrapCachedImage(img, [ method := "none" ]));
 
   testfw->RollbackWork();
@@ -388,7 +397,7 @@ MACRO FilenameTest()
   RECORD img := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
   TestEq(wrappedentry.filename, img.filename, "Filename should not be truncated during storage");
 
-  RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25 ]);
+  RECORD kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, format := "keep" ]);
   TestEqLike("*/" || Left(RepeatText("kikker",42),80) || ".jpg", kikkerinstance.link);
 
   //Odd filenames
@@ -400,7 +409,7 @@ MACRO FilenameTest()
   img := testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").arraytest[0].blobcell;
   TestEq(wrappedentry.filename, img.filename, "Filename should not be modified during storage");
 
-  kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25 ]);
+  kikkerinstance := WrapCachedImage(img, [ method := "scale", setwidth:=25, setheight:=25, format := "keep" ]);
   TestEqLike("*/i-am-a-happy-kikker.jpg", kikkerinstance.link);
 }
 
@@ -441,8 +450,8 @@ MACRO WRDImageCache()
 
   testfw->CommitWork();
 
-  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none"]);
-  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl ]);
+  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none", format := "keep"]);
+  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl, format := "keep" ]);
   TestEq(imagelink, Substitute(legacy_imagelink, "data.png", "noname.png"));
 
   RECORD wrappedinfo := GetWrappedSourceFromURL(imagelink);
@@ -455,7 +464,7 @@ MACRO WRDImageCache()
   wrdperson->UpdateEntity(entityid1, [ test_image := CELL[...WrapBlob(toupload2, "homersbrain.bmp"), source_fsobject := homer->id ]]);
   testfw->CommitWork();
 
-  RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL() ]);
+  RECORD wrappedresized := WrapCachedImage(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "fit", setwidth := 64, setheight := 52, baseurl := GetPrimaryWebhareInterfaceURL(), format := "keep" ]);
   TestEqLike("*/homersbrain.png", wrappedresized.link, 'no bmp in the path please..');
   TestEq(TRUE, testfw->browser->GotoWebPage(wrappedresized.link));
   TestEqMembers([width:=64, mimetype:="image/png"], ScanBlob(testfw->browser->content), "MIMEWIDTH,TYPE");

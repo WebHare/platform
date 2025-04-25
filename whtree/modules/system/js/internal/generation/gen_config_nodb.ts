@@ -122,8 +122,9 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
       cache: String(oldconfig?.secrets?.cache || ''),
       cookie: String(oldconfig?.secrets?.cookie || ''),
       debug: String(oldconfig?.secrets?.debug || ''),
-      gcm: String(oldconfig?.secrets?.gcm || '')
+      gcm: String(oldconfig?.secrets?.gcm || ''),
     },
+    defaultImageFormat: oldconfig?.defaultImageFormat || "keep",
     ...pick(oldconfig, ["debugsettings"]),
     ...omit(nodbconfig, ["public"]),
   };
