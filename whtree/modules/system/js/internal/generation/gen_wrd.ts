@@ -6,7 +6,6 @@ import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wr
 import type { Document } from "@xmldom/xmldom";
 import { emplace } from "@webhare/std";
 import { elements, getAttr } from "./xmlhelpers";
-import { getGeneratedFilePath } from "./shared";
 import { parseSchema, wrd_baseschemaresource, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
 import type { WRDSchemas } from "@mod-platform/generated/schema/moduledefinition";
 
@@ -67,11 +66,7 @@ interface ModuleWRDSchemaDef {
 }
 
 export interface WRDSchemasExtract {
-  modules: Array<{
-    module: string;
-    schemas: ModuleWRDSchemaDef[];
-    library: string;
-  }>;
+  schemas: ModuleWRDSchemaDef[];
 }
 
 function parseXMLWRDSchemas(mod: string, doc: Document) {
@@ -118,7 +113,7 @@ function parseYMLWRDSchemas(mod: string, yml: WRDSchemas) {
   return schemas;
 }
 
-export async function getModuleWRDSchemas(context: GenerateContext, modulename: string): Promise<{ schemas: ModuleWRDSchemaDef[]; library: string }> {
+export async function getModuleWRDSchemas(context: GenerateContext, modulename: string): Promise<ModuleWRDSchemaDef[]> {
   const schemas = new Array<ModuleWRDSchemaDef>();
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
 
@@ -132,23 +127,16 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
       schemas.push(...parseYMLWRDSchemas(mod.name, mod.modYml.wrdSchemas));
   }
 
-  return {
-    schemas,
-    library: getGeneratedFilePath(modulename, "wrd", `wrd/${modulename === "platform" ? "webhare" : modulename}.ts`)
-  };
+  return schemas;
 }
 
 export async function getAllModuleWRDSchemas(context: GenerateContext): Promise<WRDSchemasExtract> {
   const extract: WRDSchemasExtract = {
-    modules: []
+    schemas: []
   };
 
-  for (const mod of context.moduledefs) {
-    extract.modules.push({
-      module: mod.name,
-      ...await getModuleWRDSchemas(context, mod.name)
-    });
-  }
+  for (const mod of context.moduledefs)
+    extract.schemas.push(...await getModuleWRDSchemas(context, mod.name));
 
   return extract;
 }
@@ -288,7 +276,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
   }
 
   // Sort on schema name
-  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).schemas.sort((a, b) => a.wrdSchema < b.wrdSchema ? -1 : 1);
+  const schemasptrs = (await getModuleWRDSchemas(context, modulename)).sort((a, b) => a.wrdSchema < b.wrdSchema ? -1 : 1);
 
   const schemaconsts = [];
   for (const schemaptr of schemasptrs) {

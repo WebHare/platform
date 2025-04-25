@@ -6,6 +6,7 @@ import type { ParsedSiteProfile } from "@mod-publisher/lib/internal/siteprofiles
 import { parseWHDBDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { type PublicParsedWRDSchemaDef, getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext, listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
+import { getGeneratedFilePath } from "@mod-system/js/internal/generation/shared";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { loadlib } from "@webhare/harescript";
 import { backendConfig, toResourcePath } from "@webhare/services";
@@ -49,16 +50,17 @@ export async function getDatabaseDefs({ module }: { module: string }) {
 
 export async function getWRDDefs({ module }: { module: string }) {
   const context = await buildGeneratorContext(null, false);
-  const defs = await getModuleWRDSchemas(context, module);
   const schemas = [];
 
-  for (const schemaptr of defs.schemas)
+  for (const schemaptr of await getModuleWRDSchemas(context, module))
     schemas.push({
       ...schemaptr,
       ...(await parseWRDDefinitionFile(schemaptr) satisfies PublicParsedWRDSchemaDef as PublicParsedWRDSchemaDef)
     });
 
-  return { schemas, importPath: getImportPath(defs.library) };
+  const libModule = whconstant_builtinmodules.includes(module) ? "platform" : module;
+  const importPath = getGeneratedFilePath(libModule, "wrd", `wrd/${libModule === "platform" ? "webhare" : libModule}.ts`);
+  return { schemas, importPath: getImportPath(importPath) };
 }
 
 export async function getParsedSiteProfile(res: string): Promise<ParsedSiteProfile> {

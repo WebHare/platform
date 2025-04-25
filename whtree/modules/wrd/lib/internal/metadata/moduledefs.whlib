@@ -3,16 +3,14 @@
 LOADLIB "mod::system/lib/resources.whlib";
 
 PUBLIC RECORD ARRAY FUNCTION GetAllDefinedWRDSchemas() {
-  RECORD ARRAY schemas;
-  FOREVERY(RECORD mod FROM __GetExtractedConfig("wrdschemas").modules) {
-    schemas := schemas CONCAT
+  RECORD ARRAY schemas :=
       SELECT tag := STRING(wrdschema)
            , isexact := isexactmatch
            , definitionfile := STRING(schemadefinitionresource)
            , autocreate := BOOLEAN(autocreate)
            , title := STRING(title)
-        FROM mod.schemas;
-  }
+        FROM __GetExtractedConfig("wrdschemas").schemas;
+
   RETURN schemas;
 }
 
