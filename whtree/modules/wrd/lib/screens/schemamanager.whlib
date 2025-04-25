@@ -475,7 +475,7 @@ PUBLIC STATIC OBJECTTYPE DeleteSchemaProd EXTEND TolliumScreenBase
 
     RECORD schemadef := GetModuleWRDSchemaDefinition(this->tag);
     IF(RecordExists(schemadef) AND schemadef.isexact)
-      ^confirmmoduleowneddeletion->label := this->GetTid(".confirmmoduleowneddeletion", schemadef.sourcemodule);
+      ^confirmmoduleowneddeletion->label := this->GetTid(".confirmmoduleowneddeletion", Tokenize(schemadef.tag,':')[0]);
     ELSE
       ^confirmmoduleowneddeletion->visible := FALSE;
 
