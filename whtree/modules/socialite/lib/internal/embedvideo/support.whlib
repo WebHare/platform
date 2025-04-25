@@ -133,21 +133,27 @@ PUBLIC RECORD FUNCTION GuessFromCode(STRING text)
            , starttime := ParseYoutubeStarttime(text)
            ];
   }
-  ELSE IF ((host_lc LIKE '*.youtube-nocookie.com' OR host_lc LIKE '*.youtube.com') AND (unpacked.urlpath LIKE 'embed/*' OR unpacked.urlpath LIKE "v/*"))
+  ELSE IF (host_lc LIKE '*.youtube-nocookie.com' OR host_lc LIKE '*.youtube.com')
   {
-    STRING ARRAY parts := Tokenize(pathname, '/');
-    RETURN [ network   := "youtube"
-           , videoid   := parts[1]
-           , starttime := ParseYoutubeStarttime(text)
-           ];
-  }
-  ELSE IF (host_lc LIKE '*.youtube.com' OR host_lc LIKE '*.youtube-nocookie.com')
-  {
-    STRING videoid := GetVariableFromURL(text, "v");
-    RETURN [ network   := "youtube"
-           , videoid   := videoid
-           , starttime := ParseYoutubeStarttime(text)
-           ];
+    // Check for a video ID as part of the URL path
+    IF (   unpacked.urlpath LIKE 'embed/*'
+        OR unpacked.urlpath LIKE "v/*"
+        OR unpacked.urlpath LIKE "shorts/*")
+    {
+      STRING ARRAY parts := Tokenize(pathname, '/');
+      RETURN [ network   := "youtube"
+             , videoid   := parts[1]
+             , starttime := ParseYoutubeStarttime(text)
+             ];
+    }
+    ELSE // Check if the video ID is specified in the "v" parameter (/watch?v=)
+    {
+      STRING videoid := GetVariableFromURL(text, "v");
+      RETURN [ network   := "youtube"
+             , videoid   := videoid
+             , starttime := ParseYoutubeStarttime(text)
+             ];
+    }
   }
 
   RETURN DEFAULT RECORD;
