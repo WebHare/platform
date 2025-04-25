@@ -325,9 +325,12 @@ components:
     # Error description
     errordescription:
       properties:
-        status:
-          type: integer
-        error:
+        message:
+          type: "string"
+      type: "object"
+    defaultError:
+      properties:
+        message:
           type: "string"
       type: "object"
 
