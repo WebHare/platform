@@ -55,7 +55,7 @@ export type ResizeMethod = {
 
 /** PackableResizeMethod is ResizeMethod without local defaults that are encoded into the packet.
     Currently that excludes an unspecified format as we expect that to be resolved to either 'keep' or an explicit format
-    depending on the configured defaultImageFormnat */
+    depending on the configured defaultImageFormat */
 export type PackableResizeMethod = ResizeMethod & Required<Pick<ResizeMethod, "format">>;
 
 type ResourceResizeOptions = Partial<ResizeMethod> & LinkMethod;
