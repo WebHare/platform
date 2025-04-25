@@ -2,3 +2,6 @@ managedServices:
   sourcecodeindex:
     script: scripts/sourceindexservice.whscr
     run: always
+
+selfChecks:
+  - checker: js/validation/checks.ts#checkModules

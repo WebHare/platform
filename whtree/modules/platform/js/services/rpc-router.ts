@@ -73,6 +73,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
     const responseHeaders = new Headers();
     const context: RPCContext = {
       request: req,
+      method,
       getOriginURL: () => getOriginURL(req, new URL(req.url).searchParams.get("pathname") ?? "/") || null,
       getRequestUser: async () => (await getRequestUser(req, new URL(req.url).searchParams.get("pathname") ?? "/"))?.user || null,
       responseHeaders
@@ -81,7 +82,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
     let result: RPCResponse | undefined;
     if (matchservice.filter) {
       const filter = await importJSFunction<RPCFilter>(matchservice.filter);
-      const response = await filter(context, method, params);
+      const response = await filter(context, params);
       if (response)
         result = response;
     }
