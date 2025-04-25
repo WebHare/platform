@@ -7,7 +7,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 
 class CallJSService extends BackendServiceConnection {
   async invoke(lib: string, name: string, args: unknown[], hscontext: HarescriptJSCallContext) {
-    await using context = new CodeContext("CallJSService", { lib, name });
+    await using context = new CodeContext(`CallJSService ${lib}#${name}`, { lib, name });
     if (hscontext.auth)
       context.setScopedResource("platform:authcontext", toAuthAuditContext(hscontext.auth));
 
