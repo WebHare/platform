@@ -433,7 +433,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
             embed := backedimg;
           }
 
-          //For performance, keep the original image format so we especially avoid slow AVIF transcoding during RTD editdor
+          //For performance, keep the original image format so we especially avoid slow AVIF transcoding during RTD editing
           //TODO: don't burden the image cache with temporary RTE files
           INSERT CELL url := GetCachedImageLink(embed, [ method := "none", baseurl := this->baseurl, fixorientation := TRUE, format := "keep" ])
                  INTO embed;
