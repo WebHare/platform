@@ -35,6 +35,7 @@ declare global {
     propWhFormlineCurrentVisible?: boolean;
     propWhValidationSuggestion?: FormFrontendMessage | null;
     propWhCleanupFunction?: () => void;
+    /** @deprecated Use `getFormHandler` or `getFormData` from `@webhare/forms` to access the form's API */
     propWhFormhandler?: FormBase<object>;
     whFormsApiChecker?: () => Promise<void> | void;
     whUseFormGetValue?: boolean;
@@ -561,7 +562,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   /** Override beforeSubmit to have a last chance to block/confirm actual form submission
    * @returns true to continue submitting
   */
-  async beforeSubmit(extradata: ExtraData): Promise<boolean> {
+  beforeSubmit(extradata: ExtraData): boolean | Promise<boolean> {
     return true;
   }
 
@@ -587,7 +588,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
     try {
       this.inSubmit = true;
-      if (!await this.beforeSubmit(extradata))
+      const beforeResult = this.beforeSubmit(extradata);
+      if (!beforeResult || (isPromise(beforeResult) && !await beforeResult))
         return;
 
       /* DEPRECATED - Switch to onBeforeSubmit in 5.7+ */

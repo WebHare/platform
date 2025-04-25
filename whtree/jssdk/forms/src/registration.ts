@@ -1,10 +1,10 @@
 import FormBase from '@mod-publisher/js/forms/rpc';
-import type { FormHandlerFactory, FormSetupOptions } from "@webhare/forms";
+import type { FormHandlerFactory } from "@webhare/forms";
 import { flagUIBusy, qSA, register } from "@webhare/dompack";
-import { sleep } from "@webhare/std";
+import { emplace, sleep } from "@webhare/std";
 import { downgradeUploadFields } from "./domsupport";
 
-let handlers: Record<string, FormHandlerFactory> | undefined;
+let handlers: Map<string, FormHandlerFactory | PromiseWithResolvers<FormHandlerFactory>> | undefined;
 let configuredRegistrations: true | undefined;
 const firstWarningMs = 150, warningIntervalMs = 5000;
 
@@ -12,6 +12,7 @@ async function scheduleFormSetup(form: HTMLFormElement, factory: FormHandlerFact
   using lock = flagUIBusy();
   void (lock);
 
+  //Ensure any custom elements in the form are actually registered or our communication with these elements may fail
   const customEls = [...new Set(qSA(form, "[name]").map(_ => _.tagName.toLowerCase()))].filter(_ => _.includes("-"));
   if (customEls.length) {
     const initPromise = Promise.all(customEls.map(_ => customElements.whenDefined(_))).then(() => ({ timeout: false }));
@@ -33,56 +34,49 @@ async function scheduleFormSetup(form: HTMLFormElement, factory: FormHandlerFact
       nextWarning = Date.now() + warningIntervalMs;
     }
   }
-
   factory(form);
 }
 
 export function registerHandlers(addHandlers: Record<string, FormHandlerFactory>) {
-  if (!handlers)
-    handlers = { //we want to stop distinguishing between these, not worth the effort/complexity seperating  them
-      "publisher:form": form => new FormBase(form),
-      "publisher:rpc": form => new FormBase(form)
+  if (!handlers) { //register initial handlers (now that form support is activated)
+    //we want to stop distinguishing between these, not worth the effort/complexity seperating  them
+    const defaultHandler = (form: HTMLFormElement) => new FormBase(form);
+    addHandlers = {
+      "publisher:form": defaultHandler,
+      "publisher:rpc": defaultHandler,
+      ...addHandlers
     };
-
-  for (const [handlername, handler] of Object.entries(addHandlers)) {
-    handlers[handlername] = handler;
-    for (const form of qSA<HTMLFormElement>(`form[data-wh-form-handler="${CSS.escape(handlername)}"]`))
-      void scheduleFormSetup(form, handler);
+    handlers = new Map;
   }
 
-  if (!configuredRegistrations) {
-    register<HTMLFormElement>("form[data-wh-form-handler]", form => {
-      if (handlers?.[form.dataset.whFormHandler!] && !form.propWhFormhandler) {
-        void scheduleFormSetup(form, handlers[form.dataset.whFormHandler!]);
+  //Configure the handlers. If there's a resolvable promise waiting for us, resolve it, otherwise directly insert the handler
+  for (const [handlername, handler] of Object.entries(addHandlers))
+    emplace(handlers, handlername, {
+      insert: () => handler,
+      update: current => {
+        if ("promise" in current) {
+          current.resolve(handler);
+          return current;
+        } else
+          throw new Error(`Handler '${handlername}' is already registered`);
       }
+    });
+
+  //Set up a registration for form elements, but ensure they only go through one scheduleFormSetup ever
+  if (!configuredRegistrations) { //register for forms that have yet to appear
+    register<HTMLFormElement>("form[data-wh-form-handler]", form => {
+      //Get the current handler or set up a promise that will receive the handler
+      const handler = emplace(handlers!, form.dataset.whFormHandler!, { insert: () => Promise.withResolvers<FormHandlerFactory>() });
+      if ("promise" in handler)
+        void handler.promise.then(factory => scheduleFormSetup(form, factory));
+      else
+        void scheduleFormSetup(form, handler);
+
     });
     configuredRegistrations = true;
   }
 }
 
 export function registerHandler(handlername: string, handler: FormHandlerFactory) {
-  if (handlers?.[handlername]) {
-    console.error(`Duplicate registerHandler for handler '${handlername}'`);
-    return; //this _MAY_ be caused by somehow duplicate loading of libs... seen that once and ignoring+continue would indeed be the safer solution
-  }
-
   registerHandlers({ [handlername]: handler });
-}
-
-/// Initialize all forms we already have the handler for
-export function setupForms(options?: FormSetupOptions) {
-  if (!handlers)
-    handlers = { //we want to stop distinguishing between these, not worth the effort/complexity seperating  them
-      "publisher:form": form => new FormBase(form),
-      "publisher:rpc": form => new FormBase(form)
-    };
-
-  if (options?.handlers)
-    Object.assign(handlers, options.handlers);
-
-  register<HTMLFormElement>("form[data-wh-form-handler]", form => {
-    if (handlers![form.dataset.whFormHandler!] && !form.propWhFormhandler) {
-      void scheduleFormSetup(form, handlers![form.dataset.whFormHandler!]);
-    }
-  });
 }
