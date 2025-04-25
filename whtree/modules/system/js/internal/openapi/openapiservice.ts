@@ -1,9 +1,10 @@
 import * as fs from "node:fs";
 import * as env from "@webhare/env";
 import * as services from "@webhare/services";
+import SwaggerParser from "@apidevtools/swagger-parser";
 import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services";
-import { LogInfo, RestAPI } from "./restapi";
-import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, HTTPSuccessCode } from "@webhare/router";
+import { LogInfo, RestAPI, type OpenAPIInitHookFunction } from "./restapi";
+import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, type WebHareOpenAPIDocument } from "@webhare/router";
 import type { WebRequestInfo, WebResponseInfo } from "../types";
 import { registerResourceDependency } from "../../../../../jssdk/services/src/hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
@@ -12,6 +13,16 @@ import { getExtractedConfig } from "../configuration";
 import { pick } from "@webhare/std";
 import { handleCrossOriginResourceSharing } from "../webserver/cors";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
+import { CodeContext } from "@webhare/services/src/codecontexts";
+import { mergeIntoBundled } from "../generation/gen_openapi";
+
+const cache: Record<string, RestService> = {};
+
+//TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
+//     looks like swagger itself also needs a bit of inline styling, so adding that
+export const swaggerUIHeaders = {
+  "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;"
+};
 
 // A REST service supporting an OpenAPI definition
 export class RestService extends services.BackendServiceConnection {
@@ -79,14 +90,10 @@ export class RestService extends services.BackendServiceConnection {
       swaggeruilink: apibaseurl + relurl_swaggerui
     };
 
-    //TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
-    //     looks like swagger itself also needs a bit of inline styling, so adding that
-    const metapageheaders = { "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;" };
-
     if (relurl === "" || relurl === relurl_swaggerui) { //webpage
       const witty = await loadWittyResource("mod::system/js/internal/openapi/openapi.witty");
       const comp = relurl === relurl_swaggerui ? "swaggerui" : "root";
-      return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
+      return createWebResponse(await witty.runComponent(comp, apidata), { headers: swaggerUIHeaders });
     }
 
     /* https://publicatie.centrumvoorstandaarden.nl/api/adr/#documentation API-51: Publish OAS document at a standard location in JSON-format
@@ -95,10 +102,6 @@ export class RestService extends services.BackendServiceConnection {
       const indent = ["1", "true"].includes(new URL(req.url).searchParams.get("indent") || "");
       return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, indent });
     }
-
-    // Temporary redirect for old url. Remove eg. after 2023-06-13
-    if (relurl === "openapi/openapi.json")
-      return createWebResponse("Moved permanently", { status: HTTPSuccessCode.MovedPermanently, headers: { location: apibaseurl + relurl_spec } });
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
@@ -147,7 +150,42 @@ export class RestService extends services.BackendServiceConnection {
   }
 }
 
-const cache: Record<string, RestService> = {};
+/** Describe an OpenAPI rest service */
+export async function describeService(servicename: string) {
+  const serviceconfig = getExtractedConfig("services");
+  const serviceinfo = serviceconfig.openAPIServices.find(_ => _.name === servicename);
+  if (!serviceinfo)
+    throw new Error(`Invalid OpenAPI service name: ${servicename}`);
+
+  const dependencies: string[] = [];
+
+  const apispec_fs = toFSPath(serviceinfo.spec);
+  dependencies.push(apispec_fs);
+
+  const apimerge_fs = serviceinfo.merge && toFSPath(serviceinfo.merge);
+  if (apimerge_fs)
+    dependencies.push(apimerge_fs);
+
+  // Read and parse the OpenAPI Yaml definition
+  const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
+  const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
+  const options = { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]) };
+
+  // Bundle all external files into one document
+  const bundled = await SwaggerParser.bundle(apispec_fs, def as WebHareOpenAPIDocument, {}) as WebHareOpenAPIDocument;
+
+  if (merge)
+    mergeIntoBundled(bundled, merge || {}, "");
+
+  // Activate hooks (FIXME how to flush them?)
+  if (options.initHook) {
+    await using context = new CodeContext("initHook", { initHook: options.initHook });
+    const tocall = await services.importJSFunction<OpenAPIInitHookFunction>(options.initHook);
+    await context.run(() => tocall({ name: servicename, spec: bundled }));
+  }
+
+  return { bundled, spec: serviceinfo.spec, dependencies, options };
+}
 
 /** Initialize service
  * @param apispec - The openapi yaml spec resource
@@ -156,23 +194,12 @@ export async function getServiceInstance(servicename: string): Promise<RestServi
   if (cache[servicename])
     return cache[servicename];
 
-  const serviceconfig = getExtractedConfig("services");
-  const serviceinfo = serviceconfig.openAPIServices.find(_ => _.name === servicename);
-  if (!serviceinfo)
-    throw new Error(`Invalid OpenAPI service name: ${servicename}`);
+  const serviceinfo = await describeService(servicename);
+  for (const dep of serviceinfo.dependencies)
+    registerResourceDependency(module, dep);
 
-  const apispec_fs = toFSPath(serviceinfo.spec);
-  registerResourceDependency(module, apispec_fs);
-  const apimerge_fs = serviceinfo.merge && toFSPath(serviceinfo.merge);
-  if (apimerge_fs)
-    registerResourceDependency(module, apimerge_fs);
-
-  // Read and parse the OpenAPI Yaml definition
-  const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
-  const merge = apimerge_fs ? decodeYAML<object>(await fs.promises.readFile(apimerge_fs, "utf8")) : {};
-  // Create and initialize the API handler
-  const restapi = new RestAPI();
-  await restapi.init(def, serviceinfo.spec, { merge, ...pick(serviceinfo, ["name", "inputValidation", "outputValidation", "crossdomainOrigins", "initHook", "handlerInitHook"]) });
+  const restapi = new RestAPI(serviceinfo.bundled);
+  await restapi.init(serviceinfo.spec, serviceinfo.options);
 
   const service = new RestService(servicename, restapi);
   if (!cache[servicename])
