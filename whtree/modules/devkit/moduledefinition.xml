@@ -12,4 +12,8 @@
     <catalog tag="www_webhare_dev" />
   </consilio>
 
+  <backend>
+    <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
+  </backend>
+
 </module>

@@ -3,7 +3,7 @@ import { createJSONResponse, HTTPErrorCode, type WebRequest, type DefaultRestPar
 import Ajv2020, { type ValidateFunction, type ErrorObject, type SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import type { OpenAPIV3 } from "openapi-types";
-import { importJSFunction, resolveResource, toFSPath } from "@webhare/services";
+import { importJSFunction, resolveResource } from "@webhare/services";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
@@ -121,24 +121,6 @@ export class LogInfo {
   }
 }
 
-function mergeIntoBundled(data: unknown, merge: unknown, path: string) {
-  if (typeof merge !== "object" || !merge || typeof data !== "object" || !data)
-    throw new Error(`Cannot merge a non-object into an object`);
-
-  if (Array.isArray(data) !== Array.isArray(merge))
-    throw new Error(`Cannot merge array into object or vice versa`);
-
-  for (const [key, value] of Object.entries(merge)) {
-    const datavalue = (data as Record<typeof key, unknown>)[key];
-    if (typeof value !== "object" || !value)
-      (data as Record<typeof key, unknown>)[key] = value;
-    else if (typeof datavalue !== "object" || !datavalue)
-      (data as Record<typeof key, unknown>)[key] = value;
-    else
-      mergeIntoBundled((data as Record<typeof key, unknown>)[key], value, `${path}/${key.replace(/~/g, "~0").replace(/\//g, "~1")}`);
-  }
-}
-
 const defaultMaxOpenAPIWorkers = 5;
 const defaultMaxCallsPerOpenAPIWorkers = 100;
 const maxOpenAPIWorkers = parseInt(process.env.WEBHARE_OPENAPI_WORKERS || "") || defaultMaxOpenAPIWorkers;
@@ -146,10 +128,23 @@ const maxCallsPerWorker = parseInt(process.env.WEBHARE_OPENAPI_WORKERS_MAXCALLS 
 
 type Handler = ConvertLocalServiceInterfaceToClientInterface<WorkerRestAPIHandler>;
 
+export function renderOpenAPIJSON(def: WebHareOpenAPIDocument, baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
+  if (options.filterxwebhare)
+    def = filterXWebHare(def) as typeof def;
+
+  if (def.servers) { //rewrite to absolute URLs
+    def = { ...def, servers: structuredClone(def.servers) };
+    for (const server of def.servers!)
+      if (server.url)
+        server.url = new URL(server.url, baseurl).toString();
+  }
+
+  return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
+}
+
 // An OpenAPI handler
 export class RestAPI {
   serviceName!: string;
-  bundled: WebHareOpenAPIDocument | null = null;
   def: WebHareOpenAPIDocument | null = null;
   private routes: Route[] = [];
   private workerPool = new RestAPIWorkerPool("restapi", maxOpenAPIWorkers, maxCallsPerWorker);
@@ -160,7 +155,10 @@ export class RestAPI {
   handlerInitHook: string | null = null;
   defaultErrorMapper: string | null = null;
 
-  async init(def: object, specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string }) {
+  constructor(public bundled: WebHareOpenAPIDocument) {
+  }
+
+  async init(specresourcepath: string, { name, merge, inputValidation, outputValidation, crossdomainOrigins, initHook, handlerInitHook }: { name: string; merge?: object; inputValidation?: OpenAPIValidationMode; outputValidation?: OpenAPIValidationMode; crossdomainOrigins?: string[]; initHook?: string; handlerInitHook?: string }) {
     this.serviceName = name;
     this.inputValidation = inputValidation || null;
     this.outputValidation = outputValidation || null;
@@ -168,32 +166,15 @@ export class RestAPI {
     if (crossdomainOrigins)
       this.crossdomainOrigins = crossdomainOrigins;
 
-    // Bundle all external files into one document
-    const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WebHareOpenAPIDocument, {}) as WebHareOpenAPIDocument;
-
-    if (merge)
-      mergeIntoBundled(bundled, merge || {}, "");
-
-    // Activate hooks (FIXME how to flush them?)
-    if (initHook) {
-      await using context = new CodeContext("initHook", { initHook });
-      const tocall = await importJSFunction<OpenAPIInitHookFunction>(initHook);
-      await context.run(() => tocall({ name: name, spec: bundled }));
-    }
-
     // Parse the OpenAPI definition. Make a structured clone of bundled, because validate modifies the incoming data
-    const parsed = await SwaggerParser.validate(structuredClone(bundled));
-    if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3."))
-      throw new Error(`Unsupported OpenAPI version ${parsed.info.version}`);
-
-    // Save the bundled document for openapi.json output
-    this.bundled = bundled as WebHareOpenAPIDocument;
+    this.def = await SwaggerParser.validate(structuredClone(this.bundled)) as WebHareOpenAPIDocument;
+    if (!this.def.openapi?.startsWith("3."))
+      throw new Error(`Unsupported OpenAPI version ${this.def.info.version}`);
 
     /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
        "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
        we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript doesn't know this
        so we need a few cast below to build the routes ...*/
-    this.def = parsed as WebHareOpenAPIDocument;
     const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveJSResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
 
     if (this.def["x-webhare-default-error-mapper"])
@@ -261,19 +242,7 @@ export class RestAPI {
   }
 
   renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
-    let def = { ...this.bundled };
-    if (options.filterxwebhare)
-      def = filterXWebHare(def) as typeof def;
-
-    if (!this.def)
-      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
-
-    if (def.servers)
-      for (const server of def.servers)
-        if (server.url)
-          server.url = new URL(server.url, baseurl).toString();
-
-    return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
+    return renderOpenAPIJSON(this.bundled, baseurl, options);
   }
 
   [Symbol.dispose]() {
