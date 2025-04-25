@@ -159,6 +159,18 @@ export async function waitForPublishCompletion(...args: Parameters<typeof backen
   return await rpc("platform:frontendtests").waitForPublishCompletion(args);
 }
 
+export function getRoundedBoundingClientRect(el: HTMLElement) {
+  const rect = el.getBoundingClientRect();
+  return {
+    top: Math.round(rect.top),
+    left: Math.round(rect.left),
+    width: Math.round(rect.width),
+    height: Math.round(rect.height),
+    right: Math.round(rect.right),
+    bottom: Math.round(rect.bottom)
+  };
+}
+
 //By definition we re-export all of whtest and @webhare/test
 export * from "@mod-platform/js/testing/whtest";
 
