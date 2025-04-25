@@ -676,7 +676,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
   const allowanyextension = options?.allowAnyExtension === true;
   const validextensions = [];
   if (dataType === 1) {
-    const setFormat = options?.format || getFullConfigFile().defaultImageFormat;
+    const setFormat = options?.format || process.env.WEBHARE_DEFAULT_IMAGE_FORMAT || getFullConfigFile().defaultImageFormat;
 
     const mimetype = setFormat === 'keep' ? metaData.mediaType : setFormat;
     if (mimetype === "image/jpeg")

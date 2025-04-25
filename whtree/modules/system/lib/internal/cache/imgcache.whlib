@@ -153,7 +153,7 @@ PUBLIC INTEGER FUNCTION GetUnifiedCC(DATETIME creationdate)
 
 PUBLIC STRING FUNCTION GetDefaultImageOutputFormat() {
   IF(NOT got_defaultformat) {
-    defaultformat := ReadRegistryKey("platform.cache.defaultimageformat", [ cachettl := 15 * 60 * 1000 ]) ?? "keep";
+    defaultformat := GetEnvironmentVariable("WEBHARE_DEFAULT_IMAGE_FORMAT") ?? ReadRegistryKey("platform.cache.defaultimageformat", [ cachettl := 15 * 60 * 1000 ]) ?? "keep";
     got_defaultformat := TRUE;
   }
   RETURN defaultformat;

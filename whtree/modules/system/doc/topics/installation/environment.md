@@ -80,6 +80,10 @@ Additional modulepath to search. Separate by colon (':'). In docker, this is usu
 If set, no connectinfo will be written to the installationroot. This allows you to run a secondary WebHare installation
 from the same tree without confusing your text editor.
 
+## WEBHARE_DEFAULT_IMAGE_FORMAT
+Override the default image format. Should be 'keep', 'image/webp' or 'image/avif'. This is a temporary environment variable
+to allow CI against different image format settings
+
 ### WEBHARE_PGBIN
 Override the PostgreSQL binaries directory
 
