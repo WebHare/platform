@@ -92,11 +92,11 @@ export type GetJSONContent<Response> = NeverFallback<Response extends { "content
  * @typeParam ResponseCode - Should not be provided, needed to enumerate all keys of R
  */
 export type ResponseTypesFromResponses<Responses extends object, ResponseCode extends keyof Responses = keyof Responses> = ResponseCode extends keyof Responses
-  ? (ResponseCode extends HTTPErrorCode // error codes must be JSON and extend RestDefaultErrorBody
+  ? (ResponseCode extends HTTPErrorCode // error codes must be JSON
     ? {
       status: ResponseCode;
       isjson: true;
-      response: GetJSONContent<Responses[ResponseCode]>/* extends RestDefaultErrorBody ? GetJSONContent<Responses[ResponseCode]> : RestDefaultErrorBody*/;
+      response: GetJSONContent<Responses[ResponseCode]>;
     }
     : (ResponseCode extends HTTPSuccessCode
       ? {
@@ -131,7 +131,10 @@ export type GetParametersType<Operation extends object> = SquashObjectType<Opera
 /** Extracts the defaulterror type from the components, if it properly extends RestDefaultErrorBody
  * @typeParam Components - Components from generated openapi ts file
  */
-export type DefaultErrorType<Paths extends object, Components extends object> = Components extends { schemas: { defaulterror: infer E extends object } } ? E : AllErrorResponses<Paths>;
+export type DefaultErrorType<Paths extends object, Components extends object> =
+  Components extends { schemas: { defaulterror: infer E extends object } } ? E :
+  Components extends { schemas: { defaultError: infer E extends object } } ? E :
+  AllErrorResponses<Paths>;
 
 /** Type override for a RestRequest that gives proper types to all the data and nethods of RestRequest.
  * @typeParam Auth - Format of authorization data

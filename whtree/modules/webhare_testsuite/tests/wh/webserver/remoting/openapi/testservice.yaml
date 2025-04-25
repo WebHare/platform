@@ -204,6 +204,40 @@ paths:
           "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#getFile
 
+  "/getcontext/{id}":
+    parameters:
+    - in: path
+      name: id
+      required: true
+      schema:
+        type: string
+    get:
+      description: Get the context
+      responses:
+        "200":
+          description: The context
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  route:
+                    type: string
+                  path:
+                    type: string
+                  params:
+                    type: object
+                    additionalProperties: true
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
+      x-webhare-implementation: users.ts#getContext
+
 components:
   responses:
    default400:
@@ -291,10 +325,11 @@ components:
     # Error description
     errordescription:
       properties:
-        code:
+        message:
           type: "string"
-        errorid:
-          type: "string"
+      type: "object"
+    defaultError:
+      properties:
         message:
           type: "string"
       type: "object"
