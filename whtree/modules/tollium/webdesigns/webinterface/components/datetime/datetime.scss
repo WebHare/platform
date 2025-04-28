@@ -11,11 +11,16 @@
 {
   height: $control-height;
   line-height: $control-height;
-  border: 1px solid $default-border-color;
   border-radius: $default-border-radius;
   background: $control-background-color;
 
   @include wh-datetime;
+
+  &
+  {
+    // Set border _after_ mixin
+    border: 1px solid $default-border-color;
+  }
 
   &:focus-within
   {
