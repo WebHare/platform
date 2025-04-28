@@ -132,4 +132,4 @@ export type DataLayerVar = boolean | string | number | { [key: string]: DataLaye
 export type DataLayerEntry = { [key in string]?: DataLayerVar | (() => void) } & {
   event?: string;
   eventCallback?: () => void;
-} & ({ event?: string; ecommerce?: never } | EcommerceDataLayerEntry); //ensure that any 'ecommerce' object triggers valiadtion
+} & ({ event?: string; ecommerce?: never } | EcommerceDataLayerEntry); //ensure that any 'ecommerce' object triggers validation
