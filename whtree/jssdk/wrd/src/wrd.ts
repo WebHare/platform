@@ -114,8 +114,7 @@ export interface CreateSchemaOptions {
 }
 
 function getSchemaConfiguration(tag: string) { //Equivalent of HS GetModuleWRDSchemaDefinition
-  const mod = getExtractedConfig("wrdschemas").modules.find(_ => tag.startsWith(_.module + ":"));
-  return mod?.schemas.find(_ => _.isExactMatch ? _.wrdSchema === tag : tag.match(regExpFromWildcards(_.wrdSchema))) ?? null;
+  return getExtractedConfig("wrdschemas").schemas.find(_ => _.isExactMatch ? _.wrdSchema === tag : tag.match(regExpFromWildcards(_.wrdSchema)));
 }
 
 /* Creates a new WRD schema

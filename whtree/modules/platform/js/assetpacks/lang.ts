@@ -6,6 +6,7 @@ import type { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask"
 import * as fs from "node:fs";
 import { emplace } from '@webhare/std';
 import { loadlib } from '@webhare/harescript';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 type ModuleTids = { [tid: string]: string | ModuleTids };
 type ModuleTexts = { [language: string]: ModuleTids };
@@ -155,10 +156,11 @@ export function parseLanguageFile(moduletexts: ModuleTids, gids: string[], data:
 }
 
 export function buildLangLoaderPlugin(languages: string[], captureplugin: CaptureLoadPlugin) {
+  const runInAsyncScope = AsyncLocalStorage.snapshot();
   return {
     name: "languagefile",
     setup: (build: esbuild.PluginBuild) => {
-      build.onLoad({ filter: /.\.lang\.json$/, namespace: "file" }, async (args) => {
+      build.onLoad({ filter: /.\.lang\.json$/, namespace: "file" }, a => runInAsyncScope(async (args) => {
         const source = await fs.promises.readFile(args.path, 'utf8');
         const result = await runLangLoader(languages, args.path, source);
 
@@ -170,7 +172,7 @@ export function buildLangLoaderPlugin(languages: string[], captureplugin: Captur
           errors: result.errors.map(_ => ({ text: _ })),
           watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
         };
-      });
+      }, a));
     }
   };
 }
