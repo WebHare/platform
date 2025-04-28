@@ -130,6 +130,13 @@ export class RestService extends services.BackendServiceConnection {
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error", status: 500 });
     }
 
+    // Set the default cache control headers if not set
+    if (!result.headers.get("cache-control")) {
+      result.headers.set("cache-control", "no-store, no-cache");
+      result.headers.set("pragma", "no-cache");
+      result.headers.set("expires", "Thu, 01 Jan 1970 00:00:00 GMT");
+    }
+
     if (env.debugFlags.openapi) {
       services.log("system:debug", {
         request: { method: req.method, headers: Object.fromEntries(req.headers.entries()), url: req.url.toString() },
