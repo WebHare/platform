@@ -1,7 +1,7 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
 import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
-import { type GenerateContext, type FileToUpdate, generatorBanner } from "./shared";
+import { type GenerateContext, type FileToUpdate, generatorBanner, isNodeApplicableToThisWebHare } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { Document } from "@xmldom/xmldom";
 import { emplace } from "@webhare/std";
@@ -79,6 +79,9 @@ function parseXMLWRDSchemas(mod: string, doc: Document) {
 
   for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
     for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
+      if (!isNodeApplicableToThisWebHare(wrdschema, ""))
+        continue;
+
       const tag = wrdschema.getAttribute("tag") || "";
       const fulltag = mod + ":" + tag;
       const isExactMatch = !(tag.includes('*') || tag.includes('?'));
