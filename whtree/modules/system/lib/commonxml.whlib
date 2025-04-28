@@ -30,7 +30,7 @@ PUBLIC RECORD FUNCTION ParseImageResizeSettings(OBJECT node, RECORD current DEFA
       , ...current
       ];
 
-  RETURN
+  RECORD settings :=
       [ method :=           node->GetAttribute("imageresizemethod") ?? current.method
       , setwidth :=         CalcPixelSize(node, "imagesetwidth", current.setheight)
       , setheight :=        CalcPixelSize(node, "imagesetheight", current.setheight)
@@ -39,6 +39,11 @@ PUBLIC RECORD FUNCTION ParseImageResizeSettings(OBJECT node, RECORD current DEFA
       , noforce :=          node->HasAttribute("preserveifunchanged") ? ParseXSBoolean(node->GetAttribute("preserveifunchanged")) : current.noforce
       , fixorientation :=   node->HasAttribute("fixorientation") ? ParseXSBoolean(node->GetAttribute("fixorientation")) : current.fixorientation
       ];
+
+  IF(settings.format = "")
+    DELETE CELL format FROM settings;
+
+  RETURN settings;
 }
 
 /// @short Parse a ImageEditSettings node
