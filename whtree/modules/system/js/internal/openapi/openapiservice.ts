@@ -137,7 +137,7 @@ export class RestService extends services.BackendServiceConnection {
     if (!result.headers.get("cache-control")) {
       result.headers.set("cache-control", "no-store, no-cache");
       result.headers.set("pragma", "no-cache");
-      result.headers.set("expires", "0");
+      result.headers.set("expires", "Thu, 01 Jan 1970 00:00:00 GMT");
     }
 
     if (env.debugFlags.openapi) {
