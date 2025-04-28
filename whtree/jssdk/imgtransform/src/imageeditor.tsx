@@ -401,7 +401,7 @@ function resizeMethodApplied(imgSize: LegacyImgSize, width: number, height: numb
     return true;
 
   // If the image doesn't have the expected MIME type, the method is applied
-  if (imgSize.format !== "" && mimeType !== imgSize.format)
+  if (imgSize.format && mimeType !== imgSize.format)
     return true;
 
   switch (imgSize.method) {
