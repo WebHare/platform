@@ -9,6 +9,16 @@ PUBLIC OBJECTTYPE TestDocs EXTEND TolliumScreenBase
   {
     //TODO would be nice: this->contexts->controller->SetupDynamicDocumentation("https://www.example.com/docs/testapp/");
   }
+
+  MACRO OnDirectHelpEnabled()
+  {
+    ^directhelp->enabled := ^directhelp_enabled->value;
+  }
+
+  MACRO OnDirectHelpVisible()
+  {
+    ^directhelp->visible := ^directhelp_visible->value;
+  }
 >;
 
 

@@ -1,15 +1,19 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
-         xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         library="testdocs.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="testdocs.whlib">
 
   <screen name="testdocs">
     <body>
-      <heading title="alwayshelp" name="alwayshelp" doclink="https://www.example.com/" />
-      <heading title="neverhelp" name="neverhelp" />
-      <heading title="relativehelp" name="relativehelp" doclink="/subpage" />
-      <hr/>
-      <heading title="remotehelp_exists" name="remotehelp_exists" doclink="webhare_testsuite:exists" />
-      <heading title="remotehelp_doesnotexist" name="remotehelp_doesnotexist" doclink="webhare_testsuite:doesnotexist" />
+      <heading name="alwayshelp" doclink="https://www.example.com/" title="alwayshelp" />
+      <heading name="neverhelp" title="neverhelp" />
+      <heading name="relativehelp" doclink="/subpage" title="relativehelp" />
+      <hr />
+      <heading name="remotehelp_exists" doclink="webhare_testsuite:exists" title="remotehelp_exists" />
+      <heading name="remotehelp_doesnotexist" doclink="webhare_testsuite:doesnotexist" title="remotehelp_doesnotexist" />
+      <hr />
+      <line>
+        <helpicon name="directhelp" doclink="https://www.example.com" />
+        <checkbox name="directhelp_enabled" label="enabled" onchange="ondirecthelpenabled" value="true" />
+        <checkbox name="directhelp_visible" label="visible" onchange="ondirecthelpvisible" value="true" />
+      </line>
     </body>
   </screen>
 

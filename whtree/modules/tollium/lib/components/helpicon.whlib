@@ -1,0 +1,69 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE HelpIcon EXTEND TolliumFragmentBase
+<
+  STRING __doclink;
+
+  PUBLIC PROPERTY doclink(__doclink, SetDocLink);
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    this->enabled := def.enabled;
+    this->doclink := def.doclink;
+  }
+
+  UPDATE MACRO PreShowComponent()
+  {
+    this->UpdateState();
+  }
+
+  UPDATE MACRO SetEnabled(BOOLEAN enabled)
+  {
+    TolliumFragmentBase::SetEnabled(enabled);
+    ^helpicon->onclick := this->enabled ? PTR this->OpenHelp : DEFAULT MACRO PTR;
+  }
+
+  MACRO SetDoclink(STRING newlink)
+  {
+    IF(this->__doclink = newlink)
+      RETURN;
+
+    this->__doclink := newlink;
+    this->UpdateState();
+  }
+
+  PUBLIC STRING FUNCTION GetDocumentationUrl()
+  {
+    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    RETURN RecordExists(info) AND info.url != "" ? info.url : "";
+  }
+
+  MACRO UpdateState()
+  {
+    RECORD helpinfo := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    ^helpicon->visible := RecordExists(helpinfo);
+    ^helpicon->opacity := RecordExists(helpinfo) AND helpinfo.missing ? 0.5f : 1f;
+  }
+
+  MACRO OpenHelp(RECORD clickinfo)
+  {
+    IF (NOT this->enabled)
+      RETURN;
+    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
+    IF(RecordExists(info))
+    {
+      STRING url;
+      IF(info.url != "")
+        url := UpdateURLVariables(info.url, [ "ts" := FormatISO8601Datetime(GetCurrentdatetime(),"","","",FALSE)]);
+      this->contexts->controller->OpenAppDocumentation(url, [ editinfo := info.editinfo ]);
+    }
+  }
+>;
