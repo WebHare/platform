@@ -579,7 +579,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
         RECORD method := this->imgsize;
         IF ((method.setwidth > 0 AND value.width > method.setwidth)
             OR (method.setheight > 0 AND value.height > method.setheight)
-            OR (method.format != "" AND value.mimetype != method.format)
+            OR (CellExists(method,'format') AND method.format != "" AND value.mimetype != method.format)
             OR (method.fixorientation AND (value.rotation != 0 OR value.mirrored)))
         {
           DELETE CELL "allowedactions" FROM method;
