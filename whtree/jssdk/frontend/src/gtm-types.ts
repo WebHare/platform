@@ -129,7 +129,7 @@ export type EcommerceDataLayerEntry =
 export type DataLayerVar = boolean | string | number | { [key: string]: DataLayerVar } | DataLayerVar[];
 
 //FIXME only eventCallback should be a ()=>void ..
-export type DataLayerEntry = Record<string, DataLayerVar | (() => void)> & {
+export type DataLayerEntry = { [key in string]?: DataLayerVar | (() => void) } & {
   event?: string;
   eventCallback?: () => void;
-} & ({ event?: string } | EcommerceDataLayerEntry);
+} & ({ event?: string; ecommerce?: never } | EcommerceDataLayerEntry); //ensure that any 'ecommerce' object triggers valiadtion

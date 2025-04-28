@@ -1,4 +1,5 @@
 import * as test from '@mod-system/js/wh/testframework';
+import type { pushToDataLayer } from '@webhare/frontend';
 
 async function waitForGTM() {
   return test.wait(() => Boolean(test.getWin().webharetestcontainer) //GTM-TN7QQM has been configured to set this
@@ -13,6 +14,28 @@ function checkForGTM(opts: { selfhosted?: 1; remote?: 1; snippet?: 1 }) {
   test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
   test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
   test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent?.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
+}
+
+export function __testDataLayerTypes() { //never invoked
+  type DataLayerItem = Parameters<typeof pushToDataLayer>[0];
+
+  ({ event: "test", eventCallback: () => { } }) satisfies DataLayerItem;
+
+  ({
+    event: "view_item",
+    ecommerce: {
+      items: [{ item_id: "123", item_name: "name", item_category: "cat" }]
+    }
+    //@ts-expect-error fails because currency is required
+  }) satisfies DataLayerItem;
+
+  ({
+    event: "view_item",
+    ecommerce: {
+      currency: "EUR",
+      items: [{ item_id: "123", item_name: "name", item_category: "cat" }]
+    }
+  }) satisfies DataLayerItem;
 }
 
 test.runTests(
