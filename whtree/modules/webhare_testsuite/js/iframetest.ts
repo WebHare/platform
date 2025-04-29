@@ -2,7 +2,7 @@
 
 import { sleep } from "@webhare/std";
 import * as test from "@webhare/test";
-import { Host, createTolliumImage, type HostContext, type GuestProtocol, setupGuest, tolliumActionEnabler } from "@webhare/tollium-iframe-api";
+import { Host, createTolliumImage, type HostContext, type GuestProtocol, setupGuest, tolliumActionEnabler, runSimpleScreen } from "@webhare/tollium-iframe-api";
 
 interface OurHostProtocol {
   greeting: { g: string; initinfo: string; initcount: number };
@@ -21,6 +21,7 @@ async function init(context: HostContext, initData: { my_init_info: string }) {
     const styleNode = document.createElement("style");
     styleNode.innerText = `span.focusnode { background: #eeeeff; cursor: pointer; display: inline-block; } span.focusnode:focus { background: #ffeeee; }`;
     document.head.appendChild(styleNode);
+
     focusNode = document.createElement("span");
     focusNode.innerText = "focus test";
     focusNode.className = "focusnode";
@@ -33,7 +34,16 @@ async function init(context: HostContext, initData: { my_init_info: string }) {
       host.post("selected", { s: false });
       tolliumActionEnabler([]);
     });
-    document.body.appendChild(focusNode);
+
+    const confirmNode = document.createElement("button");
+    confirmNode.innerText = "Confirm";
+    confirmNode.className = "confirmnode";
+    confirmNode.addEventListener("click", (event) => {
+      event.preventDefault();
+      void runSimpleScreen("confirm", "Sure?").then(result => focusNode!.innerText = result);
+    });
+
+    document.body.append(focusNode, confirmNode);
   }
 
   await sleep(5);

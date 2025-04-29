@@ -1966,6 +1966,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element name="url" type="URL" />
       <xs:element name="spacer" type="Spacer" />
       <xs:element name="authenticationsettings" type="AuthenticationSettings" />
+      <xs:element ref="helpicon" />
     </xs:choice>
   </xs:group>
 
@@ -3601,6 +3602,22 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
+
+  <xs:element name="helpicon">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:tolliumcomponent fragment="components/boxheading.helpicon" placement="inline" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="ComponentBase" />
+      <xs:attribute name="doclink">
+        <xs:annotation>
+          <xs:documentation>Link to documentation. If relative, will be ignored if no base url for documentation is set</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
 
   <xs:element name="virtualcell">
     <xs:complexType>

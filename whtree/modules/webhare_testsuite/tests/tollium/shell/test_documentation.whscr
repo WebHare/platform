@@ -42,46 +42,66 @@ ASYNC MACRO TestDocumentationSite()
 
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs"));
-  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon->^helpicon"));
   TestEq("https://www.example.com/", TT("alwayshelp")->GetDocumentationURL());
 
-  TestEq(FALSE, TTIsVisible("neverhelp->helpicon"));
+  TestEq(FALSE, TTIsVisible("neverhelp->helpicon->^helpicon"));
   TestEq("", TT("neverhelp")->GetDocumentationURL());
 
-  TestEq(TRUE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon->^helpicon"));
   TestEq("https://www.example.com/docs/testapp/subpage", TT("relativehelp")->GetDocumentationURL());
 
   GetTestController()->GrabInstructions();
 
-  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+  TT("relativehelp->helpicon->^helpicon")->onclick([nativex := 0, nativey := 0]);
 
   RECORD openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
   TestEqLike("https://www.example.com/docs/testapp/subpage?ts=*", openhelp.params[0]);
   TestEq("", openhelp.params[1]);
+
+  // directhelp is enabled and visible by default
+  TT("directhelp->^helpicon")->onclick([nativex := 0, nativey := 0]);
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+
+  // Disable it, it should no longer have an active onclick handler
+  TT("directhelp_enabled")->value := FALSE;
+  TestEq(DEFAULT MACRO PTR, TT("directhelp->^helpicon")->onclick);
+
+  // Enable it again
+  TT("directhelp_enabled")->value := TRUE;
+  TT("directhelp->^helpicon")->onclick([nativex := 0, nativey := 0]);
+  openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
+  TestEq(TRUE, RecordExists(openhelp));
+
+  // Hide it
+  TT("directhelp_visible")->value := FALSE;
+  TestEq(FALSE, TTIsVisible("directhelp"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", FALSE);
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
-  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
-  TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
-  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
-  TestEq(1f, TT("remotehelp_exists->helpicon")->opacity);
-  TestEq(FALSE, TTIsVisible("remotehelp_doesnotexist->helpicon"));
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon->^helpicon"));
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon->^helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon->^helpicon"));
+  TestEq(1f, TT("remotehelp_exists->helpicon->^helpicon")->opacity);
+  TestEq(FALSE, TTIsVisible("remotehelp_doesnotexist->helpicon->^helpicon"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   testfw->GetUserObject("sysop")->SetRegistryKey("system.prefs.showdeveloperapps", TRUE);
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ "" ]]));
-  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon"));
-  TestEq(FALSE, TTIsVisible("relativehelp->helpicon"));
-  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon"));
-  TestEq(TRUE, TTIsVisible("remotehelp_doesnotexist->helpicon")); //should now offer editing
+  TestEq(TRUE, TTIsVisible("alwayshelp->helpicon->^helpicon"));
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon->^helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_exists->helpicon->^helpicon"));
+  TestEq(TRUE, TTIsVisible("remotehelp_doesnotexist->helpicon->^helpicon")); //should now offer editing
   TestEq(`${subpath->objecturl}existingdocs`, TT("remotehelp_exists")->GetDocumentationURL());;
   TestEqLike(`${subpath->objecturl}docs-missing?*`, TT("remotehelp_doesnotexist")->GetDocumentationURL());
   TestEq("doesnotexist", GetVariableFromURL(TT("remotehelp_doesnotexist")->GetDocumentationURL(), "topic"));
-  TestEq(0.5f, TT("remotehelp_doesnotexist->helpicon")->opacity);
+  TestEq(0.5f, TT("remotehelp_doesnotexist->helpicon->^helpicon")->opacity);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //Let's build a documentation testsite
@@ -95,15 +115,15 @@ ASYNC MACRO TestDocumentationSite()
   //STORY: Open app in readonly mode. 'relativehelp' points to a nonexisting page and shouldn't initially appear
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ `site::${testsite->name}/doc` ]]));
   TestEq("", TT("relativehelp")->GetDocumentationURL());
-  TestEq(FALSE, TTIsVisible("relativehelp->helpicon")); //as this doc is not in place
+  TestEq(FALSE, TTIsVisible("relativehelp->helpicon->^helpicon")); //as this doc is not in place
 
   TT("relativehelp")->doclink := "testfile";
   TestEq(testsite->webroot || "doc/testfile/" , TT("relativehelp")->GetDocumentationURL());
-  TestEq(TRUE, TTIsVisible("relativehelp->helpicon")); //and now its available!
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon->^helpicon")); //and now its available!
 
   GetTestController()->GrabInstructions();
 
-  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+  TT("relativehelp->helpicon->^helpicon")->onclick([nativex := 0, nativey := 0]);
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
@@ -116,11 +136,11 @@ ASYNC MACRO TestDocumentationSite()
   //STORY: Open app in with write access to docs. 'relativehelp' points to a nonexisting page but should still appear!
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:testdocs", [ params := [ `site::${testsite->name}/doc`, "edit" ]]));
   TestEq("", TT("relativehelp")->GetDocumentationURL());
-  TestEq(TRUE, TTIsVisible("relativehelp->helpicon"));
+  TestEq(TRUE, TTIsVisible("relativehelp->helpicon->^helpicon"));
 
   GetTestController()->GrabInstructions();
 
-  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+  TT("relativehelp->helpicon->^helpicon")->onclick([nativex := 0, nativey := 0]);
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
@@ -135,7 +155,7 @@ ASYNC MACRO TestDocumentationSite()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //That should still keep the help button without an url but available to editors
-  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+  TT("relativehelp->helpicon->^helpicon")->onclick([nativex := 0, nativey := 0]);
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));
@@ -148,7 +168,7 @@ ASYNC MACRO TestDocumentationSite()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //That should activate the help button without an url but available to editors
-  TT("relativehelp->helpicon")->onclick([nativex := 0, nativey := 0]);
+  TT("relativehelp->helpicon->^helpicon")->onclick([nativex := 0, nativey := 0]);
 
   openhelp := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr = "appcall" AND type = "OpenDocumentation";
   TestEq(TRUE, RecordExists(openhelp));

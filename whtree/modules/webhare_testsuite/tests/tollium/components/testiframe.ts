@@ -220,7 +220,8 @@ test.runTests(
         // The test action should be disabled if the iframe input doesn't have focus
         test.assert(test.compByName("testbutton").classList.contains("todd--disabled"), "test action should be disabled");
 
-        test.focus(iframe.contentWindow!.document.querySelector("span.focusnode")!);
+        const focusNode = iframe.contentWindow!.document.querySelector("span.focusnode")! as HTMLElement;
+        test.focus(focusNode);
         await test.wait("ui");
         await new Promise(resolve => setTimeout(resolve, 1));
         test.assert(!test.compByName("testbutton").classList.contains("todd--disabled"), "test action should be enabled");
@@ -240,6 +241,14 @@ test.runTests(
         await test.wait("ui");
         // The test action should display a 'not implemented' message with a 'information' icon
         test.assert(test.qR(`img[data-toddimg^="tollium:messageboxes/information"]`), "'not implemented' message box should be visible again");
+        test.clickTolliumButton("Close");
+
+        // Click the 'Confirm' button, which should display a confirm dialog within Tollium (outside of the iframe)
+        test.click(iframe.contentWindow!.document.querySelector("button.confirmnode")!);
+        // The button that was clicked will be displayed in the focus node
+        await test.wait("ui");
+        test.clickToddButton("Yes");
+        await test.wait(() => focusNode.innerText === "yes");
       }
     },
 

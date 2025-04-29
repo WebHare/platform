@@ -1,20 +1,16 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::internet/urls.whlib";
-
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+
 PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
 <
-  STRING __doclink;
-
   PUBLIC PROPERTY checkbox(GetCheckBox, SetCheckBox);
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY onchange(GetOnChange, SetOnChange);
   PUBLIC PROPERTY enablecomponents(GetEnableComponents, SetEnableComponents);
-  PUBLIC PROPERTY doclink(__doclink, SetDocLink);
+  PUBLIC PROPERTY doclink(^helpicon->doclink, ^helpicon->doclink);
   UPDATE PUBLIC PROPERTY title(GetSubTitle, SetSubTitle);
   UPDATE PUBLIC PROPERTY width(pvt_width, SetWidth);
 
@@ -36,7 +32,7 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
     this->onchange := def.onchange;
     this->title := def.title;
     this->headingtitle->isheading := TRUE;
-    this->doclink := def.doclink;
+    ^helpicon->doclink := def.doclink;
     this->wordwrap := def.wordwrap;
   }
 
@@ -68,32 +64,9 @@ PUBLIC OBJECTTYPE Heading EXTEND TolliumFragmentBase
   {
     this->cbox->value:=newvalue;
   }
-  MACRO OpenHelp(RECORD clickinfo)
-  {
-    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
-    IF(RecordExists(info))
-    {
-      STRING url;
-      IF(info.url != "")
-        url := UpdateURLVariables(info.url, [ "ts" := FormatISO8601Datetime(GetCurrentdatetime(),"","","",FALSE)]);
-      this->contexts->controller->OpenAppDocumentation(url, [ editinfo := info.editinfo ]);
-    }
-  }
-  MACRO SetDoclink(STRING newlink)
-  {
-    IF(this->__doclink = newlink)
-      RETURN;
-
-    this->__doclink := newlink;
-
-    RECORD helpinfo := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
-    ^helpicon->visible := RecordExists(helpinfo);
-    ^helpicon->opacity := RecordExists(helpinfo) AND helpinfo.missing ? 0.5f : 1f;
-  }
   PUBLIC STRING FUNCTION GetDocumentationUrl()
   {
-    RECORD info := this->contexts->controller->GetDynamicDocumentationInfo(this->__doclink);
-    RETURN RecordExists(info) AND info.url != "" ? info.url : "";
+    RETURN ^helpicon->GetDocumentationUrl();
   }
 
   UPDATE MACRO SetEnabled(BOOLEAN newstate)

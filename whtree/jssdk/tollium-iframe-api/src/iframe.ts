@@ -28,6 +28,9 @@ let setup: {
 let imgQueueId = 0;
 const imgQueue: Map<number, { id: number; imgname: string; resolve: (value: { src: string; width: number; height: number }) => void }> = new Map();
 
+let screenQueueId = 0;
+const screenQueue: Map<number, { id: number; resolve: (value: string) => void }> = new Map();
+
 let lastFocusNode: HTMLElement | SVGElement | null = null;
 
 function postToHost(message: GuestMessage) {
@@ -71,6 +74,14 @@ export async function createTolliumImage(imgname: string, width: number, height:
     const id = ++imgQueueId;
     imgQueue.set(id, { id, imgname, resolve });
     postToHost({ tollium_iframe: "createImage", id, imgname, width, height, color });
+  });
+}
+
+export async function runSimpleScreen(type: "error" | "warning" | "info" | "verify" | "confirm" | "question", message: string, options?: { title?: string }): Promise<string> {
+  return new Promise(resolve => {
+    const id = ++screenQueueId;
+    screenQueue.set(id, { id, resolve });
+    postToHost({ tollium_iframe: "runSimpleScreen", id, type, message, title: options?.title });
   });
 }
 
@@ -155,6 +166,15 @@ async function processMessage(msg: HostRuntimeMessage) {
       if (queued) {
         imgQueue.delete(queued.id);
         queued.resolve({ src: msg.src, width: msg.width, height: msg.height });
+      }
+      break;
+    }
+
+    case "screenResult": {
+      const queued = screenQueue.get(msg.id);
+      if (queued) {
+        screenQueue.delete(queued.id);
+        queued.resolve(msg.button);
       }
       break;
     }
