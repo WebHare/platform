@@ -34,7 +34,6 @@ import type { RecursiveReadonly } from "@webhare/js-api-tools/src/utility-types"
 import { listAllSchemas } from "./gen_schema";
 import { type ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
 import { listAllRegistryTS } from "./gen_registry";
-import { updateTypeScriptInfrastructure } from "./gen_typescript";
 import { listAllServiceTS } from "./gen_services";
 import { listMiscTS, listPublicConfig } from "./gen_misc_ts";
 import { rm } from "node:fs/promises";
@@ -146,11 +145,6 @@ export async function updateGeneratedFiles(targets: GeneratorType[], options: {
   generateContext?: GenerateContext;
   modules?: string[];
 } = {}) {
-  await updateTypeScriptInfrastructure(options); // Setup symlinks and helpers files
-
-  if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
-    return;
-
   const context = options.generateContext || await buildGeneratorContext(null, options?.verbose || false);
 
   //TODO we might need to be above buildGenerateContext in the future to provide moduledefinition schemas for runtime validation?
