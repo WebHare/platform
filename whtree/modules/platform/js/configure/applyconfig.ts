@@ -5,6 +5,7 @@ import { beginWork, commitWork } from '@webhare/whdb';
 import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { updateConsilioCatalogs } from './consilio';
+import { updateTypeScriptInfrastructure } from '@mod-system/js/internal/generation/gen_typescript';
 
 type SubsystemConfig = {
   generate?: readonly GeneratorType[];
@@ -101,16 +102,22 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
   }
 
   try {
-    if (togenerate.has('config')) //regenerating config must be done before buildGeneratorContext or there'll be no module map!
+    if (togenerate.has('config')) { //regenerating config must be done before buildGeneratorContext or there'll be no module mapping in the backendConfig!
       await updateWebHareConfigFile(options); //will invoke reloadBackendConfig if anything changed
+      await updateTypeScriptInfrastructure(options); // Setup symlinks and helper files needed by JS/TS code to run (ie tsconfig.json, node_modules symlinks)
+    }
 
     //Which config files to update
     const generateContext = await buildGeneratorContext(null, verbose || false);
     if (togenerate.size) {
+      const timer = `Update generated files: ${[...togenerate].join(", ")}`;
       if (verbose)
-        console.log(`Update generated files: ${[...togenerate].join(", ")}`);
+        console.time(timer);
 
       await updateGeneratedFiles([...togenerate], { verbose: verbose, nodb: options.nodb, dryRun: false, modules: options.modules, showUnchanged: options.showUnchanged, generateContext });
+
+      if (verbose)
+        console.timeEnd(timer);
     }
 
     if (todoList.includes('assetpacks')) {
@@ -130,7 +137,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
     if (todoList.includes('wrd')) {
       //Update WRD schemas
       if (options.verbose)
-        console.log("Updating WRD schemas based on their schema definitions");
+        console.time("Updating WRD schemas based on their schema definitions");
 
       const applyupdates = loadlib("mod::wrd/lib/internal/metadata/applyupdates.whlib");
       const schemamasks = options?.modules ? options?.modules.map(_ => `${_}:*`) : [];
@@ -140,6 +147,9 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       await beginWork();
       await scheduleTimedTask("wrd:scanforissues");
       await commitWork();
+
+      if (options.verbose)
+        console.timeEnd("Updating WRD schemas based on their schema definitions");
     }
 
     if (todoList.includes('siteprofiles')) {

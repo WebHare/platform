@@ -43,7 +43,7 @@ export type EcommerceItemInfo = {
 
 type EcommerceObject = {
   /** Currency of the items associated with the event, in 3-letter ISO 4217 format. */
-  currency: "EUR" | "USD" | string;
+  currency: "EUR" | "USD" | string; //note that currency is not always required - but it's a lot eaiser/safer to just require it to be set
   /** Set value to the sum of (price * quantity) for all items in items. Don't include shipping or tax. */
   value?: number;
   /** The items for the event. */
@@ -109,7 +109,7 @@ export type EcommerceDataLayerBeginCheckoutEntry = {
 
 export type EcommerceDataLayerSelectItemEntry = {
   event: "select_item";
-  ecommerce: {
+  ecommerce: EcommerceObject & {
     item_list_id?: string;
     item_list_name?: string;
     items: EcommerceItemInfo[];
