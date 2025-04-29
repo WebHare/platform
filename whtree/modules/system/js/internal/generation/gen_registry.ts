@@ -44,7 +44,11 @@ function enumerateRegistryKeys(parentNode: Element, prefix: string): RegistryKey
       case "float":
       case "money":
       case "blob":
+      case "record":
         keys.push({ name: keyName, type: localName, initialVal: node.getAttribute("initialval") ?? "" });
+        break;
+      default:
+        console.error(`Unknown registry key type ${localName} in ${keyName}`);
         break;
     }
   }
