@@ -55,8 +55,11 @@ export async function createModule(subpath: string, modulename: string, options:
 
   const creationdate = new Date();
   const destpath = backendConfig.dataRoot + "installedmodules/" + (subpath ? subpath + "/" : "") + modulename;
-  if (statSync(destpath, { throwIfNoEntry: false }))
-    throw new Error(`The directory '${destpath}' already exists`);
+  if (statSync(destpath, { throwIfNoEntry: false })) {
+    const content = (await listDirectory(destpath)).filter(_ => ![".git", ".ds_store"].includes(_.name.toLowerCase()));
+    if (content.length > 0) //we don't mind an empty just-initialized git repository
+      throw new Error(`The directory '${destpath}' already exists`);
+  }
 
   const retval = { //TODO camelify ? but may be witty incompatible until we decide how witty will deal with camelcase conventions
     modulename,
