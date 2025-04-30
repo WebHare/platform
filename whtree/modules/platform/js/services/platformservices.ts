@@ -6,6 +6,11 @@ import type { ConfigClient } from "../configure/configservice";
 /** Describes HareScript-based services */
 declare module "@webhare/services" {
   interface BackendServices {
+    "system:chromeheadlessrunner": {
+      getConnectParams(): Promise<{
+        connectorurl: string;
+      }>;
+    };
     "system:managedqueuemgr": {
       /// Make sure all cancelled tasks have been terminated
       stopCancelledTasks(): Promise<void>;
