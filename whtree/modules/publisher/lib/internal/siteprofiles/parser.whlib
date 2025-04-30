@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
@@ -1501,16 +1502,19 @@ OBJECTTYPE RecompileParameters
   PUBLIC RECORD ARRAY customnodes;
   PUBLIC STRING ARRAY basesiteprofiles;
   PUBLIC RECORD ARRAY assetpacks;
+  PUBLIC RECORD webdesigns;
 
   MACRO NEW()
   {
     this->assetpacks := __GetExtractedConfig("assetpacks");
+    this->webdesigns := __GetExtractedConfig("webdesigns");
 
     FOREVERY(RECORD mod FROM GetWebHareModules())
     {
       this->webdesignplugins := this->webdesignplugins CONCAT mod.webdesignplugins;
       this->customnodes := this->customnodes CONCAT mod.customnodes;
-      this->basesiteprofiles := this->basesiteprofiles CONCAT mod.basesiteprofiles;
     }
+
+    this->basesiteprofiles := GetSortedSet(this->basesiteprofiles CONCAT STRING ARRAY(this->webdesigns.siteprofiles));
   }
 >;

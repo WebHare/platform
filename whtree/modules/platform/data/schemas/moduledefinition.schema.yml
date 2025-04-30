@@ -24,6 +24,9 @@ properties:
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/$defs/AssetPacks"
+  siteProfiles:
+    description: Global Site profiles
+    $ref: "#/$defs/SiteProfiles"
   webFeatures:
     description: "Web features (apply additional siteprofiles)"
     $ref: "#/$defs/WebFeatures"
@@ -337,6 +340,21 @@ $defs:
       required:
         - resourceMask
         - schema
+
+  SiteProfiles:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+      - path
+      properties:
+        path:
+          type: string
+          description: "Path to the site profile"
+        ifWebHare:
+          description: "Restrict site profile to specific installations or versions"
+          $ref: "#/$defs/IfWebHare"
 
   WebFeatures:
     type: object

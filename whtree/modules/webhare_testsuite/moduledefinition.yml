@@ -66,6 +66,10 @@ assetPacks:
     supportedLanguages: [en nl]
     whPolyfills: false
 
+siteProfiles:
+  - path: data/wts.siteprl.yml
+  - path: tests/consilio/data/consiliotests.siteprl.xml
+
 webFeatures:
   testfeature:
     title: "WH testsuite: Test feature"

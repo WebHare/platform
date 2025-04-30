@@ -11,6 +11,13 @@ export interface WebFeature {
   webDesignMasks: string[];
 }
 
+export type WebDesignsExtract = {
+  webDesigns: never[];
+  webFeatures: WebFeature[];
+  siteProfiles: string[];
+  //TODO shouldn't we add assetpacks too?
+};
+
 export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Document): WebFeature[] {
   const publishernode = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher").item(0);
   if (!publishernode)
@@ -36,19 +43,50 @@ export function getXMLWebfeatures(mod: string, resourceBase: string, modXml: Doc
   return webFeatures;
 }
 
+export function getXMLSiteProfiles(mod: string, resourceBase: string, modXml: Document): string[] {
+  const publishernode = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher").item(0);
+  if (!publishernode)
+    return [];
+
+  const siteProfiles = new Array<string>();
+
+  for (const node of elements(publishernode.getElementsByTagNameNS(publishernode.namespaceURI, "siteprofile"))) {
+    if (!isNodeApplicableToThisWebHare(node, ""))
+      continue;
+
+    siteProfiles.push(resolveResource(resourceBase, getAttr(node, "path")));
+  }
+
+  return siteProfiles;
+}
+
 export async function generateWebDesigns(context: GenerateContext): Promise<string> {
-  const webDesigns: never[] = [];
-  const webFeatures = new Array<WebFeature>();
+  const siteProfiles = new Set<string>();
+  const extract: WebDesignsExtract = {
+    webDesigns: [],
+    webFeatures: [],
+    siteProfiles: []
+  };
 
   for (const mod of context.moduledefs) {
-    if (mod.modXml)
-      webFeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
+    if (mod.modXml) {
+      extract.webFeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
+      getXMLSiteProfiles(mod.name, mod.resourceBase, mod.modXml).forEach(sp => siteProfiles.add(sp));
+    }
+
+    if (mod.modYml?.siteProfiles?.length)
+      for (const sp of mod.modYml.siteProfiles) {
+        if (sp.ifWebHare && !matchesThisServer(sp.ifWebHare))
+          continue;
+        siteProfiles.add(resolveResource(mod.resourceBase, sp.path));
+      }
 
     for (const [featurename, featuredef] of Object.entries(mod.modYml?.webFeatures ?? [])) {
       if (featuredef.ifWebHare && !matchesThisServer(featuredef.ifWebHare))
         continue;
 
-      webFeatures.push({
+
+      extract.webFeatures.push({
         name: `${mod.name}:${featurename}`,
         title: featuredef.title ? ":" + featuredef.title : '',
         hidden: featuredef.hidden || false,
@@ -57,5 +95,7 @@ export async function generateWebDesigns(context: GenerateContext): Promise<stri
       });
     }
   }
-  return JSON.stringify({ webDesigns, webFeatures }, null, 2) + "\n";
+
+  extract.siteProfiles = [...siteProfiles].toSorted();
+  return JSON.stringify(extract, null, 2) + "\n";
 }

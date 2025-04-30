@@ -106,11 +106,6 @@
   </portal>
 
   <publisher>
-    <siteprofile path="data/consilio.siteprl.xml" />
-
-    <!-- webfeatures/sitecontent implements frontend parts for consilio. it's always active, not something to enable -->
-    <siteprofile path="webfeatures/sitecontent/sitecontent.siteprl.xml" />
-
     <webdesignplugin name="robots"
                      namespace="http://www.webhare.net/xmlns/consilio"
                      objectname="lib/internal/webdesignplugin.whlib#robotsplugin" />

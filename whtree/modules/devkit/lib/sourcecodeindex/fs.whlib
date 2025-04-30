@@ -45,15 +45,18 @@ PUBLIC STATIC OBJECTTYPE DevFileSystem
     RETURN SELECT AS STRING importfrom FROM objs WHERE ToUppercase(name) = ToUppercase(objtype);
   }
 
-  UPDATE PUBLIC STRING ARRAY FUNCTION GetModuleGroupsFromDef(STRING module)
-  {
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetModuleGroupsFromDef(STRING module) {
     STRING ARRAY resnames;
 
     RECORD moduledef := GetWebhareModuleInfo(module);
     IF (NOT RecordExists(moduledef))
       RETURN resnames;
 
-    resnames := resnames CONCAT moduledef.basesiteprofiles;
+    RECORD webdesigns_config := __GetExtractedConfig("webdesigns");
+    FOREVERY(STRING sp FROM webdesigns_config.siteprofiles)
+      IF(sp LIKE `mod::${module}/*`)
+        INSERT sp INTO resnames AT END;
+
     resnames := resnames CONCAT
         SELECT AS STRING ARRAY resourcename
           FROM GetComponentSources("tolliumcomponents") CONCAT GetComponentSources("formcomponents")

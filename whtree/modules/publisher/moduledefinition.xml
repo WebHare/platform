@@ -547,12 +547,6 @@
     <objecteditor name="texteditor" documenteditor="tolliumapps/texteditor/texteditor.xml" supportsreadonly="true" />
     <objecteditor name="adaptivecontent_beacon" screen="/tolliumapps/filemanager/adaptivecontent.xml#beaconprops" />
 
-    <siteprofile path="data/publisher.siteprl.xml" />
-    <siteprofile path="data/embeddedobjects.siteprl.xml" />
-    <siteprofile path="data/siteprofiles/contentlibraries.siteprl.xml" />
-    <siteprofile path="data/siteprofiles/webtools.siteprl.xml" />
-    <siteprofile path="widgets/widgets.siteprl.xml" />
-
     <virtualfs name="publisher" objectname="lib/internal/virtualfs-publisher.whlib#PublisherFSWithNoDefault">
       <accesscheck>
         <requireright right="system:fs_browse" />

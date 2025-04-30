@@ -60,6 +60,17 @@ assetPacks:
     supportedLanguages: [en]
     whPolyfills: false #actually no platform assetpacks should every be recompiled by webservices list changes
 
+siteProfiles:
+  - path: mod::consilio/data/consilio.siteprl.xml
+  - path: mod::consilio/webfeatures/sitecontent/sitecontent.siteprl.xml
+  - path: mod::publisher/data/publisher.siteprl.xml
+  - path: mod::publisher/data/embeddedobjects.siteprl.xml
+  - path: mod::publisher/data/siteprofiles/contentlibraries.siteprl.xml
+  - path: mod::publisher/data/siteprofiles/webtools.siteprl.xml
+  - path: mod::publisher/widgets/widgets.siteprl.xml
+  - path: mod::tollium/data/tollium.siteprl.xml
+  - path: mod::wrd/data/wrd.siteprl.xml
+
 webFeatures:
   identityprovider:
     siteProfile: webfeatures/identityprovider/identityprovider.siteprl.xml
