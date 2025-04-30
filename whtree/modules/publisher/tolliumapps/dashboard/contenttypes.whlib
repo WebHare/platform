@@ -50,7 +50,7 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
     //Gather our information..
-    RECORD ARRAY contenttypes := CallJS("@mod-platform/js/devsupport/siteprofiles.ts#listFSContentTypes", ^filter->value);
+    RECORD ARRAY contenttypes := CallJS("@mod-platform/js/devsupport/siteprofiles.ts#listFSContentTypes", `*${^filter->value}*`);
     ^types->rows := SELECT *
                          , rowkey := id
                          , listrowclasses:= candelete ? ["grayedout"] : STRING[]
