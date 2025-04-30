@@ -1,7 +1,7 @@
 /* Generates various extracts of moduledefinition information */
 
 import { resolveResource } from "@webhare/services";
-import { type FileToUpdate, type GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
+import { type FileToUpdate, type GenerateContext, isNodeApplicableToThisWebHare, matchesThisServer } from "./shared";
 import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
 import { addModule } from "@webhare/services/src/naming";
@@ -141,6 +141,9 @@ export function getYMLAssetPacks(modYml: ModDefYML): AssetPack[] {
   const packs: AssetPack[] = [];
   if (modYml.assetPacks)
     for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
+      if (assetpack.ifWebHare && !matchesThisServer(assetpack.ifWebHare))
+        continue;
+
       const esBuildPlugins = [];
       for (const plugged of assetpack.esBuildPlugins || [])
         esBuildPlugins.push({

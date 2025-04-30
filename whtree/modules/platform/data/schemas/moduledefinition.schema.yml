@@ -272,6 +272,9 @@ $defs:
           compatibility:
             description: "The compatibility settings for generated code. es2016-es2021 or esnext. See also https://esbuild.github.io/content-types/#javascript"
             type: string
+          ifWebHare:
+            description: "Restrict asset pack to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
           whPolyfills:
             description: "Whether to include WebHare polyfills (defaults to true)"
             type: boolean
@@ -355,6 +358,9 @@ $defs:
             items:
               type: string
             description: "Limit webdesigns to which this feature can apply"
+          ifWebHare:
+            description: "Restrict webfeature to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
 
   PxlEvents:
     type: object

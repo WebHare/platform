@@ -1,5 +1,5 @@
 import { resolveResource } from "@webhare/services";
-import { type GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
+import { type GenerateContext, isNodeApplicableToThisWebHare, matchesThisServer } from "./shared";
 import { elements, getAttr, parseXMLTidPtr, determineNodeGid } from "./xmlhelpers";
 import type { Document } from "@xmldom/xmldom";
 
@@ -45,6 +45,9 @@ export async function generateWebDesigns(context: GenerateContext): Promise<stri
       webFeatures.push(...getXMLWebfeatures(mod.name, mod.resourceBase, mod.modXml));
 
     for (const [featurename, featuredef] of Object.entries(mod.modYml?.webFeatures ?? [])) {
+      if (featuredef.ifWebHare && !matchesThisServer(featuredef.ifWebHare))
+        continue;
+
       webFeatures.push({
         name: `${mod.name}:${featurename}`,
         title: featuredef.title ? ":" + featuredef.title : '',
