@@ -42,6 +42,7 @@ export type SharpGifOptions = sharp.GifOptions;
 
 ////////////////////////////// Puppeteer //////////////////////////
 import type * as Puppeteer from "puppeteer";
+import { openBackendService } from "@webhare/services/src/backendservice";
 export type * as Puppeteer from "puppeteer"; //allows access to Puppeteer.Browser, Puppeteer.Page, ..
 
 let puppeteerpromise: Promise<typeof Puppeteer> | undefined = undefined;
@@ -62,7 +63,7 @@ export async function launchPuppeteer(options?: Puppeteer.LaunchOptions): Promis
   return puppet;
 }
 
-/** Connect Puppeteer to existing browser */
+/** Connect to an existing browser */
 export async function connectPuppeteer(options: Puppeteer.ConnectOptions): Promise<Puppeteer.Browser & AsyncDisposable> {
   if (!puppeteerpromise)
     puppeteerpromise = import("puppeteer");
@@ -73,4 +74,26 @@ export async function connectPuppeteer(options: Puppeteer.ConnectOptions): Promi
     throw new Error("Puppet unexpectedly lacks Symbol.asyncDispose");
 
   return puppet;
+}
+
+/** Connect to WebHare's shared chrome headless runner
+    @returns A browser context (not a Browser!) that can be used to create pages
+*/
+export async function connectSharedPuppeteer(options?: Puppeteer.BrowserContextOptions): Promise<Puppeteer.BrowserContext & AsyncDisposable> {
+  const headlessRunner = await openBackendService("system:chromeheadlessrunner");
+  const session = await headlessRunner.getConnectParams();
+
+  const puppet = await connectPuppeteer({
+    browserURL: session.connectorurl,
+    ...options
+  });
+
+  const context = await puppet.createBrowserContext() as Puppeteer.BrowserContext & AsyncDisposable;
+
+  //Set up a dispose API
+  context[Symbol.asyncDispose] = async () => {
+    await context.close();
+  };
+
+  return context;
 }

@@ -227,12 +227,18 @@ STATIC OBJECTTYPE ChromeHeadlessController
   // Public API
   //
 
+  PUBLIC ASYNC FUNCTION GetConnectParams() {
+    AWAIT this->serializer->Call(PTR this->EnsureProcess);
+    this->idletimer->Reset();
+
+    RETURN CELL [ connectorurl := this->GetConnectorURL() ];
+  }
+
   PUBLIC ASYNC FUNCTION CreateSession()
   {
-    AWAIT this->serializer->Call(PTR this->EnsureProcess);
+    RECORD connectparams := AWAIT this->GetConnectParams();
 
     this->connecting := this->connecting + 1;
-    this->idletimer->Reset();
 
     TRY
     {
@@ -246,9 +252,9 @@ STATIC OBJECTTYPE ChromeHeadlessController
 
       sessrec := CELL
           [ ...sessrec
+          , ...connectparams
           , __sessionend := CreateDeferredPromise()
           , timer :=        NEW WaitableTimer(max_session_length)
-          , connectorurl := this->GetConnectorURL()
           ];
 
       sessrec.timer->WaitSignalled()->Then(PTR this->SessionTimerExpired(sessrec));
@@ -338,6 +344,10 @@ STATIC OBJECTTYPE TestBrowserRunnerControl
   //
   // Public API
   //
+
+  PUBLIC ASYNC FUNCTION GetConnectParams() {
+    RETURN AWAIT this->controller->GetConnectParams();
+  }
 
   PUBLIC ASYNC FUNCTION CreateSession()
   {

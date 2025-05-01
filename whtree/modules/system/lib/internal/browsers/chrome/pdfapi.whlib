@@ -294,18 +294,11 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN CELL[...options, DELETE cookies, DELETE delay];
   }
 
-  PUBLIC ASYNC FUNCTION GeneratePDFFrom(STRING url, RECORD wrappedfile, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC ASYNC FUNCTION GeneratePDFFrom(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->embedded_files := options.embeddedfiles;
     options := CELL[...options, DELETE embeddedfiles];
-    IF(url !=  "")
-    {
-      RETURN this->GeneratePDFFromURL(url, options);
-    }
-    ELSE
-    {
-      RETURN this->GeneratePDFInternal(wrappedfile.data, options);
-    }
+    RETURN this->GeneratePDFFromURL(url, options);
   }
 
   ASYNC FUNCTION InvokeIfDone(STRING ifdone)
