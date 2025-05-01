@@ -69,7 +69,7 @@ async function listNPMIssues(path: string) {
   /* `npm ls --json --prefix <dir>` is not the same as `cd <dir> ; npm ls --json`
      looks like prefix doesn't consider workspaces */
   const { stdout/*, stderr*/ } = await promisify(execFile)("npm",
-    ["ls", "--json",],
+    ["ls", "--json", "--omit=dev", "--omit=peer"],
     { timeout: 15000, killSignal: "SIGKILL", cwd: path }
   ).then(e => e, e => e); //convert catch back to a normal result (happens on exitcode 1)
 

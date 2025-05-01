@@ -115,7 +115,8 @@ export function getPGConnection() {
     throw new Error("WEBHARE_BASEPORT not set in environment");
 
   const pgclient = new Connection({
-    host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST) + "/.s.PGSQL." + process.env.PGPORT, //apparently it needs to be spelled out..
+    port: parseInt(process.env.PGPORT!) || 5432,
+    host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST),
     database: process.env.WEBHARE_DBASENAME,
     rollbackOnError: false
   });
