@@ -182,8 +182,8 @@ class TowlNotifications {
 
       if (!data.div) {
         // Create and show the div
-        const newelement = dompack.create("t-towlnotification"
-          , {
+        const newelement = dompack.create("t-towlnotification",
+          {
             className: "hidden",
             on: { click: evt => this._handleClick(data) }
           });

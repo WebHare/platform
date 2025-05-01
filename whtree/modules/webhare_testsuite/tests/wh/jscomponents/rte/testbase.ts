@@ -801,8 +801,8 @@ test.runTests(
         rtetest.getRTESelection(win, rte); // FIXME: remove, only used for showing state by debug statements
 
         test.eq(true, rte.getSelectionState().hyperlink);
-        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p><a href="http://www.b-lex.nl/" target="_blank">but sometimes</a> they don\'t make sense</p><p>refrigerator</p>'
-          , win.rte.getValue().toLowerCase());
+        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p><a href="http://www.b-lex.nl/" target="_blank">but sometimes</a> they don\'t make sense</p><p>refrigerator</p>',
+          win.rte.getValue().toLowerCase());
 
         rtetest.setRTESelection(win, rte, {
           startContainer: body.childNodes[1].firstChild.firstChild,
@@ -829,16 +829,16 @@ test.runTests(
         test.assert(win.rte.isDirty());
 
         test.eq(true, rte.getSelectionState().hyperlink);
-        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p><a href="http://www.example.net/" target="_blank">but sometimes</a> they don\'t make sense</p><p>refrigerator</p>'
-          , win.rte.getValue().toLowerCase());
+        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p><a href="http://www.example.net/" target="_blank">but sometimes</a> they don\'t make sense</p><p>refrigerator</p>',
+          win.rte.getValue().toLowerCase());
 
         win.rte.clearDirty();
         win.rte.updateTarget(result.detail.actiontarget, { destroy: true });
         test.assert(win.rte.isDirty());
 
         test.eq(false, rte.getSelectionState().hyperlink);
-        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'
-          , win.rte.getValue().toLowerCase());
+        test.eqHTML('<p>haikus are <a href="http://www.b-lex.nl/" target="_blank">easy</a></p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>',
+          win.rte.getValue().toLowerCase());
 
         rte.selectNodeInner(rte.getBody());
         test.eq(true, rte.getSelectionState().hyperlink);

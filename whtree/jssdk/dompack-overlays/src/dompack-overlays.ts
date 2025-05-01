@@ -326,32 +326,31 @@ class ResizeableOverlayRectangle { //we may export these separately in the futur
     this.nodes.container.addEventListener("dompack:move", this._onDragMoveOverlay);
     this.nodes.container.addEventListener("dompack:moveend", this._onDragEnd);
 
-    new Keyboard(this.nodes.container
-      , {
-        "ArrowUp": () => this._moveBy(0, -1),
-        "ArrowDown": () => this._moveBy(0, 1),
-        "ArrowLeft": () => this._moveBy(-1, 0),
-        "ArrowRight": () => this._moveBy(1, 0),
+    new Keyboard(this.nodes.container, {
+      "ArrowUp": () => this._moveBy(0, -1),
+      "ArrowDown": () => this._moveBy(0, 1),
+      "ArrowLeft": () => this._moveBy(-1, 0),
+      "ArrowRight": () => this._moveBy(1, 0),
 
-        "Shift+ArrowUp": () => this._moveBy(0, -10),
-        "Shift+ArrowDown": () => this._moveBy(0, 10),
-        "Shift+ArrowLeft": () => this._moveBy(-10, 0),
-        "Shift+ArrowRight": () => this._moveBy(10, 0),
+      "Shift+ArrowUp": () => this._moveBy(0, -10),
+      "Shift+ArrowDown": () => this._moveBy(0, 10),
+      "Shift+ArrowLeft": () => this._moveBy(-10, 0),
+      "Shift+ArrowRight": () => this._moveBy(10, 0),
 
-        "PageUp": () => this._moveBy(0, -50),
-        "PageDown": () => this._moveBy(0, 50),
-        "Home": () => this._moveBy(-50, 0),
-        "End": () => this._moveBy(50, 0),
+      "PageUp": () => this._moveBy(0, -50),
+      "PageDown": () => this._moveBy(0, 50),
+      "Home": () => this._moveBy(-50, 0),
+      "End": () => this._moveBy(50, 0),
 
-        "Accel+ArrowUp": () => this._moveToBoundsTop(),
-        "Accel+ArrowDown": () => this._moveToBoundsBottom(),
-        "Accel+ArrowLeft": () => this._moveToBoundsLeft(),
-        "Accel+ArrowRight": () => this._moveToBoundsRight(),
+      "Accel+ArrowUp": () => this._moveToBoundsTop(),
+      "Accel+ArrowDown": () => this._moveToBoundsBottom(),
+      "Accel+ArrowLeft": () => this._moveToBoundsLeft(),
+      "Accel+ArrowRight": () => this._moveToBoundsRight(),
 
-        "Escape": (e) => this._onDragCancel(e),
+      "Escape": (e) => this._onDragCancel(e),
 
-        "Delete": (e) => this.deleteSelf(e)
-      });
+      "Delete": (e) => this.deleteSelf(e)
+    });
   }
 
   /** if specified area is a change, the changed will be used and an overlay change event will be fired

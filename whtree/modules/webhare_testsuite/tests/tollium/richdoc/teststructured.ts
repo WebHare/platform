@@ -85,8 +85,8 @@ test.runTests(
 
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
           + '<div class="wh-rtd-embeddedobject" data-instanceref="' + encodeString(instanceref, 'attribute') + '"></div>'
-          + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>'
-          , comparecode);
+          + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>',
+          comparecode);
 
         // use the original rawcode for modification
         test.fill(rtetest.getRawHTMLTextArea(win), rawcode.split('be selected').join('no longer be selected'));

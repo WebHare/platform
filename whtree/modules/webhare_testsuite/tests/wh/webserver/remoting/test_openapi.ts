@@ -6,7 +6,6 @@ import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import type * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
 import { OpenAPIAuthtestsClient } from "wh:openapi/webhare_testsuite/authtests";
-import { debugFlags } from "@webhare/env";
 
 let userapiroot = '', authtestsroot = '';
 
@@ -199,7 +198,6 @@ async function testCORS() {
   const authService = new OpenAPIAuthtestsClient(authFetch);
 
   { // Fake preflight requests
-    debugFlags.wrq = true;
     const res = await authService.invoke("OPTIONS", "/dummy", null, {
       headers: {
         "Access-Control-Request-Method": "DELETE", // invalid method
@@ -419,10 +417,12 @@ async function verifyPublicParts() {
   test.eq(HTTPErrorCode.BadRequest, invalidparametercall.status);
   test.eq({ status: HTTPErrorCode.BadRequest, error: "Invalid parameter searchFor: must NOT have more than 100 characters (limit=100)" }, await invalidparametercall.json());
 
+
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
   test.eq("Authorization", deniedcall.headers.get("www-authenticate"));
   test.eq({ message: "Dude where's my key?" }, await deniedcall.json());
+
 
   // Test decoding of encoded variables
   const validatecall = await fetch(userapiroot + "validateoutput?test=with%2F");

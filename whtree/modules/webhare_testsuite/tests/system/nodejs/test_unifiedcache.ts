@@ -126,86 +126,86 @@ async function testResizeMethods() {
     formatOptions: { lossless: false, quality: 80 }
   }, getSharpResizeOptions(exampleSnowbeagle, { method: "fill", height: 100, width: 100, format: "image/webp", bgColor: 0xFFFF0000 }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(examplePng, { method: "none", format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(examplePng, { method: "none", format: "keep" }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", format: "image/png" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", format: "image/png" }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: true }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: false }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: true }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", format: "image/png", noForce: false }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 } }
-    , explainImageProcessing(examplerefPoint, { method: "none", format: "image/png", noForce: false }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 180, y: 180 } },
+    explainImageProcessing(examplerefPoint, { method: "none", format: "image/png", noForce: false }));
 
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
 
   //non web formats should still be converted (tiff->jpeg, bmp->png)
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "none", format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "none", noForce: false, format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleBmp, { method: "none", noForce: false, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleTiff, { method: "none", format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleTiff, { method: "none", noForce: false, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: false, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleBmp, { method: "none", noForce: false, format: "keep" }));
 
   //Fit reduces a too-big input canvas and will return a canvas of varying size. Fitcanvas will always return a canvas of setWidth x setHeight and center the image
 
   //equal dimensions
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 320, height: 240, format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 320, height: 240, format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleTiff, { method: "fit", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleTiff, { method: "fit", width: 320, height: 240, format: "keep" }));
 
   //on a 640X480 canvas, fit won't change a thing. fitcanvas will grow it.
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 480, format: "keep" })
   );
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 160, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 160, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 480, format: "keep" })
   );
 
   //on a 200x100 canvas, fit should go for 134x100. fitcanvas should still go for 200x100 but horizontally center it
-  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 100, format: "keep" })
+  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 100, format: "keep" })
   );
-  test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: 33, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 100, format: "keep" })
+  test.eqPartial({ outWidth: 200, outHeight: 100, outType: "image/jpeg", renderX: 33, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 100, format: "keep" })
   );
 
   //Fitting to 640x0 (fit: 320x240, fitcanvas: 640x240)
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 640, height: 0, format: "keep" })
   );
-  test.eqPartial({ outWidth: 640, outHeight: 240, outType: "image/jpeg", renderX: 160, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 240, outType: "image/jpeg", renderX: 160, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 640, height: 0, format: "keep" })
   );
   //Fitting to 200x0 canvas, fit should go for 200x150. fitcanvas agrees
-  test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 200, height: 0, format: "keep" })
   );
-  test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 200, outHeight: 150, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 200, renderHeight: 150, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 200, height: 0, format: "keep" })
   );
   //Fitting to 0x480 (fit: 320x240, fitcanvas: 320x480)
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 480, format: "keep" })
   );
-  test.eqPartial({ outWidth: 320, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 320, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 120, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 480, format: "keep" })
   );
   //Fitting to 0x100 canvas, fit should go for 134x100. fitcanvas agrees
-  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 100, format: "keep" })
+  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fit", width: 0, height: 100, format: "keep" })
   );
-  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 100, format: "keep" })
+  test.eqPartial({ outWidth: 134, outHeight: 100, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 134, renderHeight: 100, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fitcanvas", width: 0, height: 100, format: "keep" })
   );
 
   //refPoint is irrelevant for cutoffs (but still scaled)
@@ -226,79 +226,79 @@ async function testResizeMethods() {
   //Scale
 
   //equal dimensions
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 320, height: 240, format: "keep" }));
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scale", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 320, height: 240, format: "keep" }));
 
   //on a 640X480 canvas, scale and scalecanvas will grow it.
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 480, format: "keep" })
   );
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 480, format: "keep" })
   );
 
   //on a 640X400 canvas, scale and scalecanvas will grow it, but scalecanvas will return 640x400, scale will return 534x400
-  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 400, format: "keep" })
   );
-  test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 53, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 53, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 400, format: "keep" })
   );
 
 
   //on a 640X0 canvas, scale and scalecanvas will grow it.
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scale", width: 640, height: 0, format: "keep" })
   );
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 640, height: 0, format: "keep" })
   );
 
   //on a 0x400 canvas, scale and scalecanvas will grow it.
-  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scale", width: 0, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scale", width: 0, height: 400, format: "keep" })
   );
-  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 0, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "scalecanvas", width: 0, height: 400, format: "keep" })
   );
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 90, outType: "image/png", renderX: 0, renderY: 0, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 68 }
-  }
-    , explainImageProcessing(examplerefPoint, { method: "scale", width: 120, height: 120, format: "keep" }));
+  },
+    explainImageProcessing(examplerefPoint, { method: "scale", width: 120, height: 120, format: "keep" }));
 
   //refPoint is irrelevant for cutoffs (but still scaled)
   test.eqPartial({
     outWidth: 120, outHeight: 120, outType: "image/png", renderX: 0, renderY: 15, renderWidth: 120, renderHeight: 90, bgColor: 0x00FFFFFF, noForce: true, quality: 100, grayscale: false, rotate: 0, mirror: false, blur: 0, refPoint: { x: 68, y: 83 }
-  }
-    , explainImageProcessing(examplerefPoint, { method: "scalecanvas", width: 120, height: 120, format: "keep" }));
+  },
+    explainImageProcessing(examplerefPoint, { method: "scalecanvas", width: 120, height: 120, format: "keep" }));
 
   //Fill
 
   //equal dimensions
-  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 320, height: 240, format: "keep" }));
+  test.eqPartial({ outWidth: 320, outHeight: 240, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 320, renderHeight: 240, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fill", width: 320, height: 240, format: "keep" }));
 
   //fill to 640X480 canvas, simply stretches it
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 480, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 480, format: "keep" })
   );
 
   //fill to 640x400, render a 640x480 picture but position it at -40
-  test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: -40, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: -40, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 400, format: "keep" })
   );
 
   //fill to 640x0, render a 640x480 picture
-  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 0, format: "keep" })
+  test.eqPartial({ outWidth: 640, outHeight: 480, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 640, renderHeight: 480, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fill", width: 640, height: 0, format: "keep" })
   );
   //fill to 0x400, render a 534x400 picture
-  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 }
-    , explainImageProcessing(exampleJpg, { method: "fill", width: 0, height: 400, format: "keep" })
+  test.eqPartial({ outWidth: 534, outHeight: 400, outType: "image/jpeg", renderX: 0, renderY: 0, renderWidth: 534, renderHeight: 400, bgColor: 0x00FFFFFF, noForce: true, quality: 85, grayscale: false, rotate: 0, mirror: false, blur: 0 },
+    explainImageProcessing(exampleJpg, { method: "fill", width: 0, height: 400, format: "keep" })
   );
 
   //in the output, the image must be rendered somewhat more to the left (-23 (22.5) instead of -20)

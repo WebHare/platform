@@ -191,15 +191,14 @@ export default class ObjSplit extends ComponentBase {
     const max = this.horizontal ? dragnextrect.left - thisnoderect.left + dragnextrect.width - splittersize - nextcomp.width.min
       : dragnextrect.top - thisnoderect.top + dragnextrect.height - splittersize - nextcomp.height.min;
 
-    const mover = dompack.create("t-split__movingsplitter"
-      , {
-        style: {
-          height: pos.height,
-          left: pos.left,
-          top: pos.top,
-          width: pos.width
-        }
-      });
+    const mover = dompack.create("t-split__movingsplitter", {
+      style: {
+        height: pos.height,
+        left: pos.left,
+        top: pos.top,
+        width: pos.width
+      }
+    });
     this.node.appendChild(mover);
 
     this.draginfo = {

@@ -22,8 +22,8 @@ test.runTests(
         const normalrow = test.getCurrentScreen().getListRow('normal', /^SU45 .*/);
         const footerrow = test.getCurrentScreen().getListRow('normal', 'footer-subject');
         for (let i = 0; i < 4; ++i)
-          test.eq(normalrow.childNodes[i].getBoundingClientRect().width
-            , footerrow.childNodes[i].getBoundingClientRect().width, 'width of plain and footer cells should match in col #' + i);
+          test.eq(normalrow.childNodes[i].getBoundingClientRect().width,
+            footerrow.childNodes[i].getBoundingClientRect().width, 'width of plain and footer cells should match in col #' + i);
       }
     }
   ]);
