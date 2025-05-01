@@ -32,8 +32,8 @@ export abstract class WebHareBlob implements Blob {
     if ("readUInt8" in str || str instanceof Uint8Array) // Buffer or Uint8Array
       return new WebHareMemoryBlob(str);
     if ("byteOffset" in str && "byteLength" in str) // Other typed array (ArrayBufferView), DataView
-      return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str.buffer, str.byteOffset, str.byteLength));
-    return new WebHareMemoryBlob(new Uint8Array<ArrayBufferLike>(str));
+      return new WebHareMemoryBlob(new Uint8Array(str.buffer, str.byteOffset, str.byteLength));
+    return new WebHareMemoryBlob(new Uint8Array(str));
   }
 
   /** Create a WebHare blob from a JavaScript Blob */

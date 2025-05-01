@@ -1,3 +1,4 @@
+import type { ReadableStream } from "node:stream/web";
 import { generateRandomId } from '@webhare/std';
 import { mkdir, rename, stat, unlink } from 'node:fs/promises';
 import * as path from 'node:path';

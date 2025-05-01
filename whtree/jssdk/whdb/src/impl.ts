@@ -14,6 +14,7 @@ import {
   type Updateable as KUpdateable,
 } from 'kysely';
 
+import type { ReadableStream } from "node:stream/web";
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { type BackendEvent, type BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import type { WebHareBlob } from '@webhare/services/src/webhareblob';

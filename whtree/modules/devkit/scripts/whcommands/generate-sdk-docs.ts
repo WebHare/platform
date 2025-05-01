@@ -34,7 +34,7 @@ run({
     console.log(`Using TypeScript ${app.getTypeScriptVersion()} in ${app.getTypeScriptPath()}`);
 
     if (opts.watch) {
-      app.convertAndWatch(p => renderProject(app, p, opts));
+      await app.convertAndWatch(p => renderProject(app, p, opts));
     } else {
       const project = await app.convert();
       if (project)
