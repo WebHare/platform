@@ -225,52 +225,6 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
   //
   // More stuff
   //
-
-  // Incoming link connection
-  MACRO HandleLinkConnection()
-  {
-    OBJECT link := this->linkport->Accept(DEFAULT DATETIME);
-
-    // Keep link handling internal until we know its a comm link
-    IF (ObjectExists(link))
-      link->userdata := [ cbid := RegisterHandleReadCallback(link->handle, PTR this->LinkConnectionSignalled(link)) ];
-  }
-
-  MACRO LinkConnectionSignalled(OBJECT link)
-  {
-    RECORD msg := link->ReceiveMessage(DEFAULT DATETIME);
-    IF (msg.status = "timeout")
-      RETURN;
-
-    IF (msg.status = "gone")
-    {
-      UnregisterCallback(link->userdata.cbid);
-      link->Close();
-      RETURN;
-    }
-
-    TRY
-    {
-      STRING type := this->GetMsgCell(msg.msg, "TYPE", TypeID(STRING));
-      IF (type = "linkmessages")
-      {
-        // Handoff to dispatcher
-        UnregisterCallback(link->userdata.cbid);
-        this->dispatcher->RegisterLink(link, msg.msg);
-      }
-    }
-    CATCH (OBJECT e)
-    {
-    }
-  }
-
-  VARIANT FUNCTION GetMsgCell(RECORD message, STRING name, INTEGER type)
-  {
-    IF (NOT this->IsCellOk(message, name, type))
-      THROW NEW Exception("Wrong message format, expected '"||ToLowercase(name)||"' cell");
-    RETURN GetCell(message, name);
-  }
-
   MACRO CleanupOldApps()
   {
     DATETIME cutoff := AddTimeToDate(-keephistory*1000, GetCurrentDateTime());

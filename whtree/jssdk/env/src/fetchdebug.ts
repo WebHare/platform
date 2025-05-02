@@ -8,6 +8,8 @@ function sanitizeBody(body: unknown) {
     const view = new Uint8Array(body.slice(0, 5000)); //show the bytes but filter unprintable as '.'
     return Array.from(view).map(v => v >= 32 && v < 127 ? String.fromCharCode(v) : ".").join("");
   }
+  if (body instanceof URLSearchParams)
+    return body.toString();
   if (typeof body !== 'string') {
     return `[${typeof body}]`;
   }
