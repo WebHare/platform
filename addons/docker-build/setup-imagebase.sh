@@ -173,8 +173,10 @@ if [ "$(uname -m)" == "aarch64" ]; then
 true #no chromium now
  # CHROMEVERSION="$(/usr/bin/chromium-browser --version |cut -d' ' -f3)"
 else
-  # Install chrome
-  curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  # Install chrome. Looks like we can also find versions here: https://github.com/ulixee/chrome-versions/blob/main/versions.json
+  #CHROMEVERSION=current
+  CHROMEVERSION=135.0.7049.114-1
+  curl --output /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROMEVERSION}_amd64.deb
   apt-get install -y /tmp/chrome.deb
   rm /tmp/chrome.deb
 
