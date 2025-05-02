@@ -154,7 +154,7 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
 
       // Skip if the Tid isn't a single STRING (and give the first part which is a STRING)
       RECORD expect_comma_close := GetNextTok(file);
-      IF(tid NOT LIKE ":*" AND (NOT RecordExists(expect_comma_close) OR Left(expect_comma_close.token,1) NOT IN [",",")","]"]))
+      IF(tid NOT LIKE ":*" AND (NOT RecordExists(expect_comma_close) OR Left(expect_comma_close.token,1) NOT IN [",",")","]","}"]))
         CONTINUE;
 
       INSERT [ resourcename :=  resourcename
