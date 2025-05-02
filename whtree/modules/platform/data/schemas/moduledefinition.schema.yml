@@ -24,6 +24,9 @@ properties:
   assetPacks:
     description: JavaScript/asset bundles
     $ref: "#/$defs/AssetPacks"
+  siteProfiles:
+    description: Global Site profiles
+    $ref: "#/$defs/SiteProfiles"
   webFeatures:
     description: "Web features (apply additional siteprofiles)"
     $ref: "#/$defs/WebFeatures"
@@ -272,6 +275,9 @@ $defs:
           compatibility:
             description: "The compatibility settings for generated code. es2016-es2021 or esnext. See also https://esbuild.github.io/content-types/#javascript"
             type: string
+          ifWebHare:
+            description: "Restrict asset pack to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
           whPolyfills:
             description: "Whether to include WebHare polyfills (defaults to true)"
             type: boolean
@@ -335,6 +341,21 @@ $defs:
         - resourceMask
         - schema
 
+  SiteProfiles:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required:
+      - path
+      properties:
+        path:
+          type: string
+          description: "Path to the site profile"
+        ifWebHare:
+          description: "Restrict site profile to specific installations or versions"
+          $ref: "#/$defs/IfWebHare"
+
   WebFeatures:
     type: object
     additionalProperties: false
@@ -355,6 +376,9 @@ $defs:
             items:
               type: string
             description: "Limit webdesigns to which this feature can apply"
+          ifWebHare:
+            description: "Restrict webfeature to specific installations or versions"
+            $ref: "#/$defs/IfWebHare"
 
   PxlEvents:
     type: object

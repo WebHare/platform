@@ -677,8 +677,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , description          := ""
       , configscreen         := ""
       , version              := ""
-      , basesiteprofiles     := DEFAULT STRING ARRAY
-      //, tolliumcomponents    := DEFAULT RECORD ARRAY
       , packagingdownload    := FALSE
       , packagingapplicability := DEFAULT RECORD
       , packagingupgrade     := TRUE
@@ -1354,18 +1352,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           virtualfs.objectname := MakeAbsoluteResourcePath(this->respath, virtualfs.objectname);
 
           INSERT virtualfs INTO this->moduledef.virtualfs AT END;
-        }
-        CASE "siteprofile"
-        {
-          IF(subchild->HasAttribute("datafile"))
-          {
-            this->AddWarning(subchild,"<siteprofile datafile= has been deprecated. Please use path= and specify an absolute or relative path");
-            INSERT "mod::" || this->moduledef.name || "/data/" || subchild->GetAttribute("datafile") INTO this->moduledef.basesiteprofiles AT END;
-          }
-          ELSE IF(subchild->HasAttribute("path"))
-            INSERT MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("path")) INTO this->moduledef.basesiteprofiles AT END;
-          ELSE
-            this->AddError(subchild, "Specify either datafile= or path= for a <siteprofile/>");
         }
         CASE "objecteditor"
         {

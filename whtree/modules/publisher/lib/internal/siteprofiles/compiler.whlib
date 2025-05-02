@@ -18,6 +18,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 
 CONSTANT RECORD sp_translations := //JSON key spelling. Must match siteprofiles.ts CachedSiteProfiles and any used types
   CELL[ //valueConstraints
@@ -29,8 +30,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
   RETURN SELECT * FROM system.fs_types;
 }
 
-PUBLIC STATIC OBJECTTYPE RecompileContext
-<
+PUBLIC STATIC OBJECTTYPE RecompileContext <
   RECORD ARRAY current_fs_types;
   RECORD ARRAY current_fs_members;
 
@@ -121,8 +121,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
   RECORD ARRAY siteprofiles;
   RECORD ARRAY contenttypes;
 
-  MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteprofileids, STRING ARRAY loadpath)
-  {
+  MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteprofileids, STRING ARRAY loadpath) {
     IF(this->debug)
       Print("Load " || name || " from " || Detokenize(loadpath," >") || "\n");
 
@@ -169,16 +168,14 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
       Print("Done " || name || "\n");
   }
 
-  PUBLIC RECORD FUNCTION GatherSiteProfiles()
-  {
+  PUBLIC RECORD FUNCTION GatherSiteProfiles() {
+    RECORD webdesigns_config := __GetExtractedConfig("webdesigns");
+
     //Gather unique list of siteprofiles
     RECORD ARRAY webdesigns  := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE Length(siteprofiles) > 0;
     RECORD ARRAY webfeatures := SELECT * FROM GetAvailableWebFeatures() WHERE siteprofile != "";
     STRING ARRAY allsiteprls := SELECT AS STRING ARRAY siteprofile FROM webfeatures;
-    STRING ARRAY basesiteprofiles;
-
-    FOREVERY(RECORD mod FROM GetWebHareModules())
-      basesiteprofiles := basesiteprofiles CONCAT mod.basesiteprofiles;
+    STRING ARRAY basesiteprofiles := webdesigns_config.siteprofiles;
 
     FOREVERY(RECORD webdesign FROM webdesigns)
       allsiteprls := allsiteprls CONCAT webdesign.siteprofiles;
