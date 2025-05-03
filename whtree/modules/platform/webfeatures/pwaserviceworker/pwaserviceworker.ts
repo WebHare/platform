@@ -258,6 +258,7 @@ function onFetch(event: FetchEvent) {
   const urlpath = new URL(event.request.url).pathname;
   if (urlpath.startsWith('/.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('/.wh/dev/')
+    || urlpath.startsWith('/.wh/devkit/')
     || urlpath.startsWith('/.dev/debug.js')
     || urlpath.startsWith(getAssetPackBase("dev:devtools"))
     || urlpath.startsWith('/.publisher/sd/dev/devtools/')
