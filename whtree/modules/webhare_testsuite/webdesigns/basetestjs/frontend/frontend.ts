@@ -11,7 +11,7 @@ import * as dialogapi from 'dompack/api/dialog';
 import * as test from '@webhare/test';
 import * as env from '@webhare/env';
 import { expose } from "@webhare/test-frontend";
-import { frontendConfig, getFrontendData, getSiteRoot, isInTestFramework, setupFormAnalytics } from "@webhare/frontend";
+import { frontendConfig, getFrontendData, getGeoIPInfo, getSiteRoot, isInTestFramework, setupFormAnalytics, type GetIPInfoOptions } from "@webhare/frontend";
 
 import './forms/forms';
 import './rtd/rtd';
@@ -51,7 +51,8 @@ const baseTestApi = expose("baseTestApi", {
   frontendConfig,
   env,
   getMyFrontendData: () => getFrontendData("webhare_testsuite:basetestjs"),
-  getTidTest
+  getTidTest,
+  getGeoIPInfo: (options?: GetIPInfoOptions) => getGeoIPInfo(options)
 });
 void baseTestApi;
 export type BaseTestApi = typeof baseTestApi;

@@ -3,4 +3,7 @@
   <jstest file="test-geoip.ts" />
   <jstest file="test-ga4.ts" />
   <jstest file="test-gtmintegration.ts" />
+  <group site="webhare_testsuite.testsitejs">
+    <jstest file="test-geoip-frontendapi.ts" />
+  </group>
 </group>
