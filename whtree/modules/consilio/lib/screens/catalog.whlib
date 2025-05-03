@@ -832,8 +832,10 @@ PUBLIC STATIC OBJECTTYPE EditCatalogIndex EXTEND TolliumScreenBase
     IF(indexname != "" AND NOT IsValidConsilioIndexName(indexname))
       work->AddErrorFor(^indexname, this->GetTid(".invalidindexname"));
 
-    IF(work->HasFailed())
-      RETURN work->Finish();
+    IF(work->HasFailed()) {
+      work->Finish();
+      RETURN 0;
+    }
 
     INTEGER newindexid := this->catalog->AttachIndex(^indexmanager->value, CELL[indexname]);
     RETURN work->Finish() ? newindexid : 0;
