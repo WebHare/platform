@@ -359,41 +359,4 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       AWAIT this->DiscardSession();
     }
   }
-
-  PUBLIC ASYNC FUNCTION GenerateScreenshotFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    INTEGER logpos := Length(this->logevents);
-
-    TRY
-    {
-      options := AWAIT this->GotoThePage(url, options);
-
-      RECORD result := AWAIT this->page->Screenshot(CELL[...options, DELETE cutouts]);
-      RECORD ARRAY cutouts;
-      FOREVERY(RECORD cutout FROM options.cutouts)
-      {
-        RECORD rect;
-        OBJECT el := AWAIT this->page->mainFrame->"$"(cutout.selector);
-        IF(ObjectExists(el))
-          rect := AWAIT el->__getBoundingClientRect();
-
-        INSERT CELL[ ...cutout
-                   , found := RecordExists(rect)
-                   , x := RecordExists(rect) ? rect.left : 0
-                   , y := RecordExists(rect) ? rect.top : 0
-                   , width := RecordExists(rect) ? rect.width : 0
-                   , height := RecordExists(rect) ? rect.height : 0
-                   ] INTO cutouts AT END;
-      }
-
-      RETURN CELL[ ...result
-                 , log := ArraySlice(this->logevents, logpos)
-                 , cutouts
-                 ];
-    }
-    FINALLY
-    {
-      AWAIT this->DiscardSession();
-    }
-  }
 >;

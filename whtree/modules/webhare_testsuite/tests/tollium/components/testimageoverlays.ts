@@ -52,8 +52,8 @@ test.runTests(
     },
     {
       name: "Page with preset overlays",
-      loadpage: test.getCompTestPage('image-overlays'
-        , {
+      loadpage: test.getCompTestPage('image-overlays',
+        {
           overlays: [
             { rowkey: 1, area: { type: "rectangle", left: 50, top: 50, width: 80, height: 80 } },
             { rowkey: 2, area: { type: "rectangle", left: 500, top: 150, width: 80, height: 80 } },

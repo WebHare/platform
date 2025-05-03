@@ -92,6 +92,7 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     this.debug = debug;
   }
 
+  /** Add a document to index */
   async index(doc: TDocument, { suffix = "" } = {}) {
     if (suffix && !isValidIndexSuffix(suffix))
       throw new Error(`Invalid suffix '${suffix}'`);
@@ -159,7 +160,8 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     }
   }
 
-  async finish({ refresh = false } = {}) {
+  /** Commit the prepared actions to the index */
+  async commit({ refresh = false } = {}) {
     const { client, indexName } = await this.catalog.getRawClient();
 
     if (this.queue.length)
@@ -169,6 +171,11 @@ class BulkAction<TDocument extends OpenSearchDocument = OpenSearchDocument> {
     if (refresh)
       for (const suffix of this.updatedSuffixes)
         await client.indices.refresh({ index: getOSIndexName(indexName, suffix) });
+  }
+
+  /** @deprecated renamed to commit in WH 5.8*/
+  async finish({ refresh = false } = {}) {
+    return await this.commit({ refresh });
   }
 }
 

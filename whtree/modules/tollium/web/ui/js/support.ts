@@ -339,17 +339,17 @@ export interface XMLHeightAttributes {
 
 //ADDME why can't we receive widths already in the proper format as much as possible?
 export function ReadXMLWidths(xmlnode: XMLWidthAttributes): SizeObj { //xmlnode may be null to init a default width object
-  return readXMLSize(xmlnode && xmlnode.minwidth ? xmlnode.minwidth : ''
-    , xmlnode && xmlnode.width ? xmlnode.width : ''
-    , true
-    , false
+  return readXMLSize(xmlnode && xmlnode.minwidth ? xmlnode.minwidth : '',
+    xmlnode && xmlnode.width ? xmlnode.width : '',
+    true,
+    false
   );
 }
 export function ReadXMLHeights(xmlnode: XMLHeightAttributes, inline: boolean): SizeObj {
-  return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : ''
-    , xmlnode && xmlnode.height ? xmlnode.height : ''
-    , false
-    , inline
+  return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : '',
+    xmlnode && xmlnode.height ? xmlnode.height : '',
+    false,
+    inline
   );
 }
 

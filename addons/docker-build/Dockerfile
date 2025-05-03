@@ -117,7 +117,7 @@ RUN --mount=type=bind,source=whtree,target=/whtree/ \
     if [ -d /opt/wh/whtree/jssdk ] || [ -d /opt/wh/whtree/modules ]; then echo "jssdk/modules already have content! touching will cause layer bloat"; ls -lR /opt/wh/whtree ; exit 201;  fi ; \
     cp -a /whtree /opt/wh/ && \
     touch -t $(date +%Y%m%d%H%M.%S) /opt/wh/whtree && \
-    find /opt/wh/whtree/jssdk /opt/wh/whtree/modules -print0 | xargs -0 -n250 touch -r /opt/wh/whtree
+    find /opt/wh/whtree/jssdk /opt/wh/whtree/modules -type f -print0  | xargs -0 -n250 touch -r /opt/wh/whtree
 
 # Add built WebHare (ie 'wh make install' from the parallel build)
 RUN --mount=type=bind,from=builder,target=/builder \

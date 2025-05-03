@@ -4,8 +4,21 @@
 # we will normally be invoked by `wh finalize-webhare`
 #
 # We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS support!
+#
+# package.json updates may require a `wh finalize-webhare --update-packages`
 
 set -eo pipefail
+
+UPDATE_PACKAGES=
+while [ "$1" != "" ]; do
+  if [ "$1" == "--update-packages" ]; then
+    UPDATE_PACKAGES=1
+    shift
+  else
+    echo "Invalid argument: $1"
+    exit 1
+  fi
+done
 
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 source "lib/wh-functions.sh"
@@ -22,8 +35,15 @@ logWithTime "Finalizing WebHare in $WEBHARE_DATAROOT"
 
 getwebhareversion
 
-logWithTime "Install all packages"
-npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM install failure for $CANDIDATE"
+# Install node_modules
+NPMOPTS=(--ignore-scripts --omit=dev --omit=peer --foreground-scripts)
+if [ -n "$UPDATE_PACKAGES" ]; then
+  logWithTime "Install all packages and updating package-lock.json if needed"
+else
+  logWithTime "Install all packages"
+  NPMOPTS+=(--no-save)
+fi
+npm install "${NPMOPTS[@]}" || die "NPM install failure for $CANDIDATE"
 
 # run scripts we trust and need explicitly.
 ## download the esbuild for this platform
