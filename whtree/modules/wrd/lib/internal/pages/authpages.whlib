@@ -57,9 +57,9 @@ PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
     OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
     IF(wrdschema->accountemailtag = wrdschema->accountlogintag)
     {
-      ^username->title := GetTid("wrd:site.forms.authpages.email");
-      ^username->validationchecks := ["email"];
-      INSERT "email" INTO ^username->autocomplete AT END;
+      ^login->title := GetTid("wrd:site.forms.authpages.email");
+      ^login->validationchecks := ["email"];
+      INSERT "email" INTO ^login->autocomplete AT END;
       this->loginemail := TRUE;
     }
 
@@ -72,7 +72,7 @@ PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
   {
     OBJECT work := this->BeginWork([database := FALSE]);
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := authplugin->Login(^username->value, ^password->value, CELL[ this->logincontrol ]);
+    RECORD result := authplugin->Login(^login->value, ^password->value, CELL[ this->logincontrol ]);
     IF(NOT result.success)
       work->AddErrorFor(^password, this->loginemail ? GetTid("wrd:site.forms.authpages.incorrectlogin-email")
                                                     : GetTid("wrd:site.forms.authpages.incorrectlogin-username"));
