@@ -67,7 +67,7 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
   // link.on("close", function () { // cleanup on disconnect - not after every lock..
   await link.activate();
 
-  const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: "JS group" });
+  const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: process.pid + "#" + bridge.getGroupId() });
   await std.wrapInTimeout(connectrequest, 60000, new Error("Unable to connect to the mutex manager"));
   return link;
 }
