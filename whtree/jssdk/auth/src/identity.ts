@@ -182,6 +182,20 @@ export class AuthenticationSettings {
 
     return await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash);
   }
+
+  async isUsedSince(password: string, cutoff: Temporal.Instant): Promise<boolean> {
+    for (let i = this.#passwords.length - 1; i >= 0; i--) {
+      const tryHash = this.#passwords[i].hash;
+      if (tryHash.startsWith("PLAIN:")) {
+        if (password === tryHash.substring(6))
+          return true;
+      } else if (await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash))
+        return true;
+      if (this.#passwords[i].validFrom.getTime() <= cutoff.epochMilliseconds)
+        break;
+    }
+    return false;
+  }
 }
 
 export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
