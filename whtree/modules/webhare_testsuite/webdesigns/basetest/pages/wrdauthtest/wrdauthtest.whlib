@@ -40,13 +40,6 @@ PUBLIC OBJECTTYPE WRDAuthMyBackend EXTEND TolliumWRDAuthSupport
         ? [ code := "NOACCESS", userinfo := userinfo, _internal := "secret" ]
         : DEFAULT RECORD;
   }
-  UPDATE PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
-  {
-    RECORD policy := TolliumWRDAuthSupport::GetUserEditPolicy(userid, fields, atsubmit);
-    IF (policy.passwordvalidationchecks = "") // allow override
-      policy.passwordvalidationchecks := "lowercase:1 noreuse:P2D maxage:P1D";
-    RETURN policy;
-  }
 >;
 
 PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase

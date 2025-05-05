@@ -30,8 +30,7 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPlugin(STRING url, RECORD options DEFAULTSTO DE
 
 /** Base class for WRDuth support objects
 */
-PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
-<
+PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase <
   OBJECT plugin;
 
   MACRO NEW(OBJECT plugin)
@@ -148,8 +147,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase
       @cell(string) return.screenextension.file File with the screen tabextension
       @cell(string) return.screenextension.name Name of the tabextension node
   */
-  PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit)
-  {
+  PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit) {
     // When updating this function, please call WRDAuthSupportBase::GetUserEditPolicy, and then
     // edit the returned policy record
     RECORD retval :=

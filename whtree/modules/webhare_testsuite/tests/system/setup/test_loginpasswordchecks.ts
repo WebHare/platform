@@ -40,7 +40,7 @@ test.runTests(
           version: 1,
           passwords: [
             {
-              validfrom: "now-P1DT1H", // default maxage is 1 day for test site
+              validfrom: "now-PT22H", // default maxage is 1 day for test site
               password: "SECRET" // checks say 'lowercase:1'
             }
           ]
@@ -89,7 +89,7 @@ test.runTests(
           version: 1,
           passwords: [
             {
-              validfrom: "now-P1DT1H", // default maxage is 1 day for test site
+              validfrom: "now-PT22H", // default maxage is 1 day for test site
               password: "SECRET" // checks say 'lowercase:1'
             }
           ],
@@ -103,8 +103,8 @@ test.runTests(
 
       // expect reset password window
       test.eq("Reset password", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-      test.setTodd('password', "secret");
-      test.setTodd('passwordrepeat', "secret");
+      test.setTodd('password', "secret2");
+      test.setTodd('passwordrepeat', "secret2");
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -121,7 +121,7 @@ test.runTests(
 
       // should go back to login window, login with new password
       await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length === 1);
-      test.setTodd('password', "secret");
+      test.setTodd('password', "secret2");
       test.clickToddButton('Login');
       await test.wait('ui');
 
@@ -223,7 +223,7 @@ test.runTests(
           version: 1,
           passwords: [
             {
-              validfrom: "now-P1DT9H",
+              validfrom: "now-PT15H",
               password: "secret"
             }
           ]
