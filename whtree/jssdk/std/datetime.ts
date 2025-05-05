@@ -1,4 +1,4 @@
-import { isDate } from "./quacks";
+import { isDate, isTemporalInstant } from "./quacks";
 import type { Temporal } from "temporal-polyfill"; //we need an explicit include for separate @webhare/std publication
 
 /** A tolerant JS date parameter */
@@ -54,13 +54,20 @@ export function parseDuration(duration: string): Duration {
  * @param startingdate - Date to start from
  * @param duration - Duration to add (as object or as ISO8601 duration string, eg "P1Y2M3DT4H5M6S")
  */
-export function addDuration(startingdate: Date | Temporal.Instant, duration: Partial<Duration> | string): Date {
+export function addDuration(startingdate: Date, duration: Partial<Duration> | string): Date;
+export function addDuration(startingdate: Temporal.Instant, duration: Partial<Duration> | string): Temporal.Instant;
+
+export function addDuration(startingdate: Date | Temporal.Instant, duration: Partial<Duration> | string): Date | Temporal.Instant {
+  if (isTemporalInstant(startingdate))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- if you pass a Temporal.Instant, we should be able to create new ones from Temporal.
+    return (globalThis as any).Temporal.Instant.fromEpochMilliseconds(addDuration(new Date(startingdate.epochMilliseconds), duration).getTime());
+
   //we cannot take timezones (flexible instant) yet? as we do not timezone correct day/week/month calculations
   if (typeof duration === "string")
     duration = parseDuration(duration);
 
   const direction = duration.sign === "-" ? -1 : 1;
-  const date = new Date("epochMilliseconds" in startingdate ? startingdate.epochMilliseconds : startingdate.getTime());
+  const date = new Date(startingdate.getTime());
   if (duration.years)
     date.setUTCFullYear(date.getUTCFullYear() + direction * duration.years);
   if (duration.months)
@@ -80,7 +87,14 @@ export function addDuration(startingdate: Date | Temporal.Instant, duration: Par
  * @param startingdate - Date to start from
  * @param duration - Duration to subtract (as object or as ISO8601 duration string, eg "P1Y2M3DT4H5M6S")
  */
-export function subtractDuration(startingdate: Date, duration: Partial<Duration> | string): Date {
+export function subtractDuration(startingdate: Date, duration: Partial<Duration> | string): Date;
+export function subtractDuration(startingdate: Temporal.Instant, duration: Partial<Duration> | string): Temporal.Instant;
+
+export function subtractDuration(startingdate: Date | Temporal.Instant, duration: Partial<Duration> | string): Date | Temporal.Instant {
+  if (isTemporalInstant(startingdate))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- if you pass a Temporal.Instant, we should be able to create new ones from Temporal.
+    return (globalThis as any).Temporal.Instant.fromEpochMilliseconds(subtractDuration(new Date(startingdate.epochMilliseconds), duration).getTime());
+
   if (typeof duration === "string")
     duration = parseDuration(duration);
 
@@ -107,7 +121,7 @@ export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }:
   if (isDate(wait)) {
     return wait;
   } else if (typeof wait === "string") {
-    return addDuration(relativeTo ?? new Date(), wait); //NOTE that "P1D" here adds "24 hours" which is *not* correct for a TimeZonedDate - which is why convertWaitPeriodToDate cannot yet accept these
+    return addDuration(convertFlexibleInstantToDate(relativeTo) ?? new Date(), wait); //NOTE that "P1D" here adds "24 hours" which is *not* correct for a TimeZonedDate - which is why convertWaitPeriodToDate cannot yet accept these
   } else if (typeof wait === "number") {
     if (wait === 0)
       return new Date(-864000 * 1000 * 10000000);
