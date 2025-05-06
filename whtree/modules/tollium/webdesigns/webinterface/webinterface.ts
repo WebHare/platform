@@ -13,6 +13,11 @@ import startTolliumShell from '@mod-tollium/shell';
 import "@webhare/tsrun/src/polyfills";
 import "@mod-publisher/js/internal/polyfills/iterator-helpers";
 
+//we require frontend+forms to deal with the login page
+import { setupForms } from "@webhare/forms";
+import "@webhare/forms/styling/forms.scss";
+
+setupForms();
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps
 } else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
