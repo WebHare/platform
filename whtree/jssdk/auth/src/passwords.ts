@@ -119,7 +119,6 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
       case "noreuse":
         if (authenticationSettings && !options?.isCurrentPassword) {
           const cutoff = getPasswordMinValidFrom(check.duration);
-          console.log("cutoff", cutoff.toString());
           if (await authenticationSettings.isUsedSince(newpassword, cutoff)) {
             failed.push(check);
             break;
