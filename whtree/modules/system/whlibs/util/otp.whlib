@@ -5,6 +5,8 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::graphics/qrcode.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 
@@ -343,4 +345,44 @@ PUBLIC RECORD FUNCTION TestTOTPCode(STRING secret, STRING code, RECORD options D
       , driftintervals
       , driftseconds :=     driftintervals * options.interval
       ];
+}
+
+/** Generate 10 new backup codes, with 40 bits of entropy a piece, base-32 encoded
+    @return Backup codes
+    @cell(string) return.text Backup codes in presentable form
+    @cell(record array) return.backupcodes List of backup codes
+    @cell(string) return.backupcodes.code Backup code
+    @cell(datetime) return.backupcodes.used Date when used
+*/
+PUBLIC RECORD FUNCTION GenerateBackupCodes()
+{
+  RECORD ARRAY backupcodes;
+  STRING text;
+  FOR (INTEGER i := 0; i < 10; i := i + 1)
+  {
+    // make codes with 40-bit entropy, 8 chars in base32 encoding
+    STRING code := EncodeBase32(GenerateRandomBinaryValue(5));
+    text := text || code || "\n";
+    INSERT CELL[ code, used := DEFAULT DATETIME ] INTO backupcodes AT END;
+  }
+  RETURN CELL[ text, backupcodes ];
+}
+
+PUBLIC RECORD FUNCTION PrepareTOTPForUser(STRING login, STRING issuer) {
+  STRING newtotpsecret := GenerateOTPSecret();
+  STRING url := GetTOTPUrl(newtotpsecret, login, issuer);
+
+  OBJECT qrcode := CreateQRCode(url, [ size := 250, correctlevel := "L" ]);
+  BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
+  RECORD qrdata := ScanBlob(qrpng, "qr.png");
+
+  RECORD codes := GenerateBackupCodes();
+
+  RETURN CELL[
+    url,
+    secret := GetVariableFromURL(url, "secret"),
+    qrpng,
+    codes.backupcodes,
+    backupcodes_text := codes.text
+    ];
 }
