@@ -891,7 +891,7 @@
         <text tid="password">Wachtwoord</text>
         <text tid="passwordchange-button">Wijzig wachtwoord</text>
         <text tid="passwordchange-intro">Wachtwoord wijzigen voor '<param p="1"/>'</text>
-        <text tid="passwordchange-processed">Het wachtwoord is gewijzigd</text>
+        <text tid="passwordchange-processed">Het wachtwoord is bijgewerkt</text>
         <text tid="passwordchange-title">Wijzig wachtwoord</text>
         <text tid="passwordnew">Nieuw wachtwoord</text>
         <text tid="passwordrepeat">Herhaal wachtwoord</text>
