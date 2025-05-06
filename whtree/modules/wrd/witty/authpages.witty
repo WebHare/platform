@@ -11,7 +11,7 @@
             [/if]
           </p>
         </div>
-        [form.username.render]
+        [form.login.render]
         [form.password.render]
         <div class="wh-wrdauth-login__forgotpasswordlinkholder">
           <a class="wh-wrdauth-login__forgotpasswordlink" href="[forgotpasswordlink]">[gettid site.forms.authpages.forgotpassword]</a>

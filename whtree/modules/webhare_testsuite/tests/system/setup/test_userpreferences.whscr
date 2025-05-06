@@ -22,6 +22,7 @@ ASYNC MACRO TestAuthSettings()
                               ]
             ]
       ]);
+  SetWRDSetting(testfw->GetWRDSchema(), "password_validation_checks", "");
   testfw->CommitWork();
 
   testfw->SetTestUser("lisa@allow2fa.test.webhare.net");

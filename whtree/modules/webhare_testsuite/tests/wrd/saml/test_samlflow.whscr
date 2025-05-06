@@ -114,7 +114,7 @@ MACRO TestGoodHabitz()
   testfw->browser->GotoWebPage(AddVariableToURL(AddVariableToURL(idp_service_url, "SAMLRequest", encodedreq), "RelayState", "myrelaystate"));
 
   OBJECT form := OpenFormsapiFormTester(testfw->browser);
-  RECORD formresult := form->SubmitForm([ username := "idpaccount@allow2fa.test.webhare.net", password := "a" ]);
+  RECORD formresult := form->SubmitForm([ login := "idpaccount@allow2fa.test.webhare.net", password := "a" ]);
   TestEqMembers(
       [ success :=    TRUE
       , result :=     [ submitinstruction :=

@@ -2,7 +2,7 @@
 
   <form name="login" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="LoginForm">
     <page>
-      <textedit name="username" autocomplete="username" required="1" tid=".username" />
+      <textedit name="login" autocomplete="username" required="1" tid=".username" />
       <password name="password" autocomplete="current-password" required="1" tid=".password" />
     </page>
   </form>
