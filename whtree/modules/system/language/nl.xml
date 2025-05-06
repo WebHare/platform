@@ -1128,7 +1128,6 @@
         <text tid="logindialog">Inlogscherm</text>
         <text tid="mailretention">Bewaar verzonden e-mails</text>
         <text tid="overrideopenssl">Stel OpenSSL Ciphersuite in</text>
-        <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="processhistory">Bewaar procesgeschiedenis</text>
         <text tid="pxllog">Bewaar pxl log</text>
         <text tid="registergeoip2">Klik hier om een GeoLite2-account te registreren</text>
@@ -2128,6 +2127,7 @@
       <text tid="editrole">Rol aanpassen</text>
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
+      <text tid="editrootunit">Basis authenticatie instellingen</text>
       <text tid="editunit">Eenheid aanpassen</text>
       <text tid="locknologin">Blokkeer niet actieve gebruikers na</text>
       <text tid="nospecificpolicy">Geen specifiek beleid</text>

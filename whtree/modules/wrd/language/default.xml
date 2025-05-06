@@ -975,6 +975,7 @@
         <text tid="expire_login">Expire login after</text>
         <text tid="expire_persistentlogin">"Remember me" expires after</text>
         <text tid="expiry">Expiry settings</text>
+        <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="round_longlogins_to">Round to</text>
         <text tid="round_longlogins_tz">In timezone</text>
         <text tid="round_minduration">Minimum duration</text>

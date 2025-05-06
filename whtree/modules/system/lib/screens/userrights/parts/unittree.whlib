@@ -11,6 +11,8 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
 LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
+LOADLIB "mod::wrd/lib/dialogs.whlib";
+
 
 /** Returns a tree of all units visible for a user
     @param user
@@ -325,9 +327,11 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
       ^unitlist->value := newunit;
   }
 
-  MACRO DoEditUnit()
-  {
-    RunEditUnitDialog(this->owner, ^unitlist->value);
+  MACRO DoEditUnit() {
+    IF(^unitlist->value = -1) //root
+      RunWRDSchemaAuthSetings(this);
+    ELSE IF(^unitlist->value > 0)
+      RunEditUnitDialog(this->owner, ^unitlist->value);
   }
 
   MACRO DoDeleteUnit()

@@ -1314,7 +1314,6 @@
         <text tid="logindialog">Login screen</text>
         <text tid="mailretention">Save sent emails</text>
         <text tid="overrideopenssl">Set OpenSSL ciphersuite</text>
-        <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="processhistory">Keep process history</text>
         <text tid="pxllog">Keep pxl log</text>
         <text tid="registergeoip2">Click here to register for a GeoLite2 account</text>
@@ -2315,6 +2314,7 @@
       <text tid="editrole">Edit role</text>
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
+      <text tid="editrootunit">Root authentication settings</text>
       <text tid="editunit">Edit unit</text>
       <text tid="locknologin">Lock inactive users after</text>
       <text tid="nospecificpolicy">No specific policy</text>

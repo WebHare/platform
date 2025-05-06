@@ -66,9 +66,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
 
-    OBJECT wrdschema := this->contexts->userapi->wrdschema;
-    ^passwordvalidationchecks->value := GetWRDSetting(wrdschema, "password_validation_checks");
-
     STRING docroot := ReadRegistryKey("system.services.webhare.docroot");
     ^embeddeddocs->value := docroot != "";
     ^docroot->value := docroot ?? "https://docs.webhare.dev/embedded-documentation/";

@@ -204,3 +204,7 @@ PUBLIC MACRO RunWRDMAnageAPIKeys(OBJECT owner, INTEGER entity, RECORD options DE
 
   owner->contexts->opener->RunScreen("mod::wrd/tolliumapps/auth/apikeys.xml", CELL[entity], CELL[contexts]);
 }
+
+PUBLIC MACRO RunWRDSchemaAuthSetings(OBJECT parent) {
+  parent->contexts->opener->RunScreen("mod::wrd/tolliumapps/auth/settings.xml");
+}

@@ -975,6 +975,7 @@
         <text tid="expire_login">Login verloopt na</text>
         <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
         <text tid="expiry">Verloopinstellingen</text>
+        <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="round_longlogins_to">Afronden naar</text>
         <text tid="round_longlogins_tz">Volgens tijdzone</text>
         <text tid="round_minduration">Minimum duur</text>
