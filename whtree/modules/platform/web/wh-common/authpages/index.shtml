@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::wrd/lib/pages.whlib";
+
+
+/* We're a 'global' authpages router
+
+   We need to be careful about not enabling actions that the site owner didn't ask for
+   - emailchange/passwordchange are behind routerfeatures=
+   - resetpassword/setpassword are protected behind a verificationlink
+   - forgotpassword and login default to *open*. so we can't allow those on the generic authpage unless opted in
+   - unknown actions should be blocked too just in case
+*/
+
+OpenPrimary();
+
+STRING pathname := GetWebVariable("pathname");
+STRING url := UnpackURL(GetRequestURL()).origin || "/" || pathname;
+OBJECT webdesign := GetWebDesignForURL(url);
+OBJECT authpage := GetWRDAuthPages(webdesign, [ isglobalpage := TRUE ]);
+IF(NOT ObjectExists(authpage))
+  AbortWithHTTPError(404, "No authpage available for this URL");
+
+webdesign->RunPageWithContents(authpage->GetPageBody());

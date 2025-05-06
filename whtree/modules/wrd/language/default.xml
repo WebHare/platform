@@ -890,7 +890,7 @@
         <text tid="login-username-intro">Enter your username and password to login</text>
         <text tid="password">Password</text>
         <text tid="passwordchange-button">Change password</text>
-        <text tid="passwordchange-intro">Changing the password for '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Changing the password</text>
         <text tid="passwordchange-processed">Your password has been updated</text>
         <text tid="passwordchange-title">Change password</text>
         <text tid="passwordnew">New password</text>

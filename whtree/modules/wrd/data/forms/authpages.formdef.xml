@@ -15,6 +15,7 @@
 
   <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm">
     <page>
+      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
@@ -28,6 +29,7 @@
 
   <form name="passwordchange" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="PasswordChangeForm">
     <page>
+      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
       <password name="currentpassword" autocomplete="current-password" required="1" tid=".currentpassword" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />

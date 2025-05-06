@@ -47,6 +47,7 @@ test.runTests(
 
       await test.load(test.qR<HTMLAnchorElement>('#passwordchangelink').href);
 
+      test.eq("pietjetester@beta.webhare.net", test.qR("#passwordchange-login").value);
       test.fill('#passwordchange-currentpassword', 'secret');
       test.fill('#passwordchange-passwordnew', 'secret2');
       test.fill('#passwordchange-passwordrepeat', 'secret2');

@@ -34,7 +34,7 @@
         <text tid="login-username-intro">Geben Sie Ihren Benutzernamen und Ihr Passwort ein, um sich anzumelden</text>
         <text tid="password">Passwort</text>
         <text tid="passwordchange-button">Passwort ändern</text>
-        <text tid="passwordchange-intro">Ändern des Passworts für '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Ändern des Passworts</text>
         <text tid="passwordchange-processed">Ihr Passwort wurde geändert</text>
         <text tid="passwordchange-title">Passwort ändern</text>
         <text tid="passwordnew">Neues Passwort</text>

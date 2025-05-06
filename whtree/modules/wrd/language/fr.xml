@@ -26,7 +26,7 @@
         <text tid="login-username-intro">Entrez votre nom d'utilisateur et mot de passe pour vous connecter</text>
         <text tid="password">Mot de passe</text>
         <text tid="passwordchange-button">Changer mot de passe</text>
-        <text tid="passwordchange-intro">Changer mot de passe pour  '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Changer mot de passe pour</text>
         <text tid="passwordchange-processed">Le mot de passe est changé</text>
         <text tid="passwordchange-title">Changer mot de passe</text>
         <text tid="passwordnew">Nouveau mot de passe</text>

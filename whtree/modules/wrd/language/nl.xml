@@ -890,7 +890,7 @@
         <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
         <text tid="password">Wachtwoord</text>
         <text tid="passwordchange-button">Wijzig wachtwoord</text>
-        <text tid="passwordchange-intro">Wachtwoord wijzigen voor '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Wachtwoord wijzigen</text>
         <text tid="passwordchange-processed">Het wachtwoord is bijgewerkt</text>
         <text tid="passwordchange-title">Wijzig wachtwoord</text>
         <text tid="passwordnew">Nieuw wachtwoord</text>
