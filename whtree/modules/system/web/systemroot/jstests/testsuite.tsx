@@ -6,7 +6,7 @@ import * as domfocus from "dompack/browserfix/focus";
 import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
 import StackTrace from "stacktrace-js";
-import { isError, toCamelCase } from '@webhare/std';
+import { isError, throwError, toCamelCase } from '@webhare/std';
 import type { TestError } from '@webhare/test/src/checks';
 import { createClient } from '@webhare/jsonrpc-client';
 import { qR } from '@webhare/dompack';
@@ -116,14 +116,22 @@ export type TestStep = {
 
 };
 
-type FrameRecord = {
-  currentsignals: Signals;
-  name: string;
-  win?: Window | null;
-  doc?: Document | null;
-  holder: HTMLDivElement | null;
-  iframe: HTMLIFrameElement;
-};
+class FrameRecord {
+  currentsignals = {
+    pageload: null as Promise<void> | null,
+  };
+
+  constructor(public readonly name: string, public readonly holder: HTMLDivElement) {
+  }
+
+  get win() {
+    return qR<HTMLIFrameElement>(this.holder, 'iframe').contentWindow ?? throwError("Iframe missing contentWindow");
+  }
+  get doc() {
+    return qR<HTMLIFrameElement>(this.holder, 'iframe').contentDocument ?? throwError("Iframe missing contentDocument");
+  }
+
+}
 
 type Signals = {
   pageload?: Promise<void> | null;
@@ -275,10 +283,7 @@ class TestFramework {
   }
 
   resetPageFrame() {
-    const rec = this.getFrameRecord()!;
-    rec.win = null;
-    rec.doc = null;
-    dompack.empty(rec.holder!);
+    this.getFrameRecord().holder?.replaceChildren();
   }
   rebuildFrameTabs() {
     const tabsnode = qR("#testframetabs");
@@ -772,11 +777,11 @@ class TestFramework {
     const framerec = this.getFrameRecord();
 
     const name = framerec.name === "main" ? "testframe" : `testframe-${framerec.name}`;
-    framerec.iframe = dompack.create("iframe", { "id": name, "name": name });
-    framerec.holder!.appendChild(framerec.iframe);
-    framerec.iframe.src = loadpage as string;
+    const iframe = dompack.create("iframe", { "id": name, "name": name });
+    framerec.holder!.appendChild(iframe);
+    iframe.src = loadpage as string;
     if (framerec.holder!.dataset.width)
-      framerec.iframe.style.width = `${framerec.holder!.dataset.width}px`;
+      iframe.style.width = `${framerec.holder!.dataset.width}px`;
 
     qR('#currentwait').textContent = "Wait: pageload";
     qR('#currentwait').style.display = "inline-block";
@@ -793,20 +798,21 @@ class TestFramework {
   waitForPageFrameLoad(framerec: FrameRecord, options?: { timeout?: number }): Promise<void> {
     //var iframe = this.getFrameRecord().iframe;
     const deferred = Promise.withResolvers<void>();
-    if (!framerec.iframe)
+    const iframe = framerec.holder.querySelector("iframe");
+    if (!iframe)
       return deferred.promise;
 
     if (!options || !options.timeout || options.timeout >= 0)
       this.timedReject(deferred, "Timeout waiting for test frame to load", (options || {}).timeout || this.loadtimeout);
 
     // Split setting events from event creation
-    framerec.iframe.addEventListener("load", () => deferred.resolve());
-    framerec.iframe.addEventListener("error", deferred.reject);
+    iframe.addEventListener("error", deferred.reject);
+    iframe.addEventListener("load", () => deferred.resolve());
 
     // Remove both load/error events when receiving one of them
     void deferred.promise.finally(() => {
-      framerec.iframe.removeEventListener("load", () => deferred.resolve());
-      framerec.iframe.removeEventListener("error", deferred.reject);
+      iframe.removeEventListener("load", () => deferred.resolve());
+      iframe.removeEventListener("error", deferred.reject);
     });
 
     // When the iframe has loaded, process it to get the doc & window. Just error out when loading failed.
@@ -825,8 +831,6 @@ class TestFramework {
 
   /// Get & store the win.doc from the pageframe
   processLoadedTestFrame(framerec: FrameRecord, options?: object) {
-    framerec.doc = framerec.iframe.contentDocument!;
-    framerec.win = framerec.iframe.contentWindow!;
     if (debugFlags.testfw)
       console.log('[testfw] loaded page: ' + framerec.win!.location.href);
 
@@ -881,29 +885,30 @@ class TestFramework {
             throw new Error(`A frame with the name ${JSON.stringify(name)} already exists`);
           const holder = <div class="testframeholder" data-name={name}></div>;
           holder.dataset.width = width || "";
-          const currentsignals: Signals = {};
-          this.testframes.push({ name, holder, currentsignals } as FrameRecord); // iframe misses here, it will be filled in by doLoadPage
+          const frec = new FrameRecord(name, holder);
+          this.testframes.push(frec);
           qR("#testframes").append(holder);
           this.currenttestframe = name;
           this.rebuildFrameTabs();
           await this.doLoadPage({ loadpage: "about:blank" });
-          currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
+          frec.currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
         } break;
       case "update":
         {
           if (!rec)
             throw new Error(`No frame with the name ${JSON.stringify(name)} exists`);
           if (width !== undefined) {
-            rec.holder!.dataset.width = width?.toString() ?? "";
-            if (rec.iframe)
-              rec.iframe.style.width = width ? `${width}px` : `auto`;
+            rec.holder.dataset.width = width?.toString() ?? "";
+            const iframe = rec.holder.querySelector("iframe");
+            if (iframe)
+              iframe.style.width = width ? `${width}px` : `auto`;
           }
         } break;
       case "delete":
         {
           if (name === "main")
             throw new Error(`Cannot delete main test iframe`);
-          rec?.holder?.remove();
+          rec?.holder.remove();
           this.testframes = this.testframes.filter(f => f.name !== name);
           if (this.currenttestframe === name)
             this.currenttestframe = this.testframes[0].name;
