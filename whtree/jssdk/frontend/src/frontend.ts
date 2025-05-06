@@ -14,7 +14,7 @@ export { frontendConfig, getFrontendData, getSiteRoot } from "./init";
 export { startSSOLogin, login, setupWRDAuth, isLoggedIn, logout, getUserInfo } from "./auth";
 export { loadAssetPack, setupAuthorMode, type AuthorModeOptions } from "./authormode";
 export { setPxlOptions, sendPxl, getPxlUserId, getPxlSessionId, setupFormAnalytics, type PxlData } from "./pxl";
-export { getRemoteIPAddress } from "./analytics";
+export { getRemoteIPAddress, getGeoIPInfo, type GetIPInfoOptions, type GeoIPInfoResult } from "./analytics";
 export { setupGTM, setupFormAnalyticsForGTM, pushToDataLayer, setupDataLayerTags } from "./gtm";
 export { setupLinksInNewWindow, type LinkOpenOptions } from "./linkhandler";
 
