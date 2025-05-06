@@ -49,14 +49,14 @@ function mapCallSite(t: NodeJS.CallSite): StackTraceItem {
   lastSourceMap = sm;
   lastFileName = fileName;
   if (sm) {
-
+    type SourceMapLine = { originalLine?: number; originalColumn?: number; originalSource?: string };
     // Source Map V3 lines/columns start at 0/0 whereas stack traces
     // start at 1/1:
     const {
       originalLine,
       originalColumn,
       originalSource,
-    } = sm.findEntry((t.getLineNumber() ?? 1) - 1, (t.getColumnNumber() ?? 1) - 1);
+    } = sm.findEntry((t.getLineNumber() ?? 1) - 1, (t.getColumnNumber() ?? 1) - 1) satisfies SourceMapLine as SourceMapLine; //resolves: Property 'originalLine' does not exist on type '{} | SourceMapping'.
 
     if (originalSource && originalLine !== undefined &&
       originalColumn !== undefined) {

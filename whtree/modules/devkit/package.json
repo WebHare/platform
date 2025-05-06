@@ -4,7 +4,8 @@
   "license": "MIT",
   "dependencies": {
     "simple-git": "^3.27.0",
-    "typedoc": "^0.26.11"
+    "typedoc": "^0.28.3",
+    "typescript": "^5.8.3"
   },
   "overrides": {
     "typedoc": {

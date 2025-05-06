@@ -1,4 +1,5 @@
 import { ZipArchiveWriter, type ZipArchiveWriterOptions, type ValidZipDateTimeSources } from "./writer";
+import { ReadableStream } from "node:stream/web";
 
 
 

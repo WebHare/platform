@@ -12,11 +12,18 @@ import { simpleGit } from "simple-git";
 import { handleFormattingCommand } from "@mod-system/js/internal/tsfmt";
 import { relative } from "path";
 
-function containsJSX(node: ts.Node): true | undefined {
+function containsJSX(file: ts.SourceFile): boolean {
+  if (ts.isJsxElement(file) || ts.isJsxSelfClosingElement(file))
+    return true;
+
+  return file.statements.some(nodeContainsJSX);
+}
+
+function nodeContainsJSX(node: ts.Node): boolean {
   if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node))
     return true;
 
-  return ts.forEachChild(node, containsJSX);
+  return ts.forEachChild(node, nodeContainsJSX) || false;
 }
 
 run({

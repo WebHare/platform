@@ -40,10 +40,10 @@ export async function setupDocGenerator() {
     "tsconfig": backendConfig.installationRoot + "tsconfig.json",
     "name": "WebHare Platform SDK",
     // "entryPointStrategy": "packages",
-    "includeVersion": true,
-    "excludeExternals": true,
-    githubPages: false,
-    hideGenerator: true,
+    "includeVersion": "true",
+    "excludeExternals": "true",
+    githubPages: "false",
+    hideGenerator: "true",
   });
 
   return app;

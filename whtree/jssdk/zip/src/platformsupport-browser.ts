@@ -15,7 +15,7 @@ const platformSupport: typeof import("./platformsupport").default = {
   },
 
   // implementation of crc32 compatible with node.js zlib
-  crc32(indata: string | Buffer<ArrayBufferLike> | ArrayBufferView<ArrayBufferLike>, curr?: number | undefined): number {
+  crc32(indata: string | Buffer | ArrayBufferView, curr?: number | undefined): number {
     const data = typeof indata === "string" ?
       new TextEncoder().encode(indata) :
       "buffer" in indata ?

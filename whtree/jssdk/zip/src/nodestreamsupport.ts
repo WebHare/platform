@@ -1,5 +1,6 @@
 import type { FileHandle } from "node:fs/promises";
 import type { Readable, Writable } from "node:stream";
+import { ReadableStream } from "node:stream/web";
 
 /** Reimplementation of Node.js Writable.toWeb, because the Node.js version doesn't handle backpressure correctly */
 export function writableToWeb(stream: Writable) {
@@ -19,7 +20,7 @@ export function writableToWeb(stream: Writable) {
 const maxReadableToWebQueuedItems = 4;
 
 /** Reimplementation of Node.js Readable.toWeb, because the Node.js version doesn't handle backpressure correctly */
-export function readableToWeb(stream: Readable) {
+export function readableToWeb(stream: Readable): ReadableStream<Uint8Array> {
   let wait = Promise.withResolvers<void>();
   const buffers = new Array<Buffer>;
   let error: Error | undefined;

@@ -92,7 +92,7 @@ export class Counter {
       this._limitnode.style.display = "none";
     }
 
-    //@ts-expect-error FIXME directly assigning style is dangerous and actually readonly?. keeping this for now as it was already htere...
+    //@ts-ignore -- FIXME directly assigning style is dangerous and actually readonly?. keeping this for now as it was already there. TS 5.8 and 5.6 (used by docs) are in disagreement about whether style is readonly
     this.node.style = this._options.style || "";
   }
 

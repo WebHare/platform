@@ -1,5 +1,6 @@
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, WebHareBlob } from "@webhare/services";
+import { ReadableStream } from "node:stream/web";
 import * as test from "@webhare/test-backend";
 import { createArchive, unpackArchive, unpackArchiveFromDisk } from "@webhare/zip";
 import { existsSync, promises as fs } from "node:fs";

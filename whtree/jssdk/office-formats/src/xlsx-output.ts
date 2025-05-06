@@ -2,6 +2,7 @@ import { ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpr
 import { encodeString, stdTypeOf, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";
+import { ReadableStream } from "node:stream/web";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
@@ -116,7 +117,7 @@ class WorksheetBuilder {
   }
 }
 
-function createSheet(sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean) {
+function createSheet(sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean): ReadableStream {
   const builder = new WorksheetBuilder;
   const rows = builder.createRows(sheetSettings);
   const dimensions = getNameForColumn(sheetSettings.columns.length) + (sheetSettings.rows.length + 1);

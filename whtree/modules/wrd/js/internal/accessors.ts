@@ -1876,7 +1876,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): JSONType | NullIfNotRequired<Required> {
     const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
-    return data ? parseTyped(data) : null;
+    return data ? parseTyped(data) : null as JSONType | NullIfNotRequired<Required>;
   }
 
   validateInput(value: JSONType | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
