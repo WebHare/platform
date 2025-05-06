@@ -19,6 +19,7 @@ export interface AuthEventData {
   "platform:login": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
+  "platform:secondfactor.challenge": { challenge: string };
 }
 
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";

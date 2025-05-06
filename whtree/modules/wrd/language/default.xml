@@ -867,6 +867,9 @@
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="completeaccount_totp_button">Confirm</text>
+        <text tid="completeaccount_totp_intro">Scan the QR-code below with an authentication app, such as Google Authenticator or Microsoft Authenticator on your mobile phone.</text>
+        <text tid="completeaccount_totp_intro2">If you use a password manager, you can use the secret key to generate the codes.</text>
         <text tid="currentpassword">Current password</text>
         <text tid="email">Email address</text>
         <text tid="emailchange-button">Change email address</text>
@@ -900,10 +903,14 @@
         <text tid="resetpassword-continue">Continue</text>
         <text tid="resetpassword-intro">Please enter a new password for your account</text>
         <text tid="resetpassword-title">Reset password</text>
+        <text tid="secret">Secret key</text>
         <text tid="setpassword-button">Set password</text>
         <text tid="setpassword-continue">Continue</text>
         <text tid="setpassword-intro">Please set a password to enable your account</text>
         <text tid="setpassword-title">Set password</text>
+        <text tid="totp">One-time login code</text>
+        <text tid="totp-intro">Please enter your one-time code</text>
+        <text tid="totp-invalid">This code is not valid</text>
         <text tid="username">Username</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We cannot complete your request, as the new email address is already in use by another account.</text>

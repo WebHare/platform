@@ -18,6 +18,8 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
     [ ongetloginwittydata := DEFAULT FUNCTION PTR
     , fallbacktologin := TRUE //Return loginpage if no explicit route found
     , passwordresetrouter := DEFAULT MACRO PTR
+    , loginmethods := [[ tag := "", title := "" ]]
+    , isglobalpage := FALSE
     ], options);
 
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
@@ -31,6 +33,8 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   {
     IF(authplugin->IsLoggedIn())
       Redirect(GetWRDPagesCleanURL());
+    IF(options.isglobalpage AND "forgotpassword" NOT IN authplugin->routerfeatures)
+      AbortWithHTTPError(403, "forgotpassword not allowed by routerfeatures");
     RETURN options.passwordresetrouter != DEFAULT MACRO PTR ? options.passwordresetrouter(webdesign, CELL [ authplugin ]) : GetForgotPasswordPage(webdesign, options);
   }
   IF(action IN ["resetpassword","setpassword"])
@@ -39,6 +43,12 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
       Redirect(GetWRDPagesCleanURL());
 
     RETURN GetResetPasswordPage(webdesign, action, options);
+  }
+  IF(action = "completeaccount") {
+    RETURN GetCompleteAccountPage(webdesign, options);
+  }
+  IF(action = "totp") {
+    RETURN GetTotpPage(webdesign, options);
   }
   IF(action = "emailchange")
   {
@@ -61,6 +71,9 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
 
   IF(action = "")
   {
+    IF(options.isglobalpage AND "login" NOT IN authplugin->routerfeatures)
+      AbortWithHTTPError(403, "login not allowed by routerfeatures");
+
     IF(options.fallbacktologin AND NOT authplugin->IsLoggedIn())
       RETURN GetLoginPage(webdesign, options);
 

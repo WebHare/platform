@@ -15,7 +15,8 @@ export type FrontendLoginResult = {
 } | {
   loggedIn: false;
   error: string;
-  code: LoginErrorCodes;
+  code: LoginErrorCodes | "totp" | "incomplete-account";
+  token?: string;
 };
 
 export type FrontendLogoutResult = { success: true } | {

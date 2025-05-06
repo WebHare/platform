@@ -2,7 +2,7 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { pick, stringify, throwError } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
 import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
@@ -64,9 +64,13 @@ export const authService = {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
 
-    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, pick(options || {}, ["persistent", "site"]));
+    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, {
+      persistent: options?.persistent,
+      site: options?.site,
+      returnTo: options?.returnTo || originUrl
+    });
     if (response.loggedIn === false)
-      return { loggedIn: false, code: response.code, error: response.error };
+      return { loggedIn: false, code: response.code, error: response.error, token: response.token };
 
     doLoginHeaders(response.setAuth, context.responseHeaders);
     return { loggedIn: true };

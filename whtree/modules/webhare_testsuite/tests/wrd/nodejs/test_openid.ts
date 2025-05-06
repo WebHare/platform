@@ -55,14 +55,16 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
 
+  await page.close();
   return finalurl;
 }
 
 async function runWebHareLoginFlow(page: Puppeteer.Page) {
-  await page.waitForSelector('[name=username]');
-  await page.type('[name=username]', test.getUser("sysop").login);
+  console.error("Login with sysop", test.getUser("sysop").login, "and password", test.getUser("sysop").password);
+  await page.waitForSelector('[name=login]');
+  await page.type('[name=login]', test.getUser("sysop").login);
   await page.type('[name=password]', test.getUser("sysop").password);
-  await page.click('button[data-name=loginbutton]');
+  await page.click('button[type=submit]');
 }
 
 async function setupOIDC() {
@@ -230,9 +232,9 @@ async function verifyAsOpenIDSP() {
   const page = await context.newPage();
   await page.goto(testsite.webRoot + "portal1-oidc/");
   //wait for the OIDC button
-  await page.waitForFunction('[...document.querySelectorAll(".t-text__linetext")].find(_ => _.textContent.includes("OIDC self sp"))');
+  await page.waitForFunction('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp"))');
   //click the OIDC button
-  await page.evaluate('[...document.querySelectorAll(".t-text__linetext")].find(_ => _.textContent.includes("OIDC self sp")).click()');
+  await page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()');
   //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
   await page.waitForNavigation();
   await runWebHareLoginFlow(page);
@@ -260,6 +262,8 @@ async function verifyAsOpenIDSP() {
   test.assert(cookieInfo.expires, "Cookie should have an expiration date");
   console.log(cookieInfo.expires.toString());
   test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
+
+  await page.close();
 }
 
 test.runTests([

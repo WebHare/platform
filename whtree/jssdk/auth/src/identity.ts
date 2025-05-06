@@ -21,6 +21,8 @@ import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/authservice";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
+import { verifyPasswordCompliance } from "./passwords";
+import { getCompleteAccountNavigation } from "./shared";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
@@ -240,6 +242,8 @@ export class AuthenticationSettings {
 export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
   /** Request a persistent login */
   persistent?: boolean;
+  /** Return url */
+  returnTo?: string;
 }
 
 type TokenResponse = {
@@ -255,7 +259,9 @@ export type FrontendAuthResult = {
 } | {
   loggedIn: false;
   error: string;
-  code: LoginErrorCodes;
+  code: LoginErrorCodes | "totp" | "incomplete-account";
+  token?: string; // Token or session to pass to authpages to complete an account
+  challenge?: string; // TOTP challenge
 };
 
 const validCodeChallengeMethods = ["plain", "S256"] as const;
@@ -274,6 +280,16 @@ declare module "@webhare/services" {
       /** User id to set */
       user?: number;
     };
+    "platform:incomplete-account": {
+      /** User id to login*/
+      user: number;
+      /** Return url */
+      returnTo: string;
+      /** Failed checks */
+      failedchecks: string[];
+      /** Time of the bad password */
+      badPasswordTime: Date | null;
+    };
   }
   interface ServerEncryptionScopes {
     "wrd:authplugin.logincontroltoken": {
@@ -287,6 +303,13 @@ declare module "@webhare/services" {
     "platform:settoken": SetAuthCookies & {
       target: string;
     };
+    "platform:totpchallenge": { //mirrors HS 'firstfactorproof'
+      userId: number;
+      password: string; //password used
+      challenge: string;
+      validUntil: Date;
+      returnTo: string;
+    };
   }
 }
 
@@ -298,6 +321,7 @@ export interface WRDAuthSettings {
   passwordAttribute: string | null;
   passwordIsAuthSettings: boolean;
   hasAccountStatus: boolean;
+  hasWhuserUnit: boolean;
 }
 
 // Autorization with PKCE code verifier: https://www.rfc-editor.org/rfc/rfc7636
@@ -983,32 +1007,71 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
 
     let userid = await this.lookupUser(authsettings, username, customizer, undefined, options);
+    let userInfo;
     if (userid) {
       const getfields = {
         password: authsettings.passwordAttribute,
-        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
+        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}),
+        ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
       };
 
       //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
-      const userInfo = await this.wrdschema.getFields(authsettings.accountType, userid, getfields) as {
+      userInfo = await this.wrdschema.getFields(authsettings.accountType, userid, getfields) as {
         password: AuthenticationSettings | null;
         wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+        whuserUnit?: number | null;
       };
-
-      if (authsettings.hasAccountStatus && !(userInfo?.wrdauthAccountStatus?.status === "active"))
-        userid = 0;
 
       //TODO ratelimits/auditing
       if (userid && !await userInfo?.password?.verifyPassword(password))
         userid = 0;
     }
 
-    if (!userid) {
+    if (!userid || !userInfo?.password) {
       return {
         loggedIn: false,
         error: "Unknown username or password",
         code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
+    }
+
+    if (userInfo!.password.hasTOTP()) {
+      const validUntil = new Date(Date.now() + 5 * 60_000);
+      const challenge = generateRandomId();
+      //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing sesion/tokens ?
+      const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password, returnTo: options?.returnTo || '' });
+
+      await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
+        type: "platform:secondfactor.challenge",
+        entity: userid,
+        // ...(options?.authAuditContext ?? getAuditContext()), //FIXME ? We can't get from scope but caller should build a context!
+        data: { challenge }
+      }));
+
+      return {
+        loggedIn: false,
+        error: "TOTP required",
+        code: "totp",
+        token,
+        challenge
+      };
+    }
+
+    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, password, userInfo.password, options?.returnTo || "");
+    if (complianceToken) {
+      return {
+        loggedIn: false,
+        error: "Your account is not yet fully set up",
+        code: "incomplete-account",
+        token: complianceToken
+      };
+    }
+
+    //TODO ratelimits/auditing
+    //TODO we should probably use the same token for the login page as well
+    if (authsettings.hasAccountStatus) {
+      if (userInfo?.wrdauthAccountStatus?.status !== "active")
+        return { loggedIn: false, code: "account-disabled", error: "Account is disabled" };
     }
 
     if (customizer?.isAllowedToLogin) {
@@ -1234,6 +1297,30 @@ function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
   return headers;
 }
 
+async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+  const authsettings = await getAuthSettings(wrdSchema);
+  if (!authsettings)
+    throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
+
+  if (authsettings?.hasAccountStatus) {
+    const { wrdauthAccountStatus } = await wrdSchema.getFields(authsettings.accountType, userId, ["wrdauthAccountStatus"]);
+    if (wrdauthAccountStatus?.status !== "active")
+      return { error: "Account is disabled", code: "account-disabled" };
+  }
+
+  if (customizer?.isAllowedToLogin) {
+    //It's a bit ugly to repeat the isAllowedToLogin call here and have to throw ... but prepareLoginCookies will go away once all HS Login calls go through handleFrontendLogin
+    const awaitableResult = customizer.isAllowedToLogin({
+      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      user: userId
+    });
+    const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
+    if (result)
+      return result;
+  }
+  return null;
+}
+
 /* prepareLoginCookies is how HareScript invokes the second half of the WRDAuth Login process (either username/password or LoginById)
    and should mostly correspond with handleFrontendLogin
    */
@@ -1241,21 +1328,7 @@ export async function prepareLoginCookies(targetUrl: string, userId: number, isI
   const setAuthCookies = await prepareLogin(targetUrl, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant() }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
 
   if (!isImpersonation) {
-    const authsettings = await getAuthSettings(setAuthCookies.wrdSchema);
-    if (authsettings?.hasAccountStatus) {
-      const { wrdauthAccountStatus } = await setAuthCookies.wrdSchema.getFields(authsettings.accountType, userId, ["wrdauthAccountStatus"]);
-      if (wrdauthAccountStatus?.status !== "active")
-        return { error: "Account is disabled", code: "account-disabled" };
-    }
-  }
-
-  if (!isImpersonation && setAuthCookies.customizer?.isAllowedToLogin) {
-    //It's a bit ugly to repeat the isAllowedToLogin call here and have to throw ... but prepareLoginCookies will go away once all HS Login calls go through handleFrontendLogin
-    const awaitableResult = setAuthCookies.customizer.isAllowedToLogin({
-      wrdSchema: setAuthCookies.wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
-      user: setAuthCookies.userId
-    });
-    const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
+    const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
     if (result)
       return result;
   }
@@ -1308,4 +1381,39 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 
   const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
   return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
+}
+
+/* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
+*/
+export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
+  const setAuthCookies = await prepareLogin(targetUrl, userId);//FIXME persiistence setting?
+
+  const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
+  if (result)
+    return result;
+
+  const authsettings = await getAuthSettings(setAuthCookies.wrdSchema);
+  if (!authsettings)
+    throw new Error(`WRD schema '${setAuthCookies.wrdSchema}' not configured for authentication`);
+
+  const getfields = {
+    auth: authsettings.passwordAttribute,
+    ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
+  };
+
+  //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
+  const userInfo = await setAuthCookies.wrdSchema.getFields(authsettings.accountType, userId, getfields) as {
+    auth: AuthenticationSettings | null;
+    whuserUnit?: number | null;
+  };
+
+  if (!userInfo.auth)
+    throw new Error(`User '${userId}' has no password set`);
+
+  const complianceToken = await verifyPasswordCompliance(setAuthCookies.wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
+  if (complianceToken) //need to further fix passwords etc
+    return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
+
+  //successful login
+  return { navigateTo: await prepareFrontendLogin(returnto, userId) };
 }

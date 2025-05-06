@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as testwrd from "@mod-wrd/js/testframework";
 
 const webroot = test.getTestSiteRoot();
 
@@ -96,43 +97,20 @@ test.runTests(
       waits: ["ui", 'ui']
     },
 
-    {
-      name: "goto idp",
-      test: function (doc, win) {
-        const image = test.getCurrentScreen().getToddElement("image_test-sp");
-        test.click(image);
-        //test.click(test.getCurrentScreen().getToddElement("image_test-sp").querySelector("img"), { x: 5, y: 5 });
-      },
-      waits: ["pageload", "ui"]
-    },
+    "goto idp",
+    async function (doc, win) {
+      test.click(await test.waitForElement(["button", /SAML login/]));
+      await test.wait('pageload'); // wait for us to arrive at the IDP
+      await testwrd.runLogin('idpaccount@allow2fa.test.webhare.net', 'a');
+      await test.wait('ui');
+      // Expect rpc, X form posts to sp (ADDME how many?), sp tollium load
 
-    {
-      name: "login with idp account",
-      test: function (doc, win) {
-        test.setTodd('loginname', 'idpaccount@allow2fa.test.webhare.net');
-        test.setTodd('password', 'a');
-        test.clickToddButton('Login');
-        // Expect rpc, X form posts to sp (ADDME how many?), sp tollium load
-      },
-      waits: ['pageload', 'ui']
-    },
-    {
-      name: "test logged in into portal-sp with idp account",
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
+      // test logged in into portal-sp with idp account
+      test.eq(/portal-sp/, test.getWin().location.href);
+      test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
-        // Logout must be allowed, and then logout
-        test.click(test.qS("#dashboard-logout"));
-      },
-      waits: ["ui"]
-    },
-    {
-      name: "confirm logout in sp",
-      test: function (doc, win) {
-        test.clickToddButton("Yes");
-      },
-      waits: ["ui", "pageload"]
+      // Logout must be allowed, and then logout
+      await test.runTolliumLogout();
     },
 
     {
@@ -141,22 +119,13 @@ test.runTests(
       waits: ["ui"]
     },
 
-    {
-      name: "goto idp",
-      test: function (doc, win) {
-        test.click(test.getCurrentScreen().getToddElement("image_test-sp"));
-      },
-      waits: ["pageload", "ui"]
-    },
+    "test logged in into portal-sp with idp account",
+    async function () {
+      test.click(await test.waitForElement(["button", /SAML login/]));
+      await test.wait('pageload'); // wait for us to arrive at the IDP
 
-    // Already logged into idp, so we'll get back immediately
-
-    {
-      name: "test logged in into portal-sp with idp account",
-      test: function (doc, win) {
-        test.assert(win.location.href.match(/portal-sp/));
-        test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
-      }
+      test.assert(test.getWin().location.href.match(/portal-sp/));
+      test.eq("idpaccount@allow2fa.test.webhare.net", (await test.waitForElement("#dashboard-user-name")).textContent);
     },
 
     // UT CampusApp login requires that a portal honors the wrdauth_logincontrol variable

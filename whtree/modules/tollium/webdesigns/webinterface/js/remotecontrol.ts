@@ -5,7 +5,7 @@ let didconnectaction = false;
 if (dtapStage === "development") //this is only needed for the peerserver test
   window.addEventListener("message", event => {
     if (event.data.dopeering) { //we're asked to setup peering
-      const login = document.querySelector("t-textedit[data-name=loginname] input");
+      const login = document.querySelector("input[name=login]");
       if (login) {
         //use an override token to pass the login dialog, as wrdauth cookies won't work on non-https due to samesite= restrictions, and CI runs on http
         const newurl = new URL(location.href);

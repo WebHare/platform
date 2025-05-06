@@ -468,6 +468,15 @@ export async function waitForToddComponent(name) {
   return compByName(name);
 }
 
+export async function runTolliumLogout() {
+  test.click(await test.waitForElement("#dashboard-logout"));
+  await test.wait('ui');
+  clickToddButton('Yes');
+
+  await test.wait('load');
+  await test.wait('ui');
+}
+
 export * from "@mod-system/js/wh/testframework";
 
 export { clickToddButton };

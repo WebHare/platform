@@ -1,4 +1,4 @@
-import { frontendConfig } from "@webhare/frontend";
+import { frontendConfig, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
 import "@webhare/tollium-iframe-api/styling";
 import './css/webinterface.scss';
@@ -7,7 +7,6 @@ import './pages/manual';
 import "./js/remotecontrol";
 
 import 'font-awesome/css/font-awesome.css';
-import '@mod-wrd/js/auth';
 import startTolliumShell from '@mod-tollium/shell';
 
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
@@ -19,6 +18,8 @@ import { setupForms } from "@webhare/forms";
 import "@webhare/forms/styling/forms.scss";
 
 setupForms();
+setupWRDAuth();
+
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps
 } else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {

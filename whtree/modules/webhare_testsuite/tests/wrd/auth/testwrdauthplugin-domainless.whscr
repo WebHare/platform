@@ -395,7 +395,7 @@ MACRO TestRequireExternalLoggedinUser()
   STRING loginrequiringurl := thirdpartyurl || "action=requirelogin"; //uses WRD auth plugin dynamic auth
 
   TestEq(TRUE, testfw->browser->GotoWebPage(loginrequiringurl));
-  TesteqLike("*wh-shell*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
+  TesteqLike("*wh-wrdauth-login__form*", testfw->browser->document->queryselector("form")->GetAttribute("class")); //ensure we're talking to some sort of tollium
 
   //We should be seeing the tollium page above. Do a WRD login
 //  testfw->browser->debug:=TRUE;
@@ -462,7 +462,7 @@ MACRO TestCrossDomainLogin()
   STRING accessrulelogin := thirdpartybaseurl || "accessruleaccounts/";
 
   TestEq(TRUE, testfw->browser->GotoWebPage(accessrulelogin));
-  TesteqLike("*wh-shell*", testfw->browser->document->documentelement->GetAttribute("class")); //ensure we're talking to some sort of tollium
+  TestEqLike("*wh-wrdauth-login__form*", testfw->browser->document->queryselector("form")->GetAttribute("class")); //ensure we're talking to some sort of tollium
 
   STRING logincontrol := GetVariableFromURL(testfw->browser->url, "wrdauth_logincontrol");
 

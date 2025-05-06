@@ -1,7 +1,11 @@
 import * as crypto from "node:crypto";
 import { parseDuration, subtractDuration } from "@webhare/std";
-import { AuthenticationSettings } from "@webhare/wrd";
+import { AuthenticationSettings, type WRDSchema } from "@webhare/wrd";
 import { getTid } from "@webhare/gettid";
+import { getUserValidationSettings } from "./support";
+import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import { runInWork } from "@webhare/whdb";
+import { createServerSession } from "@webhare/services";
 
 /** Parse password checks
     @param checks - Password validation checks. Space-separated list of checks. Possible checks:
@@ -151,14 +155,15 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
     }
 
     return {
-      success: false,
+      success: false as const,
       message,
-      failedchecks: failed.map((check) => check.check)
+      failedchecks: failed.map((check) => check.check),
+      badPasswordTime: authenticationSettings?.getLastPasswordChange() ?? null
     };
   }
 
   return {
-    success: true,
+    success: true as const,
     message: "",
     failedchecks: []
   };
@@ -319,4 +324,33 @@ export function describePasswordChecks(checks: string): string {
     lines.push(`- ${getRequirementTid(check)}`);
   }
   return getTid("wrd:site.forms.authpages.passwordcheck.requirements", lines.join("\n"));
+}
+
+export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string) {
+  /* Verify the user is sufficiently secure, ie HIBP and complexity/age requirements, 2FA requirements
+      If not, the user should go through a forced password change but we'll pass him a 'signin' token
+      that will be valid to complete signin
+   */
+  const passwordValidationChecks = await getUserValidationSettings(wrdschema, unit);
+  if (!passwordValidationChecks)
+    return null;
+
+  const passwordCheck = await checkPasswordCompliance(passwordValidationChecks, password, {
+    isCurrentPassword: true,
+    authenticationSettings: authsettings
+  });
+
+  if (passwordCheck.success)
+    return null;
+
+  //Go to complete account
+  const session = await runInWork(() => createServerSession(
+    "platform:incomplete-account", {
+    failedchecks: passwordCheck.failedchecks,
+    returnTo: returnTo || '',
+    user: userId,
+    badPasswordTime: passwordCheck.badPasswordTime,
+  }, { expires: 3600_0000 })); //we'll give the user 1 hour to complete the account setup
+
+  return session;
 }

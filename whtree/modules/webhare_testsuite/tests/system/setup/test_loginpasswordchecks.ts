@@ -1,5 +1,7 @@
 import * as test from '@mod-tollium/js/testframework';
 import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
+import { throwError } from '@webhare/std';
+import * as testwrd from "@mod-wrd/js/testframework";
 
 const webroot = test.getTestSiteRoot();
 let setupdata: TestSetupData | null = null;
@@ -46,43 +48,24 @@ test.runTests(
           ]
         });
     },
-    "login tests",
+
+    "test logging in with non-compliant password",
     async function () {
       await test.load(webroot + "portal1/?notifications=0&language=en");
-      await test.wait('ui');
 
-      test.setTodd('loginname', "pietje@allow2fa.test.webhare.net");
-      test.setTodd('password', "SECRET");
-
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
+      test.fill("[name=password]", "SECRET");
+      test.click(await test.waitForElement("button[type=submit]"));
+      await test.wait('load');
 
       // password reset window should open immediately
-      test.eq("Reset password", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-      test.setTodd('password', "secret");
-      test.setTodd('passwordrepeat', "secret");
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForElement([".wh-form__page--visible", /does not comply/]);
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
 
-      test.eq(/password has been updated/, test.qR(".appcanvas--visible .t-screen.active").textContent);
-      test.clickToddButton('OK');
-
-      // wait for screen to close, the busy lock is released somwehere in between the closing process
-      //await test.wait('ui');
-      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length === 1);
-
-      // should be back in login window
-      test.setTodd('password', "secret");
-      test.clickToddButton('Login');
-      await test.wait('ui');
-
-      // logout
-      test.click("#dashboard-logout");
-      await test.wait('ui');
-      test.clickToddButton('Yes');
-      await test.wait('load');
-      await test.wait('ui');
-
+      await test.runTolliumLogout();
+    },
+    "test logging in with non-compliant password AND 2FA",
+    async function () {
       // reset password to be invalid, enable 2FA
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
@@ -96,47 +79,24 @@ test.runTests(
           totp: { url: "otpauth://totp/WebHare%C2%AE%20Platform:pietje%40allow2fa.test.webhare.net?secret=OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK&issuer=WebHare%C2%AE%20Platform" }
         });
 
-      test.setTodd('loginname', "pietje@allow2fa.test.webhare.net");
-      test.setTodd('password', "SECRET");
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
+      test.fill("[name=password]", "SECRET");
+      test.click(await test.waitForElement("button[type=submit]"));
+      await test.wait('load');
 
-      // expect reset password window
-      test.eq("Reset password", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-      test.setTodd('password', "secret2");
-      test.setTodd('passwordrepeat', "secret2");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      // expect enter 2FA code window
-      test.eq("Authenticate", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      // expect enter 2FA code window (before we allow you to change the password...)
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
-      test.setTodd('totpcode', totpdata.code);
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      await test.waitForElement([".wh-form__page--visible", /Please enter your one-time code/]);
+      test.fill("[name=totp]", totpdata.code);
+      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Login button not found"));
+      await test.wait('load');
 
-      // message window 'Your password has been updated'
-      test.eq(/password has been updated/, test.qR(".appcanvas--visible .t-screen.active").textContent);
-      test.clickToddButton('OK');
-
-      // should go back to login window, login with new password
-      await test.wait(() => test.qSA(".appcanvas--visible .t-screen").length === 1);
-      test.setTodd('password', "secret2");
-      test.clickToddButton('Login');
-      await test.wait('ui');
-
-      // need to enter 2FA code
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
-      test.setTodd('totpcode', totpdata.code);
-      test.click(test.compByName("secondfactorloginbutton"));
-      await test.wait('ui');
+      // expect set password window
+      await test.waitForElement([".wh-form__page--visible", /does not comply/]);
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
 
       // should be logged in, so logout should work
-      test.click("#dashboard-logout");
-      await test.wait('ui');
-      test.clickToddButton('Yes');
-      await test.wait('load');
-      await test.wait('ui');
+      await test.runTolliumLogout();
     },
 
     "forgot password checks",
@@ -162,7 +122,7 @@ test.runTests(
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node => node.textContent?.includes("User Management"))[0]);
+      test.click(await test.waitForElement(["li li", /User Management/]));
       await test.wait('ui');
 
       test.click(test.qSA('div.listrow').filter(node => node.textContent?.includes("webhare_testsuite.unit"))[0]);
@@ -180,38 +140,18 @@ test.runTests(
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
-      test.setTodd('password', "secret");
-      test.setTodd('passwordrepeat', "secret");
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      await testwrd.tryPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret");
 
       // policy: no reuse for 2 days
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      test.eq(/doesn't have/, test.qR(".wh-form__page--visible").textContent);
 
-      test.setTodd('password', "secret2");
-      test.setTodd('passwordrepeat', "secret2");
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      await testwrd.tryPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret2");
 
       // policy: no reuse for 2 days
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      test.eq(/doesn't have/, test.qR(".wh-form__page--visible").textContent);
 
-      test.setTodd('password', "secret3");
-      test.setTodd('passwordrepeat', "secret3");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('load');
-      await test.wait('ui');
-
-      // Show the login window
-      test.eq("Login", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3");
+      await test.runTolliumLogout();
     },
 
     "force 2fa",
@@ -234,69 +174,37 @@ test.runTests(
       await test.load(webroot + `portal1/?notifications=0&language=en`);
       await test.wait('ui');
 
-      test.setTodd('loginname', "pietje@allow2fa.test.webhare.net");
-      test.setTodd('password', "secret");
+      test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
+      test.fill("[name=password]", "secret");
+      test.click(await test.waitForElement("button[type=submit]"));
+      await test.wait('load');
 
-      test.clickToddButton('Login');
-      await test.wait('ui');
-
-      // should open 2FA management dialog
-      test.eq("Two-factor authentication", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-
-      // close dialog without configuring it
-      test.clickToddButton('Close');
-      await test.wait('ui');
-
-      // message popup? 2FA is required but not configured, sure to close dialog?
-      test.eq(/two.*factor.*need.*configured.*log.*in.*sure.*close/i, test.compByName("message").textContent);
-      test.clickToddButton('No');
-      await test.wait('ui');
-
-      // Setup 2FA
-      test.clickToddButton('Setup');
-      await test.wait('ui');
-
-      // need to authenticate first
-      test.eq("Authenticate", test.qR(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-      test.setTodd('password', "secret");
-      test.clickToddButton('OK');
-      await test.wait('ui');
+      // should open 2FA setup screen
+      await test.waitForElement([".wh-form__page--visible", /Scan the QR-code below with an authentication/]);
 
       // show the 2FA secret key, so we can read it
-      test.click(test.qSA("t-text").filter(e => e.textContent === "Show the secret key")[0]);
-      await test.wait('ui');
-
-      totpsecret = test.getCurrentScreen().getValue("totpsecret");
+      test.click(await test.waitForElement(['a', /Show the secret key/]));
+      totpsecret = (await test.waitForElement("[name=secret]")).value;
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
 
-      test.setTodd('entercode', totpdata.code);
+      test.fill("[name=totp]", totpdata.code);
+      test.click(test.findElement(["a,button", /Confirm/]) ?? throwError("Confirm button not found"));
 
-      // complete the configuration, ignore the backup codes (for now!)
-      test.click(test.qSA("button").filter(e => e.textContent?.startsWith("Next"))[0]);
-      await test.wait('ui');
-      test.clickToddButton('Finish');
-      await test.wait('ui');
-
-      test.eq("Configured", test.getCurrentScreen().getValue("totp"));
-
-      test.clickToddButton('Close');
-      await test.wait('ui');
-
-      // backend app close can't be waited on with ui wait, wait for login window to become the top window afain
-      await test.wait(() => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent === "Login").length === 1);
-      test.setTodd('password', "secret");
+      // complete the configuration, ignore the backup codes (for now!) FIXME check the backupcodes are there
+      test.click(await test.waitForElement(["a,button", /Login/]));
+      await test.runTolliumLogout();
 
       // login again, now with TOTP code
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
+      test.fill("[name=password]", "secret");
+      test.click(await test.waitForElement("button[type=submit]"));
+      await test.wait('load');
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
-      test.setTodd('totpcode', totpdata.code);
-
-      test.click(test.compByName("secondfactorloginbutton"));
-      await test.wait('ui');
+      test.fill(await test.waitForElement("[name=totp]"), totpdata.code);
+      test.click(await test.waitForElement(["a,button", /Login/]));
 
       // should be logged in
-      test.assert(Boolean(test.qS("#dashboard-logout")));
+      await test.runTolliumLogout();
     }
   ]);

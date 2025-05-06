@@ -7,6 +7,13 @@
     </page>
   </form>
 
+  <form name="totp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="TotpForm">
+    <page>
+      <hidden name="token" title="" />
+      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+    </page>
+  </form>
+
   <form name="forgotpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ForgotPasswordForm">
     <page>
       <textedit name="email" autocomplete="email" required="1" tid=".email" />
@@ -14,6 +21,14 @@
   </form>
 
   <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm">
+    <page>
+      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
+      <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
+      <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
+    </page>
+  </form>
+
+  <form name="completeaccountpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountPasswordForm">
     <page>
       <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
@@ -35,5 +50,14 @@
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
   </form>
+
+  <form name="completeaccounttotp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountTotpForm">
+    <page>
+      <hidden name="setup" title="" />
+      <textedit name="secret" />
+      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+    </page>
+  </form>
+
 
 </formdefinitions>

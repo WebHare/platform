@@ -28,7 +28,6 @@ const todd_components = getComponents();
 import * as dompack from 'dompack';
 import * as storage from 'dompack/extra/storage';
 import * as whintegration from '@mod-system/js/wh/integration';
-import * as WRDAuth from '@mod-wrd/js/auth';
 import './debugging/magicmenu';
 
 const EventServerConnection = require('@mod-system/js/net/eventserver');
@@ -57,6 +56,7 @@ require("../common.lang.json");
 
 import TolliumShell, { type AppStartResponse } from "@mod-tollium/shell/platform/shell";
 import type { AppLaunchInstruction, ShellInstruction, MenuAppGroup } from '@mod-platform/js/tollium/types';
+import { logout } from '@webhare/frontend';
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
 function preventNavigation(event) {
@@ -100,7 +100,6 @@ class ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
 
 class IndyShell extends TolliumShell {
   settings = new ShellSettings;
-  wrdauth = WRDAuth.getDefaultAuth();
   isloggingoff = false;
   istodd = false;
   eventsconnection = new EventServerConnection({ url: "/wh_events/" });
@@ -374,8 +373,7 @@ class IndyShell extends TolliumShell {
     this.isloggingoff = true; //prevent dashboard etc from playing during a logoff
 
     $todd.applications.forEach(app => app.terminateApplication());
-
-    this.wrdauth.logout();
+    logout();
   }
   requestNewShellSettings() {
     const options = {};
