@@ -20,7 +20,7 @@ function getKeyForScope(scope: string): Buffer {
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
     @returns Encrypted data, base64url encoded (so safe for direct use in URLs)
 */
-export function encryptForThisServer<S extends string>(scope: S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
+export function encryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, data: S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown): string {
   const iv = crypto.randomBytes(12);
   const key = getKeyForScope(scope);
   const text = stringify(data, { typed: true });
@@ -36,10 +36,8 @@ export function encryptForThisServer<S extends string>(scope: S, data: S extends
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
 */
-export function decryptForThisServer<S extends keyof ServerEncryptionScopes>(scope: S, text: string): ServerEncryptionScopes[S];
-export function decryptForThisServer(scope: string, text: string): unknown;
-
-export function decryptForThisServer(scope: string, text: string): unknown {
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown {
+  type RetVal = S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
   const [enc, iv, authTag] = text.split(".");
   if (!enc || !iv || !authTag)
     throw new Error("Invalid encrypted data");
@@ -51,7 +49,7 @@ export function decryptForThisServer(scope: string, text: string): unknown {
   str += decipher.final('utf8');
 
   //HareScript EncryptForThisServer will always generate HSON so its 'default usage' remains 100% HS compatible. (TODO not sure if it useful to give it a 'typed json' option?)
-  return str.startsWith("hson:") ? decodeHSON(str) : parseTyped(str);
+  return str.startsWith("hson:") ? decodeHSON(str) as RetVal : parseTyped(str);
 }
 
 //Create a signature for this server
