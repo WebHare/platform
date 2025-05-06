@@ -899,12 +899,10 @@
         <text tid="resetpassword-button">Nieuw wachtwoord instellen</text>
         <text tid="resetpassword-continue">Verder gaan</text>
         <text tid="resetpassword-intro">Voer een nieuw wachtwoord voor het account in</text>
-        <text tid="resetpassword-processed">Het nieuwe wachtwoord is ingesteld</text>
         <text tid="resetpassword-title">Herstel wachtwoord</text>
         <text tid="setpassword-button">Wachtwoord instellen</text>
         <text tid="setpassword-continue">Verder gaan</text>
         <text tid="setpassword-intro">Voer een wachtwoord in om het account in te schakelen</text>
-        <text tid="setpassword-processed">Het account is ingeschakeld</text>
         <text tid="setpassword-title">Wachtwoord instellen</text>
         <text tid="username">Gebruikersnaam</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->

@@ -899,12 +899,10 @@
         <text tid="resetpassword-button">Set new password</text>
         <text tid="resetpassword-continue">Continue</text>
         <text tid="resetpassword-intro">Please enter a new password for your account</text>
-        <text tid="resetpassword-processed">Your new password has been set</text>
         <text tid="resetpassword-title">Reset password</text>
         <text tid="setpassword-button">Set password</text>
         <text tid="setpassword-continue">Continue</text>
         <text tid="setpassword-intro">Please set a password to enable your account</text>
-        <text tid="setpassword-processed">Your account has been enabled</text>
         <text tid="setpassword-title">Set password</text>
         <text tid="username">Username</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->

@@ -43,12 +43,10 @@
         <text tid="resetpassword-button">Legen Sie ein neues Passwort fest</text>
         <text tid="resetpassword-continue">Weiter</text>
         <text tid="resetpassword-intro">Please enter a new Passwort for your Konto</text>
-        <text tid="resetpassword-processed">Ihr neues Passwort wurde festgelegt</text>
         <text tid="resetpassword-title">Passwort zurücksetzen</text>
         <text tid="setpassword-button">Passwort festlegen</text>
         <text tid="setpassword-continue">Weiter</text>
         <text tid="setpassword-intro">Bitte legen Sie ein Passwort fest, um Ihr Konto zu aktivieren</text>
-        <text tid="setpassword-processed">Ihr Konto wurde aktiviert</text>
         <text tid="setpassword-title">Passwort festlegen</text>
         <text tid="username">Nutzername</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->

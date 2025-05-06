@@ -14,11 +14,7 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
 
       test.eq('', test.qR('[name="login"]').value);
-      test.fill(test.qR('[name="login"]'), 'pietje-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'fout');
-      test.click('.wh-wrdauth-login__loginbutton');
-
-      await test.wait('ui');
+      await testwrd.tryLogin('pietje-authpages-js@beta.webhare.net', 'fout');
 
       test.assert(test.hasFocus(test.qR('[name="password"]')));
     },
@@ -84,10 +80,7 @@ test.runTests(
       test.click('#logoutlink');
       await test.wait('pageload');
 
-      test.fill(test.qR('[name="login"]'), 'pietje-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'mylittlesecret$');
-      test.click('.wh-wrdauth-login__loginbutton');
-      await test.wait('ui');
+      await testwrd.tryLogin('pietje-authpages-js@beta.webhare.net', 'mylittlesecret$');
 
       test.assert(test.hasFocus(test.qR('[name="password"]')));
       test.fill(test.qR('[name="password"]'), 'secret3$');
@@ -126,11 +119,7 @@ test.runTests(
     async function () {
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
-      test.fill(test.qR('[name="login"]'), 'pietje-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3$');
-      test.click('.wh-wrdauth-login__loginbutton');
-
-      await test.wait("pageload");
+      await testwrd.runLogin('pietje-authpages-js@beta.webhare.net', 'secret3$');
 
       test.assert(test.qR('#isloggedin').checked);
     },
