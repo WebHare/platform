@@ -262,6 +262,9 @@ finalize_tests()
     RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo "$ARTIFACTS/buildinfo"
   fi
 
+  # Promote jstests failure logs + screenshots to the root dir
+  [ -d "$ARTIFACTS/tmp/jstests" ] && mv "$ARTIFACTS/tmp/jstests"/* "$ARTIFACTS/"
+
   if [ -n "$TESTFW_EXPORTMODULE" ]; then
     RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
   fi
