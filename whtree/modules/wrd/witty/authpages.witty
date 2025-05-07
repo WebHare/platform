@@ -93,13 +93,14 @@
             [gettid site.forms.authpages.resetpassword-intro]
           </p>
         </div>
+        [form.login.render]
         [form.passwordnew.render]
         [form.passwordrepeat.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
         <div class="wh-wrdauth__done wh-wrdauth-resetpassword__done">
           <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.resetpassword-processed]
+            [gettid site.forms.authpages.passwordchange-processed]
           </p>
           <div class="wh-form__buttongroup wh-form__navbuttons">
             <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.resetpassword-continue]</a>
@@ -129,7 +130,7 @@
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
         <div class="wh-wrdauth__done wh-wrdauth-setpassword__done">
           <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.setpassword-processed]
+            [gettid site.forms.authpages.passwordchange-processed]
           </p>
           <div class="wh-form__buttongroup wh-form__navbuttons">
             <a href="[continuelink]" type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-setpassword__continuebutton">[gettid site.forms.authpages.setpassword-continue]</a>
@@ -208,9 +209,10 @@
       <div class="wh-form__page">
         <div class="wh-wrdauth-form__intro wh-wrdauth-passwordchange__intro">
           <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-intro currentlogin]
+            [gettid site.forms.authpages.passwordchange-intro]
           </p>
         </div>
+        [form.login.render]
         [form.currentpassword.render]
         [form.passwordnew.render]
         [form.passwordrepeat.render]

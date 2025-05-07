@@ -169,9 +169,6 @@
             <text title="" valuetid="~units.days" />
           </line>
         </tab>
-        <tab tid=".passwordrestrictions">
-          <s:passwordvalidationchecks name="passwordvalidationchecks" />
-        </tab>
       </tabs>
     </body>
   </screen>

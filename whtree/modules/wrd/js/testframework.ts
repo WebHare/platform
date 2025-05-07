@@ -1,4 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
+import { throwError } from "@webhare/std";
 
 ///run forgot password sequence and navigate through the reset procedure
 export function testResetPassword(options: { email: string; newpassword: string }) {
@@ -21,14 +22,35 @@ export function testResetPassword(options: { email: string; newpassword: string 
     },
     'Set my new password',
     async function () {
-      test.fill(test.qR('[name="passwordnew"]'), options.newpassword);
-      test.fill(test.qR('[name="passwordrepeat"]'), options.newpassword);
-      test.click(test.qR('.wh-wrdauth-resetpassword__resetbutton'));
-
-      await test.waitUI();
-
-      test.click(test.qR(".wh-wrdauth-resetpassword__continuebutton"));
-      await test.waitNavigation();
+      await runPasswordSetForm(options.email, options.newpassword);
     }
   ];
+}
+
+export async function tryLogin(login: string, pwd: string) {
+  test.fill(await test.waitForElement("[name=login]"), login);
+  test.fill("[name=password]", pwd);
+  test.click(await test.waitForElement(["button[type=submit]", 0]));
+  await test.wait('ui');
+}
+
+export async function runLogin(login: string, pwd: string) {
+  await tryLogin(login, pwd);
+  await test.wait("load");
+}
+
+export async function tryPasswordSetForm(login: string, pwd: string) {
+  test.eq(login, (await test.waitForElement("[name=login]")).value);
+  test.fill("[name=passwordnew]", pwd);
+  test.fill("[name=passwordrepeat]", pwd);
+  test.click(await test.waitForElement("button[type=submit]"));
+  await test.wait('ui');
+}
+
+export async function runPasswordSetForm(login: string, pwd: string) {
+  await tryPasswordSetForm(login, pwd);
+
+  test.eq(/password has been updated/, test.qR(".wh-form__page--visible").textContent);
+  test.click(await test.waitForElement([".wh-form__page[data-wh-form-pagerole=thankyou]", 0, "a, button"]) ?? throwError("Login/continue button not found"));
+  await test.wait('load');
 }

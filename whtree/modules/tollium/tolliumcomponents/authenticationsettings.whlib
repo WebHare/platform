@@ -5,7 +5,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/qrcode.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::tollium/lib/componentbase.whlib";
@@ -512,27 +511,6 @@ PUBLIC STATIC OBJECTTYPE EditAuthSettingsPassword EXTEND TolliumScreenBase <
   }
 >;
 
-/** Generate 10 new backup codes, with 40 bits of entropy a piece, base-32 encoded
-    @return Backup codes
-    @cell(string) return.text Backup codes in presentable form
-    @cell(record array) return.backupcodes List of backup codes
-    @cell(string) return.backupcodes.code Backup code
-    @cell(datetime) return.backupcodes.used Date when used
-*/
-RECORD FUNCTION GenerateBackupCodes()
-{
-  RECORD ARRAY backupcodes;
-  STRING text;
-  FOR (INTEGER i := 0; i < 10; i := i + 1)
-  {
-    // make codes with 40-bit entropy, 8 chars in base32 encoding
-    STRING code := EncodeBase32(GenerateRandomBinaryValue(5));
-    text := text || code || "\n";
-    INSERT CELL[ code, used := DEFAULT DATETIME ] INTO backupcodes AT END;
-  }
-  RETURN CELL[ text, backupcodes ];
-}
-
 PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
 < /// If TRUE, only allow to disable TOTP
   BOOLEAN _managementmode;
@@ -659,38 +637,30 @@ PUBLIC STATIC OBJECTTYPE ManageTwoFAAuth EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE SetupTOTP EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE SetupTOTP EXTEND TolliumScreenBase <
   OBJECT user;
 
   OBJECT _valuekeeper;
+  RECORD newtotp;
 
-  STRING url;
-  RECORD ARRAY backupcodes;
-
-  MACRO Init(RECORD xdata)
-  {
+  MACRO Init(RECORD xdata) {
     this->_valuekeeper := xdata.valuekeeper;
 
-    STRING newtotpsecret := GenerateOTPSecret();
-    this->url := GetTOTPUrl(newtotpsecret, this->tolliumuser->login, ReadRegistryKey("system.backend.layout.title") ?? "Webhare");
+    STRING issuer := ReadRegistryKey("system.backend.layout.title") ?? "Webhare";
+    this->newtotp := PrepareTOTPForUser(this->tolliumuser->login, issuer);
 
-    OBJECT qrcode := CreateQRCode(this->url, [ size := 250, correctlevel := "L" ]);
-    BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
-    RECORD qrdata := ScanBlob(qrpng, "qr.png");
+    OBJECT qrcode := CreateQRCode(this->newtotp.url, [ size := 250, correctlevel := "L" ]);
+    RECORD qrdata := ScanBlob(this->newtotp.qrpng, "qr.png");
     ^qrcode->width := qrdata.width || "px";
     ^qrcode->height := qrdata.height || "px";
-    ^qrcode->SetImage(qrpng, "qr.png");
-    ^totpsecret->value := GetVariableFromURL(this->url, "secret");
+    ^qrcode->SetImage(this->newtotp.qrpng, "qr.png");
+    ^totpsecret->value := this->newtotp.secret;
 
-    RECORD codes := GenerateBackupCodes();
-    this->backupcodes := codes.backupcodes;
-    ^backupcodes_text->value := codes.text;
+    ^backupcodes_text->value := this->newtotp.backupcodes_text;
   }
 
-  BOOLEAN FUNCTION GotQRPageNext()
-  {
-    RECORD parsed := UnpackOTPUrl(this->url);
+  BOOLEAN FUNCTION GotQRPageNext() {
+    RECORD parsed := UnpackOTPUrl(this->newtotp.url);
     IF (NOT TestTOTPCode(parsed.secret, ^entercode->value, parsed.options).success)
     {
       RECORD difftest := TestTOTPCode(parsed.secret, ^entercode->value, [ ...parsed.options, allowdrift := 300 ]); // test for 5 minute drift
@@ -703,22 +673,17 @@ PUBLIC STATIC OBJECTTYPE SetupTOTP EXTEND TolliumScreenBase
     RETURN TRUE;
   }
 
-  BOOLEAN FUNCTION Submit()
-  {
+  BOOLEAN FUNCTION Submit() {
     // FIXME: audit log enabling TOTP
     this->_valuekeeper->StoreNewValue(CELL
         [ ...this->_valuekeeper->GetExistingValue()
-        , totp :=   CELL
-                    [ this->url
-                    , this->backupcodes
-                    ]
+        , totp :=  CELL[ this->newtotp.url, this->newtotp.backupcodes ]
         ], "wrd:authsettings.setuptotp");
 
     RETURN TRUE;
   }
 
-  MACRO DoShowTOTPSecret()
-  {
+  MACRO DoShowTOTPSecret() {
     ^txt_showtotpsecret->visible := FALSE;
     ^totpsecret->visible := TRUE;
   }

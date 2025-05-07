@@ -141,8 +141,15 @@ PUBLIC OBJECT FUNCTION GetForgotPasswordPage(OBJECT webdesign, RECORD options)
 // Reset password (link from email)
 //
 
-STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase
-<
+STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase <
+  OBJECT wrdschema;
+
+  MACRO NEW() {
+    this->wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+    IF(this->wrdschema->accountemailtag = this->wrdschema->accountlogintag)
+      ^login->title := GetTid("wrd:site.forms.authpages.email");
+  }
+
   MACRO CheckPasswordUpdate(OBJECT work, INTEGER entityid)
   {
     RECORD result := this->formcontext->GetWRDAuthPlugin()->CheckPasswordUpdate(entityid, ^passwordnew->value);
@@ -151,13 +158,12 @@ STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase
-<
+PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
   PUBLIC RECORD verifyresult;
 
-  MACRO NEW()
-  {
+  MACRO NEW() {
     this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
+    ^login->value := this->wrdschema->accounttype->GetEntityField(this->verifyresult.entityid, this->wrdschema->accountlogintag);
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
@@ -302,10 +308,9 @@ PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
 // Change password
 //
 
-PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase
-<
-  MACRO NEW()
-  {
+PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase <
+  MACRO NEW() {
+    ^login->value := this->wrdschema->accounttype->GetEntityField(this->formcontext->GetWRDAuthPlugin()->GetLoggedinEntity(), this->wrdschema->accountlogintag);
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)

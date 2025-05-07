@@ -1,5 +1,3 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
 
 
@@ -33,8 +31,8 @@ test.runTests(
         test.eq([apps[2]], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.assert(tabs[1].textContent.includes('app_0_0'));
-        test.assert(tabs[2].textContent.includes('app_1_1'));
+        test.assert(tabs[1].textContent?.includes('app_0_0'));
+        test.assert(tabs[2].textContent?.includes('app_1_1'));
 
         // Send message to self {target: 1}
         test.click(test.getMenu(['X03']));
@@ -55,8 +53,8 @@ test.runTests(
         test.eq([apps[2]], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.assert(tabs[1].textContent.includes('app_0_0'));
-        test.assert(tabs[2].textContent.includes('app_1_2'));
+        test.assert(tabs[1].textContent?.includes('app_0_0'));
+        test.assert(tabs[2].textContent?.includes('app_1_2'));
 
         // Switch to app 0
         test.click(tabs[1]);
@@ -93,8 +91,8 @@ test.runTests(
         test.eq([apps[2]], Array.from(test.qSA('.appcanvas--visible')));
 
         // Did target & messages arrive?
-        test.assert(tabs[1].textContent.includes('app_0_0'));
-        test.assert(tabs[2].textContent.includes('app_1_3'));
+        test.assert(tabs[1].textContent?.includes('app_0_0'));
+        test.assert(tabs[2].textContent?.includes('app_1_3'));
       }
     },
 

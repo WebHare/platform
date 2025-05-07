@@ -50,34 +50,34 @@ INTEGER64 FUNCTION GetTimeUnit(OBJECT textedit, OBJECT unitpulldown)
     Direct access: https://my.webhare.dev/?app=wrd(system:usermgmt)/authsettings
 */
 
-PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
+PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
+
+  MACRO Init(RECORD data) {
     //get settings, coerce them to the proper types
     RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, GetWRDSetting(this->contexts->wrdschema, "login_settings"));
     SetTimeUnit(^expire_login, ^expire_login_unit, settings.expire_login);
     SetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit, settings.expire_persistentlogin);
 
-    IF(settings.round_longlogins_to >= 0)
-    {
+    IF(settings.round_longlogins_to >= 0) {
       ^roundlogins->value := TRUE;
       ^round_longlogins_to->value := settings.round_longlogins_to;
     }
     ^round_longlogins_tz->value := settings.round_longlogins_tz;
     SetTimeUnit(^round_minduration, ^round_minduration_unit, settings.round_minduration);
     this->OnRoundLoginsChange();
+
+    ^passwordchecks->value := GetWRDSetting(this->contexts->wrdschema, "password_validation_checks");
   }
 
-  MACRO OnRoundLoginsChange()
-  {
+  MACRO OnRoundLoginsChange() {
     ^round_longlogins_to->enabled := ^roundlogins->value;
     ^round_longlogins_tz->enabled := ^roundlogins->value;
   }
 
-  BOOLEAN FUNCTION Submit()
-  {
+  BOOLEAN FUNCTION Submit() {
     OBJECT work := this->BeginWork();
+    SetWRDSetting(this->contexts->wrdschema, "password_validation_checks", ^passwordchecks->value);
+
     SetWRDSetting(this->contexts->wrdschema, "login_settings",
       CELL[ ...GetWRDSetting(this->contexts->wrdschema, "login_settings")
           , expire_login := GetTimeUnit(^expire_login, ^expire_login_unit)

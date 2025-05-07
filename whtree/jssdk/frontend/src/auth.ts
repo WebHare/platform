@@ -43,17 +43,15 @@ export type LoginResult = {
 /** Current authoptions. undefined if setupWRDAuth hasn't been invoked yet */
 let authOptions: WRDAuthOptions | undefined;
 
-
-function getCookieName() {
+/** Get current login cookie. If empty, wrdauth is not initialized here */
+function getCookieName(): string | null {
   const settings = getFrontendData("wrd:auth", { allowMissing: true });
-  if (!settings?.cookiename)
-    throw new Error("No authsettings.cookiename set, wrd:auth not available");
-
-  return settings.cookiename;
+  return settings?.cookiename || null;
 }
 
-function getStorageKeyName() {
-  return "wh:wrdauth-" + getCookieName();
+function getStorageKeyName(): string | null {
+  const c = getCookieName();
+  return c ? "wh:wrdauth-" + c : null;
 }
 
 async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
@@ -92,7 +90,11 @@ function refreshLoginStatus() {
 
 /** Return whether a user's currently logged in */
 export function isLoggedIn(): boolean {
-  const data = dompack.getLocal<AuthLocalData>(getStorageKeyName());
+  const storagekey = getStorageKeyName();
+  if (!storagekey)
+    return false;
+
+  const data = dompack.getLocal<AuthLocalData>(storagekey);
   if (data?.expires && "toUTCString" in data.expires) //WH5.6 compatibility
     return Boolean(data.expires > new Date());
 
@@ -150,18 +152,26 @@ function failLogin(message: string, response: { code: string; data: string }, fo
 
 /** Retrieve userinfo if set by onFrontendUserInfo in your WRDAuth customizer */
 export function getUserInfo<T extends object = object>(): T | null {
-  return dompack.getLocal<AuthLocalData>(getStorageKeyName())?.userInfo as T | null;
+  const skey = getStorageKeyName();
+  if (!skey)
+    return null;
+
+  return dompack.getLocal<AuthLocalData>(skey)?.userInfo as T | null;
 }
 
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
-  const result = await rpc("platform:authservice").login(username, password, getCookieName(), options);
+  const cookieName = getCookieName();
+  if (!cookieName)
+    throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
+
+  const result = await rpc("platform:authservice").login(username, password, cookieName, options);
 
   if ("error" in result)
     return { loggedIn: false, error: result.error };
 
   //we've logged in!
-  dompack.setLocal<AuthLocalData>(getStorageKeyName(), {
+  dompack.setLocal<AuthLocalData>(getStorageKeyName()!, {
     expires: result.expires,
     userInfo: result.userInfo || null
   });
@@ -169,8 +179,12 @@ export async function login(username: string, password: string, options: LoginOp
 }
 
 export async function logout() {
-  await rpc("platform:authservice").logout(getCookieName());
-  dompack.setLocal(getStorageKeyName(), null);
+  const cookieName = getCookieName();
+  if (!cookieName)
+    throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
+
+  await rpc("platform:authservice").logout(cookieName);
+  dompack.setLocal(getStorageKeyName()!, null);
   return { success: true };
 }
 

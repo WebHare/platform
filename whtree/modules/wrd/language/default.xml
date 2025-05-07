@@ -890,7 +890,7 @@
         <text tid="login-username-intro">Enter your username and password to login</text>
         <text tid="password">Password</text>
         <text tid="passwordchange-button">Change password</text>
-        <text tid="passwordchange-intro">Changing the password for '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Changing the password</text>
         <text tid="passwordchange-processed">Your password has been updated</text>
         <text tid="passwordchange-title">Change password</text>
         <text tid="passwordnew">New password</text>
@@ -899,12 +899,10 @@
         <text tid="resetpassword-button">Set new password</text>
         <text tid="resetpassword-continue">Continue</text>
         <text tid="resetpassword-intro">Please enter a new password for your account</text>
-        <text tid="resetpassword-processed">Your new password has been set</text>
         <text tid="resetpassword-title">Reset password</text>
         <text tid="setpassword-button">Set password</text>
         <text tid="setpassword-continue">Continue</text>
         <text tid="setpassword-intro">Please set a password to enable your account</text>
-        <text tid="setpassword-processed">Your account has been enabled</text>
         <text tid="setpassword-title">Set password</text>
         <text tid="username">Username</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
@@ -975,6 +973,7 @@
         <text tid="expire_login">Expire login after</text>
         <text tid="expire_persistentlogin">"Remember me" expires after</text>
         <text tid="expiry">Expiry settings</text>
+        <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="round_longlogins_to">Round to</text>
         <text tid="round_longlogins_tz">In timezone</text>
         <text tid="round_minduration">Minimum duration</text>

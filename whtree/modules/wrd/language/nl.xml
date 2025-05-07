@@ -890,7 +890,7 @@
         <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
         <text tid="password">Wachtwoord</text>
         <text tid="passwordchange-button">Wijzig wachtwoord</text>
-        <text tid="passwordchange-intro">Wachtwoord wijzigen voor '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Wachtwoord wijzigen</text>
         <text tid="passwordchange-processed">Het wachtwoord is bijgewerkt</text>
         <text tid="passwordchange-title">Wijzig wachtwoord</text>
         <text tid="passwordnew">Nieuw wachtwoord</text>
@@ -899,12 +899,10 @@
         <text tid="resetpassword-button">Nieuw wachtwoord instellen</text>
         <text tid="resetpassword-continue">Verder gaan</text>
         <text tid="resetpassword-intro">Voer een nieuw wachtwoord voor het account in</text>
-        <text tid="resetpassword-processed">Het nieuwe wachtwoord is ingesteld</text>
         <text tid="resetpassword-title">Herstel wachtwoord</text>
         <text tid="setpassword-button">Wachtwoord instellen</text>
         <text tid="setpassword-continue">Verder gaan</text>
         <text tid="setpassword-intro">Voer een wachtwoord in om het account in te schakelen</text>
-        <text tid="setpassword-processed">Het account is ingeschakeld</text>
         <text tid="setpassword-title">Wachtwoord instellen</text>
         <text tid="username">Gebruikersnaam</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
@@ -975,6 +973,7 @@
         <text tid="expire_login">Login verloopt na</text>
         <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
         <text tid="expiry">Verloopinstellingen</text>
+        <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="round_longlogins_to">Afronden naar</text>
         <text tid="round_longlogins_tz">Volgens tijdzone</text>
         <text tid="round_minduration">Minimum duur</text>

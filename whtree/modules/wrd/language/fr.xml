@@ -26,7 +26,7 @@
         <text tid="login-username-intro">Entrez votre nom d'utilisateur et mot de passe pour vous connecter</text>
         <text tid="password">Mot de passe</text>
         <text tid="passwordchange-button">Changer mot de passe</text>
-        <text tid="passwordchange-intro">Changer mot de passe pour  '<param p="1"/>'</text>
+        <text tid="passwordchange-intro">Changer mot de passe pour</text>
         <text tid="passwordchange-processed">Le mot de passe est changé</text>
         <text tid="passwordchange-title">Changer mot de passe</text>
         <text tid="passwordnew">Nouveau mot de passe</text>
@@ -35,12 +35,10 @@
         <text tid="resetpassword-button">Définir un nouveau mot de passe</text>
         <text tid="resetpassword-continue">Continuer</text>
         <text tid="resetpassword-intro">Entrer un nouveau mot de passe pour votre compte</text>
-        <text tid="resetpassword-processed">Votre nouveau mot de passe a été défini</text>
         <text tid="resetpassword-title">Réinitialiser le mot de passe</text>
         <text tid="setpassword-button">Définir le mot de passe</text>
         <text tid="setpassword-continue">Continuez</text>
         <text tid="setpassword-intro">Définir un mot de passe pour activer votre compte</text>
-        <text tid="setpassword-processed">Votre compte a été activé</text>
         <text tid="setpassword-title">Définir mot de passe</text>
         <text tid="username">Nom d'utilisateur</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
