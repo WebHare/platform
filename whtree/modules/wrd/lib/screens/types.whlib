@@ -589,9 +589,11 @@ PUBLIC OBJECTTYPE DeleteType EXTEND TolliumScreenBase
 
     IF (RecordExists(types))
     {
+      STRING typeslist := DeTokenize((SELECT AS STRING ARRAY `"${title ?? tag}"` FROM types), ",");
+
       work->AddError(this->wrdtype->metatype = 4
-          ? GetTid("wrd:types.errors.domaininusebytype", types[0].title)
-          : GetTid("wrd:types.errors.typeinusebytype", types[0].title));
+          ? GetTid("wrd:types.errors.domaininusebytype", typeslist)
+          : GetTid("wrd:types.errors.typeinusebytype", typeslist));
     }
     ELSE
     {
