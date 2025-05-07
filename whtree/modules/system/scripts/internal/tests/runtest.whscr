@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::float.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
@@ -46,11 +47,11 @@ OBJECT testrunner;
 BOOLEAN reduceverboseness;
 OBJECT jstestrunner;
 STRING ARRAY testtypes;
-STRING chromeurl;
-BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 RECORD parsedargs;
+BOOLEAN keepopen;
+BOOLEAN showbrowser;
 
 DATETIME teststart := GetCurrentDateTime();
 BOOLEAN interrupted;
@@ -60,7 +61,7 @@ MACRO AbortTests()
   PrintTo(2,`Interrupt received..\n`);
   SetConsoleExitCode(250);
   interrupted := TRUE;
-  interruptdefer.resolve([ done := FALSE, value := [ type := "interrupt" ]]);
+  interruptdefer.resolve([ type := "interrupt", done := FALSE, value := [ type := "interrupt" ]]); //look like both a simple value and an iterator value
 }
 AddInterruptCallback(PTR AbortTests);
 
@@ -70,47 +71,13 @@ MACRO MyPrint(STRING message)
     PRINT(message);
 }
 
-MACRO DisplayAndStoreReportErrors(RECORD testinfo, RECORD report)
-{
-  DATETIME now := GetCurrentDateTime();
-  IF (RecordExists(report.logdata))
-  {
-    CreateDiskDirectoryRecursive("/tmp/jstests/", TRUE);
-
-    STRING consolelog := `Console log:\n`;
-    FOREVERY (RECORD rec FROM report.logdata)
-      consolelog := consolelog || "> " || Substitute(rec.line, "\n", "\n> ") || "\n";
-
-    STRING filename := `/tmp/jstests/${testinfo.testname}.${FormatISO8601DateTime(now, "", "", "", FALSE)}.console.log`;
-    MyPrint(consolelog);
-    StoreDiskFile(filename, StringToBlob(consolelog));
-  }
-
-  IF (RecordExists(report.screenshot))
-  {
-    CreateDiskDirectoryRecursive("/tmp/jstests/", TRUE);
-    STRING filename := `/tmp/jstests/${testinfo.testname}.${FormatISO8601DateTime(now, "", "", "", FALSE)}.screenshot.${GetExtensionFromPath(report.screenshot.filename)}`;
-    MyPrint(`Screenshot saved as ${filename}\n`);
-    StoreDiskFile(filename, report.screenshot.data);
-  }
-}
-
-MACRO DisplayLogs(RECORD report)
-{
-  STRING consolelog := `Console log:\n`;
-  FOREVERY (RECORD rec FROM report.logdata)
-    consolelog := consolelog || "> " || Substitute(rec.line, "\n", "\n> ") || "\n";
-  MyPrint(consolelog);
-}
-
 /** @return
     @cell(string) return.status ok/fail/none
     @cell(record array) return.failed string array of failed tests
     @cell(string) return.failed.test Name of the failed test
     @cell(string array) return.executed string array of executed tests
 */
-RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRING ARRAY skips)
-{
+RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRING ARRAY skips) {
   RECORD result :=
       [ status :=       "none"
       , failed :=       DEFAULT RECORD ARRAY
@@ -125,10 +92,8 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
     Print("; RunTest(" || testinfo.type || ", " || testinfo.testname || ")\n");
 
   DATETIME start := GetCurrentDateTime();
-  SWITCH (testinfo.type)
-  {
-    CASE "test"
-    {
+  SWITCH (testinfo.type) {
+    CASE "test"  {
       IF ("backend" NOT IN testtypes)
       {
         result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
@@ -246,8 +211,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       RETURN result;
     }
 
-    CASE "fail"
-    {
+    CASE "fail" {
       IF ("backend" NOT IN testtypes)
       {
         result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
@@ -269,8 +233,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       RETURN result;
     }
 
-    CASE "jstest"
-    {
+    CASE "jstest" {
       IF ("frontend" NOT IN testtypes)
       {
         result.time_msecs := GetDateTimeDifference(start, GetCurrentDateTime()).msecs;
@@ -307,83 +270,20 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       INSERT testinfo.testname INTO result.executed AT END;
       result.id := testinfo.testname;
 
-      IF(NOT ObjectExists(jstestrunner)) //not initialized yet
-      {
-        jstestrunner := NEW ChromeDevtoolsTestRunner("chrome",
-            [ devtoolsurl := chromeurl
-            , debug := testrunner->print_debug
-            , keepsessions := keepsessions
-            , screenshotonfail := TRUE
-            , coverage := jscoverage
-            ]);
+      IF(NOT ObjectExists(jstestrunner)) { //not initialized yet
+        jstestrunner := ImportJS("mod::platform/js/testing/foregroundrunner.ts");
+        WaitForPromise(jstestrunner->Init(CELL[ debug := parsedargs.d, keepopen, showbrowser ]));
       }
 
-      OBJECT itr := jstestrunner->RunTest(testinfo);
-      WHILE (TRUE)
-      {
-        RECORD res := WaitForPromise( CreatePromiseRace(OBJECT[ interruptdefer.promise, itr->Next() ]) );
-        IF(NOT res.done AND CellExists(res.value,'type') AND res.value.type = "interrupt")
-        {
+      RECORD res := WaitForPromise( CreatePromiseRace(OBJECT[ interruptdefer.promise, jstestrunner->RunTest(testinfo) ]) );
+
+      IF(CellExists(res,'type') AND res.type = "interrupt") {
+        INSERT [ test := testinfo.testname ] INTO result.failed AT END;
+        result.status := "fail";
+      } ELSE {
+        result.status := res.status;
+        IF(res.status != "ok")
           INSERT [ test := testinfo.testname ] INTO result.failed AT END;
-          result.status := "fail";
-          BREAK;
-        }
-        IF (res.done)
-        {
-          IF (res.value.status != "finished")
-          {
-            MyPrint("Test error: " || res.value.msg || "\n");
-            INSERT [ test := testinfo.testname ] INTO result.failed AT END;
-            result.status := "fail";
-
-            IF (RecordExists(res.value.report))
-              DisplayAndStoreReportErrors(testinfo, res.value.report);
-          }
-          ELSE IF (NOT RecordExists(res.value.report) OR LENGTH(res.value.report.tests) = 0)
-          {
-            MyPrint("Test error: Could not load test\n");
-            INSERT [ test := testinfo.testname ] INTO result.failed AT END;
-            result.status := "fail";
-
-            IF (RecordExists(res.value.report))
-              DisplayAndStoreReportErrors(testinfo, res.value.report);
-          }
-          ELSE
-          {
-            RECORD report := res.value.report;
-            RECORD test := report.tests[0];
-            BOOLEAN failed;
-            IF (LENGTH(test.fails) != 0)
-            {
-              FOREVERY(RECORD fail FROM test.fails)
-                INSERT [ type := "ERROR", message := fail.text, text := fail.text || "\n\n" || fail.stack ] INTO result.failures AT END;
-
-              MyPrint("Test error: " || test.fails[0].text || "\n" || test.fails[0].stack || "\n");
-              failed := TRUE;
-            }
-            ELSE IF (NOT report.finished)
-            {
-              MyPrint("Test timeout\n");
-              INSERT [ type := "ERROR", message := "Test timeout", text := "" ] INTO result.failures AT END;
-              failed := TRUE;
-            }
-
-            IF (failed)
-            {
-              DisplayAndStoreReportErrors(testinfo, report);
-              INSERT [ test := testinfo.testname ] INTO result.failed AT END;
-              result.status := "fail";
-            }
-            ELSE
-            {
-              IF (print_output AND NOT reduceverboseness)
-                DisplayLogs(report);
-
-              result.status := "ok";
-            }
-          }
-          BREAK;
-        }
       }
     }
     DEFAULT
@@ -691,9 +591,9 @@ MACRO PrintSyntax()
   Print("  --outputdir      Save output files to this directory\n");
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
   Print("  --param=x=y      Set a test parameters\n");
-  Print("  --chromeurl=...  URL on which chrome debugger is listening, for frontend tests\n");
   Print("  --timeout=...    Set timeout in msecs. Defaults to 15 minutes\n");
-  Print("  --keepsessions   Do not close Chrome sessions\n");
+  Print("  --showbrowser    Show brwoser during tests pages\n");
+  Print("  --keepopen       Do not close browser page when test fails\n");
   Print("  --wasm           Default to the wasm engine for tests that do not declare their engine\n");
   Print("  all              Run the group 'all' in all known tests\n");
   Print("  testname         Run the test with this name (may be a comma separated list)\n");
@@ -741,7 +641,6 @@ parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "p", type := "switch", defaultvalue := FALSE]
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
-                                    , [name := "chromeurl", type := "stringopt"]
                                     , [name := "skip", type := "stringlist"]
                                     , [name := "untilfail", type := "switch"]
                                     , [name := "breakonerror", type := "switch"]
@@ -751,7 +650,8 @@ parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "param", type := "stringlist"]
                                     , [name := "loop", type := "switch"]
                                     , [name := "autotests", type := "switch"]
-                                    , [name := "keepsessions", type := "switch"]
+                                    , [name := "keepopen", type := "switch"]
+                                    , [name := "showbrowser", type := "switch"]
                                     , [name := "terse", type := "switch"]
                                     , [name := "wasm", type := "switch"]
                                     , [name := "testlist", type := "paramlist" ]
@@ -770,8 +670,8 @@ use_jobs := NOT parsedargs.p;
 breakonerror := parsedargs.breakonerror OR parsedargs.untilfail;
 autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
-chromeurl := parsedargs.chromeurl;
-keepsessions := parsedargs.keepsessions;
+keepopen := parsedargs.keepopen;
+showbrowser := parsedargs.showbrowser;
 profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
 BOOLEAN looptests := parsedargs.loop OR parsedargs.untilfail;
@@ -838,90 +738,96 @@ testrunner->print_debug := parsedargs.d;
 RECORD ARRAY alltests;
 RECORD ARRAY tests := testrunner->GatherAllTests(testlist, DEFAULT STRING ARRAY);
 INTEGER iteration;
-WHILE (TRUE)
-{
-  BOOLEAN seenanytest := FALSE;
 
-  RECORD ARRAY failed_tests;
+TRY {
+  WHILE (TRUE) {
+    BOOLEAN seenanytest := FALSE;
 
-  iteration := iteration + 1;
+    RECORD ARRAY failed_tests;
 
-  FOREVERY (RECORD test FROM tests)
-  {
-    IF(interrupted)
-      BREAK;
-    IF(NOT CheckAgainstTags(test.tags, requiretags, excludetags))
-      CONTINUE;
+    iteration := iteration + 1;
 
-    seenanytest := TRUE;
-    IF (autotests AND test.skipauto) //still counts as a match for the purposes of detecting invalid wh runtest invocations
-      CONTINUE;
+    FOREVERY (RECORD test FROM tests) {
+      IF(interrupted)
+        BREAK;
+      IF(NOT CheckAgainstTags(test.tags, requiretags, excludetags))
+        CONTINUE;
 
-    RECORD localresult := RunTest(test, "*", TRUE, parsedargs.skip);
-    INSERT localresult INTO alltests AT END;
+      seenanytest := TRUE;
+      IF (autotests AND test.skipauto) //still counts as a match for the purposes of detecting invalid wh runtest invocations
+        CONTINUE;
 
-    STRING ARRAY failed_tests_names :=
-        SELECT AS STRING ARRAY COLUMN test
-          FROM localresult.failed;
+      RECORD localresult := RunTest(test, "*", TRUE, parsedargs.skip);
+      INSERT localresult INTO alltests AT END;
 
-    IF (test.testname LIKE "wh.hscore.test.*")
-    {
-      // Special processing for self test (whether failure detection in process/job code works ok)
-      BOOLEAN is_error;
-      FOREVERY (STRING str FROM localresult.executed)
-        IF ((str LIKE "*.fail.*") != (str IN failed_tests_names))
+      STRING ARRAY failed_tests_names :=
+          SELECT AS STRING ARRAY COLUMN test
+            FROM localresult.failed;
+
+      IF (test.testname LIKE "wh.hscore.test.*")
+      {
+        // Special processing for self test (whether failure detection in process/job code works ok)
+        BOOLEAN is_error;
+        FOREVERY (STRING str FROM localresult.executed)
+          IF ((str LIKE "*.fail.*") != (str IN failed_tests_names))
+          {
+            is_error := TRUE;
+            INSERT test INTO failed_tests AT END;
+          }
+      }
+      ELSE
+      {
+        IF (localresult.status = "fail")
         {
-          is_error := TRUE;
           INSERT test INTO failed_tests AT END;
         }
+      }
+      IF (localresult.status = "none")
+        THROW NEW Exception("Unexpected status 'none'");
+
+      IF(Length(failed_tests)>0 AND breakonerror)
+        BREAK;
     }
+
+    IF (NOT seenanytest)
+      TerminateScriptWithError(`Error: No test matched: '${Detokenize(parsedargs.testlist,',')}'`);
+
+    MyPrint("\n\n+=====================================================================\n");
+    IF(looptests)
+      MyPrint(`| TEST RESULTS (loops so far: ${iteration})\n`);
+    ELSE
+      MyPrint(`| TEST RESULTS\n`);
+    MyPrint("+=====================================================================\n\n");
+
+    IF (LENGTH(failed_tests) = 0)
+      MyPrint("All tests succeeded\n");
     ELSE
     {
-      IF (localresult.status = "fail")
+      //Report failed tests
+      Print("The following modules failed:\n");
+      FOREVERY (RECORD failure FROM failed_tests)
       {
-        INSERT test INTO failed_tests AT END;
+        Print(' - ' || failure.testname);
+        IF(failure.type="jstest")
+          Print(' ' || UpdateURLVariables("https://my.webhare.dev/" || UnpackURL(failure.baseurl).urlpath, [ mask := failure.testname ]));
+        Print('\n');
       }
-    }
-    IF (localresult.status = "none")
-      THROW NEW Exception("Unexpected status 'none'");
 
-    IF(Length(failed_tests)>0 AND breakonerror)
+      SetConsoleExitCode(1);
+    }
+
+    IF (NOT looptests OR (Length(failed_tests)>0 AND breakonerror) OR interrupted)
       BREAK;
   }
-
-  IF (NOT seenanytest)
-    TerminateScriptWithError(`Error: No test matched: '${Detokenize(parsedargs.testlist,',')}'`);
-
-  MyPrint("\n\n+=====================================================================\n");
-  IF(looptests)
-    MyPrint(`| TEST RESULTS (loops so far: ${iteration})\n`);
-  ELSE
-    MyPrint(`| TEST RESULTS\n`);
-  MyPrint("+=====================================================================\n\n");
-
-  IF (LENGTH(failed_tests) = 0)
-    MyPrint("All tests succeeded\n");
-  ELSE
-  {
-    //Report failed tests
-    Print("The following modules failed:\n");
-    FOREVERY (RECORD failure FROM failed_tests)
-    {
-      Print(' - ' || failure.testname);
-      IF(failure.type="jstest")
-        Print(' ' || UpdateURLVariables("https://my.webhare.dev/" || UnpackURL(failure.baseurl).urlpath, [ mask := failure.testname ]));
-      Print('\n');
+} FINALLY {
+  IF (ObjectExists(jstestrunner)) {
+    TRY{
+      WaitForPromise(jstestrunner->Close());
+    } CATCH(OBJECT ignore) {
+      // Ignore errors, we generally only see a 'JavaScript runner process terminated without giving a response.'
     }
-
-    SetConsoleExitCode(1);
   }
-
-  IF (NOT looptests OR (Length(failed_tests)>0 AND breakonerror) OR interrupted)
-    BREAK;
 }
-
-IF (ObjectExists(jstestrunner))
-  WaitForPromise(jstestrunner->Close());
 
 IF(parsedargs.outputdir != "")
 {

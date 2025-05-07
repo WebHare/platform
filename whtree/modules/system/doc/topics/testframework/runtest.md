@@ -110,7 +110,7 @@ Running frontend (Chrome) tests on OSX
 wh runtest --chromeurl http://localhost:9222 TESTNAME
 ```
 
-You can add `--keepsessions` to runtest to prevent browser windows from closing
+You can add `--keepopen` to runtest to prevent browser windows from closing
 after completing or failing a test
 
 ## Setting up a discardable test environment
