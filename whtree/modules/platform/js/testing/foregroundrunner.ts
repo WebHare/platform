@@ -1,5 +1,6 @@
 import type { DevToolsRequest, TestReport } from "@mod-system/web/systemroot/jstests/testsuite";
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
+import { formatTrace } from "@webhare/js-api-tools/src/stacktracing";
 import { broadcast, subscribeToEventStream } from "@webhare/services";
 import { generateRandomId, sleep } from "@webhare/std";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -149,7 +150,9 @@ export async function runTest(test: Test) {
       lastReport = nextEvent as TestProgressEvent;
     }
     if (lastReport.value.data.tests[0].fails.length) {
-      await reportFailure(test, lastReport.value.data.tests[0].fails[0].text, log, page);
+      const trace = formatTrace(lastReport.value.data.tests[0].fails[0].trace);
+      const msg = lastReport.value.data.tests[0].fails[0].text + "\n" + trace;
+      await reportFailure(test, msg, log, page);
       return { status: "fail" };
     }
 
