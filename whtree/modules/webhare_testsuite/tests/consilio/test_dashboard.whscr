@@ -23,6 +23,10 @@ ASYNC MACRO TestDashboardApp()
 
   TT("monitorpanels")->selection := indexmanagersentry;
 
+  //Ensure settings screen does not crash
+  AWAIT ExpectScreenChange(+1, PTR TTClick("backend"));
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }
 
