@@ -1,4 +1,5 @@
 import * as test from '@mod-tollium/js/testframework';
+import { getRoundedBoundingClientRect } from "@webhare/test-frontend";
 
 test.runTests(
   [
@@ -38,8 +39,8 @@ test.runTests(
         //the 04:00 cell contains both green & yellow
         const overlappedcell = test.qSA('[data-todd-cellpos="9:6"]')[0];
         test.assert(overlappedcell, 'overlapped cell 04:00 (9:6) not found');
-        test.eq(Math.round(overlappedcell.getBoundingClientRect().left + 1), greenoverlay.getBoundingClientRect().left);
-        test.eq(Math.round(overlappedcell.getBoundingClientRect().right), yellowoverlay.getBoundingClientRect().right);
+        test.eq(getRoundedBoundingClientRect(overlappedcell).left + 1, getRoundedBoundingClientRect(greenoverlay).left);
+        test.eq(getRoundedBoundingClientRect(overlappedcell).right - 1, getRoundedBoundingClientRect(yellowoverlay).right);
 
         //click in the overlapped cell, the yellow overlay should be selected
         const overlappedcoords = overlappedcell.getBoundingClientRect();
