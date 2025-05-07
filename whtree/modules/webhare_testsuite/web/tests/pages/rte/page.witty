@@ -33,7 +33,7 @@
 
       <table>
         <tr>
-          <td width="33%" valign="top" align="left">
+          <td width="400" valign="top" align="left">
             <div id="holder" style="width:400px;height:400px">[if not nofill][! no extra whitespace
             !][if emptylines]
                 <p class="normal">next empty p</p><p class="normal"></p>
@@ -103,7 +103,7 @@
             !][/if][! no extra whitespace
           !][/if]</div>
           </td>
-          <td valign="top" align="left" width="33%">
+          <td valign="top" align="left" width="312">
             <textarea id="store"></textarea><br/>
             <button type="button" id="copybutton">Copy</button>
             <button type="button" id="pastebutton">Paste</button>
@@ -114,7 +114,7 @@
             <textarea id="sourcesync" style="width:100%; height:280px"></textarea><br/>
             <input id="rangebox" style="width:100%" disabled>
           </td>
-          <td valign="top" align="left" width="33%">
+          <td valign="top" align="left" width="312">
             <iframe style="width:100%;height:100%" id="result"></iframe>
             Native contenteditable:<br>
             <div style="border: 1px solid black; height: 150px" contenteditable="true">

@@ -204,12 +204,12 @@ test.runTests(
 
       // The table should be 25 pixels wider
       coords = getRoundedCoordinates(table);
-      test.eq(383, coords.width);
+      test.eq(398, coords.width);
       test.eq(96, coords.height);
 
-      // Resize the table, making it bigger than the content area (-2 to make sure the mouse isn't placed outside the content area)
+      // Resize the table, making it smaller again
       test.sendMouseGesture([
-        { doc: doc, down: 0, clientx: coords.left + 1 + 383 - 2, clienty: coords.top + 10 },
+        { doc: doc, down: 0, clientx: coords.left + 1 + 398 - 2, clienty: coords.top + 10 },
         { up: 0, clientx: coords.left + 1 + 326 - 2, clienty: coords.top + 1 + 10, delay: gesture_time, transition: test.dragTransition }
       ]);
 
