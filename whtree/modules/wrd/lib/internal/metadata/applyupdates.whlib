@@ -42,7 +42,7 @@ BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options DEFAULT
     OBJECT wrdschema := OpenWRDSchema(candidate);
 
     IF(ObjectExists(wrdschema))
-      wrdschema->ApplySchemaDefinition(options);
+      wrdschema->ApplySchemaDefinition(CELL[ ...options , isprimaryschema := TRUE ]);
     ELSE
     {
       IF(options.reportupdates)
