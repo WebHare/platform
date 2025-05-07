@@ -139,9 +139,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       WriteRegistryKey("system.backend.security.allowpasswordreset", ^allowpasswordreset->value);
 
       OpenSite(whconstant_whfsid_webharebackend)->SetPrimaryOutput(^webhareurl->value, "/");
-
-      OBJECT wrdschema := GetPrimaryWebhareUserAPI()->wrdschema;
-      SetWRDSetting(wrdschema, "password_validation_checks", ^passwordvalidationchecks->value);
     }
 
     ^modulemgr->WriteToRegistry();
