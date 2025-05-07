@@ -28,7 +28,7 @@ PUBLIC STRING ARRAY FUNCTION GetWRDSchemaDefCandidates(RECORD ARRAY schemarule)
 }
 
 //update a schema.
-PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options DEFAULTSTO DEFAULT RECORD)
+BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ force :=    FALSE
