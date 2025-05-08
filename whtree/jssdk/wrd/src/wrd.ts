@@ -14,6 +14,8 @@ import { tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "@mod-wrd/js/internal/finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
+export { getSchemaSettings, updateSchemaSettings } from "./settings";
+
 export { WRDSchema, type WRDAttributeType, type WRDMetaType };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 
