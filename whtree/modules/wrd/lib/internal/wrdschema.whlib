@@ -975,6 +975,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       @cell(boolean) options.fromexternal Set to true if the source is an external server
       @cell(boolean) options.applysettings Apply schema settings (defaults to TRUE)
       @cell(boolean) options.skipmigrations Skip any migrations (note that we never run migrations if fromexternal is set)
+      @cell(boolean) options.isprimaryschema Set if this is the moduledef-defined schema and not just a (temorary, adhoc?) extension, and should be recorded as such
   */
   PUBLIC MACRO ApplySchemaDefinition(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -984,6 +985,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
                                , reportskips := FALSE
                                , skipmigrations := FALSE
                                , fromexternal := FALSE
+                               , isprimaryschema := FALSE
                                , __schemadefinition := DEFAULT BLOB
                                ], options);
 
@@ -1031,7 +1033,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       schemadef := OpenWRDSchemaDefFile(schemaresource);
     }
 
-    UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations ]);
+    UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations, options.isprimaryschema ]);
   }
 
   /** Setup entities in the schema,

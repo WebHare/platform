@@ -134,7 +134,7 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
              ] INTO wrd.schemas;
 
   OBJECT wrdschema := OpenWRDSchemaById(schemaid);
-  UpdateSchema(wrdschema, schemadef);
+  UpdateSchema(wrdschema, schemadef, [ isprimaryschema := TRUE ]);
 
   IF(metadata.usermgmt)
     wrdschema->UpdateMetadata( CELL[ usermgmt := metadata.usermgmt ]);

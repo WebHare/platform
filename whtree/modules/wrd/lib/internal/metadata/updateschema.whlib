@@ -404,6 +404,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   options := ValidateOptions(
       [ fromexternal :=   FALSE
       , skipmigrations := FALSE
+      , isprimaryschema := FALSE
       ], options);
 
   /* Many existing code paths do not ensure they get the lock initially, and we
@@ -441,7 +442,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     runmigrations := SELECT * FROM schemadef.migrations WHERE NOT RecordExists(SELECT FROM completedmigrations WHERE completedmigrations.tag = migrations.tag AND completedmigrations.revision >= migrations.revision);
   }
 
-  IF (NOT options.fromexternal)
+  IF (options.isprimaryschema)
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")

@@ -28,7 +28,7 @@ PUBLIC STRING ARRAY FUNCTION GetWRDSchemaDefCandidates(RECORD ARRAY schemarule)
 }
 
 //update a schema.
-PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options DEFAULTSTO DEFAULT RECORD)
+BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ force :=    FALSE
@@ -42,7 +42,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options 
     OBJECT wrdschema := OpenWRDSchema(candidate);
 
     IF(ObjectExists(wrdschema))
-      wrdschema->ApplySchemaDefinition(options);
+      wrdschema->ApplySchemaDefinition(CELL[ ...options , isprimaryschema := TRUE ]);
     ELSE
     {
       IF(options.reportupdates)

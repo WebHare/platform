@@ -154,7 +154,7 @@ export async function createSchema(tag: string, options?: CreateSchemaOptions): 
   //apply schemadefinition
   const schemadef = await parseSchema(schemaDefinitionResource, true, null);
   const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchemaById(newschema.id);
-  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef);
+  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isPrimarySchema: true });
 
   broadcastOnCommit("wrd:schema.list");
 

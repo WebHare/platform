@@ -11,10 +11,6 @@ LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 
-LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
-
-
 
 RECORD args := ParseArguments(GetConsoleArguments(),
     [ [ name := "filename", type := "param", required := TRUE ]
@@ -50,21 +46,6 @@ IF(Length(validateres.errors)>0)
   TerminateScriptWithError(`Errors validating ${path}`);
 }
 
-
-IF(resname LIKE "*.wrdschema.xml")
-{
-  OBJECT trans := OpenPrimary();
-  RECORD ARRAY matchschemas := SELECT * FROM GetAllDefinedWRDSchemas() WHERE definitionfile = resname;
-  IF(Length(matchschemas) = 0)
-    THROW NEW Exception(`No schema definitions claims '${resname}'`);
-
-  STRING ARRAY candidates := GetWRDSchemaDefCandidates(matchschemas);
-  FOREVERY(STRING candidate FROM candidates)
-    IF(NOT UpdateACandidateSchema(candidate))
-      SetConsoleExitCode(1);
-
-  RETURN;
-}
 IF(resname LIKE "*/moduledefinition.xml")
 {
   OpenPrimary();
