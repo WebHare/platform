@@ -262,7 +262,7 @@ class IndyShell extends TolliumShell {
     await document.fonts.ready;
 
     // Initialize global event handlers
-    window.addEventListener("unload", evt => this.onUnload());
+    window.addEventListener("pagehide", evt => this.onUnload());
 
     window.addEventListener("dragover", evt => dompack.stop(evt));
     window.addEventListener("drop", evt => dompack.stop(evt));

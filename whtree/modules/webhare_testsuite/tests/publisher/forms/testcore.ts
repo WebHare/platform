@@ -581,9 +581,13 @@ test.runTests(
 
     'Test unload event when halfway form',
     async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue'); //also setting up for the next test
       const start = new Date();
+      test.fill('#coretest-password', 'acceptable');
+
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue'); //also setting up for the next test
       const formevent = await test.wait(async () => (await getPxlLogLines({ start })).filter(l => l.event.startsWith("platform:form_abandoned"))[0]);
+
       test.eqPartial({
         mod_platform: {
           formmeta_lastfocused: "password",
