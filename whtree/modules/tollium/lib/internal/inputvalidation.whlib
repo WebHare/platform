@@ -20,7 +20,7 @@ BOOLEAN FUNCTION CheckURL(STRING input)
   RETURN TRUE;
 }
 
-PUBLIC CONSTANT STRING ARRAY url_validationchecks := [ "url", "url-plus-relative", "http-url", "secure-url", "insecure-url"];
+PUBLIC CONSTANT STRING ARRAY url_validationchecks := [ "url", "url-plus-relative", "http-url", "secure-url", "insecure-url", "rfc3986" ];
 
 /** Generalize a shared link - remove redirect layers and credentials
 
@@ -181,6 +181,12 @@ PUBLIC STRING FUNCTION ValidateInput(STRING input, STRING fieldtitle, STRING ARR
       {
         IF(Length(input) >= 256 OR NOT IsValidWHFSName(input, FALSE))
           RETURN GetTid("tollium:validation.errors.invalid_whfsname", fieldtitle);
+      }
+
+      CASE "rfc3986"
+      {
+        IF (NOT IsValidRFC3986UriReference(input))
+          RETURN GetTid("tollium:validation.errors.invalid_rfc3986", fieldtitle);
       }
 
       DEFAULT

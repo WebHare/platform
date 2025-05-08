@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl" fallbacklanguage="en">
   <textgroup gid="common">   <!-- common -->
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="databasereadonly">De database is in alleen-lezen mode en daardoor kunnen er nu geen wijzigingen worden gemaakt. Probeer het later nog eens.</text>
@@ -1034,6 +1034,7 @@
       <text tid="invalid_hostname">Het veld '<param p="1"/>' dient een hostname te bevatten (bv 'myserver.example.net')</text>
       <text tid="invalid_http_url">Het veld '<param p="1"/>' bevat een ongeldige http URL:<br/>deze dient met 'http://' of 'https://' te beginnen.</text>
       <text tid="invalid_insecure_url">Het veld  '<param p="1"/>' bevat geen onbeveiligde URL</text>
+      <text tid="invalid_rfc3986">Het veld  '<param p="1"/>' bevat geen geldige URL volgens de RFC3986 specificatie</text>
       <text tid="invalid_secure_url">Het veld  '<param p="1"/>' bevat geen beveiligde URL</text>
       <text tid="invalid_url">Het veld '<param p="1"/>' bevat geen valide URL. Mogelijk moet er nog 'http://' of 'https://' voorgeplaatst worden.</text>
       <text tid="invalid_whfsname">Het veld '<param p="1"/>' bevat geen geldige naam. De naam mag niet langer zijn dan 256 tekens, mag niet eindigen op een punt en de volgende tekens kunnen niet worden gebruikt: / \ : * ? " &lt; &gt; |</text>

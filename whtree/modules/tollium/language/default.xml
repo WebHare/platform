@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="common" keepemptyreason="Common texts are available to all modules and cannot be deleted once in use">   <!-- common -->
     <textgroup gid="errors">   <!-- common.errors -->
       <text tid="databasereadonly">The database is currently read-only and changes cannot be made. Please try again later.</text>
@@ -1054,6 +1054,7 @@
       <text tid="invalid_hostname">Field' <param p="1"/>' contains an invalid hostname</text>
       <text tid="invalid_http_url">Field '<param p="1"/>' contains an invalid http URL</text>
       <text tid="invalid_insecure_url">Field '<param p="1"/>' does not contain an insecure URL</text>
+      <text tid="invalid_rfc3986">Field '<param p="1"/>' contains an invalid URL according to the RFC3986 specification</text>
       <text tid="invalid_secure_url">Field '<param p="1"/>' does not contain a secure URL</text>
       <text tid="invalid_url">Field '<param p="1"/>' does not contain a valid URL. Perhaps it needs to be prefixed with 'http://' or 'https://'</text>
       <text tid="invalid_whfsname">Field '<param p="1"/>' does not contain a valid name. It cannot be longer than 256 characters, it may not end with a dot and the following characters may not be used: / \ : * ? " &lt; &gt; |</text>

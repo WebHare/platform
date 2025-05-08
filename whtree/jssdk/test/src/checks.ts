@@ -4,6 +4,7 @@ import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
 
 export type { LoadTSTypeOptions } from "./testsupport";
+export type { JSONSchemaObject } from "./ajv-wrapper";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string) | undefined;
