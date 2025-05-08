@@ -38,7 +38,6 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 RECORD testformfileoptions := [ js := FALSE
                               , addpaymentmethod := FALSE

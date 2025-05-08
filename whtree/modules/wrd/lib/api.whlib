@@ -16,6 +16,7 @@ LOADLIB "mod::wrd/lib/internal/payments/ordernrs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib" EXPORT GetWRDSetting, GetWRDSettings, SetWRDSetting, SetWRDSettings;
 
 /** @short Give a quick description of a WRD attribute id
     @param attributeid Attribute to look up
