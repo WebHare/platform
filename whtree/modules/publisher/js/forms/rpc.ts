@@ -113,6 +113,7 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
     this.__formhandler.formid = formnode.dataset.whFormId || ''; //needed for 'old' __formwidget: stuff
     this.__formhandler.url = location.href.split('/').slice(3).join('/');
     this.__formhandler.target = formnode.dataset.whFormTarget || '';
+    dompack.addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
 
     if (!this.__formhandler.target) {
       if (this.__formhandler.formid) {
@@ -222,7 +223,6 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
   }
 
   protected __formStarted() { //we can remove this once we merge formbase + rpc
-    dompack.addDocEventListener(this.node, "focusin", this.#recordLastFocus, { capture: true });
     addEventListener("pagehide", this.#onUnload);
   }
 
