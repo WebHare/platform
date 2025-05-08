@@ -64,7 +64,7 @@ class TowlNotifications {
     this._notificationcontainer = dompack.create("t-towl");
     document.body?.appendChild(this._notificationcontainer); //body may not exist if the pageload is aborted early (Eg redirect)
     if (this._native_notifications)
-      window.addEventListener("unload", evt => this._handleUnload());
+      window.addEventListener("pagehide", evt => this._handleUnload());
 
     // Ensure the 'warning' icon is preloaded
     createImage("tollium:messageboxes/warning", 32, 32, "b");
