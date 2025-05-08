@@ -50,6 +50,9 @@ MACRO TestInputValidation()
   TestAssert(IsAccepted(["url-plus-relative"], "file:///command.com"));
   TestAssert(NOT IsAccepted(["url-plus-relative"], "mysite:/index"));
   TestAssert(IsAccepted(["url-plus-relative"], "mysite://index")); //now it looks like a scheme.. sufficently different to not be a straight 'internal link reference' copy paste
+
+  TestAssert(IsAccepted(["rfc3986"], "http://example.com"));
+  TestAssert(NOT IsAccepted(["rfc3986"], "http://example.com/#agenda|0"));
 }
 
 RunTestFramework( [ PTR TestUser

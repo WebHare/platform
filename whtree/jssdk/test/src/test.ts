@@ -28,6 +28,7 @@ export type {
   Equals,
   Extends,
   RevEquals,
+  JSONSchemaObject,
 } from './checks';
 
 export { sleep } from '@webhare/std';

@@ -2,6 +2,8 @@
 /** @short URL manipulation
     @topic internet/url
 */
+
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::files.whlib";
@@ -867,4 +869,11 @@ PUBLIC STRING FUNCTION UpdateURLVariables(STRING inurl, RECORD replacements)
       inurl := ReplaceVariableInURL(inurl, ToLowercase(repl.name), repl.value);
   }
   RETURN inurl;
+}
+
+/** @short Check if a URI reference is valid according to RFC 3986 (the JSON-schema specification uses this for validation)
+    @param uriref URI reference to check (absolute or relative)
+    @return True if the URI reference is valid according to RFC 3986 */
+PUBLIC BOOLEAN FUNCTION IsValidRFC3986UriReference(STRING uriref) {
+  RETURN CallJS("@mod-system/js/internal/validation/checks.ts#checkAgainstJsonSchema", [ type := "string", format := "uri-reference" ], uriref);
 }
