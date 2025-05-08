@@ -51,7 +51,7 @@ if [ -z "$MAXIMUMMEMORY" ]; then
   exit 1
 fi
 
-export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch"
+export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=$OPENSEARCHROOT/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
@@ -66,6 +66,9 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
     echo "WEBHARE_CHECKEDOUT_TO is not set?"
     exit 1
   fi
+
+  # Don't rely on the configuration files installed by brew, they don't get updated once installed
+  export OPENSEARCH_PATH_CONF="$WEBHARE_DIR/etc/opensearch"
 
   setup_builddir
   # Who thought it was a good idea to write the version to stderr even if explicitly invoking --version ?
