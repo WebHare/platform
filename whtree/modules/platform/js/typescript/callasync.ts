@@ -15,7 +15,7 @@ function callExportNowrap(libname: string, name: string, args: unknown[]): Promi
   //as describe was invoked earlier the lib must be available now
   const lib = cache.getIfExists(libname);
   if (!lib)
-    throw new Error(`Library '${libname}' was not be loaded`);
+    throw new Error(`Library '${libname}' was not loaded yet`);
 
   return lib.call(name, args);
 }

@@ -3,7 +3,7 @@ import { qSA } from 'dompack';
 import * as dombusy from '@webhare/dompack/src/busy';
 import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
-import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";
+import { reportException, translateTrace, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
 import StackTrace from "stacktrace-js";
 import { isError, throwError, toCamelCase } from '@webhare/std';
@@ -14,25 +14,44 @@ import { debugFlags } from '@webhare/env';
 import type { TestFrameWorkCallbacks } from '@mod-system/js/wh/testframework';
 import type { AssetPackState } from '@mod-platform/js/assetpacks/types';
 import { formatValidationMessage, logValidationMessagesToConsole } from "@mod-platform/js/devsupport/messages";
+import type { KeyboardModifierOptions } from 'dompack/testframework/keyboard';
+import type { StackTraceItem } from '@webhare/js-api-tools';
+
+export type TestReport = {
+  id: string;
+  tests: SingleTestResult[];
+  finished: boolean;
+};
+
+export type DevToolsRequest = {
+  type: "pressKeys";
+  keys: string[];
+  options?: KeyboardModifierOptions;
+};
+
 
 export interface TestService {
   invoke(libfunc: string, params: unknown[]): Promise<unknown>;
-  submitReport(reportid: string, result: {
-    id: string;
-    tests: SingleTestResult[];
-    finished: boolean;
-  }): Promise<void>;
+  submitReport(reportid: string, result: TestReport): Promise<void>;
   syncDevToolsRequest(reportid: string, request: unknown): Promise<unknown>;
 }
 
 export type SingleTestResult = {
   name: string;
   finished: boolean;
-  runsteps: unknown[];
-  fails: unknown[];
-  xfails: unknown[];
-  assetpacks: unknown[];
+  xfails: Array<{ stepname: string; stepnr: number; text: string; e: string }>;
+  fails: Array<{ stepname: string; stepnr: number; text: string; e: string; stack: string; lognode: HTMLElement | Text; trace: StackTraceItem[] }>;
+  runsteps: Array<{ stepname: string; stepnr: number }>;
+  assetpacks: string[];
 };
+
+//A .ts(x) script to test
+type TestScript = Partial<SingleTestResult> & {
+  name: string;
+  url: string | URL;
+  args?: string[];
+};
+
 
 const sourceCache = {};
 const testframetabname = 'testframe' + Math.random();
@@ -76,18 +95,6 @@ declare global {
 }
 
 export type TestWaitItem = "load" | "pointer" | "ui" | "ui-nocheck" | "animationframe" | "pageload" | ((doc: Document, win: Window) => Promise<unknown> | unknown) | "events" | "tick" | "scroll" | number;
-
-//A .ts(x) script to test
-interface TestScript {
-  url: string | URL;
-  args?: string[];
-  name: string;
-  finished?: boolean;
-  xfails?: Array<{ stepname: string; stepnr: number; text: string; e: string }>;
-  fails?: Array<{ stepname: string; stepnr: number; text: string; e: string; stack: string; lognode: HTMLElement | Text }>;
-  runsteps?: Array<{ stepname: string; stepnr: number }>;
-  assetpacks?: string[];
-}
 
 //An individual step in a test
 export type TestStep = {
@@ -358,7 +365,7 @@ class TestFramework {
     deferred.promise.then(() => this.removeFromWaitStack(err), () => this.removeFromWaitStack(err));
   }
 
-  async sendDevtoolsRequest(request: unknown) {
+  async sendDevtoolsRequest(request: DevToolsRequest) {
     return await jstestsrpc.syncDevToolsRequest(this.reportid!, request);
   }
 
@@ -692,7 +699,8 @@ class TestFramework {
       text: text,
       e: String(e || ''),
       stack: (isError(e) ? e.stack : "") ?? "",
-      lognode
+      lognode,
+      trace: isError(e) ? await translateTrace(e) : []
     };
     test.fails.push(failrecord);
     this.updateTestState();
@@ -725,13 +733,13 @@ class TestFramework {
       const fullerrornode = qR('#fullerror');
       fullerrornode?.replaceChildren();
       stacktrace.forEach(el => {
-        dompack.append(fullerrornode, `${el.filename}:${el.line}:${el.column}`, dompack.create('br'));
+        fullerrornode.append(`${el.filename}:${el.line}:${el.col}`, dompack.create('br'));
       });
       document.documentElement.classList.add('testframework--havefullerror');
 
       const bestlocation = findBestStackLocation(stacktrace);
       if (bestlocation) {
-        lognode.textContent = `Location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.column}`;
+        lognode.textContent = `Location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`;
         this.updateTestState();
       }
     });

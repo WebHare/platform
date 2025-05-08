@@ -9,6 +9,8 @@ const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as browser from 'dompack/extra/browser';
 import StackTrace from "stacktrace-js";
 import { isError } from "@webhare/std";
+import type { StackTraceItem } from "@webhare/js-api-tools";
+import { formatTrace } from "@webhare/js-api-tools/src/stacktracing";
 
 let haveerror = false;
 let mayreport = true;
@@ -60,6 +62,18 @@ const reported: string[] = [];
 const sourceCache = {};
 let reportPromise: Promise<unknown> | null = null;
 
+export async function translateTrace(error: Error): Promise<StackTraceItem[]> {
+  // Must specify a sourceCache to avoid duplicate requests
+  const parsedStackFrames = await StackTrace.fromError(error, { sourceCache });
+  return parsedStackFrames.map(frame => (
+    {
+      line: frame.lineNumber || 0,
+      func: frame.functionName || "unknown",
+      filename: (frame.fileName || "unknown").replace("/@whpath/", ""),
+      col: frame.columnNumber || 0
+    }));
+}
+
 /** Send an exception
     @param errorobj - Error exception
     @param options -
@@ -94,25 +108,8 @@ export async function reportException(errorobj: Error, options?: { altstack?: st
   reportPromise = (reportPromise || Promise.resolve(true)).then(() => promise);
   try {
     reported.push(exception_text);
-
-    let stackframes;
-    try {
-      console.info("Getting stack trace for exception", errorobj);
-      // Must specify a sourceCache to avoid duplicate requests
-      if (StackTrace) {
-        const parsedStackFrames = await StackTrace.fromError(errorobj, { sourceCache });
-        stackframes = parsedStackFrames.map(frame => (
-          {
-            line: frame.lineNumber || 0,
-            functionname: frame.functionName || "unknown",
-            filename: (frame.fileName || "unknown").replace("/@whpath/", ""),
-            column: frame.columnNumber || 0
-          }));
-      }
-    } catch (e) {
-      console.info("Could not retrieve stack trace", (e as Error).stack || e);
-    }
-
+    console.log("Getting stack trace for exception", errorobj);
+    const stackframes = await translateTrace(errorobj);
     if (!shouldsend && !options.forcesend)
       return ({ stacktrace: stackframes });
 
@@ -121,7 +118,7 @@ export async function reportException(errorobj: Error, options?: { altstack?: st
       browser: { name: string };
       location: string;
       message: string;
-      trace: Array<{ line: number; functionname: string; filename: string; column: number }> | undefined;
+      trace?: StackTraceItem[];
       data?: object;
     };
 
@@ -146,7 +143,7 @@ export async function reportException(errorobj: Error, options?: { altstack?: st
 
     if (stackframes) {
       console.warn("Reported exception: ", exception_text);
-      console.warn("Translated trace: " + stackframes.map(s => `\n at ${s.functionname || ""} (${s.filename}:${s.line}:${s.column})`).join(""));
+      console.warn("Translated trace: " + formatTrace(stackframes));
     } else
       console.warn('Reported exception: ', exception_text);
 

@@ -12,7 +12,7 @@ test.runTests(
     },
     'restart app3',
     async function () {
-      test.eq(2, test.qSA('.t-apptab').length);
+      await test.wait(() => test.qSA('.t-apptab').length === 2);
       test.click(test.getMenu(['X03']));
       await test.waitUI();
     },

@@ -265,7 +265,7 @@ function getParentLockManager(): LockManager | null {
       return null;
 
     //if we connected to a parent...  deregister our locks, eg. if parent navigated our frame away
-    window.addEventListener("unload", () => {
+    window.addEventListener("pagehide", () => {
       if (debugFlags.bus)
         console.log("[bus] Frame unloading, " + locallocks.length + " locks pending.", locallocks.map(l => "#" + l.locknum).join(", "), locallocks);
 
