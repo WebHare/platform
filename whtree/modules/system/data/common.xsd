@@ -325,6 +325,13 @@
               </xs:documentation>
             </xs:annotation>
           </xs:enumeration>
+          <xs:enumeration value="rfc3986">
+            <xs:annotation>
+              <xs:documentation>
+                Accepts only valid URI references valid according to RFC 3986.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
         </xs:restriction>
       </xs:simpleType>
     </xs:list>
