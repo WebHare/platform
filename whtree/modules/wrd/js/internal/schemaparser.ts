@@ -76,6 +76,7 @@ interface ParsedFinalSchemaDef {
     updatefunction: string;
     stage: string;
     revision: number;
+    at: "create" | "update" | "";
   }>;
   schemaresources: {
     resources: Array<{
@@ -170,7 +171,8 @@ class ParsedSchemaDef {
           tag: getAttr(node, 'tag', ''),
           updatefunction: resolveResource(resource, getAttr(node, 'updatefunction', '')),
           stage: node.getAttribute("stage") || "beforeTypes",
-          revision: getAttr(node, 'revision', 0)
+          revision: getAttr(node, 'revision', 0),
+          at: (node.getAttribute("at") || "") as "create" | "update" | ""
         });
       } else if (node.localName === "keyvalues") {
         //Pre WH5.7 servers still send these on WRD sync, ignore

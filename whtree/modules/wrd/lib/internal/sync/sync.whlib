@@ -550,7 +550,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepe
   RECORD sourceschemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := schemasyncinstr.schemadefinition, addbaseschema := FALSE ]);
   GetPrimary()->PushWork();
   TRY
-    UpdateSchema(wrdschema, sourceschemadef, CELL[ fromexternal := TRUE, skipmigrations := TRUE ]);
+    UpdateSchema(wrdschema, sourceschemadef, CELL[ fromexternal := TRUE, skipmigrations := TRUE, iscreate := FALSE ]);
   FINALLY (OBJECT e)
     DoPopWork(e);
 

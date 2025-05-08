@@ -1,6 +1,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
   <migration tag="wrd:migratesettings"
+             at="update"
              revision="4"
              stage="afterEntities"
              updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />

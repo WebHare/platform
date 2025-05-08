@@ -41,6 +41,26 @@
           <xs:attribute name="tag" type="xs:string" use="required" />
           <xs:attribute name="updatefunction" type="xs:string" use="required" />
           <xs:attribute name="revision" type="xs:nonNegativeInteger" />
+          <xs:attribute name="at">
+            <xs:annotation>
+              <xs:documentation>Limit migration to initialization and/or update of the schema</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <!-- NOTE we're leaving room for eg. beforeCreation (eg if you want to rename an existing schema?) and beforeCommit -->
+                <xs:enumeration value="create">
+                  <xs:annotation>
+                    <xs:documentation>at=create - only run this migration when the schema is first initialized</xs:documentation>
+                  </xs:annotation>
+                </xs:enumeration>
+                <xs:enumeration value="update">
+                  <xs:annotation>
+                    <xs:documentation>at=update - only run this migration when the schema already existed</xs:documentation>
+                  </xs:annotation>
+                </xs:enumeration>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
           <xs:attribute name="stage">
             <xs:annotation>
               <xs:documentation>When do we run this migration? Stages are considered for all imported schemas together (eg if schema B imports schema A, A's beforeEntities migration runs after both A and B's metadata changes have been applied)</xs:documentation>

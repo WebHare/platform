@@ -1033,7 +1033,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       schemadef := OpenWRDSchemaDefFile(schemaresource);
     }
 
-    UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations, options.isprimaryschema ]);
+    UpdateSchema(this, schemadef, CELL[ options.fromexternal, options.skipmigrations, options.isprimaryschema, iscreate := FALSE ]);
   }
 
   /** Setup entities in the schema,

@@ -834,6 +834,7 @@ MACRO TestConversion()
 
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml")]);
   TestEqMembers([ revision := 2, result := [ postupdaterevision := 1 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*", "this shouldn't change anything");
+  TestEqMembers([ revision := 0, result := DEFAULT RECORD], testfw->GetWRDSchema()->GetMigrationStatus("testfw:create_post"), "*", "shouldn't actually run, just marked as done");
 
   RECORD status2 := testfw->GetWRDSchema()->GetMigrationStatus("testfw:update1");
   TestEq(status.finished, status2.finished); //shouldn't have run again
@@ -847,6 +848,17 @@ MACRO TestConversion()
 
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-3.wrdschema.xml")]);
   TestEqMembers([ revision := 3, result := [ postupdaterevision := 2 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*");
+
+  testfw->GetWRDSchema()->DeleteSelf();
+
+  OBJECT newschema := CreateWRDSchema(testfw->wrdschematag,
+         [ initialize := TRUE
+         , schemaresource := Resolve("data/testconversion-2.wrdschema.xml")
+         ]);
+
+  TestEqMembers([ revision := 0, result := [POSTENTITIESREVISION := -1]], newschema->GetMigrationStatus("testfw:update3"), "*", "runs always");
+  TestEqMembers([ revision := 2, result := DEFAULT RECORD], newschema->GetMigrationStatus("testfw:update_post"), "*", "shouldn't actually run, just marked as done");
+  TestEqMembers([ revision := 0, result := [POSTENTITIESREVISION := -1]], newschema->GetMigrationStatus("testfw:create_post"), "*", "should run at create");
 
   testfw->RollbackWork();
 }

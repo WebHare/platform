@@ -2,7 +2,7 @@
 
   <import definitionfile="/data/wrdschemas/authschema.xml" />
 
-  <migration tag="system:updatesaml" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#UpdateSAML" />
+  <migration tag="system:updatesaml" at="update" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#UpdateSAML" />
 
   <object tag="wrd_authdomain_samlproviderbase" title="Authentication domain SAML service base">
     <attributes>
