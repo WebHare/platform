@@ -5,6 +5,7 @@ LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 RECORD FUNCTION CreateDummyImage(INTEGER x, INTEGER y)
@@ -74,4 +75,21 @@ ASYNC MACRO TestImgeditExpectations()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //just setting a
 }
 
-RunTestframework([PTR TestImgeditExpectations ]);
+ASYNC MACRO TestImgEditRotationCrash() {
+    //Test whether just setting a value without editing is accepted
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+    <screen name="test" footerbuttons="ok cancel" objectname="${Resolve("screens/helpers.whlib#SubmittingScreen")}">
+      <body>
+        <imgedit width="250px" height="250px" name="imgedit" />
+      </body>
+    </screen>`)));
+
+  TT("imgedit")->value := WrapBlob(GetWebhareResource("mod::webhare_testsuite/data/test/landscape_5.jpg"), "landscape_5.jpg");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //just setting a
+}
+
+RunTestframework([
+  PTR TestImgeditExpectations,
+  PTR TestImgEditRotationCrash
+]);

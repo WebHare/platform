@@ -7,6 +7,7 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -576,14 +577,20 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
 
       IF (RecordExists(this->imgsize))
       {
-        RECORD method := this->imgsize;
+        RECORD method := CELL[ format := "", ...this->imgsize];
+        IF(method.format = "")
+          method.format := GetDefaultImageOutputFormat();
+        IF(method.format IN ["image/webp","image/avif"]) //TODO also support these formats here
+          method.format := "image/jpeg";
+
         IF ((method.setwidth > 0 AND value.width > method.setwidth)
             OR (method.setheight > 0 AND value.height > method.setheight)
-            OR (CellExists(method,'format') AND method.format != "" AND value.mimetype != method.format)
+            OR (method.format != "keep" AND value.mimetype != method.format)
             OR (method.fixorientation AND (value.rotation != 0 OR value.mirrored)))
         {
           DELETE CELL "allowedactions" FROM method;
           DELETE CELL "allowedfilters" FROM method;
+
           value := MakeUpdatedRecord(value, GfxResizeImageBlobWithMethod(value.data, method));
         }
       }
