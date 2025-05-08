@@ -50,7 +50,7 @@ test.runTests(
 
           /* get the peering code to progress:
              the second webhare has been configured with the feature webhare_testsuite:insecure_interface on its backend
-             which disables some security and loads remotecontrol.js which will do the actual login for us when postMessage
+             which disables some security which will do the actual login for us when postMessage
              as there's no way to directly control the iframe of course */
           overlay!.querySelector("iframe")!.contentWindow!.postMessage(
             { dopeering: { overridetoken: new URL(setup2data!.overridetoken, location.href).searchParams.get("overridetoken") } }, "*");
