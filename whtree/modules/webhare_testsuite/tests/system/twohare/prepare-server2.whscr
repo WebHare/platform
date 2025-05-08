@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 
@@ -7,20 +8,14 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
 
+IF(GetDtapStage() != "development")
+  ABORT("This server is not empty");
 
 OpenPrimary()->BeginWork();
 
 OBJECT userapi := GetPrimaryWebhareUserApi();
 
 INTEGER beta_sysop := userapi->wrdschema->^wrd_person->Search("wrd_contact_email", "twoharetest@beta.webhare.net");
-IF(beta_sysop = 0)
-{
-  IF(RecordExists(userapi->wrdschema->^wrd_person->RunQuery(CELL[])))
-  {
-    ABORT("this server is not empty");
-  }
-}
-
 IF(beta_sysop = 0)
 {
   INTEGER usersunit := userapi->wrdschema->^whuser_unit->Search("WRD_TITLE","Users", [ matchcase := FALSE ]);
