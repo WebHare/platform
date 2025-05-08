@@ -27,7 +27,7 @@ function getDebugData(error?: unknown) {
 }
 
 export async function RPCRouter(req: WebRequest): Promise<WebResponse> {
-  const { 1: module, 2: service, 3: method } = req.url.match(/https?:\/\/[^:]+\/\.wh\/rpc\/([^/?]+)\/([^/>]+)\/([^/?]+)/) || [];
+  const { 1: module, 2: service, 3: method } = req.url.match(/https?:\/\/[^/]+\/\.wh\/rpc\/([^/?]+)\/([^/>]+)\/([^/?]+)/) || [];
   if (!module || !service || !method)
     return createRPCResponse(HTTPErrorCode.BadRequest, { error: "Invalid request" });
 
