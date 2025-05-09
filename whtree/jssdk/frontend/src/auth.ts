@@ -6,6 +6,8 @@ import { rpc } from "@webhare/rpc/src/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
+import { PublicCookieSuffix } from "@webhare/auth/src/shared";
+import { parseTyped } from "@webhare/std";
 
 /** WRDAuth configuration */
 export interface WRDAuthOptions {
@@ -13,15 +15,15 @@ export interface WRDAuthOptions {
   onLogin?: () => Promise<void> | void;
 }
 
-interface AuthLocalData {
-  expires: Temporal.Instant | Date; //Future WH will changes this to Temporal.Instant (but we don't want to force the polyfill yet)
+export interface PublicAuthData {
+  expiresMs: number;
   userInfo?: object | null;
 }
 
 declare module "@webhare/frontend" {
   interface FrontendDataTypes {
     "wrd:auth": {
-      /** WRDAuth cookiename (used to verify configuration settings) */
+      /** WRDAuth cookiename (used to store userinfo and expiry) */
       cookiename: string;
     };
   }
@@ -49,9 +51,16 @@ function getCookieName(): string | null {
   return settings?.cookiename || null;
 }
 
-function getStorageKeyName(): string | null {
+function getAuthLocalData(): PublicAuthData | null {
   const c = getCookieName();
-  return c ? "wh:wrdauth-" + c : null;
+  if (!c)
+    return null;
+
+  try {
+    return parseTyped(dompack.getCookie(c + PublicCookieSuffix)!) as PublicAuthData;
+  } catch {
+    return null;
+  }
 }
 
 async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
@@ -90,15 +99,7 @@ function refreshLoginStatus() {
 
 /** Return whether a user's currently logged in */
 export function isLoggedIn(): boolean {
-  const storagekey = getStorageKeyName();
-  if (!storagekey)
-    return false;
-
-  const data = dompack.getLocal<AuthLocalData>(storagekey);
-  if (data?.expires && "toUTCString" in data.expires) //WH5.6 compatibility
-    return Boolean(data.expires > new Date());
-
-  return Boolean(data?.expires && (data.expires as Temporal.Instant).epochMilliseconds > Date.now());
+  return (getAuthLocalData()?.expiresMs || 0) > Date.now();
 }
 
 /** Setup WRDAuth frontend integration */
@@ -152,11 +153,7 @@ function failLogin(message: string, response: { code: string; data: string }, fo
 
 /** Retrieve userinfo if set by onFrontendUserInfo in your WRDAuth customizer */
 export function getUserInfo<T extends object = object>(): T | null {
-  const skey = getStorageKeyName();
-  if (!skey)
-    return null;
-
-  return dompack.getLocal<AuthLocalData>(skey)?.userInfo as T | null;
+  return getAuthLocalData()?.userInfo as T | null;
 }
 
 /** Implements the common username/password flows */
@@ -170,11 +167,10 @@ export async function login(username: string, password: string, options: LoginOp
   if ("error" in result)
     return { loggedIn: false, error: result.error };
 
+  if (!getAuthLocalData())
+    throw new Error("Login succeeded but no auth data was set in the cookie");
+
   //we've logged in!
-  dompack.setLocal<AuthLocalData>(getStorageKeyName()!, {
-    expires: result.expires,
-    userInfo: result.userInfo || null
-  });
   return { loggedIn: true };
 }
 
@@ -184,8 +180,12 @@ export async function logout() {
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
 
   await rpc("platform:authservice").logout(cookieName);
-  dompack.setLocal(getStorageKeyName()!, null);
-  return { success: true };
+
+  if (getAuthLocalData())
+    throw new Error("Logged out but we still have auth data in the cookie");
+
+  console.log("Reloading to process the new logged out status");
+  navigateTo({ type: "reload" }); //TODO put this behind a 'login state change' event
 }
 
 export interface MyService {

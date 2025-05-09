@@ -1,5 +1,7 @@
 import type { NavigateInstruction } from "@webhare/env";
 
+export const PublicCookieSuffix = "_publicauthdata";
+
 /* APIs and types shared between the client and server */
 export function getCompleteAccountNavigation(token: string, pathname: string): NavigateInstruction {
   return {

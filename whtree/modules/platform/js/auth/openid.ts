@@ -13,8 +13,6 @@ import { importJSObject } from "@webhare/services";
 
 export type FrontendLoginResult = {
   loggedIn: true;
-  expires: Date; //TODO Temporal.Instant but that forces us to import the Temporal polyfill in @ewbhare/fronternd
-  userInfo?: object;
 } | {
   loggedIn: false;
   error: string;

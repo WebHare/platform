@@ -3,7 +3,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
-import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, throwError } from "@webhare/std";
+import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
@@ -319,7 +319,7 @@ async function testAuthAPI() {
 
   //Test the frontend login RPC - do we see the proper cache headers
   const testsiteurl = new URL((await test.getTestSiteJS()).webRoot!);
-  let seenheaders = false, seenexpiry = 0;
+  let seenheaders = false; // FIXME , seenexpiry = 0; -- see below
   const loginres = await rpc("platform:authservice", {
     onBeforeRequest(url, requestInit) {
       url.searchParams.set("pathname", testsiteurl.pathname);
@@ -332,11 +332,19 @@ async function testAuthAPI() {
 
       const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
       test.eq(1, setcookie.length);
+
+      /* FIXME verify expires but need an explicit persistent login
       const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
       test.assert(setCookieExpiry);
       seenexpiry = Date.parse(setCookieExpiry![0].substring(8));
+      */
 
-      const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0]);
+      const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
+      test.assert(publicCookie);
+      const publicCookieValue = parseTyped(decodeURIComponent(publicCookie.match(/webharelogin-wrdauthjs_publicauthdata=([^;]*)/)![1]));
+      test.assert(publicCookieValue.expiresMs >= Date.now() && publicCookieValue.expiresMs <= Date.now() + 365 * 86400 * 1000);
+
+      const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0] && c !== publicCookie);
       test.eq(2, deletecookies.length, "we should have 2 other cookies");
       const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
       test.assert(deleteCookieExpiry);
@@ -346,7 +354,7 @@ async function testAuthAPI() {
 
   test.assert(seenheaders, "verify onResponse isn't skipped");
   test.assert(loginres.loggedIn);
-  test.eq(seenexpiry, loginres.expires.getTime());
+  // FIXME verify this - test.eq(seenexpiry, loginres.expires.getTime()); - but need an explicit persistent login
 
   await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
 
