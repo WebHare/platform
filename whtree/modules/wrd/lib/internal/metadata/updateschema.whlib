@@ -405,7 +405,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       [ fromexternal :=   FALSE
       , skipmigrations := FALSE
       , isprimaryschema := FALSE
-      ], options);
+      , iscreate := FALSE
+      ], options, [ required := [ "iscreate" ] ]);
 
   /* Many existing code paths do not ensure they get the lock initially, and we
      will rarely race... so take the lock ourselves and throw if we can't get it */
@@ -439,7 +440,10 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     }
 
     //remove completed migrations from the runlist
-    runmigrations := SELECT * FROM schemadef.migrations WHERE NOT RecordExists(SELECT FROM completedmigrations WHERE completedmigrations.tag = migrations.tag AND completedmigrations.revision >= migrations.revision);
+    runmigrations := SELECT *
+                          , shouldrun := migrations."at" = "" OR migrations."at" = (options.iscreate ? "create" : "update")
+                       FROM schemadef.migrations
+                      WHERE NOT RecordExists(SELECT FROM completedmigrations WHERE completedmigrations.tag = migrations.tag AND completedmigrations.revision >= migrations.revision);
   }
 
   IF (options.isprimaryschema)
@@ -447,7 +451,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")
   {
-    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
@@ -590,7 +594,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities")
   {
-    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
@@ -645,7 +649,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "afterEntities")
   {
-    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    RECORD result := migration.shouldrun ? MakeFunctionPtr(migration.updatefunction)(local_schema) : DEFAULT RECORD;
     DELETE FROM completedmigrations WHERE tag = migration.tag;
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;

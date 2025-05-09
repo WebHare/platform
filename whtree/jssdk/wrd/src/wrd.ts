@@ -14,6 +14,8 @@ import { tagToJS } from "./wrdsupport";
 import { wrdFinishHandler } from "@mod-wrd/js/internal/finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
+export { getSchemaSettings, updateSchemaSettings } from "./settings";
+
 export { WRDSchema, type WRDAttributeType, type WRDMetaType };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 
@@ -22,7 +24,9 @@ import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { parseSchema, wrd_baseschemaresource } from "@mod-wrd/js/internal/schemaparser";
 import { loadlib } from "@webhare/harescript";
-import { regExpFromWildcards } from "@webhare/std";
+import { generateRandomId, regExpFromWildcards } from "@webhare/std";
+import { updateSchemaSettings } from "./settings";
+import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 
 /** @deprecated WH5.7 splits the WRDAuthCustomizer off to \@webhare/auth and renames it to AuthCustomizer - please use that library instead */
 export type WRDAuthCustomizer = customizer.AuthCustomizer;
@@ -154,7 +158,9 @@ export async function createSchema(tag: string, options?: CreateSchemaOptions): 
   //apply schemadefinition
   const schemadef = await parseSchema(schemaDefinitionResource, true, null);
   const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchemaById(newschema.id);
-  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isPrimarySchema: true });
+  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isPrimarySchema: true, isCreate: true });
+  //TODO we need a true 'base' wrd schema type as domainsecret alwwys exists
+  await updateSchemaSettings(new WRDSchema<System_UsermgmtSchemaType>(tag), { domainSecret: generateRandomId() + generateRandomId() });
 
   broadcastOnCommit("wrd:schema.list");
 
@@ -166,5 +172,5 @@ export async function extendSchema(tag: string, options: { schemaDefinitionXML: 
   //only supporting inline XML schemadefs, switch to inline YML schemadefs soon!
   const schemadef = await parseSchema("mod::wrd/dummy.wrdschema.xml", true, options?.schemaDefinitionXML);
   const wrdschema = await loadlib("mod::wrd/lib/api.whlib").OpenWRDSchema(tag);
-  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef);
+  await loadlib("mod::wrd/lib/internal/metadata/updateschema.whlib").UpdateSchema(wrdschema, schemadef, { isCreate: false });
 }

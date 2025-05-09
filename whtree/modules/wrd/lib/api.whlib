@@ -4,6 +4,7 @@
 */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::system/lib/cache.whlib" EXPORT WrapImageField;
 LOADLIB "mod::system/lib/database.whlib";
@@ -16,6 +17,7 @@ LOADLIB "mod::wrd/lib/internal/payments/ordernrs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib" EXPORT GetWRDSetting, GetWRDSettings, SetWRDSetting, SetWRDSettings;
 
 /** @short Give a quick description of a WRD attribute id
     @param attributeid Attribute to look up
@@ -134,7 +136,8 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
              ] INTO wrd.schemas;
 
   OBJECT wrdschema := OpenWRDSchemaById(schemaid);
-  UpdateSchema(wrdschema, schemadef, [ isprimaryschema := TRUE ]);
+  UpdateSchema(wrdschema, schemadef, [ isprimaryschema := TRUE, iscreate := TRUE ]);
+  SetWRDSetting(wrdschema, "domain_secret", GenerateUFS128BitId() || GenerateUFS128BitId());
 
   IF(metadata.usermgmt)
     wrdschema->UpdateMetadata( CELL[ usermgmt := metadata.usermgmt ]);

@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 
 
