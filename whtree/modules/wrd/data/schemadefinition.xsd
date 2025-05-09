@@ -117,6 +117,7 @@
               <xs:enumeration value="active" />
               <xs:enumeration value="blocked" />
               <xs:enumeration value="inactive" />
+              <xs:enumeration value="required" />
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
