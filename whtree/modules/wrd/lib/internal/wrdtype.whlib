@@ -2666,6 +2666,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     IF (NOT CellExists(fieldsdata, "WRD_MODIFICATIONDATE"))
       INSERT CELL modificationdate := DEFAULT DATETIME INTO entityrec;
 
+    //TODO generalize for more JSON attributes?
+    IF(CellExists(fieldsdata, "wrdauth_account_status"))
+      fieldsdata := CELL[...fieldsdata, wrdauth_account_status := EncodeAccountStatus(fieldsdata.wrdauth_account_status)];
 
     FOREVERY(RECORD attr FROM SELECT * FROM this->__final_attrs WHERE parent=0)
       IF(attr.base = TRUE AND CellExists(fieldsdata, attr.tag))

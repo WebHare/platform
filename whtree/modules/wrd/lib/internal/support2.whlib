@@ -234,3 +234,21 @@ PUBLIC BOOLEAN FUNCTION KillEntities(INTEGER ARRAY typeids, DATETIME deadline, B
 
   RETURN TRUE;
 }
+
+PUBLIC OBJECT FUNCTION EncodeAccountStatus(RECORD status) {
+  IF(NOT RecordExists(status))
+    RETURN DEFAULT OBJECT;
+
+  RECORD res := ValidateOptions([ status := "", since := DEFAULT DATETIME, reason := "" ], status,
+    [ title := "wrdauth_account_status"
+    , required := [ "status" ]
+    , enums := [ status := [ "active", "inactive", "blocked" ] ]
+    ]);
+
+  OBJECT retval := NEW JSONObject(CELL[res.status]);
+  IF (res.since != DEFAULT DATETIME)
+    retval->SetPropTemporalInstant("since", res.since);
+  IF (res.reason != "")
+    retval->SetProp("reason", res.reason);
+  RETURN retval;
+}

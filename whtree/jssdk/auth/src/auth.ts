@@ -2,6 +2,18 @@
 declare module "@webhare/auth" {
 }
 
+/** Type for wrdauthAccountStatuas fields */
+export type WRDAuthAccountStatus = {
+  status: "active" | "inactive" | "blocked";
+  since?: Temporal.Instant;
+} & ({
+  status: "active" | "inactive";
+} | {
+  status: "blocked";
+  /* Reason for the block */
+  reason: string;
+});
+
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };

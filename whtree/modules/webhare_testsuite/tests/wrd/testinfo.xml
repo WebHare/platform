@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.shtml test_wrdcomponents.whlib data">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.shtml test_wrdcomponents.whlib data helpers.ts">
   <test script="test_wrdconsistency.whscr" />
   <test script="test_tests.whscr" />
   <test script="testlegacyapi.whscr" />

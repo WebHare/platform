@@ -13,7 +13,7 @@ import { loadlib } from "@webhare/harescript";
 import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
-import type { WRDAuthAccountStatus } from "@mod-platform/js/auth/types";
+import type { WRDAuthAccountStatus } from "@webhare/auth";
 import { prepAuth } from "@mod-platform/js/auth/authservice";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
