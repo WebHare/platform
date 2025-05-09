@@ -1927,6 +1927,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element ref="panel" />
       <xs:element ref="richarea" />
       <xs:element ref="richdocument" />
+      <xs:element name="accountstatus" type="AccountStatus" />
 
       <!-- <xs:element name="rte" type="RTE"/> -->
       <xs:element name="split" type="Split" />
@@ -2242,6 +2243,31 @@ To change a <xs:attribute /> for adding descriptions
           Allow configuring a second factor
         </xs:documentation>
       </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="AccountStatus">
+    <xs:annotation>
+      <xs:appinfo>
+        <tai:tolliumcomponent fragment="/tolliumcomponents/accountstatus.xml#accountstatus"
+                              placement="block" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:attributeGroup ref="ComposableComponentBase" />
+    <xs:attributeGroup ref="sc:TidOrTitle" />
+    <xs:attributeGroup ref="Required" />
+    <xs:attribute name="allowed" use="required">
+      <xs:simpleType>
+        <xs:list>
+          <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="active" />
+              <xs:enumeration value="blocked" />
+              <xs:enumeration value="inactive" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:list>
+      </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
 
@@ -5880,6 +5906,8 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="url" type="URL" />
 
   <xs:element name="wizard" type="Wizard" />
+
+  <xs:element name="accountstatus" type="AccountStatus" />
 
   <xs:element name="authenticationsettings" type="AuthenticationSettings" />
 

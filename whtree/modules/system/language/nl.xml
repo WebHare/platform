@@ -1518,8 +1518,8 @@
       <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
         <text tid="accountstatus">Account status</text>
         <text tid="accountstatus-active">Actief</text>
+        <text tid="accountstatus-blocked">Handmatig geblokkeerd</text>
         <text tid="accountstatus-inactive">Uitgeschakeld wegens geen activiteit</text>
-        <text tid="accountstatus-manual">Handmatig geblokkeerd</text>
         <text tid="comment">Toelichting</text>
         <text tid="created">Aangemaakt</text>
         <text tid="fullname">Gebruikersnaam</text>

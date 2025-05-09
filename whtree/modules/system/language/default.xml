@@ -1705,8 +1705,8 @@
       <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
         <text tid="accountstatus">Account status</text>
         <text tid="accountstatus-active">Active</text>
+        <text tid="accountstatus-blocked">Manually locked</text>
         <text tid="accountstatus-inactive">Disabled for inactivity</text>
-        <text tid="accountstatus-manual">Manually locked</text>
         <text tid="comment">Explanation</text>
         <text tid="created">Created</text>
         <text tid="fullname">Full name</text>

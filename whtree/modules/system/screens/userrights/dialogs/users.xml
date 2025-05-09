@@ -33,7 +33,7 @@
                     tid=".accountstatus">
               <option rowkey="" tid=".accountstatus-active" />
               <option rowkey="inactive" />
-              <option rowkey="manual" enablecomponents="whuser_disablereason" />
+              <option rowkey="manual" enablecomponents="whuser_disablereason" tid=".accountstatus-blocked" />
             </select>
             <textarea composition="userobj" cellname="whuser_disablereason" name="whuser_disablereason" required="true" />
             <spacer name="insertpoint_account" visible="false" />

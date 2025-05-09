@@ -1,0 +1,18 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         gid="tolliumcomponents.accountstatus"
+         library="accountstatus.whlib">
+
+  <fragment name="accountstatus">
+    <contents>
+      <heading name="heading" title="" />
+      <select name="status" type="pulldown" onchange="onstatuschange">
+        <option rowkey="" title="" />
+        <option rowkey="active" tid="system:tolliumapps.userrights.common.accountstatus-active" />
+        <option rowkey="inactive" tid="system:tolliumapps.userrights.common.accountstatus-inactive" />
+        <option rowkey="blocked" tid="system:tolliumapps.userrights.common.accountstatus-blocked" />
+      </select>
+      <datetime name="since" type="datetime" storeutc="true" enabled="false" />
+      <textarea name="reason" />
+    </contents>
+  </fragment>
+</screens>
