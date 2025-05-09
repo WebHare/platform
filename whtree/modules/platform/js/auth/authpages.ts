@@ -34,7 +34,7 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
       return createWebResponse("Invalid target", { status: HTTPErrorCode.BadRequest });
 
     const responseHeaders = new Headers;
-    doLoginHeaders(settoken.idCookie, settoken.ignoreCookies, settoken.expires, settoken.value, settoken.cookieSettings, responseHeaders);
+    doLoginHeaders(settoken, responseHeaders);
     //override any existing CSP for the domain. unsafe-inline should be safe as all input is already signed and validated
     responseHeaders.set("Content-Security-Policy", "default-src 'none';script-src 'unsafe-inline'");
 
