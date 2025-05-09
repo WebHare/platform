@@ -8,6 +8,9 @@
       <action name="getmapping" onexecute="dogetmapping">
         <enableon source="indices" min="1" max="1" />
       </action>
+      <action name="getsettings" onexecute="dogetsettings">
+        <enableon source="indices" min="1" max="1" />
+      </action>
       <action name="delete" frameflags="issysop" onexecute="dodelete" tid="~delete">
         <enableon source="indices" min="1" />
       </action>
@@ -29,9 +32,10 @@
           </list>
         </cell>
         <cell>
-          <button action="getmapping" />
+          <button width="1pr" action="getmapping" />
+          <button width="1pr" action="getsettings" />
           <spacer height="1gr" />
-          <button action="delete" />
+          <button width="1pr" action="delete" />
         </cell>
       </grid>
     </body>

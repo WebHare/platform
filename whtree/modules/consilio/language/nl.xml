@@ -386,6 +386,7 @@
         <text tid="confirmdeleteindices">Weet u zeker dat u de geselecteerde indices wil verwijderen? Deze actie kan niet worden teruggedraaid!</text>
         <text tid="docs">Documenten</text>
         <text tid="getmapping">Mappings</text>
+        <text tid="getsettings">Instellingen</text>
         <text tid="indexmanager">OpenSearch server</text>
         <text tid="indicescount"><ifparam p="1" value="1">1 index<else/><param p="1"/> indices</ifparam></text>
         <text tid="managemanagers">Beheer indexmanagers</text>
