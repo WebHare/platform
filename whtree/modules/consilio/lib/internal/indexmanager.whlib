@@ -98,17 +98,18 @@ BOOLEAN FUNCTION IsOutofdateAnalysis(RECORD currentanalysis, RECORD newanalysis)
   currentanalysis := EnforceStructure(structure, currentanalysis);
   newanalysis := EnforceStructure(structure, newanalysis);
 
-  //There's no way to delete existing filters, so really all we can do is check if any filter is missing
+  //There's no way to delete existing filters, so really all we can do is check if any filter is missing or misconfigured
   FOREVERY(RECORD filter FROM UnpackRecord(newanalysis.filter))
+  {
     IF(NOT CellExists(currentanalysis.filter, filter.name))
       RETURN TRUE; //filter is missing, go through close+reopen
 
-  //Delete all the filters except synonym, it needs a deeper compare
-  currentanalysis.filter := CELL[ currentanalysis.filter.synonym ];
-  newanalysis.filter := CELL[ newanalysis.filter.synonym ];
+    IF(EncodeHSON(GetCell(currentanalysis.filter, filter.name)) != EncodeHSON(filter.value))
+      RETURN TRUE; //filter is misconfigured, go through close+reopen
+  }
 
-  //We've handled most of the filters, let raw compare handle the rest (until more open/close issues or missed comparions are found)
-  RETURN EncodeHSON(currentanalysis) != EncodeHSON(newanalysis);
+  //We're done with filters, assume the rest is ok (until more open/close issues or missed comparions are found)
+  RETURN FALSE;
 }
 
 PUBLIC BOOLEAN __did_opensearch_close_and_reopen; //tests currently need this to verify that we didn't unnecessarily close an index.

@@ -775,12 +775,12 @@ MACRO TestESLangFeatures()
   // Add a document with some Dutch and English words
   RECORD doc :=
       [ objectid := "objectid_1"
-      , documentfields := [ title := "boekjes booking" ]
+      , documentfields := [ title := "opheffen booking" ]
       ];
   catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
 
-  // Find the document using Dutch stemming (both 'boekjes' and 'geboekt' will be stemmed down to 'boek')
-  RECORD res := RunConsilioSearch(catalog->tag, CQParseUserQuery("geboekt"));
+  // Find the document using Dutch stemming (both 'opheffen' and 'opheffing' will be stemmed down to 'opheff')
+  RECORD res := RunConsilioSearch(catalog->tag, CQParseUserQuery("opheffing"));
   TestEq(1, res.totalcount);
   // It cannot be found using English stemming, because the document is indexed using Dutch stemming
   res := RunConsilioSearch(catalog->tag, CQParseUserQuery("booked"));
@@ -800,7 +800,7 @@ MACRO TestESLangFeatures()
   catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
 
   // The document can no longer be found using Dutch stemming
-  res := RunConsilioSearch(catalog->tag, CQParseUserQuery("geboekt"));
+  res := RunConsilioSearch(catalog->tag, CQParseUserQuery("opheffing"));
   TestEq(0, res.totalcount);
   // But it can be found using English stemming (both 'booking' and 'booked' are stemmed down to 'book')
   res := RunConsilioSearch(catalog->tag, CQParseUserQuery("booked"));
