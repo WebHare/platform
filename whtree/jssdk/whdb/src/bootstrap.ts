@@ -544,8 +544,11 @@ BEGIN
     FROM system.fs_objects
    WHERE id = new.parent;
 
-  IF _parenttype = 1 THEN
-    RAISE EXCEPTION 'Cannot create objects inside foreign folders';
+  /* block creating new folders (TODO we can't yet prevent turning normal folders with content into foreign folders, eg a WHFS Sync might currently do that)
+     test-whfs-rights.whscr verifies this assertion
+  */
+  IF _parenttype = 1 AND (tg_op = 'INSERT' OR old.parent != new.parent) THEN
+    RAISE EXCEPTION 'Cannot create objects inside foreign folder #%', new.parent;
   END IF;
 
   IF webhare_proc_fs_objects_whfspath(new.id, new.isfolder) = '' THEN
