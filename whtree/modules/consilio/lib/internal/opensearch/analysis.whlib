@@ -159,7 +159,7 @@ CONSTANT RECORD ARRAY langsettings :=
           ]
       , filter :=
           [ dutch_stop := [ type := "stop", stopwords := "_dutch_" ]
-          , dutch_stemmer := [ type := "stemmer", language := "dutch_kp" ]
+          , dutch_stemmer := [ type := "stemmer", language := "dutch" ]
           ]
       ]
 
