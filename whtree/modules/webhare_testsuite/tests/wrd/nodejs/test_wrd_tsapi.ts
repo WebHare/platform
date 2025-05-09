@@ -317,11 +317,13 @@ async function testNewAPI() {
   */
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
+  const basePerson = { whuserUnit: unit_id, wrdauthAccountStatus: { status: "active" } } as const;
+
+  const firstperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "first@beta.webhare.net", testJson: { mixedCase: [1, "yes!"], big: 4200420042n, date: new Date("2025-01-21T14:35:00Z") }, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdGender: WRDGender.Male });
   const randomData = generateRandomId("base64url", 4096);
   const secondPersonGuid = generateRandomId("uuidv4"); //verify we're allowed to set the guid
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
-  const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
+  const secondperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "second", wrdLastName: "lastname2", wrdContactEmail: "second@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [randomData] }, wrdGuid: secondPersonGuid, wrdGender: WRDGender.Female });
+  const deletedperson = await schema.insert("wrdPerson", { ...basePerson, wrdFirstName: "deleted", wrdLastName: "lastname3", wrdContactEmail: "deleted@beta.webhare.net", testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date(), wrdGender: WRDGender.Other });
 
   //prevent creating WRD style guids
   await test.throws(/Invalid wrdGuid:/, schema.update("wrdPerson", secondperson, { wrdGuid: "badbadvalue" }));
@@ -542,8 +544,8 @@ async function testNewAPI() {
   test.assert(domain1value1);
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "=", "TEST_DOMAINVALUE_1_1").execute());
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
-  await test.throws(/not.*0/, schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: 0, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "notzero@beta.webhare.net" }));
-  const newperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net", testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "testWrdTsapi@beta.webhare.net", testInteger: 1 });
+  await test.throws(/not.*0/, schema.insert("wrdPerson", { ...basePerson, testSingleDomain: 0, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "notzero@beta.webhare.net" }));
+  const newperson = await schema.insert("wrdPerson", { ...basePerson, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net", testJsonRequired: { mixedCase: [1, "yes!"] }, wrdContactEmail: "testWrdTsapi@beta.webhare.net", testInteger: 1 });
 
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").select(["wrdId"]).where("testInteger", "=", 1).execute());
   test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").select(["wrdId"]).where("testInteger", "!=", 0).execute());
@@ -895,7 +897,7 @@ async function testBadValues() {
   await whdb.beginWork();
 
   const unit_id = (await schema.find("whuserUnit", { wrdTag: "TAG" }))!;
-  const testperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testJsonRequired: { mixedCase: [] }, wrdContactEmail: "testBadVals@beta.webhare.net" });
+  const testperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testJsonRequired: { mixedCase: [] }, wrdContactEmail: "testBadVals@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
   //NOTE: Prefer falsy values to detect too early elimination
   const testBads: Array<{
     field: string;
@@ -1134,7 +1136,7 @@ async function testTypeSync() { //this is WRDType::ImportEntities
 
   const firstUnitId = await schema.search("whuserUnit", "wrdTag", "FIRSTUNIT");
   test.assert(firstUnitId);
-  const fixedFields = { testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: firstUnitId };
+  const fixedFields = { testJsonRequired: { mixedCase: [1, "yes!"] }, whuserUnit: firstUnitId, wrdauthAccountStatus: { status: "active" } } as const;
 
   await schema.delete("wrdPerson", await schema.query("wrdPerson").select("wrdId").historyMode("all").execute());
 

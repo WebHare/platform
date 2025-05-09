@@ -27,12 +27,24 @@ RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
   RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
 }
 
-PUBLIC STRING FUNCTION GetAccountStatusText(STRING status)
-{
-  IF(status="")
-    RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-active");
-  ELSE
-    RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-" || status);
+PUBLIC STRING FUNCTION GetAccountStatusText(RECORD accountstatus) {
+  IF(NOT RecordExists(accountstatus))
+    RETURN "";
+
+  SWITCH(accountstatus.status) {
+    CASE "active" {
+      RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-active");
+    }
+    CASE "inactive" {
+      RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-inactive");
+    }
+    CASE "blocked" {
+      RETURN GetTid("system:tolliumapps.userrights.common.accountstatus-blocked");
+    }
+    DEFAULT {
+      RETURN accountstatus.status;
+    }
+  }
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetUserrightexportColumns()
@@ -80,7 +92,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT 
   }
 
   RECORD ARRAY allusers := SELECT * FROM allobjs WHERE type = authobjecttype_user;
-  allusers := userapi->EnrichUsers("guid", allusers, [ celltype := "guid", extrafields := CELL[ "whuser_disable_type" ] ] ) ;
+  allusers := userapi->EnrichUsers("guid", allusers, [ celltype := "guid", extrafields := CELL[ "wrdauth_account_status" ] ] ) ;
 
   RECORD ARRAY allroles := SELECT * FROM allobjs WHERE type = authobjecttype_role;
   allroles := userapi->EnrichRoles("guid", allroles, [ celltype := "guid" ] ) ;
@@ -106,7 +118,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT 
 
     INSERT CELL[ ...grant
                , login := (grantee.type = authobjecttype_role ? grantee.title : grantee.login) ?? grantee.guid
-               , accountstatus := grantee.type = authobjecttype_role ? "" : GetAccountStatusText(grantee.whuser_disable_type)
+               , accountstatus := grantee.type = authobjecttype_role ? "" : GetAccountStatusText(grantee.wrdauth_account_status)
                , fullname := grantee.type = authobjecttype_role ? "" : grantee.fullname
                , email := grantee.type = authobjecttype_role ? "" : grantee.email
                , grantee.authobjectparentid

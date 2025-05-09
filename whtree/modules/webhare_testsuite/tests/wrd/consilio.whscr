@@ -86,6 +86,7 @@ MACRO TestNormalOperation()
         , intextlink :=     MakeIntExtExternalLink("http://example.com/2")
         , wrd_contact_email := "person@beta.webhare.net"
         ];
+  wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   OBJECT entity := wrd_person->CreateEntity(persondata);
 
@@ -274,4 +275,3 @@ RunTestframework([ PTR CreateMyTestSchema
                  , PTR TestTypeChange
                  , PTR TestImport
                  ], [ wrdauth := FALSE ]);
-

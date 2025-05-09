@@ -12,7 +12,7 @@ async function testDeleteClosedAfter() {
 
   // Add an entity. Create it 7 days in the past so wrdLimitDate > wrdCreationDate holds during the tests
   await whdb.beginWork();
-  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "testdelete@beta.webhare.net", wrdCreationDate: new Date(Date.now() - 86400 * 1000 * 7) });
+  let person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdContactEmail: "testdelete@beta.webhare.net", wrdCreationDate: new Date(Date.now() - 86400 * 1000 * 7), wrdauthAccountStatus: { status: "active" } });
   await whdb.commitWork();
   // Cleanup, the entity should still be there (not closed)
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });
@@ -53,7 +53,7 @@ async function testDeleteClosedAfter() {
   await whdb.beginWork();
   await schema.getType("wrdPerson").updateMetadata({ deleteClosedAfter: 0 });
   test.eq(0, (await schema.describeType("wrdPerson"))!.deleteClosedAfter);
-  person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate, wrdContactEmail: "testdelete2@beta.webhare.net" });
+  person = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", wrdLimitDate: limitDate, wrdModificationDate: limitDate, wrdContactEmail: "testdelete2@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
   await whdb.commitWork();
   // Cleanup, the entity should still be there
   await cleanupOutdatedEntities({ forSchema: testSchemaTag });

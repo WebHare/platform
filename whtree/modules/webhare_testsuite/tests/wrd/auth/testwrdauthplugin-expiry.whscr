@@ -100,6 +100,7 @@ MACRO PrepareExpiryTests()
       [ wrd_contact_email := "expirytests@beta.webhare.net"
       , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
       , whuser_unit := testfw->testunit
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   entityid := entity->id;

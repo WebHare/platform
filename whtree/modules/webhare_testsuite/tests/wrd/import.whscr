@@ -79,6 +79,8 @@ MACRO Setup()
 
   persontype->CreateAttribute ("DOMAIN1", "DOMAIN", [ title := "Single select domain 1", domaintag := "DOMAINTYPE1"]);
 
+  persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+
   testfw->CommitWork();
 }
 

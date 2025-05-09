@@ -9,7 +9,7 @@ MACRO TestCleanupAndBulk()
 
   RECORD ARRAY commands :=
       [ [ create := "WRD_PERSON"
-        , defaults := [ wrd_lastname := "Testperson"]
+        , defaults := [ wrd_lastname := "Testperson", wrdauth_account_status := [ status := "active" ]]
         , entities := [[ _name := "firstperson", wrd_tag := "TESTFW_FIRSTPERSON", wrd_firstname := "first", whuser_unit := ":mainunit", wrd_contact_email := "temp1@beta.webhare.net" ]
                       ]
         ]
@@ -25,7 +25,7 @@ MACRO TestCleanupAndBulk()
 
   RECORD ARRAY commands2 :=
       [ [ create := "WRD_PERSON"
-        , defaults := [ wrd_lastname := "Testperson"]
+        , defaults := [ wrd_lastname := "Testperson", wrdauth_account_status := [ status := "active" ]]
         , entities := [[ _name := "secondperson", wrd_firstname := "Second", whuser_unit := ":mainunit", wrd_contact_email := "temp2@beta.webhare.net"  ]
                       ,[ _name := "thirdperson", wrd_firstname := "Third", wrd_lastname := "Tester", whuser_unit := ":mainunit", wrd_contact_email := "temp3@beta.webhare.net"  ]
                       ]

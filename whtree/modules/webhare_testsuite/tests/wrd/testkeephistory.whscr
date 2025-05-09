@@ -341,6 +341,7 @@ MACRO TestChanges()
   // Deleted entities
   {
     testfw->BeginWork();
+    testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
     OBJECT newperson := schemaobj->^wrd_person->CreateEntity([ wrd_contact_email := "shortlived@beta.webhare.net", whuser_unit := testfw->testunit ]);
     OBJECT att := schemaobj->^personattachment->CreateEntity([ wrd_leftentity := newperson->id ]);

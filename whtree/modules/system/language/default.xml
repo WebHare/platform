@@ -2370,12 +2370,11 @@
       <text tid="warning_passwordexpired">Your password has expired, please change it.</text>
       <text tid="warning_passwordrequire2fa">You need to enable two-factor authentication to be able to log in.</text>
       <text tid="warnings">Warnings</text>
-      <text tid="whuser_disabled">Block this account</text>
-      <text tid="whuser_disablereason">Reason</text>
       <text tid="wrd_creationdate">Creation date</text>
       <text tid="wrd_firstname">First name</text>
       <text tid="wrd_infix">Infix</text>
       <text tid="wrd_lastname">Last name</text>
+      <text tid="wrdauth_account_status">Account status</text>
     </textgroup>
     <textgroup gid="empty">   <!-- userrights.empty -->
       <text tid="nousersinrole">There are no users with this role.</text>

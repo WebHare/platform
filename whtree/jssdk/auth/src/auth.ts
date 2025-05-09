@@ -18,6 +18,7 @@ export type WRDAuthAccountStatus = {
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
+  "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
 }
 
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";

@@ -112,9 +112,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       ^password->visible := FALSE;
     }
 
-    IF(^whuser_disable_type->value != "inactive")
-      DELETE FROM ^whuser_disable_type->options WHERE rowkey = "inactive";
-
     RECORD unitinfo;
     BOOLEAN isnew := NOT ObjectExists(this->pvt_user);
     this->isself := isnew = FALSE AND ObjectExists(this->tolliumuser->entity) AND this->tolliumuser->entity->id = this->pvt_user->entityid;
@@ -171,7 +168,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       RETURN work->Finish();
 
     BOOLEAN isnew;
-    RECORD currentsettings;
 
     IF (NOT ObjectExists(this->pvt_user))
     {
@@ -190,29 +186,21 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
         IF (NOT this->tolliumuser->HasRightOn("system:manageunit", this->pvt_orgparent->authobjectid))
           work->AddError(GetTid("system:userrights.errors.notunitmanageronparentforusermove"));
       }
-
-      currentsettings := ^userobj->wrdentity->GetFields(["WHUSER_DISABLE_TYPE", "WHUSER_DISABLEREASON"]);
     }
 
     IF (work->HasFailed())
       RETURN work->Finish();
 
     OBJECT user;
-
-    STRING currentdisabletype := RecordExists(currentsettings) ? currentsettings.whuser_disable_type : "";
-    STRING newdisabletype := ^userobj->^whuser_disable_type->value;
-
     RECORD extrafields :=
         [ whuser_unit := this->pvt_parent->entityid
-        , whuser_disabled := newdisabletype != "" //whuser_disabled is deprecated but we'll sync it with whuser_disable_type for now
         ];
 
     IF(NOT ObjectExists(this->pvt_user))
       extrafields := CellInsert(extrafields, this->contexts->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(^password->value));
 
     INTEGER id := ^userobj->StoreEntity(work, extrafields);
-    IF (id != 0)
-    {
+    IF (id != 0) {
       ^screentabs->SubmitExtensions(work);
 
       // Updating the GUID must run via the v2 api, can't use StoreEntity for that.
@@ -221,24 +209,19 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       this->contexts->userapi->SyncUserAfterUpdate(id);
 
       user := this->contexts->userapi->GetUser(id); //reload user, guid might have changed
-      this->contexts->userapi->TriggerUserEditAfterEffects(id, [ action := RecordExists(currentsettings) ? "edit" : "add" ]);
-    }
-    ELSE
+      this->contexts->userapi->TriggerUserEditAfterEffects(id, [ action := isnew ? "add" : "edit" ]);
+    } ELSE {
       user := this->pvt_user;
+    }
 
-    IF(NOT work->HasFailed() AND RecordExists(currentsettings))
-    {
-      IF(currentdisabletype != newdisabletype OR (newdisabletype="manual" AND ^whuser_disablereason->value != currentsettings.whuser_disablereason))
-      {
-        this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("system:userdisable",
-          [ account := ^userobj->entityid
-          , login := ^username->value
-          , message := [ disabled := newdisabletype != ""
-                       , reason := newdisabletype = "manual" ? ^whuser_disablereason->value : ""
-                       , type := newdisabletype
-                       ]
-          ]);
-      }
+    IF(NOT work->HasFailed() AND ^userobj->^wrdauth_account_status->HasChanged()) {
+      this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("platform:accountstatus",
+        [ account := ^userobj->entityid
+        , login := ^username->value
+        , message := [ oldstatus := ^userobj->^wrdauth_account_status->originalvalue
+                     , newstatus := ^userobj->^wrdauth_account_status->value
+                     ]
+        ]);
     }
 
     IF(ObjectExists(user)) //we didn't crash yet ?
@@ -254,8 +237,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
       BroadcastEvent("system:unit.change." || this->pvt_orgparent->entityid, DEFAULT RECORD);
 
     // Broadcast userprefs changes, refresh the tollium frontend application menu
-    IF(NOT isnew)
-    {
+    IF(NOT isnew) {
       BroadcastEvent("tollium:userprefs." || user->entityid, DEFAULT RECORD);
       this->user->BroadcastToClient([ type := "tollium:shell.refreshmenu" ]);
     }

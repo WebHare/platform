@@ -33,6 +33,7 @@ MACRO TestPaymentFields()
   testfw->BeginWork();
 
   OBJECT wrdschema :=  testfw->GetWRDSchema();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   TestThrowsLike('The domain tag may not be empty*',PTR wrdschema->^paydata->CreateAttribute("PAYDATA", "PAYMENT"), 'without domain should throw');
 
   TestThrowsLike("Type 'PAYMENTDATA' does not exist*", PTR GetPaymentAPI(wrdschema, [ providerfield := "PAYMENTDATA.PAYMENT", paymentfield := "PAYDATA.DATA" ]));

@@ -24,6 +24,7 @@ MACRO TestSchema()
   OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
 
   OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
+  persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   // Test all fields
   INTEGER testpersonid := persontype->Search("WRD_CONTACT_EMAIL", "other@example.com");
@@ -83,8 +84,8 @@ MACRO ImageCache()
 
   testfw->CommitWork();
 
-  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none"]);
-  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl ]);
+  STRING legacy_imagelink := GetCachedWRDImageURL(baseurl, entityid1_imageid, [method := "none", format := "keep"]);
+  STRING imagelink := GetCachedImageLink(wrdperson->GetEntityFields(entityid1, ["TEST_IMAGE"]).test_image, [ method := "none", baseurl := baseurl, format := "keep" ]);
   TestEq(imagelink, Substitute(legacy_imagelink, "data.png", "noname.png"));
 
   RECORD wrappedinfo := GetWrappedSourceFromURL(imagelink);

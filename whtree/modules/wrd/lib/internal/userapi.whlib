@@ -54,6 +54,19 @@ STRING FUNCTION GetPasswordFromAuthField(VARIANT data)
   RETURN "";
 }
 
+PUBLIC MACRO ValidateAccountStatus(RECORD status) {
+  IF(RecordExists(status)) {
+    ValidateOptions([ status := "", since := DEFAULT DATETIME, reason := "" ], status,
+      [ title := "wrdauth_account_status"
+      , required := [ "status" ]
+      , enums := [ status := [ "active", "inactive", "blocked" ] ]
+      ]);
+
+    IF (CellExists(status, "since") AND (status.since = DEFAULT DATETIME OR status.since = MAX_DATETIME))
+      THROW NEW Exception("Invalid datetime for 'since' field");
+  }
+}
+
 /** Webhare user API object
     @topic wrdauth/api
     @public
@@ -260,16 +273,17 @@ STATIC OBJECTTYPE WHUserApi
   */
   PUBLIC RECORD FUNCTION LookupUserByLogin(STRING loginname)
   {
+    RECORD outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", authenticationsettings := this->wrdschema->accountpasswordtag ];
     RECORD ARRAY filters := [[ field := this->wrdschema->accountlogintag, value := loginname, matchcase := FALSE ]];
-    IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLE_TYPE")))
-      INSERT [ field := "WHUSER_DISABLE_TYPE", value := "" ] INTO filters AT END;
+    BOOLEAN hasaccountstatus := RecordExists(this->wrdschema->accounttype->GetAttribute("WRDAUTH_ACCOUNT_STATUS"));
+    IF(hasaccountstatus)
+      INSERT CELL "WRDAUTH_ACCOUNT_STATUS" := "WRDAUTH_ACCOUNT_STATUS" INTO outputcolumns;
 
-    RECORD ARRAY res := this->wrdschema->accounttype->RunQuery(
-          [ outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", authenticationsettings := this->wrdschema->accountpasswordtag ]
-          , filters := filters
-          ]);
+    RECORD ARRAY res := this->wrdschema->accounttype->RunQuery(CELL[ outputcolumns, filters ]);
 
     IF(Length(res) != 1)
+      RETURN DEFAULT RECORD;
+    IF(hasaccountstatus AND (NOT RecordExists(res[0].wrdauth_account_status) OR res[0].wrdauth_account_status.status != "active"))
       RETURN DEFAULT RECORD;
 
     RECORD retval := res[0];
@@ -367,6 +381,10 @@ STATIC OBJECTTYPE WHUserApi
   PUBLIC INTEGER FUNCTION CreateUser(RECORD data)
   {
     OBJECT trans := GetPrimaryWebhareTransactionObject();
+
+    data := CELL[ wrdauth_account_status := [ status := "active", since := GetCurrentDateTime() ]
+                , ...data
+                ];
 
     IF (this->wrdschema->accountpasswordisauthsettings AND CellExists(data, this->wrdschema->accountpasswordtag))
     {
@@ -1221,13 +1239,11 @@ STATIC OBJECTTYPE WHUserApi
       IF (NOT ObjectExists(userentity))
         RETURN CELL[ ...retval, error := "No such entity #" || entityid ];
 
-      RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag ];
-      IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLE_TYPE")))
-        INSERT CELL whuser_disable_type := "WHUSER_DISABLE_TYPE" INTO getfields;
+      RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag, "wrdauth_account_status" ];
 
       userinfo := userentity->GetFields(getfields);
       DATETIME now := GetCurrentDatetime();
-      IF(Cellexists(getfields, "WHUSER_DISABLE_TYPE") AND userinfo.whuser_disable_type != "")
+      IF(NOT RecordExists(userinfo.wrdauth_account_status) OR userinfo.wrdauth_account_status.status != "active")
         RETURN CELL[ ...retval, error := "User is disabled" ];
       IF(now < userinfo.wrd_creationdate)
         RETURN CELL[ ...retval, error := "User is not yet active" ];

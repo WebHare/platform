@@ -32,6 +32,7 @@ IF(beta_sysop = 0)
     , wrd_firstname := "Sysop"
     , wrd_lastname := "Twohare"
     , whuser_unit := usersunit
+    , wrdauth_account_status := [ status := "active" ]
     ]);
 
 

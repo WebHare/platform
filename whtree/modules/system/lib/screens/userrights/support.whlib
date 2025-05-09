@@ -223,7 +223,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithOpenAs(RECORD ARRAY usersroles, OBJECT to
 PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY filters, OBJECT tolliumuser)
 {
   RECORD outcols := [ wrd_id :=       "WRD_ID"
-                    , disabletype :=  "WHUSER_DISABLE_TYPE"
+                    , accountstatus :="WRDAUTH_ACCOUNT_STATUS"
                     , realname :=     "WRD_TITLE"
                     , email :=        controller->userapi->wrdschema->accountemailtag
                     , login :=        controller->userapi->wrdschema->accountlogintag
@@ -251,20 +251,21 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
   userlist := SELECT TEMPORARY candelete := wearesysop OR authobjectparentid IN canmanage
                    , TEMPORARY canedit := candelete OR authobjectid IN canmanage
                    , TEMPORARY issysop := authobjectid IN allsysops
+                   , TEMPORARY disabled := NOT (RecordExists(accountstatus) AND accountstatus.status = "active")
                    , issysop :=         issysop
                    , rowkey :=          wrd_id
                    , wrd_id
                    , unit
                    , authobjectid
                    , authobjectparentid
-                   , disabled :=        disabletype != ""
+                   , disabled :=        disabled
                    , lastlogin
                    , fullname :=        realname
                    , comment :=         comment
                    , name :=            login
                    , email
                    , type :=            1 // user
-                   , icon :=            disabletype != "" ? "tollium:objects/lock" : issysop ? "tollium:users/manager" : "tollium:users/user"
+                   , icon :=            disabled ? "tollium:objects/lock" : issysop ? "tollium:users/manager" : "tollium:users/user"
                    , isrole :=          FALSE
                    , canedit :=         canedit
                    , candelete :=       candelete

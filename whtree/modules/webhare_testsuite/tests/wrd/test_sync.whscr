@@ -333,6 +333,7 @@ MACRO TestLocalBlobUsage()
         [ title := "webhare_testsuite schema, sync target"
         , description := "The webhare_testsuite WRD schema sync target"
         ]);
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   OBJECT entity := testfw->GetWRDSchema()->^wrd_person->CreateEntity(
       [ test_file :=    WrapBlob(StringToBlob("string file"), "filename.text")

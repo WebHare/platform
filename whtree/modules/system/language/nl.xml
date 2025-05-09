@@ -2183,12 +2183,11 @@
       <text tid="warning_passwordexpired">Je wachtwoord is verlopen, verander deze a.u.b.</text>
       <text tid="warning_passwordrequire2fa">Je moet twee-factor-authenticatie inschakelen om in te kunnen loggen.</text>
       <text tid="warnings">Waarschuwingen</text>
-      <text tid="whuser_disabled">Blokkeer dit account</text>
-      <text tid="whuser_disablereason">Reden</text>
       <text tid="wrd_creationdate">Aanmaakdatum</text>
       <text tid="wrd_firstname">Voornaam</text>
       <text tid="wrd_infix">Tussenvoegsels</text>
       <text tid="wrd_lastname">Achternaam</text>
+      <text tid="wrdauth_account_status">Account status</text>
     </textgroup>
     <textgroup gid="empty">   <!-- userrights.empty -->
       <text tid="nousersinrole">Er zijn geen gebruikers met deze rol.</text>

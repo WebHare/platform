@@ -48,7 +48,7 @@ PUBLIC MACRO TestInvoke_LockUser(STRING email)
     THROW NEW Exception(`Could not find e-mail ${EncodeJSON(email)}`);
 
   GetPrimary()->BeginWork();
-  wrdschema->^wrd_person->UpdateEntity(id, [ whuser_disable_type := "manual" ]);
+  wrdschema->^wrd_person->UpdateEntity(id, [ wrdauth_account_status := [ status := "blocked" ] ]);
   GetPrimary()->CommitWork();
 }
 

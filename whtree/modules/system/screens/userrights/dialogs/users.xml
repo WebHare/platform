@@ -25,17 +25,7 @@
                                     name="authenticationsettings"
                                     tid=".authenticationsettings" />
             <select name="language" type="pulldown" width="1pr" tid="userrights.edituser.prefslang" />
-            <select composition="userobj"
-                    cellname="whuser_disable_type"
-                    name="whuser_disable_type"
-                    type="radio"
-                    gid="tolliumapps.userrights.common"
-                    tid=".accountstatus">
-              <option rowkey="" tid=".accountstatus-active" />
-              <option rowkey="inactive" />
-              <option rowkey="manual" enablecomponents="whuser_disablereason" tid=".accountstatus-blocked" />
-            </select>
-            <textarea composition="userobj" cellname="whuser_disablereason" name="whuser_disablereason" required="true" />
+            <accountstatus composition="userobj" cellname="wrdauth_account_status" allowed="active blocked" required="true"/>
             <spacer name="insertpoint_account" visible="false" />
           </tab>
           <tab name="advanced">

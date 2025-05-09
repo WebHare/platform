@@ -55,6 +55,8 @@ MACRO Setup()
   OBJECT persontype := wrdschema->GetType("WRD_PERSON");
   OBJECT orgtype := wrdschema->GetType("WRD_ORGANIZATION");
 
+  persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+
   TestEqMembers([ revision := 0, result := [ postupdaterevision := -1, postentitiesrevision := -1, person_has_add_datetime := FALSE, has_settings_entity := FALSE ]], wrdschema->GetMigrationStatus("testfw:update_post"), "*");
   TestEqMembers([ revision := 0, result := [ postupdaterevision := -1, postentitiesrevision := -1, person_has_add_datetime := FALSE, has_settings_entity := TRUE ]], wrdschema->GetMigrationStatus("testfw:update_postentities"), "*");
 
@@ -197,8 +199,12 @@ MACRO ExportXMLMetadata()
   TestEq(TRUE, wrdschema->GetType("WRD_PERSON")->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
 
-  //The schemas should match
   RECORD restoredschema := ExtractSchemaMetadata(wrdschema);
+
+  //The schemas should match except for typedeclarations, no point in syncin
+  FOREVERY(RECORD type FROM saveschema.types)
+    saveschema.types[#type].attrs := SELECT *, typedeclaration := "" FROM type.attrs;
+
   TestEq(saveschema, restoredschema);
 
   //Another export should be (pretty much?) the same

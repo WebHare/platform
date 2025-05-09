@@ -31,7 +31,7 @@ async function testWRDUntypedApi() { //  tests
   test.eq(persontypeDescribed, await wrdschema.describeType(persontypeDescribed.id), "Describe should understand both id and tag");
 
   await whdb.beginWork();
-  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest", wrdContactEmail: "querytest@beta.webhare.net" }));
+  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest", wrdContactEmail: "querytest@beta.webhare.net", wrdauthAccountStatus: { status: "active" } }));
   test.assert(personid);
 
   await wrdschema.update("wrdPerson", personid, { wrdContactEmail: "Test123@example.com" });
