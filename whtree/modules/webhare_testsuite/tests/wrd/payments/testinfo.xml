@@ -7,7 +7,6 @@
   <test script="test_js.whscr" />
   <test script="test_mollie.whscr" tags="external"/>
   <test script="test_multisafepay.whscr" tags="external"/>
-  <test script="test_afterpay.whscr" tags="external"/>
   <test script="test_pay_nl.whscr" tags="external"/>
   <test script="test_buckaroo.whscr" tags="external"/>
 </group>
