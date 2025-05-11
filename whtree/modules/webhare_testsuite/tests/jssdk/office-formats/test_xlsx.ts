@@ -17,7 +17,8 @@ const columns: SpreadsheetColumn[] =
     { name: "dt", title: "Col 7:datetime", type: "dateTime", storeUTC: true },
     { name: "mf", title: "Col 8:mf", type: "money" },
     // { name: "sa", title: "Col 9:stringarray", type: "string" }, //should we support string arrays?
-    { name: "int64", title: "Col 10:int64", type: "number" }
+    { name: "int64", title: "Col 10:int64", type: "number" },
+    { name: "floating", title: "Col 11:floating", type: "number", decimals: 3 }
   ];
 
 const now = new Date("2011-12-08T07:58:12");
@@ -34,6 +35,7 @@ const reftrestrows = [
     mf: new Money("1.5"),
     // sa: ["a", "2"],
     int64: 0,
+    floating: 3.5
   }, {
     title: "Tit&le 2\nnext line!",
     bool: false,
@@ -44,6 +46,7 @@ const reftrestrows = [
     mf: new Money("2.5"),
     // sa: [3, 4],
     int64: -10000000000,
+    floating: 1.30000000004
   }, {
     title: "Third row",
     bool: false,
@@ -161,7 +164,8 @@ async function testAutoXLSXColumnFiles() {
       'title', 'bool',
       'date', 'int',
       'time', 'dt',
-      'mf', 'int64'
+      'mf', 'int64',
+      'floating'
     ],
     [
       'Ti<>tle 1',
@@ -171,7 +175,8 @@ async function testAutoXLSXColumnFiles() {
       '25092000',
       'Thu Dec 08 2011 07:58:12 GMT+0100 (Central European Standard Time)',
       '1.5',
-      '0'
+      '0',
+      '3.5'
     ],
     [
       'Tit&le 2\nnext line!',
@@ -181,7 +186,8 @@ async function testAutoXLSXColumnFiles() {
       '666000',
       'Wed Nov 09 2011 00:06:06 GMT+0100 (Central European Standard Time)',
       '2.5',
-      '-10000000000'
+      '-10000000000',
+      '1.30000000004'
     ],
     ['Third row', 'false', '', '0', '0', '', '0', '0']
   ], await getRows(doc));

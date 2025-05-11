@@ -34,6 +34,9 @@ function dateToExcel(x: Date) {
 }
 
 class WorksheetBuilder {
+  constructor(private doc: XLSXDocBuilder) {
+  }
+
   renderCell(cellId: string, value: unknown, col: SpreadsheetColumn) {
     let storevalue: string, type = '', style = 0;
     const typeinfo = ColumnTypes[col.type];
@@ -50,12 +53,12 @@ class WorksheetBuilder {
       case "date":
         storevalue = String(Math.floor(dateToExcel(value as Date)));
         type = "";
-        style = 1; //format 165: d mmm yyyy
+        style = this.doc.dateFormat;
         break;
       case "dateTime":
         storevalue = String(dateToExcel(value as Date));
         type = "";
-        style = 3; //format 167: d mmm yyyy h:mm:ss
+        style = this.doc.dateTimeFormat;
         break;
       case "boolean":
         storevalue = value ? "1" : "0";
@@ -66,10 +69,13 @@ class WorksheetBuilder {
         break;
       case "number":
         storevalue = String(value);
+        if (col.decimals !== undefined) {
+          style = this.doc.setNumberFormat("0." + "0".repeat(col.decimals));
+        }
         break;
       case "time":
         storevalue = String(value as number / 86400_000);
-        style = 2; //format 166: h:mm:ss
+        style = this.doc.timeFormat;
         break;
       default:
         //@ts-expect-error -- we should have covered all cases, so col.type === never
@@ -80,7 +86,7 @@ class WorksheetBuilder {
     if (style)
       result += ` s="${style}"`;
     if (type)
-      result += ` t = "${type}"`;
+      result += ` t="${type}"`;
 
     storevalue = encodeString(storevalue.replaceAll('\n', '\r'), 'attribute');
     if (type === 'inlineStr')
@@ -117,8 +123,41 @@ class WorksheetBuilder {
   }
 }
 
-function createSheet(sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean): ReadableStream {
-  const builder = new WorksheetBuilder;
+type NumberFormat = {
+  seqNr: number;
+  numFmtId: number;
+  formatCode: string;
+};
+
+export class XLSXDocBuilder {
+  nextFormatId = 165;
+  nextFormatSeq = 1;
+  formats = new Array<NumberFormat>;
+  formatMap = new Map<string, NumberFormat>;
+  dateFormat = this.setNumberFormat("d mmm yyyy;@");
+  timeFormat = this.setNumberFormat("h:mm:ss;@");
+  dateTimeFormat = this.setNumberFormat("d mmm yyyy h:mm:ss;@");
+
+  constructor() {
+
+  }
+
+  setNumberFormat(formatCode: string): number {
+    const match = this.formatMap.get(formatCode);
+    if (match)
+      return match.seqNr;
+
+    const numFmtId = this.nextFormatId++;
+    const seqNr = this.nextFormatSeq++;
+    const format = { seqNr, numFmtId, formatCode };
+    this.formats.push(format);
+    this.formatMap.set(formatCode, format);
+    return seqNr;
+  }
+}
+
+function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean): ReadableStream {
+  const builder = new WorksheetBuilder(doc);
   const rows = builder.createRows(sheetSettings);
   const dimensions = getNameForColumn(sheetSettings.columns.length) + (sheetSettings.rows.length + 1);
   let preamble = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n`;
@@ -157,6 +196,7 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
       //Create the worksheets
       const sheetnames: SheetInfo[] = [];
       const names = new Set<string>;
+      const xlsxdoc = new XLSXDocBuilder;
 
       for (const [idx, sheet] of sheets.entries()) {
         const useTitle = sheet.title ?? `Sheet${idx + 1}`;
@@ -169,13 +209,13 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
         names.add(useTitle.toLowerCase());
 
         const sheetname = `sheet${idx + 1}.xml`;
-        const outputSheet = createSheet(sheet, idx === 0);
+        const outputSheet = createSheet(xlsxdoc, sheet, idx === 0);
         await controller.addFile(`xl/worksheets/${sheetname}`, outputSheet, new Date);
         sheetnames.push({ name: sheetname, title: useTitle });
       }
 
       //Create the workbook
-      for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(sheetnames))) {
+      for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(xlsxdoc, sheetnames))) {
         await controller.addFile(fullpath, data, new Date);
       }
     },

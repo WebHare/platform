@@ -19,12 +19,17 @@ export const ColumnTypes: Record<ValidColumnTypes, ColumnTypeDef> = {
 export type SpreadsheetColumn = {
   name: string;
   title: string;
-  type: Exclude<keyof typeof ColumnTypes, "dateTime">;
+  type: Exclude<keyof typeof ColumnTypes, "dateTime" | "number">;
 } | {
   name: string;
   title: string;
   type: "dateTime";
   storeUTC: boolean;
+} | {
+  name: string;
+  title: string;
+  type: "number";
+  decimals?: number;
 };
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
