@@ -47,16 +47,17 @@ export class RestService extends services.BackendServiceConnection {
       if (accessControl?.preflight) {
         response = {
           status: accessControl.success ? 200 : 405,
-          headers: accessControl.headers,
+          headers: Object.entries(accessControl.headers).map(([header, value]) => [header, value]),
           body: WebHareBlob.from(""),
-          setCookie: []
         };
       } else {
         response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
-        // Add access control headers, if any
-        if (accessControl) {
+
+        if (accessControl) { // Add access control headers, if any
+          const hdrs = new Headers(response.headers);
           for (const [header, value] of Object.entries(accessControl.headers))
-            response.headers[header] = value;
+            hdrs.set(header, value);
+          response.headers = [...hdrs.entries()];
         }
       }
       //TODO It's a bit ugly to be working with a HareScriptBlob here (`body.size`) as this is still JS code, but it's a quick workaround for not having to JSON.stringify twice

@@ -83,10 +83,7 @@ class WebServerPort {
       res.statusCode = response.status;
 
       for (const [key, value] of response.headers.entries())
-        if (key === 'set-cookie')
-          res.setHeader("set-cookie", response.headers.getSetCookie());
-        else
-          res.setHeader(key, value);
+        res.setHeader(key, value); //entries() returns all individual cookie headers so expanding getSetCookie is not needed
 
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
       res.write(new Uint8Array(await response.arrayBuffer()));

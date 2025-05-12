@@ -25,19 +25,8 @@ PUBLIC MACRO ExecuteWebResponse(RECORD webresponse) //expects a WebResponseInfo
 {
   AddHTTPHeader("Status", ToString(webresponse.status), FALSE);
 
-  FOREVERY(RECORD header FROM UnpackRecord(webresponse.headers)) {
-    STRING headername := ToUppercase(header.name);
-    IF(headername = "SET-COOKIE") {
-      IF(Length(webresponse.setcookie) = 0)
-        THROW NEW Exception(`internal error: no setCookie in WebResponseInfo but there was a set-cookie header`);
-
-      CONTINUE;
-    }
-    AddHTTPHeader(ToLowercase(headername), header.value, FALSE);
-  }
-
-  FOREVERY(STRING cookie FROM webresponse.setcookie)
-    AddHTTPHeader("Set-Cookie", cookie, TRUE);
+  FOREVERY(VARIANT header FROM webresponse.headers)
+    AddHTTPHeader(header[0], header[1], ToLowercase(header[0]) = "set-cookie"); //append cookies, overwrite the rest
 
   SendWebFile(webresponse.body);
 }

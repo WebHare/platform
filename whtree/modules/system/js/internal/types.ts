@@ -96,8 +96,7 @@ export interface WebRequestInfo {
 ///Internal data structure used to marshall responses from JavaScript to HareScript. Proper routers would use WebResponse (and not have to deal with HS blobs)
 export interface WebResponseInfo {
   status: number;
-  headers: Record<string, string>;
-  setCookie: string[];
+  headers: Array<[string, string]>;
   body: WebHareBlob;
 }
 
