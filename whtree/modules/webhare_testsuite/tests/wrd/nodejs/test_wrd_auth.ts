@@ -2,7 +2,7 @@ import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod } from "@webhare/auth/src/identity";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
@@ -220,7 +220,16 @@ async function setupOpenID() {
   await whdb.commitWork();
 }
 
+function parseLoginResult(result: FrontendAuthResult) {
+  if (!result.loggedIn)
+    return result;
+
+  const accessToken = result.setAuth.value.match(/ accessToken:(.*)$/)?.[1] ?? throwError("No access token found in FrontendAuthResult");
+  return { loggedIn: true, ...result.setAuth, accessToken };
+}
+
 async function testAuthAPI() {
+  const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
   const provider = new IdentityProvider(oidcAuthSchema);
 
   await whdb.beginWork();
@@ -290,9 +299,9 @@ async function testAuthAPI() {
   //FIXME test rejection when expired, different schema etc
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("nosuchuser@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret123", null));
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123", null));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ entityId }) {
@@ -301,7 +310,7 @@ async function testAuthAPI() {
       return { userId: entityId, firstName: "Josie" };
     }
   };
-  test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", customizerUserInfo));
+  test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", customizerUserInfo)));
 
   //Test the frontend login with customizer setting up multisite support
   const multisiteCustomizer: AuthCustomizer = {
@@ -312,17 +321,17 @@ async function testAuthAPI() {
     }
   };
 
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site1" }));
-  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonny", "secret$", multisiteCustomizer, { site: "site2" }));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
+  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
 
   //Test the frontend login RPC - do we see the proper cache headers
-  const testsiteurl = new URL((await test.getTestSiteJS()).webRoot!);
   let seenheaders = false; // FIXME , seenexpiry = 0; -- see below
   const loginres = await rpc("platform:authservice", {
-    onBeforeRequest(url, requestInit) {
-      url.searchParams.set("pathname", testsiteurl.pathname);
+    onBeforeRequest(inUrl, requestInit) {
+      const testsiteurl = new URL(url);
+      inUrl.searchParams.set("pathname", testsiteurl.pathname);
       requestInit.headers.set("origin", testsiteurl.origin);
     },
     onResponse(response) {
@@ -359,7 +368,7 @@ async function testAuthAPI() {
   await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
 
   //Verify prepareFrontendLogin creates an audit event
-  await prepareFrontendLogin(testsiteurl.toString(), testuser, {
+  await prepareFrontendLogin(url, testuser, {
     authAuditContext: {
       impersonatedBy: test.getUser("sysop").wrdId,
       remoteIp: "67.43.156.0"
@@ -380,9 +389,10 @@ async function testAuthAPI() {
 }
 
 async function testAuthStatus() {
+  const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
   const provider = new IdentityProvider(oidcAuthSchema);
   const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
@@ -390,7 +400,7 @@ async function testAuthStatus() {
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
 
   //Remove authstatus field
   await whdb.beginWork();
@@ -404,7 +414,7 @@ async function testAuthStatus() {
   await whdb.commitWork();
 
   //Now we can login again even without en active wrdauthAccountStatus
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -417,7 +427,7 @@ async function testAuthStatus() {
   });
   await whdb.commitWork();
 
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));

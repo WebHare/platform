@@ -1,47 +1,15 @@
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
+import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { generateRandomId, pick, stringify, throwError } from "@webhare/std";
-import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
+import { pick, stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
 import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
-import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
-
-export async function prepAuth(url: string, cookieName: string | null) {
-  const applytester = await getApplyTesterForURL(url);
-  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
-  const settings = await applytester?.getWRDAuth();
-  if (!settings?.wrdSchema)
-    throw new RPCError(HTTPErrorCode.BadRequest, "No WRD schema defined for this url");
-  if (cookieName && cookieName !== settings.cookieName)
-    throw new RPCError(HTTPErrorCode.BadRequest, `WRDAUTH: login offered a different cookie name than expected: ${cookieName} instead of ${settings.cookieName}`);
-
-  const { idCookie, ignoreCookies } = getIdCookieName(url, settings);
-  const secure = url.startsWith("https:");
-
-  const cookieSettings: ServersideCookieOptions = {
-    httpOnly: true, //XSS protection
-    secure, //mirror secure if the request was
-    path: "/", //we don't support limiting WRD cookies to subpaths as various helper pages are at /.wh/
-    sameSite: settings.sameSite,
-  };
-
-  return {
-    cookies: {
-      idCookie,
-      ignoreCookies,
-      secure,
-      cookieSettings,
-      cookieName: settings.cookieName,
-    },
-    settings: settings as WRDAuthPluginSettings & { wrdSchema: string }, //as we verified this to be not-null
-  };
-}
+import { prepAuth } from "@webhare/auth/src/support";
 
 export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
@@ -62,7 +30,11 @@ export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void
 }
 
 export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers): Promise<void> {
-  const { idCookie, ignoreCookies, cookieSettings } = (await prepAuth(url, cookieName)).cookies;
+  const prepped = await prepAuth(url, cookieName);
+  if ("error" in prepped)
+    throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
+
+  const { idCookie, ignoreCookies, cookieSettings } = prepped.cookies;
 
   for (const [name, value] of Object.entries(expandCookies(currentCookie)))
     if (name === idCookie || ignoreCookies.includes(name))
@@ -79,38 +51,21 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
 export const authService = {
   async login(context: RPCContext, username: string, password: string, cookieName: string, options?: LoginRemoteOptions): Promise<FrontendLoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
-    const { cookies, settings } = await prepAuth(originUrl, cookieName);
+    const prepped = await prepAuth(originUrl, cookieName);
+    if ("error" in prepped)
+      throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
+
+    const { settings } = prepped;
     const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null;
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
 
-
-    const response = await provider.handleFrontendLogin(username, password, customizer, pick(options || {}, ["persistent", "site"]));
+    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, pick(options || {}, ["persistent", "site"]));
     if (response.loggedIn === false)
       return { loggedIn: false, code: response.code, error: response.error };
 
-    /* FIXME return expiry info etc to user. set expiry in cookie too
-        have createJSONResponse supply us with a proper cookie header builder. get SameSite= from WRD settings. set Secure if request is secure. set domain if WRD settings say so
-        */
-
-    //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too (but probably not inside the plugin)
-    //generateRandomId is prefixed to support C++ webserver webharelogin caching
-    const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
-    const responseBody: FrontendLoginResult = {
-      loggedIn: true
-    };
-
-    const setAuthCookies: SetAuthCookies = {
-      ...cookies,
-      value: logincookie,
-      expires: response.expires,
-      userInfo: response.userInfo,
-      persistent: options?.persistent,
-      cookieName: cookieName,
-    };
-
-    doLoginHeaders(setAuthCookies, context.responseHeaders);
-    return responseBody;
+    doLoginHeaders(response.setAuth, context.responseHeaders);
+    return { loggedIn: true };
   },
 
   /** Logout current user, reset session
