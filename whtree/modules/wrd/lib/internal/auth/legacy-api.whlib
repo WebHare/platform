@@ -1065,9 +1065,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ];
     UpdateWebCookie(this->cookiename, value, opts);
-    //also erase the 'modern' logout cookies
-    UpdateWebCookie("__Host-" || this->cookiename, value, opts);
-    UpdateWebCookie("__Secure-" || this->cookiename, value, opts);
+    //when logging out also erase the 'modern' wdauth login cookies
+    IF(value = "") {
+      UpdateWebCookie("__Host-" || this->cookiename, "", opts);
+      UpdateWebCookie("__Secure-" || this->cookiename, "", opts);
+      UpdateWebCookie(this->cookiename || "_publicauthdata", "", opts);
+    }
   }
 
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
