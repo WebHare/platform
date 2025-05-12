@@ -3,6 +3,9 @@
    checkmodule normally prefilters by extension (.ts/.tsx) and passes the
    individual files to eslint, but running 'eslint' in whtree/ will also
    validate all JS files
+
+   Running eslint --inspect-config in whtree/ gives a live view of the
+   configuration and can help to debug file ignore/inclusion issues
 */
 import { strictConfig } from "./jssdk/eslint-config/eslint.config.mjs";
 
@@ -13,6 +16,8 @@ export default [
       "jssdk/*/dist/",
       "currentinstall",
       "modules/platform/generated/",
+      "lib/*", // generated WASM files
+      "libexec/*", //puppeteer
     ]
   },
 ];

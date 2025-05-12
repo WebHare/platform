@@ -935,15 +935,15 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
     FOREVERY (RECORD rec FROM orgupdate.resources) {
       rec := CELL[ resourcename := "", modified := DEFAULT DATETIME, ...rec ];
       IF (rec.resourcename = "" OR rec.modified = DEFAULT DATETIME)
-        RETURN `dependency invalid: ${rec.resourcename}`;
+        RETURN `dependencies were invalid`;
 
       RECORD resource := RetrieveWebhareResource(rec.resourcename, [ allowmissing := TRUE ]);
       IF(NOT RecordExists(resource))
-        RETURN `dependenc missing: ${rec.resourcename}`;
+        RETURN `dependency is now missing: ${rec.resourcename}`;
 
       INTEGER64 age := GetDatetimeDifference(resource.modified, rec.modified).totalmsecs;
       IF(ABS(age)>1)
-          RETURN `dependency changed: ${rec.resourcename}`;
+          RETURN `a dependency was modified: ${rec.resourcename}`;
     }
 
     RETURN "";

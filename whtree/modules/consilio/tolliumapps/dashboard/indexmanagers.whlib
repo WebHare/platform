@@ -106,11 +106,15 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
     }
   }
 
-  MACRO DoGetMapping()
-  {
+  MACRO DoGetMapping() {
     RECORD res := SendRawJSONToOpenSearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_mapping`, DEFAULT RECORD);
     Reflect(GetCell(res.result, ^indices->selection[0].name).mappings);
   }
+  MACRO DoGetSettings() {
+    RECORD res := SendRawJSONToOpenSearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_settings`, DEFAULT RECORD);
+    Reflect(GetCell(res.result, ^indices->selection[0].name).settings);
+  }
+
   MACRO DoDelete()
   {
     IF(this->RunSimpleScreen("confirm", this->GetTid(".confirmdeleteindices")) != "yes")
