@@ -1226,6 +1226,7 @@ PUBLIC STATIC OBJECTTYPE SAMLWebhareSPConfig EXTEND SAMLSPConfigBase
             , wrd_infix :=      this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/infix")
             , wrd_lastname :=   this->GetAttribute(statement.attributes, "http://b-lex.com/saml/attribute/lastname")
             , whuser_unit :=    samlimportunit
+            , wrdauth_account_status := [ status := "active" ]
             ];
 
         IF (statement.subject.nameid.format = "http://b-lex.com/saml/nameidformat/webhare-guid")

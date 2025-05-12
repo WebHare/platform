@@ -549,7 +549,7 @@ async function testWRDImgCache() {
   const fish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //FIXME WRD should auto-complete metadata itself
   await beginWork();
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
-  const personid = await schema.insert("wrdPerson", { testFile: fish, testImage: fish, whuserUnit: unit_id, wrdContactEmail: "goldfish@beta.webhare.net" });
+  const personid = await schema.insert("wrdPerson", { testFile: fish, testImage: fish, whuserUnit: unit_id, wrdContactEmail: "goldfish@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
   await commitWork();
 
   const wrappedGoldfish = await schema.getFields("wrdPerson", personid, ["testImage"]);

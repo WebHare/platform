@@ -422,8 +422,10 @@ MACRO WRDImageCache()
 
   BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
    entityid1 := wrdperson->CreateEntity([ test_image := WrapBlob(testimage_blob,"")
+                                        , wrdauth_account_status := [ status := "inactive" ]
                                         ] )->id;
    entityid2 := wrdperson->CreateEntity([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
+                                        , wrdauth_account_status := [ status := "active" ]
                                         ] )->id;
 
   RECORD entity := wrdperson->RunQuery( [ outputcolumns := [ imageid := "TEST_IMAGE.IMAGEID", arrayimages := "TEST_ARRAY.TEST_IMAGE.IMAGEID" ]

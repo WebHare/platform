@@ -1380,6 +1380,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal2"
       , whuser_unit :=            wrdschema2_unit->id
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
@@ -1388,6 +1389,7 @@ PUBLIC MACRO TestInvoke_SetupAccessRules()
       , wrd_firstname :=          "test"
       , wrd_lastname :=           "portal1"
       , whuser_unit :=            testfw->testunit
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   testfw->CommitWork();
@@ -1453,6 +1455,7 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
       [ wrd_contact_email :=      "idpaccount@allow2fa.test.webhare.net"
       , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash("a"))
       , whuser_unit :=            wrdschema_idp_unit->id
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   //OBJECT dom_idp := wrdschema_idp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
@@ -1641,6 +1644,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2F3A"
     , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            unit
+    , wrdauth_account_status := [ status := "active" ]
     ]);
   wrdschema->^wrd_person->CreateEntity(
     CELL[ wrd_firstname := "Jantje"
@@ -1649,10 +1653,11 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
         , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
         , password := testfw->hashedpasswords.secret_dollar
         , whuser_unit :=            unit
+        , wrdauth_account_status := [ status := "active" ]
         , ...(options.multisite ? [ multisite := "site1" ]: DEFAULT RECORD)
         ]);
 
-  IF(options.multisite) {
+IF(options.multisite) {
     wrdschema->^wrd_person->CreateEntity(
       [ wrd_firstname := "Jantje2"
       , wrd_lastname := "Tester2"
@@ -1660,6 +1665,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
       , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABD"
       , password := testfw->hashedpasswords.secret
       , whuser_unit :=            unit
+      , wrdauth_account_status := [ status := "active" ]
       , multisite := "site2"
       ]);
   }

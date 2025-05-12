@@ -10,6 +10,7 @@ MACRO UpgradeTest()
 
   OBJECT wrdschema := testfw->GetWRDSchema();
   OBJECT persontype := wrdschema->GetType("WRD_PERSON");
+  persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   TestEq(TRUE, RecordExists(persontype->GetAttribute("WRD_FIRSTNAME")));
 

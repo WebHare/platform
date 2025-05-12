@@ -29,6 +29,7 @@ MACRO CreateMyTestSchema()
   persontype->CreateAttribute("USERS.ID", "DOMAIN",[domaintag:=    "WRD_PERSON"]);
   persontype->CreateAttribute("POSTAL", "ADDRESS");
 
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   person1 := persontype->CreateEntity( [ wrd_contact_email := "person1@example.net"
                                        , wrd_tag := "TEST1"
                                        , wrd_lastname := "One"

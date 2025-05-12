@@ -1,0 +1,91 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE AccountStatus EXTEND TolliumFragmentBase <
+
+  STRING ARRAY pvt_allowed;
+  RECORD pvt_originalvalue;
+  RECORD ARRAY originalstatusoptions;
+
+  PUBLIC PROPERTY value(GetValue, SetValue);
+  PUBLIC PROPERTY allowed(pvt_allowed, SetAllowed);
+  PUBLIC PROPERTY originalvalue(pvt_originalvalue, -);
+
+  MACRO NEW() {
+    EXTEND this BY TolliumIsComposable;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD data) {
+    TolliumFragmentBase::StaticInit(data);
+    this->originalstatusoptions := ^status->options;
+    this->pvt_allowed := data.allowed;
+    this->RefreshAllowed();
+    ^heading->title := data.title ?? GetTid("system:tolliumapps.userrights.common.accountstatus");
+  }
+
+  MACRO SetAllowed(STRING ARRAY allowed) {
+    this->pvt_allowed := allowed;
+    this->RefreshAllowed();
+  }
+
+  RECORD FUNCTION GetValue() {
+    STRING status := ^status->value;
+    IF(status = "")
+      RETURN DEFAULT RECORD;
+
+    RECORD retval;
+    IF(RecordExists(this->originalvalue) AND this->originalvalue.status = status)  //status not changed
+      retval := CELL[ ...this->originalvalue, status ]; //copies any 'since'
+    ELSE
+      retval := CELL[ status := ^status->value, since := GetCurrentDateTime() ];
+
+    IF(^reason->value != "")
+      retval := CELL[...retval, reason := ^reason->value];
+
+    RETURN retval;
+  }
+
+  PUBLIC BOOLEAN FUNCTION HasChanged() {
+    RETURN EncodeJSON(this->originalvalue) != EncodeJSON(this->value);
+  }
+
+  MACRO SetValue(RECORD newvalue) {
+    this->pvt_originalvalue := newvalue;
+    this->RefreshAllowed();
+    ^status->value := RecordExists(newvalue) ? newvalue.status : "";
+  }
+
+  MACRO OnStatusChange() {
+    this->RefreshUI();
+  }
+
+  UPDATE MACRO SetRequired(BOOLEAN required) {
+    TolliumFragmentBase::SetRequired(required);
+    this->RefreshAllowed();
+  }
+
+  MACRO RefreshAllowed() {
+    STRING origstatus := RecordExists(this->originalvalue) ? this->originalvalue.status : "";
+    ^status->options := SELECT *
+                          FROM this->originalstatusoptions
+                         WHERE rowkey = "" ? this->required = FALSE //allow empty only if not currently required
+                               : rowkey IN this->pvt_allowed OR rowkey = origstatus;
+
+    this->RefreshUI();
+  }
+
+  MACRO RefreshUI() {
+    RECORD val := this->value;
+    ^reason->visible := RecordExists(val) AND val.status IN [ "blocked" ];
+    ^reason->required := ^reason->visible;
+
+    ^since->visible := CellExists(val,'since');
+    ^since->value :=CellExists(val,'since') ? val.since : DEFAULT DATETIME;
+    ^reason->value :=CellExists(val,'reason') ? val.reason : "";
+  }
+>;

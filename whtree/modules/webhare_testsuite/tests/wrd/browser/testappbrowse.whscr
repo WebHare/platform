@@ -12,6 +12,7 @@ ASYNC MACRO TestWRDBrowser()
   //Enable history on wrd_persons so we can test the history browser
   testfw->BeginWork();
   testfw->GetWRDSchema()->^wrd_person->UpdateMetadata([ keephistorydays := 7 ]);
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   announcemententity := testfw->GetWRDSchema()->^whuser_announcement->CreateEntity( [ ANNOUNCEMENT_TITLE := "Announcement test"]) ; //helps trigger selectentity crash
   testfw->CommitWork();
 

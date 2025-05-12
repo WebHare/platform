@@ -956,6 +956,12 @@
     </textgroup>
   </textgroup>
   <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="accountstatus">   <!-- tolliumcomponents.accountstatus -->
+      <text tid="heading">Account status</text>
+      <text tid="reason">Reason</text>
+      <text tid="since">Since</text>
+      <text tid="status">Status</text>
+    </textgroup>
     <textgroup gid="authenticationsettings">   <!-- tolliumcomponents.authenticationsettings -->
       <text tid="active">Activated</text>
       <text tid="inactive">Not activated</text>

@@ -1,9 +1,17 @@
-<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accountstatus="active inactive blocked required"
+                  accounttype="wrd_person">
 
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_saml.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_oidc.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/idp.wrdschema.xml" />
+
+  <migration tag="platform:accountstatus"
+             at="update"
+             revision="3"
+             stage="beforeEntities"
+             updatefunction="mod::platform/lib/internal/migrations.whlib#MigrateAccountStatus" />
 
   <attachment tag="whuser_role" linkfrom="whuser_unit" title="WebHare usermanagement role">
     <attributes>
@@ -26,13 +34,10 @@
 
   <object tag="wrd_person" title="Person">
     <attributes>
-      <boolean tag="whuser_disabled" title="Disabled (deprecated!)" />
-      <free tag="whuser_disablereason" title="Reason for disabling" />
       <free tag="whuser_comment" title="Usermanagement app comment" />
       <datetime tag="whuser_lastlogin" title="Last login time" />
       <domainsingle tag="whuser_unit" domain="whuser_unit" required="true" title="Unit" />
       <domainmultiple tag="whuser_hiddenannouncements" domain="whuser_announcement" title="Hidden desktop announcements" />
-      <enum tag="whuser_disable_type" allowedvalues="manual inactive" title="Why are we currently disabled" />
     </attributes>
   </object>
 

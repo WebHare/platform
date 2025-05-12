@@ -3857,6 +3857,7 @@ PUBLIC VARIANT FUNCTION __DecodeJSONStdType(VARIANT value)
     CASE "Date" { RETURN MakeDateFromText(value.date); }
     CASE "Money" { RETURN ToMoney(value."money", 0m); }
     CASE "BigInt" { RETURN ToInteger64(value.bigint, 0i64); }
+    CASE "Instant" {  RETURN MakeDateFromText(value.instant); }
     DEFAULT { THROW NEW Exception(`Unsupported $stdType ${EncodeJSON(value."$stdType")}`); }
   }
 }
@@ -4610,6 +4611,15 @@ PUBLIC STATIC OBJECTTYPE JSONObject
     ELSE
       INSERT CELL[ name, value ] INTO this->props AT pos.position;
     RETURN value;
+  }
+
+  PUBLIC MACRO SetPropTemporalInstant(STRING name, DATETIME value) {
+    IF(value = DEFAULT DATETIME OR value = MAX_DATETIME)
+      THROW NEW Exception(`Cannot set the value of '${name}' to a null or max datetime`);
+
+    OBJECT subval := NEW JSONObject([ instant := Tokenize(EncodeJSON(value),'"')[1]]);
+    subval->SetProp("$stdType", "Instant");
+    this->SetProp(name, subval);
   }
 
   /** Removes a property

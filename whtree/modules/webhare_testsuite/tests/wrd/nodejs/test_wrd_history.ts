@@ -50,6 +50,7 @@ async function testChanges() { //  tests
     testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
     testImage: goldfishImg,
     testEnumarray: ["enumarray1" as const, "enumarray2" as const],
+    wrdauthAccountStatus: { status: "active" } as const
   };
 
   const initialFields = [...new Set([...Object.keys(initialPersonData), "wrdCreationDate", "wrdGuid", "wrdLimitDate"])].toSorted();
@@ -99,7 +100,7 @@ async function testChanges() { //  tests
 
   //whitebox test - get raw setting ids. these shouldn't change either
   const initialSettingIds = new Set<number>((await db<PlatformDB>().selectFrom("wrd.entity_settings").select("id").where("entity", "=", testPersonId).execute()).map(_ => _.id));
-  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate", "wrdGuid", "wrdCreationDate", "wrdLimitDate"]);
+  const prefields = await wrdschema.getFields("wrdPerson", testPersonId, ["wrdFirstName", "testFree", "testFile", "testArray", "wrdModificationDate", "wrdGuid", "wrdCreationDate", "wrdLimitDate", "wrdauthAccountStatus"]);
 
   await whdb.commitWork();
 
@@ -549,7 +550,7 @@ async function testChanges() { //  tests
 
   {
     await whdb.beginWork(); // Deleted entities
-    const newperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "shortlived@beta.webhare.net", whuserUnit: testunit });
+    const newperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "shortlived@beta.webhare.net", whuserUnit: testunit, wrdauthAccountStatus: { status: "active" } });
     const att = await wrdschema.insert("personattachment", { wrdLeftEntity: newperson });
     await wrdschema.update("personattachment", att, { wrdLeftEntity: testPersonId });
 
@@ -605,13 +606,13 @@ async function testChanges() { //  tests
 
   {
     await whdb.beginWork(); // Temporary objects
-    const tempperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "temporary+1@beta.webhare.net" }, { temp: true });
+    const tempperson = await wrdschema.insert("wrdPerson", { wrdContactEmail: "temporary+1@beta.webhare.net", wrdauthAccountStatus: { status: "active" } }, { temp: true });
     test.eq([], await hsPersontype.ListChangesets(tempperson));
 
     await wrdschema.update("wrdPerson", tempperson, { wrdContactEmail: "temporary+2@beta.webhare.net" });
     test.eq([], await hsPersontype.ListChangesets(tempperson));
 
-    await wrdschema.update("wrdPerson", tempperson, { wrdCreationDate: new Date, wrdLimitDate: null, whuserUnit: testunit });
+    await wrdschema.update("wrdPerson", tempperson, { wrdCreationDate: new Date, wrdLimitDate: null, whuserUnit: testunit, });
     const postfields = await wrdschema.getFields("wrdPerson", tempperson, ["wrdContactEmail", "wrdId", "wrdCreationDate", "wrdGuid", "wrdLimitDate", "wrdModificationDate", "whuserUnit"]);
 
     await whdb.commitWork();
@@ -633,7 +634,8 @@ async function testChanges() { //  tests
           wrd_id: tempperson, //FIXME why is this is the changeset? due to it being a tempBecomingAlive?
           wrd_guid: UUIDToWrdGuid(postfields.wrdGuid), //TODO and guid? although this sounds a bit more reasonable..
           wrd_creationdate: postfields.wrdCreationDate,
-          wrd_limitdate: defaultDateTime
+          wrd_limitdate: defaultDateTime,
+          wrdauth_account_status: { status: "active" }
         }
       }
     ], changes);

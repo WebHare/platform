@@ -40,6 +40,10 @@ MACRO Init()
                                                                         , schemaresource := "mod::system/data/wrdschemas/default.wrdschema.xml"
                                                                         , usermgmt := TRUE
                                                                         ]);
+
+  wrdschema_idp->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+  wrdschema_sp->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+
   OBJECT wrdschema_idp_unit := wrdschema_idp->^whuser_unit->CreateEntity([wrd_title := "Testunit"]);
   OBJECT person := wrdschema_idp->GetType("WRD_PERSON")->CreateEntity(
       [ wrd_contact_email :=      "idpaccount@allow2fa.test.webhare.net"

@@ -21,6 +21,7 @@ MACRO PrepareAPITests()
       [ wrd_contact_email := "apitests@beta.webhare.net"
       , whuser_password := CreateAuthenticationSettingsFromPasswordHash("PLAIN:A")
       , whuser_unit := testfw->testunit
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   entityid := entity->id;

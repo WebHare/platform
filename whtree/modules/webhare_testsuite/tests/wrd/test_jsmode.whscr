@@ -12,6 +12,7 @@ MACRO TestJSMode()
 
   testfw->BeginWork();
 
+  schemaobj->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   schemaobj->^wrd_person->DeleteEntities(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", historymode := "__getfields" ]));
 
   TestThrowsLike("*not*0*", PTR schemaobj->^wrd_person->CreateEntity([ test_single_domain := 0], [ jsmode := TRUE ]));

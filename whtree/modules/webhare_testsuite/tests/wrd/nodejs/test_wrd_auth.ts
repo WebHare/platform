@@ -227,7 +227,7 @@ async function testAuthAPI() {
   //Setup test user and test the AuthenticationSettings types
   const testunit = await oidcAuthSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await oidcAuthSchema.insert("wrdPerson", {
-    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$)
+    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$), wrdauthAccountStatus: { status: "active" }
   });
   await whdb.commitWork();
 
@@ -381,6 +381,29 @@ async function testAuthAPI() {
 
 async function testAuthStatus() {
   const provider = new IdentityProvider(oidcAuthSchema);
+  const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  //Deactivate user. should block login
+  await whdb.runInWork(async () => {
+    await oidcAuthSchema.getType("wrdPerson").updateAttribute("wrdauthAccountStatus", { isRequired: false });
+    //@ts-expect-error TS doesn't know we dropped isRequired
+    await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
+  });
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
+
+  //Remove authstatus field
+  await whdb.beginWork();
+  await extendSchema("webhare_testsuite:testschema", {
+    schemaDefinitionXML:
+      `<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" accountstatus="">
+       <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
+      </schemadefinition>`
+  });
+  await oidcAuthSchema.getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
+  await whdb.commitWork();
+
+  //Now we can login again even without en active wrdauthAccountStatus
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
   //Add an authstatus field
@@ -396,8 +419,7 @@ async function testAuthStatus() {
 
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin("jonshow@beta.webhare.net", "secret$", null));
 
-  const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
-  //@ts-ignore doesn't know about wrdauthAccountStatus
+  //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
 }
 

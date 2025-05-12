@@ -1,0 +1,42 @@
+<?wh
+
+PUBLIC RECORD FUNCTION MigrateAccountStatus(OBJECT wrdschema) {
+  IF(NOT RecordExists(wrdschema->^wrd_person->GetAttribute("whuser_disabled")))
+    RETURN DEFAULT RECORD; //this schema never had whuser_disabled. even though we use at=update this may happen if usermgmt is applied to an already created wrdschema
+
+  /* Transfer whuser_disabled and whuser_disablereason to wrdauth_account_status
+     and remove the attributes from wrd_person. Remove whuser_disable_type if already created (april 2023)
+  */
+  RECORD outputcolumns := CELL[ "wrd_id", "whuser_disablereason", "whuser_disabled" ];
+  BOOLEAN has_whuser_disable_type := RecordExists(wrdschema->^wrd_person->GetAttribute("whuser_disable_type"));
+  IF(has_whuser_disable_type)
+    INSERT CELL whuser_disable_type := "whuser_disable_type" INTO outputcolumns;
+
+  RECORD ARRAY users := wrdschema->^wrd_person->RunQuery(CELL [outputcolumns, historymode := "all"]);
+  INTEGER numinactive, numactive, numblocked;
+
+  FOREVERY(RECORD user FROM users) {
+    RECORD set_accountstatus;
+    IF(user.whuser_disabled)
+      IF(has_whuser_disable_type AND user.whuser_disable_type = "inactive") {
+        set_accountstatus := CELL[ status := "inactive" ];
+        numinactive := numinactive + 1;
+      } ELSE {
+        set_accountstatus := CELL[ status := "blocked", reason := user.whuser_disablereason ];
+        numblocked := numblocked + 1;
+      }
+    ELSE {
+      set_accountstatus := CELL[ status := "active" ];
+      numactive := numactive + 1;
+    }
+
+    wrdschema->^wrd_person->UpdateEntity(user.wrd_id, CELL[ wrdauth_account_status := set_accountstatus ]);
+  }
+
+  wrdschema->^wrd_person->DeleteAttribute("whuser_disabled");
+  wrdschema->^wrd_person->DeleteAttribute("whuser_disablereason");
+  IF(has_whuser_disable_type)
+    wrdschema->^wrd_person->DeleteAttribute("whuser_disable_type");
+
+  RETURN CELL[ numinactive, numactive, numblocked ];
+}

@@ -279,7 +279,7 @@ async function testWRDRoundTrips() {
   await beginWork();
 
   const wrdschema = await getWRDSchema();
-  const testuser = await wrdschema.insert("wrdPerson", { wrdContactEmail: "test_rtd@beta.webhare.net" });
+  const testuser = await wrdschema.insert("wrdPerson", { wrdContactEmail: "test_rtd@beta.webhare.net", wrdauthAccountStatus: { status: "active" } });
 
   const hsWRDSchema = await loadlib("mod::wrd/lib/api.whlib").openWRDSchema(wrdschema.tag);
   const hsWRDPersonType = await hsWRDSchema.getType("WRD_PERSON");

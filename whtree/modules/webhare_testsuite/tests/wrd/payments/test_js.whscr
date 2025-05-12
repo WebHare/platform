@@ -74,6 +74,7 @@ ASYNC MACRO SetupPayJS()
 MACRO TestPaymentFields()
 {
   testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   OBJECT wrdschema :=  testfw->GetWRDSchema();
   TestThrowsLike('The domain tag may not be empty*',PTR wrdschema->^paydata->CreateAttribute("PAYDATA", "PAYMENT"), 'without domain should throw');

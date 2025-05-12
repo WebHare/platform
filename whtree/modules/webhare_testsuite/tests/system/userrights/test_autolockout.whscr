@@ -9,21 +9,27 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 ASYNC MACRO TestExpiration()
 {
-  OBJECT userapi :=GetTestController()->userapi;
-  INTEGER unitid := userapi->CreateUnit( [wrd_title := "Lisa's unit" ]);
-  INTEGER alreadylockeduser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "alreadylocked@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()), whuser_disable_type := "manual" ]);
-  INTEGER olduser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "olduser@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()) ]);
-  INTEGER loggedinuser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "loggedin@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()), whuser_lastlogin := AddDaysToDate(-4, GetCurrentDatetime()) ]);
-
   testfw->BeginWork();
+
+  OBJECT userapi := GetTestController()->userapi;
+  INTEGER unitid := userapi->CreateUnit( [wrd_title := "Lisa's unit" ]);
+  RECORD baseuser := CELL[
+    whuser_unit := unitid,
+    wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()),
+    wrdauth_account_status := [ status := "active", since := AddDaysToDate(-6, GetCurrentDatetime()) ]
+  ];
+  INTEGER alreadylockeduser := userapi->CreateUser( CELL[...baseuser, wrd_contact_email := "alreadylocked@beta.webhare.net",  wrdauth_account_status := [ status := "blocked" ] ]);
+  INTEGER olduser := userapi->CreateUser( CELL[...baseuser, wrd_contact_email := "olduser@beta.webhare.net" ]);
+  INTEGER loggedinuser := userapi->CreateUser( CELL[...baseuser, wrd_contact_email := "loggedin@beta.webhare.net", whuser_lastlogin := AddDaysToDate(-4, GetCurrentDatetime()) ]);
+
   userapi->wrd_unit->UpdateEntity(unitid, [ override_expiration := TRUE, expiration := [ locknologin := "P5D" ]]);
   testfw->CommitWork();
 
   CallJS("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", userapi->wrdschema->tag);
 
-  TestEq([ WHUSER_DISABLED := TRUE, WHUSER_DISABLE_TYPE := "inactive" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"] ));
-  TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(loggedinuser, ["whuser_disabled","whuser_disable_type"] ));
-  TestEq([ WHUSER_DISABLE_TYPE := "manual" ], userapi->accounttype->GetEntityFields(alreadylockeduser, ["whuser_disable_type"] ));
+  TestEqMembers([ status := "inactive" ], userapi->accounttype->GetEntityField(olduser, "wrdauth_account_status" ), '*');
+  TestEqMembers([ status := "active" ], userapi->accounttype->GetEntityField(loggedinuser, "wrdauth_account_status" ), '*');
+  TestEqMembers([ status := "blocked" ], userapi->accounttype->GetEntityField(alreadylockeduser, "wrdauth_account_status" ), '*');
 
   //'unlock' user olduser@beta.webhare.net so he can relogin
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
@@ -32,13 +38,17 @@ ASYNC MACRO TestExpiration()
   TTFillByTitle("unitcontents->userandrolelist", "olduser@beta.webhare.net");
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
-  TestEq("inactive", TT("whuser_disable_type")->value);
-  TT("whuser_disable_type")->value := "";
+  TestEq("inactive", TT("wrdauth_account_status->status")->value);
+  TT("wrdauth_account_status->status")->value := "active";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape); //close usermgmt app
 
+  testfw->BeginWork();
   CallJS("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", userapi->wrdschema->tag);
-  TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"]), "old user should not be immediately relocked");
+  TestEqMembers([ status := "active" ], userapi->accounttype->GetEntityField(olduser, "wrdauth_account_status" ), "*", "old user should not be immediately relocked");
+  testfw->CommitWork();
+
+  //FIXME verify recent audit events look good - both those coming from the userrights dialog and those coming from runAccountExpiration
 }
 
 RunTestframework( [ PTR TestExpiration

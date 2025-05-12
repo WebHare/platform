@@ -27,6 +27,23 @@ async function testSchemaParser() {
     const result = await parseSchema("mod::webhare_testsuite/schema.xml", true, emptySchemaWithBomNoDecl);
     test.assert(result.types.some(t => t.tag === "WRD_SETTINGS"), "Simply test - we actually came here to verify BOM tolerance");
   }
+
+  for (const testPart of [
+    { accountstatus: "active", expectRequired: false },
+    { accountstatus: "active required", expectRequired: true },
+  ]) {
+    const authStatusSchema = `
+    <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" accountstatus="${testPart.accountstatus}" accounttype="wrd_person">
+       <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
+    </schemadefinition>`;
+
+    const result = await parseSchema("mod::webhare_testsuite/schema.xml", true, authStatusSchema);
+    const persontype = result.types.find(t => t.tag === "WRD_PERSON");
+    test.assert(persontype, "WRD_PERSON type should be present");
+
+    const authstatus = persontype?.allattrs.find(f => f.tag === "WRDAUTH_ACCOUNT_STATUS");
+    test.eq(testPart.expectRequired, authstatus?.isrequired);
+  }
 }
 
 async function testSchemaApply() {
@@ -63,8 +80,7 @@ async function testFileGeneration() {
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");
-  test.eq(/whuserDisabled/, result, "HS type WHUSER_DISABLED should appear as whuserDisabled in the output");
-  test.eq(/whuserDisableType/, result, "HS type WHUSER_DISABLE_TYPE should appear as whuserDisableType in the output");
+  test.eq(/whuserComment/, result, "HS type WHUSER_DCOMMENT should appear as whuserComment in the output");
 }
 
 test.runTests([

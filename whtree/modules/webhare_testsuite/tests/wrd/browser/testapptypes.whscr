@@ -125,6 +125,7 @@ ASYNC MACRO TestTypeImport()
   // make WRD_CONTACT_EMAIL forced unique to see duplicate values
   testfw->BeginWork();
   testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("WRD_CONTACT_EMAIL", [ isunique := TRUE ]);
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   testfw->CommitWork();
 
   RECORD start := AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:browser", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));

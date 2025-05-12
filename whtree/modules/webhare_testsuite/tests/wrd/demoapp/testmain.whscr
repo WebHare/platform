@@ -10,6 +10,10 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 OBJECT ASYNC FUNCTION TestMainApp()
 {
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+  testfw->CommitWork();
+
   testfw->GetUserObject("sysop")->SetLocale([ language := "nl" ]); //the app has supportedlanguages=en, so make sysop dutch to test that
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("webhare_testsuite:wrddemo"));

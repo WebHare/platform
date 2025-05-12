@@ -2,10 +2,23 @@
 declare module "@webhare/auth" {
 }
 
+/** Type for wrdauthAccountStatus fields */
+export type WRDAuthAccountStatus = {
+  status: "active" | "inactive" | "blocked";
+  since?: Temporal.Instant;
+} & ({
+  status: "active" | "inactive";
+} | {
+  status: "blocked";
+  /* Reason for the block */
+  reason: string;
+});
+
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
+  "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
 }
 
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";

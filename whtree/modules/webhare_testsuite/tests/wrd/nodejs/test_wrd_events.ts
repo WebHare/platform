@@ -60,6 +60,7 @@ async function testEvents() {
     wrdContactEmail: "event-test@example.com",
     // testJsonRequired: { mixedCase: [1, "yes!"] },
     whuserUnit: anyUnit,
+    wrdauthAccountStatus: { status: "active" },
   });
   await whdb.commitWork();
 
@@ -127,7 +128,7 @@ async function testEvents() {
   // STORY: create a lot of entities entity
   await whdb.beginWork();
   for (let i = 0; i < 501; ++i) // 500 is the limit, otherwise allinvalidated will become true
-    await schema.insert("wrdPerson", { wrdContactEmail: `event-test-${i}@example.com`, whuserUnit: anyUnit });
+    await schema.insert("wrdPerson", { wrdContactEmail: `event-test-${i}@example.com`, whuserUnit: anyUnit, wrdauthAccountStatus: { status: "active" } });
   await whdb.commitWork();
   event = await expectEvent(streamitr, { check: (evt) => evt.name === `wrd:type.${wrdPersonTypeId}.change` });
   test.eq({

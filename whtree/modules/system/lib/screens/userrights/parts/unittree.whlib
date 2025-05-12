@@ -368,7 +368,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                                 , password := this->contexts->userapi->wrdschema->accountpasswordtag
                                 , unit := "whuser_unit"
                                 , lastlogin := "WHUSER_LASTLOGIN"
-                                , "whuser_disable_type"
+                                , "wrdauth_account_status"
                                 ];
 
     RECORD ARRAY columns := [ [ name := "username",   title := GetTid("system:tolliumapps.userrights.common.username"),   type := "text" ]
@@ -398,7 +398,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
         SELECT *
              , twofactorenabled :=    RecordExists(password) AND RecordExists(password.totp) ? "TRUE" : "FALSE"
              , lastpasswordchange :=  RecordExists(password) AND RecordExists(password.passwords) ? password.passwords[END-1].validfrom : DEFAULT DATETIME
-             , accountstatus :=       GetAccountStatusText(whuser_disable_type)
+             , accountstatus :=       GetAccountStatusText(wrdauth_account_status)
           FROM users
       ORDER BY username, wrd_id;
 

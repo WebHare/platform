@@ -73,6 +73,10 @@ MACRO TestSchema()
   OBJECT persontype := schemaobj->^wrd_person;
   TestEq([[ wrd_tag := "WRD_SETTINGS" ]], schemaobj->^wrd_settings->RunQuery([outputcolumns:=["wrd_tag"]]), "And any normally defined schema should have it too");
 
+  testfw->BeginWork();
+ persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
+  testfw->CommitWork();
+
   INTEGER settingsobject := schemaobj->^wrd_settings->Search("WRD_TAG","WRD_SETTINGS");
   testfw->BeginWork();
   TestThrowsLike("*may never be closed*", PTR schemaobj->^wrd_settings->UpdateEntity(settingsobject, [ wrd_limitdate := MakeDate(2099,1,1) ]));

@@ -1,0 +1,74 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+
+ASYNC MACRO TestAccountStatus() {
+  GetTestController()->contexts->wrdschema := testfw->GetWRDSchema();
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <accountstatus name="acs" allowed="active"/>
+    </body>
+  </screen>
+`)));
+
+  // the empty option exists because we're not required
+  TestEq(["","active"], SELECT AS STRING ARRAY rowkey FROM TT("acs->status")->options);
+  TestEq(FALSE, TT("acs")->HasChanged());
+  TT("acs")->value := [ status := "inactive", since := MakeDate(2023, 1, 1) ];
+  TestEq(FALSE, TT("acs")->HasChanged());
+
+  TestEq([ status := "inactive", since := MakeDate(2023, 1, 1) ], TT("acs")->value);
+  TestEq(["","active","inactive"], SELECT AS STRING ARRAY rowkey FROM TT("acs->status")->options);
+  TestEq("Account status", TT("acs->heading")->title);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
+  <screen name="test" implementation="none">
+    <body>
+      <accountstatus name="acs" required="true" allowed="active blocked" title="Account"/>
+    </body>
+  </screen>
+`)));
+
+  TestEq("Account", TT("acs->heading")->title);
+  TestEq(["active","blocked"], SELECT AS STRING ARRAY rowkey FROM TT("acs->status")->options); //TODO "" should be missing because of required=true
+  TestEq(TRUE, TT("acs")->HasChanged(), 'as required=true forced us to select an allowed value, we have changed');
+  TestEq("active", TT("acs->status")->value);
+  TestEqMembers([status := "active"] , TT("acs")->value, "*");
+  TestEq(TRUE, CellExists(TT("acs")->value, 'since'), "the auto-set 'active' will automatically have a 'since");
+
+  TestEq(FALSE, TTIsVisible("acs->reason"));
+  TestEq(TRUE, TTIsVisible("acs->since"));
+
+  TT("acs->status")->value := "blocked";
+
+  DATETIME blockedsince := TT("acs")->value.since;
+  TestEq([status := "blocked", since := blockedsince] , TT("acs")->value);
+  TestEq(TRUE, TT("acs->reason")->required);
+  TestEq(FALSE, TT("acs->since")->enabled);
+
+  TT("acs")->value := [ status := "active", since := MakeDate(2023, 1, 1) ];
+  TestEq(FALSE, TT("acs")->HasChanged(), "externally changing the value marks it as being unchanged");
+  TestEq([ status := "active", since := MakeDate(2023, 1, 1) ], TT("acs")->originalvalue);
+
+  TT("acs")->value := [ status := "blocked", since := MakeDate(2023, 1, 2), reason := "Locked Out" ];
+  TestEq(FALSE, TT("acs")->HasChanged(), "externally changing the value marks it as being unchanged");
+  TestEq("Locked Out", TT("acs->reason")->value);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework(
+    [ PTR TestAccountStatus
+    ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                      ]
+        ]
+    );

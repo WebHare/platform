@@ -58,7 +58,7 @@ interface ParsedType {
 
 type ParsedValue = Record<string, unknown> & { __subvalues?: ParsedValue[] };
 
-type AccountStatusOption = "active";
+type AccountStatusOption = "active" | "inactive" | "blocked" | "required";
 
 interface ParsedSchemaMetadata {
   accounttype?: string;
@@ -107,11 +107,11 @@ function finalize(schema: ParsedFinalSchemaDef): ParsedFinalSchemaDef {
       tag: "WRDAUTH_ACCOUNT_STATUS",
       title: "",
       description: "",
-      isrequired: false,
+      isrequired: schema.metadata.accountstatus.includes("required"),
       isunique: false,
       isunsafetocopy: false,
       multiline: false,
-      typedeclaration: `mod::platform/js/auth/types.ts#WRDAuthAccountStatus`, //FIXME  & { status: "active" } but we need to test with a real generator
+      typedeclaration: `@webhare/auth.ts#WRDAuthAccountStatus`, //FIXME  & { status: "active" } but we need to test with a real generator
       allowedvalues: [],
       domaintag: "",
       checklinks: false,

@@ -3,6 +3,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/internal/xpath.whlib";
@@ -53,6 +54,8 @@ MACRO Setup()
   OBJECT wrdschema :=  testfw->GetWRDSchema();
   OBJECT persontype := wrdschema->GetType("WRD_PERSON");
   OBJECT orgtype := wrdschema->GetType("WRD_ORGANIZATION");
+
+  persontype->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
 
   TestEqMembers([ revision := 0, result := [ postupdaterevision := -1, postentitiesrevision := -1, person_has_add_datetime := FALSE, has_settings_entity := FALSE ]], wrdschema->GetMigrationStatus("testfw:update_post"), "*");
   TestEqMembers([ revision := 0, result := [ postupdaterevision := -1, postentitiesrevision := -1, person_has_add_datetime := FALSE, has_settings_entity := TRUE ]], wrdschema->GetMigrationStatus("testfw:update_postentities"), "*");
@@ -196,8 +199,12 @@ MACRO ExportXMLMetadata()
   TestEq(TRUE, wrdschema->GetType("WRD_PERSON")->GetAttribute("TEST_FREE_NOCOPY").isunsafetocopy);
   TestEq(TRUE, RecordExists(wrdschema->GetType("WRD_ORGANIZATION")->GetAttribute("KARMA")));
 
-  //The schemas should match
   RECORD restoredschema := ExtractSchemaMetadata(wrdschema);
+
+  //The schemas should match except for typedeclarations, no point in syncin
+  FOREVERY(RECORD type FROM saveschema.types)
+    saveschema.types[#type].attrs := SELECT *, typedeclaration := "" FROM type.attrs;
+
   TestEq(saveschema, restoredschema);
 
   //Another export should be (pretty much?) the same
@@ -458,10 +465,9 @@ MACRO TestCreateWithMetadata()
 {
   testfw->BeginWork();
 
-  STRING schematag := testfw->GetWRDSchema()->tag || '.temp';
   TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := StringToBlob(schema_with_ordering_issues) ]).errors);
   //test applying simple metadata with ordering issues
-  OBJECT wrdschema := CreateWRDSchema(schematag);
+  OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testcreatewithmetadata");
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schema_with_ordering_issues) ]);
 
   RECORD ARRAY types := wrdschema->^programme$type->RunQuery([outputcolumns:=["TARGET$INTEREST"]]);
@@ -469,6 +475,40 @@ MACRO TestCreateWithMetadata()
   TestEq(wrdschema->^Programme$Type->GetDomVal("TARGET$INTEREST", "$BACHELOR"), types[0].target$interest);
 
   testfw->RollbackWork();
+}
+
+MACRO TestWRDAuthAccountStatus() {
+  testfw->BeginWork();
+
+  STRING schematag := testfw->GetWRDSchema()->tag || '.temp';
+  BLOB schemadef := StringToBlob(
+    `<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                       accountstatus="active">
+       <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
+      </schemadefinition>`);
+
+  TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := schemadef ]).errors);
+
+  //test applying simple metadata with ordering issues
+  OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testwrdauthaccountstatus");
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := schemadef ]);
+
+  INTEGER testunit := wrdschema->^whuser_unit->CreateEntity([ wrd_title := "webhare_testsuite.unit" ])->id;
+
+  TestThrowsLike("*STATUS*blah*", PTR wrdschema->^wrd_person->CreateEntity(
+    [ wrd_contact_email := "user@beta.webhare.net", whuser_unit := testunit, wrdauth_account_status := [ status := "blah" ] ]));
+
+  OBJECT person1 := wrdschema->^wrd_person->CreateEntity(
+    [ wrd_contact_email := "user@beta.webhare.net", whuser_unit := testunit, wrdauth_account_status := [ status := "active", since := MakeDate(2023,1,1) ] ]);
+  TestEq(`{"since":{"$stdType":"Instant","instant":"2023-01-01T00:00:00.000Z"},"status":"active"}`, person1->GetField("WRDAUTH_ACCOUNT_STATUS", [ jsonstrings := TRUE ]));
+  TestEq([ status := "active", since := MakeDate(2023,1,1) ], person1->GetField("WRDAUTH_ACCOUNT_STATUS"));
+
+  testfw->CommitWork();
+  TestEq([ status := "active", since := MakeDate(2023,1,1) ], CallJS("./helpers.js#getAccountStatus", person1->id));
+
+  testfw->BeginWork();
+  wrdschema->DeleteSelf();
+  testfw->CommitWork();
 }
 
 MACRO TestMetaTypeChange()
@@ -655,7 +695,7 @@ MACRO TestDomainTypeToParent()
 
   testfw->BeginWork();
 
-  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testdomaintypetoparent");
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithparent) ]);
 
   TestEq(wrdschema->^webshop_product->id, wrdschema->^webshop_ref->GetAttribute("REFERENCE").domain);
@@ -708,7 +748,7 @@ MACRO TestAccountSettings()
 
   testfw->BeginWork();
 
-  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testaccountsettings");
 
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithaccounttype) ]);
   TestEq(wrdschema->^wrd_person, wrdschema->accounttype);
@@ -737,7 +777,7 @@ MACRO TestMerge()
 
   testfw->BeginWork();
 
-  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testmerge");
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(mergeschema) ]);
   TestEq(TRUE, ObjectExists(wrdschema->GetType("WRD_AUTHDOMAIN")));
 
@@ -869,6 +909,7 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR DomainValuesSync
                  , PTR TestCreate
                  , PTR TestCreateWithMetadata
+                 , PTR TestWRDAuthAccountStatus
                  , PTR TestMetaTypeChange
                  , PTR TestAsyncMetaTypeChange
                  , PTR TestRename

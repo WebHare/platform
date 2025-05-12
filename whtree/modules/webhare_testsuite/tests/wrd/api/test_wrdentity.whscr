@@ -8,6 +8,7 @@ MACRO TestDuplicateEntity()
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   OBJECT wrdperson := schemaobj->^wrd_person;
+  wrdperson->UpdateAttribute("wrdauth_account_status", [isrequired := FALSE]);
   OBJECT newperson  := wrdperson->CreateEntity([ wrd_firstname := "New", wrd_lastname := "Test", wrd_contact_email := "newtest@example.com", test_free_nocopy := "Cannot copy" ]);
   OBJECT deepperson := wrdperson->CreateEntity([ wrd_firstname := "Deep", wrd_lastname := "Test", wrd_contact_email := "deepperson@example.com" ]);
 

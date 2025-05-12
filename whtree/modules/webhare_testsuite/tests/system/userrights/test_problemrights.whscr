@@ -123,8 +123,8 @@ MACRO TestFixUnconnectedItems()
   OBJECT deletedchildrole := testfw->GetWRDSchema()->^whuser_role->CreateEntity([ wrd_leftentity := deletedunit->id, wrd_title := "Deletable child role" ]);
   OBJECT expiredchildrole := testfw->GetWRDSchema()->^whuser_role->CreateEntity([ wrd_leftentity := expiredunit->id, wrd_title := "Expirable child role" ]);
 
-  OBJECT deletedchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := deletedunit->id, wrd_contact_email := "deletable@beta.webhare.net" ]);
-  OBJECT expiredchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := expiredunit->id, wrd_contact_email := "expirable@beta.webhare.net" ]);
+  OBJECT deletedchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := deletedunit->id, wrdauth_account_status := [ status := "active" ], wrd_contact_email := "deletable@beta.webhare.net" ]);
+  OBJECT expiredchilduser := testfw->GetWRDSchema()->^wrd_person->CreateEntity([ whuser_unit := expiredunit->id, wrdauth_account_status := [ status := "active" ], wrd_contact_email := "expirable@beta.webhare.net" ]);
 
   RECORD ARRAY resync := testfw->userapi->ResyncToSystemTables();
   IF(Length(resync) != 8)
