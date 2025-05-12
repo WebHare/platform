@@ -17,6 +17,7 @@
   ],
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
+    "@jridgewell/trace-mapping": "^0.3.25",
     "@stylistic/eslint-plugin": "^4.2.0",
     "@types/diff": "^5.2.1",
     "@types/eslint": "^9.6.1",

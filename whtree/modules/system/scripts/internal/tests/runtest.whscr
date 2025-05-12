@@ -51,6 +51,7 @@ STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 RECORD parsedargs;
 BOOLEAN keepopen;
+BOOLEAN alwayslog;
 BOOLEAN showbrowser;
 
 DATETIME teststart := GetCurrentDateTime();
@@ -272,7 +273,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 
       IF(NOT ObjectExists(jstestrunner)) { //not initialized yet
         jstestrunner := ImportJS("mod::platform/js/testing/foregroundrunner.ts");
-        WaitForPromise(jstestrunner->Init(CELL[ debug := parsedargs.d, keepopen, showbrowser ]));
+        WaitForPromise(jstestrunner->Init(CELL[ debug := parsedargs.d, keepopen, showbrowser, alwayslog ]));
       }
 
       RECORD res := WaitForPromise( CreatePromiseRace(OBJECT[ interruptdefer.promise, jstestrunner->RunTest(testinfo) ]) );
@@ -592,8 +593,9 @@ MACRO PrintSyntax()
   Print("  --testtype=...   Types of tests to run ('all', 'frontend', 'backend')\n");
   Print("  --param=x=y      Set a test parameters\n");
   Print("  --timeout=...    Set timeout in msecs. Defaults to 15 minutes\n");
-  Print("  --showbrowser    Show brwoser during tests pages\n");
-  Print("  --keepopen       Do not close browser page when test fails\n");
+  Print("  -b/--showbrowser Show brwoser during tests pages\n");
+  Print("  -k/--keepopen    Do not close browser page when test fails\n");
+  Print("  --alwayslog      Always store logs and end result of a test, even if succesful\n");
   Print("  --wasm           Default to the wasm engine for tests that do not declare their engine\n");
   Print("  all              Run the group 'all' in all known tests\n");
   Print("  testname         Run the test with this name (may be a comma separated list)\n");
@@ -650,8 +652,11 @@ parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "param", type := "stringlist"]
                                     , [name := "loop", type := "switch"]
                                     , [name := "autotests", type := "switch"]
+                                    , [name := "k", type := "switch"]
                                     , [name := "keepopen", type := "switch"]
+                                    , [name := "b", type := "switch"]
                                     , [name := "showbrowser", type := "switch"]
+                                    , [name := "alwayslog", type := "switch"]
                                     , [name := "terse", type := "switch"]
                                     , [name := "wasm", type := "switch"]
                                     , [name := "testlist", type := "paramlist" ]
@@ -670,8 +675,9 @@ use_jobs := NOT parsedargs.p;
 breakonerror := parsedargs.breakonerror OR parsedargs.untilfail;
 autotests := parsedargs.autotests;
 reduceverboseness := parsedargs.terse;
-keepopen := parsedargs.keepopen;
-showbrowser := parsedargs.showbrowser;
+keepopen := parsedargs.keepopen OR parsedargs.k;
+showbrowser := parsedargs.showbrowser OR parsedargs.b;
+alwayslog := parsedargs.alwayslog;
 profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
 BOOLEAN looptests := parsedargs.loop OR parsedargs.untilfail;

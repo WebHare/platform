@@ -83,18 +83,23 @@ async function testSessionStorage() {
 }
 
 async function testUpload() {
+  //The WebHare upload flow in a nutshell:
+  //The client has a file to upload. It creates a manifest and sends it to the server. The client's not allowed to actually upload anything yet!
   const uploadText = "This is a test!".repeat(4096);
   const uploader = new SingleFileUploader(new File([uploadText], "text.txt", { type: "text/plain" }));
 
+  //The server should have an API accepting a manifest, calling createUploadSession and then returning the instructions to the client
   await beginWork();
   const howToUpload = await createUploadSession(uploader.manifest, { chunkSize: 555 }) satisfies UploadInstructions;
   await commitWork();
 
-  //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install
+  //We get a relative URL that will work in browsers but not in the backend. Resolve relative to our WebHare install so we have an absolute URL for the client
   howToUpload.baseUrl = new URL(howToUpload.baseUrl, services.backendConfig.backendURL).href;
+
+  //The client receives the (updated) UploadInstructions and can now start uploading the file. It will receive a token to identify the upload
   const uploadResult = await uploader.upload(howToUpload);
 
-  //Retrieve the file using JS
+  //The server receives the token from the client and passes it to getUploadedFile to get the actual file
   const fileInJS = await getUploadedFile(uploadResult.token);
   test.eq("text.txt", fileInJS.name);
   test.eq(uploadText.length, fileInJS.size);
@@ -104,7 +109,7 @@ async function testUpload() {
   //Note that we can find the storage on disk
   test.eq(true, existsSync(getStorageFolderForSession(howToUpload.sessionId)));
 
-  //Cleanup the session
+  //Cleanup the session to free up upload storage. After this getUploadedFile will fail
   await runInWork(() => services.closeServerSession(howToUpload.sessionId));
 
   //Storage should be gone eventually (the cleanup is async in JS)

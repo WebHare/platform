@@ -196,6 +196,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
   DATETIME FUNCTION GetSessionExpires()
   {
+    this->CheckNotFailed();
+    IF(RecordExists(this->wrdauthjs))
+      RETURN MakeDatetimeFromUnixTimestamp(this->wrdauthjs.claims.exp);
+
     RETURN this->__GetWRDAuthIntegration()->GetLoggedinExpires();
   }
 
