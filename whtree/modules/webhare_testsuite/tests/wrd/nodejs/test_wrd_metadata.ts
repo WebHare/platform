@@ -29,8 +29,8 @@ async function testSchemaParser() {
   }
 
   for (const testPart of [
-    { accountstatus: "active", expectReqireed: false },
-    { accountstatus: "active required", expectReqireed: true },
+    { accountstatus: "active", expectRequired: false },
+    { accountstatus: "active required", expectRequired: true },
   ]) {
     const authStatusSchema = `
     <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition" accountstatus="${testPart.accountstatus}" accounttype="wrd_person">
@@ -42,7 +42,7 @@ async function testSchemaParser() {
     test.assert(persontype, "WRD_PERSON type should be present");
 
     const authstatus = persontype?.allattrs.find(f => f.tag === "WRDAUTH_ACCOUNT_STATUS");
-    test.eq(testPart.expectReqireed, authstatus?.isrequired);
+    test.eq(testPart.expectRequired, authstatus?.isrequired);
   }
 }
 

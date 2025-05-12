@@ -2,7 +2,7 @@
 declare module "@webhare/auth" {
 }
 
-/** Type for wrdauthAccountStatuas fields */
+/** Type for wrdauthAccountStatus fields */
 export type WRDAuthAccountStatus = {
   status: "active" | "inactive" | "blocked";
   since?: Temporal.Instant;
