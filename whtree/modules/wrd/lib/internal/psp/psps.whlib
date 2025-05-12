@@ -42,19 +42,6 @@ PUBLIC RECORD ARRAY FUNCTION GetAvailablePSPs()
                                , testmode := "test"
                                ]
           ]
-         ,[ tag := "wrd:afterpay"
-          , title := ":Riverty"
-          , objectname := "mod::wrd/lib/internal/psp/afterpay.whlib#AfterpayPaymentProvider"
-          , payinfoscreen := "mod::wrd/tolliumapps/payments/afterpay.xml#payinfo"
-          , configextensions := "mod::wrd/tolliumapps/payments/afterpay.xml#configafterpay"
-          , metadataoptions := [ methodtitle := ":"
-                               , merchantid := ""
-                               , password := ""
-                               , portfolioid := 0
-                               , testmode := FALSE
-                               , afterpaytype := ""
-                               ]
-          ]
          ,[ tag := "wrd:pay_nl"
           , title := ":Pay.nl"
           , objectname := "mod::wrd/lib/internal/psp/pay_nl.whlib#PayNLPaymentProvider"

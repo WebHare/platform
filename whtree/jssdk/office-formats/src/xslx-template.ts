@@ -1,11 +1,12 @@
 import { encodeString } from "@webhare/std";
+import type { XLSXDocBuilder } from "./xlsx-output";
 
 export type SheetInfo = {
   name: string;
   title: string;
 };
 
-export function getXLSXBaseTemplate(sheets: SheetInfo[]) {
+export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]) {
   //Note that we number sheet1.xml as rId1 but the next sheets as rId4...
   const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx === 0 ? 1 : idx + 3}` }));
   return {
@@ -66,10 +67,8 @@ export function getXLSXBaseTemplate(sheets: SheetInfo[]) {
 </Relationships>
 `,
     'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:x16r2="http://schemas.microsoft.com/office/spreadsheetml/2015/02/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" mc:Ignorable="x14ac x16r2 xr">
-  <numFmts count="2">
-    <numFmt numFmtId="165" formatCode="d mmm yyyy;@"/>
-    <numFmt numFmtId="166" formatCode="h:mm:ss;@"/>
-    <numFmt numFmtId="167" formatCode="d mmm yyyy h:mm:ss;@"/>
+  <numFmts count="${doc.formats.length - 1}">
+${doc.formats.map(format => `    <numFmt numFmtId="${format.numFmtId}" formatCode="${encodeString(format.formatCode, 'attribute')}"/>`).join('\n')}
   </numFmts>
   <fonts count="1" x14ac:knownFonts="1">
     <font>
@@ -100,11 +99,9 @@ export function getXLSXBaseTemplate(sheets: SheetInfo[]) {
   <cellStyleXfs count="1">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
   </cellStyleXfs>
-  <cellXfs count="4">
+  <cellXfs count="${doc.formats.length + 1}">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-    <xf numFmtId="165" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-    <xf numFmtId="166" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
-    <xf numFmtId="167" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`).join('\n')}
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
