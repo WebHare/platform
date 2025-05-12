@@ -4,7 +4,7 @@
    individual files to eslint, but running 'eslint' in whtree/ will also
    validate all JS files
 
-   Running eslint --inspect-config in whtree/ givs a live view of the
+   Running eslint --inspect-config in whtree/ gives a live view of the
    configuration and can help to debug file ignore/inclusion issues
 */
 import { strictConfig } from "./jssdk/eslint-config/eslint.config.mjs";
