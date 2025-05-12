@@ -7,7 +7,7 @@ if (dtapStage === "development") //this is only needed for the peerserver test
     if (event.data.dopeering) { //we're asked to setup peering
       const login = document.querySelector("t-textedit[data-name=loginname] input");
       if (login) {
-        //use an override token to pass the login dialog, as wrdauth cookies won't work on non-https due to samestie= restrictions, and CI runs on http
+        //use an override token to pass the login dialog, as wrdauth cookies won't work on non-https due to samesite= restrictions, and CI runs on http
         const newurl = new URL(location.href);
         newurl.searchParams.set("overridetoken", event.data.dopeering.overridetoken);
         newurl.searchParams.set("openas", "twoharetest@beta.webhare.net");
