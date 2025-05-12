@@ -481,11 +481,11 @@ function _onMouseDocUnload(event) {
 function _updateUnloadEvents(win) {
   if (mousestate.lastwin !== win) {
     if (mousestate.lastwin && mousestate.lastwin.removeEventListener)
-      mousestate.lastwin.removeEventListener('unload', _onMouseDocUnload);
+      mousestate.lastwin.removeEventListener('pagehide', _onMouseDocUnload);
 
     mousestate.lastwin = win;
     if (mousestate.lastwin && mousestate.lastwin.addEventListener)
-      mousestate.lastwin.addEventListener('unload', _onMouseDocUnload);
+      mousestate.lastwin.addEventListener('pagehide', _onMouseDocUnload);
   }
 }
 

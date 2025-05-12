@@ -120,9 +120,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
       INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO config.dashboardmenuupdaters AT END;
     IF(setting.node->HasAttribute("applicationmasks"))
       config.applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
-    IF(setting.node->HasAttribute("__insert"))
-      INSERT setting.node->GetAttribute("__insert") INTO config.__inserts AT END;
-
     FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
       INSERT forceapp->GetAttribute("name") INTO config.forceapps AT END;
 

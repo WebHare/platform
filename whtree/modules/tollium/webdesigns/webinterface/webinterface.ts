@@ -4,6 +4,7 @@ import "@webhare/tollium-iframe-api/styling";
 import './css/webinterface.scss';
 import './pages/harescripterror';
 import './pages/manual';
+import "./js/remotecontrol";
 
 import 'font-awesome/css/font-awesome.css';
 import '@mod-wrd/js/auth';

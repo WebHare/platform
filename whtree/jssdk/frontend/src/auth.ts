@@ -132,7 +132,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
   refreshLoginStatus();
 }
 
-function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement | null) {
+function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement) {
   const evtdetail = {
     message: message,
     code: response.code,
@@ -141,12 +141,11 @@ function failLogin(message: string, response: { code: string; data: string }, fo
 
   const cancelled = !dompack.dispatchCustomEvent(form || document.documentElement, "wh:wrdauth-loginfailed", { bubbles: true, cancelable: true, detail: evtdetail });
   if (!cancelled) {
-    /*
-    if($wh.Popup && $wh.Popup.Dialog)
-      new $wh.Popup.Dialog( { text: failevent.message, buttons: [{ result: 'ok', title: "Ok" }] });
-    else*/
-    // eslint-disable-next-line no-alert
-    alert(message);
+    //TODO depending on error we may need to change a different field?
+    const loginfield = dompack.qR<HTMLInputElement>(form, "input[name=password]");
+    loginfield.setCustomValidity(message);
+    loginfield.reportValidity();
+    loginfield.focus();
   }
 }
 

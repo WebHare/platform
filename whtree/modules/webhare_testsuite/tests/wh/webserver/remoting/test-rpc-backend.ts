@@ -34,6 +34,12 @@ async function testRPCCaller() {
   test.assert(!("error" in res));
   test.eq(false, res.result);
 
+  call = await RPCRouter(await newWebRequestFromInfo({ ...request, url: request.url.replace('127.0.0.1', '127.0.0.1:8000') }));
+  test.eq(200, call.status);
+  res = parseTyped(await call.text());
+  test.assert(!("error" in res));
+  test.eq(false, res.result);
+
   request.url = `${servicebaseurl}noSuchAPI`;
   request.body = WebHareBlob.from(JSON.stringify([]));
   call = await RPCRouter(await newWebRequestFromInfo(request));
