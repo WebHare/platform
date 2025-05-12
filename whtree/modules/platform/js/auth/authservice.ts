@@ -2,13 +2,15 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { generateRandomId, pick, throwError } from "@webhare/std";
+import { generateRandomId, pick, stringify, throwError } from "@webhare/std";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
-import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions } from "@webhare/auth/src/identity";
+import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
 import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
 import type { FrontendLoginResult } from "./openid";
+import type { PublicAuthData } from "@webhare/frontend/src/auth";
+import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 
 export async function prepAuth(url: string, cookieName: string | null) {
   const applytester = await getApplyTesterForURL(url);
@@ -30,32 +32,43 @@ export async function prepAuth(url: string, cookieName: string | null) {
   };
 
   return {
-    idCookie,
-    ignoreCookies,
+    cookies: {
+      idCookie,
+      ignoreCookies,
+      secure,
+      cookieSettings,
+      cookieName: settings.cookieName,
+    },
     settings: settings as WRDAuthPluginSettings & { wrdSchema: string }, //as we verified this to be not-null
-    secure,
-    cookieSettings
   };
 }
 
-export function doLoginHeaders(idCooie: string, ignoreCookies: string[], expires: Temporal.Instant, value: string, cookieSettings: ServersideCookieOptions, hdrs: Headers): void {
+export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
   hdrs.set("cache-control", "no-store");
   hdrs.set("pragma", "no-cache");
 
-  hdrs.append("Set-Cookie", buildCookieHeader(idCooie, value, { ...cookieSettings, expires: expires }));
-  for (const toClear of ignoreCookies)
-    hdrs.append("Set-Cookie", buildCookieHeader(toClear, '', cookieSettings));
+  // We record the accesstoken expiry in the public cookie but if we expect the browser to discard the session we'll make them session cookies
+  const cookieExpiry = authCookies.persistent ? authCookies.expires : null;
+
+  //browser/client visible cookie, containing only non-sensitive data
+  const publicAuthData = stringify({ expiresMs: authCookies.expires.epochMilliseconds, userInfo: authCookies.userInfo } satisfies PublicAuthData, { typed: true });
+  hdrs.append("Set-Cookie", buildCookieHeader(authCookies.cookieName + PublicCookieSuffix, publicAuthData, { ...authCookies.cookieSettings, httpOnly: false, expires: cookieExpiry }));
+
+  //serverside cookies
+  hdrs.append("Set-Cookie", buildCookieHeader(authCookies.idCookie, authCookies.value, { ...authCookies.cookieSettings, expires: cookieExpiry }));
+  for (const toClear of authCookies.ignoreCookies)
+    hdrs.append("Set-Cookie", buildCookieHeader(toClear, '', authCookies.cookieSettings));
 }
 
 export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers): Promise<void> {
-  const { idCookie, ignoreCookies, cookieSettings } = await prepAuth(url, cookieName);
+  const { idCookie, ignoreCookies, cookieSettings } = (await prepAuth(url, cookieName)).cookies;
 
   for (const [name, value] of Object.entries(expandCookies(currentCookie)))
     if (name === idCookie || ignoreCookies.includes(name))
       await closeFrontendLogin(value);
 
-  for (const killCookie of [idCookie, ...ignoreCookies])
+  for (const killCookie of [idCookie, ...ignoreCookies, cookieName + PublicCookieSuffix])
     hdrs.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
 
   /* You don't want either cookie update (login or logout) to be cached */
@@ -66,7 +79,7 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
 export const authService = {
   async login(context: RPCContext, username: string, password: string, cookieName: string, options?: LoginRemoteOptions): Promise<FrontendLoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
-    const { idCookie, ignoreCookies, settings, cookieSettings } = await prepAuth(originUrl, cookieName);
+    const { cookies, settings } = await prepAuth(originUrl, cookieName);
     const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null;
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
@@ -84,14 +97,19 @@ export const authService = {
     //generateRandomId is prefixed to support C++ webserver webharelogin caching
     const logincookie = generateRandomId() + " accessToken:" + response.accessToken;
     const responseBody: FrontendLoginResult = {
-      loggedIn: true,
-      expires: new Date(response.expires.epochMilliseconds)
+      loggedIn: true
     };
 
-    if (response.userInfo)
-      responseBody.userInfo = response.userInfo;
+    const setAuthCookies: SetAuthCookies = {
+      ...cookies,
+      value: logincookie,
+      expires: response.expires,
+      userInfo: response.userInfo,
+      persistent: options?.persistent,
+      cookieName: cookieName,
+    };
 
-    doLoginHeaders(idCookie, ignoreCookies, response.expires, logincookie, cookieSettings, context.responseHeaders);
+    doLoginHeaders(setAuthCookies, context.responseHeaders);
     return responseBody;
   },
 

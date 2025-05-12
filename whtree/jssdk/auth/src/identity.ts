@@ -60,6 +60,20 @@ export type ListedToken = {
   scopes: string[];
 };
 
+export type SetAuthCookies = {
+  /** The cookie to place the ID cookie in */
+  idCookie: string;
+  ignoreCookies: string[];
+  /** Configured original cookiename (not __Host or __Secure prefixed) */
+  cookieName: string;
+  value: string;
+  expires: Temporal.Instant;
+  userInfo?: object;
+  cookieSettings: ServersideCookieOptions;
+  /** Session should persist after browser close*/
+  persistent?: boolean;
+};
+
 interface HSONAuthenticationSettings {
   version: number;
   passwords?: Array<{ passwordhash: string; validfrom: Date }>;
@@ -249,17 +263,8 @@ declare module "@webhare/services" {
       returnto: string;
       validuntil: Date;
     };
-    "platform:settoken": {
-      /** The cookie to place the ID cookie in */
-      idCookie: string;
-      ignoreCookies: string[];
-      /** Configured original cookiename (not __Host or __Secure prefixed) */
-      cookieName: string;
-      value: string;
-      expires: Temporal.Instant;
+    "platform:settoken": SetAuthCookies & {
       target: string;
-      userInfo?: object;
-      cookieSettings: ServersideCookieOptions;
     };
   }
 }
@@ -1049,7 +1054,7 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
  * @param options - Options for token generation
  */
 export async function prepareFrontendLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
-  const { idCookie, ignoreCookies, settings, cookieSettings } = await prepAuth(targetUrl, null);
+  const { cookies, settings } = await prepAuth(targetUrl, null);
 
   if (!settings?.cookieName || !settings?.wrdSchema)
     throw new Error("Unable to find id token cookie/wrdauth settings for URL " + targetUrl);
@@ -1063,13 +1068,10 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
   const setToken: ServerEncryptionScopes["platform:settoken"] = {
-    idCookie,
-    ignoreCookies,
+    ...cookies,
     value: generateRandomId() + " accessToken:" + idToken.accessToken,
     expires: idToken.expires,
     target: targetUrl,
-    cookieSettings,
-    cookieName: settings.cookieName,
   };
 
   if (customizer?.onFrontendUserInfo)
