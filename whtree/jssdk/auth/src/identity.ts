@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
 import { type SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
-import { convertWaitPeriodToDate, generateRandomId, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
@@ -10,9 +10,9 @@ import type { NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
-import type { AttrRef } from "@mod-wrd/js/internal/types";
+import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
-import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
+import type { AuthCustomizer, JWTPayload, LoginErrorCodes, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
@@ -223,8 +223,6 @@ type TokenResponse = {
   id_token?: string;
   expires_in?: number;
 };
-
-export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password";
 
 export type FrontendAuthResult = {
   loggedIn: true;
@@ -595,7 +593,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
-        await options?.customizer.onOpenIdToken({ user: subject, scopes: requestedScopes, client }, payload as JWTPayload);
+        await options?.customizer.onOpenIdToken({
+          wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+          user: subject,
+          scopes: requestedScopes,
+          client
+        }, payload as JWTPayload);
 
       if (!config.issuer)
         throw new Error(`Schema ${this.wrdschema.tag} is not configured properly. Missing issuer or signingKeys`);
@@ -686,7 +689,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
 
     if (customizer?.onOpenIdUserInfo)
-      await customizer?.onOpenIdUserInfo({ client: tokeninfo.client, scopes: tokeninfo.scopes, user: tokeninfo.entity }, userinfo);
+      await customizer?.onOpenIdUserInfo({
+        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        client: tokeninfo.client,
+        scopes: tokeninfo.scopes,
+        user: tokeninfo.entity
+      }, userinfo);
 
     return { ...userinfo } as ReportedUserInfo;
   }
@@ -794,6 +802,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     //TODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
     if (customizer?.onOpenIdReturn) {
       const redirect = await customizer.onOpenIdReturn({
+        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
         client: returnInfo.clientid,
         scopes: returnInfo.scopes,
         user
@@ -894,7 +903,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
 
     if (customizer?.lookupUsername)
-      return await customizer.lookupUsername({ username: loginname, ...pick(options || {}, ["site"]) });
+      return await customizer.lookupUsername({
+        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        username: loginname,
+        ...pick(options || {}, ["site"])
+      });
 
     const user = await this.wrdschema.search("wrdPerson", authsettings.loginAttribute as AttrRef<WRD_Idp_WRDPerson>, loginname);
     return user || null;
@@ -936,6 +949,18 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         error: "Unknown username or password",
         code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
+    }
+
+    if (customizer?.isAllowedToLogin) {
+      const awaitableResult = customizer.isAllowedToLogin({
+        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        user: userid,
+      });
+      const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
+      if (result)
+        return {
+          loggedIn: false, ...result
+        };
     }
 
     return {
@@ -1055,7 +1080,7 @@ async function prepCookies(prepped: PrepAuthResult, userId: number, options?: Au
   if ("error" in prepped)
     throw new Error(prepped.error);
 
-  const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : null);
+  const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined);
   const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
   const idToken = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer });
 
@@ -1066,7 +1091,11 @@ async function prepCookies(prepped: PrepAuthResult, userId: number, options?: Au
   };
 
   if (customizer?.onFrontendUserInfo)
-    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userId });
+    setToken.userInfo = await customizer.onFrontendUserInfo({
+      wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+      user: userId,
+      entityId: userId
+    });
 
   return setToken;
 }

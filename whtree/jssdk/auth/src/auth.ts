@@ -28,7 +28,7 @@ export { createServiceProvider, initializeIssuer } from "./oauth2";
 export type { ClientConfig, ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
-export type { AuthCustomizer, JWTPayload, LookupUsernameParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+export type { LoginErrorCodes, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
 
 export { writeAuthAuditEvent, getAuditContext, updateAuditContext } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";

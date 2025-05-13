@@ -312,6 +312,14 @@ async function testAuthAPI() {
   };
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", customizerUserInfo)));
 
+  const blockUser: AuthCustomizer = {
+    async isAllowedToLogin({ wrdSchema, user }) {
+      const { wrdContactEmail } = await wrdSchema.getFields("wrdPerson", user, ["wrdContactEmail"]);
+      return { error: "We do not like " + wrdContactEmail, code: "account-disabled" };
+    }
+  };
+  test.eq({ loggedIn: false, error: /We do not like jonshow@beta.webhare.net/, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", blockUser));
+
   //Test the frontend login with customizer setting up multisite support
   const multisiteCustomizer: AuthCustomizer = {
     lookupUsername(params: LookupUsernameParameters): number | null {

@@ -1,4 +1,6 @@
+import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import type { NavigateInstruction } from "@webhare/env";
+import type { WRDSchema } from "@webhare/wrd";
 
 export type JWTPayload = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
@@ -61,16 +63,34 @@ export interface LoginUsernameLookupOptions {
   site?: string;
 }
 
-export interface LookupUsernameParameters extends LoginUsernameLookupOptions {
+export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> extends LoginUsernameLookupOptions {
+  /** Current WRD schema */
+  wrdSchema: WRDSchema<S>;
   /** Username to look up */
   username: string;
 }
 
-export interface FrontendUserInfoParameters {
+export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> { //Could imagine adding IP/GEO and browser info to these parameters
+  /** Current WRD schema */
+  wrdSchema: WRDSchema<S>;
+  /** User id to check */
+  user: number;
+}
+
+export interface FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+  /** Current WRD schema */
+  wrdSchema: WRDSchema<S>;
+  /** User id to check (available since WH 5.8) */
+  user: number;
+
+  /** User id to check
+  @deprecated Deprecated since W5.8 for consistency as all the other Parameters use 'entityid' */
   entityId: number;
 }
 
-export interface OpenIdRequestParameters {
+export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+  /** Current WRD schema */
+  wrdSchema: WRDSchema<S>;
   /// ID of the client requesting the token
   client: number;
   /// Requested scopes
@@ -81,15 +101,24 @@ export interface OpenIdRequestParameters {
 
 export type ReportedUserInfo = Record<string, unknown> & { error?: never };
 
-export interface AuthCustomizer {
+export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password" | "account-disabled";
+
+export type LoginDeniedInfo = {
+  error: string;
+  code: LoginErrorCodes;
+};
+
+export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Invoked to look up a login name */
-  lookupUsername?: (params: LookupUsernameParameters) => Promise<number | null> | number | null;
+  lookupUsername?: (params: LookupUsernameParameters<S>) => Promise<number | null> | number | null;
+  /** Invoked to verify whether a user is allowed to login */
+  isAllowedToLogin?: (params: IsAllowedToLoginParameters<S>) => Promise<LoginDeniedInfo | null> | LoginDeniedInfo | null;
   /** Invoked after authenticating a user but before returning him to the openid client. Can be used to implement additional authorization and reject the user */
-  onOpenIdReturn?: (params: OpenIdRequestParameters) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
+  onOpenIdReturn?: (params: OpenIdRequestParameters<S>) => Promise<NavigateInstruction | null> | NavigateInstruction | null;
   /** Invoked when creating an OpenID Token for a third party. Allows you to add or modify claims before it's signed */
-  onOpenIdToken?: (params: OpenIdRequestParameters, payload: JWTPayload) => Promise<void> | void;
+  onOpenIdToken?: (params: OpenIdRequestParameters<S>, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
-  onOpenIdUserInfo?: (params: OpenIdRequestParameters, userinfo: ReportedUserInfo) => Promise<void> | void;
+  onOpenIdUserInfo?: (params: OpenIdRequestParameters<S>, userinfo: ReportedUserInfo) => Promise<void> | void;
   /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
-  onFrontendUserInfo?: (params: FrontendUserInfoParameters) => Promise<object> | object;
+  onFrontendUserInfo?: (params: FrontendUserInfoParameters<S>) => Promise<object> | object;
 }
