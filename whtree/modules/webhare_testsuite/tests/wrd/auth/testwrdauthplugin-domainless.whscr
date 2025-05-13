@@ -144,6 +144,7 @@ MACRO CreateMyTestSchema()
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
+  TestEq("", testfw->browser->GetCookie("webharelogin-wrd-testschema"));
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:login:failed"
@@ -168,6 +169,7 @@ MACRO CreateMyTestSchema()
   TestEq(TRUE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
   TestEqLike("WHBF:*", entity->GetField("whuser_password").passwords[0].passwordhash);
   TestEq(1,length(entity->GetField("whuser_password").passwords));
+  TestEqLike("???*", testfw->browser->GetCookie("webharelogin-wrd-testschema"), "Verifies automatic cookiename (webharelogin-<slug>)");
   TestEq(TRUE, result.success);
   TestAuditEvent(
       [ entity := entityid
