@@ -931,8 +931,9 @@ STATIC OBJECTTYPE TestFramework <
         this->pvt_userapi := GetWRDAuthUserAPi(this->openwrdschema);
       }
       ELSE
-      {
-        this->openwrdschema->^wrd_person->UpdateAttribute("WHUSER_UNIT", [ isrequired := FALSE ]); //for compatibility with all existing tests
+      { //mark usermgmt fields as non-required for compatibility with all existing tests
+        this->openwrdschema->^wrd_person->UpdateAttribute("WHUSER_UNIT", [ isrequired := FALSE ]);
+        this->openwrdschema->^wrd_person->UpdateAttribute("WRDAUTH_ACCOUNT_STATUS", [ isrequired := FALSE ]);
       }
     }
 
