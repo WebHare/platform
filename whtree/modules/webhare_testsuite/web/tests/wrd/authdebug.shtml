@@ -116,4 +116,4 @@ RECORD FUNCTION ProcessReq()
 
 RECORD res := ProcessReq();
 AddHTTPHeader("Content-Type","application/x-hson",FALSE);
-Print(EncodeHSON(res));
+Print(EncodeHSON(res) || "\n");
