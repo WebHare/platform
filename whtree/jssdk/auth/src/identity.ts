@@ -14,10 +14,9 @@ import type { AttrRef } from "@mod-wrd/js/internal/types";
 import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
-import { prepAuth } from "@mod-platform/js/auth/authservice";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { getAuthSettings } from "./support";
+import { getAuthSettings, prepAuth, type PrepAuthResult } from "./support";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 
@@ -66,6 +65,7 @@ export type SetAuthCookies = {
   ignoreCookies: string[];
   /** Configured original cookiename (not __Host or __Secure prefixed) */
   cookieName: string;
+  /** Cookie value, HS webserver compatible */
   value: string;
   expires: Temporal.Instant;
   userInfo?: object;
@@ -226,11 +226,9 @@ type TokenResponse = {
 
 export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password";
 
-type LoginResult = {
+export type FrontendAuthResult = {
   loggedIn: true;
-  accessToken: string;
-  expires: Temporal.Instant;
-  userInfo?: object;
+  setAuth: SetAuthCookies;
 } | {
   loggedIn: false;
   error: string;
@@ -468,6 +466,7 @@ type SigningKey = {
   keyId: string;
   privateKey: JsonWebKey;
 };
+
 
 /** Manage JWT tokens associated with a schema
  * @param wrdschema - The schema to create the token for
@@ -901,7 +900,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async handleFrontendLogin(username: string, password: string, customizer: AuthCustomizer | null, options?: LoginRemoteOptions): Promise<LoginResult> {
+  async handleFrontendLogin(targeturl: string, username: string, password: string, customizer: AuthCustomizer | null, options?: LoginRemoteOptions): Promise<FrontendAuthResult> {
+    const prepped = await prepAuth(targeturl, null);
+    if ("error" in prepped)
+      throw new Error(prepped.error);
+
     const authsettings = await getAuthSettings(this.wrdschema);
     if (!authsettings?.passwordAttribute)
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
@@ -935,10 +938,10 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
 
-    const retval: LoginResult = { loggedIn: true, ...await createFirstPartyToken(this.wrdschema, "id", userid, { customizer }) };
-    if (customizer?.onFrontendUserInfo)
-      retval.userInfo = await customizer.onFrontendUserInfo({ entityId: userid });
-    return retval;
+    return {
+      loggedIn: true,
+      setAuth: await prepCookies(prepped, userid, { customizer }) //FIXME handle 'persistent'
+    };
   }
 }
 
@@ -1048,34 +1051,43 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }
 
+async function prepCookies(prepped: PrepAuthResult, userId: number, options?: AuthTokenOptions): Promise<SetAuthCookies> {
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+
+  const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : null);
+  const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
+  const idToken = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer });
+
+  const setToken: SetAuthCookies = {
+    ...prepped.cookies,
+    value: generateRandomId() + " accessToken:" + idToken.accessToken,
+    expires: idToken.expires,
+  };
+
+  if (customizer?.onFrontendUserInfo)
+    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userId });
+
+  return setToken;
+}
+
 /** Generate a navigation instruction to set an Id Token cookie. This API can be used to construct a "Login As" service
  * @param targetUrl - URL to which we'll redirect after logging in and which will be used to extract WRDAuth settings
  * @param userId - The user ID to generate a token for
  * @param options - Options for token generation
  */
 export async function prepareFrontendLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
-  const { cookies, settings } = await prepAuth(targetUrl, null);
+  const prepped = await prepAuth(targetUrl, null);
 
-  if (!settings?.cookieName || !settings?.wrdSchema)
-    throw new Error("Unable to find id token cookie/wrdauth settings for URL " + targetUrl);
-
-  const customizer = options?.customizer || (settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null);
-  const wrdSchema = new WRDSchema(settings.wrdSchema);
-  const idToken = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer });
   const target = new URL(targetUrl);
 
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
   const setToken: ServerEncryptionScopes["platform:settoken"] = {
-    ...cookies,
-    value: generateRandomId() + " accessToken:" + idToken.accessToken,
-    expires: idToken.expires,
+    ...await prepCookies(prepped, userId, options),
     target: targetUrl,
   };
-
-  if (customizer?.onFrontendUserInfo)
-    setToken.userInfo = await customizer.onFrontendUserInfo({ entityId: userId });
 
   return {
     type: "form",
