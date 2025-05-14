@@ -29,7 +29,7 @@ export async function prepAuth(url: string, cookieName: string | null): Promise<
   const settings = await applytester?.getWRDAuth();
   if (!settings?.wrdSchema)
     return { error: "No WRD schema defined for URL " + url };
-  if (!settings?.cookieName || !settings?.wrdSchema)
+  if (!settings?.wrdSchema)
     return { error: "Unable to find id token cookie/wrdauth settings for URL " + url };
 
   if (cookieName && cookieName !== settings.cookieName)

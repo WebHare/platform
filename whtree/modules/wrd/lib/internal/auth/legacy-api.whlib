@@ -3,12 +3,14 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
@@ -821,9 +823,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RECORD cookieinfo := this->GetCachedCookies();
     RECORD sessiondata;
 
-    IF(cookieinfo.sessionid != "")
+    IF(cookieinfo.sessionid != "" AND NOT IsWASM())
     {
-      sessiondata := GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
+      sessiondata := __WHS_GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
     }
 
     IF(RecordExists(sessiondata) AND sessiondata.expires > GetCurrentDatetime())
@@ -1063,9 +1065,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ];
     UpdateWebCookie(this->cookiename, value, opts);
-    //also erase the 'modern' logout cookies
-    UpdateWebCookie("__Host-" || this->cookiename, value, opts);
-    UpdateWebCookie("__Secure-" || this->cookiename, value, opts);
+    //when logging out also erase the 'modern' wdauth login cookies
+    IF(value = "") {
+      UpdateWebCookie("__Host-" || this->cookiename, "", opts);
+      UpdateWebCookie("__Secure-" || this->cookiename, "", opts);
+      UpdateWebCookie(this->cookiename || "_publicauthdata", "", opts);
+    }
   }
 
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
@@ -1120,10 +1125,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     this->sessiondata := data;
     IF(IsRequest())
     {
-      this->sessionid := CreateWebSession("wrd:authsession"
-                                         , this->sessiondata
-                                         , CELL[ sessionid ]);
-
+      //We use the webserver in-process sessions as we only need to enable accessrule caching
+      this->sessionid := IsWASM() ? sessionid : __WHS_CreateWebSession("wrd:authsession", this->sessiondata, 15, FALSE, sessionid);
       this->SetLoginCookie(this->sessionid || " " || trylogin.logincookie, trylogin.logincookielifetime);
 
       //FIXME does this even work/show up anywhere at all? we seem to only show sessions with non-zero UIDs ?

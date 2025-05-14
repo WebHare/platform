@@ -3,7 +3,7 @@ import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openTyp
 import { db, type Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
-import { emplace, omit, pick } from "@webhare/std";
+import { emplace, omit, pick, slugify } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
@@ -88,10 +88,12 @@ export function buildPluginData(datas: CSPPluginDataRow[]): Omit<CSPPluginDataRo
 }
 
 export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthPluginSettings {
+  const wrdSchema = data?.wrdschema as string || null;
+  const cookieName = (data?.cookiename as string | null) || (wrdSchema ? "webharelogin-" + slugify(wrdSchema.replaceAll(":", "-")) : "webharelogin");
   return {
-    wrdSchema: data?.wrdschema as string || null,
+    wrdSchema,
     loginPage: data?.loginpage as string || null,
-    cookieName: data?.cookiename as string || "webharelogin",
+    cookieName,
     customizer: data?.customizer as string || null,
     cookieDomain: data?.cookiedomain as string || null,
     sameSite: (data?.samesitecookie || "Lax") as CookieOptions["sameSite"],

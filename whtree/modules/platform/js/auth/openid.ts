@@ -8,8 +8,9 @@ import { joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
 import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
-import { IdentityProvider, type LoginErrorCodes } from "@webhare/auth/src/identity";
+import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
+import type { LoginErrorCodes } from "@webhare/auth";
 
 export type FrontendLoginResult = {
   loggedIn: true;

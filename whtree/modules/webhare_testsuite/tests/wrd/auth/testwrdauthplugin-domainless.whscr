@@ -132,7 +132,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invali"
       , impersonated := FALSE
-      , data := EncodeHSON([failurecode := "UNKNOWNLOGIN"])
+      , data := [failurecode := "UNKNOWNLOGIN"]
       , browsertriplet := "mac-chrome-01"
       , byentity := 0
       , bylogin := "testaccount@test.invali"
@@ -144,13 +144,14 @@ MACRO CreateMyTestSchema()
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
   TestEq("INCORRECTPASSWORD", result.code);
+  TestEq("", testfw->browser->GetCookie("webharelogin-wrd-testschema"));
   TestAuditEvent(
       [ entity := entityid
       , type := "wrd:login:failed"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      , data := [failurecode := "INCORRECTPASSWORD"]
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -168,6 +169,7 @@ MACRO CreateMyTestSchema()
   TestEq(TRUE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
   TestEqLike("WHBF:*", entity->GetField("whuser_password").passwords[0].passwordhash);
   TestEq(1,length(entity->GetField("whuser_password").passwords));
+  TestEqLike("???*", testfw->browser->GetCookie("webharelogin-wrd-testschema"), "Verifies automatic cookiename (webharelogin-<slug>)");
   TestEq(TRUE, result.success);
   TestAuditEvent(
       [ entity := entityid
@@ -175,7 +177,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -198,7 +200,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -215,7 +217,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := EncodeHSON([failurecode := "INCORRECTPASSWORD"])
+      , data := [failurecode := "INCORRECTPASSWORD"]
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -232,7 +234,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := TRUE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -251,7 +253,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -269,7 +271,7 @@ MACRO CreateMyTestSchema()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -323,7 +325,7 @@ MACRO TestPersistentLogin()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -349,7 +351,7 @@ MACRO TestPersistentLogin()
       , type := "wrd:logincookie"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -369,7 +371,7 @@ MACRO TestPersistentLogin()
       , type := "wrd:logincookie"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -391,7 +393,7 @@ MACRO TestPersistentLogin()
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -405,7 +407,7 @@ MACRO TestPersistentLogin()
       , type := "wrd:logincookie"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -421,7 +423,7 @@ MACRO TestPersistentLogin()
       , type := "wrd:logincookie"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -437,7 +439,7 @@ MACRO TestPersistentLogin()
       , type := "wrd:logincookie"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
@@ -493,7 +495,7 @@ MACRO TestRequireExternalLoggedinUser()
       , type := "wrd:login:ok"
       , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := testfw->GetUserWRDId("sysop")
       , bylogin := "sysop@beta.webhare.net"
@@ -525,7 +527,7 @@ MACRO TestRequireExternalLoggedinUser()
       , type := "wrd:logout"
       , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := ""
       , byentity := testfw->GetUserWRDId("sysop")
       , bylogin := "sysop@beta.webhare.net"
@@ -572,7 +574,7 @@ MACRO TestCrossDomainLogin()
       , type := "wrd:login:ok"
       , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := testfw->GetUserWRDId("sysop")
       , bylogin := "sysop@beta.webhare.net"
@@ -679,9 +681,9 @@ MACRO TestLoginDenied()
       , login := "logindenied@test.invalid"
       , impersonated := FALSE
       , data :=
-          EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
+          [ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
                      , failurecode := "NOACCESS"
-                     ])
+                     ]
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "logindenied@test.invalid"
@@ -705,10 +707,9 @@ MACRO TestLoginDenied()
       , ip := "127.0.0.1"
       , login := "logindenied@test.invalid"
       , impersonated := FALSE
-      , data :=
-          EncodeHSON([ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
-                     , failurecode := "NOACCESS"
-                     ])
+      , data := [ userinfo := [ wrd_contact_email := "logindenied@test.invalid" ]
+                , failurecode := "NOACCESS"
+                ]
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "logindenied@test.invalid"
@@ -729,7 +730,7 @@ MACRO TestLoginDenied()
       , type := "wrd:loginbyid:ok"
       , login := "logindenied@test.invalid"
       , impersonated := TRUE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "logindenied@test.invalid"

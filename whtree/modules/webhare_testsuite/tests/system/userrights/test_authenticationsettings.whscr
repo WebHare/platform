@@ -67,7 +67,7 @@ ASYNC MACRO ManageAuthenticationSettings()
       , ip :=               ""
       , type :=             "wrd:authsettings.disabletotp"
       , impersonated :=     FALSE
-      , data :=             ""
+      , data :=             DEFAULT RECORD
       ]);
 
   TestEQ("Not configured", TT(":One-time access code")->value);
@@ -88,7 +88,7 @@ ASYNC MACRO ManageAuthenticationSettings()
       , ip :=               ""
       , type :=             "wrd:authsettings.setpassword"
       , impersonated :=     FALSE
-      , data :=             ""
+      , data :=             DEFAULT RECORD
       ]);
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

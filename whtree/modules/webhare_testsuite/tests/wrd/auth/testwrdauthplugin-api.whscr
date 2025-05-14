@@ -46,7 +46,7 @@ MACRO TestLoginAPIs()
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "apitests@beta.webhare.net"
-      , data := EncodeHSON([ failedvalidationchecks := ["complexity"], failurecode := "FAILEDVALIDATIONCHECKS" ])
+      , data := [ failedvalidationchecks := ["complexity"], failurecode := "FAILEDVALIDATIONCHECKS" ]
       ]);
 
   result := DebugReq("login", [ username := "apitests@beta.webhare.net", pwd := "", browsertriplet := "mac-chrome-01", skippasswordcheck := "1" ]);
@@ -55,7 +55,7 @@ MACRO TestLoginAPIs()
       , type := "wrd:login:ok"
       , login := "apitests@beta.webhare.net"
       , impersonated := FALSE
-      , data := ""
+      , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "apitests@beta.webhare.net"

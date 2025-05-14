@@ -62,8 +62,7 @@ export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 export type WebResponseForTransfer = {
   status: HTTPStatusCode;
   bodybuffer: ArrayBuffer | null;
-  headers: Record<string, string>;
-  setCookie: string[];
+  headers: Array<[string, string]>;
   trace: string | undefined;
 };
 
@@ -112,8 +111,7 @@ class WebResponse extends Response {
   async asWebResponseInfo(): Promise<WebResponseInfo> {
     return {
       status: this.status,
-      headers: Object.fromEntries(this.headers.entries()),
-      setCookie: this.headers.getSetCookie(),
+      headers: [...this.headers.entries()],
       body: WebHareBlob.from(Buffer.from(await this.arrayBuffer()))
     };
   }
@@ -126,8 +124,7 @@ class WebResponse extends Response {
     return {
       value: {
         status: this.status,
-        headers: Object.fromEntries(this.headers.entries()),
-        setCookie: this.headers.getSetCookie(),
+        headers: [...this.headers.entries()],
         bodybuffer,
         trace: this._trace
       },
@@ -139,8 +136,7 @@ class WebResponse extends Response {
 export async function createResponseInfoFromResponse(response: SupportedResponseSubset): Promise<WebResponseInfo> {
   return {
     status: response.status,
-    headers: Object.fromEntries([...response.headers.entries()]),
-    setCookie: response.headers.getSetCookie(),
+    headers: [...response.headers.entries()],
     body: WebHareBlob.from(Buffer.from(await response.arrayBuffer()))
   };
 }
@@ -160,7 +156,7 @@ export function createWebResponseFromTransferData(data: WebResponseForTransfer):
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string | ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
+export function createWebResponse(body: string | ArrayBuffer | Blob | ReadableStream<Uint8Array> | undefined, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Array<[string, string]> | Headers }): WebResponse {
   const headers = new Headers(options?.headers);
   if (!headers.get("content-type") && body !== undefined)
     headers.set("content-type", body instanceof ArrayBuffer ? "application/octet-stream" : "text/html;charset=utf-8");
