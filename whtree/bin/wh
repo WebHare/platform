@@ -123,7 +123,7 @@ if [ -f "${WEBHARE_DATAROOT}dbase/translog.whdb" ]; then
   exit 1
 fi
 
-export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
+export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}postgresql"
 
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 export PGHOST="$WEBHARE_DIR/currentinstall/pg/"
