@@ -2,7 +2,7 @@
 declare module "@webhare/wrd" {
 }
 
-import { WRDSchema, type WRDSchemaTypeOf } from "@mod-wrd/js/internal/schema";
+import { WRDSchema, type WRDSchemaTypeOf, type AnyWRDSchema } from "@mod-wrd/js/internal/schema";
 export { AuthenticationSettings, type FirstPartyToken } from "@webhare/auth/src/identity";
 export { getRequestUser } from "./authfrontend";
 export { isValidWRDTag } from "./wrdsupport";
@@ -16,7 +16,7 @@ import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
 export { getSchemaSettings, updateSchemaSettings } from "./settings";
 
-export { WRDSchema, type WRDAttributeType, type WRDMetaType };
+export { WRDSchema, type WRDAttributeType, type WRDMetaType, type AnyWRDSchema };
 export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 
 import type * as customizer from "@webhare/auth/src/customizer";

@@ -219,6 +219,8 @@ type UpsertOptions<T extends object, Other extends object> = object extends T ? 
 
 export type WRDSchemaTypeOf<T extends WRDSchema<any>> = T extends WRDSchema<infer S> ? S : never;
 
+export type AnyWRDSchema = WRDSchema<any>;
+
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly tag: string;
   private coVMSchemaCacheSymbol: symbol;
