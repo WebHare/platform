@@ -153,16 +153,3 @@ PUBLIC OBJECT FUNCTION GetTypeFromData(OBJECT component, OBJECT screen, RECORD i
   }
   RETURN wrdtype;
 }
-
-PUBLIC RECORD ARRAY FUNCTION GetSuitableAccountAttributes(OBJECT wrdtype)
-{
-  RECORD ARRAY candidates:=
-         SELECT *
-              , allowforlogin    := attributetypename IN [ "FREE", "EMAIL" ] AND isunique
-              , allowforemail    := attributetypename = "EMAIL"
-              , allowforpassword := attributetypename IN [ "PASSWORD", "AUTHENTICATIONSETTINGS"]
-           FROM wrdtype->ListAttributes(0);
-
-  RETURN SELECT * FROM candidates WHERE allowforlogin OR allowforemail OR allowforpassword;
-}
-
