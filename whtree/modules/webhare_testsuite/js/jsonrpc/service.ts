@@ -35,7 +35,7 @@ export class TestNoAuthJS implements MyService {
     return null;
   }
   async validateLoggedinUser(pathname: string): Promise<{ user: string }> {
-    const userinfo = await getRequestUser(this.req, pathname);
+    const userinfo = await getRequestUser(this.req, pathname, wrdTestschemaSchema);
     if (userinfo) {
       const user = await wrdTestschemaSchema.getFields("wrdPerson", userinfo.user, ["wrdFullName"]);
       if (user)

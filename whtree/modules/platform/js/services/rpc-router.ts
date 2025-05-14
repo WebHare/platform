@@ -9,7 +9,7 @@ import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { logError } from "@webhare/services";
 import type { TypedServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { getRequestUser } from "@webhare/wrd";
+import { getRequestUser, type AnyWRDSchema } from "@webhare/wrd";
 
 const MaxRPCArguments = 16;
 
@@ -75,7 +75,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
       request: req,
       method,
       getOriginURL: () => getOriginURL(req, new URL(req.url).searchParams.get("pathname") ?? "/") || null,
-      getRequestUser: async () => (await getRequestUser(req, new URL(req.url).searchParams.get("pathname") ?? "/"))?.user || null,
+      getRequestUser: async (wrdSchema: AnyWRDSchema) => (await getRequestUser(req, new URL(req.url).searchParams.get("pathname") ?? "/", wrdSchema))?.user || null,
       responseHeaders
     };
 

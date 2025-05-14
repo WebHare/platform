@@ -8,6 +8,7 @@ import { WebHareBlob } from "@webhare/services";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { WRDSchema } from "@webhare/wrd";
 import { IdentityProvider } from "@webhare/auth/src/identity";
+import type { WRDAuthAccountStatus } from "@webhare/auth";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/openapi-service" {
@@ -75,6 +76,8 @@ export type AuthorizedWRDAPIUser = {
   tokenId: number;
   /** Scopes granted to this API key */
   scopes: string[];
+  /** Entity account status if available */
+  accountStatus: WRDAuthAccountStatus | null;
 };
 
 /** Craft a 401 error response. Should be used by verifyWRDAPIUser wrappers  */
@@ -114,13 +117,14 @@ export async function verifyWRDAPIUser(req: RestRequest): Promise<RestAuthorizat
     authorized: true,
     loginfo: {
       userId: res.entity,
-      tokenId: res.tokenId
+      tokenId: res.tokenId,
     },
     authorization: {
       wrdSchema: wrdauth.wrdSchema,
       userId: res.entity,
       tokenId: res.tokenId,
-      scopes: res.scopes
+      scopes: res.scopes,
+      accountStatus: res.accountStatus,
     }
   };
 }

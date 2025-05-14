@@ -1,8 +1,8 @@
 import type { WebRequest } from "@webhare/router/src/request";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
-import { WRDSchema } from "@mod-wrd/js/internal/schema";
-import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
+import type { AnyWRDSchema } from "@webhare/wrd";
 import { IdentityProvider } from "@webhare/auth/src/identity";
+import type { WRDAuthAccountStatus } from "@webhare/auth";
 
 /** Get cookie names to use AND which ones to ignore */
 export function getIdCookieName(url: string, wrdauth: WRDAuthPluginSettings) {
@@ -19,27 +19,30 @@ export function getIdCookieName(url: string, wrdauth: WRDAuthPluginSettings) {
 }
 
 /** Get the user linked to a URL */
-export async function getRequestUser(req: WebRequest, pathname: string): Promise<{ wrdSchema: string; user: number } | null> {
-  const info = await getApplyTesterForURL(req.getOriginURL(pathname)!);
-  const wrdauth = await info?.getWRDAuth();
-  if (!wrdauth?.wrdSchema)
-    throw new Error(`WRDAuth is not configured for ${req.url}`);
-
-  //We prefer Authorization above cookie because Auth header is specific request state, cookie may just be cached
+export async function getRequestUser(req: WebRequest, pathname: string, wrdSchema: AnyWRDSchema): Promise<{ user: number; accountStatus: WRDAuthAccountStatus | null } | null> {
+  if (!wrdSchema)
+    throw new Error("No WRDSchema provided");
   let accessToken = req.headers.get("Authorization")?.match(/Bearer *(.+)$/i)?.[1];
-  if (!accessToken) { /* try the cookie header, but only the one we're configured for
-    otherwise we'd still check unprefixed headers, breaking the whole point of __Host-/__Secure- (being unsettable by JS) */
-    const { idCookie } = getIdCookieName(req.url, wrdauth);
-    const logincookie = req.getCookie(idCookie);
-    accessToken = logincookie?.match(/ accessToken:(.+)$/)?.[1];
+  if (!accessToken) {
+    // Fallback on cookies, but only if WRDAuth is configured to the correct schema
+    const info = await getApplyTesterForURL(req.getOriginURL(pathname)!);
+    const wrdauth = await info?.getWRDAuth();
+
+    if (wrdauth?.wrdSchema === wrdSchema.tag) {
+      /* try the cookie header, but only the one we're configured for, otherwise we'd still check unprefixed headers,
+         breaking the whole point of __Host-/__Secure- (being unsettable by JS)
+      */
+      const { idCookie } = getIdCookieName(req.url, wrdauth);
+      const logincookie = req.getCookie(idCookie);
+      accessToken = logincookie?.match(/ accessToken:(.+)$/)?.[1];
+    }
   }
 
   if (accessToken) {
-    const wrdschema = new WRDSchema<WRD_IdpSchemaType>(wrdauth.wrdSchema);
-    const provider = new IdentityProvider(wrdschema);
+    const provider = new IdentityProvider(wrdSchema);
     const tokeninfo = await provider.verifyAccessToken("id", accessToken);
     if (!("error" in tokeninfo))
-      return { wrdSchema: wrdauth.wrdSchema, user: tokeninfo.entity };
+      return { user: tokeninfo.entity, accountStatus: tokeninfo.accountStatus };
   }
 
   return null;
