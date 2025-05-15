@@ -800,6 +800,19 @@ export class ResourceDescriptor implements ResourceMetaData {
     return res;
   }
 
+  /** Copies the blob to a new WebHareBlob */
+  static async fromBlob(str: Blob | File, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    // Extract name from File, use as (backup) filename if set
+    if ("name" in str && str.name)
+      options = { fileName: str.name || undefined, ...options };
+    // Convert data to real WebHareBlob by copying it into memory
+    const blob = await WebHareBlob.fromBlob(str);
+    const res = buildDescriptorFromResource(blob, options);
+    if (options)
+      await res.applyScanOptions(options);
+    return res;
+  }
+
   static async fromDisk(path: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
     const blob = await WebHareBlob.fromDisk(path);
     const res = buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
@@ -877,7 +890,7 @@ export class ResourceDescriptor implements ResourceMetaData {
 }
 
 function buildDescriptorFromResource(blob: WebHareBlob, options?: ResourceScanOptions) {
-  const mediaType = options?.mediaType ?? "application/octet-stream";
+  const mediaType = options?.mediaType ?? (blob.type || "application/octet-stream");
   const metadata = {
     mediaType,
     fileName: options?.fileName || null,

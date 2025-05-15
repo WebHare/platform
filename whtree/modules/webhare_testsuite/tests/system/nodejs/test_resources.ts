@@ -132,6 +132,15 @@ async function testWebHareBlobs() {
   //test TSC Blob compatibility issues
   const msgs = await checkUsingTSC("webhare_testsuite", { files: [__dirname + "/data/blob-types.ts"] });
   test.eq([], msgs);
+
+  // Is type handled/copied correctly?
+  test.eq("", WebHareBlob.from("Hello, World").type);
+  test.eq("text/plain", WebHareBlob.from("Hello, World", { type: "text/plain" }).type);
+  test.eq("text/plain", WebHareBlob.from(Buffer.from("Hello, World"), { type: "text/plain" }).type);
+  test.eq("text/plain", WebHareBlob.from(new TextEncoder().encode("Hello, World").buffer, { type: "text/plain" }).type);
+  test.eq("text/plain", WebHareBlob.from(new DataView(new TextEncoder().encode("Hello, World").buffer), { type: "text/plain" }).type);
+  test.eq("text/plain", (await WebHareBlob.fromBlob(new Blob(["Hello, World"], { type: "text/plain" }))).type);
+  test.eq("application/pdf", (await WebHareBlob.fromBlob(new Blob(["Hello, World"], { type: "text/plain" }), { type: "application/pdf" })).type);
 }
 
 async function testResourceDescriptors() {
@@ -298,6 +307,26 @@ async function testResourceDescriptors() {
     test.eq("my.jpg", clone.fileName);
     test.eq("image/jpeg", clone.mediaType);
     test.eq(600, clone.width);
+  }
+
+  // STORY: test filename and mediaType properly used from Blob and File
+  {
+    const resourceFromBlob = await services.ResourceDescriptor.fromBlob(new Blob(["aa"], { type: "application/pdf" }));
+    test.eq("application/pdf", resourceFromBlob.mediaType);
+    test.eq(2, resourceFromBlob.resource.size);
+
+    const resourceFromBlob2 = await services.ResourceDescriptor.fromBlob(new Blob(["aa"], { type: "" }));
+    test.eq("application/octet-stream", resourceFromBlob2.mediaType);
+
+    const resourceFromFile = await services.ResourceDescriptor.fromBlob(new File(["aa"], "test.pdf", { type: "application/pdf" }));
+    test.eq("application/pdf", resourceFromFile.mediaType);
+    test.eq("test.pdf", resourceFromFile.fileName);
+    test.eq(2, resourceFromFile.resource.size);
+
+    const resourceFromFile2 = await services.ResourceDescriptor.fromBlob(new File(["aa"], "", { type: "" }));
+    test.eq("application/octet-stream", resourceFromFile2.mediaType);
+    test.eq(null, resourceFromFile2.fileName);
+    test.eq(2, resourceFromFile2.resource.size);
   }
 }
 
