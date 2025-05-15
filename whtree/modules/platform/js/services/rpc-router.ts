@@ -53,7 +53,7 @@ async function runCall(req: WebRequest, matchservice: TypedServiceDescriptor, me
     const text = await req.text(); //TODO can we stream this so we won't even attempt to allocate over maxBodySize
     // We'll do the more expensive check (Buffer.byteLength) only if you might be close
     if (text.length > matchservice.maxBodySize || (text.length > matchservice.maxBodySize / 2 && Buffer.byteLength(text) > matchservice.maxBodySize))
-      return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Request body too large` });
+      return createRPCResponse(HTTPErrorCode.BadRequest, { error: `Request body too large (${Buffer.byteLength(text)} bytes, maximum is ${matchservice.maxBodySize} bytes)` });
 
     params = parseTyped(text) as unknown[];
     if (!Array.isArray(params))
