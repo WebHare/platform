@@ -2,6 +2,7 @@
 
 source "${BASH_SOURCE%/*}/../../../../lib/postgres-functions.sh"
 load_postgres_settings
+set -eo pipefail
 
 BACKUPDEST="$1"
 [ -z "$BACKUPDEST" ] && die "No backup destination"
@@ -22,13 +23,8 @@ fi
 echo "STORAGEPATH: $WEBHARE_DATABASEPATH"
 echo "BACKUP DESTINATION: $BACKUPDEST"
 
-if [ "$(uname)" == "Darwin" ]; then
-  RSYNCOPTS="--progress"
-else
-  RSYNCOPTS="--info=progress2"
-fi
-
 mkdir -p -- "$BACKUPDEST" # creates the target, usually "$WEBHARE_DATAROOT"/preparedbackup
+BACKUPDEST=$(cd "$BACKUPDEST" && pwd) #make it an absolute path
 
 rm -rf -- "$BACKUPDEST/dbase" "$BACKUPDEST/postgresql" "$BACKUPDEST/backup" "$BACKUPDEST/blob"
 mkdir -p -- "$BACKUPDEST/backup" "$BACKUPDEST/blob"
@@ -42,17 +38,36 @@ function control_c()
   exit 1
 }
 
+function sync_blobs()
+{
+  mkdir -p "$BLOBDEST/blob/"
+
+  if [ "$(uname)" == "Darwin" ]; then
+    # we have xargs -J (not on Linux/GNU!)
+    for DIR in $(cd "$WEBHARE_DATABASEPATH/blob" ; echo ??); do
+      mkdir -p "$BLOBDEST/blob/$DIR"
+
+      # shellcheck disable=SC2012
+      ( cd "$BLOBDEST/blob/$DIR/" ; ls | sort ) > "$BLOBDEST/.destfiles"
+      (
+        cd "$WEBHARE_DATABASEPATH/blob/$DIR"
+        # shellcheck disable=SC2012
+        ls | sort > "$BLOBDEST/.sourcefiles"
+
+        # take the files only in the source directory, link them too
+        comm -2 -3 "$BLOBDEST/.sourcefiles" "$BLOBDEST/.destfiles" | xargs -J% -n 100 ln % "$BLOBDEST/blob/$DIR/"
+      )
+    done
+  else
+    # we have cp --recursive --link here (not on Darwin)
+    # --no-clobber prevents overwriting existing files which should save some time (either the way the blobs are immutable)
+    cp --recursive --link --no-clobber "$WEBHARE_DATABASEPATH/blob"/* "$BLOBDEST/blob/"
+  fi
+}
+
 # TODO: make sure no blobs are deleted during the backup - this now happens based on timing (blobs aren't deleted for the first few hours) but still contains a race
-
-[ "$VERBOSE" == "1" ] && echo "Making copy of the blobs"
-mkdir -p "$BLOBDEST/blob/"
-rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/blob" "$BLOBDEST/"
-
-RSYNCRETVAL="$?"
-if [ "$RSYNCRETVAL" != "0" ]; then
-  echo "First rsync with error code $RSYNCRETVAL"
-  exit 1
-fi
+[ "$VERBOSE" == "1" ] && echo "Linking blobs"
+sync_blobs
 
 [ "$VERBOSE" == "1" ] && echo "Make database backup"
 PSROOT="${WEBHARE_DATAROOT}postgresql"
@@ -67,18 +82,7 @@ if [ "$BACKUPRETVAL" != "0" ]; then
 fi
 
 [ "$VERBOSE" == "1" ] && echo "Add new blobs created during database backup"
-for BLOBBASEFOLDER in blob ; do
-  if [ -d "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" ]; then
-    mkdir -p "$BLOBDEST/$BLOBBASEFOLDER/"
-    rsync -av $RSYNCOPTS --link-dest "$WEBHARE_DATABASEPATH/" "$WEBHARE_DATABASEPATH/$BLOBBASEFOLDER" "$BLOBDEST/"
+sync_blobs
 
-    RSYNCRETVAL="$?"
-    if [ "$RSYNCRETVAL" != "0" ]; then
-      echo "Second rsync with error code $RSYNCRETVAL"
-      exit 1
-    fi
-  fi
-done
-
-touch $BACKUPDEST/backupcomplete
+touch "$BACKUPDEST/backupcomplete"
 echo "Your backup is in $BACKUPDEST/"

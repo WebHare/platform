@@ -40,13 +40,16 @@ PUBLIC RECORD FUNCTION BootApp(RECORD app, RECORD invoke)
   RECORD rec := link->DoRequest([ task := "startapp"
                                 , invoke := invoke
                                 ]);
+
   IF (rec.status != "ok")
-  {
     THROW NEW Exception("Application starter failed");
-  }
 
   IF(IsDebugTagEnabled("tollium:logtransport"))
     LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
+
+  //shell.ts doesn't understand expired from BootApp() and waits for an app that will never start. application startup protocol is growing too complex, but we'll just translate this specific message as a workaround
+  IF(CellExists(rec.msg,'appdata') AND CellExists(rec.msg.appdata,'type') AND rec.msg.appdata.type = "sessionexpired")
+    RETURN [ type := "expired" ];
 
   RETURN rec.msg;
 

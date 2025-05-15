@@ -16,15 +16,29 @@ LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
-RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck)
+RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck, INTEGER forceinclude)
 {
   RETURN [[ rowkey := 0, title := "" ]]
          CONCAT
          SELECT rowkey := id, title := tag || " (" || title || ")"
            FROM suitableattributes
-          WHERE id != 0 AND GetCell(suitableattributes,fieldtocheck);
+          WHERE (id = forceinclude) OR (id != 0 AND GetCell(suitableattributes,fieldtocheck));
 }
 
+
+RECORD ARRAY FUNCTION GetSuitableAccountAttributes(OBJECT wrdtype, INTEGER forceinclude) {
+  IF(NOT ObjectExists(wrdtype))
+    RETURN RECORD[];
+
+  RECORD ARRAY candidates:=
+         SELECT *
+              , allowforlogin    := attributetypename IN [ "FREE", "EMAIL" ] AND isunique
+              , allowforemail    := attributetypename = "EMAIL"
+              , allowforpassword := attributetypename IN [ "PASSWORD", "AUTHENTICATIONSETTINGS"]
+           FROM wrdtype->ListAttributes(0);
+
+  RETURN SELECT * FROM candidates WHERE allowforlogin OR allowforemail OR allowforpassword OR id = forceinclude;
+}
 
 // -----------------------------------------------------------------------------
 //
@@ -207,24 +221,27 @@ PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
 // Update schema properties
 //
 
-PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
+PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase <
+  RECORD originalschema;
+  RECORD ARRAY types;
+
+  MACRO Init(RECORD data) {
     IF(NOT this->tolliumuser->HasRightOn("wrd:metadata", this->contexts->wrdschema->id))
       THROW NEW Exception("You do not have metadata rights to this schema");
+
+    this->originalschema :=
+        SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationdate
+          FROM wrd.schemas
+        WHERE id = this->contexts->wrdschema->id;
 
     ^accounttype->options := [[ rowkey := 0, title := "" ]]
                                   CONCAT
                                   SELECT rowkey := id, title := tag
                                     FROM this->contexts->wrdschema->ListTypes()
-                                   WHERE Length(GetSuitableAccountAttributes(this->contexts->wrdschema->GetTypeById(id)))>0
+                                   WHERE id = this->originalschema.accounttype OR Length(GetSuitableAccountAttributes(this->contexts->wrdschema->GetTypeById(id),0))>0
                                 ORDER BY tag;
 
-    ^wrdschema->value := SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationdate
-                           FROM wrd.schemas
-                          WHERE id = this->contexts->wrdschema->id;
-
+    ^wrdschema->value := this->originalschema;
     //Allow usermgmt only to be modified by sysop, and only to be set if whuser_unit exists (as a quick check whether you applied usermgmt.wrdschema.xml)
     ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop") AND (^usermgmt->value OR ObjectExists(this->contexts->wrdschema->GetType("WHUSER_UNIT")));
 
@@ -233,14 +250,11 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
 
   MACRO OnAccountTypeChange()
   {
-    RECORD ARRAY attrs;
     OBJECT curtype := this->contexts->wrdschema->GetTypeById(^accounttype->value);
-    IF(ObjectExists(curtype))
-      attrs := GetSuitableAccountAttributes(curtype);
 
-    ^accountlogin->options := GenerateAccountOptions(attrs, "allowforlogin");
-    ^accountemail->options := GenerateAccountOptions(attrs, "allowforemail");
-    ^accountpassword->options := GenerateAccountOptions(attrs, "allowforpassword");
+    ^accountlogin->options := GenerateAccountOptions(GetSuitableAccountAttributes(curtype, this->originalschema.accountlogin), "allowforlogin", this->originalschema.accountlogin);
+    ^accountemail->options := GenerateAccountOptions(GetSuitableAccountAttributes(curtype, this->originalschema.accountemail), "allowforemail", this->originalschema.accountemail);
+    ^accountpassword->options := GenerateAccountOptions(GetSuitableAccountAttributes(curtype, this->originalschema.accountpassword), "allowforpassword", this->originalschema.accountpassword);
   }
 
   BOOLEAN FUNCTION Submit()
