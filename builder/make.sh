@@ -115,7 +115,9 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
     # Also reinstall if important apps are missing which may point to a partial/failed brew installation
     if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$DEPSFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$DEPSFILE" ] || ! hash gmake 2>/dev/null; then
       generateFormula > "$DEPSFILE"
-      echo -n "Brew: $DEPSFILE"
+      echo "Ensuring Brew definitions are uptodate"
+      brew update
+      echo "Installing our dependencies using Brew: $DEPSFILE"
       brew reinstall --formula "$DEPSFILE"; retval="$?"
       if [ "$retval" != "0" ]; then
         echo "*** brew failed with errorcode $retval"
