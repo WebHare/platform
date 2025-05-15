@@ -712,8 +712,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   /** Verify a token we gave out ourselves. Also checks against retracted tokens and still existing owner entity
    * @param type - Expected token type
    * @param token - The token to verify
+   * @param options - Optional parameters for token verification
   */
-  async verifyAccessToken(type: "id" | "api" | "oidc", token: string): Promise<VerifyAccessTokenResult | { error: string }> {
+  async verifyAccessToken(type: "id" | "api" | "oidc", token: string, options?: { ignoreAccountStatus?: boolean }): Promise<VerifyAccessTokenResult | { error: string }> {
     const hashed = hashSHA256(token);
     const matchToken = await db<PlatformDB>().
       selectFrom("wrd.tokens").
@@ -722,8 +723,11 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
       executeTakeFirst();
 
-    if (!matchToken || (matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
+    if (!matchToken)
       return { error: `Token is invalid` };
+
+    if ((matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
+      return { error: `Token expired at ${matchToken.expirationdate.toISOString()}` };
 
     const authsettings = await getAuthSettings(this.wrdschema);
     let accountStatus: WRDAuthAccountStatus | null = null;
@@ -736,9 +740,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         wrdauthAccountStatus?: WRDAuthAccountStatus | null;
       } | null;
       if (!entity)
-        return { error: `Token is invalid` };
-      if (entity.wrdauthAccountStatus)
-        accountStatus = entity.wrdauthAccountStatus;
+        return { error: `Token owner does not exist anymore` };
+      if (authsettings.hasAccountStatus) {
+        accountStatus = entity.wrdauthAccountStatus || null;
+        if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
+          return { error: `Token owner has been disabled` };
+        }
+      }
     }
 
     return {
