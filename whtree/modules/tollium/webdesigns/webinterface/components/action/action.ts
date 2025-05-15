@@ -207,9 +207,9 @@ export default class ObjAction extends ActionForwardBase {
           using busylock = dompack.flagUIBusy();
           void busylock;
 
-          const uploader = await requestFile({ accept: this.mimetypes });
-          if (uploader?.file)
-            this.handleImageUploaded(data, uploader.file);
+          const file = await requestFile({ accept: this.mimetypes });
+          if (file)
+            this.handleImageUploaded(data, file);
 
           return;
         }

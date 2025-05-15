@@ -20,13 +20,13 @@ export type TolliumUploadedCallback = (files: Array<{
     calls processing callback that must close the progress dialog by callback.
 */
 export async function uploadFiles(component: ToddCompBase, uploadedcallback: TolliumUploadedCallback, options?: UploadRequestOptions) {
-  const uploader = await requestFiles(options);
-
-  if (!uploader) {
+  const files = await requestFiles(options);
+  if (!files) {
     uploadedcallback([], () => { });
     return;
   }
 
+  const uploader = new MultiFileUploader(files);
   void runUpload(component, uploader, uploadedcallback);
 }
 
