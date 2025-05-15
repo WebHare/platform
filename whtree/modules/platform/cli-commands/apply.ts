@@ -14,7 +14,7 @@ run({
   }, options: {
     "modules": { description: "Limit to these modules (comma separated, not supported by all updates)" }
   }, arguments:
-    [{ name: "<subsystems...>", description: "Subsystems to reconfigure (eg registry, wrd) or 'all" }],
+    [{ name: "<subsystems...>", description: "Subsystems to reconfigure (eg registry, wrd) or 'all'" }],
   main: async ({ opts, args }) => {
 
     //Too bad this requires an 'as' even if you 'as const' subsystems. https://stackoverflow.com/questions/52856496/typescript-object-keys-return-string
