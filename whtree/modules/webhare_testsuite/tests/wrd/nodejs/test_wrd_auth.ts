@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
-import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -158,7 +158,7 @@ async function testLowLevelAuthAPIs() {
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqPartial({ scope: "meadow", aud: ["api", "user"] }, decoded);
 
-  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", new Date, convertWaitPeriodToDate("P90D"), { scopes: ["meadow"], audiences: ["api", "user"] });
+  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", Temporal.Now.instant(), convertWaitPeriodToDate("P90D", { relativeTo: Temporal.Now.instant() }), { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.assert(decoded.exp);
   test.assert(Math.abs(addDuration(new Date, "P90D").getTime() / 1000 - decoded.exp) < 2000);
@@ -274,7 +274,13 @@ function parseLoginResult(result: FrontendAuthResult) {
     return result;
 
   const accessToken = result.setAuth.value.match(/ accessToken:(.*)$/)?.[1] ?? throwError("No access token found in FrontendAuthResult");
-  return { loggedIn: true, ...result.setAuth, accessToken };
+  return {
+    loggedIn: true,
+    ...result.setAuth,
+    accessToken,
+    expireMinutes: (result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / 60,
+    expireDays: Math.round((result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / (60 * 60 * 24))
+  };
 }
 
 async function testAuthAPI() {
@@ -282,6 +288,17 @@ async function testAuthAPI() {
   const provider = new IdentityProvider(oidcAuthSchema);
 
   await whdb.beginWork();
+  const { loginSettings } = await getSchemaSettings(oidcAuthSchema, ["loginSettings"]);
+  await updateSchemaSettings(oidcAuthSchema, {
+    loginSettings: {
+      ...defaultWRDAuthLoginSettings,
+      ...loginSettings,
+      expire_thirdpartylogin: 2 * 86400 * 1000,
+      expire_login: 4 * 86400 * 1000,
+      round_longlogins_to: -1 //disabling rounding, it'll cause CI issues when testing around midnight
+    }
+  });
+
   //Setup test user and test the AuthenticationSettings types
   const testunit = await oidcAuthSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await oidcAuthSchema.insert("wrdPerson", {
@@ -298,9 +315,10 @@ async function testAuthAPI() {
   const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser, null);
   test.assert("idToken" in authresult);
 
-  //fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
+  //Fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
+  //WebHare as IDP currently follows MS' default and sets the id_token to a 60 minutes expiry (openIdTokenExpiry)
   test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, authresult.idToken);
-  test.assert(authresult.expiresIn && authresult.expiresIn > 86300 && authresult.expiresIn < 86400);
+  test.assert(authresult.expiresIn && authresult.expiresIn > 59 * 60 && authresult.expiresIn <= 60 * 60, `We expect ~60 minutes expiry, got ${authresult.expiresIn! / 60} minutes`);
 
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
 
@@ -397,7 +415,16 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
-  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
+  test.eqPartial({
+    loggedIn: true,
+    accessToken: /^[^.]+\.[^.]+\....*$/,
+    expireDays: 4 //normal logins are 4 days
+  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
+  test.eqPartial({
+    loggedIn: true,
+    accessToken: /^[^.]+\.[^.]+\....*$/,
+    expireDays: 30 //persistent logins are 30 days (default)
+  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2", persistent: true })));
 
   //Test the frontend login RPC - do we see the proper cache headers
   let seenheaders = false; // FIXME , seenexpiry = 0; -- see below

@@ -16,9 +16,10 @@ import type { AuthCustomizer, JWTPayload, LoginErrorCodes, LoginUsernameLookupOp
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { getAuthSettings, prepAuth, type PrepAuthResult } from "./support";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthSettings, prepAuth, type PrepAuthResult } from "./support";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
+const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
@@ -26,6 +27,8 @@ type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string
 export interface AuthTokenOptions {
   /** Customizer object */
   customizer?: AuthCustomizer | null;
+  /** Set or override the time of day used for expiration calculations  */
+  now?: Temporal.Instant;
   /** Expiration date for the token. If not set, will fallback to any configuration and eventually 1 day */
   expires?: WaitPeriod;
   /** Prefix for API tokens, defaults to 'secret-token:' (see RFC 8959) */
@@ -40,6 +43,10 @@ export interface AuthTokenOptions {
   claims?: Record<string, unknown>;
   /** Information about the source and actors in this event */
   authAuditContext?: AuthAuditContext;
+  /** Requesting a persistent auth token (ie no session cookies) */
+  persistent?: boolean;
+  /** Requesting a cookie for a third party login */
+  thirdParty?: boolean;
 }
 
 export type ListedToken = {
@@ -378,7 +385,7 @@ export function decompressUUID(compressed: string) {
   return buffer.toString("hex").replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, "$1-$2-$3-$4-$5");
 }
 
-function preparePayload(subject: string, created: Date | null, validuntil: Date | null, options?: JWTCreationOptions): JwtPayload {
+function preparePayload(subject: string, created: Temporal.Instant | null, validuntil: Temporal.Instant | null, options?: JWTCreationOptions): JwtPayload {
   /* All official claims are on https://www.iana.org/assignments/jwt/jwt.xhtml#claims */
 
 
@@ -386,13 +393,13 @@ function preparePayload(subject: string, created: Date | null, validuntil: Date 
      It is also a proof that we actually generated the token even without a signature - we wouldn't have stored a hashed token without a random jwtId (all the other fields in the JWT are guessable) */
   const payload: JwtPayload = { jti: generateRandomId() };
   if (created) {
-    payload.iat = Math.floor(created.getTime() / 1000);
+    payload.iat = created.epochSeconds;
     payload.nbf = payload.iat;
   }
 
   // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
   if (validuntil)
-    payload.exp = Math.floor(validuntil.getTime() / 1000);
+    payload.exp = validuntil.epochSeconds;
   if (subject)
     payload.sub = subject;
   if (options?.scopes?.length)
@@ -415,7 +422,7 @@ function preparePayload(subject: string, created: Date | null, validuntil: Date 
  *                  audiences: The intended audiences for this token
  * @returns The JWT token
 */
-export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, subject: string, created: Date | null, validuntil: Date | null, options?: JWTCreationOptions): Promise<string> {
+export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, subject: string, created: Temporal.Instant | null, validuntil: Temporal.Instant | null, options?: JWTCreationOptions): Promise<string> {
   const payload = preparePayload(subject, created, validuntil, options);
   payload.iss = issuer;
   const signingkey = createPrivateKey({ key: key, format: 'jwk' }); //TODO use async variant
@@ -473,12 +480,10 @@ type SigningKey = {
 */
 export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   readonly wrdschema: WRDSchema<WRD_IdpSchemaType>;
-  readonly config: IdentityProviderConfiguration;
 
-  constructor(wrdschema: WRDSchema<SchemaType>, config?: IdentityProviderConfiguration) {
+  constructor(wrdschema: WRDSchema<SchemaType>) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
     this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
-    this.config = config || {};
   }
 
   async ensureSigningKeys(): Promise<SigningKey[]> {
@@ -541,6 +546,18 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return jwt.sign(payload, signWithKey, signOptions);
   }
 
+  //TODO with proper caching we can avoid async/DB queries here. and we really should
+  async getExpiration(relativeTo: Temporal.Instant, options?: AuthTokenOptions): Promise<null | Temporal.Instant> {
+    if (options?.expires === Infinity)
+      return null;
+    if (options?.expires)
+      return convertWaitPeriodToDate(options.expires, { relativeTo });
+
+    const loginSettings = (await getSchemaSettings(this.wrdschema, ["loginSettings"]))?.loginSettings ?? defaultWRDAuthLoginSettings;
+    const expiry = options?.thirdParty ? loginSettings?.expire_thirdpartylogin : options?.persistent ? loginSettings?.expire_persistentlogin : loginSettings?.expire_login;
+    return calculateWRDSessionExpiry(loginSettings, relativeTo, expiry);
+  }
+
   /** Create ID and Auth tokens and commit to the database as needed
    * @param type - The type of token to create ('id', 'api' or 'oidc')
    * @param subject - The subject for whom the token is created
@@ -575,9 +592,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
-    const creationdate = new Date;
-    creationdate.setMilliseconds(0); //round down as the JWT fields have second precision
-    const validuntil = options?.expires === Infinity ? null : convertWaitPeriodToDate(options?.expires || "P1D", { relativeTo: creationdate });
+    const relativeTo = (options?.now ?? Temporal.Now.instant()).round({ smallestUnit: "seconds", roundingMode: "floor" }); //round down as the JWT fields have second precision
+    const validUntil = await this.getExpiration(relativeTo, options);
 
     //Figure out signature parameters
     const config = await this.getKeyConfig();
@@ -591,7 +607,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (!(client && clientInfo))
         throw new Error("Unable to create ID token without a thirdparty client");
 
-      const payload = preparePayload(subjectValue, creationdate, validuntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
+      const payload = preparePayload(subjectValue, relativeTo, validUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify
@@ -618,7 +634,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     /* We always generate access tokens for OpenID requests (skippable when client only requests an id_token)
        For our convenience we use JWT for access tokens but we don't strictly have to. We do not set an audience as we're always the audience, and we do not really care
        about the signature yet - our wrd.tokens table is leading (and we want to be able to show active sessions anyway) */
-    const atPayload = preparePayload(subjectValue, creationdate, validuntil, { scopes });
+    const atPayload = preparePayload(subjectValue, relativeTo, validUntil, { scopes });
     const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
     if (options?.claims)
       Object.assign(atPayload, options.claims);
@@ -909,7 +925,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const tokens = await this.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
       scopes: returnInfo.scopes,
       customizer: options?.customizer,
-      expires: options?.expires || this.config.expires
+      expires: options?.expires || openIdTokenExpiry
     });
 
     return {
@@ -990,7 +1006,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     return {
       loggedIn: true,
-      setAuth: await prepCookies(prepped, userid, { customizer }) //FIXME handle 'persistent'
+      setAuth: await prepCookies(prepped, userid, { customizer, persistent: options?.persistent }),
     };
   }
 }

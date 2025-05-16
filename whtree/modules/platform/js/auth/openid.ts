@@ -93,11 +93,11 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   }
 
   if (endpoint[3] === 'jwks') {
-    const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
+    const provider = new IdentityProvider(wrdschema);
     return createJSONResponse(200, await provider.getPublicJWKS());
   }
 
-  const provider = new IdentityProvider(wrdschema, { expires: "PT1H" });//1 hour
+  const provider = new IdentityProvider(wrdschema);
   if (endpoint[3] === 'authorize') {
 
     const redirect = await provider.startAuthorizeFlow(req.url, login.loginPage, customizer);
