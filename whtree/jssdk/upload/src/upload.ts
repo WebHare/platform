@@ -3,8 +3,6 @@ declare module "@webhare/upload" {
 }
 
 import * as dompack from "@webhare/dompack";
-import type { ResourceDescriptor } from "@webhare/services";
-import { pick } from "@webhare/std";
 
 /* Note: you can't really build a FileList yourself, but FileList doesn't satisfy File[] and neither the reverse works. (noone is really happy with that though)
    So we'll just accept both types */
@@ -61,6 +59,12 @@ export interface UploadInstructions {
   signal?: AbortSignal;
 }
 
+export type ResourceDescriptorCompatible = {
+  resource: Blob;
+  mediaType: string;
+  fileName: string | null;
+};
+
 export interface UploaderBase {
   readonly manifest: UploadManifest;
   upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult | UploadResult[]>;
@@ -73,7 +77,7 @@ export class MultiFileUploader implements UploaderBase {
   readonly #files: Array<{ name: string; size: number; type: string; data: Blob }>;
   readonly manifest: UploadManifest;
 
-  constructor(files: Array<File | Blob | ResourceDescriptor>, signal?: AbortSignal) {
+  constructor(files: Array<File | Blob | ResourceDescriptorCompatible>, signal?: AbortSignal) {
     if (!files.length)
       throw new Error("No files to upload");
 
@@ -90,7 +94,7 @@ export class MultiFileUploader implements UploaderBase {
         data: item
       }));
     this.manifest = {
-      files: pick(this.#files, ["name", "size", "type"])
+      files: this.#files.map(file => ({ name: file.name, size: file.size, type: file.type }))
     };
   }
 
@@ -187,7 +191,7 @@ export class SingleFileUploader implements UploaderBase {
     return this.uploader.manifest;
   }
 
-  constructor(file: File | Blob | ResourceDescriptor) {
+  constructor(file: File | Blob | ResourceDescriptorCompatible) {
     this.uploader = new MultiFileUploader([file]);
   }
 
