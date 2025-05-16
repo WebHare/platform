@@ -289,7 +289,7 @@ function testDateTime() {
 
   test.eq(new Date("2022-04-03T12:15:01Z"), std.convertWaitPeriodToDate(1000, { relativeTo: new Date("2022-04-03T12:15:00Z") }));
   test.eq(new Date("2022-04-04T12:15:00Z"), std.convertWaitPeriodToDate("P1D", { relativeTo: new Date("2022-04-03T12:15:00Z") }));
-  test.eq(new Date("2022-04-04T12:15:00Z"), std.convertWaitPeriodToDate("P1D", { relativeTo: Temporal.Instant.from("2022-04-03T12:15:00Z") }));
+  test.eq(Temporal.Instant.from("2022-04-04T12:15:00Z"), std.convertWaitPeriodToDate("P1D", { relativeTo: Temporal.Instant.from("2022-04-03T12:15:00Z") }));
 
   test.eq(new Date("2022-04-04T12:15:00Z"), std.convertFlexibleInstantToDate(new Date("2022-04-04T12:15:00Z")));
   test.eq(new Date("2022-04-04T12:15:00Z"), std.convertFlexibleInstantToDate(Temporal.Instant.from("2022-04-04T12:15:00Z")));
