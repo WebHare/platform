@@ -167,7 +167,7 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: AuthCustomizer | null) {
+async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer?: AuthCustomizer | undefined) {
   const state = generateRandomId();
   const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid+invalidscope&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
@@ -229,8 +229,8 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   test.assert(tokens.body.id_token, "We did an openid login so there should be a id_token");
   test.assert(tokens.body.access_token, "and there should be an access_token");
 
-  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token, null));
-  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token, null));
+  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token));
+  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token));
 
   return {
     idToken: tokens.body.id_token,
@@ -312,7 +312,7 @@ async function testAuthAPI() {
   await whdb.commitWork();
 
   //validate openid flow
-  const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser, null);
+  const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser);
   test.assert("idToken" in authresult);
 
   //Fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
@@ -323,8 +323,8 @@ async function testAuthAPI() {
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
 
   //validate openid flow with PKCE (both plain and S256)
-  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "plain" }, testuser, null));
-  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser, null));
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "plain" }, testuser));
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser));
 
   // Test the openid session apis
   const blockingcustomizer: AuthCustomizer = {
@@ -382,9 +382,9 @@ async function testAuthAPI() {
   test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123", null));
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ entityId }) {
@@ -492,7 +492,7 @@ async function testAuthStatus() {
   const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
   const provider = new IdentityProvider(oidcAuthSchema);
   const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
@@ -500,7 +500,7 @@ async function testAuthStatus() {
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //Remove authstatus field
   await whdb.beginWork();
@@ -514,7 +514,7 @@ async function testAuthStatus() {
   await whdb.commitWork();
 
   //Now we can login again even without en active wrdauthAccountStatus
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -527,7 +527,7 @@ async function testAuthStatus() {
   });
   await whdb.commitWork();
 
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));

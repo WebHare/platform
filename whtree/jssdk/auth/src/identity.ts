@@ -681,7 +681,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Get userinfo for a token */
-  async getUserInfo(token: string, customizer: AuthCustomizer | null): Promise<ReportedUserInfo | { error: string }> {
+  async getUserInfo(token: string, customizer?: AuthCustomizer): Promise<ReportedUserInfo | { error: string }> {
     /* We do not verify the token's signature currently - we just look it up in our database. TODO we might not have to store access tokens if we verify its
        signature and just reuse it and save a bit of database churn unless other reasons appear to store these tokens */
     const tokeninfo = await this.verifyAccessToken("oidc", token);
@@ -788,7 +788,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   }
 
   /** Start an oauth2/openid authorization flow */
-  async startAuthorizeFlow(url: string, loginPage: string, customizer: AuthCustomizer | null): Promise<NavigateOrError> {
+  async startAuthorizeFlow(url: string, loginPage: string, customizer?: AuthCustomizer): Promise<NavigateOrError> {
     const searchParams = new URL(url).searchParams;
     const clientid = searchParams.get("client_id") || '';
     const scopes = searchParams.get("scope")?.split(" ") || [];
@@ -833,7 +833,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { type: "redirect", url: target.toString(), error: null };
   }
 
-  async returnAuthorizeFlow(url: string, user: number, customizer: AuthCustomizer | null): Promise<NavigateOrError> {
+  async returnAuthorizeFlow(url: string, user: number, customizer?: AuthCustomizer): Promise<NavigateOrError> {
     const searchParams = new URL(url).searchParams;
     const sessionid = searchParams.get("tok") || '';
     const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
@@ -939,7 +939,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer: AuthCustomizer | null, options?: LoginUsernameLookupOptions): Promise<number | null> {
+  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer?: AuthCustomizer, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
 
@@ -954,7 +954,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async handleFrontendLogin(targeturl: string, username: string, password: string, customizer: AuthCustomizer | null, options?: LoginRemoteOptions): Promise<FrontendAuthResult> {
+  async handleFrontendLogin(targeturl: string, username: string, password: string, customizer?: AuthCustomizer, options?: LoginRemoteOptions): Promise<FrontendAuthResult> {
     const prepped = await prepAuth(targeturl, null);
     if ("error" in prepped)
       throw new Error(prepped.error);
@@ -999,9 +999,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
       const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
       if (result)
-        return {
-          loggedIn: false, ...result
-        };
+        return { loggedIn: false, ...result };
     }
 
     return {

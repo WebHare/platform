@@ -2,7 +2,7 @@ import { type WebHareRouter, type WebRequest, type WebResponse, createJSONRespon
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { WRDSchema, type WRDAuthCustomizer } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL, pick } from "@webhare/std";
 import { getSchemaSettings } from "@webhare/wrd/src/settings";
@@ -10,7 +10,7 @@ import { loadlib } from "@webhare/harescript";
 import { decodeHSON } from "@webhare/hscompat";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
-import type { LoginErrorCodes } from "@webhare/auth";
+import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -78,7 +78,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
-  const customizer = login.customizer ? await importJSObject(login.customizer) as WRDAuthCustomizer : null;
+  const customizer = login.customizer ? await importJSObject(login.customizer) as AuthCustomizer : undefined;
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])
