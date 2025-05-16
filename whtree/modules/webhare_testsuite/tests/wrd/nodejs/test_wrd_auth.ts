@@ -12,6 +12,7 @@ import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
+import type { PublicAuthData } from "@webhare/frontend/src/auth";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -427,43 +428,49 @@ async function testAuthAPI() {
   }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2", persistent: true })));
 
   //Test the frontend login RPC - do we see the proper cache headers
-  let seenheaders = false; // FIXME , seenexpiry = 0; -- see below
-  const loginres = await rpc("platform:authservice", {
-    onBeforeRequest(inUrl, requestInit) {
-      const testsiteurl = new URL(url);
-      inUrl.searchParams.set("pathname", testsiteurl.pathname);
-      requestInit.headers.set("origin", testsiteurl.origin);
-    },
-    onResponse(response) {
-      test.eq("no-store", response.headers.get("cache-control"));
-      test.eq("no-cache", response.headers.get("pragma"));
-      seenheaders = true;
+  for (const testStep of [{ persistent: false }, { persistent: true }]) {
+    let seenheaders = false;
+    const loginres = await rpc("platform:authservice", {
+      onBeforeRequest(inUrl, requestInit) {
+        const testsiteurl = new URL(url);
+        inUrl.searchParams.set("pathname", testsiteurl.pathname);
+        requestInit.headers.set("origin", testsiteurl.origin);
+      },
+      onResponse(response) {
+        test.eq("no-store", response.headers.get("cache-control"));
+        test.eq("no-cache", response.headers.get("pragma"));
+        seenheaders = true;
 
-      const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
-      test.eq(1, setcookie.length);
+        const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
+        test.eq(1, setcookie.length);
 
-      /* FIXME verify expires but need an explicit persistent login
-      const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
-      test.assert(setCookieExpiry);
-      seenexpiry = Date.parse(setCookieExpiry![0].substring(8));
-      */
+        const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        if (testStep.persistent) {
+          test.assert(setCookieExpiry);
+        } else {
+          test.eq(null, setCookieExpiry);
+        }
 
-      const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
-      test.assert(publicCookie);
-      const publicCookieValue = parseTyped(decodeURIComponent(publicCookie.match(/webharelogin-wrdauthjs_publicauthdata=([^;]*)/)![1]));
-      test.assert(publicCookieValue.expiresMs >= Date.now() && publicCookieValue.expiresMs <= Date.now() + 365 * 86400 * 1000);
+        const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
+        test.assert(publicCookie);
+        const pubCookieExpiry = publicCookie.match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        test.eq(setCookieExpiry, pubCookieExpiry);
+        const publicCookieValue = parseTyped(decodeURIComponent(publicCookie.match(/webharelogin-wrdauthjs_publicauthdata=([^;]*)/)![1])) as PublicAuthData;
+        test.assert(publicCookieValue.expiresMs >= Date.now() && publicCookieValue.expiresMs <= Date.now() + 365 * 86400 * 1000);
+        if (testStep.persistent)
+          test.eq(publicCookieValue.expiresMs, Date.parse(setCookieExpiry![0].substring(8)));
 
-      const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0] && c !== publicCookie);
-      test.eq(2, deletecookies.length, "we should have 2 other cookies");
-      const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
-      test.assert(deleteCookieExpiry);
-      test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
-    }
-  }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
+        const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0] && c !== publicCookie);
+        test.eq(2, deletecookies.length, "we should have 2 other cookies");
+        const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        test.assert(deleteCookieExpiry);
+        test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
+      }
+    }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs", testStep?.persistent ? { persistent: true } : undefined);
 
-  test.assert(seenheaders, "verify onResponse isn't skipped");
-  test.assert(loginres.loggedIn);
-  // FIXME verify this - test.eq(seenexpiry, loginres.expires.getTime()); - but need an explicit persistent login
+    test.assert(seenheaders, "verify onResponse isn't skipped");
+    test.assert(loginres.loggedIn);
+  }
 
   await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
 

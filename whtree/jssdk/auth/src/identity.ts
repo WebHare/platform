@@ -1125,6 +1125,7 @@ async function prepCookies(prepped: PrepAuthResult, userId: number, options?: Au
 
   const setToken: SetAuthCookies = {
     ...prepped.cookies,
+    persistent: options?.persistent || false,
     value: generateRandomId() + " accessToken:" + idToken.accessToken,
     expires: idToken.expires,
   };
