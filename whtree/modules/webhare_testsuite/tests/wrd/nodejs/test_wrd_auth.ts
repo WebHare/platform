@@ -11,6 +11,7 @@ import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -47,6 +48,51 @@ async function __typeTests() {
   await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent" });
   //@ts-expect-error -- should fail, we're ignoring data as its not typed as a non-array object
   await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent", data: { s: "x" } });
+}
+
+async function testExpiryCalculation() {
+  //this is a port of TestHelpers in mod::webhare_testsuite/tests/wrd/auth/testwrdauthplugin-expiry.whscr
+
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 86400_000),
+    "Logging in at 17:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T22:00:00Z"), 86400_000),
+    "Logging in at midnight CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T22:59:59Z"), 86400_000),
+    "Logging in at 00:59:59 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC) (just outside round_minduration)");
+
+  test.eq(Temporal.Instant.from("2021-07-14T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T23:00:00Z"), 86400_000),
+    "Logging in at 01:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC) (within round_minduration)");
+
+  test.eq(Temporal.Instant.from("2021-07-14T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-13T00:00:00Z"), 86400_000),
+    "Logging in at 02:00:00 CET should give a session until 04:00:00 CET (02:00:00 UTC) the NEXT day");
+
+  test.eq(Temporal.Instant.from("2021-07-19T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 7 * 86400_000),
+    "Logging in at 17:00:00 CET with 7 day expiry should give a session until 7 days later 04:00:00 CET (02:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-12T16:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 60 * 60_000), //1 hour
+    "Logging in at 17:00:00 CET with 1 hour expiry should give a session until 18:00:00 CET (17:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-12T09:30:00Z"),
+    calculateWRDSessionExpiry({ ...defaultWRDAuthLoginSettings, round_longlogins_to: 4 * 3600 * 1000 },
+      Temporal.Instant.from("2021-07-12T09:15:00Z"),
+      15 * 60 * 1000), // 15 minutes
+    "Killing round_longlogins_to should stop any rounding up/down");
+
+  test.eq(Temporal.Instant.from("2021-07-12T16:15:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings,
+      Temporal.Instant.from("2021-07-12T10:15:00Z"),
+      6 * 3600 * 1000), // 6 hours
+    "Logging in at 12: 15:00 CET should give a session until 18: 15:00 CET");
+
+  //FIXME what if round_minduration > session duration?
 }
 
 async function testAuthSettings() {
@@ -492,6 +538,7 @@ async function testSlowPasswordHash() {
 }
 
 test.runTests([
+  testExpiryCalculation,
   testAuthSettings,
   testLowLevelAuthAPIs,
   setupOpenID,
