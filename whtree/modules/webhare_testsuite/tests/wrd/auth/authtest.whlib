@@ -31,13 +31,13 @@ PUBLIC RECORD FUNCTION DebugReq(STRING action, RECORD vars DEFAULTSTO DEFAULT RE
   STRING url := ResolveToAbsoluteURL(baseurl, "/.webhare_testsuite/tests/wrd/authdebug.shtml");
   url := UpdateURLVariables(url, CELL[ forurl := UnpackURL(baseurl).urlpath, action, ...vars ]);
 
-  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
+  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/json")
   {
     SendBlobTo(0,testfw->browser->content);
     Abort("get failure on " || testfw->browser->url);
   }
 
-  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
+  RETURN DecodeJSON(BlobToString(testfw->browser->content,-1));
 }
 
 PUBLIC RECORD FUNCTION ExplainWRDCookies()
@@ -51,4 +51,3 @@ PUBLIC RECORD FUNCTION ExplainWRDCookies()
              , logindetails := logincookiedetails
              ];
 }
-

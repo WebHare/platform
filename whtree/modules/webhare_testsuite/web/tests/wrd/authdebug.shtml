@@ -115,5 +115,5 @@ RECORD FUNCTION ProcessReq()
 }
 
 RECORD res := ProcessReq();
-AddHTTPHeader("Content-Type","application/x-hson",FALSE);
-Print(EncodeHSON(res) || "\n");
+AddHTTPHeader("Content-Type","application/json",FALSE); //JSON makes sure any browser can view the page instead of triggering a download
+Print(EncodeJSON(res) || "\n");
