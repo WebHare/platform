@@ -18,6 +18,8 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", ty
                                                      , [ name := "striprtdextension", type := "switch" ]
                                                      , [ name := "savemeta", type := "switch" ]
                                                      , [ name := "restoremeta", type := "stringopt" ]
+                                                     , [ name := "searchurlhistory", type := "stringopt" ]
+                                                     , [ name := "replaceurlhistory", type := "stringopt" ]
                                                      , [ name := "unpin", type := "switch" ]
                                                      , [ name := "reindex", type := "switch" ]
                                                      , [ name := "dryrun", type := "switch" ]
@@ -36,6 +38,8 @@ IF (NOT RecordExists(args) OR Length(args.paths) = 0)
   --savemeta           Save url history and creation/update dates to an exportable instance
   --restoremeta=...    Restore specific metadata. Comma separated list of 'urlhistory', 'modificationdate', 'firstpublishdate' or 'contentmodificationdate'
   --reindex            Reindex for Publisher search
+  --searchurlhistory   Search for URL history entries matching the given pattern
+  --replaceurlhistory  Replace URL history entries matching the given pattern with the given replacement
 
 <?wh
   SetConsoleExitCode(1);
@@ -50,7 +54,7 @@ IF(args.pin AND args.unpin)
 
 OBJECT trans := OpenPrimary();
 OBJECT saveurlhistorytype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/savedurlhistory");
-BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.savemeta OR args.restoremeta != "" OR args.striprtdextension OR args.reindex);
+BOOLEAN listonly := NOT (args.pin OR args.unpin OR args.savemeta OR args.restoremeta != "" OR args.striprtdextension OR args.reindex OR args.searchurlhistory != "");
 STRING ARRAY restorefields := Tokenize(args.restoremeta, ",");
 
 IF(args.restoremeta != "" AND args.savemeta)
@@ -161,6 +165,40 @@ RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
           , urlhistory := (SELECT creationdate, url FROM history WHERE fsobject = obj.originalid)
           ], [ isvisibleedit := FALSE ]);
         INSERT obj.originalid INTO updatedids AT END;
+      }
+    }
+    IF(args.searchurlhistory != "")
+    {
+      INTEGER ARRAY ids := SELECT AS INTEGER ARRAY id FROM objects;
+      RECORD ARRAY history := SELECT urlhistory.url
+                                   , urlhistory.fsobject
+                                FROM publisher.urlhistory
+                               WHERE fsobject IN VAR ids
+                                     AND urlhistory.url LIKE `*${args.searchurlhistory}*`;
+
+      FOREVERY(RECORD obj FROM objects)
+      {
+        RECORD ARRAY matches := SELECT * FROM history WHERE fsobject = obj.id;
+        IF(Length(matches) > 0)
+        {
+          Print(`${obj.whfspath}\n`);
+          FOREVERY(RECORD match FROM matches)
+          {
+            Print(`- ${match.url}\n`);
+            IF(args.replaceurlhistory != "")
+            {
+              STRING newurl := Substitute(match.url, args.searchurlhistory, args.replaceurlhistory);
+              IF(newurl != match.url AND NOT RecordExists(SELECT FROM matches WHERE url = newurl))
+              {
+                Print(`- Adding history entry for ${newurl}\n`);
+                // OpenWHFSObject(match.fsobject)->UpdateMetadata([ url := newurl ]);
+                IF(NOT args.dryrun)
+                  AddURLHistoryEntry(match.fsobject, newurl);
+              }
+            }
+          }
+        }
+
       }
     }
     IF(args.restoremeta != "")

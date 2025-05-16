@@ -72,8 +72,14 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
 
   setup_builddir
   # Who thought it was a good idea to write the version to stderr even if explicitly invoking --version ?
-  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version 2>&1 | grep ^Version)"
-  [ -n "$CURRENT_OPENSEARCHVERSION" ] || die "Failed to get opensearch version"
+  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version 2>&1 | (grep ^Version || true) )"
+  if [ -z "$CURRENT_OPENSEARCHVERSION" ]; then
+    echo "*** Failed to get opensearch version from $OPENSEARCHBINARY"
+    echo "If reporting this also include the actual output of opensearch --version:"
+    echo ""
+    $CHPST "$OPENSEARCHBINARY" --version || true
+    exit 1
+  fi
 
   # Remove from old location (remove at Date.now >= 2025-10-09)
   [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
