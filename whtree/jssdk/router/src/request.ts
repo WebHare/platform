@@ -2,6 +2,7 @@ import type { WebRequestInfo } from "@mod-system/js/internal/types";
 import type { DebugFlags } from "@webhare/env/src/envbackend";
 import { getDebugSettings } from "./debug";
 import type { TransferListItem } from "worker_threads";
+import type { WRDSchema } from "@webhare/wrd";
 
 export enum HTTPMethod {
   GET = "GET",
@@ -34,7 +35,7 @@ export type RPCContext = {
   /** Get the URL of the caller */
   getOriginURL: () => string | null;
   /** Get the WRDAuth verified user that made the call (based on either login cookie or authorization header ) */
-  getRequestUser: () => Promise<number | null>;
+  getRequestUser: (wrdSchema?: WRDSchema) => Promise<number | null>;
   /** Response headers */
   responseHeaders: Headers;
 };
