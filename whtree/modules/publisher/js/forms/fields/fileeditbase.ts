@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- FIXME: needs API rework */
 
 import * as dompack from 'dompack';
-import { SingleFileUploader, requestFile } from "@webhare/upload";
+import { requestFile } from "@webhare/upload";
 
 import { getTid } from "@webhare/gettid";
 import { setFieldError } from '@mod-publisher/js/forms/internal/customvalidation';
@@ -112,7 +112,7 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
 
     const files = evt.dataTransfer?.files;
     if (files)
-      this.processUpload(new SingleFileUploader(files[0]));
+      this.processUpload(files[0]);
   }
 
   async uploadFile(evt: Event) {
@@ -125,25 +125,25 @@ export abstract class FileEditElement extends JSFormElement<FormFileValue[]> {
     using lock = dompack.flagUIBusy();
     void (lock);
 
-    const uploader = await requestFile({ accept });
-    if (!uploader)
+    const file = await requestFile({ accept });
+    if (!file)
       return;
 
-    await this.processUpload(uploader);
+    await this.processUpload(file);
   }
 
-  private async processUpload(uploader: SingleFileUploader) {
+  private async processUpload(file: File) {
     if (this.disabled || this.currentFiles.length >= this.maxFiles)
       return; //should not even have been offered?
 
-    if (!this._isAcceptableType(uploader.file.type)) {
+    if (!this._isAcceptableType(file.type)) {
       //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
       const msg = this.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
       setFieldError(this, msg, { reportimmediately: true });
       return;
     }
 
-    this.currentFiles.push({ fileName: uploader.file.name, file: uploader.file, link: null });
+    this.currentFiles.push({ fileName: file.name, file: file, link: null });
     this.refresh();
     dompack.dispatchCustomEvent(this, 'change', { bubbles: true, cancelable: false });
   }

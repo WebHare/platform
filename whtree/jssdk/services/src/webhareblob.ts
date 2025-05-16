@@ -26,20 +26,20 @@ export abstract class WebHareBlob implements Blob {
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
-  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView | ArrayBufferView): WebHareBlob {
+  static from(str: string | Buffer | ArrayBufferLike | Uint8Array | DataView | ArrayBufferView, { type }: { type?: string } = {}): WebHareBlob {
     if (typeof str === "string")
-      return new WebHareMemoryBlob(new TextEncoder().encode(str));
+      return new WebHareMemoryBlob(new TextEncoder().encode(str), type ?? "");
     if ("readUInt8" in str || str instanceof Uint8Array) // Buffer or Uint8Array
-      return new WebHareMemoryBlob(str);
+      return new WebHareMemoryBlob(str, type ?? "");
     if ("byteOffset" in str && "byteLength" in str) // Other typed array (ArrayBufferView), DataView
-      return new WebHareMemoryBlob(new Uint8Array(str.buffer, str.byteOffset, str.byteLength));
-    return new WebHareMemoryBlob(new Uint8Array(str));
+      return new WebHareMemoryBlob(new Uint8Array(str.buffer, str.byteOffset, str.byteLength), type ?? "");
+    return new WebHareMemoryBlob(new Uint8Array(str), type ?? "");
   }
 
-  /** Create a WebHare blob from a JavaScript Blob */
-  static async fromBlob(blob: Blob): Promise<WebHareBlob> {
+  /** Create a WebHare blob from a JavaScript Blob, copying the data */
+  static async fromBlob(blob: Blob, { type }: { type?: string } = {}): Promise<WebHareBlob> {
     //TODO avoid excessive copies/memory usage, stream the blob?
-    return WebHareBlob.from(Buffer.from(await blob.arrayBuffer()));
+    return WebHareBlob.from(Buffer.from(await blob.arrayBuffer()), { type: type ?? blob.type });
   }
 
   /** Create a WebHare blob from a file on disk */

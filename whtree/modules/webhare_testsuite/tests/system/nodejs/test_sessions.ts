@@ -115,11 +115,11 @@ async function testUpload() {
   //Storage should be gone eventually (the cleanup is async in JS)
   await test.wait(() => !existsSync(getStorageFolderForSession(howToUpload.sessionId)));
 
-  //Ensure constructing as blob still gives us a Usable file
+  //Ensure constructing as blob assigns the name 'upload' and correctly determines type and size
   const uploaderBlob = new SingleFileUploader(new Blob([uploadText], { type: "text/plain" }));
-  test.eq(uploadText.length, uploaderBlob.file.size);
-  test.eq("upload", uploaderBlob.file.name);
-  test.eq("text/plain", uploaderBlob.file.type);
+  test.eq(uploadText.length, uploaderBlob.manifest.files[0].size);
+  test.eq("upload", uploaderBlob.manifest.files[0].name);
+  test.eq("text/plain", uploaderBlob.manifest.files[0].type);
 }
 
 async function testUploadHSCompat() {

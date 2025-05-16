@@ -344,6 +344,8 @@ export interface JWTVerificationOptions {
 export interface VerifyAccessTokenResult {
   ///wrdId of the found subject
   entity: number;
+  ///authAccountStatus of the found subject, if available
+  accountStatus: WRDAuthAccountStatus | null;
   ///decoded scopes
   scopes: string[];
   ///client to which the token was provided
@@ -714,12 +716,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return payload;
   }
 
-  /** Verify a token we gave out ourselves. Also checks against retracted tokens
+  /** Verify a token we gave out ourselves. Also checks against retracted tokens and still existing owner entity
    * @param type - Expected token type
    * @param token - The token to verify
+   * @param options - Optional parameters for token verification
   */
-  async verifyAccessToken(type: "id" | "api" | "oidc", token: string): Promise<VerifyAccessTokenResult | { error: string }> {
-    //TODO verify that this schema
+  async verifyAccessToken(type: "id" | "api" | "oidc", token: string, options?: { ignoreAccountStatus?: boolean }): Promise<VerifyAccessTokenResult | { error: string }> {
     const hashed = hashSHA256(token);
     const matchToken = await db<PlatformDB>().
       selectFrom("wrd.tokens").
@@ -728,13 +730,36 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       select(["entity", "client", "expirationdate", "scopes", "type", "id"]).
       executeTakeFirst();
 
-    if (!matchToken || (matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
+    if (!matchToken)
       return { error: `Token is invalid` };
 
-    //TOODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
+    if ((matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
+      return { error: `Token expired at ${matchToken.expirationdate.toISOString()}` };
+
+    const authsettings = await getAuthSettings(this.wrdschema);
+    let accountStatus: WRDAuthAccountStatus | null = null;
+    if (authsettings) {
+      const getfields = {
+        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
+      };
+      // @ts-expect-error -- TS WRD can't handle this type of dynamic queries
+      const entity = await this.wrdschema.getFields(authsettings.accountType, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
+        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+      } | null;
+      if (!entity)
+        return { error: `Token owner does not exist anymore` };
+      if (authsettings.hasAccountStatus) {
+        accountStatus = entity.wrdauthAccountStatus || null;
+        if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
+          return { error: `Token owner has been disabled` };
+        }
+      }
+    }
+
     return {
       entity: matchToken.entity,
       tokenId: matchToken.id,
+      accountStatus,
       scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
       client: matchToken.client,
       expires: matchToken.expirationdate?.toTemporalInstant() ?? null

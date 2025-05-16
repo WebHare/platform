@@ -10,6 +10,7 @@ import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
+import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -173,7 +174,9 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   test.eqPartial({ id_token: /^eyJ/, access_token: /^secret-token:eyJ/ }, tokens.body);
   test.eq({ error: /Invalid or expired/, }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
   test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token!));
-  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId }, await provider.verifyAccessToken("oidc", tokens.body.access_token));
+  test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId, accountStatus: { status: "active" } }, await provider.verifyAccessToken("oidc", tokens.body.access_token));
+  // Wrong schema
+  test.eqPartial({ error: "Token owner does not exist anymore" }, await new IdentityProvider(systemUsermgmtSchema).verifyAccessToken("oidc", tokens.body.access_token));
 
   const verifyresult = await provider.validateToken(tokens.body.id_token!);
   test.eqPartial({ aud: clientId, iss: "https://my.webhare.dev/testfw/issuer" }, verifyresult);
@@ -236,7 +239,12 @@ async function testAuthAPI() {
   //Setup test user and test the AuthenticationSettings types
   const testunit = await oidcAuthSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await oidcAuthSchema.insert("wrdPerson", {
-    wrdFirstName: "Jon", wrdLastName: "Show", wrdContactEmail: "jonshow@beta.webhare.net", whuserUnit: testunit, whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$), wrdauthAccountStatus: { status: "active" }
+    wrdFirstName: "Jon",
+    wrdLastName: "Show",
+    wrdContactEmail: "jonshow@beta.webhare.net",
+    whuserUnit: testunit,
+    whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$),
+    wrdauthAccountStatus: { status: "active" }
   });
   await whdb.commitWork();
 
@@ -294,9 +302,20 @@ async function testAuthAPI() {
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 
-  test.eqPartial({ entity: testuser }, await provider.verifyAccessToken("id", login1.accessToken));
+  test.eqPartial({ entity: testuser, accountStatus: { status: "active" } }, await provider.verifyAccessToken("id", login1.accessToken));
 
-  //FIXME test rejection when expired, different schema etc
+  // STORY: test if wrdauthAccountStatus is handled & passed on correctly, entity deletion is detected
+  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "blocked", reason: "for test" } }));
+  test.eqPartial({ error: "Token owner has been disabled" }, await provider.verifyAccessToken("id", login1.accessToken));
+  test.eqPartial({ entity: testuser, accountStatus: { status: "blocked" } }, await provider.verifyAccessToken("id", login1.accessToken, { ignoreAccountStatus: true }));
+  await whdb.runInWork(() => oidcAuthSchema.close("wrdPerson", testuser));
+  test.eqPartial({ error: "Token owner does not exist anymore" }, await provider.verifyAccessToken("id", login1.accessToken));
+  await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdLimitDate: null, wrdauthAccountStatus: { status: "active" } }));
+
+  // STORY: test expired token
+  const login3 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "", expires: "PT0.001S" });
+  await test.sleep(2);
+  test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
   //Test the frontend login
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123", null));

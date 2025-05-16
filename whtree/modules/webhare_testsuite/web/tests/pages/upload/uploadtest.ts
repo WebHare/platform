@@ -1,5 +1,5 @@
 import * as dompack from "@webhare/dompack";
-import { requestFile, requestFiles, type UploadProgressStatus, type UploadRequestOptions, type UploaderBase } from "@webhare/upload";
+import { MultiFileUploader, SingleFileUploader, requestFile, requestFiles, type UploadProgressStatus, type UploadRequestOptions } from "@webhare/upload";
 import * as test from "@webhare/test-frontend";
 
 let aborter: AbortController | null;
@@ -19,12 +19,16 @@ function onProgress(progress: UploadProgressStatus) {
 
 }
 
-async function doActualUpload(onUpload: (options?: UploadRequestOptions) => Promise<UploaderBase | null>, options?: UploadRequestOptions): Promise<void> {
+async function doActualUpload(onUpload: (options?: UploadRequestOptions) => Promise<File[] | File | null>, options?: UploadRequestOptions): Promise<void> {
   const chunkSize = parseInt(dompack.qR<HTMLInputElement>("#chunksize").value) || 0;
   aborter = new AbortController;
 
-  const uploader = await onUpload(options); //show dialog to user
-  if (uploader) { //not cancelled
+  const files = await onUpload(options); //show dialog to user
+  if (files) { //not cancelled
+    const uploader = Array.isArray(files) ?
+      new MultiFileUploader(files) :
+      new SingleFileUploader(files);
+
     //RPC call to ask server if its happy to receive the files (it will invoke createUploadSession if it is)
     const uploadinstructions = await test.invoke("@mod-webhare_testsuite/tests/wh/jscomponents/compat/testupload2-lib.ts#offerFiles", uploader.manifest, { chunkSize });
 

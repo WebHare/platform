@@ -18,99 +18,99 @@ function testRoundingCall(base: number, mode: finmath.RoundMode, expect: number[
 }
 
 function testPresentation() {
-  test.eq(finmath.formatPrice(0, ".", 0), "0");
-  test.eq(finmath.formatPrice("0", ".", 0), "0");
-  test.eq(finmath.formatPrice("-0", ".", 0), "0");
-  test.eq(finmath.formatPrice(-2, ".", 0), "-2");
-  test.eq(finmath.formatPrice(-2, ".", 1), "-2.0");
-  test.eq(finmath.formatPrice("-2.1", ".", 1), "-2.1");
-  test.eq(finmath.formatPrice("-0.1", ".", 1), "-0.1");
-  test.eq(finmath.formatPrice("-0.01", ".", 1), "-0.01");
-  test.eq(finmath.formatPrice("1.0", ".", 0), "1");
-  test.eq(finmath.formatPrice("1.0", ".", 1), "1.0");
-  test.eq(finmath.formatPrice("1.01", ".", 0), "1.01");
-  test.eq(finmath.formatPrice("0.50", ".", 2), "0.50");
-  test.eq(finmath.formatPrice("119.5", ".", 2), "119.50");
+  test.eq("0", finmath.formatPrice(0, ".", 0));
+  test.eq("0", finmath.formatPrice("0", ".", 0));
+  test.eq("0", finmath.formatPrice("-0", ".", 0));
+  test.eq("-2", finmath.formatPrice(-2, ".", 0));
+  test.eq("-2.0", finmath.formatPrice(-2, ".", 1));
+  test.eq("-2.1", finmath.formatPrice("-2.1", ".", 1));
+  test.eq("-0.1", finmath.formatPrice("-0.1", ".", 1));
+  test.eq("-0.01", finmath.formatPrice("-0.01", ".", 1));
+  test.eq("1", finmath.formatPrice("1.0", ".", 0));
+  test.eq("1.0", finmath.formatPrice("1.0", ".", 1));
+  test.eq("1.01", finmath.formatPrice("1.01", ".", 0));
+  test.eq("0.50", finmath.formatPrice("0.50", ".", 2));
+  test.eq("119.50", finmath.formatPrice("119.5", ".", 2));
 }
 
 function testAddition() {
-  test.eq(finmath.add("0.50", 0), "0.5");
-  test.eq(finmath.add("119.00", "0.50"), "119.5");
+  test.eq("0.5", finmath.add("0.50", 0));
+  test.eq("119.5", finmath.add("119.00", "0.50"));
 }
 
 function testMultiplicationAndPercentages() {
-  test.eq(finmath.multiply("138.5", 3), "415.5");
-  test.eq(finmath.multiply("138.5", -1), "-138.5");
-  test.eq(finmath.multiply("-5", -1), "5");
-  test.eq(finmath.multiply("145", "0.001"), "0.145");
-  test.eq(finmath.multiply("-145", "0.001"), "-0.145");
-  test.eq(finmath.multiply("14.5", "0.001"), "0.0145");
-  test.eq(finmath.multiply("-14.5", "0.001"), "-0.0145");
-  test.eq(finmath.multiply("1.45", "0.001"), "0.00145");
-  test.eq(finmath.multiply("-1.45", "0.001"), "-0.00145");
-  test.eq(finmath.multiply("0.144", "0.001"), "0.00014");
-  test.eq(finmath.multiply("-0.144", "0.001"), "-0.00014");
-  test.eq(finmath.multiply("0.145", "0.001"), "0.00015");
-  test.eq(finmath.multiply("-0.145", "0.001"), "-0.00015");
-  test.eq(finmath.multiply("0.0145", "0.001"), "0.00001");
-  test.eq(finmath.multiply("-0.0145", "0.001"), "-0.00001");
-  test.eq(finmath.multiply("13.76", "0.0867"), "1.19299"); //must stay in safe range, so round 1.192992 to 1.19299
-  test.eq(finmath.multiply("-13.76", "0.0867"), "-1.19299");
-  test.eq(finmath.getPercentageOfAmount("138.5", 300), "415.5");
-  test.eq(finmath.getPercentageOfAmount("138.5", -100), "-138.5");
-  test.eq(finmath.getPercentageOfAmount("-5", -100), "5");
-  test.eq(finmath.getPercentageOfAmount("145", "0.1"), "0.145");
-  test.eq(finmath.getPercentageOfAmount("-145", "0.1"), "-0.145");
-  test.eq(finmath.getPercentageOfAmount("14.5", "0.1"), "0.0145");
-  test.eq(finmath.getPercentageOfAmount("-14.5", "0.1"), "-0.0145");
-  test.eq(finmath.getPercentageOfAmount("1.45", "0.1"), "0.00145");
-  test.eq(finmath.getPercentageOfAmount("-1.45", "0.1"), "-0.00145");
-  test.eq(finmath.getPercentageOfAmount("0.144", "0.1"), "0.00014");
-  test.eq(finmath.getPercentageOfAmount("-0.144", "0.1"), "-0.00014");
-  test.eq(finmath.getPercentageOfAmount("0.145", "0.1"), "0.00015");
-  test.eq(finmath.getPercentageOfAmount("-0.145", "0.1"), "-0.00015");
-  test.eq(finmath.getPercentageOfAmount("0.0145", "0.1"), "0.00001");
-  test.eq(finmath.getPercentageOfAmount("-0.0145", "0.1"), "-0.00001");
-  test.eq(finmath.getPercentageOfAmount("13.76", "8.67"), "1.19299"); //must stay in safe range, so round 1.192992 to 1.19299
-  test.eq(finmath.getPercentageOfAmount("-13.76", "8.67"), "-1.19299");
+  test.eq("415.5", finmath.multiply("138.5", 3));
+  test.eq("-138.5", finmath.multiply("138.5", -1));
+  test.eq("5", finmath.multiply("-5", -1));
+  test.eq("0.145", finmath.multiply("145", "0.001"));
+  test.eq("-0.145", finmath.multiply("-145", "0.001"));
+  test.eq("0.0145", finmath.multiply("14.5", "0.001"));
+  test.eq("-0.0145", finmath.multiply("-14.5", "0.001"));
+  test.eq("0.00145", finmath.multiply("1.45", "0.001"));
+  test.eq("-0.00145", finmath.multiply("-1.45", "0.001"));
+  test.eq("0.00014", finmath.multiply("0.144", "0.001"));
+  test.eq("-0.00014", finmath.multiply("-0.144", "0.001"));
+  test.eq("0.00015", finmath.multiply("0.145", "0.001"));
+  test.eq("-0.00015", finmath.multiply("-0.145", "0.001"));
+  test.eq("0.00001", finmath.multiply("0.0145", "0.001"));
+  test.eq("-0.00001", finmath.multiply("-0.0145", "0.001"));
+  test.eq("1.19299", finmath.multiply("13.76", "0.0867")); //must stay in safe range, so round 1.192992 to 1.19299
+  test.eq("-1.19299", finmath.multiply("-13.76", "0.0867"));
+  test.eq("415.5", finmath.getPercentageOfAmount("138.5", 300));
+  test.eq("-138.5", finmath.getPercentageOfAmount("138.5", -100));
+  test.eq("5", finmath.getPercentageOfAmount("-5", -100));
+  test.eq("0.145", finmath.getPercentageOfAmount("145", "0.1"));
+  test.eq("-0.145", finmath.getPercentageOfAmount("-145", "0.1"));
+  test.eq("0.0145", finmath.getPercentageOfAmount("14.5", "0.1"));
+  test.eq("-0.0145", finmath.getPercentageOfAmount("-14.5", "0.1"));
+  test.eq("0.00145", finmath.getPercentageOfAmount("1.45", "0.1"));
+  test.eq("-0.00145", finmath.getPercentageOfAmount("-1.45", "0.1"));
+  test.eq("0.00014", finmath.getPercentageOfAmount("0.144", "0.1"));
+  test.eq("-0.00014", finmath.getPercentageOfAmount("-0.144", "0.1"));
+  test.eq("0.00015", finmath.getPercentageOfAmount("0.145", "0.1"));
+  test.eq("-0.00015", finmath.getPercentageOfAmount("-0.145", "0.1"));
+  test.eq("0.00001", finmath.getPercentageOfAmount("0.0145", "0.1"));
+  test.eq("-0.00001", finmath.getPercentageOfAmount("-0.0145", "0.1"));
+  test.eq("1.19299", finmath.getPercentageOfAmount("13.76", "8.67")); //must stay in safe range, so round 1.192992 to 1.19299
+  test.eq("-1.19299", finmath.getPercentageOfAmount("-13.76", "8.67"));
 }
 
 function testSubtraction() {
-  test.eq(finmath.subtract("4.95", 5), "-0.05");
+  test.eq("-0.05", finmath.subtract("4.95", 5));
 }
 
 function testComparison() {
-  test.eq(finmath.cmp("0.50", "1.50"), -1);
-  test.eq(finmath.cmp("1.50", "1.50"), 0);
-  test.eq(finmath.cmp("2.50", "1.50"), 1);
-  test.eq(finmath.cmp("0.50", "0.0"), 1);
-  test.eq(finmath.cmp("-0.50", "0.00"), -1);
-  test.eq(finmath.cmp("0.0", "0.50"), -1);
-  test.eq(finmath.cmp("-0", "0"), 0);
+  test.eq(-1, finmath.cmp("0.50", "1.50"));
+  test.eq(0, finmath.cmp("1.50", "1.50"));
+  test.eq(1, finmath.cmp("2.50", "1.50"));
+  test.eq(1, finmath.cmp("0.50", "0.0"));
+  test.eq(-1, finmath.cmp("-0.50", "0.00"));
+  test.eq(-1, finmath.cmp("0.0", "0.50"));
+  test.eq(0, finmath.cmp("-0", "0"));
 
-  test.eq(finmath.test("1", "<", "0"), false);
-  test.eq(finmath.test("1", "<", "1"), false);
-  test.eq(finmath.test("1", "<", "2"), true);
+  test.eq(false, finmath.test("1", "<", "0"));
+  test.eq(false, finmath.test("1", "<", "1"));
+  test.eq(true, finmath.test("1", "<", "2"));
 
-  test.eq(finmath.test("1", "<=", "0"), false);
-  test.eq(finmath.test("1", "<=", "1"), true);
-  test.eq(finmath.test("1", "<=", "2"), true);
+  test.eq(false, finmath.test("1", "<=", "0"));
+  test.eq(true, finmath.test("1", "<=", "1"));
+  test.eq(true, finmath.test("1", "<=", "2"));
 
-  test.eq(finmath.test("1", "==", "0"), false);
-  test.eq(finmath.test("1", "==", "1"), true);
-  test.eq(finmath.test("1", "==", "2"), false);
+  test.eq(false, finmath.test("1", "==", "0"));
+  test.eq(true, finmath.test("1", "==", "1"));
+  test.eq(false, finmath.test("1", "==", "2"));
 
-  test.eq(finmath.test("1", "!=", "0"), true);
-  test.eq(finmath.test("1", "!=", "1"), false);
-  test.eq(finmath.test("1", "!=", "2"), true);
+  test.eq(true, finmath.test("1", "!=", "0"));
+  test.eq(false, finmath.test("1", "!=", "1"));
+  test.eq(true, finmath.test("1", "!=", "2"));
 
-  test.eq(finmath.test("1", ">", "0"), true);
-  test.eq(finmath.test("1", ">", "1"), false);
-  test.eq(finmath.test("1", ">", "2"), false);
+  test.eq(true, finmath.test("1", ">", "0"));
+  test.eq(false, finmath.test("1", ">", "1"));
+  test.eq(false, finmath.test("1", ">", "2"));
 
-  test.eq(finmath.test("1", ">=", "0"), true);
-  test.eq(finmath.test("1", ">=", "1"), true);
-  test.eq(finmath.test("1", ">=", "2"), false);
+  test.eq(true, finmath.test("1", ">=", "0"));
+  test.eq(true, finmath.test("1", ">=", "1"));
+  test.eq(false, finmath.test("1", ">=", "2"));
 }
 
 function testRounding() {
@@ -132,31 +132,31 @@ function testRounding() {
 }
 
 function testMinMax() {
-  test.eq(finmath.max(3), "3");
-  test.eq(finmath.max(3, 2), "3");
-  test.eq(finmath.max(3, 2, 4), "4");
-  test.eq(finmath.max(3, 2, 4, "1.5"), "4");
-  test.eq(finmath.max(3, 2, 4, "1.5", "4.5"), "4.5");
+  test.eq("3", finmath.max(3));
+  test.eq("3", finmath.max(3, 2));
+  test.eq("4", finmath.max(3, 2, 4));
+  test.eq("4", finmath.max(3, 2, 4, "1.5"));
+  test.eq("4.5", finmath.max(3, 2, 4, "1.5", "4.5"));
 
-  test.eq(finmath.min(3), "3");
-  test.eq(finmath.min(3, 2), "2");
-  test.eq(finmath.min(3, 2, 4), "2");
-  test.eq(finmath.min(3, 2, 4, "1.5"), "1.5");
-  test.eq(finmath.min(3, 2, 4, "1.5", "4.5"), "1.5");
+  test.eq("3", finmath.min(3));
+  test.eq("2", finmath.min(3, 2));
+  test.eq("2", finmath.min(3, 2, 4));
+  test.eq("1.5", finmath.min(3, 2, 4, "1.5"));
+  test.eq("1.5", finmath.min(3, 2, 4, "1.5", "4.5"));
 }
 
 function testDivision() {
-  test.eq(finmath.divide(1, 3), "0.33333");
-  test.eq(finmath.divide(-1, 3), "-0.33333");
-  test.eq(finmath.divide(2, 3), "0.66667");
-  test.eq(finmath.divide(-2, 3), "-0.66667");
-  test.eq(finmath.divide("0.00150", 100), "0.00002");
-  test.eq(finmath.divide("0.00149", 100), "0.00001");
-  test.eq(finmath.divide(100, 20), "5");
-  test.eq(finmath.divide(-5, 1000000), "-0.00001");
-  test.eq(finmath.divide("5", "2.5"), "2");
-  test.eq(finmath.divide("5", "0.5"), "10");
-  test.eq(finmath.divide("1.19299", "0.0867"), "13.75998");
+  test.eq("0.33333", finmath.divide(1, 3));
+  test.eq("-0.33333", finmath.divide(-1, 3));
+  test.eq("0.66667", finmath.divide(2, 3));
+  test.eq("-0.66667", finmath.divide(-2, 3));
+  test.eq("0.00002", finmath.divide("0.00150", 100));
+  test.eq("0.00001", finmath.divide("0.00149", 100));
+  test.eq("5", finmath.divide(100, 20));
+  test.eq("-0.00001", finmath.divide(-5, 1000000));
+  test.eq("2", finmath.divide("5", "2.5"));
+  test.eq("10", finmath.divide("5", "0.5"));
+  test.eq("13.75998", finmath.divide("1.19299", "0.0867"));
 }
 
 test.runTests([

@@ -49,7 +49,7 @@ export const testAPI = {
     return null;
   },
   async validateLoggedinUser(context: RPCContext): Promise<{ user: string }> {
-    const userId = await context.getRequestUser();
+    const userId = await context.getRequestUser(testschemaSchema);
     if (userId) {
       const user = await testschemaSchema.getFields("wrdPerson", userId, ["wrdFullName"]);
       if (user)

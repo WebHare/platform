@@ -7,13 +7,11 @@ import * as dompack from "@webhare/dompack";
 /* Note: you can't really build a FileList yourself, but FileList doesn't satisfy File[] and neither the reverse works. (noone is really happy with that though)
    So we'll just accept both types */
 
-type FileListLike = FileList | Blob[];
-
 declare global {
   interface GlobalEventHandlersEventMap {
     "wh:requestfiles": CustomEvent<{
       /** Callback to invoke with the list of files to upload */
-      resolve: (files: FileListLike) => void;
+      resolve: (files: File[]) => void;
     } & Required<UploadRequestOptions>>;
   }
 }
@@ -61,34 +59,50 @@ export interface UploadInstructions {
   signal?: AbortSignal;
 }
 
+export type ResourceDescriptorCompatible = {
+  resource: Blob;
+  mediaType: string;
+  fileName: string | null;
+};
+
 export interface UploaderBase {
   readonly manifest: UploadManifest;
   upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult | UploadResult[]>;
 }
 
+function isRealBlob(data: Blob) { return data instanceof Blob; }
+async function convertToRealBlob(data: Blob): Promise<Blob> { return new Blob([await data.arrayBuffer()]); }
+
 export class MultiFileUploader implements UploaderBase {
-  readonly files: File[];
+  readonly #files: Array<{ name: string; size: number; type: string; data: Blob }>;
   readonly manifest: UploadManifest;
 
-  constructor(files: FileListLike, signal?: AbortSignal) {
+  constructor(files: Array<File | Blob | ResourceDescriptorCompatible>, signal?: AbortSignal) {
     if (!files.length)
       throw new Error("No files to upload");
 
-    this.files = [...files].map(_ => (_ as File)?.name ? _ as File : new File([_], "upload", { type: _.type || "application/octet-stream" }));
+    this.#files = files.map(item => (
+      "resource" in item ? {
+        name: item.fileName ?? "upload",
+        size: item.resource.size,
+        type: item.mediaType || "application/octet-stream",
+        data: item.resource,
+      } : {
+        name: "name" in item ? item.name : "upload",
+        size: item.size,
+        type: item.type || "application/octet-stream",
+        data: item
+      }));
     this.manifest = {
-      files: this.files.map(_ => ({
-        name: (_ as File)?.name ?? "upload",
-        size: _.size,
-        type: _.type
-      }))
+      files: this.#files.map(file => ({ name: file.name, size: file.size, type: file.type }))
     };
   }
 
   async upload(instructions: UploadInstructions, options?: UploadOptions): Promise<UploadResult[]> {
     const outfiles: UploadResult[] = [];
     let uploadedBytes = 0, uploadedFiles = 0;
-    const totalBytes = this.files.reduce((acc, file) => acc + file.size, 0);
-    const totalFiles = this.files.length;
+    const totalBytes = this.#files.reduce((acc, file) => acc + file.size, 0);
+    const totalFiles = this.#files.length;
     const start = Date.now();
 
     function fireProgressEvent(partialbytes: number) {
@@ -99,9 +113,12 @@ export class MultiFileUploader implements UploaderBase {
 
     fireProgressEvent(0);
 
-    for (const [idx, file] of this.files.entries()) {
+    for (const [idx, file] of this.#files.entries()) {
       for (let offset = 0; offset < file.size; offset += instructions.chunkSize) {
-        const data = file.slice(offset, offset + instructions.chunkSize);
+        let data = file.data.slice(offset, offset + instructions.chunkSize);
+        // Data needs to be a real Blob for XMLHttpRequest to work
+        if (!isRealBlob(data))
+          data = await convertToRealBlob(data);
         const uploadurl = `${instructions.baseUrl}&offset=${offset}&file=${idx}`;
 
 
@@ -174,11 +191,7 @@ export class SingleFileUploader implements UploaderBase {
     return this.uploader.manifest;
   }
 
-  get file() {
-    return this.uploader.files[0];
-  }
-
-  constructor(file: Blob) {
+  constructor(file: File | Blob | ResourceDescriptorCompatible) {
     this.uploader = new MultiFileUploader([file]);
   }
 
@@ -187,8 +200,8 @@ export class SingleFileUploader implements UploaderBase {
   }
 }
 
-async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise<FileListLike> {
-  const defer = Promise.withResolvers<FileListLike>();
+async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise<File[]> {
+  const defer = Promise.withResolvers<File[]>();
   if (dompack.dispatchCustomEvent(window, "wh:requestfiles", { bubbles: true, cancelable: true, detail: { resolve: defer.resolve, multiple, accept } })) {
     const input = document.createElement('input');
     input.type = "file";
@@ -196,7 +209,7 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
 
     if (accept.length)
       input.accept = accept.join(",");
-    input.addEventListener("change", () => defer.resolve(input.files || []));
+    input.addEventListener("change", () => defer.resolve([...input.files || []]));
     input.addEventListener("cancel", () => defer.resolve([]));
     input.showPicker();
   }
@@ -207,23 +220,21 @@ async function getFilelistFromUser(multiple: boolean, accept: string[]): Promise
   return list;
 }
 
-export async function requestFiles(options?: UploadRequestOptions): Promise<MultiFileUploader | null> {
+export async function requestFiles(options?: UploadRequestOptions): Promise<File[] | null> {
   const files = await getFilelistFromUser(!(options?.multiple === false), options?.accept || []);
   if (!files.length)
     return null;
 
-  const uploader = new MultiFileUploader(files);
-  return uploader;
+  return files;
 }
 
 // We're adding a separate interface for single-file uploads as it's quite annoying to have to deal with interfaces generalized for multiple files if you really, really know you only ever wanted one file anyway
-export async function requestFile(options?: UploadRequestOptions): Promise<SingleFileUploader | null> {
+export async function requestFile(options?: UploadRequestOptions): Promise<File | null> {
   const files = await getFilelistFromUser(false, options?.accept || []);
   if (files.length !== 1)
     return null;
 
-  const uploader = new SingleFileUploader(files[0]);
-  return uploader;
+  return files[0];
 }
 
 /** Convert a file to a data: URL

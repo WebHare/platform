@@ -143,10 +143,10 @@ test.runTests([
     test.eq("text: noot", getTid("base:testgroup.simple_param", "noot"));
 
     //retrieval
-    test.eq(getTid("base:testgroup.testtext"), "This is a test");
-    test.eq(getTid("base:testgroup.moretext"), "This is more test");
-    test.eq(getTid("base:anothergroup.anothertext"), "This is another test");
-    test.eq(getTid("base:anothergroup"), "Group test");
+    test.eq("This is a test", getTid("base:testgroup.testtext"));
+    test.eq("This is more test", getTid("base:testgroup.moretext"));
+    test.eq("This is another test", getTid("base:anothergroup.anothertext"));
+    test.eq("Group test", getTid("base:anothergroup"));
   },
 
   "Test HTML tid's",

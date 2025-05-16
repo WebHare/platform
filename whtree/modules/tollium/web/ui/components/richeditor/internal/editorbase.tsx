@@ -2876,7 +2876,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
 
     const imgnode = this._createImageDownloadNode();
     this.replaceSelectionWithNode(imgnode, true);
-    this.uploadImageToServer(toUpload.file, imgnode);
+    this.uploadImageToServer(toUpload, imgnode);
   }
 
   //Upload an image to the server, and then replace the src in the specified image node

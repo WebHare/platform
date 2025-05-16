@@ -92,6 +92,7 @@ export async function closeServerSession(sessionId: string) {
 export interface UploadSessionOptions {
   chunkSize?: number;
   expires?: WaitPeriod;
+  baseUrl?: string;
 }
 
 /** Create an upload session
@@ -99,10 +100,11 @@ export interface UploadSessionOptions {
  * @param chunkSize - Chunk size for the upload. This should generally be in the megabyte range
  * @param expires - Upload session expiry
 */
-export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry }: UploadSessionOptions = {}): Promise<UploadInstructions> {
+export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry, baseUrl = "" }: UploadSessionOptions = {}): Promise<UploadInstructions> {
   const sessid = await createServerSession("platform:uploadsession", { manifest, chunkSize }, { expires });
+  const relUrl = "/.wh/common/upload/?session=" + sessid;
   return {
-    baseUrl: "/.wh/common/upload/?session=" + sessid,
+    baseUrl: baseUrl ? new URL(relUrl, baseUrl).toString() : relUrl,
     sessionId: sessid,
     chunkSize
   };
