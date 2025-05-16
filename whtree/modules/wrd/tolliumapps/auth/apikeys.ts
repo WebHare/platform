@@ -14,7 +14,6 @@ export async function createAPIkey(wrdschema: string, entity: number, expires: D
   expires: Temporal.Instant | null;
   id: number;
 }> {
-  console.error(expires);
   const tok = await createFirstPartyToken(new WRDSchema(wrdschema), "api", entity, {
     title: title,
     expires: expires.getTime() === defaultDateTime.getTime() ? Infinity : expires,
