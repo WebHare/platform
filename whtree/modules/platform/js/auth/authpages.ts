@@ -1,7 +1,6 @@
 import { doLoginHeaders, doLogout } from "@mod-platform/js/auth/authservice";
 import { createRedirectResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
 import { decryptForThisServer } from "@webhare/services";
-import { stringify } from "@webhare/std";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
 export async function authRouter(req: WebRequest): Promise<WebResponse> {
@@ -35,26 +34,7 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
 
     const responseHeaders = new Headers;
     doLoginHeaders(settoken, responseHeaders);
-    //override any existing CSP for the domain. unsafe-inline should be safe as all input is already signed and validated
-    responseHeaders.set("Content-Security-Policy", "default-src 'none';script-src 'unsafe-inline'");
-
-    /* We need to mimick frontend/auth.ts:
-
-      dompack.setLocal<AuthLocalData>(getStorageKeyName(), {
-        expires: result.expires,
-        userInfo: result.userInfo || null
-      });
-
-      directly setting localStorage. it's expected to contain typed-stringify keys so we need a double encode:
-    */
-    const storageKeyName = "wh:wrdauth-" + settoken.cookieName;
-    const data = { expires: new Date(settoken.expires.epochMilliseconds), userInfo: settoken.userInfo || null };
-    const body = `<html><head><script type="text/javascript">
-      try { window.localStorage[${JSON.stringify(storageKeyName)}]=${JSON.stringify(stringify(data, { typed: true }))}; } catch(ignore){}
-      location.href=${JSON.stringify(settoken.target)};
-      </script></head></html>`;
-
-    return createWebResponse(body, { headers: responseHeaders });
+    return createRedirectResponse(settoken.target, HTTPSuccessCode.TemporaryRedirect, { headers: responseHeaders });
   }
 
   return createWebResponse("unknown route", { status: 404 });
