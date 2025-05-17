@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -21,13 +20,6 @@ MACRO SetAuthSettings(RECORD newsettings)
   testfw->BeginWork();
   SetWRDSetting(testfw->GetWRDSchema(), "login_settings", CELL[...wrdauth_defaultconfiguration, ...newsettings ]);
   testfw->CommitWork();
-}
-
-MACRO InvalidateWebhareLoginSession()
-{
-  //Invalidate the sessionid stored in the webhare login cookie. invalidating sessions may be tricky, but just randomizing the sessionid will have the same effect
-  TestEq(TRUE, testfw->browser->GetCookie("webharelogin-testsuite-portal1") != "");
-  testfw->browser->SetSessionCookie("webharelogin-testsuite-portal1", GenerateUFS128BitId() || " " || Tokenize(testfw->browser->GetCookie("webharelogin-testsuite-portal1"),' ')[1]);
 }
 
 MACRO TestHelpers()
@@ -116,11 +108,11 @@ MACRO TestLoginAPIs()
      And it might help to keep the internal APIs a bit cleaner */
 
   OBJECT wrdplugin := GetTestPlugin();
-  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, cookietype_session, [ setcreationdate := MakeDateTime(2321,7,29,15,0,0) ]);
-
-  RECORD logincookiedetails := wrdplugin->__GetWRDAuthIntegration()->__ParseCookie(cookies.logincookie, "session");
-  TestEq(MakeDateTime(2321,7,29,15,0,0), logincookiedetails.creationdate);
-  TestEq(MakeDateTime(2321,7,30,4,0,0), UTCToLocal(logincookiedetails.expires, "Europe/Amsterdam"), "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
+  RECORD cookies := wrdplugin->__GetWRDAuthIntegration()->__CreateLoginCookies(entityid, cookietype_session, FALSE, [ setcreationdate := MakeDateTime(2021,7,29,15,0,0) ]);
+  STRING pubdata := SELECT AS STRING value FROM cookies.headers WHERE field="set-cookie" AND value LIKE "*publicauthdata*";
+  RECORD logincookiedetails := DecodeJSON(DecodeURL(Tokenize(Tokenize(pubdata,'=')[1],';')[0]));
+  DATETIME expires := MakeDatetimeFromUnixTimestamp(MONEY(logincookiedetails.expiresms / 1000));
+  TestEq(MakeDateTime(2021,7,30,4,0,0), UTCToLocal(expires, "Europe/Amsterdam"), "expiry should be rounded down to 04:00:00 CET (02:00:00 UTC)");
 }
 
 MACRO TestLoginCookies()
@@ -171,8 +163,6 @@ MACRO TestLoginCookies()
   TestEq(TRUE, result.success);
   TestEq(entityid, result.plugin_entityid, "Verify we're logged in (can't checkstatus!)");
 
-  InvalidateWebhareLoginSession();
-
   //Try to renew the session. Should FAIL due to expirys
   result := DebugReq("checkstatus");
   TestEq(FALSE, result.isloggedin);
@@ -191,8 +181,6 @@ MACRO TestLoginCookies()
   cookies := ExplainWRDCookies();
 
   initialcookie := cookies.logindetails;
-
-  InvalidateWebhareLoginSession();
 
   //Try to renew the session. Should SUCCEEED
   result := DebugReq("checkstatus");
@@ -224,8 +212,6 @@ MACRO TestPersistentLoginCookies()
   initialcookie := cookies.logindetails;
   TestEq(TRUE, GetDatetimeDifference(GetCurrentDatetime(), cookies.logindetails.expires).days IN [29,30], "Standard persistent cookies are up to 30 days valid");
 
-  InvalidateWebhareLoginSession();
-
   //Try to renew the session. Should SUCCEED
   result := DebugReq("checkstatus");
   TestEq(TRUE, result.isloggedin);
@@ -248,8 +234,6 @@ MACRO TestPersistentLoginCookies()
 
   cookies := ExplainWRDCookies();
   TestEq(cookietype_persistent, cookies.logindetails.cookietype);
-
-  InvalidateWebhareLoginSession();
 
   //Try to renew the session. Should FAIL
   result := DebugReq("checkstatus");

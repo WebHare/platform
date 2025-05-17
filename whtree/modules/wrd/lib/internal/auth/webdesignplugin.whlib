@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -85,8 +86,8 @@ CONSTANT INTEGER loginproof_valid_secs := 60; // login proof token is valid for 
     @topic wrdauth/api
     @public
 */
-PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -134,10 +135,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /** WRD schema authentication configuration @includecelldef #GetWRDAuthConfig.return
   */
   RECORD wrdauthconfig;
-
-  BOOLEAN did_wrdauthjs_check;
-
-  RECORD wrdauthjs;
 
   // ---------------------------------------------------------------------------
   //
@@ -197,8 +194,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   DATETIME FUNCTION GetSessionExpires()
   {
     this->CheckNotFailed();
-    IF(RecordExists(this->wrdauthjs))
-      RETURN MakeDatetimeFromUnixTimestamp(this->wrdauthjs.claims.exp);
 
     RETURN this->__GetWRDAuthIntegration()->GetLoggedinExpires();
   }
@@ -542,7 +537,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     this->CheckNotFailed();
     IF(NOT Objectexists(this->__wrdauth))
     {
-      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig);
+      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig, this->webcontext->baseurl);
       this->__wrdauth->securecookie := this->pvt_config.securecookie;// OR ;
       /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
          If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
@@ -593,9 +588,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   }
 
   /** Update user info (updates the javascript cookie holding the userinfo fields) */
-  PUBLIC MACRO UpdateUserInfo()
-  {
-    SetCurrentStateCookie(this->__GetWRDAuthIntegration(), this);
+  PUBLIC MACRO UpdateUserInfo() {
+    RECORD ARRAY setheaders := CallJS("@webhare/auth/src/identity.ts#preparePublicAuthDataCookie", this->webcontext->baseurl, this->__GetWRDAuth()->GetIDToken(), GetWebCookie(this->cookiename || "_publicauthdata"));
+    FOREVERY(RECORD toset FROM setheaders)
+      AddHTTPHeader(toset.field, toset.value, toset.always_add);
   }
 
   /** Returns whether configuration of the plugin has failed
@@ -606,42 +602,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN CellExists(this->wrdauthconfig, 'fatalerror');
   }
 
-  BOOLEAN FUNCTION IsValidAccountEntity(INTEGER entityid)
-  {
-    //TODO deal with parent/child types? not sure if they're ever relevant though
-    RETURN RecordExists(SELECT FROM wrd.entities WHERE id = VAR entityid AND limitdate > GetCurrentDatetime() AND type = this->wrdschema->accounttype->id);
-  }
-
   /// Checks whether configuration of the plugin is successfull, throws if this is not the case
   PUBLIC MACRO CheckNotFailed()
   {
     IF(CellExists(this->wrdauthconfig, 'fatalerror'))
       THROW NEW Exception(this->wrdauthconfig.fatalerror);
-
-    IF(NOT this->did_wrdauthjs_check)
-    {
-      this->did_wrdauthjs_check := TRUE;
-      //Do we happen to see an ID Token in the login cookie?
-      IF(IsRequest())
-      {
-        STRING prefix := GetRequestURL() LIKE "https:*" ? this->pvt_config.cookiedomain != "" ? "__Secure-" : "__Host-" : ""; //see TS getIdCookieName
-        STRING idcookie :=  GetWebCookie(prefix || this->cookiename);
-        IF(idcookie LIKE "* accessToken:*") //We're talking to the JS WRDAuth implementation ?
-        {
-          STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token
-          STRING tokenhash := GetHashForString(idtoken, "SHA-256");
-          RECORD match := SELECT entity, id FROM wrd.tokens WHERE hash = tokenhash AND client = 0 AND type = "id"; //find a session attached to us
-          IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity))
-          { //It's s a hit!
-            this->wrdauthjs := [
-              token := match.id,
-              entity := match.entity,
-              claims := DecodeJSON(DecodeUFS(Tokenize(idcookie,'.')[1]))
-            ];
-          }
-        }
-      }
-    }
   }
 
   PUBLIC OBJECT FUNCTION __GetWRDAuth()
@@ -656,8 +621,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC BOOLEAN FUNCTION IsLoggedIn()
   {
     this->CheckNotFailed();
-    IF(RecordExists(this->wrdauthjs))
-      RETURN TRUE;
     RETURN /*IsRequest() AND */this->__GetWRDAuthIntegration()->IsLoggedIn();
   }
 
@@ -695,16 +658,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
           ]);
     }
 
-    IF(RecordExists(this->wrdauthjs)) {
-      GetPrimary()->BeginWork();
-      DELETE FROM wrd.tokens WHERE id = this->wrdauthjs.token;
-      GetPrimary()->CommitWork();
-
-      this->wrdauthjs := DEFAULT RECORD;
-    }
-
     this->__GetWRDAuthIntegration()->Logout([logauditevent := FALSE]);
-
   }
 
   /** Returns the WRD id of the currently logged in entity
@@ -713,10 +667,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   PUBLIC INTEGER FUNCTION GetLoggedinEntity()
   {
     this->CheckNotFailed();
-
-    IF(RecordExists(this->wrdauthjs))
-      RETURN this->wrdauthjs.entity;
-
     RETURN this->__GetWRDAuthIntegration()->GetLoggedinEntity();
   }
 
@@ -802,12 +752,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
 
 
     RECORD submitinstruction;
-    IF (trylogin.success)
-    {
-      IF (options.setcookies)
-        this->UpdateUserInfo();
-    }
-
     INSERT CELL submitinstruction := submitinstruction INTO trylogin;
     RETURN trylogin;
   }
@@ -949,7 +893,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         IF (this->GetLoggedinEntity() = 0)
           THROW NEW Exception("Logged in, but no WRD user found");
-        this->UpdateUserInfo();
 
         submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
       }
@@ -1057,7 +1000,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     {
       IF (this->GetLoggedinEntity() = 0)
         THROW NEW Exception("Logged in, but no WRD user found");
-      this->UpdateUserInfo();
 
       submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
       DELETE CELL secondfactordata FROM trylogin;
@@ -1684,7 +1626,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       {
         CASE "wrdauth"
         {
-          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, cookietype_external );
+          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, cookietype_external, FALSE );
           cookiedata := cookiedata || " " || cookies.external;
 
           result.user := this->userapi->GetTolliumUserFromEntityId(proof.entityid);

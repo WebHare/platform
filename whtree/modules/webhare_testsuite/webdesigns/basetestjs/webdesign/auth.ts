@@ -24,6 +24,8 @@ export class TestAuthCustomizer implements AuthCustomizer {
   }
 
   async onFrontendUserInfo(params: FrontendUserInfoParameters) {
+    if (params.wrdSchema.tag !== testschemaSchema.tag)
+      throw new Error(`Invalid schema - invoked for ${params.wrdSchema.tag} instead of ${testschemaSchema.tag}`);
     const userinfo = await testschemaSchema.getFields("wrdPerson", params.entityId, ["wrdFirstName"]);
     return { firstName: userinfo.wrdFirstName, aDate: new Date("2025-03-18") };
   }

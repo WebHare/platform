@@ -308,7 +308,7 @@
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="wrd:testschema"
              cookiename="webharelogin-wrdauth"
-             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport" />
+             cachefields="wrd_fullname" />
   </apply>
 
   <apply>
@@ -615,7 +615,7 @@
              wrdschema="wrd:testschema"
              cookiename="webharelogin-testsuite-portal1"
              loginpage="currentsite::/portal1/"
-             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend" />
+             customizer="pages/wrdauthtest/wrdauthtest.backend.ts#WRDAuthMyBackend" />
   </apply>
 
   <apply>
@@ -643,7 +643,7 @@
              wrdschema="wrd:testschema"
              lastloginfield="LASTLOGIN"
              loginpage="currentsite::/portal1-domainless/"
-             supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthMyBackend" />
+             customizer="pages/wrdauthtest/wrdauthtest.backend.ts#WRDAuthMyBackend" />
   </apply>
 
   <apply>

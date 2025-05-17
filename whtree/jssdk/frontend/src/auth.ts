@@ -8,6 +8,7 @@ import { rpc } from "@webhare/rpc/src/rpc-client";
 import { getFrontendData } from '@webhare/frontend/src/init';
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 import { parseTyped } from "@webhare/std";
+import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
 
 /** WRDAuth configuration */
 export interface WRDAuthOptions {
@@ -18,6 +19,7 @@ export interface WRDAuthOptions {
 export interface PublicAuthData {
   expiresMs: number;
   userInfo?: object | null;
+  persistent?: boolean;
 }
 
 declare module "@webhare/frontend" {
@@ -26,6 +28,12 @@ declare module "@webhare/frontend" {
       /** WRDAuth cookiename (used to store userinfo and expiry) */
       cookiename: string;
     };
+  }
+}
+
+declare global {
+  interface Window {
+    $wh$legacyAuthProvider: WRDAuthenticationProvider;
   }
 }
 
@@ -95,6 +103,8 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
 function refreshLoginStatus() {
   const loggedIn = isLoggedIn();
   document.documentElement.classList.toggle("wh-wrdauth--isloggedin", loggedIn);
+
+  window.$wh$legacyAuthProvider?.refresh();
 }
 
 /** Return whether a user's currently logged in */

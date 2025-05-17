@@ -1,5 +1,5 @@
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
+import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
 import { pick, stringify, throwError } from "@webhare/std";
@@ -11,17 +11,21 @@ import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 import { prepAuth } from "@webhare/auth/src/support";
 
-export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
+export function doPublicAuthDataCookie(cookieName: string, cookieSettings: ServersideCookieOptions, authData: PublicAuthData, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
   hdrs.set("cache-control", "no-store");
   hdrs.set("pragma", "no-cache");
 
+  const cookieExpiry = authData.persistent ? new Date(authData.expiresMs) : null;
+  hdrs.append("Set-Cookie", buildCookieHeader(cookieName + PublicCookieSuffix, stringify(authData, { typed: true }), { ...cookieSettings, httpOnly: false, expires: cookieExpiry }));
+}
+
+export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
   // We record the accesstoken expiry in the public cookie but if we expect the browser to discard the session we'll make them session cookies
   const cookieExpiry = authCookies.persistent ? authCookies.expires : null;
 
   //browser/client visible cookie, containing only non-sensitive data
-  const publicAuthData = stringify({ expiresMs: authCookies.expires.epochMilliseconds, userInfo: authCookies.userInfo } satisfies PublicAuthData, { typed: true });
-  hdrs.append("Set-Cookie", buildCookieHeader(authCookies.cookieName + PublicCookieSuffix, publicAuthData, { ...authCookies.cookieSettings, httpOnly: false, expires: cookieExpiry }));
+  doPublicAuthDataCookie(authCookies.cookieName, authCookies.cookieSettings, authCookies.publicAuthData, hdrs);
 
   //serverside cookies
   hdrs.append("Set-Cookie", buildCookieHeader(authCookies.idCookie, authCookies.value, { ...authCookies.cookieSettings, expires: cookieExpiry }));

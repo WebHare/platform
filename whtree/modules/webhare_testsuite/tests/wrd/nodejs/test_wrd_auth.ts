@@ -279,6 +279,7 @@ function parseLoginResult(result: FrontendAuthResult) {
     loggedIn: true,
     ...result.setAuth,
     accessToken,
+    userInfo: result.setAuth.publicAuthData.userInfo,
     expireMinutes: (result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / 60,
     expireDays: Math.round((result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / (60 * 60 * 24))
   };

@@ -75,15 +75,3 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
     WebDesignBase::PrepareErrorPage(errorcode, harescriptinfo, url);
   }
 >;
-
-PUBLIC STATIC OBJECTTYPE TolliumWRDAuthSupport EXTEND WRDAuthSupportBase
-<
-  UPDATE PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
-  {
-    RECORD userinfo := this->plugin->accounttype->GetEntityFields(userid, ["WRDAUTH_ACCOUNT_STATUS"]);
-    IF(NOT RecordExists(userinfo.wrdauth_account_status) OR userinfo.wrdauth_account_status.status != "active")
-      RETURN [ code := "DISABLED" ];
-
-    RETURN DEFAULT RECORD;
-  }
->;

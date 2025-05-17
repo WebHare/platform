@@ -39,37 +39,6 @@ test.runTests([
     test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
     test.eq('Pietje Tester', test.qR('#js_fullname').value);
   },
-  "Test restoring sessions after loss of the _c cookie",
-  async function () {
-    const wrdconfig = JSON.parse(test.qR("script#wh-config").textContent || '')["wrd:auth"];
-    let cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')![1];
-    let cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')![1];
-
-    test.assert(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
-    test.assert(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
-
-    //kill cookie_c
-    test.getDoc().cookie = wrdconfig.cookiename + "_c" + "=---;path=/";
-    cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')![1];
-    test.eq("---", cookie_c);
-
-    //reload and wait for us to see the login test again
-    test.getWin().location.reload();
-    await test.waitForLoad();
-    await test.wait(() => test.qR('#isloggedin'));
-
-    //verify session restoration
-    test.assert(test.qR('#isloggedin').checked);
-    test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
-    test.eq('Pietje Tester', test.qR('#js_fullname').value);
-
-    //verify the cookies look sane. if not, we may have misunderstood it (TODO check that session id didn't even change, then cross-server login session sharing is more viable?)
-    cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')![1];
-    cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')![1];
-
-    test.assert(cookie_j, "Cookie _j unexpectedly not set (cookie protocol changed?)");
-    test.assert(cookie_c.startsWith(cookie_j), "Cookie_c doesn't start with the value of cookie_j (cookie protocol changed?)");
-  },
   "Set new user details",
   async function () {
     test.fill(test.qR('#firstname'), 'Klaas');

@@ -54,6 +54,8 @@ export async function prepAuth(url: string, cookieName: string | null): Promise<
   const settings = await applytester?.getWRDAuth();
   if (!settings?.wrdSchema)
     return { error: "No WRD schema defined for URL " + url };
+  if (settings.supportObjectName && !settings.customizer)
+    return { error: "supportobjectname= is set but customizer= is not. This may imply critical login restrictions/data have not been ported for WH 5.8!" };
   if (!settings?.wrdSchema)
     return { error: "Unable to find id token cookie/wrdauth settings for URL " + url };
 

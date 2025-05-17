@@ -4,13 +4,11 @@ import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
-import { joinURL, pick } from "@webhare/std";
-import { getSchemaSettings } from "@webhare/wrd/src/settings";
-import { loadlib } from "@webhare/harescript";
-import { decodeHSON } from "@webhare/hscompat";
+import { joinURL } from "@webhare/std";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
 import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
+import { getCookieBasedUser } from "@webhare/wrd/src/authfrontend";
 
 export type FrontendLoginResult = {
   loggedIn: true;
@@ -32,7 +30,7 @@ async function findLoginPageForSchema(schema: string) {
     const applyTester = await getApplyTesterForObject(await openFolder(site.id));
     const wrdauth = await applyTester?.getWRDAuth();
     if (wrdauth.wrdSchema === schema)
-      candidates.push({ ...site, ...pick(wrdauth, ["loginPage", "cookieName", "customizer"]) });
+      candidates.push({ ...site, wrdauth });
   }
   if (candidates.length > 1)
     throw new Error(`Multiple sites with an identity provider for schema ${schema}: ${candidates.map((c) => c.id).join(", ")}`);
@@ -42,7 +40,7 @@ async function findLoginPageForSchema(schema: string) {
   if (!candidates[0].webRoot)
     throw new Error(`Site ${candidates[0].name} hosting identity provider for schema ${schema} has no webroot`);
 
-  let loginPage = candidates[0].loginPage;
+  let loginPage = candidates[0].wrdauth.loginPage;
   if (!loginPage)
     throw new Error(`Site ${candidates[0].name} hosting identity provider for schema ${schema} has no loginPage`);
 
@@ -59,7 +57,7 @@ async function findLoginPageForSchema(schema: string) {
 
     loginPage = joinURL(site.webRoot, targeted[2]);
   }
-  return { loginPage, cookieName: candidates[0].cookieName, customizer: candidates[0].customizer };
+  return { loginPage, wrdauth: candidates[0].wrdauth };
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
@@ -78,7 +76,7 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   //FIXME this really needs caching and optimization
   const login = await findLoginPageForSchema(wrdschemaTag);
 
-  const customizer = login.customizer ? await importJSObject(login.customizer) as AuthCustomizer : undefined;
+  const customizer = login.wrdauth.customizer ? await importJSObject(login.wrdauth.customizer) as AuthCustomizer : undefined;
   if (endpoint[3] === 'userinfo') {
     const authorization = req.headers.get("Authorization")?.match(/^bearer +(.+)$/i);
     if (!authorization || !authorization[1])
@@ -108,22 +106,11 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   }
 
   if (endpoint[3] === 'return') {
-    const wrdauthCookie = req.getCookie(login.cookieName);
-    //TODO turn wrdauth cookies into a modern format so we can read it without using the HS Engine
-    if (!wrdauthCookie)
-      throw new Error('Not logged in anymore'); //FIXME What to do ththe
-
-    const settings = await getSchemaSettings(wrdschema, ["domainSecret"]);
-    const encdata = wrdauthCookie.split(" ")[1] || '';
-    const decrypted = await loadlib("mod::system/whlibs/crypto.whlib").decryptSignedData(encdata, "SHA-1,BLOWFISH+CBC,8", settings.domainSecret + "session");
-    if (!decrypted)
-      throw new Error('Invalid wrdauth cookie');
-
-    const wrdauth = decodeHSON(decrypted) as { cs: Date; exp: Date; user: number; v: number; wg: string };
-    if (!wrdauth?.user)
+    const userinfo = await getCookieBasedUser(req, wrdschema, login.wrdauth);
+    if (!userinfo)
       throw new Error('Invalid login');
 
-    const redirect = await provider.returnAuthorizeFlow(req.url, wrdauth.user, customizer);
+    const redirect = await provider.returnAuthorizeFlow(req.url, userinfo.user, customizer);
     if (redirect.error !== null)
       return createJSONResponse(400, { error: redirect.error });
 
