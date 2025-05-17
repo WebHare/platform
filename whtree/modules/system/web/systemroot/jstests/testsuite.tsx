@@ -814,13 +814,13 @@ class TestFramework {
       this.timedReject(deferred, "Timeout waiting for test frame to load", (options || {}).timeout || this.loadtimeout);
 
     // Split setting events from event creation
-    iframe.addEventListener("error", deferred.reject);
-    iframe.addEventListener("load", () => deferred.resolve());
+    const loadEventRemover = new AbortController;
+    iframe.addEventListener("error", deferred.reject, { signal: loadEventRemover.signal });
+    iframe.addEventListener("load", () => deferred.resolve(), { signal: loadEventRemover.signal });
 
     // Remove both load/error events when receiving one of them
     void deferred.promise.finally(() => {
-      iframe.removeEventListener("load", () => deferred.resolve());
-      iframe.removeEventListener("error", deferred.reject);
+      loadEventRemover.abort();
     });
 
     // When the iframe has loaded, process it to get the doc & window. Just error out when loading failed.
