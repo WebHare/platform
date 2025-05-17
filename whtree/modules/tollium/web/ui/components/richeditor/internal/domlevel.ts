@@ -1,7 +1,5 @@
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- do not complain about unused richdebug as the calls are usually commented out
-import * as richdebug from "./richdebug";
 import Range from './dom/range';
 
 export type PreservedLocatorList = Array<Locator | Range>;
