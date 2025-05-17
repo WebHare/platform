@@ -11,7 +11,6 @@ import { readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
-import { openSite } from "./sites";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -465,8 +464,14 @@ export class WHFSFolder extends WHFSObject {
   async getBaseURL(): Promise<string | null> {
     if (!this.parentSite || !this.sitePath)
       return null;
-    const { webRoot } = await openSite(this.parentSite);
-    return webRoot ? webRoot + encodeURIComponent(this.sitePath?.substring(1)).replaceAll("%2F", "/") : null;
+
+    const siteInfo = await db<PlatformDB>()
+      .selectFrom("system.sites")
+      .select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot"))
+      .where("id", "=", this.parentSite)
+      .executeTakeFirst();
+
+    return siteInfo?.webroot ? siteInfo.webroot + encodeURIComponent(this.sitePath?.substring(1)).replaceAll("%2F", "/") : null;
   }
 
 
