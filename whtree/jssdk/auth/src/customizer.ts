@@ -68,6 +68,8 @@ export interface LookupUsernameParameters<S extends SchemaTypeDefinition = AnySc
   wrdSchema: WRDSchema<S>;
   /** Username to look up */
   username: string;
+  /** JWT payload if we're coming in through an OpenID Connect (OIDC) flow */
+  jwtPayload?: JWTPayload;
 }
 
 export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> { //Could imagine adding IP/GEO and browser info to these parameters

@@ -132,6 +132,7 @@
              wrdschema="webhare_testsuite:oidc-sp"
              loginpage="currentsite::/portal1-oidc/"
              supportobjectname="compatibility.whlib#WRDAutOIDCSupport"
+             customizer="pages/wrdauthtest.backend.ts#OIDCTestCustomizer"
              lastloginfield="whuser_lastlogin" />
   </apply>
 
