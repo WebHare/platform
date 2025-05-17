@@ -123,7 +123,6 @@ test.runTests(
         test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
 
         // Logout must be allowed, and then logout
-        test.assert(test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
         test.click(test.qS("#dashboard-logout"));
       },
       waits: ["ui"]
@@ -157,9 +156,6 @@ test.runTests(
       test: function (doc, win) {
         test.assert(win.location.href.match(/portal-sp/));
         test.eq("idpaccount@allow2fa.test.webhare.net", test.qS("#dashboard-user-name").textContent);
-
-        // Logout must be allowed, and then logout
-        test.assert(!test.qS("#dashboard-logout").classList.contains("dashboard-logout--allowed"));
       }
     },
 

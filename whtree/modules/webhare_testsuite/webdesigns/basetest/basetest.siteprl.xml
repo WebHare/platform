@@ -725,7 +725,6 @@
     <to type="all" pathmask="/test-saml/portal-sp/*-nologout" />
     <portal xmlns="http://www.webhare.net/xmlns/tollium">
       <loginmethod type="saml"
-                   allowlogout="false"
                    autologin="false"
                    icon="tollium:tollium/webhare"
                    tag="test-sp"

@@ -24,7 +24,6 @@ interface LoginMethodSSO {
   autologin: boolean;
   title: string;
   icon: string;
-  allowlogout: boolean;
   visibility: "always" | "revealsso";
 }
 

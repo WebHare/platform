@@ -928,16 +928,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN RecordExists(this->sessiondata) ? this->sessiondata.login : "";
   }
 
-  PUBLIC BOOLEAN FUNCTION IsLogoutAllowed()
-  {
-    IF (this->GetLoginSessionId() != "")
-    {
-      RECORD sessdata := this->GetCurrentSession();
-      RETURN RecordExists(sessdata) ? sessdata.allowlogout : TRUE;
-    }
-    RETURN FALSE;
-  }
-
   /** @short Are we currently logged in ? */
   PUBLIC BOOLEAN FUNCTION IsLoggedIn()
   {
@@ -947,7 +937,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   /** @short Login as a specific user
       @param userid WRD Entity id to login
       @param is_impersonation If true, consider this an impersonation login - don't update lastlogin etc
-      @cell options.allowlogout If present, controls whether logout actions are presented to the user
       @return Login result
       @cell return.success TRUE if login was successfull
       @cell return.code Error code
@@ -1025,9 +1014,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         [ firstloginfield :=    ""
         , lastloginfield :=     ""
         , remoteip :=           ""
-        , allowlogout :=        TRUE
         ], options,
-        [ optional := [ "firstloginfield", "lastloginfield", "allowlogout" ]
+        [ optional := [ "firstloginfield", "lastloginfield" ]
         ]);
 
     STRING loginname;
@@ -1088,7 +1076,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
   /** @param trylogin
       @param setlogincookie
-      @cell options.allowlogout
   */
   RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, STRING sessionid, RECORD options)
   {
@@ -1118,7 +1105,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RECORD data := [ entityid := trylogin.entityid
                    , login := trylogin.login
                    , blockedmultisession := FALSE
-                   , allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout
                    , expires := trylogin.expires
                    ];
 

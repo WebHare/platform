@@ -262,7 +262,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
               url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(loginres.code));
             ELSE
             {
-              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo ]);
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE);
               IF (NOT trylogin.success)
                 url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(trylogin.code));
             }
@@ -276,7 +276,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
               code := ToLowercase(loginres.code);
             ELSE
             {
-              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo ]);
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE);
               IF (NOT trylogin.success)
                 code := ToLowercase(trylogin.code);
             }
@@ -296,7 +296,7 @@ PUBLIC MACRO RunSAMLSpEndpoint()
               url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(loginres.code));
             ELSE
             {
-              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ allowlogout := instr.lo, setcookies := FALSE ]);
+              RECORD trylogin := authplugin->LoginById(loginres.entityid, FALSE, [ setcookies := FALSE ]);
               IF (NOT trylogin.success)
                 url := ReplaceVariableInURL(url, "wrdauth_returned", ToLowercase(trylogin.code));
               ELSE

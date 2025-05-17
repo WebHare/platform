@@ -666,14 +666,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.claims : DEFAULT RECORD;
   }
 
-  /** Check whether the current user can be logged out
-      @return TRUE if the user can be logged out
-  */
-  PUBLIC BOOLEAN FUNCTION IsLogoutAllowed()
-  {
-    this->CheckNotFailed();
-    RETURN IsRequest() AND this->__GetWRDAuthIntegration()->IsLogoutAllowed();
-  }
 
   /** Returns a link that logs out the user and then returns to the current page
       @return Link to redirect to which logs out the current user
@@ -771,7 +763,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
   /** Logs in a user by ID
       @param userid WRD id of the user to login
       @param is_impersonation Whether this is an impersonated login
-      @cell options.allowlogout Whether to allow logout (defaults to TRUE)
       @cell options.setcookies Set cookies (defaults to TRUE)
       @cell options.browsertriplet Browser triplet
       @return @includecelldef #WRDAuth::LoginById.return
@@ -858,7 +849,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
                                , auditloginname := ""
-                               , allowlogout := TRUE
+                               , allowlogout := TRUE //NOTE ignored
                                , firstloginfield := ""
                                , lastloginfield := ""
                                , browsertriplet := ""
@@ -1013,7 +1004,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ logincontrol := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
-                               , allowlogout := TRUE
+                               , allowlogout := TRUE //NOTE ignored
                                , firstloginfield := ""
                                , lastloginfield := ""
                                , browsertriplet := ""
@@ -1029,7 +1020,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       INSERT CELL lastloginfield := this->pvt_config.lastloginfield ?? this->wrdauthconfig.fallback_lastloginfield INTO options;
 
     RECORD logincontrol := this->__DecryptLoginControlToken(options.logincontrol);
-    RECORD trylogin := this->__GetWRDAuthIntegration()->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip", "allowlogout" ]));
+    RECORD trylogin := this->__GetWRDAuthIntegration()->LoginSecondFactor(loginproof, type, data, PickCells(options, [ "firstloginfield", "lastloginfield", "remoteip" ]));
 
     IF(NOT trylogin.success)
       options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage ];
@@ -1442,7 +1433,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(boolean) options.forcelogin Set tot
       @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
       @cell options.action 'redirect' / 'postmessage'
-      @cell(boolean) options.allowlogout Whether to allow logout
       @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
   */
   PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1457,7 +1447,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
       @cell(boolean) options.forcelogin Set tot
       @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
       @cell options.action 'redirect' / 'postmessage'
-      @cell(boolean) options.allowlogout Whether to allow logout
       @return @includecelldef saml.whlib#GenerateSAMLLoginRequest.return
   */
   PUBLIC RECORD FUNCTION GenerateLoginRequest(STRING type, STRING serviceprovidertag, STRING redirectto, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1467,7 +1456,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions(CELL[ forcelogin := FALSE
                                    , passive := FALSE
                                    , action := "redirect"
-                                   , allowlogout := FALSE
                                    ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]]]);
     IF(type = "saml")
     {

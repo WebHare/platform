@@ -148,7 +148,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
             BOOLEAN isupdate;
             RECORD cursettings := SELECT * FROM config.loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
             IF(NOT RecordExists(cursettings))
-              cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, visibility := "always" ];
+              cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", visibility := "always" ];
             ELSE
               isupdate := TRUE;
 
@@ -160,8 +160,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
               cursettings.tid := ParseXMLTIDPtr(resourcename, gid, loginmethod, "title");
             IF(loginmethod->HasAttribute("icon"))
               cursettings.icon := loginmethod->GetAttribute("icon");
-            IF(loginmethod->HasAttribute("allowlogout"))
-              cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
             IF(loginmethod->HasAttribute("visibility"))
               cursettings.visibility := loginmethod->GetAttribute("visibility");
 
@@ -195,7 +193,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
                                    , autologin := FALSE
                                    , tid := ":" || wrd_title
                                    , icon := ""
-                                   , allowlogout := FALSE
                                    , visibility := "always"
                                 FROM clients
                              ORDER BY wrd_ordering, ToUppercase(wrd_title));
@@ -778,7 +775,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
             , personalsettings := GetAppLaunchInstruction(this->config.personalsettingsapp, [reuse_instance := "always" ])
             , userdisplayname :=    ObjectExists(this->currentuser) ? this->currentuser->realname ?? this->currentuser->login : ""
             , browsertitleprefix := ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.browsertitleprefix", "") : ""
-            , allowlogout :=        ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->IsLogoutAllowed()
             , openinfo := ""
             , checkinterval := issupervisor ? ToInteger(GetWebVariable("checkinterval"), 5 * 60) * 1000 : 0
             , issysop := issysop

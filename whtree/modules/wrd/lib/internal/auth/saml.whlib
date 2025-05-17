@@ -887,7 +887,6 @@ PUBLIC OBJECT FUNCTION GetAuthPluginIDP(OBJECT wrdauthplugin)
     @cell(boolean) options.forcelogin Set tot
     @cell(boolean) options.passive Whether to do a passive login (don't show login ui if not logged in)
     @cell options.action 'redirect' / 'postmessage' / 'proofredirect'
-    @cell(boolean) options.allowlogout Whether to allow logout
     @return @includecelldef #EncodeSAMLDocument.return
     @cell return.requestid Request ID
 */
@@ -914,7 +913,7 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_
 
 
   FOREVERY (RECORD rec FROM UnpackRecord(options))
-    IF (rec.name NOT IN [ "FORCELOGIN", "PASSIVE", "ACTION", "ALLOWLOGOUT" ])
+    IF (rec.name NOT IN [ "FORCELOGIN", "PASSIVE", "ACTION" ])
       THROW NEW Exception("Illegal option '" || rec.field || "' in options");
 
   INTEGER sp_id := spdata[0].wrd_id;
@@ -953,8 +952,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_
   IF (CellExists(options, "PASSIVE") AND options.passive)
     INSERT CELL ispassive := TRUE INTO request;
 
-  BOOLEAN allowlogout := NOT CellExists(options, "ALLOWLOGOUT") OR options.allowlogout;
-
   RECORD relaystate;
   SWITCH (options.action)
   {
@@ -964,7 +961,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_
           [ t := "r"
           , u := redirectto
           , id := request_id
-          , lo := allowlogout
           ];
     }
     CASE "postmessage"
@@ -972,7 +968,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_
       relaystate :=
           [ t := "p"
           , id := request_id
-          , lo := allowlogout
           ];
     }
     CASE "proofredirect"
@@ -981,7 +976,6 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginRequest(OBJECT wrdauthplugin, STRING sp_
           [ t := "e"
           , u := redirectto
           , id := request_id
-          , lo := allowlogout
           ];
     }
     DEFAULT

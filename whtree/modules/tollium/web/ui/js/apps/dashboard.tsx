@@ -245,7 +245,6 @@ class DashboardApp {
       dompack.qR('#dashboard-display-name').textContent = "";
       dompack.qR('#t-apptabs').style.backgroundImage = `url("${settings.displayimage}")`;
     }
-    dompack.qR('#dashboard-logout').classList.toggle("dashboard-logout--allowed", settings.allowlogout);
     dompack.qR('#dashboard-newsarea').replaceChildren();
 
     settings.newsitems.forEach(item => {
