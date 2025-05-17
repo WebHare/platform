@@ -10,12 +10,13 @@ import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
 import { createServiceProvider, initializeIssuer } from "@webhare/auth";
-import { createCodeVerifier } from "@webhare/auth/src/identity";
+import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
 import { getAuditLog } from "@webhare/wrd/src/auditevents";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { createSchema } from "@webhare/wrd";
+import { createSchema, updateSchemaSettings } from "@webhare/wrd";
+import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 
 const callbackUrl = "http://localhost:3000/cb";
 const headless = !debugFlags["show-browser"];
@@ -95,6 +96,15 @@ async function setupOIDC() {
       clientid: clientId,
       clientsecret: clientSecret,
       additionalscopes: "testfw"
+    });
+
+    await updateSchemaSettings(schemaSP, {
+      loginSettings: {
+        ...defaultWRDAuthLoginSettings,
+        expire_thirdpartylogin: 2 * 86400 * 1000,
+        expire_login: 4 * 86400 * 1000,
+        round_longlogins_to: -1 //disabling rounding, it'll cause CI issues when testing around midnight
+      }
     });
   });
 
@@ -238,6 +248,18 @@ async function verifyAsOpenIDSP() {
 
   //and verify audit event
   test.eqPartial([{ type: "wrd:loginbyid:ok", ip: /^.*$/ }], await getAuditLog(wrdId));
+
+  //analyze the login cookies so we can verify the expiration. FIXME can't do this until we've merged the login providers
+  const loginCookie = (await context.cookies()).find(c => c.name.endsWith("webharelogin-wrdauthjs"));
+  test.assert(loginCookie, "No login cookie found");
+  test.eq(-1, loginCookie?.expires, "Should be a session cookie");
+  const accessToken = decodeURIComponent(loginCookie.value).match(/ accessToken:(.+)$/)?.[1];
+  test.assert(accessToken, "No access token found in login cookie");
+  const cookieInfo = await (new IdentityProvider(schemaSP)).verifyAccessToken("id", accessToken);
+  test.assert(!("error" in cookieInfo));
+  test.assert(cookieInfo.expires, "Cookie should have an expiration date");
+  console.log(cookieInfo.expires.toString());
+  test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
 }
 
 test.runTests([

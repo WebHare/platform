@@ -626,7 +626,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
   /** Get the claims in the ID token */
   PUBLIC RECORD FUNCTION GetClaims() {
-    RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.claims : DEFAULT RECORD;
+    RETURN this->__GetWRDAuthIntegration()->GetClaims();
   }
 
 
@@ -724,6 +724,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
                                , persistent := FALSE
+                               , thirdparty := FALSE
                                , firstloginfield := ""
                                , lastloginfield := ""
                                , remoteip := ""

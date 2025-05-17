@@ -547,13 +547,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN this->DoLookup(this->wrdschema->accountlogintag, login);
   }
 
-  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent, RECORD options)
+  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, INTEGER cookietype, RECORD options)
   {
     OBJECT the_entity := this->wrdschema->accounttype->GetEntity(entityid);
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    RETURN this->FinalizeLogin(the_entity, impersonate, persistent ? cookietype_persistent : cookietype_session, "", "", TRUE, options);
+    RETURN this->FinalizeLogin(the_entity, impersonate, cookietype, "", "", TRUE, options);
   }
 
   STRING FUNCTION GenerateSecondFactorLoginChallenge()
@@ -1023,9 +1023,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   {
     STRING remoteip := CellExists(options,"REMOTEIP") AND options.remoteip != "" ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
     BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
+    BOOLEAN thirdparty := CellExists(options, 'thirdparty') AND options.thirdparty;
+    INTEGER cookietype := thirdparty ? cookietype_thirdparty : persistent ? cookietype_persistent : cookietype_session;
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND persistent, options));
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, cookietype, options));
     IF(NOT trylogin.success)
     {
       //this->WriteAuditEvent("WRD:" || trylogin.code,
