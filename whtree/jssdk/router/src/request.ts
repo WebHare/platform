@@ -35,7 +35,8 @@ export type RPCContext = {
   /** Get the URL of the caller */
   getOriginURL: () => string | null;
   /** Get the WRDAuth verified user that made the call (based on either login cookie or authorization header ) */
-  getRequestUser: (wrdSchema?: WRDSchema) => Promise<number | null>;
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any -- Needed to accept any WRDSchema
+  getRequestUser: (wrdSchema?: WRDSchema<any>) => Promise<number | null>;
   /** Response headers */
   responseHeaders: Headers;
 };
