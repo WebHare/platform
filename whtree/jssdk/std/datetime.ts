@@ -117,11 +117,21 @@ export function convertFlexibleInstantToDate(input: FlexibleInstant | null | und
  * @param wait - Wait time as milliseconds or a Date
  * @param relativeTo - Date to use as a reference for relative waits
 */
-export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }: { relativeTo?: Date | Temporal.Instant | null } = {}): Date {
+export function convertWaitPeriodToDate(wait: WaitPeriod, options: { relativeTo: Temporal.Instant }): Temporal.Instant;
+export function convertWaitPeriodToDate(wait: WaitPeriod, options?: { relativeTo?: Date }): Date;
+
+export function convertWaitPeriodToDate(wait: WaitPeriod, options?: { relativeTo?: Date | Temporal.Instant }): Date | Temporal.Instant {
+  if (options?.relativeTo && isTemporalInstant(options?.relativeTo)) { //then our caller expects a Temporal.Instant
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- if you pass a Temporal.Instant, we should be able to create new ones from Temporal.
+    return (globalThis as any).Temporal.Instant.fromEpochMilliseconds(
+      convertWaitPeriodToDate(wait, { relativeTo: new Date(options?.relativeTo.epochMilliseconds) }).getTime()
+    );
+  }
+
   if (isDate(wait)) {
     return wait;
   } else if (typeof wait === "string") {
-    return addDuration(convertFlexibleInstantToDate(relativeTo) ?? new Date(), wait); //NOTE that "P1D" here adds "24 hours" which is *not* correct for a TimeZonedDate - which is why convertWaitPeriodToDate cannot yet accept these
+    return addDuration(convertFlexibleInstantToDate(options?.relativeTo) ?? new Date(), wait); //NOTE that "P1D" here adds "24 hours" which is *not* correct for a TimeZonedDate - which is why convertWaitPeriodToDate cannot yet accept these
   } else if (typeof wait === "number") {
     if (wait === 0)
       return new Date(-864000 * 1000 * 10000000);
@@ -129,8 +139,8 @@ export function convertWaitPeriodToDate(wait: WaitPeriod, { relativeTo = null }:
       return new Date(864000 * 1000 * 10000000);
     if (wait > 7 * 86400 * 1000)
       throw new Error("Invalid wait duration - a wait may not be longer than a week"); //prevents you from passing in Date.now() based values
-    if (wait > 0)
-      return new Date((relativeTo ? "epochMilliseconds" in relativeTo ? relativeTo.epochMilliseconds : relativeTo.getTime() : Date.now()) + wait);
+    if (wait > 0) //note: options?.relativeTo can't be instant, we already eliminated that above
+      return new Date(((options?.relativeTo as Date | undefined)?.getTime() ?? Date.now()) + wait);
   } else if (wait && "epochMilliseconds" in wait) { //Instant or ZonedDateTime
     return new Date(wait.epochMilliseconds);
   }

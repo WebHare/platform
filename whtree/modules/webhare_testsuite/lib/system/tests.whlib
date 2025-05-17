@@ -78,7 +78,12 @@ PUBLIC RECORD FUNCTION TestAuditEvent(VARIANT expected)
       auditevents := SELECT *, DELETE ip FROM auditevents;
   }
 
-  TestEq(expected, auditevents);
+  TRY {
+    TestEq(expected, auditevents);
+  } CATCH(OBJECT e) {
+    DumpValue(CELL[expected,auditevents], 'tree');
+    THROW e;
+  }
   lastcheck := GetCurrentDatetime();
   Sleep(1);
   RETURN auditevents;

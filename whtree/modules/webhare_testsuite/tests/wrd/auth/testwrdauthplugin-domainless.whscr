@@ -38,12 +38,12 @@ INTEGER entityid;
 RECORD FUNCTION DoReq(RECORD vars, BOOLEAN thirdparty DEFAULTSTO FALSE)
 {
   STRING url := UpdateURLVariables(thirdparty ? thirdpartyurl : baseurl, vars);
-  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/x-hson")
+  IF(NOT testfw->browser->GotoWebPage(url) OR testfw->browser->contenttype!="application/json")
   {
     SendBlobTo(0,testfw->browser->content);
     Abort("get failure on " || testfw->browser->url);
   }
-  RETURN DecodeHSON(BlobToString(testfw->browser->content,-1));
+  RETURN DecodeJSONBlob(testfw->browser->content);
 }
 
 MACRO InvalidateWebhareLoginSession()
@@ -506,7 +506,7 @@ MACRO TestRequireExternalLoggedinUser()
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submit instruction");
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
   TestEq(loginrequiringurl, testfw->browser->url, "Should be redirected back to the original location, but now we should see things here");
-  TestEq("sysop@beta.webhare.net", DecodeHSONBLob(testfw->browser->content).login);
+  TestEq("sysop@beta.webhare.net", DecodeJSONBLob(testfw->browser->content).login);
 
   InvalidateExternalLoginSessions();
 

@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
-import { AuthenticationSettings, createSchema, extendSchema, WRDSchema } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -11,6 +11,8 @@ import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
+import type { PublicAuthData } from "@webhare/frontend/src/auth";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -47,6 +49,51 @@ async function __typeTests() {
   await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent" });
   //@ts-expect-error -- should fail, we're ignoring data as its not typed as a non-array object
   await writeAuthAuditEvent(oidcAuthSchema, { entity: null, type: "webhare_testsuite:badarrayevent", data: { s: "x" } });
+}
+
+async function testExpiryCalculation() {
+  //this is a port of TestHelpers in mod::webhare_testsuite/tests/wrd/auth/testwrdauthplugin-expiry.whscr
+
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 86400_000),
+    "Logging in at 17:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T22:00:00Z"), 86400_000),
+    "Logging in at midnight CET should give a session until the next day 04:00:00 CET (02:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-13T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T22:59:59Z"), 86400_000),
+    "Logging in at 00:59:59 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC) (just outside round_minduration)");
+
+  test.eq(Temporal.Instant.from("2021-07-14T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T23:00:00Z"), 86400_000),
+    "Logging in at 01:00:00 CET should give a session until the next day 04:00:00 CET (02:00:00 UTC) (within round_minduration)");
+
+  test.eq(Temporal.Instant.from("2021-07-14T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-13T00:00:00Z"), 86400_000),
+    "Logging in at 02:00:00 CET should give a session until 04:00:00 CET (02:00:00 UTC) the NEXT day");
+
+  test.eq(Temporal.Instant.from("2021-07-19T02:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 7 * 86400_000),
+    "Logging in at 17:00:00 CET with 7 day expiry should give a session until 7 days later 04:00:00 CET (02:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-12T16:00:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings, Temporal.Instant.from("2021-07-12T15:00:00Z"), 60 * 60_000), //1 hour
+    "Logging in at 17:00:00 CET with 1 hour expiry should give a session until 18:00:00 CET (17:00:00 UTC)");
+
+  test.eq(Temporal.Instant.from("2021-07-12T09:30:00Z"),
+    calculateWRDSessionExpiry({ ...defaultWRDAuthLoginSettings, round_longlogins_to: 4 * 3600 * 1000 },
+      Temporal.Instant.from("2021-07-12T09:15:00Z"),
+      15 * 60 * 1000), // 15 minutes
+    "Killing round_longlogins_to should stop any rounding up/down");
+
+  test.eq(Temporal.Instant.from("2021-07-12T16:15:00Z"),
+    calculateWRDSessionExpiry(defaultWRDAuthLoginSettings,
+      Temporal.Instant.from("2021-07-12T10:15:00Z"),
+      6 * 3600 * 1000), // 6 hours
+    "Logging in at 12: 15:00 CET should give a session until 18: 15:00 CET");
+
+  //FIXME what if round_minduration > session duration?
 }
 
 async function testAuthSettings() {
@@ -112,7 +159,7 @@ async function testLowLevelAuthAPIs() {
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.eqPartial({ scope: "meadow", aud: ["api", "user"] }, decoded);
 
-  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", new Date, convertWaitPeriodToDate("P90D"), { scopes: ["meadow"], audiences: ["api", "user"] });
+  token = await createJWT(key, "1234", "urn::rabbit-union", "PieterKonijn", Temporal.Now.instant(), convertWaitPeriodToDate("P90D", { relativeTo: Temporal.Now.instant() }), { scopes: ["meadow"], audiences: ["api", "user"] });
   decoded = await verifyJWT(key, "urn::rabbit-union", token);
   test.assert(decoded.exp);
   test.assert(Math.abs(addDuration(new Date, "P90D").getTime() / 1000 - decoded.exp) < 2000);
@@ -121,7 +168,7 @@ async function testLowLevelAuthAPIs() {
   test.eq("00000001-0002-0003-0004-000000000005", decompressUUID('AAAAAQACAAMABAAAAAAABQ'));
 }
 
-async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer: AuthCustomizer | null) {
+async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, { wrdId: clientWrdId = 0, clientId = '', clientSecret = '', code_verifier = '', challenge_method = '' }, user: number, customizer?: AuthCustomizer | undefined) {
   const state = generateRandomId();
   const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid+invalidscope&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
@@ -183,8 +230,8 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   test.assert(tokens.body.id_token, "We did an openid login so there should be a id_token");
   test.assert(tokens.body.access_token, "and there should be an access_token");
 
-  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token, null));
-  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token, null));
+  test.eq({ error: /Token is invalid/ }, await provider.getUserInfo(tokens.body.id_token));
+  test.eq({ sub: /@beta.webhare.net$/, name: /^.* .*$/, given_name: /.*/, family_name: /.*/ }, await provider.getUserInfo(tokens.body.access_token));
 
   return {
     idToken: tokens.body.id_token,
@@ -228,7 +275,13 @@ function parseLoginResult(result: FrontendAuthResult) {
     return result;
 
   const accessToken = result.setAuth.value.match(/ accessToken:(.*)$/)?.[1] ?? throwError("No access token found in FrontendAuthResult");
-  return { loggedIn: true, ...result.setAuth, accessToken };
+  return {
+    loggedIn: true,
+    ...result.setAuth,
+    accessToken,
+    expireMinutes: (result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / 60,
+    expireDays: Math.round((result.setAuth.expires?.epochSeconds - Temporal.Now.instant().epochSeconds) / (60 * 60 * 24))
+  };
 }
 
 async function testAuthAPI() {
@@ -236,6 +289,17 @@ async function testAuthAPI() {
   const provider = new IdentityProvider(oidcAuthSchema);
 
   await whdb.beginWork();
+  const { loginSettings } = await getSchemaSettings(oidcAuthSchema, ["loginSettings"]);
+  await updateSchemaSettings(oidcAuthSchema, {
+    loginSettings: {
+      ...defaultWRDAuthLoginSettings,
+      ...loginSettings,
+      expire_thirdpartylogin: 2 * 86400 * 1000,
+      expire_login: 4 * 86400 * 1000,
+      round_longlogins_to: -1 //disabling rounding, it'll cause CI issues when testing around midnight
+    }
+  });
+
   //Setup test user and test the AuthenticationSettings types
   const testunit = await oidcAuthSchema.insert("whuserUnit", { wrdTitle: "tempTestUnit" });
   const testuser = await oidcAuthSchema.insert("wrdPerson", {
@@ -249,18 +313,19 @@ async function testAuthAPI() {
   await whdb.commitWork();
 
   //validate openid flow
-  const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser, null);
+  const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser);
   test.assert("idToken" in authresult);
 
-  //fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
+  //Fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
+  //WebHare as IDP currently follows MS' default and sets the id_token to a 60 minutes expiry (openIdTokenExpiry)
   test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, authresult.idToken);
-  test.assert(authresult.expiresIn && authresult.expiresIn > 86300 && authresult.expiresIn < 86400);
+  test.assert(authresult.expiresIn && authresult.expiresIn > 59 * 60 && authresult.expiresIn <= 60 * 60, `We expect ~60 minutes expiry, got ${authresult.expiresIn! / 60} minutes`);
 
   await test.throws(/audience invalid/, provider.validateToken(authresult.idToken, { audience: peopleClient!.clientId }));
 
   //validate openid flow with PKCE (both plain and S256)
-  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "plain" }, testuser, null));
-  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser, null));
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "plain" }, testuser));
+  test.assert("idToken" in await mockAuthorizeFlow(provider, { ...robotClient!, code_verifier: createCodeVerifier(), challenge_method: "S256" }, testuser));
 
   // Test the openid session apis
   const blockingcustomizer: AuthCustomizer = {
@@ -318,9 +383,9 @@ async function testAuthAPI() {
   test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123", null));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123", null));
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ entityId }) {
@@ -351,46 +416,61 @@ async function testAuthAPI() {
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
   test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
-  test.eqPartial({ loggedIn: true, accessToken: /^[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
+  test.eqPartial({
+    loggedIn: true,
+    accessToken: /^[^.]+\.[^.]+\....*$/,
+    expireDays: 4 //normal logins are 4 days
+  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
+  test.eqPartial({
+    loggedIn: true,
+    accessToken: /^[^.]+\.[^.]+\....*$/,
+    expireDays: 30 //persistent logins are 30 days (default)
+  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2", persistent: true })));
 
   //Test the frontend login RPC - do we see the proper cache headers
-  let seenheaders = false; // FIXME , seenexpiry = 0; -- see below
-  const loginres = await rpc("platform:authservice", {
-    onBeforeRequest(inUrl, requestInit) {
-      const testsiteurl = new URL(url);
-      inUrl.searchParams.set("pathname", testsiteurl.pathname);
-      requestInit.headers.set("origin", testsiteurl.origin);
-    },
-    onResponse(response) {
-      test.eq("no-store", response.headers.get("cache-control"));
-      test.eq("no-cache", response.headers.get("pragma"));
-      seenheaders = true;
+  for (const testStep of [{ persistent: false }, { persistent: true }]) {
+    let seenheaders = false;
+    const loginres = await rpc("platform:authservice", {
+      onBeforeRequest(inUrl, requestInit) {
+        const testsiteurl = new URL(url);
+        inUrl.searchParams.set("pathname", testsiteurl.pathname);
+        requestInit.headers.set("origin", testsiteurl.origin);
+      },
+      onResponse(response) {
+        test.eq("no-store", response.headers.get("cache-control"));
+        test.eq("no-cache", response.headers.get("pragma"));
+        seenheaders = true;
 
-      const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
-      test.eq(1, setcookie.length);
+        const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
+        test.eq(1, setcookie.length);
 
-      /* FIXME verify expires but need an explicit persistent login
-      const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
-      test.assert(setCookieExpiry);
-      seenexpiry = Date.parse(setCookieExpiry![0].substring(8));
-      */
+        const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        if (testStep.persistent) {
+          test.assert(setCookieExpiry);
+        } else {
+          test.eq(null, setCookieExpiry);
+        }
 
-      const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
-      test.assert(publicCookie);
-      const publicCookieValue = parseTyped(decodeURIComponent(publicCookie.match(/webharelogin-wrdauthjs_publicauthdata=([^;]*)/)![1]));
-      test.assert(publicCookieValue.expiresMs >= Date.now() && publicCookieValue.expiresMs <= Date.now() + 365 * 86400 * 1000);
+        const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
+        test.assert(publicCookie);
+        const pubCookieExpiry = publicCookie.match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        test.eq(setCookieExpiry, pubCookieExpiry);
+        const publicCookieValue = parseTyped(decodeURIComponent(publicCookie.match(/webharelogin-wrdauthjs_publicauthdata=([^;]*)/)![1])) as PublicAuthData;
+        test.assert(publicCookieValue.expiresMs >= Date.now() && publicCookieValue.expiresMs <= Date.now() + 365 * 86400 * 1000);
+        if (testStep.persistent)
+          test.eq(publicCookieValue.expiresMs, Date.parse(setCookieExpiry![0].substring(8)));
 
-      const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0] && c !== publicCookie);
-      test.eq(2, deletecookies.length, "we should have 2 other cookies");
-      const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
-      test.assert(deleteCookieExpiry);
-      test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
-    }
-  }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs");
+        const deletecookies = response.headers.getSetCookie().filter(c => c !== setcookie[0] && c !== publicCookie);
+        test.eq(2, deletecookies.length, "we should have 2 other cookies");
+        const deleteCookieExpiry = deletecookies[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
+        test.assert(deleteCookieExpiry);
+        test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
+      }
+    }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs", testStep?.persistent ? { persistent: true } : undefined);
 
-  test.assert(seenheaders, "verify onResponse isn't skipped");
-  test.assert(loginres.loggedIn);
-  // FIXME verify this - test.eq(seenexpiry, loginres.expires.getTime()); - but need an explicit persistent login
+    test.assert(seenheaders, "verify onResponse isn't skipped");
+    test.assert(loginres.loggedIn);
+  }
 
   await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
 
@@ -419,7 +499,7 @@ async function testAuthStatus() {
   const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
   const provider = new IdentityProvider(oidcAuthSchema);
   const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
@@ -427,7 +507,7 @@ async function testAuthStatus() {
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //Remove authstatus field
   await whdb.beginWork();
@@ -441,7 +521,7 @@ async function testAuthStatus() {
   await whdb.commitWork();
 
   //Now we can login again even without en active wrdauthAccountStatus
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null)));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -454,7 +534,7 @@ async function testAuthStatus() {
   });
   await whdb.commitWork();
 
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", null));
+  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
@@ -492,6 +572,7 @@ async function testSlowPasswordHash() {
 }
 
 test.runTests([
+  testExpiryCalculation,
   testAuthSettings,
   testLowLevelAuthAPIs,
   setupOpenID,

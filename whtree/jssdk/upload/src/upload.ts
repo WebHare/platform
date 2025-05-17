@@ -149,7 +149,7 @@ export class MultiFileUploader implements UploaderBase {
           const xmlhttp = new globalThis.XMLHttpRequest;
           xmlhttp.overrideMimeType("application/octet-stream");
           xmlhttp.upload.addEventListener('progress', ev => fireProgressEvent(ev.loaded));
-          xmlhttp.addEventListener('abort', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Aborted")));
+          xmlhttp.addEventListener('abort', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Upload has been aborted")));
           xmlhttp.addEventListener('error', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => defer.reject(new Error("Error")));
           xmlhttp.addEventListener('load', () => defer.resolve()); //invoked on success
           xmlhttp.addEventListener('loadend', (ev: ProgressEvent<XMLHttpRequestEventTarget>) => { //invoked after either abort/error/load

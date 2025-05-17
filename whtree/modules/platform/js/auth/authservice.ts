@@ -56,7 +56,7 @@ export const authService = {
       throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
 
     const { settings } = prepped;
-    const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : null;
+    const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
 

@@ -46,7 +46,7 @@ async function testBasicUpload() {
   await test.waitForElement(["#bytesprogresstext", /^[1-9]/]); //wait for bytesprogresstext to be set and not start with 0 / ...
   test.click("#abort");
 
-  test.eqPartial({ message: "Aborted" }, await uploader);
+  test.eqPartial({ message: "Upload has been aborted" }, await uploader);
 }
 
 test.runTests([ //
