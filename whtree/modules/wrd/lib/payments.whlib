@@ -663,11 +663,13 @@ STATIC OBJECTTYPE PaymentAPI
     OBJECT psp := this->__InstantiatePSP(paymentprovider);
     RETURN SELECT paymentoptiontag
                 , title
-                , issuers := (SELECT rowkey, title FROM paymentoption.issuers)
+                , issuers := (SELECT rowkey, title FROM paymentoption.issuers) //FIXME will be removed, only real user (ideal) is no longer doing this
                 , requirements
-                , htmlagreeterms
+                , htmlagreeterms //FIXME will be removed, only user is gone
                 , islive
                 , type
+                , maxamount
+                , minamount
              FROM psp->GetPaymentOptions() AS paymentoption
             WHERE type IN options.types
          ORDER BY ToUppercase(title);

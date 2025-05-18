@@ -200,8 +200,8 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   pm2 := testfw->wrdschema->^payprov->CreateEntity(
     [ wrd_title := "TestMethod"
     , method := MakeJSPaymentProviderValue(jstestdriver, `{
-      "methods":[{ "rowkey": "M1", "title": "Method 1" },
-                 { "rowkey": "M2", "title": "Method 2" }
+      "methods":[{ "rowkey": "M1", "title": "Method 1", "maxAmount": 12.5 },
+                 { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250 }
                 ]
       }`)
     ]);
@@ -218,10 +218,16 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   RECORD ARRAY allpaymentoptions := paymentapi->ListAllPaymentOptions( [ extrafields := [ wrd_title := "WRD_TITLE" ]]);
   TestEq(3,Length(allpaymentoptions));
   TestEq("Method 1",       allpaymentoptions[0].title);
+  TestEq(0m,               allpaymentoptions[0].minamount);
+  TestEq(12.5m,            allpaymentoptions[0].maxamount);
   TestEq("Method 2",       allpaymentoptions[1].title);
+  TestEq(25m,              allpaymentoptions[1].minamount);
+  TestEq(250m,             allpaymentoptions[1].maxamount);
   TestEq("M1",             allpaymentoptions[0].paymentoptiontag);
   TestEq("Pay by invoice", allpaymentoptions[2].title);
   TestEq("invoice"       , allpaymentoptions[2].extra.wrd_title);
+  TestEq(0m,               allpaymentoptions[2].minamount);
+  TestEq(0m,               allpaymentoptions[2].maxamount);
   TestEq(pm2->id,          allpaymentoptions[1].paymentprovider);
 
   TestEq(1, Length(paymentapi->ListAllPaymentOptions( [ externalonly := TRUE ])));
