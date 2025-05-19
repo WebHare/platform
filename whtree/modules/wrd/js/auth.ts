@@ -237,6 +237,11 @@ export class WRDAuthenticationProvider {
     this._failLogin(/* FIXME? Locale.get('wh-common.authentication.loginerror') || */'An error has occurred.', { code: code }, form);
   }
   _failLogin(message, response, form) {
+    if (["REQUIRESETUPSECONDFACTOR", "FAILEDVALIDATIONCHECKS", "REQUIRESECONDFACTOR"].includes(response.code)) {
+      console.error(`Code "${response.code}" is NOT supported by @mod-wrd/js/auth - you will need to remove this library and fully switch to setupAuth in @webhare/frontend to support password requirements and/or MFA`);
+      message = "An internal error has occured in the account management system. Please contact the webmaster.";
+    }
+
     const evtdetail = {
       message: message,
       code: response.code,
