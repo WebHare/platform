@@ -90,7 +90,6 @@ class ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   personalsettings: AppLaunchInstruction | null = null;
   userdisplayname: string = '';
   browsertitleprefix: string = '';
-  allowlogout: boolean = false;
   openinfo: string = '';
   checkinterval: number = 0;
   issysop: boolean = false;

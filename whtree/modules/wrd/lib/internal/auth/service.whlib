@@ -108,7 +108,7 @@ PUBLIC RECORD FUNCTION RPC_StartLogin(STRING type, STRING tag, STRING url, RECOR
   OBJECT wrdauthplugin := GetWRDAuthPlugin(url, [ clientwebserver := GetClientWebserver() ] );
   // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
   STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
-  RETURN wrdauthplugin->GenerateLoginRequest(type, tag, redirectto, PickCells(options, [ "action", "passive", "forcelogin", "allowlogout" ]));
+  RETURN wrdauthplugin->GenerateLoginRequest(type, tag, redirectto, PickCells(options, [ "action", "passive", "forcelogin" ]));
 }
 
 PUBLIC RECORD FUNCTION RPC_StartLogin2(STRING pathname, STRING methodtag, RECORD options) //new version with a more direct API to support frontends too
@@ -129,7 +129,6 @@ PUBLIC RECORD FUNCTION RPC_StartLogin2(STRING pathname, STRING methodtag, RECORD
   // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
   STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
   RECORD loginoptions := CELL[ ...PickCells(options, [ "action", "passive", "forcelogin" ])
-                             , allowlogout := method.allowlogout
                              ];
   RETURN wrdauthplugin->GenerateLoginRequest(method.type, method.tag, redirectto, loginoptions);
 }
