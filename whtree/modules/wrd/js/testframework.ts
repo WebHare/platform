@@ -40,10 +40,10 @@ export async function runLogin(login: string, pwd: string) {
 }
 
 export async function tryPasswordSetForm(login: string, pwd: string) {
-  test.eq(login, (await test.waitForElement("[name=login]")).value);
-  test.fill("[name=passwordnew]", pwd);
-  test.fill("[name=passwordrepeat]", pwd);
-  test.click(await test.waitForElement("button[type=submit]"));
+  test.eq(login, (await test.waitForElement(".wh-wrdauth-form [name=login]")).value);
+  test.fill(".wh-wrdauth-form [name=passwordnew]", pwd);
+  test.fill(".wh-wrdauth-form [name=passwordrepeat]", pwd);
+  test.click(await test.waitForElement(".wh-wrdauth-form button[type=submit]"));
   await test.wait('ui');
 }
 

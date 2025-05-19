@@ -151,6 +151,8 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
                 , htmlagreeterms := CellExists(opt,'htmlagreeterms') ? opt.htmlagreeterms : ""
                 , islive :=         CellExists(opt,'islive') ? opt.islive : TRUE //ASSUME it to be live then...
                 , type :=           CellExists(opt,'type') ? opt.type : "payment"
+                , minamount :=      CellExists(opt,'minamount') ? opt.minamount : 0m
+                , maxamount :=      CellExists(opt,'maxamount') ? opt.maxamount : 0m
              FROM this->__DoGetPaymentOptions(options) AS opt;
   }
 
