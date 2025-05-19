@@ -159,7 +159,7 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
     IF(CellExists(checkresult,'navigateto') AND Work->Finish())
       RETURN [ submitinstruction := checkresult.navigateto ];
 
-    work->AddErrorFor(^totp, checkresult.error); //FIXME use 'code' for transalateable error
+    work->AddErrorFor(^totp, checkresult.error); //FIXME use 'code' for translateable error
     work->Finish();
     RETURN DEFAULT RECORD;
   }
@@ -452,13 +452,13 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
     RECORD checkresult := plugin->CheckPasswordUpdate(this->session.user, ^passwordnew->value);
 
     IF(NOT checkresult.success)
-        work->AddErrorFor(^passwordnew, checkresult.message);
+      work->AddErrorFor(^passwordnew, checkresult.message);
 
     IF(NOT work->HasFailed())
       plugin->UpdateUserPassword(this->session.user, ^passwordnew->value);
 
     IF(work->Finish()) {
-      //FIXME invalidate the session for further password changing, or auto-skip this form once complexity requiremenets are reached
+      //FIXME invalidate the session for further password changing, or auto-skip this form once complexity requirements are reached
       RETURN [ success := TRUE ];
     } ELSE {
       RETURN DEFAULT RECORD;
@@ -496,7 +496,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
     }
 
     IF(work->Finish()) {
-      //FIXME invalidate the session for further password changing, or auto-skip this form once complexity requiremenets are reached
+      //FIXME invalidate the session for further password changing
       RETURN [ success := TRUE ];
     } ELSE {
       RETURN DEFAULT RECORD;
@@ -523,7 +523,7 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
     THROW NEW Exception(`The complete account page is not available for wrdschema '${wrdschema->tag}' as it still uses a PASSWORD field`); //as we wouldn't have dates
 
   RECORD userauthinfo := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountpasswordtag);
-  IF(Length(failedpwdchecks) > 0) { //there were issues wit the password itself
+  IF(Length(failedpwdchecks) > 0) { //there were issues with the password itself
     IF (Length(userauthinfo.passwords) = 0 OR userauthinfo.passwords[END-1].validfrom <= session.badpasswordtime) { //you haven't fixed the password yet
       OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccountpassword");
       wittyvars := CELL[ ...wittyvars

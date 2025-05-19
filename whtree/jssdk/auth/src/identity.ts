@@ -1038,7 +1038,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (userInfo!.password.hasTOTP()) {
       const validUntil = new Date(Date.now() + 5 * 60_000);
       const challenge = generateRandomId();
-      //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing sesion/tokens ?
+      //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing session/tokens ?
       const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password, returnTo: options?.returnTo || '' });
 
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
