@@ -1,8 +1,11 @@
 import { defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { generateRandomId } from "@webhare/std";
 import * as test from "@webhare/test";
-import { AuthenticationSettings } from "@webhare/wrd";
+import { AuthenticationSettings, updateSchemaSettings } from "@webhare/wrd";
 import { checkAuthenticationSettings, checkPasswordCompliance, describePasswordChecks, getPasswordBreachCount, getPasswordMinValidFrom, parsePasswordChecks } from "@webhare/auth/src/passwords";
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
+import { beginWork, rollbackWork } from "@webhare/whdb";
+import { getUserValidationSettings } from "@webhare/auth/src/support";
 
 async function testPasswordBreachCount() {
   test.assert(await getPasswordBreachCount("secret") > 0);
@@ -104,11 +107,26 @@ function testCheckAuthenticationSettings() {
   })))).message);
 }
 
+async function testSettingOverrides() {
+  await beginWork();
+  await updateSchemaSettings(wrdTestschemaSchema, { passwordValidationChecks: "hibp" });
+  const baseUnit = await wrdTestschemaSchema.insert("whuserUnit", { wrdLeftEntity: null, overridePasswordchecks: true, passwordchecks: "uppercase:1" });
+  const subUnit = await wrdTestschemaSchema.insert("whuserUnit", { wrdLeftEntity: baseUnit, overridePasswordchecks: false, passwordchecks: "lowercase:1" });
+  const subSubUnit = await wrdTestschemaSchema.insert("whuserUnit", { wrdLeftEntity: subUnit, overridePasswordchecks: true, passwordchecks: "symbols:1" });
+
+  test.eq("hibp", await getUserValidationSettings(wrdTestschemaSchema, null));
+  test.eq("uppercase:1", await getUserValidationSettings(wrdTestschemaSchema, baseUnit));
+  test.eq("uppercase:1", await getUserValidationSettings(wrdTestschemaSchema, subUnit));
+  test.eq("symbols:1", await getUserValidationSettings(wrdTestschemaSchema, subSubUnit));
+  await rollbackWork();
+}
+
 test.run([
   testPasswordBreachCount,
   testCheckParser,
   testGetPasswordMinValueFrom,
   testDescribePasswordChecks,
   testCheckPassword,
-  testCheckAuthenticationSettings
+  testCheckAuthenticationSettings,
+  testSettingOverrides
 ]);
