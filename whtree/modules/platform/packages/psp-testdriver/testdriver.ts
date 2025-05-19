@@ -1,11 +1,15 @@
-import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPPrecheckRequest, PSPRequest, PSPPayResult, PSPWebRequest } from "@webhare/psp-base";
+import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPPrecheckRequest, PSPRequest, PSPPayResult, PSPWebRequest, PSPRequirement } from "@webhare/psp-base";
 import { createServerSession, getServerSession, updateServerSession } from "@webhare/services";
+import { Money } from "@webhare/std";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 
 interface TestDriverConfig {
   methods: Array<{
     rowkey: string;
     title: string;
+    requirements?: PSPRequirement[];
+    minAmount?: number;
+    maxAmount?: number;
   }>;
   sleep?: number;
 }
@@ -29,7 +33,13 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
 
     const methods = [];
     for (const method of this.config.methods)
-      methods.push({ rowkey: method.rowkey, title: method.title, requirements: [] });
+      methods.push({
+        rowkey: method.rowkey,
+        title: method.title,
+        requirements: method.requirements || [],
+        minAmount: method.minAmount ? Money.fromNumber(method.minAmount) : undefined,
+        maxAmount: method.maxAmount ? Money.fromNumber(method.maxAmount) : undefined,
+      });
     return { methods, isLive: false };
   }
 
