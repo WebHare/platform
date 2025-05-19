@@ -94,7 +94,8 @@ export interface PSPPayResult<PayMetaType = unknown> extends PSPPrecheckResult {
   paymentMetadata?: PayMetaType;
 }
 
-export type PSPRequirement = "ipAddress" | "wrdLastName" | "billingAddress";
+export type PSPRequirement = "ipAddress" | "wrdGender" | "wrdFirstName" | "wrdLastName" | "wrdDateOfBirth" | "wrdContactPhone" | "billingAddress";
+
 
 /** A method supported by this PSP */
 export type PSPMethod = {

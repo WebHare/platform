@@ -25,7 +25,44 @@ RECORD ARRAY FUNCTION MapErrors(RECORD ARRAY inerrors)
   RETURN SELECT field := CellExists(inerrors,'field') ? MapField(inerrors.field) : "", error, description := comment FROM inerrors;
 }
 
+STRING FUNCTION MapRequirement(STRING inrequirement) {
+  SWITCH(inrequirement) {
+    CASE "wrdGender" {
+      RETURN "wrd_gender";
+    }
+    CASE "wrdFirstName" {
+      RETURN "wrd_firstname";
+    }
+    CASE "wrdLastName" {
+      RETURN "wrd_lastname";
+    }
+    CASE "wrdContactPhone" {
+      RETURN "wrd_contact_phone";
+    }
+    CASE "wrdContactEmail" {
+      RETURN "wrd_contact_email";
+    }
+    CASE "wrdDateOfBirth" {
+      RETURN "wrd_dateofbirth";
+    }
+    CASE "billingAddress" {
+      RETURN "billingaddress";
+    }
+    CASE "ipAddress" {
+      RETURN "ipaddress";
+    }
+    DEFAULT {
+      THROW NEW Exception(`Unsupported requirement '${inrequirement}'`);
+    }
+  }
+}
+
+STRING ARRAY FUNCTION MapRequirements(STRING ARRAY inrequirements) {
+  RETURN SELECT AS STRING ARRAY MapRequirement(req) FROM ToRecordArray(inrequirements,'req');
+}
+
 PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
+
 <
   RECORD methodsettings;
   RECORD newtransdata; //data captured by __setupnewtransaction, most of it to be discarded
@@ -92,7 +129,9 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
                 , title
                 , issuers := RECORD[]
                 , islive := this->methodsettings.islive
-                , requirements
+                , requirements := MapRequirements(requirements)
+                , minamount := CellExists(methods,'minamount') ? MONEY(methods.minamount) : 0m
+                , maxamount := CellExists(methods,'maxamount') ? MONEY(methods.maxamount) : 0m
              FROM this->methodsettings.methods;
   }
 
