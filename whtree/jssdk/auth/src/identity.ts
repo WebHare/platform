@@ -17,6 +17,7 @@ import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthSettings, prepAuth, type PrepAuthResult } from "./support";
+import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
@@ -939,7 +940,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
-  private async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer?: AuthCustomizer, options?: LoginUsernameLookupOptions): Promise<number | null> {
+  async lookupUser(authsettings: WRDAuthSettings, loginname: string, customizer?: AuthCustomizer, jwtPayload?: JWTPayload | undefined, options?: LoginUsernameLookupOptions): Promise<number | null> {
     if (!authsettings.loginAttribute)
       throw new Error("No login attribute defined for WRD schema " + this.wrdschema.tag);
 
@@ -947,6 +948,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return await customizer.lookupUsername({
         wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
         username: loginname,
+        jwtPayload,
         ...pick(options || {}, ["site"])
       });
 
@@ -963,7 +965,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!authsettings?.passwordAttribute)
       throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
 
-    let userid = await this.lookupUser(authsettings, username, customizer, options);
+    let userid = await this.lookupUser(authsettings, username, customizer, undefined, options);
     if (userid) {
       const getfields = {
         password: authsettings.passwordAttribute,
@@ -1173,4 +1175,27 @@ export async function closeFrontendLogin(cookie: string): Promise<void> {
     const hash = hashSHA256(accessToken);
     await runInWork(() => db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).execute());
   }
+}
+
+/** HS Callback into the customizer infrastructure that expects validation to already be done */
+export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, loginfield: string): Promise<number> {
+  const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
+  const applytester = await getApplyTesterForURL(targetUrl);
+  if (!applytester)
+    throw new Error("Unable to find WRDAuth settings for URL " + targetUrl);
+
+  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
+  const settings = await applytester?.getWRDAuth();
+  if (!settings.wrdSchema)
+    return 0;
+
+  const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
+  const wrdSchema = new WRDSchema(settings.wrdSchema);
+  const idp = new IdentityProvider(wrdSchema);
+  const authsettings = await getAuthSettings(wrdSchema);
+  if (!authsettings)
+    return 0;
+
+  const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
+  return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
 }

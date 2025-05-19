@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/jwt.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -45,29 +46,33 @@ MACRO RunOpenIDAuth()
       ]);
 
   LogDebug("wrd:auth-oidc", [ reason := "Received JWT for oidc auth", payload := tok->payload, why := whyreason ]);
-
   OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
-  RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
-  IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
-  {
-    //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)
-    Redirect(UpdateURLVariables(whyreason.redirect,
-      [ "wrdauth-loginfail-reason" := "unmappedlogin" //TODO remove at some point, user should rely on the encrypted info
-      , "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
-           CELL[ reason := "unmappedlogin"
-               , ...PickCells(result, ["field", "value"]) //may not exist, though the LookupOIDCLogin override is out of spec then!
-               ])
-      ]));
+  INTEGER userid := CallJS("@webhare/auth/src/identity.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
+  IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
+    RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
+    IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
+    {
+      //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)
+      Redirect(UpdateURLVariables(whyreason.redirect,
+        [ "wrdauth-loginfail-reason" := "unmappedlogin" //TODO remove at some point, user should rely on the encrypted info
+        , "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
+            CELL[ reason := "unmappedlogin"
+                , ...PickCells(result, ["field", "value"]) //may not exist, though the LookupOIDCLogin override is out of spec then!
+                ])
+        ]));
+    }
+    //TODO support 'navigateto'
+    IF(NOT CellExists(result,'userid'))
+      THROW NEW Exception("LookupOIDCLogin did not return a userid");
+
+    userid := result.userid;
   }
-  //TODO support 'navigateto'
-  IF(NOT CellExists(result,'userid'))
-    THROW NEW Exception("LookupOIDCLogin did not return a userid");
 
   //user is recognized. log him in
-  RECORD loginres :=  targetplugin->LoginById(result.userid, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
+  RECORD loginres :=  targetplugin->LoginById(userid, FALSE, [ auditmessage := CELL[ oidcclient := spinfo.wrd_id
                                                                                           , oidctag := spinfo.wrd_tag
                                                                                           ]
                                                                     , remoteip := GetClientRemoteIP()
@@ -79,8 +84,6 @@ MACRO RunOpenIDAuth()
       "wrdauth-loginfail-reason" := "loginfailure", //TODO remove at some point, user should rely on the encrypted info
       "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
            CELL[ reason := "loginfailure"
-               , result.field
-               , result.value
                ])
     ]));
 }
