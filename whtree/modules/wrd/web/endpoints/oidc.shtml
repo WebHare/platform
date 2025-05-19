@@ -51,7 +51,7 @@ MACRO RunOpenIDAuth()
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
   INTEGER userid := CallJS("@webhare/auth/src/identity.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
-  IF(userid = 0) { //then we fall back to a wrdauthsuport plugin
+  IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
     RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
     IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
     {
