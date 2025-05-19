@@ -2,15 +2,26 @@
   <div class="wh-wrdauth-form wh-wrdauth-login">
     <form class="wh-form wh-styledinput wh-wrdauth-login__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-login__intro">
-          <p class="wh-wrdauth--text">
-            [if loginemail]
-              [gettid site.forms.authpages.login-email-intro]
-            [else]
-              [gettid site.forms.authpages.login-username-intro]
-            [/if]
-          </p>
+
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-login__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+
+                <p class="normal">
+                  [if loginemail]
+                    [gettid site.forms.authpages.login-email-intro]
+                  [else]
+                    [gettid site.forms.authpages.login-username-intro]
+                  [/if]
+                </p>
+
+              </div>
+            </div>
+          </div>
         </div>
+
         [form.login.render]
         [form.password.render]
         <div class="wh-wrdauth-login__forgotpasswordlinkholder">
