@@ -20,6 +20,26 @@ LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 CONSTANT INTEGER cookie_version := 2;
 CONSTANT INTEGER max_totp_attempts := 6;
 
+PUBLIC RECORD FUNCTION ParseIDCookie(STRING idcookie) {
+  IF(idcookie NOT LIKE "* accessToken:*")
+    RETURN DEFAULT RECORD;
+
+  STRING sessionid := Left(idcookie, SearchSubstring(idcookie, ' '));
+  STRING idtoken := Substring(idcookie, SearchSubstring(idcookie,':')+1); //grab the token
+  STRING ARRAY toks := Tokenize(idtoken,'.');
+  IF(Length(toks) != 3)
+    RETURN DEFAULT RECORD;
+
+  RECORD claims := DecodeJSON(DecodeUFS(toks[1]));
+  IF(NOT RecordExists(claims))
+    RETURN DEFAULT RECORD;
+
+  STRING tokenhash := GetHashForString(idtoken, "SHA-256");
+  //this isn't 2038 safe, let's hope HS wrdauth is cancelled before that
+  DATETIME expires := CellExists(claims,'exp') AND TypeID(claims.exp) = TYPEID(INTEGER) ? MakeDatetimeFromUnixTimestamp(claims.exp) : DEFAULT DATETIME;
+
+  RETURN CELL[ idtoken, claims, tokenhash, expires, sessionid ];
+}
 
 /** Returns second factor state
     @param(object %WRDEntity2017) entity Entity to login for
@@ -41,30 +61,25 @@ PUBLIC RECORD FUNCTION GetSecondFactorState(OBJECT wrdschema, INTEGER entityid)
   RECORD ARRAY auditevents :=
       SELECT creationdate
             , COLUMN type
-            , data := DecodeHSON(COLUMN data)
+            , data := DecodeJSON(COLUMN data)
         FROM wrd.auditevents
         WHERE COLUMN entity = VAR entityid
           AND creationdate >= AddDaysToDate(-1, GetCurrentDateTime())
-          AND data LIKE "hson:*"
-    ORDER BY creationdate DESC;
+          AND type LIKE "platform:secondfactor.*"
+     ORDER BY creationdate DESC;
 
   // current open second factor login
   RECORD curinit;
 
   // secondfactorlogin init for this validation
   STRING ARRAY used_challenges;
-  FOREVERY (RECORD rec FROM auditevents)
-  {
-    IF (rec.type LIKE "wrd:login:secondfactor:*")
-      INSERT rec.data.secondfactordata.usedchallenge INTO used_challenges AT END;
-    IF (rec.type = "wrd:login:requiresecondfactor" OR rec.type = "wrd:login:secondfactor:failed")
-    {
-      IF (CellExists(rec.data.secondfactordata, "challenge"))
-      {
-        IF (rec.data.secondfactordata.challenge NOT IN used_challenges) // wrong challenge
-          curinit := rec;
-        BREAK;
-      }
+  FOREVERY (RECORD rec FROM auditevents) {
+    IF(rec.type = "platform:secondfactor.failed")
+      INSERT rec.data.challenge INTO used_challenges AT END;
+    ELSE IF(rec.type = "platform:secondfactor.challenge") {
+      IF(rec.data.challenge NOT IN used_challenges)
+        curinit := rec;
+      BREAK;
     }
   }
 
@@ -81,8 +96,8 @@ PUBLIC RECORD FUNCTION GetSecondFactorState(OBJECT wrdschema, INTEGER entityid)
     IF (rec.creationdate < reusecode_cutoff)
       BREAK;
 
-    IF (rec.type = "wrd:login:secondfactor:ok")
-      INSERT rec.data.secondfactordata.code INTO totpblockedcodes AT END;
+    IF (rec.type = "platform:secondfactor.ok")
+      INSERT rec.data.code INTO totpblockedcodes AT END;
   }
 
   // count totp failures since last login
@@ -90,20 +105,18 @@ PUBLIC RECORD FUNCTION GetSecondFactorState(OBJECT wrdschema, INTEGER entityid)
   FOREVERY (RECORD rec FROM auditevents)
   {
     // A totpreusedcode isn't counted toward the totpfailures
-    IF (rec.type = "wrd:login:secondfactor:failed")
+    IF (rec.type = "platform:secondfactor.failed")
     {
       IF (rec.data.failurecode = "TOTPINVALIDCODE" OR rec.data.failurecode = "TOTPLOCKED")
         totpfailures := totpfailures + 1;
     }
-    IF (rec.type = "wrd:login:secondfactor:ok" OR rec.type = "wrd:authsettings.setuptotp")
+    IF (rec.type = "platform:secondfactor.ok" OR rec.type = "platform:secondfactor.setuptotp")
       BREAK;
   }
 
   INTEGER totpattemptsleft := max_totp_attempts - totpfailures;
   IF (totpattemptsleft < 0)
     totpattemptsleft := 0;
-
-  LogDebug("wrd:auth.secondfactor", "state", CELL[ used_challenges, curinit, totpattemptsleft ]);
 
   RETURN CELL
       [ curinit
@@ -242,22 +255,30 @@ PUBLIC RECORD FUNCTION ValidateSecondFactor(OBJECT wrdschema, INTEGER entityid, 
   }
 }
 
-PUBLIC STATIC OBJECTTYPE WRDAuth
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE WRDAuth <
   //
   // Variables
   //
 
   OBJECT wrdschema;
   RECORD wrdauthconfig;
+  STRING targeturl;
+
+  BOOLEAN did_wrdauthjs_check;
+
+  // Cookie containing idtoken
+  STRING idcookie;
+
+  // Parsed id cookie
+  RECORD wrdauthjs;
 
   // ---------------------------------------------------------------------------
   //
   // Constructor
   //
 
-  MACRO NEW(OBJECT wrdschema, RECORD wrdauthconfig)
-  {
+  MACRO NEW(OBJECT wrdschema, RECORD wrdauthconfig, STRING targeturl) {
+    this->targeturl := targeturl;
     this->wrdschema := wrdschema;
     this->wrdauthconfig := wrdauthconfig;
 
@@ -315,11 +336,18 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @cell return.persistent Persistent cookie
       @cell return.external External cookie
   */
-  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, INTEGER cookietype, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION __CreateLoginCookies(INTEGER userid, INTEGER cookietype, BOOLEAN impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ path := ""
                                , setcreationdate := DEFAULT DATETIME
                                ], options);
+
+    IF (cookietype != cookietype_external) {
+      //Delegating this to JS now
+      //FIXME how to get the proper target url when eg being invoked by a RPC service ?
+      this->loggedinentity := userid; //shortcircuit attempts to parse the internal cookies immediately after login
+      RETURN CallJS("@webhare/auth/src/identity.ts#prepareLoginCookies", this->targeturl, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.setcreationdate ?? GetCurrentDatetime());
+    }
 
     RECORD cookies :=
         [ logincookie := ""
@@ -512,13 +540,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     RETURN this->DoLookup(this->wrdschema->accountlogintag, login);
   }
 
-  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, BOOLEAN persistent, RECORD options)
+  RECORD FUNCTION serviceLoginById(INTEGER entityid, BOOLEAN impersonate, INTEGER cookietype, RECORD options)
   {
     OBJECT the_entity := this->wrdschema->accounttype->GetEntity(entityid);
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    RETURN this->FinalizeLogin(the_entity, impersonate, persistent ? cookietype_persistent : cookietype_session, "", "", TRUE, options);
+    RETURN this->FinalizeLogin(the_entity, impersonate, cookietype, "", "", TRUE, options);
   }
 
   STRING FUNCTION GenerateSecondFactorLoginChallenge()
@@ -760,14 +788,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT isimpersonation AND CellExists(options,'updatepassword'))
       the_entity->UpdatePassword(this->wrdschema->accountpasswordtag, options.updatepassword, [ inplace := TRUE ]); //TODO combine in one update with above
 
-    RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, PickCells(options, ["SETCREATIONDATE"]));
+    RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, isimpersonation, PickCells(options, ["SETCREATIONDATE"]));
     IF(NOT RecordExists(cookies))
       RETURN DEFAULT RECORD;
 
     RETURN CELL
-           [ ...cookies
+           [ code := ""
+           , ...cookies
            , success := TRUE
-           , code := ""
            , entityid := the_entity->id
            , entityguid :=  the_entity->guid
            , login := the_entity->GetField(this->wrdschema->accountlogintag)
@@ -882,10 +910,44 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     }
   }
 
+  BOOLEAN FUNCTION IsValidAccountEntity(INTEGER entityid) {
+    //TODO deal with parent/child types? not sure if they're ever relevant though
+    RETURN RecordExists(SELECT FROM wrd.entities WHERE id = VAR entityid AND limitdate > GetCurrentDatetime() AND type = this->wrdschema->accounttype->id);
+  }
+
   /** @short Get sessionid of current login session
       @return The id of the current login session. An empty string if the user is not logged in*/
-  STRING FUNCTION GetLoginSessionId()
-  {
+  STRING FUNCTION GetLoginSessionId() {
+    IF(NOT this->did_wrdauthjs_check) {
+      this->did_wrdauthjs_check := TRUE;
+
+      //Do we happen to see an ID Token in the login cookie?
+      IF(IsRequest()) {
+        STRING prefix := GetRequestURL() LIKE "https:*" ? this->cookiedomain != "" ? "__Secure-" : "__Host-" : ""; //see TS getIdCookieName
+        this->idcookie := GetWebCookie(prefix || this->cookiename);
+        RECORD parsed := ParseIDCookie(this->idcookie);
+
+        IF(RecordExists(parsed)) {
+          RECORD match := SELECT entity, id FROM wrd.tokens WHERE hash = parsed.tokenhash AND client = 0 AND type = "id" AND expirationdate > GetCurrentDateTime(); //find a session attached to us
+          IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity)) { //It's s a hit!
+            this->wrdauthjs := [
+              ...parsed,
+              token := match.id,
+              entity := match.entity
+            ];
+
+            this->sessiondata :=
+              CELL[ this->wrdauthjs.expires
+                  , entityid := this->wrdauthjs.entity
+                  ];
+
+            this->sessionid := Tokenize(this->idcookie,' ')[0];
+            UpdateAuditContext(CELL[ user_entityid := this->wrdauthjs.entity ]);
+         }
+        }
+      }
+    }
+
     IF(this->sessionid != "" OR NOT IsRequest())
       RETURN this->sessionid;
 
@@ -925,13 +987,22 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     IF(this->loggedinentity = -1)
       this->GetCurrentSession();
-    RETURN RecordExists(this->sessiondata) ? this->sessiondata.login : "";
+    RETURN RecordExists(this->sessiondata) ? this->wrdschema->accounttype->GetEntityField(this->sessiondata.entityid, this->wrdschema->accountlogintag) : "";
+  }
+
+  PUBLIC STRING FUNCTION GetIDToken() {
+    this->GetLoginSessionId();
+    RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.idtoken : "";
+  }
+
+  PUBLIC RECORD FUNCTION GetClaims() {
+    RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.claims : DEFAULT RECORD;
   }
 
   /** @short Are we currently logged in ? */
   PUBLIC BOOLEAN FUNCTION IsLoggedIn()
   {
-    RETURN RecordExists(this->sessiondata) OR this->GetLoginSessionId() != "";
+    RETURN this->loggedinentity > 0 OR RecordExists(this->sessiondata) OR this->GetLoginSessionId() != "";
   }
 
   /** @short Login as a specific user
@@ -945,9 +1016,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     STRING remoteip := CellExists(options,"REMOTEIP") AND options.remoteip != "" ? options.remoteip : IsRequest() ? GetClientRemoteIp() : "";
     BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
+    BOOLEAN thirdparty := CellExists(options, 'thirdparty') AND options.thirdparty;
+    INTEGER cookietype := thirdparty ? cookietype_thirdparty : persistent ? cookietype_persistent : cookietype_session;
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, is_impersonation = FALSE AND persistent, options));
+    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLoginById(userid, is_impersonation, cookietype, options));
     IF(NOT trylogin.success)
     {
       //this->WriteAuditEvent("WRD:" || trylogin.code,
@@ -1101,6 +1174,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       }
     }
 
+    IF(CellExists(trylogin, "headers")) { //New wrdauth headers received.
+      FOREVERY(RECORD toset FROM trylogin.headers)
+        AddHTTPHeader(toset.field, toset.value, toset.always_add);
+      RETURN [ success := TRUE, code := "" ];
+    }
+
+    IF(CellExists(trylogin, "error")) { //login denied
+      RETURN [ success := FALSE, code := trylogin.code = "account-disabled" ? "DISABLED" : "NOACCESS" ];
+    }
+
     //Set up a login session
     RECORD data := [ entityid := trylogin.entityid
                    , login := trylogin.login
@@ -1154,6 +1237,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     }
 
     UpdateAuditContext([ user_entityid := 0, user_login := "" ]);
+
+    this->loggedinentity := 0;
+    CallJS("@webhare/auth/src/identity.ts#closeFrontendLogin", this->idcookie);
+    this->wrdauthjs := DEFAULT RECORD;
   }
 
   /** Writes a audit event to the logs in a separate transction

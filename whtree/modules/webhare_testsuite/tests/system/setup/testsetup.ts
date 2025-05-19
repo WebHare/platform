@@ -1,5 +1,6 @@
 import * as test from '@mod-tollium/js/testframework';
 import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
+import * as testwrd from "@mod-wrd/js/testframework";
 
 const webroot = test.getTestSiteRoot();
 let setupdata: TestSetupData | null = null;
@@ -118,82 +119,33 @@ test.runTests(
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
-      test.eq("pietje@example.com", test.getCurrentScreen().getValue("username"));
-
-      test.setTodd('password', "SECRET");
-      test.setTodd('passwordrepeat', "SECRET");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      // policy: password must have at least one lowercase character
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.setTodd('password', "xecret");
-      test.setTodd('passwordrepeat', "xecret");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
+      // no need to test policy here, leave that to test_loginpasswordchecks
+      await testwrd.runPasswordSetForm("pietje@example.com", "xecret");
+      await test.runTolliumLogout();
     },
 
-    "Check passwork link expired after use",
+    "Check passwork link expired after use", //TODO this should move to wrdauthpages tests, not tollium specific anymore
     async function () {
       // test re-use isn't allowed
       await test.load(pietje_resetlink);
-      await test.wait('ui');
-
-      test.eq(/reset link.*expired/, test.getCurrentScreen().getNode()?.textContent);
+      test.eq(/link.*expired/, test.qR("main").textContent);
     },
 
     "Reset password of Jantje",
     async function () {
       await test.load(jantje_resetlink);
-      await test.wait('ui');
-
-      test.eq("jantje@example.com", test.getCurrentScreen().getValue("username"));
-
-      test.setTodd('password', "xecret2");
-      test.setTodd('passwordrepeat', "xecret2");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
+      await testwrd.runPasswordSetForm("jantje@example.com", "xecret2");
+      await test.runTolliumLogout();
     },
 
-    {
-      name: "login as jantje",
-      loadpage: function () { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0); }
-    },
-    {
-      test: function () {
-        //force a logout, as we may still have a cookie referring to a session lingering referring to a now delete schema
-        test.wrdAuthLogout();
-      },
-      waits: ['pageload', 'ui']
-    },
-    {
-      test: function () {
-        test.setTodd('loginname', 'jantje@example.com');
-        test.setTodd('password', 'xecret2');
-        console.error("GO LOGIN");
-        test.clickToddButton('Login');
-        console.error("GO WAIT");
-      },
-      waits: ['ui']
-    },
-    {
-      test: function () {
-        test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
-        test.eq('jantje@example.com', test.qR('#dashboard-user-name').textContent);
-        test.assert(getAppInStartMenuByName('Publisher'), "should be able to see the publisher");
-        test.assert(test.canClick('#dashboard-logout'));
-      }
+    "Login as jantje",
+    async function () {
+      await test.load(webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0));
+      await testwrd.runLogin('jantje@example.com', 'xecret2');
+
+      test.eq('jantje@example.com', (await test.waitForElement('#dashboard-user-name')).textContent);
+      test.assert(getAppInStartMenuByName('Publisher'), "should be able to see the publisher");
+      test.assert(test.canClick('#dashboard-logout'));
     },
     {
       name: "login as pietje",
@@ -211,42 +163,18 @@ test.runTests(
       await test.wait('ui');
       await test.wait(() => test.compByName('fullname'));
       test.eq("Pietje", test.compByName('fullname').textContent);
+      test.clickToddButton('OK'); //exit personal settings
+      await test.runTolliumLogout();
+
+      //verify logged out (should see login page)
+      await test.waitForElement("[name=login]");
     },
-    {
-      name: "logout as pietje action",
-      loadpage: function () { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0) + '&wh-debug=aut'; },
-      waits: ['ui']
-    },
-    {
-      test: function () {
-        test.click('#dashboard-logout');
-      },
-      waits: ['ui']
-    },
-    {
-      test: function () {
-        test.clickToddButton('Yes');
-      },
-      waits: ['pageload', 'ui']
-    },
-    //logout refreshes, and then we need to wait for tollium to get online
-    {
-      test: function () {
-        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
-      }
-    },
-    {
-      name: "to the requiresysop page",
-      loadpage: function () { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; }, //we should get redirected to portal1
-      waits: ['ui']
-    },
-    {
-      test: function () {
-        test.setTodd('loginname', 'pietje@example.com');
-        test.setTodd('password', 'xecret');
-        test.clickToddButton('Login');
-      },
-      waits: ['pageload']
+
+    "to the requiresysop page",
+    async function () {
+      await test.load(webroot + 'portal1/requiresysop/?language=en&wh-debug=aut');
+      //we should get redirected to portal1
+      await testwrd.runLogin('pietje@example.com', 'xecret');
     },
     {
       name: 'should be access denied',
@@ -258,67 +186,19 @@ test.runTests(
       loadpage: function () { return webroot + 'portal1/?language=en&wh-debug=aut'; },
       waits: ['ui']
     },
-    //logout, so we can become jantje
-    {
-      name: "click logout",
-      test: function () {
-        test.click('#dashboard-logout');
-      },
-      waits: ['ui']
-    },
-    {
-      name: "confirm logout",
-      test: function () {
-        test.clickToddButton('Yes');
-      },
-      waits: ['pageload', 'ui']
-    },
-    //logout refreshes, and then we need to wait for tollium to get online
-    {
-      test: function () {
-        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
-      }
-    },
-    {
-      loadpage: function () { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; },
-      waits: ['ui']
-    },
-    {
-      test: function () {
-        test.setTodd('loginname', 'jantje@example.com');
-        test.setTodd('password', 'xecret2');
-        test.click(test.compByName('savelogintext'));
-        test.clickToddButton('Login');
-      },
-      waits: ['pageload']
-    },
-    {
-      test: function () {
-        test.assert(test.qS('#success'));
-      }
-    },
-    {
-      loadpage: function () { return webroot + 'portal1/?language=en'; },
-      waits: ['ui']
-    },
-    {
-      name: "click logout",
-      test: function () {
-        test.click('#dashboard-logout');
-      },
-      waits: ['ui']
-    },
-    {
-      name: "confirm logout",
-      test: function () {
-        test.clickToddButton('Yes');
-      },
-      waits: ['pageload', 'ui'] //logout refreshes, and then we need to wait for tollium to get online
-    },
-    {
-      test: function () {
-        test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
-      }
+    "logout and become jantje",
+    async function () {
+      await test.runTolliumLogout();
+      //verify logged out (should see login page)
+      await test.waitForElement("[name=login]");
+
+      await test.load(webroot + 'portal1/requiresysop/?language=en&wh-debug=aut');
+      await testwrd.runLogin('jantje@example.com', 'xecret2');
+      test.assert(test.qS('#success'));
+
+      await test.load(webroot + 'portal1/?language=en');
+      await test.runTolliumLogout();
+      await test.waitForElement("[name=login]");
     }
   ]
 );

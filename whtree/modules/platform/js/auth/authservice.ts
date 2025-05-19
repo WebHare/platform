@@ -1,8 +1,8 @@
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildCookieHeader } from "@webhare/dompack/src/cookiebuilder";
+import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { pick, stringify, throwError } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
 import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
@@ -11,17 +11,21 @@ import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 import { prepAuth } from "@webhare/auth/src/support";
 
-export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
+export function doPublicAuthDataCookie(cookieName: string, cookieSettings: ServersideCookieOptions, authData: PublicAuthData, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
   hdrs.set("cache-control", "no-store");
   hdrs.set("pragma", "no-cache");
 
+  const cookieExpiry = authData.persistent ? new Date(authData.expiresMs) : null;
+  hdrs.append("Set-Cookie", buildCookieHeader(cookieName + PublicCookieSuffix, stringify(authData, { typed: true }), { ...cookieSettings, httpOnly: false, expires: cookieExpiry }));
+}
+
+export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void {
   // We record the accesstoken expiry in the public cookie but if we expect the browser to discard the session we'll make them session cookies
   const cookieExpiry = authCookies.persistent ? authCookies.expires : null;
 
   //browser/client visible cookie, containing only non-sensitive data
-  const publicAuthData = stringify({ expiresMs: authCookies.expires.epochMilliseconds, userInfo: authCookies.userInfo } satisfies PublicAuthData, { typed: true });
-  hdrs.append("Set-Cookie", buildCookieHeader(authCookies.cookieName + PublicCookieSuffix, publicAuthData, { ...authCookies.cookieSettings, httpOnly: false, expires: cookieExpiry }));
+  doPublicAuthDataCookie(authCookies.cookieName, authCookies.cookieSettings, authCookies.publicAuthData, hdrs);
 
   //serverside cookies
   hdrs.append("Set-Cookie", buildCookieHeader(authCookies.idCookie, authCookies.value, { ...authCookies.cookieSettings, expires: cookieExpiry }));
@@ -60,9 +64,13 @@ export const authService = {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
 
-    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, pick(options || {}, ["persistent", "site"]));
+    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, {
+      persistent: options?.persistent,
+      site: options?.site,
+      returnTo: options?.returnTo || originUrl
+    });
     if (response.loggedIn === false)
-      return { loggedIn: false, code: response.code, error: response.error };
+      return { loggedIn: false, code: response.code, error: response.error, token: response.token };
 
     doLoginHeaders(response.setAuth, context.responseHeaders);
     return { loggedIn: true };

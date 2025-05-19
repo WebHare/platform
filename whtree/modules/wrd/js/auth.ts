@@ -6,6 +6,7 @@
 import * as dompack from 'dompack';
 import * as domcookie from 'dompack/extra/cookie';
 import * as whintegration from '@mod-system/js/wh/integration';
+import * as newauth from "@webhare/frontend/src/auth";
 import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
@@ -23,6 +24,7 @@ function getURLOrigin(url) {
 }
 
 export class WRDAuthenticationProvider {
+  userinfo: object | null = null;
   constructor(options) {
     if (!options)
       options = {};
@@ -30,11 +32,13 @@ export class WRDAuthenticationProvider {
     this.cookiename = 'cookiename' in options ? options.cookiename : "webharelogin";
 
     this.refresh();
+
+    window.$wh$legacyAuthProvider = this; //@webhare/frontend/src/auth needs this to keep us in sync
   }
 
   refresh() {
     this.isloggedin = false;
-    this.userinfo = null;
+    this.userinfo = newauth.getUserInfo();
     this.logouturl = "";
     this.loginservice = new JSONRPC({ url: '/wh_services/wrd/auth' });
 
@@ -49,7 +53,6 @@ export class WRDAuthenticationProvider {
       return;
 
     if (!currentstate || currentstate.substr(0, jsstate.length) !== jsstate) {
-      location.replace('/.wrd/auth/restoresession.shtml' + getBackVar(location.href));
       return;
     } else {
       if (dompack.debugflags.aut)
@@ -234,6 +237,11 @@ export class WRDAuthenticationProvider {
     this._failLogin(/* FIXME? Locale.get('wh-common.authentication.loginerror') || */'An error has occurred.', { code: code }, form);
   }
   _failLogin(message, response, form) {
+    if (["REQUIRESETUPSECONDFACTOR", "FAILEDVALIDATIONCHECKS", "REQUIRESECONDFACTOR"].includes(response.code)) {
+      console.error(`Code "${response.code}" is NOT supported by @mod-wrd/js/auth - you will need to remove this library and fully switch to setupAuth in @webhare/frontend to support password requirements and/or MFA`);
+      message = "An internal error has occured in the account management system. Please contact the webmaster.";
+    }
+
     const evtdetail = {
       message: message,
       code: response.code,
@@ -250,7 +258,7 @@ export class WRDAuthenticationProvider {
     }
   }
   isLoggedIn() {
-    return this.isloggedin;
+    return newauth.isLoggedIn();
   }
   getUserInfo() {
     return this.userinfo;

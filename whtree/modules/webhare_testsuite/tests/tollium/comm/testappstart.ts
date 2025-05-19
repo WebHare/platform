@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import * as testwrd from "@mod-wrd/js/testframework";
 
 
 test.runTests(
@@ -163,10 +164,7 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + "portal1/?app=webhare_testsuite:appstarttest");
       await test.wait('ui');
 
-      test.setTodd('loginname', setupdata.sysopuser);
-      test.setTodd('password', setupdata.sysoppassword);
-      test.clickToddButton('Login');
-
+      await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
       await test.wait('ui');
 
       // Get the expiry date of the wrdauth session, compare to tollium value

@@ -1,15 +1,21 @@
 <?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/otp.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
 
 MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
@@ -86,11 +92,28 @@ PUBLIC OBJECTTYPE LoginForm EXTEND Formbase
 
 PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
 {
+  IF(IsRequestPost()) {
+    STRING loginmethod := GetWebVariable("wrdauth_loginmethod");
+    RECORD method := SELECT * FROM options.loginmethods WHERE tag = loginmethod;
+    STRINg landing := UpdateURLVariables(GetRequestURL(), CELL[wrdauth_loginmethod := ""]);
+    IF(NOT RecordExists(method))
+      Redirect(landing);
+
+    // RECORD loginoptions := CELL[ ...PickCells(options, [ "action", "passive", "forcelogin" ])
+    //                           , allowlogout := method.allowlogout
+    //                           ];
+    STRING ARRAY toks := Tokenize(loginmethod,':');
+    ExecuteSubmitInstruction(webdesign->GetWRDAuthPlugin()->GenerateLoginRequest(toks[0], toks[1], landing));
+  }
+
   OBJECT loginform := webdesign->OpenForm("wrd:authpages#login");
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
 
   RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                      , loginmethods := (SELECT action := UpdateURLVariables(GetRequestURL(), CELL["wrdauth_loginmethod" := tag])
+                                              , title
+                                           FROM options.loginmethods)
                       , form := loginform->GetWittyData()
                       ];
 
@@ -103,6 +126,57 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
 
   RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "login", wittyvars));
 }
+
+
+PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
+  UPDATE PUBLIC MACRO PrepareForFrontend() {
+    ^token->value := GetWebVariable("token"); //insert the POST variable, formapi's variable-based prefilling is client side so it can't use POST content
+    FormBase::PrepareForFrontend();
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    RECORD state := DecryptForThisServer("platform:totpchallenge", GetFormWebVariable("token") ?? ^token->value, [ fallback := DEFAULT RECORD]);
+    IF(NOT RecordExists(state))
+      THROW NEW Exception("Invalid token"); //FIXME redirect/exit to login?
+
+    OBJECT work := this->BeginWork([database := FALSE]);
+
+    //TODO quick format checks/rate limiting, avoid actual lock as long as we can ?
+    OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+    RECORD result := ValidateSecondFactor(wrdschema, state.userid, "totp", CELL[ code := ^totp->value ], state);
+    IF(NOT result.success) {
+      work->AddErrorFor(^totp, GetTid("wrd:site.forms.authpages.totp-invalid"));
+    }
+
+    IF(work->HasFailed()){
+      work->Finish();
+      RETURN DEFAULT RECORD;
+    }
+
+    //TODO audit log?!
+    STRING baseurl := this->formcontext->GetWRDAuthPlugin()->webcontext->baseurl;
+    RECORD checkresult := CalLJS("@webhare/auth/src/identity.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto);
+    IF(CellExists(checkresult,'navigateto') AND Work->Finish())
+      RETURN [ submitinstruction := checkresult.navigateto ];
+
+    work->AddErrorFor(^totp, checkresult.error); //FIXME use 'code' for translateable error
+    work->Finish();
+    RETURN DEFAULT RECORD;
+  }
+>;
+
+
+PUBLIC OBJECT FUNCTION GetTotpPage(OBJECT webdesign, RECORD options) {
+  OBJECT totpform := webdesign->OpenForm("wrd:authpages#totp");
+  RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                      , form := totpform->GetWittyData()
+                      , token := GetWebVariable("token")
+                      ];
+
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "totp", wittyvars));
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -350,4 +424,141 @@ PUBLIC OBJECT FUNCTION GetPasswordChangePage(OBJECT webdesign, RECORD options)
                    ];
 
   RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "passwordchange", wittyvars));
+}
+
+PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
+  PUBLIC RECORD session;
+
+  MACRO NEW() {
+    this->session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+    IF(NOT RecordExists(this->session))
+      THROW NEW Exception("Session not found"); //FIXME redirect away or refresh the form and let upper error handlers deal with this
+
+    OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+    IF(wrdschema->accountemailtag = wrdschema->accountlogintag)
+      ^login->title := GetTid("wrd:site.forms.authpages.email");
+    ^login->value := wrdschema->accounttype->GetEntityField(this->session.user, wrdschema->accountlogintag);
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
+
+    OBJECT work := this->BeginWork();
+
+    IF(^passwordnew->value != ^passwordrepeat->value) //mark the 2nd password as failed immediately
+      work->AddErrorFor(^passwordrepeat, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
+
+    //We'll still check your new password though as it's nicer to dismiss it immediately if unusable, and not after having to repeat it
+    RECORD checkresult := plugin->CheckPasswordUpdate(this->session.user, ^passwordnew->value);
+
+    IF(NOT checkresult.success)
+      work->AddErrorFor(^passwordnew, checkresult.message);
+
+    IF(NOT work->HasFailed())
+      plugin->UpdateUserPassword(this->session.user, ^passwordnew->value);
+
+    IF(work->Finish()) {
+      //FIXME invalidate the session for further password changing, or auto-skip this form once complexity requirements are reached
+      RETURN [ success := TRUE ];
+    } ELSE {
+      RETURN DEFAULT RECORD;
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
+  PUBLIC RECORD session;
+
+  MACRO NEW() {
+    this->session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+    IF(NOT RecordExists(this->session))
+      THROW NEW Exception("Session not found"); //FIXME redirect away or refresh the form and let upper error handlers deal with this
+  }
+
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    RECORD totpsetup := DecodeHSON(^setup->value);
+    OBJECT work := this->BeginWork();
+
+    IF (NOT TestTOTPCode(DecodeBase32(totpsetup.secret), ^totp->value).success) {
+      work->AddErrorFor(^totp, GetTid("wrd:site.forms.authpages.totp-invalid"));
+    }
+
+    IF(NOT work->HasFailed()) {
+      //FIXME ensure that the auditlog shows the 2FA setup
+      OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+      RECORD userauthinfo := wrdschema->accounttype->GetEntityField(this->session.user, wrdschema->accountpasswordtag);
+      userauthinfo := CELL[...userauthinfo
+                          , totp := CELL[ totpsetup.url
+                                        , totpsetup.backupcodes
+                                        ]
+                          ];
+      wrdschema->accounttype->UpdateEntity(this->session.user, CellInsert(DEFAULT RECORD, wrdschema->accountpasswordtag, userauthinfo));
+    }
+
+    IF(work->Finish()) {
+      //FIXME invalidate the session for further password changing
+      RETURN [ success := TRUE ];
+    } ELSE {
+      RETURN DEFAULT RECORD;
+    }
+  }
+>;
+
+PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) {
+  //FIXME dupe work, forms do this too
+  RECORD session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+  BOOLEAN require2fa := "require2fa" IN session.failedchecks;
+  STRING ARRAY failedpwdchecks := ArrayDelete(session.failedchecks,["require2fa"]);
+
+  RECORD wittyvars := CELL[ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
+                          ];
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.passwordchange-title");
+
+  IF(NOT RecordExists(session))
+    RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "linkexpired", wittyvars));
+
+  OBJECT wrdschema := webdesign->GetWRDAuthPlugin()->wrdschema;
+  IF(NOT wrdschema->accountpasswordisauthsettings)
+    THROW NEW Exception(`The complete account page is not available for wrdschema '${wrdschema->tag}' as it still uses a PASSWORD field`); //as we wouldn't have dates
+
+  RECORD userauthinfo := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountpasswordtag);
+  IF(Length(failedpwdchecks) > 0) { //there were issues with the password itself
+    IF (Length(userauthinfo.passwords) = 0 OR userauthinfo.passwords[END-1].validfrom <= session.badpasswordtime) { //you haven't fixed the password yet
+      OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccountpassword");
+      wittyvars := CELL[ ...wittyvars
+                      , form := completeform->GetWittyData()
+                      , intro := GetTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")
+                      , continuelink := GetRequestURL()
+                      ];
+
+      RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "completeaccount_password", wittyvars));
+    }
+  }
+
+  IF(require2fa) { //we wanted you to setup 2FA
+    IF(NOT RecordExists(userauthinfo.totp)) {
+      OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccounttotp");
+      STRING issuer := "webhare"; // FIXME why/where does the issuer matter?
+      STRING username := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountlogintag);
+      RECORD newtotp := PrepareTOTPForUser(username, issuer);
+
+      //TODO do we need encryption/signature here? as the secret is exposed anyway in the setup page
+      completeform->^setup->value := EncodeHSON(newtotp);
+      completeform->^secret->value := newtotp.secret;
+
+      wittyvars := CELL[ ...wittyvars
+                      , form := completeform->GetWittyData()
+                      , continuelink := GetRequestURL()
+                      , qrcodelink := GetDataUrl(newtotp.qrpng, "image/png")
+                      ];
+
+      RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "completeaccount_totp", wittyvars));
+    }
+  }
+
+  //FIXME ensure that the auditlog is clear about what's happening in this flow
+  RECORD logininstruction := CallJS("@webhare/auth#prepareFrontendLogin", session.returnto, session.user);
+  ExecuteSubmitInstruction(logininstruction);
+  ABORT("This line should never be reached");
 }

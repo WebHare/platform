@@ -1,6 +1,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from '@mod-tollium/js/testframework';
+import * as testwrd from "@mod-wrd/js/testframework";
 
 const webroot = test.getTestSiteRoot();
 
@@ -19,33 +20,14 @@ test.runTests(
       waits: ['ui']
     },
 
-    {
-      name: "access rule portal login", //this lands on /porta1l/
-      test: function (doc, win) {
-        test.eq(/.*\/portal1\/.*/, win.location.href);
-        test.setTodd('loginname', "test-portal1@example.com");
-        test.setTodd('password', "secret");
-        test.clickToddButton('Login');
-      },
-      waits: ['pageload', 'ui'] //this should redirect us to portal2.*importsetssion. wait for the UI to init
-    },
-    //, testFollowWRDAuthRedirect("Redirect to protected portal", ['ui'])
-
-    {
-      name: "protected portal login",
-      test: function (doc, win) {
-        test.setTodd('loginname', 'test-portal2@example.com');
-        test.setTodd('password', "secret");
-        test.clickToddButton('Login');
-      },
-      waits: ['ui']
-    },
-
-    {
-      name: "check login result",
-      test: function (doc, win) {
-        test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
-      }
+    "access rule portal login", //this lands on /porta1l/
+    async function () {
+      test.eq(/.*\/portal1\/.*/, test.getWin().location.href);
+      await testwrd.runLogin("test-portal1@example.com", "secret");
+      //protected portal login
+      await testwrd.runLogin("test-portal2@example.com", "secret");
+      //check login result
+      test.eq("test portal2", (await test.waitForElement("#dashboard-user-name")).textContent);
     },
 
     {
@@ -71,21 +53,13 @@ test.runTests(
       , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
       , waits: [ 'ui' ]
       }*/
-    {
-      name: "protected portal login", //we should be on portal1 here!
-      test: function (doc, win) {
-        test.eq(/.*\/portal2\/.*/, win.location.href);
-        test.setTodd('loginname', 'test-portal2@example.com');
-        test.setTodd('password', "secret");
-        test.clickToddButton('Login');
-      },
-      waits: ['ui']
-    },
-    {
-      name: "check login result",
-      test: function (doc, win) {
-        test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
-      }
+    "protected portal login", //we should be on portal1 here!
+    async function () {
+      test.eq(/.*\/portal2\/.*/, test.getWin().location.href);
+      await testwrd.runLogin("test-portal2@example.com", "secret");
+      await test.wait('ui');
+      //check login result
+      test.eq("test portal2", (await test.waitForElement("#dashboard-user-name")).textContent);
     },
 
     {

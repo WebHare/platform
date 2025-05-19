@@ -867,6 +867,9 @@
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="completeaccount_totp_button">Bevestigen</text>
+        <text tid="completeaccount_totp_intro">Twee-factor authenticatie met eenmalige toegangscodes instellen</text>
+        <text tid="completeaccount_totp_intro2">Als je gebruik maakt van een andere applicatie (bijvoorbeeld een password manager) kun je de geheime sleutel gebruiken om de codes te genereren.</text>
         <text tid="currentpassword">Huidig wachtwoord</text>
         <text tid="email">E-mailadres</text>
         <text tid="emailchange-button">Wijzig e-mailadres</text>
@@ -900,10 +903,14 @@
         <text tid="resetpassword-continue">Verder gaan</text>
         <text tid="resetpassword-intro">Voer een nieuw wachtwoord voor het account in</text>
         <text tid="resetpassword-title">Herstel wachtwoord</text>
+        <text tid="secret">Geheime sleutel</text>
         <text tid="setpassword-button">Wachtwoord instellen</text>
         <text tid="setpassword-continue">Verder gaan</text>
         <text tid="setpassword-intro">Voer een wachtwoord in om het account in te schakelen</text>
         <text tid="setpassword-title">Wachtwoord instellen</text>
+        <text tid="totp">Eenmalige toegangscode</text>
+        <text tid="totp-intro">Voer uw inlogcode in</text>
+        <text tid="totp-invalid">Deze code is niet valide</text>
         <text tid="username">Gebruikersnaam</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We kunnen uw verzoek niet uitvoeren, omdat dit e-mail adres al in gebruik is door een ander account.</text>

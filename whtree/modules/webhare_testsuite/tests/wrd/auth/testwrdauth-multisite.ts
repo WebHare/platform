@@ -30,7 +30,7 @@ test.runTests(
 
       //site 2 should work
       test.fill('#multisite_login', 'jantje-multisite@beta.webhare.net');
-      test.fill('#multisite_password', 'secret');
+      test.fill('#multisite_password', 'secret$');
       test.fill('#multisite_site', '2');
       test.click('#multisite_loginbutton');
       await test.waitForLoad();
@@ -45,7 +45,7 @@ test.runTests(
 
       //try the JS login
       const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
-      const res = await frontendAuthApi.login('jantje-multisite@beta.webhare.net', 'secret', { site: '2' });
+      const res = await frontendAuthApi.login('jantje-multisite@beta.webhare.net', 'secret$', { site: '2' });
       test.eq(true, res.loggedIn);
       await test.load(test.getWin().location.href);
       test.assert(test.qR('#js_isloggedin').checked);

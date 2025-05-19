@@ -76,6 +76,7 @@ MACRO RunOpenIDAuth()
                                                                                           , oidctag := spinfo.wrd_tag
                                                                                           ]
                                                                     , remoteip := GetClientRemoteIP()
+                                                                    , thirdparty := TRUE
                                                                     ]);
   IF(loginres.success)
     Redirect(whyreason.redirect);

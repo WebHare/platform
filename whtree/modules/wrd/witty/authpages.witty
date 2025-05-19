@@ -32,6 +32,34 @@
         <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-login__loginbutton">[gettid site.forms.authpages.login-button]</button>
       </div>
     </form>
+
+    [if loginmethods]
+      <div>
+        [forevery loginmethods]
+          <form method="post" action="[action]"><button type="submit">[title]</button></form> [! FIXME some login methods even *require* specific buttons to be used !]
+        [/forevery]
+      </div>
+    [/if]
+  </div>
+[/component]
+
+[component totp]  [! this form is used to complete a totp CHALLENGE !]
+  <div class="wh-wrdauth-form wh-wrdauth-totp">
+    <form class="wh-form wh-styledinput wh-wrdauth-totp__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-totp__intro">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.totp-intro]
+          </p>
+        </div>
+        [form.token.render]
+        [form.totp.render]
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        [! TODO back button? tollium has one but we might not know where to go back to !]
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-completeaccount__changebutton">[gettid site.forms.authpages.login-button]</button>
+      </div>
+    </form>
   </div>
 [/component]
 
@@ -242,3 +270,71 @@
   </div>
 [/component]
 
+
+[component completeaccount_password]
+  <div class="wh-wrdauth-form wh-wrdauth-completeaccount wh-wrdauth-completeaccount--password">
+    <form class="wh-form wh-styledinput wh-wrdauth-completeaccount__form" [form.formattributes]>
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro">
+          <p class="wh-wrdauth--text">
+            [intro]
+          </p>
+        </div>
+        [form.login.render]
+        [form.passwordnew.render]
+        [form.passwordrepeat.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-completeaccount__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.passwordchange-processed]
+          </p>
+          <div class="wh-form__buttongroup wh-form__navbuttons">
+            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
+          </div>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-completeaccount__changebutton">[gettid site.forms.authpages.passwordchange-button]</button>
+      </div>
+    </form>
+  </div>
+[/component]
+
+[component completeaccount_totp] [! this form is used to CONFIGURE totp !]
+  <div class="wh-wrdauth-form wh-wrdauth-completeaccount wh-wrdauth-completeaccount--totp">
+    <form class="wh-form wh-styledinput wh-wrdauth-completeaccount__form" [form.formattributes]>
+      [form.setup.render]
+      <div class="wh-form__page">
+        <div class="wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro">
+          [! TODO if *forced* to setup, explain that too !]
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.completeaccount_totp_intro]<br>
+            <br>
+            <img src="[qrcodelink]" alt="QR Code" /><br>
+            <br>
+            [gettid site.forms.authpages.completeaccount_totp_intro2]
+          </p>
+          <p>
+            <a>Show the secret key</a>
+            [form.secret.render]
+          </p>
+        </div>
+        [form.totp.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-wrdauth__done wh-wrdauth-completeaccount__done">
+          <p class="wh-wrdauth--text">
+            [gettid site.forms.authpages.passwordchange-processed]
+          </p>
+          <div class="wh-form__buttongroup wh-form__navbuttons">
+            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
+          </div>
+        </div>
+      </div>
+      <div class="wh-form__buttongroup wh-form__navbuttons">
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-completeaccount__changebutton">[gettid site.forms.authpages.completeaccount_totp_button]</button>
+      </div>
+    </form>
+  </div>
+[/component]

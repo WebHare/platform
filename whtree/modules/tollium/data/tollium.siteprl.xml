@@ -7,7 +7,9 @@
             isacceptableindex="true"
             ispublishedassubdir="true"
             webhare_builtintypeid="36">
-    <dynamicexecution webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage" />
+    <dynamicexecution
+      webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage"
+      routerfunction="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumPortalRouter" />
     <debugsettings title="Commonly used">
       <option tag="tol" title="Debug Tollium and apps" />
     </debugsettings>

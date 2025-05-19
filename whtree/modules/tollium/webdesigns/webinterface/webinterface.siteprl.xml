@@ -13,8 +13,7 @@
              wrdschema="system:usermgmt"
              cookiename="webharelogin-webharebackend"
              lastloginfield="WHUSER_LASTLOGIN"
-             loginpage="currentsite::/"
-             supportobjectname="mod::tollium/webdesigns/webinterface/lib/webinterface.whlib#TolliumWRDAuthSupport" />
+             loginpage="currentsite::/" />
 
     <!-- Setup default webdesign. Sync with tollium/data/siteprofile.xml. We need it here for 404 and /.publisher/debug pages -->
     <webdesign assetpack="platform:tollium"

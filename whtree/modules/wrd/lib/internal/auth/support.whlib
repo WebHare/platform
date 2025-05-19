@@ -286,11 +286,11 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
       , type
       , impersonated :=         logged.auditcontext.impersonator_entityid != logged.auditcontext.user_entityid OR isimpersonation
       , impersonator_entity :=  logged.auditcontext.impersonator_entityid < 0 ? 0 : logged.auditcontext.impersonator_entityid
-      , impersonator_login :=   logged.auditcontext.impersonator_login
+      , impersonator_login :=   logged.auditcontext.impersonator_login ?? accounttype->GetEntityField(logged.auditcontext.impersonator_entityid, accounttype->wrdschema->accountlogintag)
       , byentity :=             logged.auditcontext.user_entityid < 0 ? 0 : logged.auditcontext.user_entityid
-      , bylogin :=              logged.auditcontext.user_login
+      , bylogin :=              logged.auditcontext.user_login ?? accounttype->GetEntityField(logged.auditcontext.user_entityid, accounttype->wrdschema->accountlogintag)
       , entity :=               logged.auditcontext.affecteduser_entityid
-      , login :=                logged.auditcontext.affecteduser_login
+      , login :=                logged.auditcontext.affecteduser_login ?? accounttype->GetEntityField(logged.auditcontext.affecteduser_entityid, accounttype->wrdschema->accountlogintag)
       , data :=                 RecordExists(message) ? EncodeHSON(message) : ""
       ];
 

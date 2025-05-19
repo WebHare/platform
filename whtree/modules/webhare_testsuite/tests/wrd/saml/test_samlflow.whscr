@@ -49,6 +49,7 @@ MACRO Init()
       [ wrd_contact_email :=      "idpaccount@allow2fa.test.webhare.net"
       , whuser_password :=        CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash("a"))
       , whuser_unit :=            wrdschema_idp_unit->id
+      , wrdauth_account_status := [ status := "active" ]
       ]);
 
   // Create key/cert for IDP

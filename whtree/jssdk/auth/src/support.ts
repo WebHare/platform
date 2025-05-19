@@ -54,6 +54,8 @@ export async function prepAuth(url: string, cookieName: string | null): Promise<
   const settings = await applytester?.getWRDAuth();
   if (!settings?.wrdSchema)
     return { error: "No WRD schema defined for URL " + url };
+  if (settings.supportObjectName && !settings.customizer)
+    return { error: "supportobjectname= is set but customizer= is not. This may imply critical login restrictions/data have not been ported for WH 5.8!" };
   if (!settings?.wrdSchema)
     return { error: "Unable to find id token cookie/wrdauth settings for URL " + url };
 
@@ -83,6 +85,24 @@ export async function prepAuth(url: string, cookieName: string | null): Promise<
   };
 }
 
+import { getSchemaSettings } from "@webhare/wrd/src/settings";
+import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
+
+export async function getUserValidationSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, unit: number | null): Promise<string> {
+  const s = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
+  let { passwordValidationChecks } = await getSchemaSettings(s, ["passwordValidationChecks"]);
+  if (unit) {
+    let maxDepth = 16;
+    while (unit && --maxDepth > 0) {
+      const unitInfo = await s.getFields("whuserUnit", unit, ["wrdLeftEntity", "overridePasswordchecks", "passwordchecks"]);
+      if (unitInfo.overridePasswordchecks) {
+        passwordValidationChecks = unitInfo.passwordchecks;
+      }
+      unit = unitInfo.wrdLeftEntity as number | null; //the 'as' resolves the ambiguity TS sees in the loop
+    }
+  }
+  return passwordValidationChecks;
+}
 
 export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings | null> {
   const settings = await db<PlatformDB>().selectFrom("wrd.schemas").select(["accounttype", "accountemail", "accountlogin", "accountpassword"]).where("name", "=", wrdschema.tag).executeTakeFirst();
@@ -108,7 +128,8 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
     loginIsEmail: Boolean(email?.id && email?.id === login?.id),
     passwordAttribute: password ? tagToJS(password.tag) : null,
     passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS",
-    hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS")
+    hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS"),
+    hasWhuserUnit: attrs.some(_ => _.tag === "WHUSER_UNIT")
   };
 }
 

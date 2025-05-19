@@ -1,5 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
 import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsuite/js/wts-testhelpers";
+import * as testwrd from "@mod-wrd/js/testframework";
 
 let setupdata: TestSetupData | null = null;
 
@@ -9,11 +10,8 @@ test.runTests(
     async function () {
       setupdata = await invokeSetupForTestSetup({ createsysop: true });
       await test.load(setupdata.testportalurl);
+      await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
       await test.wait('ui');
-
-      test.setTodd('loginname', setupdata.sysopuser);
-      test.setTodd('password', setupdata.sysoppassword);
-      test.clickToddButton('Login');
 
       await test.wait('ui');
     },

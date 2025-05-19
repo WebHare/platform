@@ -21,6 +21,8 @@ export type WRDAuthPluginSettings = {
   customizer: string | null;
   cookieDomain: string | null;
   sameSite: CookieOptions["sameSite"];
+  supportObjectName: string | null;
+  cacheFields: string[] | null;
 };
 
 interface PluginData extends CSPPluginBase {
@@ -94,8 +96,10 @@ export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthP
     wrdSchema,
     loginPage: data?.loginpage as string || null,
     cookieName,
+    supportObjectName: data?.supportobjectname as string || null,
     customizer: data?.customizer as string || null,
     cookieDomain: data?.cookiedomain as string || null,
+    cacheFields: data?.cachefields as string[] || null,
     sameSite: (data?.samesitecookie || "Lax") as CookieOptions["sameSite"],
   };
 }

@@ -54,11 +54,5 @@ IF (urlpath LIKE ".wrd/auth/logout.shtml*")
   authplugin->Logout([explicit := TRUE]);
   Redirect("/" || claimedbackurl);
 }
-ELSE IF (urlpath LIKE ".wrd/auth/restoresession.shtml*")
-{
-  SetCurrentStateCookie(authplugin->__GetWRDAUth(), authplugin);
-
-  Redirect("/" || claimedbackurl);
-}
 
 AbortWithHTTPError(400);

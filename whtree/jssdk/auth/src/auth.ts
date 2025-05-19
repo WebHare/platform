@@ -19,6 +19,7 @@ export interface AuthEventData {
   "platform:login": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
+  "platform:secondfactor.challenge": { challenge: string };
 }
 
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
@@ -28,7 +29,7 @@ export { createServiceProvider, initializeIssuer } from "./oauth2";
 export type { ClientConfig, ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
-export type { LoginErrorCodes, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
 
 export { writeAuthAuditEvent, getAuditContext, updateAuditContext } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";

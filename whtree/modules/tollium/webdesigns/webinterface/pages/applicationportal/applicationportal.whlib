@@ -40,6 +40,7 @@ LOADLIB "mod::tollium/lib/internal/types.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/pages.whlib";
 
 
 ///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
@@ -440,21 +441,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
     this->profiling := GetWebVariable("profile") IN ["1","true"] OR IsWHDebugOptionSet("apr");
     this->memoryprofiling := GetWebVariable("profile") = "memory";
-
-    IF (GetWebVariable("oauth_responseid") != "")
-    {
-      BroadcastEvent("tollium:oauth_response",
-          [ responseid :=       GetWebVariable("oauth_responseid")
-          , responsetype :=     GetWebVariable("responsetype")
-          , version :=          ToInteger(GetWebVariable("version"), 0)
-          , token :=            GetWebVariable("token")
-          , scopes :=           GetWebVariable("scopes") = "" ? DEFAULT STRING ARRAY : Tokenize(GetWebVariable("scopes"), ",")
-          , error :=            GetWebVariable("error")
-          , expires :=          MakeDatetimeFromUnixTimestamp(ToInteger(GetWebVariable("expires"), 0))
-          ]);
-
-      ExecuteSubmitInstruction([ type := "close" ]);
-    }
 
     IF (GetWebVariable("proxy_test") != "")
     {
@@ -918,3 +904,47 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     RETURN ExecuteAction(this->wrdauthplugin->userapi, this->currentuser, action);
   }
 >;
+
+PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
+  RECORD urlinfo := GetDynamicPageParameters();
+  IF(urlinfo.subpath != "")
+    AbortWithHTTPError(404);
+
+  IF (GetWebVariable("oauth_responseid") != "") { //a peering response
+    BroadcastEvent("tollium:oauth_response",
+        [ responseid :=       GetWebVariable("oauth_responseid")
+        , responsetype :=     GetWebVariable("responsetype")
+        , version :=          ToInteger(GetWebVariable("version"), 0)
+        , token :=            GetWebVariable("token")
+        , scopes :=           GetWebVariable("scopes") = "" ? DEFAULT STRING ARRAY : Tokenize(GetWebVariable("scopes"), ",")
+        , error :=            GetWebVariable("error")
+        , expires :=          MakeDatetimeFromUnixTimestamp(ToInteger(GetWebVariable("expires"), 0))
+        ]);
+
+    ExecuteSubmitInstruction([ type := "close" ]);
+  }
+
+
+  STRING overridetoken := GetWebVariable('overridetoken');
+  IF(overridetoken != "") {
+    IF(NOT VerifyOverrideToken(overridetoken))
+      AbortWithHTTPError(403, "The specified overridetoken is not, or no longer, valid", [ htmlbody := "<p>The specified overridetoken is not, or no longer, valid</p>" ]);
+  }
+
+  IF(GetWebHeader("Content-Type") LIKE "application/json*")
+    RETURN NEW TolliumInterfacePage(); //incoming RPC. TODO get rid of the WCS_/WDS_ calls above and this bypass can go away too
+
+  RECORD config := GetApplicationPortalConfig(webdesign->targetobject->id);
+  IF(overridetoken = "" AND ObjectExists(webdesign->GetWRDAuthPlugin())) { //we really need to enable auth things
+    OBJECT page := GetWRDAuthPages(webdesign, CELL[
+      //TODO transition away from siteprl loginmethods, but we may need this for compatibility with existing installations
+      //     this should probably be an undocumented method and WRDAuth should look at the schema's configuration
+      loginmethods := (SELECT tag := type || ":" || tag, title := GetTid(tid) FROM config.loginmethods)
+    ]);
+
+    IF(ObjectExists(page))
+      RETURN page;
+  }
+
+  RETURN NEW TolliumInterfacePage();
+}

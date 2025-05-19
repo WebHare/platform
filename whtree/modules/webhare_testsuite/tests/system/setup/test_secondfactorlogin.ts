@@ -1,6 +1,7 @@
 import * as test from '@mod-tollium/js/testframework';
 import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
-import { isTruthy } from '@webhare/std';
+import { isTruthy, throwError } from '@webhare/std';
+import * as testwrd from "@mod-wrd/js/testframework";
 
 const webroot = test.getTestSiteRoot();
 let setupdata: TestSetupData | null = null;
@@ -48,44 +49,12 @@ test.runTests(
     "set Pietje password",
     async function () {
       await test.load(pietje_resetlink);
-      await test.wait('ui');
-
-      test.eq("pietje@allow2fa.test.webhare.net", test.getCurrentScreen().getValue("username"));
-
-      test.setTodd('password', "SECRET");
-      test.setTodd('passwordrepeat', "SECRET");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      // policy: password must have at least one lowercase character
-      test.eq(/doesn't have/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.setTodd('password', "xecret");
-      test.setTodd('passwordrepeat', "xecret");
-      test.clickToddButton('OK');
-      await test.wait('ui');
-
-      test.eq(/has been updated/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
-
-      // reloads to login window
-      await test.wait('load');
-      await test.wait('ui');
-    },
-
-    "login Pietje",
-    async function () {
-      test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
-      test.setTodd('password', 'xecret');
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "xecret");
     },
 
     "enable TOTP",
     async function enable2FA() {
-      test.click("#dashboard-user-name");
+      test.click(await test.waitForElement("#dashboard-user-name"));
       await test.wait('ui');
       test.click(test.qSA("button").filter(e => e.textContent === "Change")[1]);
       await test.wait('ui');
@@ -132,18 +101,12 @@ test.runTests(
       await test.wait('ui');
       await test.sleep(100); // wait for dashboard to appear
 
-      test.click("#dashboard-logout");
-      await test.wait('ui');
-      test.clickToddButton('Yes');
-      await test.wait('load');
-      await test.wait('ui');
+      await test.runTolliumLogout();
     },
 
     "login Pietje with 2FA code",
     async function () {
-      test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
-      test.setTodd('password', 'xecret');
-      test.clickToddButton('Login');
+      await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
       await test.wait('ui');
 
       // STORY: test an invalid code
@@ -158,76 +121,52 @@ test.runTests(
       let wrongcode = "000000";
       while (validcodes.includes(wrongcode))
         wrongcode = `00000${parseInt(wrongcode, 10) + 1}`.substr(-6);
-      test.setTodd('totpcode', wrongcode);
+
+      test.fill("[name=totp]", wrongcode);
+      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
       await test.wait('ui');
-      test.click(test.compByName("secondfactorloginbutton"));
-      await test.wait('ui');
-      test.eq(/This code is not valid/, test.getCurrentScreen().getNode()?.textContent);
-      test.clickToddButton('OK');
+      test.eq(/This code is not valid/, test.getDoc().body.textContent);
 
       // STORY: test an valid code (after using an invalid code)
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
-      test.setTodd('totpcode', totpdata.code);
-      await test.wait('ui');
+      test.fill("[name=totp]", totpdata.code);
+      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
 
-      test.click(test.compByName("secondfactorloginbutton"));
+      await test.wait('load');
       await test.wait('ui');
 
       // should be logged in
       test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
-      test.click("#dashboard-logout");
-      await test.wait('ui');
-      test.clickToddButton('Yes');
-      await test.wait('load');
-      await test.wait('ui');
+      await test.runTolliumLogout();
     },
 
     "login Pietje with backup code",
     async function () {
-      test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
-      test.setTodd('password', 'xecret');
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
 
-      test.setTodd('totpcode', totpbackupcodes[0]);
-      await test.wait('ui');
-
-      test.click(test.compByName("secondfactorloginbutton"));
+      test.fill("[name=totp]", totpbackupcodes[0]);
+      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
+      await test.wait('load');
       await test.wait('ui');
 
       // should be logged in
       test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
-      test.click("#dashboard-logout");
-      await test.wait('ui');
-      test.clickToddButton('Yes');
-      await test.wait('load');
-      await test.wait('ui');
+      await test.runTolliumLogout();
     },
 
     "login but first lock pietje",
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#LockUser', 'pietje@allow2fa.test.webhare.net');
-      test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
-      test.setTodd('password', 'xecret');
-      test.clickToddButton('Login');
+      await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
+
+      test.fill('[name=totp]', totpbackupcodes[1]);
+      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
       await test.wait('ui');
 
-      test.setTodd('totpcode', totpbackupcodes[1]);
-      await test.wait('ui');
-
-      test.click(test.compByName("secondfactorloginbutton"));
-      await test.wait('ui');
-
-      await test.waitForElement(["t-text", /Login failed: this user account is disabled/]);
-      test.clickToddButton('OK');
-      await test.wait('load'); //should reload
-
-      // should be logged in
-      test.assert(!test.qS("#dashboard-logout"));
+      await test.waitForElement([".wh-form__error", /Account is disabled/]);
     }
-
   ]);

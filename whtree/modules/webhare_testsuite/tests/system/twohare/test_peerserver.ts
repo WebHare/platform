@@ -2,6 +2,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import { invokeSetupForTestSetup, type TestSetupData } from "@mod-webhare_testsuite/js/wts-testhelpers";
+import * as testwrd from "@mod-wrd/js/testframework";
 
 let setupdata: TestSetupData | null = null;
 let setup2data: TestSetupData | null = null;
@@ -19,11 +20,8 @@ test.runTests(
       await test.wait("ui");
 
       // Wait for login page to appear
-      await test.sleep(200);
-      test.setTodd('loginname', setupdata.sysopuser);
-      test.setTodd('password', setupdata.sysoppassword);
-      test.clickToddButton('Login');
-      await test.wait('ui');
+      await testwrd.runLogin(setupdata.sysopuser, setupdata.sysoppassword);
+      await test.wait("ui");
     },
 
     "Setup peering",

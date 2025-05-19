@@ -1663,7 +1663,7 @@ IF(options.multisite) {
       , wrd_lastname := "Tester2"
       , wrd_contact_email := "jantje" || emailsuffix
       , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABD"
-      , password := testfw->hashedpasswords.secret
+      , password := testfw->hashedpasswords.secret_dollar
       , whuser_unit :=            unit
       , wrdauth_account_status := [ status := "active" ]
       , multisite := "site2"
