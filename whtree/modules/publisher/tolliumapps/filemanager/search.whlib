@@ -628,11 +628,9 @@ PUBLIC STATIC OBJECTTYPE SearchFilter EXTEND TolliumFragmentBase
     IF (NOT this->changingvalue)
     {
       this->changingvalue := TRUE;
-
-      ^datequeryperiod->value := CellExists(^datequeryvalue, "period") ? ^datequeryvalue.period : 0;
-      ^datequeryunit->value := CellExists(^datequeryvalue, "unit") ? ^datequeryvalue.unit : "";
-      ^datequerydate->value := CellExists(^datequeryvalue, "date") ? ^datequeryvalue.date : DEFAULT DATETIME;
-
+      ^datequeryperiod->value := CellExists(this->datequeryvalue, "period") ? this->datequeryvalue.period : 0;
+      ^datequeryunit->value := CellExists(this->datequeryvalue, "unit") ? this->datequeryvalue.unit : "";
+      ^datequerydate->value := CellExists(this->datequeryvalue, "date") ? this->datequeryvalue.date : DEFAULT DATETIME;
       this->changingvalue := FALSE;
     }
   }
