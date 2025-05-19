@@ -665,7 +665,9 @@
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
     <formintegration mailrtdtype="http://www.webhare.net/xmlns/publisher/defaultmailrtdtype" />
 
-    <!-- By default, allow all questions and handlers that don't require extra configuration or JS help -->
+    <!-- By default, allow all questions and handlers that don't require extra configuration or JS help
+         NOTE: this list *should* have contained imgedit and fileedit too as they require JS support
+         -->
     <allowformquestion type="http://www.webhare.net/xmlns/publisher/forms#*" />
     <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#address" />
     <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#password" />
