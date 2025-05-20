@@ -25,6 +25,10 @@
                witty="mod::tollium/webdesigns/webinterface/witty/webinterface.witty"
                wittyencoding="HTML-NI" />
 
+    <!-- Explicitly don't allow imgedit/fileedit, they're not used in Tollium forms (i.e. login pages) -->
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#imgedit" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#upload" />
+
     <!-- used for eg news -->
     <rtddoc rtdtype="http://www.webhare.net/xmlns/publisher/defaultrtdtype" />
   </apply>

@@ -31,6 +31,7 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
+LOADLIB "mod::tollium/lib/todd/internal/service.whlib";
 LOADLIB "mod::tollium/lib/internal/appmgmt.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
@@ -936,10 +937,17 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
 
   RECORD config := GetApplicationPortalConfig(webdesign->targetobject->id);
   IF(overridetoken = "" AND ObjectExists(webdesign->GetWRDAuthPlugin())) { //we really need to enable auth things
+    RECORD images := RPC_RetrieveImages([ [ data := [ imgnames := (SELECT AS STRING ARRAY icon FROM config.loginmethods), color := "c", height := 24, width := 24 ] ] ], FALSE);
     OBJECT page := GetWRDAuthPages(webdesign, CELL[
       //TODO transition away from siteprl loginmethods, but we may need this for compatibility with existing installations
       //     this should probably be an undocumented method and WRDAuth should look at the schema's configuration
-      loginmethods := (SELECT tag := type || ":" || tag, title := GetTid(tid) FROM config.loginmethods)
+      loginmethods :=
+          (SELECT TEMPORARY image := #loginmethods < Length(images.images.images) ? images.images.images[#loginmethods] : DEFAULT RECORD
+                , tag := type || ":" || tag
+                , title := GetTid(tid)
+                  // Don't html-encode the '+' in image/svg+xml
+                , icon := RecordExists(image) ? "data:" || Substitute(EncodeURL(image.type), "%2B", "+") || ";base64," || image.data : ""
+             FROM config.loginmethods)
     ]);
 
     IF(ObjectExists(page))

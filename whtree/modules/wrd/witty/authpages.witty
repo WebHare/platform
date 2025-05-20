@@ -3,23 +3,14 @@
     <form class="wh-form wh-styledinput wh-wrdauth-login__form" [form.formattributes]>
       <div class="wh-form__page">
 
-        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-login__intro"
-             data-wh-form-group-for="intro">
-          <div class="wh-form__fields">
-            <div class="wh-form__fieldline">
-              <div class="wh-form__richtext wh-wrdauth--text">
-
-                <p class="normal">
-                  [if loginemail]
-                    [gettid site.forms.authpages.login-email-intro]
-                  [else]
-                    [gettid site.forms.authpages.login-username-intro]
-                  [/if]
-                </p>
-
-              </div>
-            </div>
-          </div>
+        <div class="wh-wrdauth-form__intro wh-wrdauth-forgotpassword__intro">
+          <p class="wh-wrdauth--text">
+            [if loginemail]
+              [gettid site.forms.authpages.login-email-intro]
+            [else]
+              [gettid site.forms.authpages.login-username-intro]
+            [/if]
+          </p>
         </div>
 
         [form.login.render]
@@ -34,9 +25,15 @@
     </form>
 
     [if loginmethods]
-      <div>
+      <div class="wh-wrdauth-loginmethods">
         [forevery loginmethods]
-          <form method="post" action="[action]"><button type="submit">[title]</button></form> [! FIXME some login methods even *require* specific buttons to be used !]
+          <form method="post" action="[action]">
+            [! FIXME some login methods even *require* specific buttons to be used !]
+            <button type="submit" class="wh-wrdauth-loginmethodbutton">
+              [if icon]<img class="wh-wrdauth-loginmethodicon" src="[icon]" />[/if]
+              [title]
+            </button>
+          </form>
         [/forevery]
       </div>
     [/if]

@@ -1,0 +1,124 @@
+body:has(.wh-wrdauth-form) {
+  --input-font-size: 14px;
+
+  background: var(--tollium-background-apps);
+}
+
+.wh-backend__main:has(.wh-wrdauth-form) {
+  display: grid;
+  grid-template:
+    /* rows (areas + height) */
+    ". . . " 1fr
+    ". content ." min-content
+    ". . ." 2fr
+    /* columns */
+    / 1fr 350px 1fr;
+}
+
+.wh-wrdauth-form {
+  background: var(--tollium-background);
+  grid-area: content;
+  overflow: auto;
+  padding: 10px;
+}
+
+.wh-wrdauth-form {
+  a {
+    color: #767676;
+  }
+
+  .wh-form__fieldgroup,
+  .wh-wrdauth--text {
+    padding: 10px 10px 5px;
+  }
+
+  label {
+    display: inline-block;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  input {
+    border-radius: 6px;
+    border-width: var(--tollium-border-width);
+    font-size: var(--input-font-size);
+    height: 40px;
+    padding: 12px;
+    width: 100%;
+  }
+
+  .wh-form__fieldgroup--error {
+    background: #ff46361a;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    padding: 10px;
+    
+    label {
+      color: #d41100;
+    }
+  }
+  
+  .wh-form__error {
+    color: #d41100;
+    padding-left: 24px;
+    padding-top: 10px;
+    position: relative;
+    
+    &::before {
+      content: "\f071";
+      font: normal normal normal 14px/1 FontAwesome;
+      left: 4px;
+      position: absolute;
+    }
+  }
+
+  .wh-form__buttongroup {
+    padding: 10px;
+  }
+  
+  /* Hide button groups without <a> links (e.g. 'Continue') if none of the navigation buttons are visible */
+  .wh-form:not(.wh-form--allowprevious):not(.wh-form--allownext):not(.wh-form--allowsubmit) .wh-form__buttongroup:not(:has(a)) {
+    display: none;
+  }
+
+  button,
+  a.wh-form__button {
+    background: var(--tollium-color-accent);
+    border: none;
+    border-radius: 6px;
+    box-shadow: none;
+    color: #ffffff;
+    display: inline-block;
+    font-weight: 500;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    text-decoration: none;
+    width: 100%;
+  }
+
+  .wh-wrdauth-login__forgotpasswordlinkholder {
+    padding: 10px;
+  }
+  
+  .wh-wrdauth-loginmethods {
+    padding: 10px;
+    
+    button {
+      background: var(--tollium-background);
+      border: var(--tollium-border-width) solid var(--tollium-border-color);
+      color: var(--tollium-text-color);
+      font-size: 14px;
+      font-weight: 400;
+      text-align: left;
+    }
+    
+    img {
+      display: inline-block;
+      height: 20px;
+      margin: 0 10px -4px 5px;
+      position: relative;
+      width: 20px;
+    }
+  }
+}

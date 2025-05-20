@@ -2,8 +2,9 @@
 
 html
 {
+  height: 100dvh;
+  min-height: 100dvh;
   width: 100%;
-  min-height: 100vh;
 }
 
 body
@@ -12,7 +13,8 @@ body
   grid-template-columns: [desktop] 1fr [tools] 0;
   grid-template-rows: [banner] min-content [topbar] 12px [desktop] 1fr [footerbar] 12px;
 
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
 }
 
 // "Restore info" etc banner. Only in the DOM if set
@@ -21,7 +23,7 @@ body
   grid-column: desktop / -1;
   grid-row: banner;
 
-  background-color: #fefedd;
+  background-color: var(--tollium-background-warning);
   padding: 5px;
   text-align: center;
 }
