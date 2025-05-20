@@ -260,8 +260,10 @@ export class WRDAuthenticationProvider {
   isLoggedIn() {
     return newauth.isLoggedIn();
   }
-  getUserInfo() {
-    return this.userinfo;
+  /** @deprecated Switch to frontend getUserInfo() */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- for backwards compatibility getUserInfo() should return an 'any'
+  getUserInfo(): any {
+    return newauth.getUserInfo();
   }
   setLogoutURL(url) {
     this.logouturl = url;
