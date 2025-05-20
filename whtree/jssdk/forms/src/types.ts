@@ -78,6 +78,12 @@ export interface RPCFormInvokeRPC extends RPCFormInvokeBase {
   args: unknown[];
 }
 
+export type RPCFormMessage = {
+  field: string;
+  prop: string;
+  data: unknown;
+};
+
 export interface RPCFormSubmission extends RPCFormInvokeBase {
   extrasubmit?: unknown;
 }

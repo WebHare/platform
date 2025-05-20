@@ -1,7 +1,7 @@
 import { createClient, type GetClientInterface } from "@webhare/jsonrpc-client";
 import type { AddressValidationOptions, AddressValidationStatus } from "./address";
 import type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
-import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission } from "./types";
+import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission, RPCFormMessage } from "./types";
 import type { FormService } from "@mod-publisher/lib/internal/forms/service";
 import type { AddressValue } from "@webhare/std";
 
@@ -45,7 +45,7 @@ export interface PublisherFormService {
   formSubmit(submitinfo: RPCFormSubmission): Promise<FormSubmitResult>;
 
   formInvoke(submitinfo: RPCFormInvokeRPC): Promise<{
-    messages: Array<{ field: string; prop: string; data: unknown }>;
+    messages: RPCFormMessage[];
     result: unknown;
   }>;
 

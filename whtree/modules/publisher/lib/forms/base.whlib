@@ -628,23 +628,6 @@ PUBLIC STATIC OBJECTTYPE FormBase
     this->__formwarnings := this->__formwarnings CONCAT warnings;
   }
 
-  PUBLIC MACRO __FormSetData(RECORD fields)
-  {
-    FOREVERY(RECORD field FROM this->__formfields) //always run in form order, easier for interdependent fields
-    {
-      IF(NOT CellExists(fields, field.name))
-        CONTINUE;
-
-      IF(NOT field.obj->IsFrontendVisible()) // The component was never sent to the client, so it cannot have been updated
-        CONTINUE;
-
-      // We cannot reliably determine which fields are currently enabled, based on the value of other fields (of which the
-      // updated value might not have been processed yet), so we'll just update anything we're receiving and leave the
-      // responsibility of using the updated values with the form handler
-      field.obj->UpdateFromJS(GetCell(fields,field.name));
-    }
-  }
-
   /** @short Set form values using a flat array. Safer when fieldnames may be long
       @param vals List of values to set
       @cell(string) vals.name Element name to set
@@ -685,6 +668,8 @@ PUBLIC STATIC OBJECTTYPE FormBase
       IF(Length(unset) > 0)
         THROW NEW Exception(`No such fields: '${Detokenize(unset, "', '")}'`);
     }
+
+    this->__PullFormMessages(); //flush setvalue generated messages so we don't reflect received values
   }
 
   PUBLIC STRING FUNCTION GetFormTarget()
@@ -798,6 +783,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
            , result := result
            , errors :=   (SELECT comp, message := text, metadata FROM this->__formerrors   ORDER BY ObjectExists(comp) ? comp->formorder : -1)
            , warnings := (SELECT comp, message := text, metadata FROM this->__formwarnings ORDER BY ObjectExists(comp) ? comp->formorder : -1)
+           , messages := this->__PullFormMessages()
            ];
   }
 
@@ -838,6 +824,12 @@ PUBLIC STATIC OBJECTTYPE FormBase
     RETURN MemberExists(this, "^" || name) ? GetMember(this, "^" || name) : DEFAULT OBJECT;
   }
 
+  RECORD ARRAY FUNCTION __PullFormMessages() {
+    RECORD ARRAY messages := this->__formmessages;
+    this->__formmessages := DEFAULT RECORD ARRAY;
+    RETURN messages;
+  }
+
   PUBLIC RECORD FUNCTION __FormDoInvoke(STRING methodname, VARIANT ARRAY args)
   {
     STRING targetname := Left(methodname,SearchSubstring(methodname,'.'));
@@ -863,10 +855,10 @@ PUBLIC STATIC OBJECTTYPE FormBase
     IF (GetMemberType(target, callname) = "PRIVATE")
       THROW NEW Exception(`${targetname = "" ? "Form" : `Field '${targetname}'`} object function '${callname}' is private`);
 
-    this->__formmessages := DEFAULT RECORD ARRAY;
+
     VARIANT result := CallAnyPtrVA(GetObjectMethodPtr(target, callname), args);
     RETURN [ result := result
-           , messages := this->__formmessages
+           , messages := this->__PullFormMessages()
            ];
   }
 
