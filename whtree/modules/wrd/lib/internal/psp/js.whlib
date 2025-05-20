@@ -48,8 +48,14 @@ STRING FUNCTION MapRequirement(STRING inrequirement) {
     CASE "billingAddress" {
       RETURN "billingaddress";
     }
+    CASE "shippingAddress" {
+      RETURN "shippingaddress";
+    }
     CASE "ipAddress" {
       RETURN "ipaddress";
+    }
+    CASE "orderLines" {
+      RETURN "orderlines";
     }
     DEFAULT {
       THROW NEW Exception(`Unsupported requirement '${inrequirement}'`);
