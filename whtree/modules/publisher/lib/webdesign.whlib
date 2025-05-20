@@ -272,6 +272,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     IF(__errorrequesturl != "")
       this->baseurl := __errorrequesturl;
+    ELSE IF(CellExists(__pageinfo, 'absolutebaseurl')) //The URL passed to GetWebDesignForURL
+      this->baseurl := __pageinfo.absolutebaseurl;
     ELSE IF(IsRequest())
       this->baseurl := GetRequestURL();
     ELSE

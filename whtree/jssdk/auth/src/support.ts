@@ -90,18 +90,18 @@ import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webh
 
 export async function getUserValidationSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, unit: number | null): Promise<string> {
   const s = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
-  let { passwordValidationChecks } = await getSchemaSettings(s, ["passwordValidationChecks"]);
+
   if (unit) {
     let maxDepth = 16;
     while (unit && --maxDepth > 0) {
       const unitInfo = await s.getFields("whuserUnit", unit, ["wrdLeftEntity", "overridePasswordchecks", "passwordchecks"]);
       if (unitInfo.overridePasswordchecks) {
-        passwordValidationChecks = unitInfo.passwordchecks;
+        return unitInfo.passwordchecks;
       }
       unit = unitInfo.wrdLeftEntity as number | null; //the 'as' resolves the ambiguity TS sees in the loop
     }
   }
-  return passwordValidationChecks;
+  return (await getSchemaSettings(s, ["passwordValidationChecks"])).passwordValidationChecks;
 }
 
 export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>): Promise<WRDAuthSettings | null> {
