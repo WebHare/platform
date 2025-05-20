@@ -1,4 +1,4 @@
-import { frontendConfig, setupWRDAuth } from "@webhare/frontend";
+import { frontendConfig, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
 import "@webhare/tollium-iframe-api/styling";
 import './css/webinterface.scss';
@@ -20,6 +20,7 @@ import "@webhare/forms/styling/forms.scss";
 
 setupForms();
 setupWRDAuth();
+setupWebHareSSOTrigger();
 
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps

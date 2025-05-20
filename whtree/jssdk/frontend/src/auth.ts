@@ -34,6 +34,7 @@ declare module "@webhare/frontend" {
 declare global {
   interface Window {
     $wh$legacyAuthProvider: WRDAuthenticationProvider;
+    triggerWebHareSSO?: (tag: string) => Promise<void>;
   }
 }
 
@@ -233,4 +234,9 @@ export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Pro
 
   //Launch SSO login for the current page.
   navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, { passive: options?.passive }));
+}
+
+/** Configure WebHare external auth buttons (even hidden ones) to listen for bookmarklet login requests */
+export function setupWebHareSSOTrigger(): void {
+  window.triggerWebHareSSO = startSSOLogin;
 }
