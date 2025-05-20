@@ -436,7 +436,7 @@
              data-wh-form-group-for="intro">
           <div class="wh-form__fields">
             <div class="wh-form__fieldline">
-              <div class="wh-form__richtext wh-wrdauth--text">
+              <div class="wh-form__richtext">
                 [! TODO if *forced* to setup, explain that too !]
                 <p class="normal">
                   [gettid site.forms.authpages.completeaccount_totp_intro]<br>
@@ -445,24 +445,34 @@
                   <br>
                   [gettid site.forms.authpages.completeaccount_totp_intro2]
                 </p>
-                <p>
-                  <a>Show the secret key</a>
-                  [form.secret.render]
+              </div>
+            </div>
+          </div>
+        </div>
+        [form.showsecretkey.render]
+        [form.secret.render]
+        [form.totp.render]
+      </div>
+      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext">
+                <p class="normal">
+                  [gettid site.forms.authpages.totpsetup-processed]
                 </p>
               </div>
             </div>
           </div>
         </div>
-        [form.totp.render]
-      </div>
-      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-completeaccount__done"
-             data-wh-form-group-for="intro">
+        [form.backupcodes.render]
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext">
           <div class="wh-form__fields">
             <div class="wh-form__fieldline">
-              <div class="wh-form__richtext wh-wrdauth--text">
+              <div class="wh-form__richtext">
                 <p class="normal">
-                  [gettid site.forms.authpages.passwordchange-processed]
+                  [gettid site.forms.authpages.totpsetup-save-backupcodes]<br>
+                  <br>
                 </p>
               </div>
             </div>

@@ -912,6 +912,10 @@
         <text tid="totp">Eenmalige toegangscode</text>
         <text tid="totp-intro">Voer uw inlogcode in</text>
         <text tid="totp-invalid">Deze code is niet valide</text>
+        <text tid="totpsetup-backupcodes">Backup codes</text>
+        <text tid="totpsetup-processed">Je tweede factor is ingesteld</text>
+        <text tid="totpsetup-save-backupcodes">Bewaar deze backupcodes ergens</text>
+        <text tid="totpsetup-showsecretkey">Toon geheime sleutel</text>
         <text tid="username">Gebruikersnaam</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We kunnen uw verzoek niet uitvoeren, omdat dit e-mail adres al in gebruik is door een ander account.</text>

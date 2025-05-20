@@ -912,6 +912,10 @@
         <text tid="totp">One-time login code</text>
         <text tid="totp-intro">Please enter your one-time code</text>
         <text tid="totp-invalid">This code is not valid</text>
+        <text tid="totpsetup-backupcodes">Backup codes</text>
+        <text tid="totpsetup-processed">Your second factor has been configured</text>
+        <text tid="totpsetup-save-backupcodes">Please save the backup codes somwhere</text>
+        <text tid="totpsetup-showsecretkey">Show secret key</text>
         <text tid="username">Username</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We cannot complete your request, as the new email address is already in use by another account.</text>

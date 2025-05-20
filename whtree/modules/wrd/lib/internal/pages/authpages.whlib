@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/webserver.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
+LOADLIB "mod::publisher/lib/forms/conditions.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -474,6 +475,8 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
     this->session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
     IF(NOT RecordExists(this->session))
       THROW NEW Exception("Session not found"); //FIXME redirect away or refresh the form and let upper error handlers deal with this
+
+    ^secret->visiblecondition := FCIsSet(^showsecretkey);
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
@@ -494,6 +497,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
                                         ]
                           ];
       wrdschema->accounttype->UpdateEntity(this->session.user, CellInsert(DEFAULT RECORD, wrdschema->accountpasswordtag, userauthinfo));
+      ^backupcodes->value := Detokenize((SELECT AS STRING ARRAY code FROM totpsetup.backupcodes), "\n");
     }
 
     IF(work->Finish()) {

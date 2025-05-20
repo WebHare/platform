@@ -183,14 +183,17 @@ test.runTests(
       await test.waitForElement([".wh-form__page--visible", /Scan the QR-code below with an authentication/]);
 
       // show the 2FA secret key, so we can read it
-      test.click(await test.waitForElement(['a', /Show the secret key/]));
+      test.click(await test.waitForElement(['label', /Show secret key/]));
       totpsecret = (await test.waitForElement("[name=secret]")).value;
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
 
       test.fill("[name=totp]", totpdata.code);
       test.click(test.findElement(["a,button", /Confirm/]) ?? throwError("Confirm button not found"));
 
-      // complete the configuration, ignore the backup codes (for now!) FIXME check the backupcodes are there
+      // complete the configuration
+      const backupcodes = (await test.waitForElement("#completeaccounttotp-backupcodes")).value;
+      test.eq(10, backupcodes.trim().split("\n").length, "10 backup codes should be generated");
+
       test.click(await test.waitForElement(["a,button", /Login/]));
       await test.runTolliumLogout();
 
@@ -198,6 +201,7 @@ test.runTests(
       test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "secret");
       test.click(await test.waitForElement("button[type=submit]"));
+      await test.wait('load');
       await test.wait('load');
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
