@@ -1293,7 +1293,7 @@ PUBLIC OBJECTTYPE TolliumSelect EXTEND TolliumComponentBase
 
       VARIANT curselectionraw := this->selection;
       IF (TypeID(curselectionraw) = TypeID(RECORD))
-        curselectionraw := [ RECORD(curselectionraw) ];
+        curselectionraw := RecordExists(curselectionraw) ? [ RECORD(curselectionraw) ] : RECORD[];
 
       // Don't allow rows marked as invalidselection in the selection
       RECORD ARRAY curselection :=
