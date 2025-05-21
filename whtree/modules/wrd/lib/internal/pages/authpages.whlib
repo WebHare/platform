@@ -113,6 +113,7 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
   RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
                       , loginmethods := (SELECT action := UpdateURLVariables(GetRequestURL(), CELL["wrdauth_loginmethod" := tag])
                                               , title
+                                              , icon
                                            FROM options.loginmethods)
                       , form := loginform->GetWittyData()
                       ];

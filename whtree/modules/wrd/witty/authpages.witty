@@ -8,7 +8,6 @@
           <div class="wh-form__fields">
             <div class="wh-form__fieldline">
               <div class="wh-form__richtext wh-wrdauth--text">
-
                 <p class="normal">
                   [if loginemail]
                     [gettid site.forms.authpages.login-email-intro]
@@ -16,7 +15,6 @@
                     [gettid site.forms.authpages.login-username-intro]
                   [/if]
                 </p>
-
               </div>
             </div>
           </div>
@@ -34,9 +32,28 @@
     </form>
 
     [if loginmethods]
-      <div>
+      <div class="wh-wrdauth-loginmethods">
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-login__services"
+             data-wh-form-group-for="services">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <h2 class="heading2">
+                  [gettid site.forms.authpages.login-services]
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         [forevery loginmethods]
-          <form method="post" action="[action]"><button type="submit">[title]</button></form> [! FIXME some login methods even *require* specific buttons to be used !]
+          <form method="post" action="[action]">
+            [! FIXME some login methods even *require* specific buttons to be used !]
+            <button type="submit" class="wh-wrdauth-loginmethodbutton">
+              [if icon]<img class="wh-wrdauth-loginmethodicon" src="[icon]" />[/if]
+              [title]
+            </button>
+          </form>
         [/forevery]
       </div>
     [/if]
@@ -47,10 +64,17 @@
   <div class="wh-wrdauth-form wh-wrdauth-totp">
     <form class="wh-form wh-styledinput wh-wrdauth-totp__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-totp__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.totp-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-totp__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.totp-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.token.render]
         [form.totp.render]
@@ -67,18 +91,32 @@
   <div class="wh-wrdauth-form wh-wrdauth-forgotpassword">
     <form class="wh-form wh-styledinput wh-wrdauth-forgotpassword__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-forgotpassword__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.forgotpassword-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-forgotpassword__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.forgotpassword-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.email.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-forgotpassword__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.forgotpassword-processed]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-forgotpassword__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.forgotpassword-processed]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -115,10 +153,19 @@
 [/component]
 
 [component linkexpired]
-  <div class="wh-wrdauth-form wh-wrdauth-linkexpired">
-    <p class="wh-wrdauth--text wh-wrdauth-linkexpired__text">
-      [gettid site.forms.authpages.linkexpired]
-    </p>
+  <div class="wh-wrdauth-form wh-wrdauth-linkexpired wh-styledinput">
+    <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-linkexpired__intro"
+         data-wh-form-group-for="intro">
+      <div class="wh-form__fields">
+        <div class="wh-form__fieldline">
+          <div class="wh-form__richtext wh-wrdauth--text wh-wrdauth-linkexpired__text">
+            <p class="normal">
+              [gettid site.forms.authpages.linkexpired]
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 [/component]
 
@@ -127,23 +174,37 @@
   <div class="wh-wrdauth-form wh-wrdauth-resetpassword">
     <form class="wh-form wh-styledinput wh-wrdauth-resetpassword__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-resetpassword__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.resetpassword-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-resetpassword__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.resetpassword-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.login.render]
         [form.passwordnew.render]
         [form.passwordrepeat.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-resetpassword__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-processed]
-          </p>
-          <div class="wh-form__buttongroup wh-form__navbuttons">
-            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.resetpassword-continue]</a>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-resetpassword__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-processed]
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.resetpassword-continue]</a>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -158,22 +219,36 @@
   <div class="wh-wrdauth-form wh-wrdauth-setpassword">
     <form class="wh-form wh-styledinput wh-wrdauth-setpassword__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-setpassword__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.setpassword-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-setpassword__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.setpassword-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.passwordnew.render]
         [form.passwordrepeat.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-setpassword__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-processed]
-          </p>
-          <div class="wh-form__buttongroup wh-form__navbuttons">
-            <a href="[continuelink]" type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-setpassword__continuebutton">[gettid site.forms.authpages.setpassword-continue]</a>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-setpassword__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-processed]
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <a href="[continuelink]" type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-setpassword__continuebutton">[gettid site.forms.authpages.setpassword-continue]</a>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -187,18 +262,32 @@
   <div class="wh-wrdauth-form wh-wrdauth-emailchange">
     <form class="wh-form wh-styledinput wh-wrdauth-emailchange__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-emailchange__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.emailchange-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-emailchange__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.emailchange-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.email.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-emailchange__done">
-          <p class="wh-wrdauth--text">
-            [text_emailchange_processed]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-emailchange__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [text_emailchange_processed]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -235,10 +324,19 @@
 [/component]
 
 [component emailchanged]
-  <div class="wh-wrdauth-form wh-wrdauth-emailchanged">
-    <p class="wh-wrdauth--text wh-wrdauth-emailchanged__text">
-      [gettid site.forms.authpages.emailchanged]
-    </p>
+  <div class="wh-wrdauth-form wh-wrdauth-emailchanged wh-styledinput">
+    <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-emailchanged__intro"
+         data-wh-form-group-for="intro">
+      <div class="wh-form__fields">
+        <div class="wh-form__fieldline">
+          <div class="wh-form__richtext wh-wrdauth--text wh-wrdauth-emailchanged__text">
+            <p class="normal">
+              [gettid site.forms.authpages.emailchanged]
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 [/component]
 
@@ -246,10 +344,17 @@
   <div class="wh-wrdauth-form wh-wrdauth-passwordchange">
     <form class="wh-form wh-styledinput wh-wrdauth-passwordchange__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-passwordchange__intro">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-passwordchange__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.login.render]
         [form.currentpassword.render]
@@ -257,10 +362,17 @@
         [form.passwordrepeat.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-passwordchange__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-processed]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-passwordchange__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-processed]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -275,23 +387,37 @@
   <div class="wh-wrdauth-form wh-wrdauth-completeaccount wh-wrdauth-completeaccount--password">
     <form class="wh-form wh-styledinput wh-wrdauth-completeaccount__form" [form.formattributes]>
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro">
-          <p class="wh-wrdauth--text">
-            [intro]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [intro]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.login.render]
         [form.passwordnew.render]
         [form.passwordrepeat.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-completeaccount__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-processed]
-          </p>
-          <div class="wh-form__buttongroup wh-form__navbuttons">
-            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-completeaccount__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-processed]
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">
@@ -306,30 +432,44 @@
     <form class="wh-form wh-styledinput wh-wrdauth-completeaccount__form" [form.formattributes]>
       [form.setup.render]
       <div class="wh-form__page">
-        <div class="wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro">
-          [! TODO if *forced* to setup, explain that too !]
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.completeaccount_totp_intro]<br>
-            <br>
-            <img src="[qrcodelink]" alt="QR Code" /><br>
-            <br>
-            [gettid site.forms.authpages.completeaccount_totp_intro2]
-          </p>
-          <p>
-            <a>Show the secret key</a>
-            [form.secret.render]
-          </p>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-completeaccount__intro"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                [! TODO if *forced* to setup, explain that too !]
+                <p class="normal">
+                  [gettid site.forms.authpages.completeaccount_totp_intro]<br>
+                  <br>
+                  <img src="[qrcodelink]" alt="QR Code" /><br>
+                  <br>
+                  [gettid site.forms.authpages.completeaccount_totp_intro2]
+                </p>
+                <p>
+                  <a>Show the secret key</a>
+                  [form.secret.render]
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
         [form.totp.render]
       </div>
       <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        <div class="wh-wrdauth__done wh-wrdauth-completeaccount__done">
-          <p class="wh-wrdauth--text">
-            [gettid site.forms.authpages.passwordchange-processed]
-          </p>
-          <div class="wh-form__buttongroup wh-form__navbuttons">
-            <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
+        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-form__intro wh-wrdauth-completeaccount__done"
+             data-wh-form-group-for="intro">
+          <div class="wh-form__fields">
+            <div class="wh-form__fieldline">
+              <div class="wh-form__richtext wh-wrdauth--text">
+                <p class="normal">
+                  [gettid site.forms.authpages.passwordchange-processed]
+                </p>
+              </div>
+            </div>
           </div>
+        </div>
+        <div class="wh-form__buttongroup wh-form__navbuttons">
+          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
         </div>
       </div>
       <div class="wh-form__buttongroup wh-form__navbuttons">

@@ -889,6 +889,7 @@
         <text tid="linkexpired">The link you followed has expired</text>
         <text tid="login-button">Login</text>
         <text tid="login-email-intro">Enter your email address and password to login</text>
+        <text tid="login-services">Login using identity services</text>
         <text tid="login-title">Login</text>
         <text tid="login-username-intro">Enter your username and password to login</text>
         <text tid="password">Password</text>

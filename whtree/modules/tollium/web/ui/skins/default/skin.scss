@@ -16,8 +16,8 @@ t-text a
 /* line 102, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/shell.less */
 .t-apptabs
 {
-  color: #c8c8c8;
-  background-color: rgba(255,255,255,.0035); /* background-color: #3b3b3b; */
+  color: var(--tollium-appbar-color);
+  background-color: var(--tollium-background-appbar);//rgba(255,255,255,.0035); /* background-color: #3b3b3b; */
   font-size: 12px;
 }
 .t-apptabs:after
@@ -32,7 +32,7 @@ t-text a
 }
 .t-apptab
 {
-  color:#ebebeb;
+  color: var(--tollium-appbar-tab-color);
   position:relative;
 }
 .t-apptab > *

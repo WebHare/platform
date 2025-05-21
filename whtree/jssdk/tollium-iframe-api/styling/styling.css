@@ -4,7 +4,7 @@
 :root {
   /* Colors */
   /** The accent color, used by headings */
-  --tollium-color-accent: #308fe2;
+  --tollium-color-accent: #2977cd;
 
   /* Backgrounds */
   /** The background color */
@@ -14,15 +14,25 @@
   /** The footer background color */
   --tollium-background-footer: #e5e5e5;
   /** The background color of selected items when focused */
-  --tollium-background-selected: #95cdfe;
+  --tollium-background-selected: hsl(from var(--tollium-color-accent) h calc(s * 1.5) calc(l * 1.7));
   /** The background color of selected items when blurred */
   --tollium-background-blurred: #e1e1e1;
+  /** The background color behind applications */
+  --tollium-background-apps: #3b3b3b;
+  /** The background color behind the application bar */
+  --tollium-background-appbar: rgb(255 255 255 / 0.0035);
+  /** Info background color */
+  --tollium-background-info: #e4eeea;
+  /** Warning background color */
+  --tollium-background-warning: #fefedd;
+  /** Error background color */
+  --tollium-background-error: #f3d3d3;/*ffe5e5*/
 
   /* Borders */
   /** The border color */
   --tollium-border-color: #b3b3b3;
   /** The border color of focused components */
-  --tollium-border-color-focus: #52aefe;
+  --tollium-border-color-focus: hsl(from var(--tollium-color-accent) h calc(s * 1.5) calc(l * 1.5));
   /** The border color of disabled components */
   --tollium-border-color-disabled: #c9c9c9;
   /** The default border width */
@@ -45,6 +55,10 @@
   --tollium-heading-font: 500 13px/120% var(--tollium-font-family);
   /** The heading text color */
   --tollium-heading-color: var(--tollium-color-accent);
+  /** The application bar text color (server name) */
+  --tollium-appbar-color: #c8c8c8;
+  /** The application bar tab text color */
+  --tollium-appbar-tab-color: #ebebeb;
 
   /* Inputs */
   /** The background of input components */

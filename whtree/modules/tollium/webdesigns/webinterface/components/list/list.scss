@@ -253,7 +253,7 @@ div.wh-ui-listview--normal.flatview.singleline .listrow.even
 , div:focus.wh-ui-listview--normal.flatview.singleline .wh-list__row--selected.even
 , div:focus.wh-ui-listview--normal .wh-list__cell--selected
 {
-  background: #95cdfe;
+  background: var(--tollium-background-selected);
 }
   div.wh-ui-listview--verticaltabs .wh-list__row--selected
 , div.wh-ui-listview--verticaltabs.flatview.singleline .wh-list__row--selected.even

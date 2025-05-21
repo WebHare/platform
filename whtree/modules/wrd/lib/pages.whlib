@@ -18,9 +18,19 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
     [ ongetloginwittydata := DEFAULT FUNCTION PTR
     , fallbacktologin := TRUE //Return loginpage if no explicit route found
     , passwordresetrouter := DEFAULT MACRO PTR
-    , loginmethods := [[ tag := "", title := "" ]]
+    , loginmethods := RECORD[]
     , isglobalpage := FALSE
     ], options);
+  options.loginmethods :=
+      SELECT AS RECORD ARRAY ValidateOptions(
+                 [ tag := ""
+                 , title := ""
+                 , icon := ""
+                 ], loginmethods,
+                 [ title := `loginmethods#${#loginmethods}`
+                 , required := [ "tag", "title" ]
+                 ])
+        FROM options.loginmethods;
 
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
   IF(NOT ObjectExists(authplugin))
