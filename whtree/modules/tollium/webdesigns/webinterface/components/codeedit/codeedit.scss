@@ -1,6 +1,6 @@
 t-codeedit .gutter-content, t-codeedit > textarea
 {
-  font: 9pt/16px "Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";
+  font: var(--tollium-monospace-font);
   line-height:16px;
 }
 

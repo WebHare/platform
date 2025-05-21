@@ -43,13 +43,38 @@ body:has(.wh-wrdauth-form) {
     margin-bottom: 10px;
   }
 
-  input {
+  input,
+  textarea {
     border-radius: 6px;
     border-width: var(--tollium-border-width);
     font-size: var(--input-font-size);
     height: 40px;
     padding: 12px;
     width: 100%;
+  }
+  
+  input[type="checkbox"]:not(.wh-checkbox),
+  input[type="radio"]:not(.wh-radiobutton) {
+    border-radius: 3px;
+    height: 18px;
+    margin-right: 8px;
+    margin-top: -3px;
+    padding: 0;
+    vertical-align: middle;
+    width: 18px;
+    
+    & ~ span {
+      line-height: 18px;
+      
+      label {
+        font-weight: 400;
+      }
+    }
+  }
+  
+  .wh-form__fieldgroup[data-wh-form-group-for="backupcodes"] textarea {
+    font: var(--tollium-monospace-font);
+    height: calc(10 * 16px + 2 * 12px + 2 * var(--tollium-border-width)); /* Show 10 codes/lines, add padding and border */
   }
 
   .wh-form__fieldgroup--error {
