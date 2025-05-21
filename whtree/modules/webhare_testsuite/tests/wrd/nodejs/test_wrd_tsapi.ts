@@ -603,7 +603,7 @@ async function testNewAPI() {
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
-  await schema.update("wrdPerson", newperson, { testFile: goldfish, testImage: goldfish }); //uploading non-image resourve descriptor
+  await schema.update("wrdPerson", newperson, { testFile: goldfish, testImage: goldfish }); //uploading non-image resource descriptor
   const { testFile: goldfishAsFile, testImage: goldfishAsImage } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
   test.eq('image/png', goldfishAsFile?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsFile?.hash);
