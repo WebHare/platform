@@ -25,6 +25,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -1696,21 +1697,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       this->__RedirectToLogin(options);
 
     OBJECT user := this->userapi->GetTolliumUserFromEntityId(parsed.userid);
-
     STRING sessionid := Left(ext_cookie, SearchSubstring(ext_cookie, " "));
-    RECORD sessiondata := GetWebSessionData(sessionid, "wrd:authlogin");
-    IF (NOT RecordExists(sessiondata))
-    {
-      sessionid := CreateWebSession(
-          "wrd:authlogin",
-          [ exists := TRUE ]);
 
-      UpdateWebCookie(
-          cookiename,
-          sessionid || " " || cookiedata,
-          [ httponly := TRUE
-          , secure :=   GetClientRequestURL() LIKE "https://*"
-          ]);
+    IF(NOT IsWasm()) {
+      //Use builtin webservers cache for accelaration, databse sessions are pointless for just auth caching
+      RECORD sessiondata := __WHS_GetWebSessionData(sessionid, "wrd:cacheauthlogin");
+      IF (NOT RecordExists(sessiondata))
+        __WHS_CreateWebSession("wrd:cacheauthlogin", [ exists := TRUE ], 15, FALSE, sessionid);
     }
 
     RETURN
@@ -1730,7 +1723,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       {
         AuthenticateWebSession(
             authscriptres.sessionid,
-            "wrd:authlogin",
+            "wrd:cacheauthlogin",
             authscriptres.user->login,
             TRUE,
             authscriptres.user->authobjectid,
@@ -1741,7 +1734,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       {
         AuthenticateWebSession(
             authscriptres.sessionid,
-            "wrd:authlogin",
+            "wrd:cacheauthlogin",
             authscriptres.username,
             TRUE,
             0,
