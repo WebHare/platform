@@ -6,7 +6,7 @@ import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick,
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
-import type { NavigateInstruction } from "@webhare/env";
+import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
@@ -22,7 +22,7 @@ import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/au
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { verifyPasswordCompliance } from "./passwords";
-import { getCompleteAccountNavigation } from "./shared";
+import { getCompleteAccountNavigation, type LoginTweaks } from "./shared";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
@@ -239,7 +239,7 @@ export class AuthenticationSettings {
   }
 }
 
-export interface LoginRemoteOptions extends LoginUsernameLookupOptions {
+export interface LoginRemoteOptions extends LoginUsernameLookupOptions, LoginTweaks {
   /** Request a persistent login */
   persistent?: boolean;
   /** Return url */
@@ -1084,9 +1084,20 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { loggedIn: false, ...result };
     }
 
+    const prepOptions: AuthTokenOptions = { customizer, persistent: options?.persistent };
+    // Use ?wrdauth_limit_expiry=<seconds> to limit expiry up to 15 minutes - but only on development servers
+    if (options?.limitExpiry) {
+      if (dtapStage !== "development")
+        throw new Error("Limit expiry (wrdauth_limit_expiry) is only allowed on development servers");
+      if (!(options.limitExpiry > 0 && options.limitExpiry <= 15 * 60))
+        throw new Error("Limit expiry (wrdauth_limit_expiry)  must be between 0 and 15 minutes");
+
+      prepOptions.expires = options.limitExpiry * 1000;
+    }
+
     return {
       loggedIn: true,
-      setAuth: await prepCookies(prepped, userid, { customizer, persistent: options?.persistent }),
+      setAuth: await prepCookies(prepped, userid, prepOptions),
     };
   }
 }
