@@ -6,6 +6,7 @@
   xmlns:sc="http://www.webhare.net/xmlns/system/common"
   xmlns:tc="http://www.webhare.net/xmlns/tollium/common"
   xmlns:tai="http://www.webhare.net/xmlns/tollium/appinfo"
+  xmlns:ts="http://www.webhare.net/xmlns/tollium/screens"
   xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
   targetNamespace="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
@@ -309,5 +310,9 @@
     </xs:annotation>
   </xs:attribute>
   <xs:attribute name="mymoney" type="s:Money"/>
+  <xs:attribute name="mycustomtid" type="ts:Tid" />
+  <xs:attribute name="mycustom" type="xs:string" />
+  <xs:attribute name="tid" type="ts:Tid" />
+  <xs:attribute name="title" type="xs:string" />
 
 </xs:schema>
