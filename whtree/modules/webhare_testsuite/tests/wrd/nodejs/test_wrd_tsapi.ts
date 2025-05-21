@@ -603,13 +603,28 @@ async function testNewAPI() {
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
-  const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
-  await schema.update("wrdPerson", newperson, { testFile: goldfish, testImage: goldfishImg });
+  await schema.update("wrdPerson", newperson, { testFile: goldfish, testImage: goldfish }); //uploading non-image resource descriptor
   const { testFile: goldfishAsFile, testImage: goldfishAsImage } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
   test.eq('image/png', goldfishAsFile?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsFile?.hash);
   test.eq('image/png', goldfishAsImage?.mediaType);
   test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage?.hash);
+  test.eq(385, goldfishAsImage?.width);
+
+  const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
+  await schema.update("wrdPerson", newperson, { testImage: goldfishImg });
+  const { testImage: goldfishAsImage2 } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
+  test.eq('image/png', goldfishAsImage2?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage2?.hash);
+  test.eq(385, goldfishAsImage2?.width);
+
+  //if we give only partial metadata wrd should still add the rest
+  const goldfishImg3 = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png", fileName: "vis.png" });
+  await schema.update("wrdPerson", newperson, { testImage: goldfishImg3 });
+  const { testImage: goldfishAsImage3 } = (await schema.query("wrdPerson").select(["testFile", "testImage"]).where("wrdId", "=", newperson).execute())[0];
+  test.eq('image/png', goldfishAsImage3?.mediaType);
+  test.eq('aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY', goldfishAsImage3?.hash);
+  test.eq(385, goldfishAsImage3?.width);
 
   {
     const snowbeagle = await (await test.getTestSiteJS()).openFile("photoalbum/snowbeagle.jpg");
