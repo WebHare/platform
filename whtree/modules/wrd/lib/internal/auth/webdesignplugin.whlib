@@ -318,19 +318,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     this->spautocreate := config.spautocreate;
     this->__loginpage := config.loginpage;
     this->pvt_config := config;
-
-    IF(webdesign EXTENDSFROM WebDesignBase AND webdesign->IsDynamicPublication() AND NOT this->HasFailed())
-    {
-      IF(GetWebCookie(this->cookiename || "_j") = "") //missing javascript state
-      {
-        //Pre WH5.7 wrdauth doesn't use __Host- or __Secure-, WH5.7+ wrdauth doesn't use _j cookies
-        STRING logincookie := GetWebCookie(this->cookiename);
-        IF(logincookie != "" AND logincookie NOT LIKE "* accessToken:*") //don't destroy modern cookies
-        {
-          this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
-        }
-      }
-    }
   }
 
   /** Handles a return to an original page
@@ -1701,9 +1688,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     IF(NOT IsWasm()) {
       //Use builtin webservers cache for accelaration, databse sessions are pointless for just auth caching
-      RECORD sessiondata := __WHS_GetWebSessionData(sessionid, "wrd:cacheauthlogin");
+      RECORD sessiondata := __WHS_GetWebSessionData(sessionid, "wrd:authlogin");
       IF (NOT RecordExists(sessiondata))
-        __WHS_CreateWebSession("wrd:cacheauthlogin", [ exists := TRUE ], 15, FALSE, sessionid);
+        __WHS_CreateWebSession("wrd:authlogin", [ exists := TRUE ], 15, FALSE, sessionid);
     }
 
     RETURN
@@ -1723,7 +1710,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       {
         AuthenticateWebSession(
             authscriptres.sessionid,
-            "wrd:cacheauthlogin",
+            "wrd:authlogin",
             authscriptres.user->login,
             TRUE,
             authscriptres.user->authobjectid,
@@ -1734,7 +1721,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       {
         AuthenticateWebSession(
             authscriptres.sessionid,
-            "wrd:cacheauthlogin",
+            "wrd:authlogin",
             authscriptres.username,
             TRUE,
             0,
