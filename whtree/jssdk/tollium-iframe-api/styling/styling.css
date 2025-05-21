@@ -59,6 +59,8 @@
   --tollium-appbar-color: #c8c8c8;
   /** The application bar tab text color */
   --tollium-appbar-tab-color: #ebebeb;
+  /** Monospace font (e.g. codeedit) */
+  --tollium-monospace-font: 9pt/16px "Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";
 
   /* Inputs */
   /** The background of input components */

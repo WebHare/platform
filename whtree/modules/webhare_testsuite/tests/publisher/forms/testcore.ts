@@ -544,9 +544,15 @@ test.runTests(
 
       //trigger global error popup
       test.fill('#coretest-password', 'globalerror');
+      test.eq("", test.qR("textarea[name=textarea]").value);
       test.click('#submitbutton');
+      await test.sleep(1);
+      test.qR("#coretest-email").value = "klaasje@beta.webhare.net"; //modify the email address *after* submission to make sure the form isn't overwriting it
+
       await test.wait('ui');
+      test.eq("klaasje@beta.webhare.net", test.qR("#coretest-email").value);
       test.eq(/You broke the form.*Don't do that.*/, test.qR(".mydialog").textContent);
+      test.eq("Value set from 'globalerror'", test.qR("textarea[name=textarea]").value);
       test.click('.mydialog button');
     },
     {
@@ -560,7 +566,7 @@ test.runTests(
     {
       name: 'test RPC response',
       test: function () {
-        test.eq('pietje+test@example.com', test.qR('#coretest-email').value);
+        test.eq('klaasje+test@beta.webhare.net', test.qR('#coretest-email').value);
         test.eq('2000-01-01', test.qR('#coretest-dateofbirth').value);
       }
     },

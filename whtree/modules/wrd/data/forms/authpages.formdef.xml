@@ -54,8 +54,10 @@
   <form name="completeaccounttotp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountTotpForm">
     <page>
       <hidden name="setup" title="" />
+      <checkbox name="showsecretkey" title="" labeltid=".totpsetup-showsecretkey" />
       <textedit name="secret" />
       <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+      <textarea name="backupcodes" enabled="false" tid=".totpsetup-backupcodes"/>
     </page>
   </form>
 

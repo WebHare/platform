@@ -388,6 +388,8 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
       work->AddErrorFor(^password, `'${^password->value}' is also a bad password`);
       work->AddError(`You broke the form`);
       work->AddError(`Don't do that`);
+
+      ^textarea->value := "Value set from 'globalerror'";
     }
 
     RECORD formvalue := this->formvalue;

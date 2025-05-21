@@ -11,7 +11,7 @@ import { generateRandomId, isPromise, wrapSerialized } from '@webhare/std';
 import { debugFlags, isLive, navigateTo, type NavigateInstruction } from '@webhare/env';
 import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNodeList, type ConstrainedRadioNodeList, parseCondition, getFormElementCandidates, isFormFieldLike, queryFormFieldLike, getFieldName } from '@webhare/forms/src/domsupport';
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
-import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue } from '@webhare/forms/src/types';
+import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue, RPCFormMessage } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
 
 //Suggestion or error messages
@@ -93,6 +93,7 @@ export interface FormSubmitResult {
   result: FormSubmitEmbeddedResult;
   errors: FormSubmitMessage[];
   warnings: FormSubmitMessage[];
+  messages: RPCFormMessage[];
 }
 
 type RichValues = Array<{ field: string; value: string }>;

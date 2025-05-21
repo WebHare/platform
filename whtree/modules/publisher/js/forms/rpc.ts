@@ -296,6 +296,8 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
       if (debugFlags.fhv)
         console.log('[fhv] received response', result);
 
+      this._processMessages(result.messages);
+
       if (!dompack.dispatchCustomEvent(this.node, "wh:form-response", { bubbles: true, cancelable: true, detail: result }))
         return result;
 
