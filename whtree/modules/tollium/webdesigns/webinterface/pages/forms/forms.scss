@@ -50,6 +50,7 @@ body:has(.wh-wrdauth-form) {
     background: #ff46361a;
     border-radius: 8px;
     margin-bottom: 10px;
+    margin-top: 10px;
     padding: 10px;
     
     label {
@@ -62,6 +63,10 @@ body:has(.wh-wrdauth-form) {
     padding-left: 24px;
     padding-top: 10px;
     position: relative;
+    
+    &:empty {
+      display: none;
+    }
     
     &::before {
       content: "\f071";
