@@ -25,6 +25,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -317,19 +318,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     this->spautocreate := config.spautocreate;
     this->__loginpage := config.loginpage;
     this->pvt_config := config;
-
-    IF(webdesign EXTENDSFROM WebDesignBase AND webdesign->IsDynamicPublication() AND NOT this->HasFailed())
-    {
-      IF(GetWebCookie(this->cookiename || "_j") = "") //missing javascript state
-      {
-        //Pre WH5.7 wrdauth doesn't use __Host- or __Secure-, WH5.7+ wrdauth doesn't use _j cookies
-        STRING logincookie := GetWebCookie(this->cookiename);
-        IF(logincookie != "" AND logincookie NOT LIKE "* accessToken:*") //don't destroy modern cookies
-        {
-          this->__GetWRDAuthIntegration()->__ReestablishSession(TRUE);
-        }
-      }
-    }
   }
 
   /** Handles a return to an original page
@@ -573,8 +561,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
         IF (this->supportobject NOT EXTENDSFROM WRDAuthSupportBase)
           THROW NEW Exception(`WRD authentication plugin support object '${this->supportobjectname}' doesn't extend WRDAuthSupportBase`);
       }
-
-      this->__GetWRDAuthIntegration()->loginfilter := PTR this->supportobject->IsLoginDenied;
     }
     RETURN this->supportobject;
   }
@@ -582,9 +568,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   /** Get user info. This info is stored in the cookies, so available to JS.
       @return User info
   */
-  PUBLIC RECORD FUNCTION GetUserInfo()
-  {
-    RETURN this->GetSupportObject()->GetJSUserInfo();
+  PUBLIC RECORD FUNCTION GetUserInfo() {
+    RECORD publicauthdata := DecodeJSON(GetWebCookie(this->cookiename || "_publicauthdata"));
+    RETURN CellExists(publicauthdata, "userinfo") ? publicauthdata.userinfo : DEFAULT RECORD;
   }
 
   /** Update user info (updates the javascript cookie holding the userinfo fields) */
@@ -731,7 +717,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
-    this->GetSupportObject(); // initialize loginfilter
 
    IF(NOT CellExists(options,"firstloginfield"))
       INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
@@ -954,7 +939,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , browsertriplet := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
-    this->GetSupportObject(); // CheckNotFailed, initialize loginfilter
+    this->CheckNotFailed();
     IF(NOT IsDatabaseWritable())
       RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 
@@ -1699,21 +1684,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       this->__RedirectToLogin(options);
 
     OBJECT user := this->userapi->GetTolliumUserFromEntityId(parsed.userid);
-
     STRING sessionid := Left(ext_cookie, SearchSubstring(ext_cookie, " "));
-    RECORD sessiondata := GetWebSessionData(sessionid, "wrd:authlogin");
-    IF (NOT RecordExists(sessiondata))
-    {
-      sessionid := CreateWebSession(
-          "wrd:authlogin",
-          [ exists := TRUE ]);
 
-      UpdateWebCookie(
-          cookiename,
-          sessionid || " " || cookiedata,
-          [ httponly := TRUE
-          , secure :=   GetClientRequestURL() LIKE "https://*"
-          ]);
+    IF(NOT IsWasm()) {
+      //Use builtin webservers cache for accelaration, databse sessions are pointless for just auth caching
+      RECORD sessiondata := __WHS_GetWebSessionData(sessionid, "wrd:authlogin");
+      IF (NOT RecordExists(sessiondata))
+        __WHS_CreateWebSession("wrd:authlogin", [ exists := TRUE ], 15, FALSE, sessionid);
     }
 
     RETURN

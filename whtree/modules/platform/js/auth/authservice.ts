@@ -2,7 +2,7 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { stringify, throwError } from "@webhare/std";
+import { pick, stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
 import type { AuthCustomizer } from "@webhare/auth";
 import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
@@ -65,8 +65,7 @@ export const authService = {
     const provider = new IdentityProvider(wrdschema);
 
     const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, {
-      persistent: options?.persistent,
-      site: options?.site,
+      ...pick({ ...options }, ["persistent", "site", "limitExpiry"]),
       returnTo: options?.returnTo || originUrl
     });
     if (response.loggedIn === false)

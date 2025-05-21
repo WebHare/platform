@@ -37,25 +37,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase <
   {
     this->plugin := plugin;
   }
-  PUBLIC RECORD FUNCTION GetJSUserInfo()
-  {
-    IF(Length(this->plugin->cachefields) > 0)
-      RETURN this->plugin->accounttype->GetEntityFields(this->plugin->GetLoggedinEntity(), this->plugin->cachefields);
-    RETURN DEFAULT RECORD;
-  }
-  //return a non-default record to block the login. this string is returned as the error code from the login functions
-  /** @short Additional login check after username and password were accepted
-      @param userid The entity id of the user that is logging in
-      @param options Additional information
-      @cell(string) options.login Name used to login
-      @cell(boolean) options.isimpersonation If this login is impersonated
-      @return A default record if the user may login, or a record containing information about why the login failed
-      @cell(string) return.code Error code for denied login, must be present and non-empty
-  */
-  PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
-  {
-    RETURN DEFAULT RECORD;
-  }
+
   /** @short Lookup an OIDC login */
   PUBLIC RECORD FUNCTION LookupOIDCLogin(RECORD payload, RECORD context)
   {

@@ -6,7 +6,7 @@ import { rpc } from "@webhare/rpc/src/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
-import { getCompleteAccountNavigation, PublicCookieSuffix } from "@webhare/auth/src/shared";
+import { getCompleteAccountNavigation, PublicCookieSuffix, type LoginTweaks } from "@webhare/auth/src/shared";
 import { parseTyped } from "@webhare/std";
 import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
 
@@ -168,13 +168,23 @@ export function getUserInfo<T extends object = object>(): T | null {
   return getAuthLocalData()?.userInfo as T | null;
 }
 
+function getLoginTweaks(): LoginTweaks {
+  const tweaks: LoginTweaks = {};
+
+  const urlvars = new URL(location.href);
+  if (urlvars.searchParams.has("wrdauth_limit_expiry"))
+    tweaks.limitExpiry = parseInt(urlvars.searchParams.get("wrdauth_limit_expiry") || '0') || undefined;
+
+  return tweaks;
+}
+
 /** Implements the common username/password flows */
 export async function login(username: string, password: string, options: LoginOptions = {}): Promise<LoginResult> {
   const cookieName = getCookieName();
   if (!cookieName)
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
 
-  const result = await rpc("platform:authservice").login(username, password, cookieName, options);
+  const result = await rpc("platform:authservice").login(username, password, cookieName, { ...options, ...getLoginTweaks() });
   if (!result.loggedIn) {
     if (result.code === "totp") {
       return { //redirect to authpages to complete the account
@@ -232,5 +242,6 @@ export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Pro
   const client = createClient<MyService>("wrd:auth");
 
   //Launch SSO login for the current page.
+  //TODO also pass getLoginTweaks() at least to OIDC logins as soon as we've ported this to authservice
   navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, { passive: options?.passive }));
 }

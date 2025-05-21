@@ -34,40 +34,6 @@ PUBLIC CONSTANT RECORD wrdauth_defaultconfiguration :=
   , round_minduration :=         3 * 3600 * 1000i64 // sessions last at least 3 hours
   ];
 
-PUBLIC MACRO SetCurrentStateCookie(OBJECT wrdauth, OBJECT plugin)
-{
-  IF(NOT IsRequest())
-    RETURN;
-
-  RECORD opts := [ domain := wrdauth->cookiedomain
-                 , httponly := FALSE
-                 , secure := wrdauth->securecookie
-                 , lifetime := -1
-                 , encrypt := FALSE
-                 , samesite := wrdauth->samesitecookie
-                 ];
-
-  RECORD userinfo;
-  STRING value;
-
-  IF(wrdauth->IsLoggedIn())
-  {
-    userinfo := plugin->GetUserInfo();
-    value := "." || (RecordExists(userinfo) ? EncodeJSON(userinfo) : "");
-
-    STRING persisthash := EncodeUFS(GetMD5Hash(GetWebCookie(wrdauth->cookiename)));
-    UpdateWebCookie(wrdauth->cookiename || "_c", value != "" ? persisthash || value : "", opts);
-
-    opts.lifetime := wrdauth->GetPersistentCookieLifetime(); //FIXME we shouldn't be recalculating/redoing this? wrdauthplugin knows the proper lifetimes and we should be reusing the code there.
-    UpdateWebCookie(wrdauth->cookiename || "_j", value != "" ? persisthash || "." : "", opts);
-  }
-  ELSE
-  {
-    UpdateWebCookie(wrdauth->cookiename, "");
-    UpdateWebCookie(wrdauth->cookiename || "_j", "", opts);
-    UpdateWebCookie(wrdauth->cookiename || "_c", "", opts);
-  }
-}
 
 /** @param entityid Id entity to get the authobject from
     @return @includecelldef #LookupAuthobjectByGuid.return

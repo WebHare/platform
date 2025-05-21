@@ -349,6 +349,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
       RETURN CallJS("@webhare/auth/src/identity.ts#prepareLoginCookies", this->targeturl, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.setcreationdate ?? GetCurrentDatetime());
     }
 
+    //TODO _e / external cookies still need quite some revision, ideally a self-contained JWT
+
     RECORD cookies :=
         [ logincookie := ""
         , logincookielifetime := 0i64
@@ -463,15 +465,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   // Public API
   //
 
-  /** Returns the user entityid from a cookie
-      @param cookie Cookie
-      @return User entityid (if not 0, the cookie is valid and the user exists)
-  */
-  PUBLIC INTEGER FUNCTION GetCookieEntityId(STRING cookie)
-  {
-    RECORD data := this->__ParseCookie(cookie, "session");
-    RETURN RecordExists(data) ? data.userid : 0;
-  }
 
   /** Updates the last login date and ip address for an entity
       @param the_entity Entity
@@ -828,8 +821,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   /// Automatically authenticate the web session for the access rule ? (defaults to TRUE)
   PUBLIC BOOLEAN authenticatewebsession;
 
-  PUBLIC MACRO PTR loginfilter;
-
   RECORD FUNCTION GetCachedCookies()
   {
     IF(NOT RecordExists(this->cookiecache))
@@ -845,81 +836,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN this->cookiecache;
   }
 
-  STRING FUNCTION __CheckSession()
-  {
-    //__CheckSession is only invoked if IsRequest() and if this->sessionid = ""
-    RECORD cookieinfo := this->GetCachedCookies();
-    RECORD sessiondata;
-
-    IF(cookieinfo.sessionid != "" AND NOT IsWASM())
-    {
-      sessiondata := __WHS_GetWebSessionData(cookieinfo.sessionid, "wrd:authsession");
-    }
-
-    IF(RecordExists(sessiondata) AND sessiondata.expires > GetCurrentDatetime())
-    {
-      INTEGER userid := this->GetCookieEntityId(cookieinfo.enclogindata);
-      IF(userid = sessiondata.entityid)
-      {
-        // ADDME: also calc authobjectid?
-        AuthenticateWebSession(cookieinfo.sessionid, "wrd:authsession", sessiondata.login, TRUE, 0, sessiondata.entityid, this->authenticatewebsession); //this also skips this access rule for further checks for this session
-        this->sessiondata := sessiondata;
-        UpdateAuditContext(CELL[ user_entityid := sessiondata.entityid, user_login := sessiondata.login ]);
-        RETURN cookieinfo.sessionid;
-      }
-    }
-
-    RETURN "";
-  }
-
-  RECORD FUNCTION GetCurrentSession()
-  {
-    STRING sessid := this->GetLoginSessionId();
-    RETURN this->sessiondata; // GetWebSessionData(sessid, "");
-  }
-
-  PUBLIC MACRO __ReestablishSession(BOOLEAN force)
-  {
-    IF(NOT IsDatabaseWritable())
-      RETURN; //we can't write wrdauth info to the database... so just ignore reestablish as if your cookie was unrecognized
-
-    //Can we reestablish a session ?
-    RECORD cookies := this->GetCachedCookies();
-
-    this->loggedinentity := -1;
-    this->loggedinexpires := DEFAULT DATETIME;
-    IF(cookies.enclogindata != "")
-    {
-      RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.enclogindata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
-      IF(RecordExists(logindata))
-      {
-        IF (this->CompleteLogin(logindata, force, cookies.sessionid, DEFAULT RECORD).success) //FIXME force=true should not further extend cookie lifetime, but they should keep their current lifetime
-        {
-          //FIXME isn't this just noise?
-          this->WriteAuditEvent("WRD:LOGINCOOKIE",
-              [ account := logindata.entityid
-              , login := logindata.login
-              , isimpersonation := logindata.isimpersonation
-              ]);
-        }
-        RETURN;
-      }
-
-      this->SetLoginCookie("", 0);
-      this->SetLoginTokenCookie("");
-    }
-  }
-
   BOOLEAN FUNCTION IsValidAccountEntity(INTEGER entityid) {
     //TODO deal with parent/child types? not sure if they're ever relevant though
     RETURN RecordExists(SELECT FROM wrd.entities WHERE id = VAR entityid AND limitdate > GetCurrentDatetime() AND type = this->wrdschema->accounttype->id);
   }
 
-  /** @short Get sessionid of current login session
-      @return The id of the current login session. An empty string if the user is not logged in*/
-  STRING FUNCTION GetLoginSessionId() {
+  /** @short Check for active login session */
+  MACRO CheckForSession() {
     IF(NOT this->did_wrdauthjs_check) {
       this->did_wrdauthjs_check := TRUE;
+      this->loggedinentity := 0;
 
       //Do we happen to see an ID Token in the login cookie?
       IF(IsRequest()) {
@@ -928,13 +854,16 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
         RECORD parsed := ParseIDCookie(this->idcookie);
 
         IF(RecordExists(parsed)) {
-          RECORD match := SELECT entity, id FROM wrd.tokens WHERE hash = parsed.tokenhash AND client = 0 AND type = "id" AND expirationdate > GetCurrentDateTime(); //find a session attached to us
+          RECORD match := SELECT entity, id, expirationdate FROM wrd.tokens WHERE hash = parsed.tokenhash AND client = 0 AND type = "id" AND expirationdate > GetCurrentDateTime(); //find a session attached to us
           IF(RecordExists(match) AND this->IsValidAccountEntity(match.entity)) { //It's s a hit!
             this->wrdauthjs := [
               ...parsed,
               token := match.id,
               entity := match.entity
             ];
+
+            this->loggedinentity := match.entity;
+            this->loggedinexpires := match.expirationdate;
 
             this->sessiondata :=
               CELL[ this->wrdauthjs.expires
@@ -943,66 +872,43 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
 
             this->sessionid := Tokenize(this->idcookie,' ')[0];
             UpdateAuditContext(CELL[ user_entityid := this->wrdauthjs.entity ]);
-         }
+            RETURN;
+          }
         }
       }
     }
-
-    IF(this->sessionid != "" OR NOT IsRequest())
-      RETURN this->sessionid;
-
-    this->sessionid := this->__CheckSession();
-    IF(this->sessionid != "")
-    {
-      this->loggedinentity := -1; //clear cached loggedin info
-      this->loggedinexpires := DEFAULT DATETIME;
-      RETURN this->sessionid;
-    }
-
-    this->__ReestablishSession(FALSE);
-    RETURN this->sessionid;
   }
 
-  PUBLIC INTEGER FUNCTION GetLoggedinEntity()
-  {
+  PUBLIC INTEGER FUNCTION GetLoggedinEntity() {
     IF(this->loggedinentity = -1)
-    {
-      RECORD sessdata := this->GetCurrentSession();
-      this->loggedinentity := RecordExists(sessdata) ? sessdata.entityid : 0;
-    }
+      this->CheckForSession();
     RETURN this->loggedinentity;
   }
 
-  PUBLIC DATETIME FUNCTION GetLoggedinExpires()
-  {
-    IF(this->loggedinexpires = DEFAULT DATETIME)
-    {
-      RECORD sessdata := this->GetCurrentSession();
-      this->loggedinexpires := RecordExists(sessdata) ? sessdata.expires : DEFAULT DATETIME;
-    }
+  PUBLIC DATETIME FUNCTION GetLoggedinExpires() {
+    this->CheckForSession();
     RETURN this->loggedinexpires;
   }
 
   PUBLIC STRING FUNCTION GetLoggedinEntityLogin()
   {
-    IF(this->loggedinentity = -1)
-      this->GetCurrentSession();
-    RETURN RecordExists(this->sessiondata) ? this->wrdschema->accounttype->GetEntityField(this->sessiondata.entityid, this->wrdschema->accountlogintag) : "";
+    this->CheckForSession();
+    RETURN this->loggedinentity > 0 ? this->wrdschema->accounttype->GetEntityField(this->loggedinentity, this->wrdschema->accountlogintag) : "";
   }
 
   PUBLIC STRING FUNCTION GetIDToken() {
-    this->GetLoginSessionId();
+    this->CheckForSession();
     RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.idtoken : "";
   }
 
   PUBLIC RECORD FUNCTION GetClaims() {
+    this->CheckForSession();
     RETURN RecordExists(this->wrdauthjs) ? this->wrdauthjs.claims : DEFAULT RECORD;
   }
 
   /** @short Are we currently logged in ? */
-  PUBLIC BOOLEAN FUNCTION IsLoggedIn()
-  {
-    RETURN this->loggedinentity > 0 OR RecordExists(this->sessiondata) OR this->GetLoginSessionId() != "";
+  PUBLIC BOOLEAN FUNCTION IsLoggedIn() {
+    RETURN this->GetLoggedinEntity() > 0;
   }
 
   /** @short Login as a specific user
@@ -1139,40 +1045,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN this->logintime > 0 ? this->logintime * 60 : 365*86400;
   }
 
-  MACRO SetLoginTokenCookie(STRING sessionvalue)
-  {
-    STRING value;
-    IF(sessionvalue != "")
-      value := sessionvalue != "" ? EncodeUFS(GetMD5Hash(sessionvalue)) || "." : "";
-    UpdateWebCookie(this->cookiename || "_j", value, this->GetCookieOpts(FALSE,FALSE)); //_j = javascript user info
-  }
-
   /** @param trylogin
       @param setlogincookie
   */
   RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, STRING sessionid, RECORD options)
   {
     UpdateAuditContext([ user_entityid := trylogin.entityid, user_login := trylogin.login ]);
-
-    IF(this->loginfilter != DEFAULT MACRO PTR)
-    {
-      RECORD errordata := this->loginfilter(trylogin.entityid,
-          [ login := trylogin.login
-          , isimpersonation := trylogin.isimpersonation
-          ]);
-      IF(RecordExists(errordata))
-      {
-        IF (NOT CellExists(errordata, "code"))
-          THROW NEW Exception("Login denied without error code");
-
-        // Don't return internal fields
-        FOREVERY (RECORD field FROM UnpackRecord(errordata))
-          IF (field.name LIKE "_*")
-            errordata := CellDelete(errordata, field.name);
-
-        RETURN CellInsert(errordata, "success", FALSE);
-      }
-    }
 
     IF(CellExists(trylogin, "headers")) { //New wrdauth headers received.
       FOREVERY(RECORD toset FROM trylogin.headers)
@@ -1182,28 +1060,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
 
     IF(CellExists(trylogin, "error")) { //login denied
       RETURN [ success := FALSE, code := trylogin.code = "account-disabled" ? "DISABLED" : "NOACCESS" ];
-    }
-
-    //Set up a login session
-    RECORD data := [ entityid := trylogin.entityid
-                   , login := trylogin.login
-                   , blockedmultisession := FALSE
-                   , expires := trylogin.expires
-                   ];
-
-    this->sessiondata := data;
-    IF(IsRequest())
-    {
-      //We use the webserver in-process sessions as we only need to enable accessrule caching
-      this->sessionid := IsWASM() ? sessionid : __WHS_CreateWebSession("wrd:authsession", this->sessiondata, 15, FALSE, sessionid);
-      this->SetLoginCookie(this->sessionid || " " || trylogin.logincookie, trylogin.logincookielifetime);
-
-      //FIXME does this even work/show up anywhere at all? we seem to only show sessions with non-zero UIDs ?
-      //TODO should probably also associate hostname with the session (we formerly used domaintitle but that wasn't necessarily set)
-      AuthenticateWebSession(this->sessionid, "wrd:authsession", trylogin.login, TRUE, 0,0, this->authenticatewebsession);
-
-      IF(setlogincookie)
-        this->SetLoginTokenCookie(trylogin.logincookie);
     }
 
     RETURN [ success := TRUE, code := "" ];
@@ -1223,7 +1079,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     CloseWebSession(this->sessionid, "wrd:authsession");
     this->sessiondata := DEFAULT RECORD;
     this->SetLoginCookie("", 0);
-    UpdateWebCookie(this->cookiename || "_j", "", this->GetCookieOpts(FALSE, FALSE));
 
     this->sessionid := "";
     this->cookiecache := [ sessionid := "", enclogindata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies

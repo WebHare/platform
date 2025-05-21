@@ -9,3 +9,8 @@ export function getCompleteAccountNavigation(token: string, pathname: string): N
     url: "/.wh/common/authpages/?wrd_pwdaction=completeaccount&token=" + encodeURIComponent(token || '') + "&pathname=" + encodeURIComponent(pathname)
   };
 }
+
+export type LoginTweaks = {
+  /** Limit session duration (development servers only) */
+  limitExpiry?: number;
+};

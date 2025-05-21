@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
 {
-  BOOLEAN enable_logging := FALSE;
+  BOOLEAN enable_logging := IsDebugTagEnabled("wrdauth");
   OBJECT trans;
 
   //TODO optimize to not require a db connection for every check. that'll require not opening the plugin immediately!
@@ -26,12 +26,12 @@ PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
     ABORT("This script should not have been called, no authentication is required");
 
   IF (enable_logging)
-    LogDebug("system:backend:auth", "Invocating script for authentication rule " || rule.id, rule);
+    LogDebug("system:backend:auth", CELL[ ruleid := rule.id, message := "Invocating script for authentication rule " || rule.id ]);
 
   IF (IsFullAccessIP())
   {
     IF (enable_logging)
-      LogDebug("system:backend:auth", "Allow access for full access ip " || GetClientRemoteIP());
+      LogDebug("system:backend:auth", CELL[ ruleid := rule.id, message := "Allow access for full access ip " || GetClientRemoteIP() ]);
 
     RETURN;
   }
@@ -41,7 +41,7 @@ PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
   OBJECT authplugin := getauthplugincallback();
 
   IF (enable_logging)
-    LogDebug("system:backend:auth", "Handle login");
+    LogDebug("system:backend:auth", CELL[ ruleid := rule.id, message := "Handle login" ]);
 
   // If Basic auth is specified,we'll allow it
   RECORD authheader := GetParsedAuthenticationHeader();
@@ -64,7 +64,7 @@ PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
       ]);
 
   IF (enable_logging)
-    LogDebug("system:backend:auth", "Login ok, type: " || res.type);
+    LogDebug("system:backend:auth", CELL[ ruleid := rule.id, message := "Login ok, type: " || res.type ]);
 
   BOOLEAN checked;
   SWITCH (res.type)
@@ -72,7 +72,7 @@ PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
     CASE "wrdauth"
     {
       IF (enable_logging)
-        LogDebug("system:backend:auth", "Res: ", res.sessionid, res.user->entityid, res.backurl);
+        LogDebug("system:backend:auth", CELL[ ruleid := rule.id, res.sessionid, res.user->entityid, res.backurl ]);
 
       // Have res.sessionid, res.user, res.backurl
 
@@ -88,7 +88,7 @@ PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
   IF (checked)
   {
     IF (enable_logging)
-      LogDebug("system:backend:auth", "success, authenticating web session");
+      LogDebug("system:backend:auth", CELL[ ruleid := rule.id, message := "success, authenticating web session", sessionid := res.sessionid ]);
 
     authplugin->__AuthenticateWebSession(res);
 
