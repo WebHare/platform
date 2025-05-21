@@ -411,12 +411,26 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
     }
   }
 
+  RECORD ARRAY globaltidattrs := ExtractTIDAttributes(parser->attributes);
+  retval.components := retval.components CONCAT
+      SELECT name
+           , basename
+           , type :=          "attribute"
+           , defaultvalue :=  ""
+           , finaltype :=     TYPEID(STRING)
+           , recordtype :=    type
+           , richtid
+           , objtype :=       ""
+        FROM globaltidattrs;
+
   FOREVERY(RECORD attribute FROM parser->attributes)
   {
     IF(attribute.namespaceuri != targetns)
       CONTINUE; //don't parse imported elements, as that's not what we're being asked to do right now
 
-    RECORD fieldrec := ParseAttribute(attribute.node, RECORD[], resourcename);
+    RECORD fieldrec := ParseAttribute(attribute.node, globaltidattrs, resourcename);
+    IF (NOT RecordExists(fieldrec))
+      CONTINUE;
     INSERT CELL namespaceuri := attribute.namespaceuri
               , type := "attribute"
               , objtype := "" INTO fieldrec;
@@ -483,7 +497,7 @@ PUBLIC RECORD FUNCTION ParseComponentsXSD(STRING resourcename, OBJECT doc, RECOR
 
     //Tids need special processing
     OBJECT ARRAY attrs := element.node->type_definition->attribute_uses;
-    RECORD ARRAY tids := ExtractTIDAttributes(attrs);
+    RECORD ARRAY tids := ExtractTIDAttributesFromAttrUses(attrs);
 
     FOREVERY(RECORD tid FROM tids)
       IF(tid.namespaceuri="")
@@ -665,20 +679,32 @@ PUBLIC RECORD FUNCTION GetComponents(STRING resourcename)
   RETURN GetAdhocCached(cachekey, PTR GetCacheableComponents(resourcename));
 }
 
-RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
+RECORD ARRAY FUNCTION ExtractTIDAttributesFromAttrUses(OBJECT ARRAY attruses)
+{
+  RETURN ExtractTIDAttributes(
+      SELECT node := attr->attribute_declaration
+           , refnode := attr
+        FROM TorecordArray(attruses, "attr"));
+}
+
+/** @param attrs
+    @cell attrs.node Attribute declaration
+    @cell attrs.refnode Optional node to return as cell 'attr', otherwise the attribute declaration is returned
+*/
+RECORD ARRAY FUNCTION ExtractTIDAttributes(RECORD ARRAY attrs)
 {
   RECORD ARRAY tids;
 
-  FOREVERY(OBJECT attr FROM attruses)
+  FOREVERY(RECORD attr FROM attrs)
   {
-    OBJECT attrtype := attr->attribute_declaration->type_definition;
+    OBJECT attrtype := attr.node->type_definition;
     BOOLEAN istid := (attrtype->name = "Tid" OR attrtype->name = "TidPtr") AND (attrtype->target_namespace = whconstant_xmlns_screens OR attrtype->target_namespace = whconstant_xmlns_systemcommon);
     BOOLEAN isrichtid := (attrtype->name = "RichTid") AND (attrtype->target_namespace = whconstant_xmlns_systemcommon);
     BOOLEAN isptr := attrtype->name = "TidPtr";
 
     IF(istid OR isrichtid)
     {
-      STRING name := attr->attribute_declaration->name;
+      STRING name := attr.node->name;
       STRING basename := name;
 
       IF(basename LIKE "?*tid") //"emptytid", "hinttid"
@@ -688,15 +714,16 @@ RECORD ARRAY FUNCTION ExtractTIDAttributes(OBJECT ARRAY attruses)
 
       RECORD tid :=  [ name :=          isptr ? name : basename
                      , basename :=      basename
-                     , namespaceuri :=  attr->attribute_declaration->target_namespace
+                     , namespaceuri :=  attr.node->target_namespace
                      , defaulttid :=    ''
                      , type :=          isptr ? "tidptr" : "tid"
-                     , attr :=          attr
+                     , attr :=          CellExists(attr, "refnode") ? attr.refnode : attr.node
                      , richtid :=       isrichtid
+                     , objtype :=       ""
                      ];
 
-      IF(RecordExists(attr->attribute_declaration->value_constraint) AND attr->attribute_declaration->value_constraint.type='default')
-        tid.defaulttid := attr->attribute_declaration->value_constraint.value;
+      IF(RecordExists(attr.node->value_constraint) AND attr.node->value_constraint.type='default')
+        tid.defaulttid := attr.node->value_constraint.value;
 
       INSERT tid INTO tids AT END;
     }

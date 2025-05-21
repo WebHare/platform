@@ -107,7 +107,7 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
 
   //Fill the required fields to be able to test Submission
-  TT(":Send to")->selection := SELECT * FROM TT(":Send to")->options WHERE title = "email";
+  TTFillByTitle(":Send to", "Email");
   TT(":Sender name")->value := "testformfile-mailconfirmation";
   TT(":Sender address")->value := "testformfile-mailconfirmation@beta.webhare.net";
   TT(":Email contents")->value := [ htmltext := StringToBlob('<html><body>'
