@@ -1090,7 +1090,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       if (dtapStage !== "development")
         throw new Error("Limit expiry (wrdauth_limit_expiry) is only allowed on development servers");
       if (!(options.limitExpiry > 0 && options.limitExpiry <= 15 * 60))
-        throw new Error("Limit expiry (wrdauth_limit_expiry)  must be between 0 and 15 minutes");
+        throw new Error("Limit expiry (wrdauth_limit_expiry) must be between 0 and 15 minutes");
 
       prepOptions.expires = options.limitExpiry * 1000;
     }

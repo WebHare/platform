@@ -7,7 +7,7 @@ LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 
 PUBLIC MACRO RunStandardWebhareAuthScript(FUNCTION PTR getauthplugincallback)
 {
-  BOOLEAN enable_logging := IsDebugTagEnabled("wrdauth");;
+  BOOLEAN enable_logging := IsDebugTagEnabled("wrdauth");
   OBJECT trans;
 
   //TODO optimize to not require a db connection for every check. that'll require not opening the plugin immediately!
