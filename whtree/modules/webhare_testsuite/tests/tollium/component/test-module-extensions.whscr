@@ -11,7 +11,7 @@ MACRO TestComponentParser()
 
   RECORD components := GetComponents("mod::webhare_testsuite/data/testcomponents.xsd");
   RECORD ARRAY attributes := SELECT * FROM components.components WHERE type="attribute";
-  TestEqMembers([ recordtype := "handler" ], attributes[1], "*");
+  TestEqMembers([ recordtype := "handler" ], RECORD(SELECT * FROM attributes WHERE name = "myhandler"), "*");
 }
 
 ASYNC MACRO TestUserAttributes()
@@ -23,19 +23,30 @@ ASYNC MACRO TestUserAttributes()
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
   <screen name="test" implementation="none">
     <body>
-      <textedit name="mytextedit" test:myattr="Hello, world" xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:ignore="urn::igore"/>
+      <textedit name="mytextedit"
+                test:myattr="Hello, world"
+                test:title="Custom title"
+                test:mycustom="Custom title"
+                xmlns="http://www.webhare.net/xmlns/tollium/screens"
+                xmlns:ignore="urn::igore"
+                />
     </body>
   </screen>
 </screens>#test`);
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
-  TestEq([[ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "myattr", value := "Hello, world" ]],
-         TT("mytextedit")->userattributes);
+  TestEq(
+    [
+      [ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "myattr", value := "Hello, world" ],
+      [ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "title", value := "Custom title" ],
+      [ namespaceuri := "http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", localname := "mycustom", value := "Custom title" ]
+    ], TT("mytextedit")->userattributes);
   TestEq("Hello, world", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myattr"));
   TestEq(DEFAULT OBJECT, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
   TestEq(0m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
-  TestThrowsLike("No such attribute \'myunknown\' in namespace \'http://www.webhare.net/xmlns/webhare_testsuite/testcomponents\'", PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
+  TestThrowsLike("No such *attribute \'myunknown\' in namespace \'http://www.webhare.net/xmlns/webhare_testsuite/testcomponents\'", PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myunknown"));
   TestThrowsLike("No such component namespace \'http://www.webhare.net/xmlns/webhare_testsuite/unknown\'", PTR TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/unknown", "myunknown"));
+  TestEq("Custom title", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mycustom"));
 
   TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney", 5);
   TestEq(5m, TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mymoney"));
@@ -46,15 +57,22 @@ ASYNC MACRO TestUserAttributes()
   TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref", TT("mytextedit"));
   TestEq(TT("mytextedit"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
 
+  TT("mytextedit")->SetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mycustom", "Custom title2");
+  TestEq("Custom title2", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mycustom"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   //advanced attributes test
   scr := GetTestController()->LoadScreen(`inline::
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:test="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents">
   <screen name="test" implementation="none">
-    <body>
+    <body gid="webhare_testsuite:basetest">
       <textedit name="other" />
-      <textedit name="mytextedit" test:myref="other" />
+      <textedit name="mytextedit"
+                test:myref="other"
+                test:tid=".title"
+                test:mycustomtid="webhare_testsuite:basetest.title"
+                />
     </body>
   </screen>
 </screens>#test`);
@@ -62,8 +80,7 @@ ASYNC MACRO TestUserAttributes()
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   TestEq(TT("other"), TT("mytextedit")->userattributes[0].value);
   TestEq(TT("other"), TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "myref"));
-
-
+  TestEq("Basetest title", TT("mytextedit")->GetUserAttribute("http://www.webhare.net/xmlns/webhare_testsuite/testcomponents", "mycustom"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

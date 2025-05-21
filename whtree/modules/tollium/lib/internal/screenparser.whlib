@@ -1874,11 +1874,23 @@ RECORD FUNCTION ParseXMLFields(OBJECT element, RECORD compinfo)
       IF(NOT CellExists(item,"userattributes"))
         INSERT CELL userattributes := RECORD[] INTO item;
 
-      RECORD attributedef := curpageparser->GetComponentDefinition(attr.namespaceuri, attr.localname, TRUE, "attribute", element->linenum);
-      IF(NOT RecordExists(attributedef))
+      RECORD attributedef;
+      IF (attr.localname LIKE "*tid")
       {
-        curpageparser->AddError(element->linenum, `Cannot find definition for attribute ${attr.namespaceuri}#${attr.localname}`);
-        CONTINUE;
+        // Attribute name looks like a tid, so check if really is a tid/tidptr
+        STRING basename := SubString(attr.localname, 0, LENGTH(attr.localname) - 3) ?? "title";
+        RECORD tidattributedef := curpageparser->GetComponentDefinition(attr.namespaceuri, basename, FALSE, "attribute", element->linenum);
+        IF (CellExists(tidattributedef, "RECORDTYPE") AND tidattributedef.recordtype IN [ "tid", "tidptr" ]) {
+          attr.localname := basename;
+          attributedef := tidattributedef;
+        }
+      }
+
+      IF (NOT RecordExists(attributedef)) {
+        attributedef := curpageparser->GetComponentDefinition(attr.namespaceuri, attr.localname, TRUE, "attribute", element->linenum);
+        // No need to add an error here, running GetComponentDefinition Rwith fatal := TRUE will emit an error if the attribute is not found
+        IF (NOT RecordExists(attributedef))
+          CONTINUE;
       }
 
       VARIANT storevalue := GetXMLFieldStoreValue(element, attr.namespaceuri, attr.localname, attributedef, item);
