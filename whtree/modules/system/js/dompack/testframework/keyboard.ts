@@ -338,9 +338,21 @@ export function normalizeKeys(key: string | string[], props?: KeyboardModifierOp
   return keys;
 }
 
+function getSavedEltType(el: HTMLInputElement | HTMLTextAreaElement): string | null {
+  if (el.tagName === "INPUT" && !["", "text", "search", "tel", "url", "password"].includes(el.type)) {
+    const savetype = el.type;
+    (el as HTMLInputElement).type = "text";
+    return savetype;
+  }
+  return null;
+}
+
 export async function pressKey(keylist: string | string[], modifierprops?: KeyboardModifierOptions) {
   //key must be one of the names documented at https://w3c.github.io/uievents/#events-keyboardevents
   const keys: string[] = normalizeKeys(keylist, modifierprops);
+
+  /* We're only allowed to read selectionStart/End on text/search/tel/url/password fields - https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement/selectionStart
+     so we'll convert the field to text if needed */
 
   for (const key of keys) {
     //ensure asynchronous invocation for each keypress
@@ -366,11 +378,17 @@ export async function pressKey(keylist: string | string[], modifierprops?: Keybo
       } else if (focused?.nodeName === 'TEXTAREA' || (focused?.nodeName === 'INPUT' && !['radio', 'textarea'].includes((focused as HTMLInputElement).type))) {
         const focusedElt = focused as HTMLTextAreaElement | HTMLInputElement;
         if (eventprops.key === 'Backspace') {
-          if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
-            if (focusedElt.selectionStart === focusedElt.selectionEnd) //delete the character before the cursor
-              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart - 1) + focusedElt.value.substr(focusedElt.selectionEnd);
-            else //delete the character
-              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + focusedElt.value.substr(focusedElt.selectionEnd);
+          const savedEltType = getSavedEltType(focusedElt);
+          try {
+            if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
+              if (focusedElt.selectionStart === focusedElt.selectionEnd) //delete the character before the cursor
+                focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart - 1) + focusedElt.value.substr(focusedElt.selectionEnd);
+              else //delete the character
+                focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + focusedElt.value.substr(focusedElt.selectionEnd);
+            }
+          } finally {
+            if (savedEltType)
+              (focusedElt as HTMLInputElement).type = savedEltType;
           }
 
           dispatchDomEvent(focused, 'input');
@@ -392,15 +410,19 @@ export async function pressKey(keylist: string | string[], modifierprops?: Keybo
           }
         } else if (eventprops.haspress) {
           if (!(props.ctrlKey || props.metaKey || props.altKey)) { //these don't trigger text input
-            // Insert single character into the input field
-            if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
-              focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + key + focusedElt.value.substr(focusedElt.selectionEnd);
-              if (debugFlags.testfw)
-                console.log('[testfw] SendKeyPress manually added "' + key + '" value now "' + focusedElt.value + '"');
-
-              //        if(focused.nodeName=='TEXTAREA' || (focused.nodeName=='INPUT' && !['radio','textarea'].includes(focused.type)))
-              dispatchDomEvent(focused, 'input');
+            const savedEltType = getSavedEltType(focusedElt);
+            try {
+              // Insert single character into the input field
+              if (focusedElt.selectionStart !== null && focusedElt.selectionEnd !== null) {
+                focusedElt.value = focusedElt.value.substr(0, focusedElt.selectionStart) + key + focusedElt.value.substr(focusedElt.selectionEnd);
+                if (debugFlags.testfw)
+                  console.log('[testfw] SendKeyPress manually added "' + key + '" value now "' + focusedElt.value + '"');
+              }
+            } finally {
+              if (savedEltType)
+                (focusedElt as HTMLInputElement).type = savedEltType;
             }
+            dispatchDomEvent(focused, 'input');
           }
         }
       } else {
