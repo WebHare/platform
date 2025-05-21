@@ -573,8 +573,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
         IF (this->supportobject NOT EXTENDSFROM WRDAuthSupportBase)
           THROW NEW Exception(`WRD authentication plugin support object '${this->supportobjectname}' doesn't extend WRDAuthSupportBase`);
       }
-
-      this->__GetWRDAuthIntegration()->loginfilter := PTR this->supportobject->IsLoginDenied;
     }
     RETURN this->supportobject;
   }
@@ -582,9 +580,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   /** Get user info. This info is stored in the cookies, so available to JS.
       @return User info
   */
-  PUBLIC RECORD FUNCTION GetUserInfo()
-  {
-    RETURN this->GetSupportObject()->GetJSUserInfo();
+  PUBLIC RECORD FUNCTION GetUserInfo() {
+    RECORD publicauthdata := DecodeJSON(GetWebCookie(this->cookiename || "_publicauthdata"));
+    RETURN CellExists(publicauthdata, "userinfo") ? publicauthdata.userinfo : DEFAULT RECORD;
   }
 
   /** Update user info (updates the javascript cookie holding the userinfo fields) */
@@ -731,7 +729,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
-    this->GetSupportObject(); // initialize loginfilter
 
    IF(NOT CellExists(options,"firstloginfield"))
       INSERT CELL firstloginfield := this->pvt_config.firstloginfield INTO options;
@@ -954,7 +951,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , browsertriplet := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
-    this->GetSupportObject(); // CheckNotFailed, initialize loginfilter
+    this->CheckNotFailed();
     IF(NOT IsDatabaseWritable())
       RETURN [ success := FALSE, code := "LOGINCLOSED" ];
 

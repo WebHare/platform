@@ -828,8 +828,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   /// Automatically authenticate the web session for the access rule ? (defaults to TRUE)
   PUBLIC BOOLEAN authenticatewebsession;
 
-  PUBLIC MACRO PTR loginfilter;
-
   RECORD FUNCTION GetCachedCookies()
   {
     IF(NOT RecordExists(this->cookiecache))
@@ -1153,26 +1151,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, STRING sessionid, RECORD options)
   {
     UpdateAuditContext([ user_entityid := trylogin.entityid, user_login := trylogin.login ]);
-
-    IF(this->loginfilter != DEFAULT MACRO PTR)
-    {
-      RECORD errordata := this->loginfilter(trylogin.entityid,
-          [ login := trylogin.login
-          , isimpersonation := trylogin.isimpersonation
-          ]);
-      IF(RecordExists(errordata))
-      {
-        IF (NOT CellExists(errordata, "code"))
-          THROW NEW Exception("Login denied without error code");
-
-        // Don't return internal fields
-        FOREVERY (RECORD field FROM UnpackRecord(errordata))
-          IF (field.name LIKE "_*")
-            errordata := CellDelete(errordata, field.name);
-
-        RETURN CellInsert(errordata, "success", FALSE);
-      }
-    }
 
     IF(CellExists(trylogin, "headers")) { //New wrdauth headers received.
       FOREVERY(RECORD toset FROM trylogin.headers)
