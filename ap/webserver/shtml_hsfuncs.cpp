@@ -553,7 +553,7 @@ Session* ShtmlContextData::OpenSession(HSVM *vm,LockedSUCache::WriteRef &lock, b
                 else if(sess->scope.empty())
                     HSVM_ThrowException(vm, "Specifying a scope when accessing the session, but no scope was provided when creating it");
                 else
-                    HSVM_ThrowException(vm, "Incorrect scope specified when opening the session");
+                    HSVM_ThrowException(vm, ("Incorrect scope specified when opening the session, requested '" + scope + "' but session has scope '" + sess->scope + "'").c_str());
                 return nullptr;
         }
 
