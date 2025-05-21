@@ -27,7 +27,9 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
                  , title := ""
                  , icon := ""
                  ], loginmethods,
-                 [ title := `loginmethods#${#loginmethods}` ])
+                 [ title := `loginmethods#${#loginmethods}`
+                 , required := [ "tag", "title" ]
+                 ])
         FROM options.loginmethods;
 
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();

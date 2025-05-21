@@ -30,6 +30,12 @@ body:has(.wh-wrdauth-form) {
   .wh-form__fieldgroup {
     padding: 10px 10px 5px;
   }
+  
+  h2 {
+    color: var(--tollium-color-accent);
+    font-weight: 500;
+    font-size: 18px;
+  }
 
   label {
     display: inline-block;
@@ -106,8 +112,10 @@ body:has(.wh-wrdauth-form) {
   }
   
   .wh-wrdauth-loginmethods {
-    padding: 10px;
-    
+    form {
+      padding: 10px;
+    }
+      
     button {
       background: var(--tollium-background);
       border: var(--tollium-border-width) solid var(--tollium-border-color);

@@ -889,6 +889,7 @@
         <text tid="linkexpired">De gevolgde link is verlopen</text>
         <text tid="login-button">Inloggen</text>
         <text tid="login-email-intro">Voer het e-mailadres en wachtwoord in om in te loggen</text>
+        <text tid="login-services">Inloggen met identiteitsdiensten</text>
         <text tid="login-title">Inloggen</text>
         <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
         <text tid="password">Wachtwoord</text>
