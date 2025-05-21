@@ -1,0 +1,61 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="tolliumapps.oidc.client"
+         library="client.whlib">
+
+  <screen name="providers" width="120x" allowresize="true" footerbuttons="close">
+    <body>
+      <wrd:entitiesedit name="providers"
+                        minwidth="60x"
+                        minheight="12gr"
+                        onentityedit="oneditprovider"
+                        requestcolumns="wrd_title clientid metadataurl"
+                        wrdtype="wrdauth_oidc_client"
+                        deletemode="delete">
+        <column name="wrd_title" type="text" tid=".buttontitle" />
+        <column name="metadataurl" type="text" />
+        <column name="clientid" type="text" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>
+
+  <screen name="editprovider" footerbuttons="ok cancel">
+    <actions>
+      <copyaction name="copycallbackurl" source="redirect_uri" title="" />
+      <windowopenaction name="openmetadataurl" onwindowopen="onopenmetadataurl" tid="~open" />
+    </actions>
+
+    <compositions>
+      <wrd:entity name="entity" wrdtype="wrdauth_oidc_client" />
+    </compositions>
+
+    <body>
+      <heading doclink="platform:wrdauth/oidc/provider" tid=".provider" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" required="true" tid=".buttontitle" />
+      <textedit composition="entity" cellname="metadataurl" width="1pr" required="true">
+        <button action="openmetadataurl" icon="tollium:actions/openlink" />
+      </textedit>
+      <textedit composition="entity" cellname="redirect_uri" name="redirect_uri" width="1pr" required="true">
+        <button action="copycallbackurl" icon="tollium:actions/copy" />
+      </textedit>
+      <select composition="entity" cellname="visibility" type="pulldown">
+        <option rowkey="" tid=".visibility-always" />
+        <option rowkey="hidden" />
+
+        <!-- <option rowkey="ifused" /> hide 'ifused' for now, not sure how its viable in practice -->
+      </select>
+      <heading doclink="platform:wrdauth/oidc/clientsettings" tid=".clientsettings" />
+      <textedit composition="entity" cellname="clientid" width="1pr" minwidth="60x" />
+      <line>
+        <textedit composition="entity" cellname="clientsecret" width="1pr" password="true" />
+        <checkbox name="showclientsecret" labeltid=".reveal" onchange="onreveal" title="" />
+      </line>
+      <datetime composition="entity" cellname="secret_expiration" type="datetime" storeutc="true" />
+      <heading doclink="platform:wrdauth/oidc/configuration" tid=".configuration" />
+      <textedit composition="entity" cellname="additionalscopes" width="1pr" />
+      <textedit composition="entity" cellname="loginfield" width="1pr" placeholder="sub" value="sub" />
+      <textarea composition="entity" cellname="comments"  width="1pr" minheight="3gr" tid="~comments" />
+    </body>
+  </screen>
+
+</screens>

@@ -1,0 +1,43 @@
+<?wh
+
+/* direct test links: https://my.webhare.dev/?app=wrd(system:usermgmt)/oidcclient
+*/
+
+LOADLIB "mod::system/lib/webapi/oauth2.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+LOADLIB "mod::wrd/lib/screenbase.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE Providers EXTEND TolliumScreenBase <
+  INTEGER FUNCTION OnEditProvider(OBJECT wrdtype, RECORD context, INTEGER entityid) {
+    // IF(entityid = 0) {
+    //   RETURN this->RunScreen("#addprovider"); //ADDME should probably pass the requested scopes
+    // }
+    RETURN ^providers->RunEntityEditScreen("#editprovider", entityid) ?? entityid;
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE EditProvider EXTEND WRDEntityEditScreenBase <
+  UPDATE MACRO Init(RECORD data) {
+    ^entity->^redirect_uri->options :=
+      [[ title := GetDefaultOauth2RedirectURL() ]
+      ];
+
+    WRDEntityEditScreenBase::Init(data);
+
+    IF(^entity->^redirect_uri->value = "")
+      ^entity->^redirect_uri->value := GetDefaultOauth2RedirectURL();
+
+    ^entity->^loginfield->required := ^entity->^loginfield->value != ""; //should never go empty again!
+  }
+
+  MACRO OnOpenMetadataURL(OBJECT browser) {
+    browser->SendURL(^entity->^metadataurl->value);
+  }
+
+  MACRO OnReveal() {
+    ^entity->^clientsecret->password := NOT ^showclientsecret->value;
+  }
+>;

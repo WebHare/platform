@@ -45,6 +45,7 @@
       <text tid="linkfrom">Koppeling vanaf</text>
       <text tid="links">Koppelingen</text>
       <text tid="linkto">Koppeling naar</text>
+      <text tid="oidcclient-not-configured">Dit schema is niet geconfigureerd om zich als OIDC client te gedragen.<br/><br/>Het schema moet mod::wrd/data/wrdschemas/authschema_oidc.xml importeren</text>
       <text tid="orgname">Organisatienaam</text>
       <text tid="preview">Samenvatting</text>
       <text tid="quickfilter">Filter</text>
@@ -87,6 +88,7 @@
         <text tid="neworg">Nieuwe organisatie</text>
         <text tid="newperson">Nieuw persoon</text>
         <text tid="newschema">Nieuw schema</text>
+        <text tid="oidcclient">OIDC client configuratie</text>
         <text tid="openlink">Open koppeling</text>
         <text tid="openschema">Schema openen</text>
         <text tid="querybuilder">Query constructie</text>
@@ -1001,6 +1003,28 @@
       <text tid="tag">Tag</text>
       <text tid="type">Type</text>
       <text tid="wrd">WRD</text>
+    </textgroup>
+    <textgroup gid="oidc">   <!-- tolliumapps.oidc -->
+      <textgroup gid="client">   <!-- tolliumapps.oidc.client -->
+        <text tid="additionalscopes">Aanvullende scopes</text>
+        <text tid="buttontitle">Login knop</text>
+        <text tid="clientid">Client ID</text>
+        <text tid="clientsecret">Client secret</text>
+        <text tid="clientsettings">Client instellingen</text>
+        <text tid="configuration">Configuratie</text>
+        <text tid="editprovider">OpenID Connet provider instelingen</text>
+        <text tid="loginfield">Loginveld</text>
+        <text tid="metadataurl">Metadata URL</text>
+        <text tid="provider">Provider</text>
+        <text tid="providers">OpenID Connect providers</text>
+        <text tid="redirect_uri">Redirect URL</text>
+        <text tid="reveal">Toon</text>
+        <text tid="secret_expiration">Verloopdatum secret</text>
+        <text tid="visibility">Zichtbaarheid</text>
+        <text tid="visibility-always">Altijd tonen</text>
+        <text tid="visibility-hidden">Nooit tonen</text>
+        <text tid="visibility-ifused">Alleen indien gebruikt</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->
       <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->

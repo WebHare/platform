@@ -3,13 +3,16 @@
   <import definitionfile="/data/wrdschemas/authschema.xml" />
 
   <object tag="wrdauth_oidc_client">
-    <!-- these are our OIDC registrations, ie where this WRD Schema is a service provider to an external identity provider -->
+    <!-- these are our OIDC Client Registrations, ie where this WRD Schema is a service provider to an external identity provider
+         but you could also consider this a list of our providers
+    -->
     <attributes>
       <free tag="wrd_title" required="true" unique="true" />
       <integer tag="wrd_ordering" />  <!-- TODO make this object a domain and then use the builtin wrd_ordering -->
       <free tag="metadataurl" />
       <free tag="clientid" />
       <free tag="clientsecret" />
+      <datetime tag="secret_expiration" description="When is the secret known to expire (allows us to give warnings)"/>
       <free tag="additionalscopes" />
       <free tag="loginfield" />  <!-- eg 'email' or 'sub'.  todo should default to 'sub' but transitionally support email/employeeid/sub -->
       <free tag="redirect_uri"
@@ -17,6 +20,7 @@
       <enum tag="visibility"
             allowedvalues="hidden ifused"
             description="Limit visibility of this login option. hidden: always hide. ifused: show after first use or triggering. " />
+            <free tag="comments" />
     </attributes>
   </object>
 

@@ -45,6 +45,7 @@
       <text tid="linkfrom">Link from</text>
       <text tid="links">Links</text>
       <text tid="linkto">Link to</text>
+      <text tid="oidcclient-not-configured">This schema has not been configured to support acting as an oidc client. <br/><br/>The schema must import mod::wrd/data/wrdschemas/authschema_oidc.xml</text>
       <text tid="orgname">Organization name</text>
       <text tid="preview">Preview</text>
       <text tid="quickfilter">Filter</text>
@@ -87,6 +88,7 @@
         <text tid="neworg">New organization</text>
         <text tid="newperson">New person</text>
         <text tid="newschema">New schema</text>
+        <text tid="oidcclient">OIDC Client configuration</text>
         <text tid="openlink">Open link</text>
         <text tid="openschema">Open schema</text>
         <text tid="querybuilder">Query builder</text>
@@ -1001,6 +1003,28 @@
       <text tid="tag">Tag</text>
       <text tid="type">Type</text>
       <text tid="wrd">WRD</text>
+    </textgroup>
+    <textgroup gid="oidc">   <!-- tolliumapps.oidc -->
+      <textgroup gid="client">   <!-- tolliumapps.oidc.client -->
+        <text tid="additionalscopes">Additional scopes</text>
+        <text tid="buttontitle">Login button</text>
+        <text tid="clientid">Client ID</text>
+        <text tid="clientsecret">Client secret</text>
+        <text tid="clientsettings">Client settings</text>
+        <text tid="configuration">Configuration</text>
+        <text tid="editprovider">OpenID Connet provider settings</text>
+        <text tid="loginfield">Login field</text>
+        <text tid="metadataurl">Metadata URL</text>
+        <text tid="provider">Provider</text>
+        <text tid="providers">OpenID Connect providers</text>
+        <text tid="redirect_uri">Redirect URL</text>
+        <text tid="reveal">Reveal</text>
+        <text tid="secret_expiration">Secret expiration</text>
+        <text tid="visibility">Visibility</text>
+        <text tid="visibility-always">Always show</text>
+        <text tid="visibility-hidden">Never show</text>
+        <text tid="visibility-ifused">Only if used</text>
+      </textgroup>
     </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->
       <textgroup gid="afterpay">   <!-- tolliumapps.payments.afterpay -->
