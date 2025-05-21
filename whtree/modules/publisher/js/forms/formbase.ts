@@ -138,6 +138,17 @@ type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 let didGlobalHandlers: true | undefined;
 
+/** Convert linefeeds to BR tags */
+function lineFeedsToBreaks(text: string): DocumentFragment {
+  const frag = new DocumentFragment;
+  for (const part of text.split(/\r?\n/)) {
+    if (frag.childNodes.length)
+      frag.appendChild(document.createElement("br"));
+    frag.append(part);
+  }
+  return frag;
+}
+
 function getPageIdx(state: PageState, page: number | HTMLElement) {
   if (typeof page === 'number') {
     if (page < 0 || page >= state.pages.length)
@@ -431,7 +442,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     */
     const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector<HTMLElement>(".wh-form__field--" + type);
     //Do not pick up errors from deeper groups (array rows)
-    let error = (field_with_message && field_with_message.closest(".wh-form__fieldgroup") === fieldgroup ? getError(field_with_message) : null) || null;
+    const error = (field_with_message && field_with_message.closest(".wh-form__fieldgroup") === fieldgroup ? getError(field_with_message) : null) || null;
 
     // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
     fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(error));
@@ -444,11 +455,6 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
         field.classList.add('wh-form__field--everfailed');
       }
     }
-
-    // if the error is plain text, convert it to a element containing the text
-    if (error && !(error instanceof Node))
-      error = dompack.create('span', { textContent: error });
-
 
     // Determine the contextnode to set ARIA attributes on
 
@@ -467,7 +473,6 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     // Create a container for the suggestion or error
     if (messagenode) {
       messageid = messagenode.id; // reuse the existing messagenode
-      messagenode.replaceChildren(); // remove previous errors/suggestions texts from the errornode
     } else {
       if (!error)
         return; //nothing to do
@@ -483,15 +488,14 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       suggestionholder.appendChild(messagenode);
     }
 
-
-
     if (error) { // Do we show a message?
-      messagenode.append(error);
+      messagenode.replaceChildren(typeof error === "string" ? lineFeedsToBreaks(error) : error);
       this._addDescribedBy(contextnode, messageid);
 
       if (type === "error")
         contextnode.setAttribute("aria-invalid", "true");
     } else {
+      messagenode.replaceChildren(); // remove previous errors/suggestions texts from the errornode
       this._removeDescribedBy(contextnode, messageid);
       contextnode.removeAttribute("aria-invalid");
     }
