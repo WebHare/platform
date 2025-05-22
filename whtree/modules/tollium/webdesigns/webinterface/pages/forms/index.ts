@@ -6,8 +6,7 @@ import { isValidEmail } from "@webhare/std";
 dompack.register(".wh-wrdauth-login__forgotpasswordlink", node => {
   const url = new URL((node as HTMLAnchorElement).href);
   const login = document.getElementById("login-login");
-  //FIXME: Why does the 'autocomplete' property not work?
-  if ((login as HTMLInputElement)?.getAttribute("autocomplete")?.includes("email"))
+  if ((login as HTMLInputElement)?.autocomplete.includes("email"))
     dompack.addDocEventListener(node, "click", () => {
       const email = (login as HTMLInputElement).value;
       if (isValidEmail(email))

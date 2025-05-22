@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
     {
       ^login->title := GetTid("wrd:site.forms.authpages.email");
       ^login->validationchecks := ["email"];
-      INSERT "email" INTO ^login->autocomplete AT END;
+      ^login->autocomplete := ["email"];
       this->loginemail := TRUE;
     }
     
