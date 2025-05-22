@@ -185,8 +185,8 @@ export class AuthenticationSettings {
     return Boolean(this.#totp);
   }
 
-  getLastPasswordChange(): Date | null {
-    return this.#passwords.at(-1)?.validFrom ?? null;
+  getLastPasswordChange(): Temporal.Instant | null {
+    return this.#passwords.at(-1)?.validFrom?.toTemporalInstant() ?? null;
   }
 
   getNumPasswords(): number {
@@ -288,7 +288,7 @@ declare module "@webhare/services" {
       /** Failed checks */
       failedchecks: string[];
       /** Time of the bad password */
-      badPasswordTime: Date | null;
+      badPasswordTime: Temporal.Instant | null;
     };
   }
   interface ServerEncryptionScopes {

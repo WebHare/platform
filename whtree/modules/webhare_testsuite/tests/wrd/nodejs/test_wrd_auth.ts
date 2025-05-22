@@ -115,7 +115,7 @@ async function testAuthSettings() {
     const hsonvalue = `hson:{"passwords":ra[{"passwordhash":"PLAIN:secret","validfrom":d"20211012T101930.779"},{"passwordhash":"PLAIN:123","validfrom":d"20211012T102004.930"},{"passwordhash":"PLAIN:456","validfrom":d"20211012T102037.024"}],"totp":*,"version":1}`;
     const auth = AuthenticationSettings.fromHSON(hsonvalue);
     test.eq(3, auth.getNumPasswords());
-    test.eq(new Date("2021-10-12T10:20:37.024Z"), auth.getLastPasswordChange());
+    test.eq(Temporal.Instant.from("2021-10-12T10:20:37.024Z"), auth.getLastPasswordChange());
     test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
 
     //FIXME how to test the other validFrom dates?
@@ -126,7 +126,7 @@ async function testAuthSettings() {
     await auth.updatePassword("Hi!", 'PLAIN');
     test.eq(4, auth.getNumPasswords());
     const lastchange = auth.getLastPasswordChange();
-    test.assert(lastchange && lastchange.getTime() <= Date.now() && lastchange.getTime() >= Date.now() - 100);
+    test.assert(lastchange && lastchange.epochMilliseconds <= Date.now() && lastchange.epochMilliseconds >= Date.now() - 100);
     test.eq(false, auth.hasTOTP());
   }
 

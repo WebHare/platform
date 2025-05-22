@@ -49,13 +49,13 @@ function testDescribePasswordChecks() {
 }
 
 async function testCheckPassword() {
-  test.eq("", (await checkPasswordCompliance("", "")).message);
-  test.eq("", (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "aBC456#()@")).message);
-  test.eq(/10.*characters.*1.*lowercase.*3.*digits/s, (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "BC46#()@")).message);
-  test.eq(["minlength", "lowercase", "digits"], (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "BC46#()@")).failedchecks);
+  test.eq(true, (await checkPasswordCompliance("", "")).success);
+  test.eq(true, (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "aBC456#()@")).success);
+  test.eqPartial({ message: /10.*characters.*1.*lowercase.*3.*digits/s }, (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "BC46#()@")));
+  test.eqPartial({ failedChecks: ["minlength", "lowercase", "digits"] }, (await checkPasswordCompliance("lowercase:1 uppercase:2 digits:3 symbols:4 minlength:10", "BC46#()@")));
 
   // test reuse
-  test.eq("", (await checkPasswordCompliance("noreuse:P2D", "secret", {
+  test.eq(true, (await checkPasswordCompliance("noreuse:P2D", "secret", {
     authenticationSettings: AuthenticationSettings.fromHSON(encodeHSON({
       version: 1,
       passwords: [
@@ -68,9 +68,9 @@ async function testCheckPassword() {
         }
       ]
     }))
-  })).message);
+  })).success);
 
-  test.eq(/not.*reused.*2.*days/, (await checkPasswordCompliance("noreuse:P2D", "secret", {
+  test.eqPartial({ message: /not.*reused.*2.*days/ }, (await checkPasswordCompliance("noreuse:P2D", "secret", {
     authenticationSettings: AuthenticationSettings.fromHSON(encodeHSON({
       version: 1,
       passwords: [
@@ -82,7 +82,7 @@ async function testCheckPassword() {
         }
       ]
     }))
-  })).message);
+  })));
 }
 
 function testCheckAuthenticationSettings() {
