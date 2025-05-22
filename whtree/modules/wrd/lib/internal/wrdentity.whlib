@@ -451,28 +451,10 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
     IF (NOT RecordExists(attr))
       THROW NEW Exception(`No such attribute ${EncodeJSON(attrtag)} in type ${EncodeJSON(this->wrdtype->tag)}`);
+    IF(attr.attributetype != wrd_attributetype_password AND attr.attributetype != wrd_attributetype_authenticationsettings)
+      THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetypename}' and cannot store a password`);
 
-    VARIANT data := this->GetField(attrtag);
-    STRING hash;
-    SWITCH (attr.attributetype)
-    {
-      CASE wrd_attributetype_password
-      {
-        hash := data;
-      }
-      CASE wrd_attributetype_authenticationsettings
-      {
-        IF(RecordExists(data) AND RecordExists(data.passwords))
-          hash := data.passwords[END-1].passwordhash;
-        ELSE
-          RETURN "fail";
-      }
-      DEFAULT
-      {
-        THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetypename}' and cannot store a password`);
-      }
-    }
-
+    STRING hash := ExtractWebHarePasswordHash(this->GetField(attrtag));
     IF(NOT VerifyWebHarePasswordHash(testvalue, hash))
       RETURN "fail";
 

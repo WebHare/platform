@@ -1345,7 +1345,7 @@ PUBLIC MACRO DoSetupWRDAuth(RECORD options DEFAULTSTO DEFAULT RECORD) {
     wrdschema := testfw->GetWRDSchema();
 
     OBJECT persontype := testfw->GetWRDSchema()->GetType("WRD_PERSON");
-    persontype->CreateAttribute("PASSWORD","PASSWORD");
+    persontype->CreateAttribute("PASSWORD","AUTHENTICATIONSETTINGS");
 
     testfw->GetWRDSchema()->UpdateMetadata(
         [ accounttype :=      persontype->id

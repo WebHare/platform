@@ -755,7 +755,7 @@ MACRO TestAccountSettings()
   TestEQ("LOGIN", wrdschema->accountlogintag);
   TestEQ("WRD_CONTACT_EMAIL", wrdschema->accountemailtag);
   TestEQ("PASSWORD", wrdschema->accountpasswordtag);
-  TestEQ(FALSE, wrdschema->accountpasswordisauthsettings);
+  TestEQ(TRUE, wrdschema->accountpasswordisauthsettings);
 
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithauthsettingspassword) ]);
   TestEq(wrdschema->^wrd_person, wrdschema->accounttype);

@@ -1261,6 +1261,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           , required := [ "tag", "attributetype" ]
           ]);
 
+      IF(ToUpperCase(attr.attributetype) = "PASSWORD")
+        THROW NEW Exception("The attribute type 'PASSWORD' is no longer supported since WH5.8. Use AUTHENTICATIONSETTINGS instead.");
+      IF(ToUpperCase(attr.attributetype) = "__PASSWORD_HASH") //only for conversion tests we still allow this. this will be removed in the future without warning
+        attr.attributetype := "PASSWORD";
+
       INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attr.attributetype), this->wrdschema->__iswrdapi2017);
       IF (attributetypeid=0)
         THROW NEW Exception(`Unknown attribute type '${attr.attributetype}' for field '${attr.tag}' in type '${this->tag}'`);
@@ -2517,6 +2522,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_authenticationsettings
       {
+        IF(TYPEID(val) = TYPEID(STRING))
+          val := CreateAuthenticationSettingsFromPasswordHash(val);
+
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
         {

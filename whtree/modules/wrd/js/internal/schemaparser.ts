@@ -584,6 +584,8 @@ function getAttributeTypeIdByTypeName(attributetype: string) {
     attributetype = "WHFSLINK";
   else if (attributetype === "STRING")
     attributetype = "FREE";
+  else if (attributetype === "PASSWORD")
+    attributetype = "AUTHENTICATIONSETTINGS";
 
   return (attrtypes as readonly string[]).indexOf(attributetype) + 1;
 }

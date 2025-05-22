@@ -309,9 +309,13 @@ async function testAuthAPI() {
     wrdLastName: "Show",
     wrdContactEmail: "jonshow@beta.webhare.net",
     whuserUnit: testunit,
-    whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$),
     wrdauthAccountStatus: { status: "active" }
   });
+
+  test.eq({ whuserPassword: null }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserPassword"]));
+
+  await oidcAuthSchema.update("wrdPerson", testuser, { whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$) });
+  test.eq({ whuserPassword: (auth: AuthenticationSettings | null) => auth?.getNumPasswords() === 1 }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserPassword"]));
 
   //Patch the user's whuserPassword to simply hold the password in raw data. this may happen with converted password fields
   const testUserInfo = await describeEntity(testuser);
@@ -319,6 +323,8 @@ async function testAuthAPI() {
   const userPwdAttribute = await whdb.db<PlatformDB>().selectFrom("wrd.attrs").selectAll().where("type", "=", testUserInfo.typeId).where("tag", "=", "WHUSER_PASSWORD").executeTakeFirstOrThrow();
   const userPwdSetting = await whdb.db<PlatformDB>().selectFrom("wrd.entity_settings").selectAll().where("entity", "=", testuser).where("attribute", "=", userPwdAttribute.id).executeTakeFirstOrThrow();
   await whdb.db<PlatformDB>().updateTable("wrd.entity_settings").where("id", "=", userPwdSetting.id).set({ rawdata: test.passwordHashes.secret$ }).execute();
+
+  test.eq({ whuserPassword: (auth: AuthenticationSettings | null) => auth?.getNumPasswords() === 1 }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserPassword"]));
 
   await whdb.commitWork();
 
