@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
-import { type SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
+import { type AnyWRDSchema, type SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
@@ -281,7 +281,7 @@ declare module "@webhare/services" {
       user?: number;
     };
     "platform:incomplete-account": {
-      /** User id to login*/
+      /** User id to login */
       user: number;
       /** Return url */
       returnTo: string;
@@ -522,10 +522,28 @@ type SigningKey = {
 */
 export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
   readonly wrdschema: WRDSchema<WRD_IdpSchemaType>;
+  private authsettings?: WRDAuthSettings | null;
 
   constructor(wrdschema: WRDSchema<SchemaType>) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
     this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
+  }
+
+  getAuthSettings(required: true): Promise<WRDAuthSettings & { passwordAttribute: string }>;
+  getAuthSettings(required: false): Promise<WRDAuthSettings | null>;
+
+  async getAuthSettings(required: boolean): Promise<WRDAuthSettings | null> {
+    if (!this.authsettings)
+      this.authsettings ||= await getAuthSettings(this.wrdschema);
+    if (required) {
+      if (!this.authsettings?.passwordAttribute)
+        throw new Error(`Schema '${this.wrdschema.tag}' is not configured for WRD Authentication`);
+      if (!this.authsettings.loginAttribute)
+        throw new Error(`Schema '${this.wrdschema.tag}' has an outdated confuguration (login attribute note set)`);
+      if (!this.authsettings.passwordIsAuthSettings)
+        throw new Error(`Schema '${this.wrdschema.tag}' has an outdated confuguration (field '${this.authsettings.passwordAttribute}' is not of type AUTHSETTINGS)`);
+    }
+    return this.authsettings;
   }
 
   async ensureSigningKeys(): Promise<SigningKey[]> {
@@ -629,8 +647,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("OpenID scopes can only be set for 'oidc' tokens");
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
-    //@ts-ignore -- too complex and don't have an easy 'as key of wrdPerson' type
-    const subjectValue = (await this.wrdschema.getFields("wrdPerson", subject, [subfield]))?.[subfield] as string;
+    const subjectValue = (await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, [subfield]))?.[subfield] as string;
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
@@ -794,14 +811,13 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if ((matchToken.expirationdate.getTime() > defaultDateTime.getTime() && matchToken.expirationdate < new Date))
       return { error: `Token expired at ${matchToken.expirationdate.toISOString()}` };
 
-    const authsettings = await getAuthSettings(this.wrdschema);
+    const authsettings = await this.getAuthSettings(false);
     let accountStatus: WRDAuthAccountStatus | null = null;
     if (authsettings) {
       const getfields = {
         ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
       };
-      // @ts-expect-error -- TS WRD can't handle this type of dynamic queries
-      const entity = await this.wrdschema.getFields(authsettings.accountType, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
+      const entity = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
         wrdauthAccountStatus?: WRDAuthAccountStatus | null;
       } | null;
       if (!entity)
@@ -1002,9 +1018,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if ("error" in prepped)
       throw new Error(prepped.error);
 
-    const authsettings = await getAuthSettings(this.wrdschema);
-    if (!authsettings?.passwordAttribute)
-      throw new Error("No password attribute defined for WRD schema " + this.wrdschema.tag);
+    const authsettings = await this.getAuthSettings(true);
 
     let userid = await this.lookupUser(authsettings, username, customizer, undefined, options);
     let userInfo;
@@ -1015,8 +1029,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
       };
 
-      //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
-      userInfo = await this.wrdschema.getFields(authsettings.accountType, userid, getfields) as {
+      userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as {
         password: AuthenticationSettings | null;
         wrdauthAccountStatus?: WRDAuthAccountStatus | null;
         whuserUnit?: number | null;
@@ -1403,17 +1416,14 @@ export async function verifyPasswordComplianceForHS(targetUrl: string, userId: n
   if (result)
     return result;
 
-  const authsettings = await getAuthSettings(setAuthCookies.wrdSchema);
-  if (!authsettings)
-    throw new Error(`WRD schema '${setAuthCookies.wrdSchema}' not configured for authentication`);
-
+  const idp = new IdentityProvider(setAuthCookies.wrdSchema);
+  const authsettings = await idp.getAuthSettings(true);
   const getfields = {
     auth: authsettings.passwordAttribute,
     ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
   };
 
-  //@ts-ignore -- how to fix? WRD TS is not flexible enough for this yet:
-  const userInfo = await setAuthCookies.wrdSchema.getFields(authsettings.accountType, userId, getfields) as {
+  const userInfo = await (setAuthCookies.wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
     auth: AuthenticationSettings | null;
     whuserUnit?: number | null;
   };

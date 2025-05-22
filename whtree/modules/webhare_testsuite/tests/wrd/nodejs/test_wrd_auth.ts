@@ -536,8 +536,9 @@ async function testAuthStatus() {
   await oidcAuthSchema.getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
   await whdb.commitWork();
 
-  //Now we can login again even without en active wrdauthAccountStatus
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+  //Now we can login again even without an active wrdauthAccountStatus
+  const provider_2 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider_2.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -550,7 +551,8 @@ async function testAuthStatus() {
   });
   await whdb.commitWork();
 
-  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  const provider_3 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
+  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider_3.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
