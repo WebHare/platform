@@ -19,6 +19,8 @@ export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, 
 export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "./quacks";
 export { type AddressValue } from "./address";
 
+export { combineAbortSignals, whenAborted } from "./utils";
+
 /** Throw an error with the specified message. This function allows you to throw inside expressions
  * @param err - The error message
  * @returns This function never returns
