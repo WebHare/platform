@@ -127,7 +127,7 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
     loginAttribute: login ? tagToJS(login.tag) : null,
     loginIsEmail: Boolean(email?.id && email?.id === login?.id),
     passwordAttribute: password ? tagToJS(password.tag) : null,
-    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS",
+    passwordIsAuthSettings: password?.attributetypename === "AUTHENTICATIONSETTINGS",
     hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS"),
     hasWhuserUnit: attrs.some(_ => _.tag === "WHUSER_UNIT")
   };
