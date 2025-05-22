@@ -326,6 +326,15 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RunScreen("mod::wrd/screens/samlauth.xml#main");
   }
 
+  MACRO DoOIDCClient() {
+    IF(NOT ObjectExists(this->contexts->wrdschema->GetType("WRDAUTH_OIDC_CLIENT"))) {
+      this->RunSimpleScreen("error", this->GetTid(".oidcclient-not-configured"));
+      RETURN;
+    }
+
+    this->RunScreen("mod::wrd/tolliumapps/oidc/client.xml#providers");
+  }
+
   MACRO DoAuditLog()
   {
     RunWRDAuditLogDialog(this);
