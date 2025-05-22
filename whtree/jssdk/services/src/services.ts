@@ -9,7 +9,7 @@ import type { AccessLogLine, PxlLogLine } from "./logging";
 import type { RichTextDocument } from "./richdocument";
 
 export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
-export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath, getResourceEventMasks } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
 export { backendConfig } from "./config";
