@@ -1,6 +1,10 @@
 import * as test from "@mod-system/js/wh/testframework";
 import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelpers";
 import * as testwrd from "@mod-wrd/js/testframework";
+import { rpc } from "@webhare/rpc";
+import { generateRandomId } from "@webhare/std";
+
+const newPasswordAfterHIBP = generateRandomId();
 
 test.runTests(
   [
@@ -94,6 +98,22 @@ test.runTests(
       test.assert(test.qR('#emailchangelink')); //should not be available unless enabled
     },
 
+    "Verify password in HIBP",
+    async function () {
+      await rpc("webhare_testsuite:authtestsupport").prepHIBP();
+      await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
+      await testwrd.runLogin('pietje-authpages-js@beta.webhare.net', 'secret');
+
+      //FIXME or explicitly warn its a leaked passwrd
+      test.eq(/Your current password does not comply/, test.qR(".wh-form__page--visible").textContent);
+
+      await testwrd.tryPasswordSetForm("pietje-authpages-js@beta.webhare.net", 'secret123');
+      await test.wait("ui");
+      test.eq(/breach/, test.qR(".wh-form__error").textContent);
+
+      await testwrd.runPasswordSetForm("pietje-authpages-js@beta.webhare.net", newPasswordAfterHIBP);
+    },
+
     "Change email",
     async function () {
       await test.load(test.qR<HTMLAnchorElement>('#emailchangelink').href);
@@ -119,7 +139,7 @@ test.runTests(
     async function () {
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
-      await testwrd.runLogin('pietje-authpages-js@beta.webhare.net', 'secret3$');
+      await testwrd.runLogin('pietje-authpages-js@beta.webhare.net', newPasswordAfterHIBP);
 
       test.assert(test.qR('#isloggedin').checked);
     },
@@ -145,7 +165,7 @@ test.runTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
       test.fill(test.qR('[name="login"]'), 'pietje-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3$');
+      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('ui');
@@ -190,7 +210,7 @@ test.runTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
       test.fill(test.qR('[name="login"]'), 'pietjenieuw-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3$');
+      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
@@ -210,7 +230,7 @@ test.runTests(
 
       // login with (new) email and password
       test.fill(test.qR('[name="login"]'), 'pietjenieuw-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3$');
+      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');
@@ -227,7 +247,7 @@ test.runTests(
 
       // login with (new) email and password
       test.fill(test.qR('[name="login"]'), 'pietjenieuw-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3$');
+      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');

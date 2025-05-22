@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="authtest.whlib">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="authtest.whlib authtestsupport.ts">
   <test script="testwrdauthplugin-api.whscr" />
   <test script="testwrdauthplugin-domainless.whscr" />
   <test script="testwrdauthplugin-expiry.whscr" />
