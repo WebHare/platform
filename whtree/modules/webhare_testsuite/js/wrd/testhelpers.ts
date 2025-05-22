@@ -154,7 +154,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testEmail", { attributeType: "email", title: "E-mail attribute" });
   await persontype.createAttribute("testPhone", { attributeType: "telephone", title: "Phone attribute" });
   await persontype.createAttribute("testDate", { attributeType: "date", title: "Date attribute" });
-  await persontype.createAttribute("testPassword", { attributeType: "password", title: "Password attribute" });
+  await persontype.createAttribute("testPassword", { attributeType: "authenticationSettings", title: "Password attribute" });
   await persontype.createAttribute("testMultipleDomain", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });
   await persontype.createAttribute("testMultipleDomain2", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });
   await persontype.createAttribute("testMultipleDomain3", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });

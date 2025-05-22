@@ -730,7 +730,7 @@ MACRO TestAuthenticationAttrs()
   OBJECT testperson := persontype->CreateEntity([ wrd_contact_email := "authattrs@example.com", test_free := "MyPwd"]);
   TestEq(DEFAULT RECORD, testperson->GetField("AUTHSETTINGS"));
 
-  TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
+  TestThrowsLike("*is receiving an unhashed password value*", PTR testperson->UpdateEntity( [ authsettings := "warning" ]));
   TestThrowsLike("*VERSION*", PTR testperson->UpdateEntity( [ authsettings := CELL[] ]));
   TestThrowsLike("*version 1*", PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1] ]));
   TestThrowsLike(`Expected version 1 while parsing value for attribute "AUTHSETTINGS"`, PTR testperson->UpdateEntity( [ authsettings := CELL[ version := -1 ] ]));
@@ -796,7 +796,7 @@ MACRO TestAuthenticationAttrs()
                         ]
       ], testperson->GetFields([ "authsettings" ]));
 
-  persontype->CreateAttribute("AUTHSETTINGS_CONVERTTEST", "PASSWORD");
+  persontype->CreateAttribute("AUTHSETTINGS_CONVERTTEST", "__PASSWORD_HASH"); //we will be converting later on, so here we're only testing the conversion path
 
   RECORD ARRAY tests :=
       SELECT wrd_id :=    persontype->CreateEntity([ authsettings_converttest := orgdata ])->id
@@ -1816,46 +1816,6 @@ MACRO TestWRDQuery_AfterFilters()
       , filters := [ [ field := "TEST_INTEGER", match_type := "IN", value := [ 0 ] ] ]
       ]);
   TestEQ(FALSE, personid IN results);
-
-  testfw->CommitWork();
-}
-
-MACRO TestWRDQuery_Password()
-{
-  testfw->BeginWork();
-  OBJECT schemaobj:=  testfw->GetWRDSchema();
-  OBJECT persontype := schemaobj->^wrd_person;
-
-  INTEGER nopwd := persontype->CreateEntity( [ wrd_contact_email := "nopwd@example.net", test_password := "" ])->id;
-  INTEGER testpwd := persontype->CreateEntity( [ wrd_contact_email := "testpwd@example.net", test_password := testfw->hashedpasswords.test ])->id;
-  INTEGER secretpwd := persontype->CreateEntity( [ wrd_contact_email := "secretpwd@example.net", test_password := testfw->hashedpasswords.secret ])->id;
-
-  RECORD ARRAY results;
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", value := "test"]]
-                                   ]);
-  TestEq(1, Length(results));
-  TestEq(testpwd, results[0].id);
-
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", value := ""]]
-                                   ]);
-  TestEq(1, Length(SELECT FROM results WHERE id IN [nopwd]));
-  TestEq(0, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
-
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", match_type := "!=", value := ""]]
-                                   ]);
-  TestEq(2, Length(results));
-  TestEq(1, Length(SELECT FROM results WHERE id IN [secretpwd]));
-  TestEq(2, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
-
-  TestEq(TRUE, persontype->GetEntity(testpwd)->VerifyPassword("TEST_PASSWORD", "test"));
-
-  //Verify we're allowed to set XSHA passwords
-  persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg==`]);
-  //but bogus pwds still get rejected
-  TestThrowsLike("*unhashed*", PTR persontype->UpdateEntity(testpwd, [ test_password := `XSHA1:iKpIAloyCwAktfBHf4u8oAQFAqnCWMmOVr8fKg`]));
 
   testfw->CommitWork();
 }
@@ -3232,7 +3192,6 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestEnrichBulk
                  , PTR TestWRDQuery
                  , PTR TestWRDQuery_AfterFilters
-                 , PTR TestWRDQuery_Password
                  , PTR TestWRDQuery_ContainsAndMDEqual
                  , PTR TestWRDQuery_Mentions_Single
                  , PTR TestWRDQuery_DeepOutputColumns

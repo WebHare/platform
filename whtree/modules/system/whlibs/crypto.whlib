@@ -114,13 +114,30 @@ STRING ARRAY FUNCTION GetHMACKeyPaddings(STRING hmac_key, STRING algorithm)
     @return The hashed password string. Note that this string may contain binary bytes and thus may not be valid UTF8 */
 PUBLIC STRING FUNCTION CreateWebHarePasswordHash(STRING pwd) __ATTRIBUTES__(EXTERNAL, CONSTANT);
 
+/** Get the hash string out of an authentication record or plain string */
+PUBLIC STRING FUNCTION ExtractWebHarePasswordHash(VARIANT data) {
+  IF(TYPEID(data) = TYPEID(RECORD)) {//Auth setting?
+    IF(NOT RecordExists(data))
+      RETURN ""; //Unset - does not match anything
+    IF(NOT CellExists(data, "passwords"))
+      THROW NEW Exception(`Hash must be either a string or AuthenticationSettings record`);
+    IF(NOT RecordExists(data.passwords))
+      RETURN "";
+
+    RETURN data.passwords[END-1].passwordhash;
+  } ELSE IF (TYPEID(data) = TYPEID(STRING)) //string hash
+    RETURN data;
+  ELSE
+    THROW NEW Exception(`Hash must be either a string or AuthenticationSettings record`);
+}
+
 /** @short Verify a password against a stored hash
     @param pwd Password to verify
-    @param hash Hash against which the password should match
+    @param inhash Hash against which the password should match. Accepts both string and authenticationsettings records since WH4.8
     @return True if the password matches the specified hash
 */
-PUBLIC BOOLEAN FUNCTION VerifyWebHarePasswordHash(STRING pwd, STRING hash)
-{
+PUBLIC BOOLEAN FUNCTION VerifyWebHarePasswordHash(STRING pwd, VARIANT inhash) {
+  STRING hash := ExtractWebHarePasswordHash(inhash);
   IF(hash LIKE "XSHA1:*" AND Length(hash) = 46) //UTF8-safe SSHA1 password
     hash := "SSHA1:" || DecodeBase64(Substring(hash,6));
   RETURN __HS_VERIFYWEBHAREPASSWORDHASH(pwd,hash);

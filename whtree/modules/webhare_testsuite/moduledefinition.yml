@@ -128,3 +128,5 @@ rpcServices:
   testapi:
     filter: js/rpcservice.ts#filterAPI
     api: js/rpcservice.ts#testAPI
+  authtestsupport:
+    api: tests/wrd/auth/authtestsupport.ts#authTestSupportRPC

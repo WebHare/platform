@@ -947,7 +947,8 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
                 , title := GetTid(tid)
                   // Don't html-encode the '+' in image/svg+xml
                 , icon := RecordExists(image) ? "data:" || Substitute(EncodeURL(image.type), "%2B", "+") || ";base64," || image.data : ""
-             FROM config.loginmethods)
+             FROM config.loginmethods
+            WHERE visibility = "always")
     ]);
 
     IF(ObjectExists(page))

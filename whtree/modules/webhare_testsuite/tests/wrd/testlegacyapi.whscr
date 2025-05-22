@@ -740,40 +740,6 @@ MACRO TestWRDQuery_AfterFilters()
   testfw->CommitWork();
 }
 
-
-MACRO TestWRDQuery_Password()
-{
-  testfw->BeginWork();
-  OBJECT schemaobj := OpenWRDSchema(testfw->GetWRDSchema()->id);
-  OBJECT persontype := schemaobj->GetTypeByTag("WRD_PERSON");
-
-  INTEGER nopwd := persontype->CreateEntity2( [ wrd_contact_email := "nopwd@example.net", test_password := "" ])->id;
-  INTEGER testpwd := persontype->CreateEntity2( [ wrd_contact_email := "testpwd@example.net", test_password := CreateWebHarePasswordHash("test") ])->id;
-  INTEGER secretpwd := persontype->CreateEntity2( [ wrd_contact_email := "secretpwd@example.net", test_password := CreateWebHarePasswordHash("secret") ])->id;
-
-  RECORD ARRAY results;
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", value := "test"]]
-                                   ]);
-  TestEq(1, Length(results));
-  TestEq(testpwd, results[0].id);
-
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", value := ""]]
-                                   ]);
-  TestEq(1, Length(SELECT FROM results WHERE id IN [nopwd]));
-  TestEq(0, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
-
-  results := persontype->RunQuery( [ outputcolumns := [ id := "WRD_ID" ]
-                                   , filters := [[ field := "TEST_PASSWORD", match_type := "!=", value := ""]]
-                                   ]);
-  TestEq(2, Length(results));
-  TestEq(1, Length(SELECT FROM results WHERE id IN [secretpwd]));
-  TestEq(2, Length(SELECT FROM results WHERE id IN [testpwd,secretpwd]));
-
-  testfw->CommitWork();
-}
-
 MACRO TestWRDQuery_ContainsAndMDEqual()
 {
   testfw->BeginWork();
@@ -1144,7 +1110,6 @@ RunTestframework([ PTR CreateWRDTestSchema
 
                  , PTR TestWRDQuery
                  , PTR TestWRDQuery_AfterFilters
-                 , PTR TestWRDQuery_Password
                  , PTR TestWRDQuery_ContainsAndMDEqual
                  , PTR TestWRDQuery_Mentions_Single
                  , PTR TestWRDQuery_DeepOutputColumns

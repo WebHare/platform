@@ -160,7 +160,7 @@ PUBLIC MACRO SetupTheWRDTestSchema(OBJECT schemaobj, RECORD options DEFAULTSTO D
   persontype->CreateAttribute("TEST_EMAIL",           "EMAIL",           [ title := "E-mail attribute" ]);
   persontype->CreateAttribute("TEST_PHONE",           "TELEPHONE",       [ title := "Phone attribute" ]);
   persontype->CreateAttribute("TEST_DATE",            "DATE",            [ title := "Date attribute" ]);
-  persontype->CreateAttribute("TEST_PASSWORD",        "PASSWORD",        [ title := "Password attribute" ]);
+  persontype->CreateAttribute("TEST_PASSWORD",        "AUTHENTICATIONSETTINGS",  [ title := "Password attribute" ]);
   persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
   persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN2", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
   persontype->CreateAttribute("TEST_MULTIPLE_DOMAIN3", "DOMAINARRAY",     [ title := "Multiple attribute", domaintag := domain2_obj->tag]);
