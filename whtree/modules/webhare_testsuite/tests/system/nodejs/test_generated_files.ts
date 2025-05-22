@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import * as fs from "fs";
-import { applyConfiguration, backendConfig } from "@webhare/services";
+import { applyConfiguration, backendConfig, signalOnEvent } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { checkModule, deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
@@ -67,6 +67,7 @@ async function testModule() {
     await deleteTestModule("webhare_testsuite_generatedfilestest");
 
   console.log(`create module webhare_testsuite_generatedfilestest`);
+  const installEventSignal = await signalOnEvent("system:moduleupdate.webhare_testsuite_generatedfilestest");
   await installTestModule("webhare_testsuite_generatedfilestest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -213,6 +214,7 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
 
   // Wait for the module to appear in the configuration
   await test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
+  await test.wait(() => Boolean(installEventSignal.aborted));
 
   // const file_whdb = require.resolve("wh:db/webhare_testsuite_generatedfilestest");
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
@@ -226,10 +228,12 @@ export async function getCircular(req: TypedRestRequest<APIAuthInfo, "get /circu
   test.eq([], checkres.filter(_ => _.type === "error"), "No errors should be found in the module");
 
   console.log(`delete module webhare_testsuite_generatedfilestest`);
+  const deleteEventSignal = await signalOnEvent("system:moduleupdate.webhare_testsuite_generatedfilestest");
   await deleteTestModule("webhare_testsuite_generatedfilestest");
 
   // wait for the generated files to disappear
   await test.wait(() => !backendConfig.module.webhare_testsuite_generatedfilestest);
+  await test.wait(() => Boolean(deleteEventSignal.aborted));
   // await test.wait(() => !fs.statSync(file_whdb, { throwIfNoEntry: false })); /FIXME this file is not actually cleaned as deletemodule does not apply 'dev', or should it?
   await test.wait(() => !fs.statSync(file_wrd, { throwIfNoEntry: false }));
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));

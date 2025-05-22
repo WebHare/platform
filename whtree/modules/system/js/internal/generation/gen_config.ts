@@ -83,7 +83,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
   const dir = dataroot + "config/";
   const file = dir + "platform.json";
 
-  let oldconfig = {}, currenttext: string | null = null;
+  let oldconfig: Partial<ConfigFile> = {}, currenttext: string | null = null;
   try {
     currenttext = await readFile(file, 'utf8');
   } catch (ignore) {
@@ -108,9 +108,25 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false, d
     reloadBackendConfig();
 
     if (!nodb) {
+      // Enumerate all modules that have were added, removed or had their root changed. Need the oldconfig for that
+      let changedModules: string[] = [];
+      if (typeof oldconfig === "object" && typeof oldconfig.public === "object" && typeof oldconfig.public.module === "object") {
+        changedModules = [...new Set([...Object.keys(oldconfig.public.module), ...Object.keys(newconfig.public.module)])].filter(key => {
+          const oldModule = oldconfig!.public!.module[key];
+          const newModule = newconfig.public.module[key];
+          if (!oldModule || !newModule || typeof oldModule !== "object")
+            return true;
+          return oldModule.root !== newModule.root;
+        });
+      }
+
       //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
       // eslint-disable-next-line @typescript-eslint/no-require-imports -- we can't await import yet, see above
-      require("@webhare/services/src/backendevents").broadcast("system:configupdate");
+      const backendEvents = require("@webhare/services/src/backendevents");
+
+      backendEvents.broadcast("system:configupdate");
+      for (const module of changedModules)
+        backendEvents.broadcast(`system:moduleupdate.${module}`);
     }
   }
 

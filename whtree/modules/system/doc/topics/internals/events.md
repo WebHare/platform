@@ -32,6 +32,9 @@ Fired when a site is added or removed
 ### `system:modulesupdate`
 Fired when a new module is installed or a moduledefinition.xml changes
 
+### `system:moduleupdate.<modulename>`
+Fired when the path to a module changes (added, updated or deleted)
+
 ### `system:precalccache.updated`
 Fired when the system.precalccache table changed
 
