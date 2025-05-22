@@ -50,8 +50,11 @@ ASYNC MACRO TestAccountStatus() {
 
   TT("acs->status")->value := "blocked";
 
-  DATETIME blockedsince := TT("acs")->value.since;
-  TestEq([status := "blocked", since := blockedsince] , TT("acs")->value);
+  DATETIME now := GetCurrentDateTime();
+  RECORD value := TT("acs")->value;
+  TestEq("blocked", value.status);
+  // 'since' should be updated to the current date/time when retrieving the value
+  TestEq(TRUE, value.since >= now);
   TestEq(TRUE, TT("acs->reason")->required);
   TestEq(FALSE, TT("acs->since")->enabled);
 

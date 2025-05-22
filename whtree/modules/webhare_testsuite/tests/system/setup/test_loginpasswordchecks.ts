@@ -55,7 +55,7 @@ test.runTests(
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "SECRET");
-      test.click(await test.waitForElement("button[type=submit]"));
+      (await test.waitForElement("button[type=submit]")).click();
       await test.wait('load');
 
       // password reset window should open immediately
@@ -81,14 +81,14 @@ test.runTests(
 
       test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "SECRET");
-      test.click(await test.waitForElement("button[type=submit]"));
+      (await test.waitForElement("button[type=submit]")).click();
       await test.wait('load');
 
       // expect enter 2FA code window (before we allow you to change the password...)
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
       await test.waitForElement([".wh-form__page--visible", /Please enter your one-time code/]);
       test.fill("[name=totp]", totpdata.code);
-      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Login button not found"));
+      (test.findElement(["a,button", /Login/]) ?? throwError("Login button not found")).click();
       await test.wait('load');
 
       // expect set password window
@@ -176,7 +176,7 @@ test.runTests(
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "secret");
-      test.click(await test.waitForElement("button[type=submit]"));
+      (await test.waitForElement("button[type=submit]")).click();
       await test.wait('load');
 
       // should open 2FA setup screen
@@ -188,25 +188,25 @@ test.runTests(
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
 
       test.fill("[name=totp]", totpdata.code);
-      test.click(test.findElement(["a,button", /Confirm/]) ?? throwError("Confirm button not found"));
+      (test.findElement(["a,button", /Confirm/]) ?? throwError("Confirm button not found")).click();
 
       // complete the configuration
       const backupcodes = (await test.waitForElement("#completeaccounttotp-backupcodes")).value;
       test.eq(10, backupcodes.trim().split("\n").length, "10 backup codes should be generated");
 
-      test.click(await test.waitForElement(["a,button", /Login/]));
+      (await test.waitForElement(["a,button", /Login/])).click();
       await test.runTolliumLogout();
 
       // login again, now with TOTP code
       test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "secret");
-      test.click(await test.waitForElement("button[type=submit]"));
+      (await test.waitForElement("button[type=submit]")).click();
       await test.wait('load');
       await test.wait('load');
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
       test.fill(await test.waitForElement("[name=totp]"), totpdata.code);
-      test.click(await test.waitForElement(["a,button", /Login/]));
+      (await test.waitForElement(["a,button", /Login/])).click();
 
       // should be logged in
       await test.runTolliumLogout();
