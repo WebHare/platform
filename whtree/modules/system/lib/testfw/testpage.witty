@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" [if isolatestorage]data-wh-isolate-storage[/if]>
+<html lang="en">
   <head>
     [printheaders]
     [if hasdevmodule]<script src="/.dev/debug.js"></script>[/if]
@@ -45,4 +45,3 @@
     [/forevery]
   </ul>
 [/component]
-

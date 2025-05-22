@@ -36,16 +36,6 @@ test.runTests(
       dompack.deleteCookie("testFwCookie");
 
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty'); //we need 'a' page, doesn't matter which
-      const testApi = test.importExposed<DompackApi>("dompackApi");
-      test.assert(!testApi.isStorageIsolated());
-      runSharedTests();
-    },
-
-    "Test isolated storage",
-    async function () {
-      await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty&isolatestorage=1');
-      const testApi = test.importExposed<DompackApi>("dompackApi");
-      test.assert(testApi.isStorageIsolated());
       runSharedTests();
     },
 

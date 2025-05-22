@@ -13,7 +13,7 @@ export { isDomReady, onDomReady } from '../../../modules/system/js/dompack/src/t
 export { create, jsxcreate, jsxfragment } from '../../../modules/system/js/dompack/src/create';
 export { focus, register, registerMissed } from '../../../modules/system/js/dompack/src/components';
 export type { TakeFocusEvent } from '../../../modules/system/js/dompack/src/components';
-export { getLocal, setLocal, getSession, setSession, isIsolated as isStorageIsolated, isStorageAvailable, listCookies, getCookie, setCookie, deleteCookie } from './storage';
+export { getLocal, setLocal, getSession, setSession, listCookies, getCookie, setCookie, deleteCookie } from './storage';
 export { loadImage, loadScript, loadCSS } from "./preload";
 export { browser, getBrowser, isMultiSelectKey, isCopyKey, type KeyAttributeValue } from './browser';
 

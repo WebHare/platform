@@ -1,10 +1,6 @@
 import * as storage from "@webhare/dompack/src/storage";
 
 /** @deprecated Import \@webhare/dompack for storage APIs */
-export const isIsolated = storage.isIsolated;
-/** @deprecated Import \@webhare/dompack for storage APIs */
-export const isStorageAvailable = storage.isStorageAvailable;
-/** @deprecated Import \@webhare/dompack for storage APIs */
 export const getCookie = storage.getCookie;
 /** @deprecated Import \@webhare/dompack for storage APIs */
 export const setCookie = storage.setCookie;
