@@ -4,7 +4,7 @@ declare module "@webhare/deps" {
 
 ////////////////////////////// esbuild //////////////////////////
 // We need to expose some internal esbuild APIs for plugin builders
-export type * as ESBuild from "esbuild";
+export * as ESBuild from "esbuild";
 
 ////////////////////////////// Kysely //////////////////////////
 // We need to expose Kysely to generated db/ files

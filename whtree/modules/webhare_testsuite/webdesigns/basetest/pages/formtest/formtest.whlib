@@ -385,7 +385,7 @@ PUBLIC STATIC OBJECTTYPE CoreTestForm EXTEND FormBase
     }
     ELSE IF(^password->value = "globalerror")
     {
-      work->AddErrorFor(^password, `'${^password->value}' is also a bad password`);
+      work->AddErrorFor(^password, `'${^password->value}' is also a bad password\nPlease come up with something better!`);
       work->AddError(`You broke the form`);
       work->AddError(`Don't do that`);
 

@@ -552,6 +552,7 @@ test.runTests(
       await test.wait('ui');
       test.eq("klaasje@beta.webhare.net", test.qR("#coretest-email").value);
       test.eq(/You broke the form.*Don't do that.*/, test.qR(".mydialog").textContent);
+      test.eq("'globalerror' is also a bad password<br>Please come up with something better!", errornode.innerHTML);
       test.eq("Value set from 'globalerror'", test.qR("textarea[name=textarea]").value);
       test.click('.mydialog button');
     },
