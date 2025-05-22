@@ -64,12 +64,12 @@ function set(storage: BrowserStorage, key: string, value: unknown) {
 export function getSession<T>(key: string): T | null {
   return get("sessionStorage", key) as T | null;
 }
-export function setSession<T>(key: string, value: T) {
+export function setSession<T>(key: string, value: T | null) {
   set("sessionStorage", key, value);
 }
 export function getLocal<T>(key: string): T | null {
   return get("localStorage", key) as T | null;
 }
-export function setLocal<T>(key: string, value: T) {
+export function setLocal<T>(key: string, value: T | null) {
   set("localStorage", key, value);
 }
