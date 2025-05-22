@@ -951,8 +951,13 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
             WHERE visibility = "always")
     ]);
 
-    IF(ObjectExists(page))
+    IF(ObjectExists(page)) {
+      OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
+      IF (ObjectExists(loginbg))
+        webdesign->pageconfig.mainbackgroundcss := WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]).css;
+
       RETURN page;
+    }
   }
 
   RETURN NEW TolliumInterfacePage();

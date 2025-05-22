@@ -34,7 +34,7 @@
             <select name="round_minduration_unit" type="pulldown" title="" />
           </line>
         </tab>
-        <tab name="authtexts">
+        <tab tid=".authtexts">
           <line>
             <select name="tag" type="pulldown" onchange="ontextselect" optiongid=".authtexts">
               <option rowkey="login-intro" />

@@ -13,7 +13,7 @@
 [component htmlbody]
   [if banner]<div class="wh-backend__banner">[banner]</div>[/if]
   <div class="wh-backend__topbar"></div>
-  <main class="wh-backend__main">
+  <main class="wh-backend__main" [if mainbackgroundcss]style="--main-background: [mainbackgroundcss];"[/if]>
     [contents]
   </main>
   <div class="wh-backend__bottombar"></div>

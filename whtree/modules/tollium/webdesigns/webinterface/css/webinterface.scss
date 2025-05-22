@@ -53,6 +53,7 @@ body
 }
 .wh-backend__main
 {
+  background: var(--main-background);
   grid-column: desktop;
   grid-row: desktop;
 }
