@@ -1,7 +1,7 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
-import { AuthenticationSettings, createSchema, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
@@ -13,6 +13,7 @@ import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 
 const cbUrl = "https://www.example.net/cb/";
 const loginUrl = "https://www.example.net/login/";
@@ -311,6 +312,14 @@ async function testAuthAPI() {
     whuserPassword: AuthenticationSettings.fromPasswordHash(test.passwordHashes.secret$),
     wrdauthAccountStatus: { status: "active" }
   });
+
+  //Patch the user's whuserPassword to simply hold the password in raw data. this may happen with converted password fields
+  const testUserInfo = await describeEntity(testuser);
+  test.assert(testUserInfo, "Test user not found");
+  const userPwdAttribute = await whdb.db<PlatformDB>().selectFrom("wrd.attrs").selectAll().where("type", "=", testUserInfo.typeId).where("tag", "=", "WHUSER_PASSWORD").executeTakeFirstOrThrow();
+  const userPwdSetting = await whdb.db<PlatformDB>().selectFrom("wrd.entity_settings").selectAll().where("entity", "=", testuser).where("attribute", "=", userPwdAttribute.id).executeTakeFirstOrThrow();
+  await whdb.db<PlatformDB>().updateTable("wrd.entity_settings").where("id", "=", userPwdSetting.id).set({ rawdata: test.passwordHashes.secret$ }).execute();
+
   await whdb.commitWork();
 
   //validate openid flow

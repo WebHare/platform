@@ -2269,7 +2269,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): AuthenticationSettings | null {
     const data = this.decodeAsStringWithOverlow(entity_settings, settings_start, settings_limit);
-    return AuthenticationSettings.fromHSON(data);
+    return data.startsWith("hson:") ? AuthenticationSettings.fromHSON(data) : AuthenticationSettings.fromPasswordHash(data);
   }
 
   validateInput(value: AuthenticationSettings | null): void {
