@@ -1,4 +1,4 @@
-import { frontendConfig, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
+import { frontendConfig, setupFormAnalytics, setupWebHareSSOTrigger, setupWRDAuth } from "@webhare/frontend";
 import { isHTMLElement } from "@webhare/dompack";
 import "@webhare/tollium-iframe-api/styling";
 import './css/webinterface.scss';
@@ -19,6 +19,7 @@ import { setupForms } from "@webhare/forms";
 import "@webhare/forms/styling/forms.scss";
 
 setupForms();
+setupFormAnalytics();
 setupWRDAuth();
 setupWebHareSSOTrigger();
 
