@@ -32,6 +32,26 @@
       <free tag="domain_secret" description="Shared secret for WRDAuth tokens" unsafetocopy="true" />
       <free tag="password_validation_checks" description="Global checks" />
       <json tag="login_settings" description="Login configuration (see wrdauth_defaultconfiguration)" typedeclaration="@webhare/auth/src/support#WRDAuthLoginSettings"/>
+      <array tag="authpages_texts" description="Overwritten texts for authpages">
+        <enum tag="language" allowedvalues="en nl" />
+        <enum tag="tag"
+              allowedvalues="login-intro
+                             totp-intro
+                             forgotpassword-intro
+                             forgotpassword-done
+                             resetpassword-intro
+                             setpassword-intro
+                             linkexpired-intro
+                             emailchange-intro
+                             emailchange-done
+                             passwordchange-intro
+                             passwordchange-done
+                             completeaccount-intro
+                             completeaccount-totp-intro
+                             completeaccount-totp-done"
+              gid="tolliumapps.auth.settings.authtexts" />
+        <richdocument tag="text" />
+      </array>
       <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
       <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
         <!-- mark as unsafe... syncing keys should be an explicit action -->

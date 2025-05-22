@@ -20,6 +20,7 @@
         <text tid="incorrectlogin-username">La combinaison du nom d'utilisateur et du mot de passe est incorrecte</text>
         <text tid="incorrectpassword">Le mot de passe que vous avez entré est incorrect</text>
         <text tid="linkexpired">Le lien que vous avez suivi a expiré</text>
+        <text tid="linkexpired-title">Lien expiré</text>
         <text tid="login-button">Vous connecter</text>
         <text tid="login-email-intro">Entrez votre adresse email et mot de passe pour vous connecter</text>
         <text tid="login-title">Se connecter</text>

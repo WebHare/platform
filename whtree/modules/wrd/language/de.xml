@@ -28,6 +28,7 @@
         <text tid="incorrectlogin-username">Die Kombination aus Emailadresse und Passwort ist falsch</text>
         <text tid="incorrectpassword">Das eingegebene Passwort ist falsch</text>
         <text tid="linkexpired">Der Link, dem Sie gefolgt sind, ist abgelaufen</text>
+        <text tid="linkexpired-title">Link abgelaufen</text>
         <text tid="login-button">Login</text>
         <text tid="login-email-intro">Geben Sie Ihre Emailadresse und Ihr Passwort ein, um sich anzumelden</text>
         <text tid="login-title">Login</text>
