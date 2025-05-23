@@ -63,3 +63,7 @@ export async function lookupCityInfo(ip: string): Promise<CityResponse | null> {
 export async function lookupCountryInfo(ip: string): Promise<CountryResponse | null> {
   return (await lookup("country"))?.(ip) || null;
 }
+
+export async function __closeDatabase() { //CI does this after swapping test/live databases
+  dbs = undefined;
+}

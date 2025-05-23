@@ -9,7 +9,6 @@ import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
@@ -488,7 +487,7 @@ async function testAuthAPI() {
     test.assert(loginres.loggedIn);
   }
 
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
+  await test.setGeoIPDatabaseTestMode(true);
 
   //Verify prepareFrontendLogin creates an audit event
   await prepareFrontendLogin(url, testuser, {
@@ -506,9 +505,9 @@ async function testAuthAPI() {
     entityLogin: "jonshow@beta.webhare.net",
     impersonatedBy: test.getUser("sysop").wrdId,
     impersonatedByLogin: test.getUser("sysop").login
-  }, await test.getLastAuthAuditEvent(oidcAuthSchema));
+  }, await test.getLastAuthAuditEvent(oidcAuthSchema, { type: "platform:login" }));
 
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").RestoreGEOIPDatabases();
+  await test.setGeoIPDatabaseTestMode(false);
 }
 
 async function testAuthStatus() {
