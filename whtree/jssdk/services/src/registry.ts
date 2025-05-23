@@ -10,6 +10,7 @@ import type { RegistryKeys } from "@mod-platform/generated/ts/registry.ts";
 import type { } from "wh:ts/registry.ts";
 import { determineType, encodeHSON, HareScriptType, type IPCMarshallableData } from "@webhare/hscompat/hson";
 import { WebHareBlob } from "./webhareblob";
+import { signalOnEvent } from "./backendevents";
 
 type KeyErrorForValueType<A> = [A] extends [never] ? { error: "Require type parameter!" } : string;
 
@@ -192,4 +193,10 @@ export async function deleteRegistryKey(confkey: string): Promise<void> {
 */
 export async function deleteRegistryNode(confkey: string): Promise<void> {
   return await loadlib("mod::system/lib/configure.whlib").DeleteRegistryNode(confkey);
+}
+
+/** Returns a signal that is aborted when one of the specified registry keys changes. Wait is only active after awaiting the promise. */
+export async function signalOnRegistryKeyChange(keys: Iterable<string> | string, options?: { signal: AbortSignal }): Promise<AbortSignal> {
+  const keyArray: string[] = typeof keys !== "object" || !keys || !(Symbol.iterator in keys) ? [keys] : [...keys];
+  return await signalOnEvent(getRegistryKeyEventMasks(keyArray), options);
 }

@@ -1,7 +1,7 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, WebHareBlob, readRegistryNode } from "@webhare/services";
-import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask, splitRegistryKey } from "@webhare/services/src/registry";
+import { deleteRegistryKey, deleteRegistryNode, readRegistryKeysByMask, signalOnRegistryKeyChange, splitRegistryKey } from "@webhare/services/src/registry";
 import { Money } from "@webhare/std";
 import * as test from "@webhare/test-backend";
 import { beginWork, commitWork, db } from "@webhare/whdb";
@@ -129,7 +129,10 @@ async function testRegistry() {
   await deleteRegistryKey("webhare_testsuite:webhare_testsuite_base_node.stupidvalue");
   await test.throws(/No such registry key/, () => readRegistryKey<number>("webhare_testsuite:webhare_testsuite_base_node.stupidvalue"));
 
+  const signal = await signalOnRegistryKeyChange("webhare_testsuite.webhare_testsuite_base_node.stupidvalue");
+  const signal2 = await signalOnRegistryKeyChange(["webhare_testsuite.webhare_testsuite_base_node.stupidvalue"]);
   await commitWork();
+  await test.wait(() => signal.aborted && signal2.aborted);
 
   //NOTE: Mocking registry keys (MockRegistryKey/MockRegistryKey) was rarely used so we won't port that to TS.
 }

@@ -1,5 +1,7 @@
-import { registerAsDynamicLoadingLibrary } from "./hmr";
-import { toFSPath } from "./resources";
+import { whenAborted } from "@webhare/std";
+import { signalOnEvent } from "./backendevents";
+import { addResourceChangeListener, registerAsDynamicLoadingLibrary } from "./hmr";
+import { getResourceEventMasks, toFSPath } from "./resources";
 import { addBestMatch } from "@webhare/js-api-tools/src/levenshtein";
 
 type AnyConstructor = { new(...constructorArguments: unknown[]): object };
@@ -63,7 +65,7 @@ export class JSLibraryImporter {
   }
 }
 
-export async function importJSExport<T = unknown>(name: string): Promise<T> {
+function getExportNameParts(name: string): { libraryURI: string; symbolName: string } {
   let { 1: libraryURI, 2: symbolName } = name.match(/^(.*?)(?:#(.*))?$/) ?? [];
   if (!libraryURI)
     throw new Error(`Invalid export name '${name}'`);
@@ -72,6 +74,12 @@ export async function importJSExport<T = unknown>(name: string): Promise<T> {
 
   if (!symbolName)
     symbolName = "default";
+
+  return { libraryURI, symbolName };
+}
+
+export async function importJSExport<T = unknown>(name: string): Promise<T> {
+  const { libraryURI, symbolName } = getExportNameParts(name);
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- TODO - our require plugin doesn't support await import yet
   const library = require(libraryURI);
@@ -113,6 +121,26 @@ export async function importJSFunction<F extends (
   }
 
   return func;
+}
+
+export function signalOnImportChange(exportName: string, options?: { signal?: AbortSignal }) {
+  let { libraryURI } = getExportNameParts(exportName);
+  if (libraryURI.startsWith("@mod-"))
+    libraryURI = "mod::" + libraryURI.substring(5);
+  let abortController: AbortController | null = new AbortController();
+  // FIXME: add signal to addResourceChangeListener, and remove the emulation
+  whenAborted(options?.signal, () => abortController = null);
+  addResourceChangeListener(module, libraryURI, () => {
+    abortController?.abort();
+    abortController = null;
+  });
+  return abortController.signal;
+}
+
+/** Returns a signal that is aborted when one of the specified resources changes. Wait is only active after awaiting the promise. */
+export async function signalOnResourceChange(resources: string | Iterable<string>, options?: { signal?: AbortSignal }) {
+  resources = typeof resources !== "object" || !resources || !(Symbol.iterator in resources) ? [resources] : resources;
+  return signalOnEvent(getResourceEventMasks(resources), options);
 }
 
 registerAsDynamicLoadingLibrary(module);
