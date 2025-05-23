@@ -438,6 +438,10 @@ async function verifyPublicParts() {
   test.assert("/extension" in extendedopenapi.paths, "Extended paths should be visible in the extendedservice API");
   test.eq({ "message": "I have been extended" }, (await (await fetch(extendedapiroot + "extension")).json()));
 
+  const firstUuid = extendedopenapi["x-webhare_testsuite-randomuuid"];
+  const scriptUuid = extendedopenapi["x-webhare_testsuite-scriptuuid"];
+  test.assert(firstUuid && scriptUuid, "UUIDs should be set");
+
   test.eq({
     checkedAtInput: "testfw-ok",
     checkedAtOutput: "testfw-ok"
@@ -470,6 +474,25 @@ async function verifyPublicParts() {
     redirect: "manual",
     headers: { "content-type": "application/json" },
   })).status);
+
+  services.broadcast("webhare_testsuite:invalidateopenapiextendedservice");
+  let extendedopenapi2 = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
+  await test.wait(async () => {
+    if (extendedopenapi2["x-webhare_testsuite-randomuuid"] !== firstUuid)
+      return true;
+    extendedopenapi2 = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
+  });
+  test.eq(scriptUuid, extendedopenapi2["x-webhare_testsuite-scriptuuid"]);
+
+  // Broadcast an resource update event for the hooks script, to trigger a reload of the OpenAPI spec
+  services.broadcast("system:modulefolder.mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/", {
+    resourcename: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/hooks.ts",
+  });
+  await test.wait(async () => {
+    if (extendedopenapi2["x-webhare_testsuite-scriptuuid"] !== scriptUuid)
+      return true;
+    extendedopenapi2 = await (await fetch(extendedapiroot + "openapi.json", { redirect: "manual" })).json();
+  });
 }
 
 function testInternalTypes() {

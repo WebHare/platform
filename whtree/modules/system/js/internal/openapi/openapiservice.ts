@@ -6,17 +6,17 @@ import { WebHareBlob, loadWittyResource, log, toFSPath } from "@webhare/services
 import { LogInfo, RestAPI, type OpenAPIInitHookFunction } from "./restapi";
 import { createJSONResponse, type WebRequest, type WebResponse, HTTPErrorCode, createWebResponse, type WebHareOpenAPIDocument } from "@webhare/router";
 import type { WebRequestInfo, WebResponseInfo } from "../types";
-import { registerResourceDependency } from "../../../../../jssdk/services/src/hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import { getExtractedConfig } from "../configuration";
-import { pick } from "@webhare/std";
+import { isTruthy, pick, whenAborted } from "@webhare/std";
 import { handleCrossOriginResourceSharing } from "../webserver/cors";
 import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { mergeIntoBundled } from "../generation/gen_openapi";
+import { signalOnResourceChange } from "@webhare/services/src/resourcetools";
 
-const cache: Record<string, RestService> = {};
+const cache: Record<string, Promise<RestService> | undefined> = {};
 
 //TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
 //     looks like swagger itself also needs a bit of inline styling, so adding that
@@ -158,6 +158,8 @@ export class RestService extends services.BackendServiceConnection {
   }
 }
 
+const localScriptUuid = crypto.randomUUID();
+
 /** Describe an OpenAPI rest service */
 export async function describeService(servicename: string) {
   const serviceconfig = getExtractedConfig("services");
@@ -165,14 +167,13 @@ export async function describeService(servicename: string) {
   if (!serviceinfo)
     throw new Error(`Invalid OpenAPI service name: ${servicename}`);
 
-  const dependencies: string[] = [];
-
   const apispec_fs = toFSPath(serviceinfo.spec);
-  dependencies.push(apispec_fs);
-
   const apimerge_fs = serviceinfo.merge && toFSPath(serviceinfo.merge);
-  if (apimerge_fs)
-    dependencies.push(apimerge_fs);
+
+  const abort = new AbortController;
+  const signal = abort.signal;
+  const specResources = [apispec_fs, apimerge_fs].filter(isTruthy);
+  whenAborted(await signalOnResourceChange(specResources, { signal }), abort);
 
   // Read and parse the OpenAPI Yaml definition
   const def = decodeYAML<object>(await fs.promises.readFile(apispec_fs, "utf8"));
@@ -188,29 +189,36 @@ export async function describeService(servicename: string) {
   // Activate hooks (FIXME how to flush them?)
   if (options.initHook) {
     await using context = new CodeContext("initHook", { initHook: options.initHook });
+    const importChangeSignal = services.signalOnImportChange(options.initHook, { signal });
     const tocall = await services.importJSFunction<OpenAPIInitHookFunction>(options.initHook);
-    await context.run(() => tocall({ name: servicename, spec: bundled }));
+    whenAborted(importChangeSignal, abort);
+    whenAborted(importChangeSignal, () => console.log(`Import change signal for ${options.initHook} aborted, script uuid: ${localScriptUuid}`));
+    const retval = await context.run(() => tocall({ name: servicename, spec: bundled, signal }));
+    // Invalidate the whole description if initHook's returned signal has abortedR
+    if (retval?.signal)
+      whenAborted(retval.signal, abort);
   }
 
-  return { bundled, spec: serviceinfo.spec, dependencies, options };
+  return { bundled, spec: serviceinfo.spec, options, signal: abort.signal };
 }
 
 /** Initialize service
  * @param apispec - The openapi yaml spec resource
  * */
 export async function getServiceInstance(servicename: string): Promise<RestService> {
-  if (cache[servicename])
-    return cache[servicename];
+  let promise = cache[servicename];
+  if (!promise) {
+    cache[servicename] = promise = (async () => {
+      const serviceinfo = await describeService(servicename);
 
-  const serviceinfo = await describeService(servicename);
-  for (const dep of serviceinfo.dependencies)
-    registerResourceDependency(module, dep);
+      // Write to promise & cache has happened now due to previous await. whenAborted can run synchronously!
+      whenAborted(serviceinfo.signal, () => delete cache[servicename]);
 
-  const restapi = new RestAPI(serviceinfo.bundled);
-  await restapi.init(serviceinfo.spec, serviceinfo.options);
+      const restapi = new RestAPI(serviceinfo.bundled);
+      await restapi.init(serviceinfo.spec, serviceinfo.options);
 
-  const service = new RestService(servicename, restapi);
-  if (!cache[servicename])
-    cache[servicename] = service;
-  return service;
+      return new RestService(servicename, restapi);
+    })();
+  }
+  return promise;
 }
