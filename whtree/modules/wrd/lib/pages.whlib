@@ -49,9 +49,6 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   }
   IF(action IN ["resetpassword","setpassword"])
   {
-    IF(authplugin->IsLoggedIn())
-      Redirect(GetWRDPagesCleanURL());
-
     RETURN GetResetPasswordPage(webdesign, action, options);
   }
   IF(action = "completeaccount") {

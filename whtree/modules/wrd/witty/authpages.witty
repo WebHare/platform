@@ -135,6 +135,7 @@
       <div class="wh-form__page">
         [form.intro.render]
         [form.login.render]
+        [form.verifier.render]
         [form.passwordnew.render]
         [form.passwordrepeat.render]
       </div>

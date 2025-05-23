@@ -127,7 +127,7 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
     loginAttribute: login ? tagToJS(login.tag) : null,
     loginIsEmail: Boolean(email?.id && email?.id === login?.id),
     passwordAttribute: password ? tagToJS(password.tag) : null,
-    passwordIsAuthSettings: password?.attributetypename === "AUTHSETTINGS",
+    passwordIsAuthSettings: password?.attributetypename === "AUTHENTICATIONSETTINGS",
     hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS"),
     hasWhuserUnit: attrs.some(_ => _.tag === "WHUSER_UNIT")
   };
@@ -159,4 +159,15 @@ export function calculateWRDSessionExpiry(loginSettings: WRDAuthLoginSettings, n
   const nightlyTarget = localizedToRound.startOfDay().subtract({ days: wasNextDay ? 1 : 0 }).add({ milliseconds: loginSettings.round_longlogins_to });
 
   return nightlyTarget.epochMilliseconds > now.epochMilliseconds ? nightlyTarget.toInstant() : expiry;
+}
+
+export function getAuthPageURL(url: string, vars?: Record<string, string>): URL {
+  const parsed = new URL(url);
+  const authPage = new URL(parsed.origin + "/.wh/common/authpages/");
+  if (parsed.pathname !== '/')
+    authPage.searchParams.set("pathname", parsed.pathname.substring(1));
+  if (vars)
+    for (const [key, value] of Object.entries(vars))
+      authPage.searchParams.set(key, value);
+  return authPage;
 }

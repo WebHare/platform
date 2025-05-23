@@ -1,3 +1,4 @@
+import { IdentityProvider } from "@webhare/auth/src/identity";
 import type { RPCContext } from "@webhare/router";
 import { beginWork, commitWork } from "@webhare/whdb";
 import { AuthenticationSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
@@ -12,5 +13,12 @@ export const authTestSupportRPC = {
     const testuser = await jsAuthSchema.find("wrdPerson", { wrdContactEmail: "pietje-authpages-js@beta.webhare.net" });
     await jsAuthSchema.update("wrdPerson", testuser!, { password: AuthenticationSettings.fromPasswordHash("PLAIN:secret") });
     await commitWork();
+  },
+  async prepResetPassword(context: RPCContext, targetUrl: string, options?: { codePrefix?: string }) {
+    const testuser = await jsAuthSchema.find("wrdPerson", { wrdContactEmail: "pietje-authpages-js@beta.webhare.net" });
+    return new IdentityProvider(jsAuthSchema).createPasswordResetLink(targetUrl, testuser!, {
+      separateCode: Boolean(options?.codePrefix),
+      prefix: options?.codePrefix || ""
+    });
   }
 };

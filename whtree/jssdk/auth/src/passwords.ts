@@ -7,6 +7,17 @@ import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { runInWork } from "@webhare/whdb";
 import { createServerSession } from "@webhare/services";
 
+export type PasswordCheck = "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
+
+export type PasswordCheckResult = {
+  success: false;
+  message: string;
+  failedChecks: PasswordCheck[];
+  badPasswordTime: Temporal.Instant | null;
+} | {
+  success: true;
+};
+
 /** Parse password checks
     @param checks - Password validation checks. Space-separated list of checks. Possible checks:
     - hibp Check that the password isn't present in the "Have I Been Pwned" database
@@ -22,7 +33,7 @@ import { createServerSession } from "@webhare/services";
       return.duration Duration string (for checks that have an duration).
 */
 export function parsePasswordChecks(checks: string, options: { strict?: boolean } = {}): Array<{
-  check: string;
+  check: PasswordCheck;
   value: number;
   duration: string;
 }> {
@@ -89,7 +100,7 @@ export function parsePasswordChecks(checks: string, options: { strict?: boolean 
      return.message Set when message does not comply with the checks
      return.failedchecks List of checks that failed. See [this](#ParsePasswordChecks.return.check) for the values.
 */
-export async function checkPasswordCompliance(checks: string, newpassword: string, options?: { authenticationSettings?: AuthenticationSettings; isCurrentPassword?: boolean }) {
+export async function checkPasswordCompliance(checks: string, newpassword: string, options?: { authenticationSettings?: AuthenticationSettings; isCurrentPassword?: boolean }): Promise<PasswordCheckResult> {
   const authenticationSettings = options?.authenticationSettings || new AuthenticationSettings;
   const failed = [];
   for (const check of parsePasswordChecks(checks)) {
@@ -155,17 +166,15 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
     }
 
     return {
-      success: false as const,
+      success: false,
       message,
-      failedchecks: failed.map((check) => check.check),
+      failedChecks: failed.map((check) => check.check),
       badPasswordTime: authenticationSettings?.getLastPasswordChange() ?? null
     };
   }
 
   return {
     success: true as const,
-    message: "",
-    failedchecks: []
   };
 }
 
@@ -210,7 +219,7 @@ export function getPasswordMinValidFrom(duration: string, options?: { now?: Temp
 function checkMaxAge(authenticationsettings: AuthenticationSettings, duration: string) {
   const lastchange = authenticationsettings.getLastPasswordChange();
   const cutoff = getPasswordMinValidFrom(duration);
-  return lastchange && lastchange.getTime() >= cutoff.epochMilliseconds;
+  return lastchange && lastchange.epochMilliseconds >= cutoff.epochMilliseconds;
 }
 
 /** Checks if authentication settings comply with password checks
@@ -346,7 +355,7 @@ export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(w
   //Go to complete account
   const session = await runInWork(() => createServerSession(
     "platform:incomplete-account", {
-    failedchecks: passwordCheck.failedchecks,
+    failedchecks: passwordCheck.failedChecks,
     returnTo: returnTo || '',
     user: userId,
     badPasswordTime: passwordCheck.badPasswordTime,

@@ -22,6 +22,7 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
@@ -882,13 +883,12 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
         submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
       }
-      ELSE IF (loginresultcode = "failedvalidationchecks")
-      {
-        INSERT CELL passwordresetlink := this->CreatePasswordResetLink(GetRequestURL(), entityid, CELL
-            [ routerpage := "resetpassword"
-            , data := [ fc := Detokenize(trylogin.failedvalidationchecks, ",") ]
-            ]).verifiedlink INTO trylogin;
-      }
+      // ELSE IF (loginresultcode = "failedvalidationchecks") //TODO Why were we doing this (and not even suppressing the audit events?)
+      // {
+      //   INSERT CELL passwordresetlink := this->CreatePasswordResetLink(GetRequestURL(), entityid, CELL
+      //       [ routerpage := "resetpassword"
+      //       ]).verifiedlink INTO trylogin;
+      // }
 
       // only allow external login if the login returned code 'failed'
       IF (loginresultcode != "failed")
@@ -1084,6 +1084,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                      , usedmessage := DEFAULT RECORD
                      ];
 
+    /* There are existing apps out there that expect to be able to insert a CreatePasswordResetLink '_ed' into ProcessVerificationLink. These links are now created by TS.. so we'll test _ed's against the TS engine */
+    RECORD try_ts_decode := CallJS("@mod-platform/js/auth/harescript.ts#checkResetPassword", this->wrdschema->tag, encrypted_data, verifier, FALSE);
+    IF(try_ts_decode.result = "ok") {
+      retval.success := TRUE;
+      retval.entityid := try_ts_decode.user;
+      RETURN retval;
+    }
+
+
     RECORD decrypted, userentity;
     IF(encrypted_data!="")
       decrypted := DecryptWRDAuthData(this->wrdauthconfig, encrypted_data, "");
@@ -1193,41 +1202,33 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @long Create a password reset link for email, with optionally a raw code-enty for verification
       @param baseurl Base url to redirect the user to
       @param entityid Userid to reset
-      @cell options.verifierstart Optional code with which the verifier should start
+      @cell options.verifierstart Code with which the verifier should start if you want a separate verifier
       @cell(boolean) options.skipauditlog Do not log this request to the auditlog - needed to prevent unsollicited link requests from flooding the logs (eg webshop order confiration)
       @return Password reset link data
-      @cell return.verifier The verification code (should be emailed to the user)
-      @cell return.verifiedlink The verified link (should be emailed to the user)
-      @cell return.entrylink The code-entry link (user may be redirected or navigate here)
+      @cell return.verifier The verification code (should be emailed to the user). Only if verifierstart is set
+      @cell return.verifiedlink The verified link (should be emailed to the user). Only if verifierstart is set
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here). Only if verifierstart is not set
   */
-  PUBLIC RECORD FUNCTION CreatePasswordResetLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC RECORD FUNCTION CreatePasswordResetLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    //the new API has been cleaned not to set
     options := ValidateOptions([ routerpage := ""
                                , verifierstart := ""
-                               , data := DEFAULT RECORD
-                               , logdata := DEFAULT RECORD
+                              //  Extra audit log inforrmation fields, seem unused now?
+                              //  , data := DEFAULT RECORD
+                              //  , logdata := DEFAULT RECORD
                                , skipauditlog := FALSE
                                , lifetime_minutes := this->passwordresetlifetime
+                               , selfhosted := TRUE
                                ], options, [ enums := [ routerpage := ["", "resetpassword", "setpassword"] ]]);
 
-    IF(options.routerpage != "")
-      baseurl := UpdateURLVariables( GetWRDPagesCleanURL([ currenturl := baseurl ]), [ wrd_pwdaction := options.routerpage ]);
+    IF(NOT IsAbsoluteURL(baseurl, FALSE))
+      baseurl := ResolveToAbsoluteURL(GetRequestURL(), baseurl);
 
-    RECORD retval := this->CreateVerificationLink(baseurl, entityid, CELL[ options.verifierstart, options.data, options.lifetime_minutes ]);
-    IF (NOT RecordExists(retval))
-      RETURN DEFAULT RECORD;
-
-    IF(NOT options.skipauditlog)
-    {
-      this->LogCustomAuditEvent("wrd:getresetlink",
-          [ account := entityid
-          , message := CELL[ retval.validuntil
-                           , ...options.logdata
-                           ]
-          ]);
-    }
-
-    RETURN retval;
+    RECORD js := CallJS("mod::platform/js/auth/harescript.ts#createResetPasswordLink", this->wrdschema->tag, baseurl, entityid, options.lifetime_minutes, options.verifierstart, options.routerpage = "setpassword", options.skipauditlog, GetEnrichedAuditContext(), options.selfhosted);
+    IF(options.verifierstart != "")
+      RETURN CELL[ verifier := js.verifier, entrylink := js.link ];
+    ELSE
+      RETURN CELL[ verifiedlink := js.link ];
   }
 
   /** @short Change the loggedin user's password. We expect the caller to handle our transaction

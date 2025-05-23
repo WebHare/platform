@@ -9,7 +9,6 @@ import type { NavigateInstruction } from "@webhare/env/src/navigation";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { loadlib } from "@webhare/harescript";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
@@ -115,7 +114,7 @@ async function testAuthSettings() {
     const hsonvalue = `hson:{"passwords":ra[{"passwordhash":"PLAIN:secret","validfrom":d"20211012T101930.779"},{"passwordhash":"PLAIN:123","validfrom":d"20211012T102004.930"},{"passwordhash":"PLAIN:456","validfrom":d"20211012T102037.024"}],"totp":*,"version":1}`;
     const auth = AuthenticationSettings.fromHSON(hsonvalue);
     test.eq(3, auth.getNumPasswords());
-    test.eq(new Date("2021-10-12T10:20:37.024Z"), auth.getLastPasswordChange());
+    test.eq(Temporal.Instant.from("2021-10-12T10:20:37.024Z"), auth.getLastPasswordChange());
     test.eq(hsonvalue, auth.toHSON()); //should roundtrip exactly (ensures HS Compatibility)
 
     //FIXME how to test the other validFrom dates?
@@ -126,7 +125,7 @@ async function testAuthSettings() {
     await auth.updatePassword("Hi!", 'PLAIN');
     test.eq(4, auth.getNumPasswords());
     const lastchange = auth.getLastPasswordChange();
-    test.assert(lastchange && lastchange.getTime() <= Date.now() && lastchange.getTime() >= Date.now() - 100);
+    test.assert(lastchange && lastchange.epochMilliseconds <= Date.now() && lastchange.epochMilliseconds >= Date.now() - 100);
     test.eq(false, auth.hasTOTP());
   }
 
@@ -293,6 +292,7 @@ async function testAuthAPI() {
   await whdb.beginWork();
   const { loginSettings } = await getSchemaSettings(oidcAuthSchema, ["loginSettings"]);
   await updateSchemaSettings(oidcAuthSchema, {
+    passwordValidationChecks: "minlength:2",
     loginSettings: {
       ...defaultWRDAuthLoginSettings,
       ...loginSettings,
@@ -327,6 +327,63 @@ async function testAuthAPI() {
   test.eq({ whuserPassword: (auth: AuthenticationSettings | null) => auth?.getNumPasswords() === 1 }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserPassword"]));
 
   await whdb.commitWork();
+
+  //STORY: test password resets
+  //corrupted data should be interpreted as expired (eg might be WH5.7 reset links still floating around)
+  test.eq({ result: "expired" }, await provider.verifyPasswordReset("", null));
+  test.eq({ result: "expired" }, await provider.verifyPasswordReset("blabla", null));
+
+  const returnTo = "https://www.example.net/reset";
+  const reset0 = await provider.createPasswordResetLink(returnTo, testuser, {
+    expires: 1,
+    isSetPassword: true,
+    authAuditContext: {
+      actionBy: test.getUser("sysop").wrdId,
+      remoteIp: "67.43.156.0"
+    }
+  });
+  test.eq({ link: /^https.*.wh\/common\/authpages.*_ed=/, verifier: null }, reset0);
+  test.eqPartial({ result: "expired", isSetPassword: true }, await provider.verifyPasswordReset(new URL(reset0.link).searchParams.get("_ed")!, null));
+
+  test.eqPartial({
+    entity: testuser,
+    type: "platform:resetpassword",
+    remoteIp: "67.43.156.0",
+    entityLogin: "jonshow@beta.webhare.net",
+    impersonatedBy: null,
+    actionBy: test.getUser("sysop").wrdId,
+    actionByLogin: test.getUser("sysop").login
+  }, await test.getLastAuthAuditEvent(oidcAuthSchema));
+
+  const reset1 = await provider.createPasswordResetLink(returnTo, testuser);
+  const reset1tok = new URL(reset1.link).searchParams.get("_ed")!;
+  test.eq({ link: /^https.*_ed=/, verifier: null }, reset1);
+
+  const reset2 = await provider.createPasswordResetLink(returnTo, testuser, { separateCode: true, isSetPassword: true });
+  const reset2tok = new URL(reset2.link).searchParams.get("_ed")!;
+  test.eq({ link: /^https.*_ed=/, verifier: /^.../ }, reset2);
+
+  //A selfhosted (usually embeded) authpages link. This is how webdeisgnplugign passwordlinks used to work
+  const reset3 = await provider.createPasswordResetLink(returnTo, testuser, { selfHosted: true });
+  const reset3tok = new URL(reset3.link).searchParams.get("_ed")!;
+  test.eq({ link: _ => _.startsWith(returnTo), verifier: null }, reset3);
+
+  //Verify these links
+  test.eq({ result: "ok", returnTo, needsVerifier: false, isSetPassword: false, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset1tok, null));
+  test.eq({ result: "badverifier", returnTo, isSetPassword: true }, await provider.verifyPasswordReset(reset2tok, null));
+  test.eq({ result: "badverifier", returnTo, isSetPassword: true }, await provider.verifyPasswordReset(reset2tok, "wrongverifier"));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net" }, await provider.verifyPasswordReset(reset2tok, "wrongverifier", { skipVerifierCheck: true }));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset2tok, reset2.verifier!.toUpperCase()));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset2tok, reset2.verifier!.toLowerCase()));
+
+  test.eq({ result: "ok", returnTo, isSetPassword: false, needsVerifier: false, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset3tok, null));
+
+  //Update the password.
+  test.eqPartial({ success: false, failedChecks: ["minlength"] }, await provider.updatePassword(testuser, "a"));
+  test.eqPartial({ success: true }, await provider.updatePassword(testuser, "secret$"));
+  test.eqPartial({ result: "alreadychanged" }, await provider.verifyPasswordReset(new URL(reset1.link).searchParams.get("_ed")!, null), "setting a password should expire all older password links");
+
+  //TODO verify audit
 
   //validate openid flow
   const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser);
@@ -488,7 +545,7 @@ async function testAuthAPI() {
     test.assert(loginres.loggedIn);
   }
 
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").InstallTestGEOIPDatabases();
+  await test.setGeoIPDatabaseTestMode(true);
 
   //Verify prepareFrontendLogin creates an audit event
   await prepareFrontendLogin(url, testuser, {
@@ -506,9 +563,9 @@ async function testAuthAPI() {
     entityLogin: "jonshow@beta.webhare.net",
     impersonatedBy: test.getUser("sysop").wrdId,
     impersonatedByLogin: test.getUser("sysop").login
-  }, await test.getLastAuthAuditEvent(oidcAuthSchema));
+  }, await test.getLastAuthAuditEvent(oidcAuthSchema, { type: "platform:login" }));
 
-  await loadlib("mod::system/lib/internal/tasks/geoipdownload.whlib").RestoreGEOIPDatabases();
+  await test.setGeoIPDatabaseTestMode(false);
 }
 
 async function testAuthStatus() {
@@ -536,8 +593,9 @@ async function testAuthStatus() {
   await oidcAuthSchema.getType("wrdPerson").deleteAttribute("wrdauthAccountStatus");
   await whdb.commitWork();
 
-  //Now we can login again even without en active wrdauthAccountStatus
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+  //Now we can login again even without an active wrdauthAccountStatus
+  const provider_2 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider_2.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -550,7 +608,8 @@ async function testAuthStatus() {
   });
   await whdb.commitWork();
 
-  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  const provider_3 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
+  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider_3.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
