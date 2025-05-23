@@ -869,6 +869,9 @@
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="back">Back</text>
+        <text tid="completeaccount-title">Password change required</text>
+        <text tid="completeaccount-totp-title">Setup two-factor authentication</text>
         <text tid="completeaccount_totp_button">Confirm</text>
         <text tid="completeaccount_totp_intro">Scan the QR-code below with an authentication app, such as Google Authenticator or Microsoft Authenticator on your mobile phone.</text>
         <text tid="completeaccount_totp_intro2">If you use a password manager, you can use the secret key to generate the codes.</text>
@@ -889,6 +892,7 @@
         <text tid="incorrectlogin-username">The combination of username and password is incorrect</text>
         <text tid="incorrectpassword">The password you entered is incorrect</text>
         <text tid="linkexpired">The link you followed has expired</text>
+        <text tid="linkexpired-title">Link expired</text>
         <text tid="login-button">Login</text>
         <text tid="login-email-intro">Enter your email address and password to login</text>
         <text tid="login-services">Login using identity services</text>
@@ -914,9 +918,10 @@
         <text tid="totp">One-time login code</text>
         <text tid="totp-intro">Please enter your one-time code</text>
         <text tid="totp-invalid">This code is not valid</text>
+        <text tid="totp-title">One-time code</text>
         <text tid="totpsetup-backupcodes">Backup codes</text>
-        <text tid="totpsetup-processed">Your second factor has been configured</text>
-        <text tid="totpsetup-save-backupcodes">Please save the backup codes somwhere</text>
+        <text tid="totpsetup-processed">Your second factor has been configured.</text>
+        <text tid="totpsetup-save-backupcodes">These backup codes can be used if you cannot use your authenticator app. Please save them somewhere secure.</text>
         <text tid="totpsetup-showsecretkey">Show secret key</text>
         <text tid="username">Username</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
@@ -984,15 +989,34 @@
         <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="authtexts">Authentication page texts</text>
         <text tid="expire_login">Expire login after</text>
         <text tid="expire_persistentlogin">"Remember me" expires after</text>
         <text tid="expiry">Expiry settings</text>
+        <text tid="language">Language</text>
         <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="round_longlogins_to">Round to</text>
         <text tid="round_longlogins_tz">In timezone</text>
         <text tid="round_minduration">Minimum duration</text>
         <text tid="roundlogins">Round login expiry to a specific time</text>
-        <text tid="wrdauthsettings">Authentication/login settings</text>
+        <text tid="tag">Text</text>
+        <text tid="wrdauthsettings">Authentication and login settings</text>
+        <textgroup gid="authtexts">   <!-- tolliumapps.auth.settings.authtexts -->
+          <text tid="completeaccount-intro">Update required introduction</text>
+          <text tid="completeaccount-totp-done">Setup 2FA finished</text>
+          <text tid="completeaccount-totp-intro">Setup 2FA introduction</text>
+          <text tid="emailchange-done">Email change finished</text>
+          <text tid="emailchange-intro">Email change introduction</text>
+          <text tid="forgotpassword-done">Forgot password finished</text>
+          <text tid="forgotpassword-intro">Forgot password introduction</text>
+          <text tid="linkexpired-intro">Link expired introduction</text>
+          <text tid="login-intro">Login introduction</text>
+          <text tid="passwordchange-done">Password change finished</text>
+          <text tid="passwordchange-intro">Password change introduction</text>
+          <text tid="resetpassword-intro">Reset password introduction</text>
+          <text tid="setpassword-intro">Set password introduction</text>
+          <text tid="totp-intro">TOTP code introduction</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="common">   <!-- tolliumapps.common -->

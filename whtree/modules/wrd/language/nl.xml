@@ -869,6 +869,9 @@
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="forms">   <!-- site.forms -->
       <textgroup gid="authpages">   <!-- site.forms.authpages -->
+        <text tid="back">Terug</text>
+        <text tid="completeaccount-title">Wijziging wachtwoord vereist</text>
+        <text tid="completeaccount-totp-title">Twee-factor authenticatie instellen</text>
         <text tid="completeaccount_totp_button">Bevestigen</text>
         <text tid="completeaccount_totp_intro">Twee-factor authenticatie met eenmalige toegangscodes instellen</text>
         <text tid="completeaccount_totp_intro2">Als je gebruik maakt van een andere applicatie (bijvoorbeeld een password manager) kun je de geheime sleutel gebruiken om de codes te genereren.</text>
@@ -889,6 +892,7 @@
         <text tid="incorrectlogin-username">De combinatie van gebruikersnaam en wachtwoord is niet geldig</text>
         <text tid="incorrectpassword">Het opgegeven wachtwoord is niet correct</text>
         <text tid="linkexpired">De gevolgde link is verlopen</text>
+        <text tid="linkexpired-title">Link verlopen</text>
         <text tid="login-button">Inloggen</text>
         <text tid="login-email-intro">Voer het e-mailadres en wachtwoord in om in te loggen</text>
         <text tid="login-services">Inloggen met identiteitsdiensten</text>
@@ -914,9 +918,10 @@
         <text tid="totp">Eenmalige toegangscode</text>
         <text tid="totp-intro">Voer uw inlogcode in</text>
         <text tid="totp-invalid">Deze code is niet valide</text>
+        <text tid="totp-title">Inlogcode</text>
         <text tid="totpsetup-backupcodes">Backup codes</text>
-        <text tid="totpsetup-processed">Je tweede factor is ingesteld</text>
-        <text tid="totpsetup-save-backupcodes">Bewaar deze backupcodes ergens</text>
+        <text tid="totpsetup-processed">Je tweede factor is ingesteld.</text>
+        <text tid="totpsetup-save-backupcodes">Deze backupcodes kunnen worden gebruikt om in te loggen als je je authenticator-app niet kunt gebruiken. Bewaar ze backupcodes op een veilige plaats.</text>
         <text tid="totpsetup-showsecretkey">Toon geheime sleutel</text>
         <text tid="username">Gebruikersnaam</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
@@ -984,15 +989,34 @@
         <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
+        <text tid="authtexts">Teksten authenticatiepagina's</text>
         <text tid="expire_login">Login verloopt na</text>
         <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
         <text tid="expiry">Verloopinstellingen</text>
+        <text tid="language">Taal</text>
         <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="round_longlogins_to">Afronden naar</text>
         <text tid="round_longlogins_tz">Volgens tijdzone</text>
         <text tid="round_minduration">Minimum duur</text>
         <text tid="roundlogins">Rond de verlooptijd af naar een specifiek moment</text>
-        <text tid="wrdauthsettings">Authenticatie en inlog instellingen</text>
+        <text tid="tag">Tekst</text>
+        <text tid="wrdauthsettings">Authenticatie- en inloginstellingen</text>
+        <textgroup gid="authtexts">   <!-- tolliumapps.auth.settings.authtexts -->
+          <text tid="completeaccount-intro">Update vereist introductie</text>
+          <text tid="completeaccount-totp-done">2FA instellen afgerond</text>
+          <text tid="completeaccount-totp-intro">2FA instellen introductie</text>
+          <text tid="emailchange-done">E-mail wijzingen afgerond</text>
+          <text tid="emailchange-intro">E-mail wijzigen introductie</text>
+          <text tid="forgotpassword-done">Wachtwoord vergeten afgerond</text>
+          <text tid="forgotpassword-intro">Wachtwoord vergeten introductie</text>
+          <text tid="linkexpired-intro">Link verlopen introductie</text>
+          <text tid="login-intro">Login introductie</text>
+          <text tid="passwordchange-done">Wachtwoordwijziging afgerond</text>
+          <text tid="passwordchange-intro">Wachtwoord wijzigen introductie</text>
+          <text tid="resetpassword-intro">Wachtwoord herstellen introductie</text>
+          <text tid="setpassword-intro">Wachtwoord instellen introductie</text>
+          <text tid="totp-intro">TOTP-code introductie</text>
+        </textgroup>
       </textgroup>
     </textgroup>
     <textgroup gid="common">   <!-- tolliumapps.common -->

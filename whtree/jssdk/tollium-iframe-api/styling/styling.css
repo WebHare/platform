@@ -76,20 +76,20 @@
 }
 
 /* Apply some default Tollium styling */
-html {
+:where(html) {
   background-color: var(--tollium-background);
   color: var(--tollium-text-color);
   font: var(--tollium-font);
   -webkit-font-smoothing: antialiased; /* Safari macOS, Firefox macOS 128+ */
 }
 
-body
+:where(body)
 {
   -webkit-text-size-adjust: none; /* Safari iOS 5+ */
   -moz-text-size-adjust: none; /* Firefox Android 137+ */
   text-size-adjust: none;
 }
 
-* {
+:where(*) {
   border: 0px solid var(--tollium-border-color);
 }

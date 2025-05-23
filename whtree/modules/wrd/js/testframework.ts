@@ -51,6 +51,6 @@ export async function runPasswordSetForm(login: string, pwd: string) {
   await tryPasswordSetForm(login, pwd);
 
   test.eq(/password has been updated/, test.qR(".wh-form__page--visible").textContent);
-  test.click(await test.waitForElement([".wh-form__page[data-wh-form-pagerole=thankyou]", 0, "a, button"]) ?? throwError("Login/continue button not found"));
+  test.click(await test.waitForElement([".wh-form__page[data-wh-form-pagerole=thankyou]", 0, "a[href], button"]) ?? throwError("Login/continue button not found"));
   await test.wait('load');
 }

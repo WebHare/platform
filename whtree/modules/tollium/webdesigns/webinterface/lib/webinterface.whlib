@@ -7,12 +7,12 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
-
-LOADLIB "mod::wrd/lib/auth.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
@@ -48,6 +48,16 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
         banner := GetTid("tollium:shell.isrestoredwebhare") || (restoreinfo != "1" ? ": " || restoreinfo : "");
     }
 
+    // For the common auth pages, retrieve the login background. The application portal router also sets this property when
+    // the login page is shown.
+    STRING mainbackgroundcss;
+    IF(IsRequest() AND UnpackURL(GetRequestURL()).urlpath LIKE ".wh/common/authpages/*")
+    {
+      OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
+      IF (ObjectExists(loginbg))
+        mainbackgroundcss := WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]).css;
+    }
+
     RETURN CELL
         [ favicon :=
           [ touchicon := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img/favicon/apple-touch-icon.png")
@@ -60,6 +70,7 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
           , themecolor := "#4a4a4a"
           ]
         , banner
+        , mainbackgroundcss
         ];
   }
 

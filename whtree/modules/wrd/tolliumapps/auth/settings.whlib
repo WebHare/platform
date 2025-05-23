@@ -5,6 +5,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
+
 MACRO SetTimeUnit(OBJECT textedit, OBJECT unitpulldown, INTEGER64 setvalue)
 {
   unitpulldown->options := [[ rowkey := "days", title := GetTid("~units.days") ]
@@ -51,6 +52,7 @@ INTEGER64 FUNCTION GetTimeUnit(OBJECT textedit, OBJECT unitpulldown)
 */
 
 PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
+  RECORD ARRAY authtexts;
 
   MACRO Init(RECORD data) {
     //get settings, coerce them to the proper types
@@ -67,11 +69,35 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     this->OnRoundLoginsChange();
 
     ^passwordchecks->value := GetWRDSetting(this->contexts->wrdschema, "password_validation_checks");
+    
+    RECORD ARRAY authpages_texts := GetWRDSetting(this->contexts->wrdschema, "authpages_texts");
+    INTEGER first_text := -1;
+    FOREVERY (STRING tag FROM SELECT AS STRING ARRAY rowkey FROM ^tag->options)
+      FOREVERY (STRING language FROM SELECT AS STRING ARRAY rowkey FROM ^language->options) {
+        RECORD result := ^texts->LoadTabsExtension(Resolve("settings.xml#authtext"));
+        OBJECT addedtab := result.addedtabs[0];
+        addedtab->title := language || "/" || tag;
+        OBJECT text := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!text";
+        text->value := SELECT AS RECORD COLUMN text FROM authpages_texts WHERE COLUMN language = VAR language AND COLUMN tag = VAR tag;
+        IF (first_text < 0 AND RecordExists(text->value))
+          first_text := Length(this->authtexts);
+        INSERT CELL[ tag, language, addedtab, text ] INTO this->authtexts AT END;
+      }
+    ^texts->RunExtensionsPostInit();
+    IF (first_text >= 0) {
+      ^tag->value := this->authtexts[first_text].tag;
+      ^language->value := this->authtexts[first_text].language;
+    } ELSE
+      this->OnTextSelect();
   }
 
   MACRO OnRoundLoginsChange() {
     ^round_longlogins_to->enabled := ^roundlogins->value;
     ^round_longlogins_tz->enabled := ^roundlogins->value;
+  }
+  
+  MACRO OnTextSelect() {
+    ^texts->selectedtab := SELECT AS OBJECT addedtab FROM this->authtexts WHERE language = ^language->value AND tag = ^tag->value;
   }
 
   BOOLEAN FUNCTION Submit() {
@@ -86,6 +112,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
           , round_longlogins_to := ^roundlogins->value ? ^round_longlogins_to->value : -1
           , round_longlogins_tz := ^round_longlogins_tz->value
           ]);
+
+    RECORD ARRAY authpages_texts;
+    FOREVERY (RECORD authtext FROM this->authtexts)
+      IF (RecordExists(authtext.text->value))
+        INSERT CELL[ authtext.language, authtext.tag, text := authtext.text->value ] INTO authpages_texts AT END;
+    SetWRDSetting(this->contexts->wrdschema, "authpages_texts", authpages_texts);
+
     RETURN work->Finish();
   }
 >;

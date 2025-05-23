@@ -123,14 +123,14 @@ test.runTests(
         wrongcode = `00000${parseInt(wrongcode, 10) + 1}`.substr(-6);
 
       test.fill("[name=totp]", wrongcode);
-      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
+      (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
       await test.wait('ui');
       test.eq(/This code is not valid/, test.getDoc().body.textContent);
 
       // STORY: test an valid code (after using an invalid code)
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
       test.fill("[name=totp]", totpdata.code);
-      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
+      (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
 
       await test.wait('load');
       await test.wait('ui');
@@ -147,7 +147,7 @@ test.runTests(
       await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
 
       test.fill("[name=totp]", totpbackupcodes[0]);
-      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
+      (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
       await test.wait('load');
       await test.wait('ui');
 
@@ -164,7 +164,7 @@ test.runTests(
       await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
 
       test.fill('[name=totp]', totpbackupcodes[1]);
-      test.click(test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found"));
+      (test.findElement(["a,button", /Login/]) ?? throwError("Confirm button not found")).click();
       await test.wait('ui');
 
       await test.waitForElement([".wh-form__error", /Account is disabled/]);
