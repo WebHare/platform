@@ -891,7 +891,7 @@
         <text tid="incorrectlogin-email">De combinatie van emailadres en gebruikersnaam is niet geldig</text>
         <text tid="incorrectlogin-username">De combinatie van gebruikersnaam en wachtwoord is niet geldig</text>
         <text tid="incorrectpassword">Het opgegeven wachtwoord is niet correct</text>
-        <text tid="invalidverifier">De verificatie code is niet correct</text>
+        <text tid="invalidverifier">De verificatiecode is niet correct</text>
         <text tid="linkexpired">De gevolgde link is verlopen</text>
         <text tid="linkexpired-title">Link verlopen</text>
         <text tid="login-button">Inloggen</text>
