@@ -16,7 +16,6 @@ OBJECTTYPE TestContext
 PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ jsfile := ""
-                             , isolatestorage := FALSE
                              ], options);
 
   STRING jsfile := options.jsfile;
@@ -42,7 +41,6 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
      CELL[ printheaders := PTR Print(GetAssetpackIntegrationCode(compileresult.bundle_tag))
          , body := PTR pagebody(context)
-         , options.isolatestorage
          , hasdevmodule := IsModuleInstalled("dev")
          ]);
 }

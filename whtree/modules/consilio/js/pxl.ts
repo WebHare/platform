@@ -1,14 +1,6 @@
-import * as dompack from "@webhare/dompack";
+import { getBrowser } from "@webhare/dompack";
 import { generateRandomId } from "@webhare/std";
 import { debugFlags, isLive } from "@webhare/env";
-
-type PxlData = {
-  pi: string;
-  exp: Date;
-};
-type SessionPxlData = {
-  ps: string;
-};
 
 interface PxlEventDetails {
   event: string;
@@ -120,9 +112,10 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   if (options.altSampleRate)
     url.searchParams.set("pr", String(options.altSampleRate));
 
-  url.searchParams.set("bt", dompack.browser.triplet);
-  if (dompack.browser.device)
-    url.searchParams.set("bd", dompack.browser.device);
+  const browser = getBrowser();
+  url.searchParams.set("bt", browser.triplet);
+  if (browser.device)
+    url.searchParams.set("bd", browser.device);
 
   if (typeof document !== "undefined") {
     if (document.documentElement.dataset.whOb)
@@ -170,45 +163,36 @@ export function makePxlURL(baseurl: string, eventname: string, data?: PxlEventDa
   return url;
 }
 
-export function getPxlId() {
-  const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
+export function getPxlId(): string {
   if (!pxlUserId) {
-    if (havestorage) { //get an id from storage if it exists
+    try {
       const timestampvar = localStorage.getItem("_wh.ti");
       if (timestampvar && new Date(timestampvar) > new Date) { //not expired yet
         pxlUserId = localStorage.getItem("_wh.pi") || undefined;
         if (pxlUserId && debugFlags.pxl)
           console.log(`[pxl] Using id ${pxlUserId} from localStorage`);
       }
-    }
-  }
-
-  if (!pxlUserId) { //generate a new id
-    pxlUserId = generateRandomId();
-    if (havestorage) { //store it. also bump expiration if necessary
-      localStorage.setItem("_wh.pi", pxlUserId);
-    }
-
-    if (havestorage) { //store it. also bump expiration if necessary
+      pxlUserId ||= generateRandomId();
       const sessionExpireDays = (globalOptions?.sessionExpiration ?? max_sessionid_age);
       const expiration = new Date(Date.now() + sessionExpireDays * 24 * 60 * 60 * 1000);
+      localStorage.setItem("_wh.pi", pxlUserId);
       localStorage.setItem("_wh.ti", expiration.toISOString());
-      dompack.setLocal<PxlData>("wh:pxl", { pi: pxlUserId, exp: expiration }); //approx 30 days after WH5.7 is rolled out everywhere, we can switch to reading wh:pxl instead of localStorage direcgly
+    } catch {
+      pxlUserId ||= generateRandomId();
     }
   }
-
   return pxlUserId;
 }
 
 export function getPxlSessionId() {
   if (!pxlSessionId) {
-    const havestorage = dompack.isStorageAvailable(); //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
-    if (!pxlSessionId && havestorage)
-      pxlSessionId = dompack.getSession<SessionPxlData>("wh:pxlSession")?.ps;
-
-    pxlSessionId ||= generateRandomId();
-    if (havestorage)
-      dompack.setSession<SessionPxlData>("wh:pxlSession", { ps: pxlSessionId });
+    try {
+      pxlSessionId = sessionStorage["_wh.ps"];
+      pxlSessionId ||= generateRandomId();
+      sessionStorage["_wh.ps"] = pxlSessionId;
+    } catch { //privacy mode? just (re)try to generate an id
+      pxlSessionId ||= generateRandomId();
+    }
   }
   return pxlSessionId;
 }
