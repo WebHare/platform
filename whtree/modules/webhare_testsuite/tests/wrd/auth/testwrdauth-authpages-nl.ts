@@ -24,4 +24,18 @@ test.runTests(
       test.eq(/combinatie.*onjuist/, (await test.waitForElement('.wh-form__error')).textContent);
     },
 
+    "Forgot password sequence",
+    async function () {
+      test.click(test.qR('.wh-wrdauth-login__forgotpasswordlink'));
+      await test.wait("pageload");
+
+      test.eq(/Wachtwoord herstellink/, test.qR('.wh-form__page--visible h2').textContent);
+      await testwrd.runResetPassword({
+        email: 'pietje-authpages-js@beta.webhare.net',
+        newpassword: 'mybigsecret$',
+        expectLang: 'nl'
+      });
+
+    },
+
   ]);
