@@ -23,14 +23,13 @@ import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks } from "./shared";
+import { returnHeaders, type HSHeaders } from "@mod-platform/js/auth/harescript";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
-
-type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
 /** Token creation options */
 export interface AuthTokenOptions {
@@ -260,10 +259,11 @@ export type FrontendAuthResult = {
   setAuth: SetAuthCookies;
 } | {
   loggedIn: false;
+  navigateTo: NavigateInstruction;
+} | {
+  loggedIn: false;
   error: string;
-  code: LoginErrorCodes | "totp" | "incomplete-account";
-  token?: string; // Token or session to pass to authpages to complete an account
-  challenge?: string; // TOTP challenge
+  code: LoginErrorCodes;
 };
 
 const validCodeChallengeMethods = ["plain", "S256"] as const;
@@ -1077,22 +1077,23 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         data: { challenge }
       }));
 
-      return {
+      return { //redirect to authpages to complete the account
         loggedIn: false,
-        error: "TOTP required",
-        code: "totp",
-        token,
-        challenge
+        navigateTo: {
+          type: "form",
+          form: {
+            action: new URL(targeturl).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(targeturl).pathname.substring(1)),
+            vars: [{ name: "token", value: token }]
+          },
+        },
       };
     }
 
     const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, password, userInfo.password, options?.returnTo || "");
     if (complianceToken) {
-      return {
+      return { //redirect to authpages to complete the account
         loggedIn: false,
-        error: "Your account is not yet fully set up",
-        code: "incomplete-account",
-        token: complianceToken
+        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(targeturl).pathname.substring(1))
       };
     }
 
@@ -1441,18 +1442,6 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
       vars: [{ name: "settoken", value: encryptForThisServer("platform:settoken", setToken) }]
     }
   };
-}
-
-function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
-  const hdrs = new Headers;
-  cb(hdrs);
-
-  //Translate to HS usable AddHeader structure
-  const headers: HSHeaders = [];
-  for (const header of hdrs.entries())
-    headers.push({ field: header[0], value: header[1], always_add: header[0].toLowerCase() === "set-cookie" });
-
-  return headers;
 }
 
 async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {

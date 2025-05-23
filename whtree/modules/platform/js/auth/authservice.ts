@@ -57,7 +57,7 @@ export const authService = {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
     const prepped = await prepAuth(originUrl, cookieName);
     if ("error" in prepped)
-      throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
+      throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for login: " + prepped.error);
 
     const { settings } = prepped;
     const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
@@ -68,10 +68,13 @@ export const authService = {
       ...pick({ ...options }, ["persistent", "site", "limitExpiry"]),
       returnTo: options?.returnTo || originUrl
     });
-    if (response.loggedIn === false)
-      return { loggedIn: false, code: response.code, error: response.error, token: response.token };
 
-    doLoginHeaders(response.setAuth, context.responseHeaders);
+    if (response.loggedIn === false)
+      return response;
+
+    if ("setAuth" in response)
+      doLoginHeaders(response.setAuth, context.responseHeaders);
+
     return { loggedIn: true };
   },
 

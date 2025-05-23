@@ -885,6 +885,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN this->loggedinentity;
   }
 
+  PUBLIC MACRO SetLoggedinEntity(INTEGER entityid) {
+    this->loggedinentity := entityid;
+  }
+
   PUBLIC DATETIME FUNCTION GetLoggedinExpires() {
     this->CheckForSession();
     RETURN this->loggedinexpires;

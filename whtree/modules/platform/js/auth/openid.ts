@@ -5,19 +5,12 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL } from "@webhare/std";
-import { IdentityProvider } from "@webhare/auth/src/identity";
+import { IdentityProvider, type FrontendAuthResult } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
 import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/wrd/src/authfrontend";
 
-export type FrontendLoginResult = {
-  loggedIn: true;
-} | {
-  loggedIn: false;
-  error: string;
-  code: LoginErrorCodes | "totp" | "incomplete-account";
-  token?: string;
-};
+export type FrontendLoginResult = Omit<FrontendAuthResult, "setAuth">;
 
 export type FrontendLogoutResult = { success: true } | {
   error: string;
