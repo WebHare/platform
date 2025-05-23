@@ -21,12 +21,17 @@ async function tidCompilerTest() {
   test.eq("A&B", getTid(":A&B"));
   test.eq("A&amp;B", getHTMLTid(":A&B"));
   test.eq("One", getTid("webhare_testsuite:aaa.limitlanguage_en.one"));
+  test.eq("One", getTid("webhare_testsuite:aaa.limitlanguage_en.one", { langCode: "en-GB" }));
+  test.eq("One", getTidForLanguage("en-GB", "webhare_testsuite:aaa.limitlanguage_en.one"));
+
   test.eq("One", getTid("webhare_testsuite:AAa.Limitlanguage_en.One"));
   test.eq("One", getTid("Webhare_Testsuite:aaa.limitlanguage_en.one"));
   test.eq("One", getTid("webhare_testsuite:aaa.limitlanguage en.one"), "spaces -> underscore");
   test.eq("(cannot find text: webhare testsuite:aaa.limitlanguage_en.one)", getTid("webhare testsuite:aaa.limitlanguage en.one"), "but should NOT be rewriting module names to underscore");
   test.eq("(cannot find text: webhare_testsuite:aaa.limitlanguage_nl.isnlonly)", getTidForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
   test.eq("IsNLOnly", getTidForLanguage("nl", "webhare_testsuite:aaa.limitlanguage_nl.isnlonly"));
+  test.eq("IsNLOnly", getTid("webhare_testsuite:aaa.limitlanguage_nl.isnlonly", { langCode: "nl" }));
+  test.eq("IsNLOnly", getTid("webhare_testsuite:aaa.limitlanguage_nl.isnlonly", { langCode: "nl-NL" }));
 
   test.eq("Ifparam: p1!=a p2!=b", getTid("webhare_testsuite:test.ifparam"));
   test.eq("Ifparam: p1=a p2!=b", getTid("webhare_testsuite:test.ifparam", "a"));
@@ -53,6 +58,7 @@ async function tidCompilerTest() {
   test.eq("Add", getTidForLanguage("en", "~add"));
   test.eq("Toevoegen", getTidForLanguage("nl", "~add"));
   test.eq("Nederlands", getTidForLanguage("nl", "tollium:common.languages.nl")); // make sure we're not suddenly requiring nl_NL once these are bound to i18n libraries...
+  test.eq("Nederlands", getTid("tollium:common.languages.nl", { langCode: "nl-NL" }));
 
   test.eq([], getTIDListForLanguage("en", "webhare_testsuite:aaa"));
   test.eq([], getTIDListForLanguage("en", "webhare_testsuite:aaa.limitlanguage_nl"));
