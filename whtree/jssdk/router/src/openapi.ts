@@ -21,6 +21,8 @@ export interface OpenAPIServiceInitializationContext {
   name: string;
   /** Parsed YAML specification (includes any merges but before the bundling step) */
   spec: WebHareOpenAPIDocument;
+  /** Signal that will be aborted when the service is invalidated */
+  signal: AbortSignal;
 }
 
 /** Describes the currently loading OpenAPI documentation */

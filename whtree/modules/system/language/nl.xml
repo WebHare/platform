@@ -1220,7 +1220,7 @@
         <text tid="softreset">Soft reset</text>
         <text tid="togglerefreshbutton">Automatisch verversen</text>
         <textgroup gid="statistics">   <!-- tolliumapps.dashboard.dashboard.statistics -->
-          <text tid="webserverusagestats">Exporteer webserver gebruiksstatistieken</text>
+          <text tid="webserverusagestats">Webserver gebruiksstatistieken exporteren</text>
         </textgroup>
       </textgroup>
       <textgroup gid="fonts">   <!-- tolliumapps.dashboard.fonts -->

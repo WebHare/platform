@@ -2,6 +2,7 @@ import whbridge, { type BridgeEvent, type BridgeEventData } from "@mod-system/js
 import { regExpFromWildcards } from "@webhare/std/strings";
 import { isValidBackendEventName } from "./naming";
 import type { BackendEvents } from "@webhare/services";
+import { whenAborted } from "@webhare/std";
 
 export type BackendEvent<T extends BridgeEventData = BridgeEventData> = BridgeEvent<T>;
 export type BackendEventData = BridgeEventData;
@@ -17,10 +18,13 @@ class BackendEventSubscription implements Disposable {
   }
 
   async setMasks(masks: BackendEventMasks): Promise<void> {
-    const masklist = Array.isArray(masks) ? masks : [masks];
+    const masklist = Array.isArray(masks) ? [...new Set(masks)] : [masks];
     for (const mask of masklist) {
-
-      if (!isValidBackendEventName(mask.replaceAll('*', 'xx')))
+      // FIXME: `system:modulefolder...`, `system:moduleupdate.module_with_underscore` and `system:registry...` do not match isValidBackendEventName, but we need them for now
+      if (!mask.startsWith("system:modulefolder.") &&
+        !mask.startsWith("system:moduleupdate.") &&
+        !mask.startsWith("system:registry.") &&
+        !isValidBackendEventName(mask.replaceAll('*', 'xx')))
         throw new Error(`Mask must be in the format module:eventname, got '${mask}'`);
 
       if (mask.indexOf('*') !== -1 && !mask.endsWith('.*'))
@@ -57,13 +61,23 @@ class BackendEventSubscription implements Disposable {
   }
 }
 
-export async function subscribe<Mask extends string>(mask: Mask, callback: BackendEventCallback<Mask extends keyof BackendEvents ? BackendEvents[Mask] : BackendEventData>): Promise<BackendEventSubscription>;
-export async function subscribe(masks: string[], callback: BackendEventCallback): Promise<BackendEventSubscription>;
+export async function subscribe<Mask extends string>(mask: Mask, callback: BackendEventCallback<Mask extends keyof BackendEvents ? BackendEvents[Mask] : BackendEventData>, options?: { signal?: AbortSignal }): Promise<BackendEventSubscription>;
+export async function subscribe(masks: string[], callback: BackendEventCallback, options?: { signal?: AbortSignal }): Promise<BackendEventSubscription>;
 
-export async function subscribe(masks: BackendEventMasks, callback: BackendEventCallback): Promise<BackendEventSubscription> {
+export async function subscribe(masks: BackendEventMasks, callback: BackendEventCallback, options?: { signal?: AbortSignal }): Promise<BackendEventSubscription> {
   const subscr = new BackendEventSubscription(callback);
   await subscr.setMasks(masks);
+  whenAborted(options?.signal, () => subscr[Symbol.dispose]());
   return subscr;
+}
+
+export async function signalOnEvent(masks: string | string[], options?: { signal?: AbortSignal }): Promise<AbortSignal> {
+  if (!Array.isArray(masks))
+    masks = [masks];
+  const abort = new AbortController();
+  const cancelSignal = options?.signal ? AbortSignal.any([options.signal, abort.signal]) : abort.signal;
+  await subscribe(masks, () => abort.abort(), { signal: cancelSignal });
+  return abort.signal;
 }
 
 class EventStream implements Disposable, AsyncIterable<BackendEvent> {

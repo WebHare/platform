@@ -15,8 +15,7 @@ import { RestAPIWorkerPool } from "./workerpool";
 import type { OpenAPIValidationMode } from "../generation/gen_extracts";
 import type { OpenAPIHandlerInitializationContext, WebHareOpenApiPathItem } from "@webhare/router/src/openapi";
 
-
-export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void> | void;
+export type OpenAPIInitHookFunction = (context: OpenAPIServiceInitializationContext) => Promise<void | { signal?: AbortSignal }> | void | { signal?: AbortSignal };
 
 export type OpenAPIInitHandlerHookFunction = (context: OpenAPIHandlerInitializationContext) => Promise<void> | void;
 

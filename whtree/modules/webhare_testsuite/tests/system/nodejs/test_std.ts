@@ -1021,6 +1021,33 @@ function testUUIDFallback() {
   test.assert(std.isValidUUID(std.generateRandomId("uuidv4", 16)));
 }
 
+async function testUtils() {
+  test.eq("aborted", std.combineAbortSignals(AbortSignal.abort("aborted")).reason);
+  test.eq("aborted", std.combineAbortSignals([null, undefined, AbortSignal.abort("aborted"), AbortSignal.abort("aborted2")]).reason);
+  test.eq(undefined, std.combineAbortSignals([(async () => AbortSignal.abort("aborted"))()]).reason);
+  test.eq("aborted", await new Promise<string>(r => {
+    const signal = std.combineAbortSignals([(async () => AbortSignal.abort("aborted"))()]);
+    signal.addEventListener("abort", () => r(signal.reason));
+  }));
+
+  let res: string | Error | undefined;
+  std.whenAborted(AbortSignal.abort("aborted"), reason => res = reason);
+  test.eq("aborted", res);
+  std.whenAborted((async () => AbortSignal.abort("aborted2"))(), reason => res = reason);
+  test.eq("aborted", res);
+  await test.wait(() => res === "aborted2");
+  const ac = new AbortController();
+  std.whenAborted(ac.signal, reason => res = reason);
+  ac.abort("aborted3");
+  test.eq("aborted3", res);
+  std.whenAborted(Promise.reject(new Error("boem")), reason => res = reason);
+  await test.wait(() => res instanceof Error && res.message === "boem");
+
+  const ac3 = new AbortController();
+  std.whenAborted(AbortSignal.abort("aborted4"), ac3);
+  test.eq("aborted4", ac3.signal.reason);
+}
+
 
 test.runTests([
   "@webhare/env",
@@ -1049,5 +1076,7 @@ test.runTests([
   ...(typeof window !== "undefined" ? [
     "UUID fallback",
     testUUIDFallback  //can't run on nodejs
-  ] : [])
+  ] : []),
+  "Utils",
+  testUtils,
 ]);

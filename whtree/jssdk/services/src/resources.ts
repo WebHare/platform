@@ -152,3 +152,19 @@ export function resolveResource(base: string, relativepath: string): string {
 
   return basepart + path.join(basesubpath, relativepath) + append;
 }
+
+/** Returns the event mask for a specific resource */
+export function getResourceEventMasks(resources: string | Iterable<string>): string[] {
+  resources = typeof resources === "string" ? [resources] : resources;
+  const masks = new Set<string>();
+  for (const resource of resources) {
+    const resourcePath = toResourcePath(resource, { allowUnmatched: true, keepUnmatched: true });
+    const resourceDir = resourcePath.substring(0, resourcePath.lastIndexOf('/') + 1);
+    if (resourceDir.startsWith("mod::")) {
+      const moduleName = resourceDir.substring(5, (resourceDir + "/").indexOf('/', 5));
+      masks.add(`system:moduleupdate.${moduleName}`);
+    }
+    masks.add(`system:modulefolder.${resourceDir}`);
+  }
+  return [...masks].sort((a, b) => a < b ? -1 : 1);
+}

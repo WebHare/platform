@@ -89,6 +89,15 @@ async function testPaths() {
   test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
 }
 
+function testResourceEventMasks() {
+  test.eq(["system:modulefolder.mod::system/lib/", "system:moduleupdate.system"], services.getResourceEventMasks("mod::system/lib/database.whlib"));
+  test.eq(["system:modulefolder.mod::system/lib/", "system:moduleupdate.system"], services.getResourceEventMasks(services.toFSPath("mod::system/lib/database.whlib")));
+  test.eq(["system:modulefolder.mod::system/lib/", "system:moduleupdate.system"], services.getResourceEventMasks(["mod::system/lib/", "mod::system/lib/"]));
+  test.eq(["system:modulefolder.mod::system/js/", "system:modulefolder.mod::system/lib/", "system:moduleupdate.system"], services.getResourceEventMasks(new Set(["mod::system/lib/", "mod::system/js/blabla.ts"])));
+  test.eq(["system:modulefolder./tmp/"], services.getResourceEventMasks("/tmp/"));
+  test.eq(["system:modulefolder./tmp/"], services.getResourceEventMasks("/tmp/vla.txt"));
+}
+
 async function readAllFromStream(stream: ReadableStream) {
   const buffers: Buffer[] = [];
   for await (const chunk of stream)
@@ -412,6 +421,7 @@ test.runTests(
   [
     testResolve,
     testPaths,
+    testResourceEventMasks,
     testWebHareBlobs,
     testResourceDescriptors,
     testGIFs,

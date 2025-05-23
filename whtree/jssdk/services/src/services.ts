@@ -9,12 +9,12 @@ import type { AccessLogLine, PxlLogLine } from "./logging";
 import type { RichTextDocument } from "./richdocument";
 
 export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
-export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath, getResourceEventMasks } from "./resources";
 export { openBackendService, type GetBackendServiceInterface } from "./backendservice";
 export { runBackendService, BackendServiceConnection, type BackendServiceController } from "./backendservicerunner";
 export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
-export { broadcast, subscribe, subscribeToEventStream } from "./backendevents";
+export { broadcast, subscribe, subscribeToEventStream, signalOnEvent } from "./backendevents";
 export type { BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
@@ -23,7 +23,7 @@ export { lockMutex, type Mutex } from "./mutex";
 export { TaskRequest, scheduleTask, scheduleTimedTask, retrieveTaskResult, cancelTask, cancelManagedTasks, listTasks, describeTask, retryTask } from "./tasks";
 export type { TaskFunction, TaskResponse } from "./tasks";
 
-export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode } from "./registry";
+export { readRegistryKey, writeRegistryKey, getRegistryKeyEventMasks, readRegistryNode, deleteRegistryKey, deleteRegistryNode, signalOnRegistryKeyChange } from "./registry";
 export { WebHareBlob } from "./webhareblob";
 export { getSignatureForThisServer, validateSignatureForThisServer, encryptForThisServer, decryptForThisServer } from "./secrets";
 export { prepareMail } from "./mail";
@@ -32,7 +32,7 @@ export { fetchResource } from "./fetchresource";
 export { createServerSession, getServerSession, closeServerSession, updateServerSession, createUploadSession, getUploadedFile } from "./sessions";
 export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
-export { importJSFunction, importJSObject, JSLibraryImporter, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
+export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
 export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";

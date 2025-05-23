@@ -1,3 +1,5 @@
+import { whenAborted } from "@webhare/std";
+
 /** Event callback type.
     @typeParam T - Record with the callback types (eg `{ data: string, end: undefined }`)
     @typeParam K - Name of the used event
@@ -34,6 +36,8 @@ type EventHandlerRecord<T> = {
 interface EventHandlerOptions<T, K extends keyof T> {
   /** If set, call filter for every event, only emit events where the filter function returns true */
   filter?: EventFilter<T, K>;
+  /** If set, the event listener will be removed when the signal has aborted */
+  signal?: AbortSignal;
 }
 
 /** Event source
@@ -57,6 +61,7 @@ export default class EventSource<T extends Record<string, unknown>> {
       callback: callback as EventCallback<T, keyof T>,
       filter: options.filter as (EventFilter<T, keyof T> | undefined)
     });
+    whenAborted(options.signal, () => this.off(id));
     return id;
   }
 
