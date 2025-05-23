@@ -292,6 +292,7 @@ async function testAuthAPI() {
   await whdb.beginWork();
   const { loginSettings } = await getSchemaSettings(oidcAuthSchema, ["loginSettings"]);
   await updateSchemaSettings(oidcAuthSchema, {
+    passwordValidationChecks: "minlength:2",
     loginSettings: {
       ...defaultWRDAuthLoginSettings,
       ...loginSettings,
@@ -326,6 +327,63 @@ async function testAuthAPI() {
   test.eq({ whuserPassword: (auth: AuthenticationSettings | null) => auth?.getNumPasswords() === 1 }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserPassword"]));
 
   await whdb.commitWork();
+
+  //STORY: test password resets
+  //corrupted data should be interpreted as expired (eg might be WH5.7 reset links still floating around)
+  test.eq({ result: "expired" }, await provider.verifyPasswordReset("", null));
+  test.eq({ result: "expired" }, await provider.verifyPasswordReset("blabla", null));
+
+  const returnTo = "https://www.example.net/reset";
+  const reset0 = await provider.createPasswordResetLink(returnTo, testuser, {
+    expires: 1,
+    isSetPassword: true,
+    authAuditContext: {
+      actionBy: test.getUser("sysop").wrdId,
+      remoteIp: "67.43.156.0"
+    }
+  });
+  test.eq({ link: /^https.*.wh\/common\/authpages.*_ed=/, verifier: null }, reset0);
+  test.eqPartial({ result: "expired", isSetPassword: true }, await provider.verifyPasswordReset(new URL(reset0.link).searchParams.get("_ed")!, null));
+
+  test.eqPartial({
+    entity: testuser,
+    type: "platform:resetpassword",
+    remoteIp: "67.43.156.0",
+    entityLogin: "jonshow@beta.webhare.net",
+    impersonatedBy: null,
+    actionBy: test.getUser("sysop").wrdId,
+    actionByLogin: test.getUser("sysop").login
+  }, await test.getLastAuthAuditEvent(oidcAuthSchema));
+
+  const reset1 = await provider.createPasswordResetLink(returnTo, testuser);
+  const reset1tok = new URL(reset1.link).searchParams.get("_ed")!;
+  test.eq({ link: /^https.*_ed=/, verifier: null }, reset1);
+
+  const reset2 = await provider.createPasswordResetLink(returnTo, testuser, { separateCode: true, isSetPassword: true });
+  const reset2tok = new URL(reset2.link).searchParams.get("_ed")!;
+  test.eq({ link: /^https.*_ed=/, verifier: /^.../ }, reset2);
+
+  //A selfhosted (usually embeded) authpages link. This is how webdeisgnplugign passwordlinks used to work
+  const reset3 = await provider.createPasswordResetLink(returnTo, testuser, { selfHosted: true });
+  const reset3tok = new URL(reset3.link).searchParams.get("_ed")!;
+  test.eq({ link: _ => _.startsWith(returnTo), verifier: null }, reset3);
+
+  //Verify these links
+  test.eq({ result: "ok", returnTo, needsVerifier: false, isSetPassword: false, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset1tok, null));
+  test.eq({ result: "badverifier", returnTo, isSetPassword: true }, await provider.verifyPasswordReset(reset2tok, null));
+  test.eq({ result: "badverifier", returnTo, isSetPassword: true }, await provider.verifyPasswordReset(reset2tok, "wrongverifier"));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net" }, await provider.verifyPasswordReset(reset2tok, "wrongverifier", { skipVerifierCheck: true }));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset2tok, reset2.verifier!.toUpperCase()));
+  test.eq({ result: "ok", returnTo, needsVerifier: true, isSetPassword: true, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset2tok, reset2.verifier!.toLowerCase()));
+
+  test.eq({ result: "ok", returnTo, isSetPassword: false, needsVerifier: false, login: "jonshow@beta.webhare.net", user: testuser }, await provider.verifyPasswordReset(reset3tok, null));
+
+  //Update the password.
+  test.eqPartial({ success: false, failedChecks: ["minlength"] }, await provider.updatePassword(testuser, "a"));
+  test.eqPartial({ success: true }, await provider.updatePassword(testuser, "secret$"));
+  test.eqPartial({ result: "alreadychanged" }, await provider.verifyPasswordReset(new URL(reset1.link).searchParams.get("_ed")!, null), "setting a password should expire all older password links");
+
+  //TODO verify audit
 
   //validate openid flow
   const authresult = await mockAuthorizeFlow(provider, robotClient!, testuser);

@@ -160,3 +160,14 @@ export function calculateWRDSessionExpiry(loginSettings: WRDAuthLoginSettings, n
 
   return nightlyTarget.epochMilliseconds > now.epochMilliseconds ? nightlyTarget.toInstant() : expiry;
 }
+
+export function getAuthPageURL(url: string, vars?: Record<string, string>): URL {
+  const parsed = new URL(url);
+  const authPage = new URL(parsed.origin + "/.wh/common/authpages/");
+  if (parsed.pathname !== '/')
+    authPage.searchParams.set("pathname", parsed.pathname.substring(1));
+  if (vars)
+    for (const [key, value] of Object.entries(vars))
+      authPage.searchParams.set(key, value);
+  return authPage;
+}

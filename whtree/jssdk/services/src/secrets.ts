@@ -35,12 +35,19 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
 /** Decrypt data encrypted using encryptForThisServer
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
     @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
+    @param nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
 */
-export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown {
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean }): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
+
+export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null {
   type RetVal = S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;
   const [enc, iv, authTag] = text.split(".");
   if (!enc || !iv || !authTag)
-    throw new Error("Invalid encrypted data");
+    if (options?.nullIfInvalid)
+      return null;
+    else
+      throw new Error("Invalid encrypted data");
 
   const key = getKeyForScope(scope);
   const decipher = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));

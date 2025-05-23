@@ -7,7 +7,7 @@ import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, cre
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
-import { closeServerSession, createServerSession, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
+import { closeServerSession, createServerSession, decryptForThisServer, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { loadlib } from "@webhare/harescript";
 import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
@@ -16,16 +16,17 @@ import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginErrorCodes, Logi
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthSettings, prepAuth, type PrepAuthResult } from "./support";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, type PrepAuthResult } from "./support";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/authservice";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
-import { verifyPasswordCompliance } from "./passwords";
+import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks } from "./shared";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
+const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
@@ -124,7 +125,7 @@ export type FirstPartyToken = {
 };
 
 export class AuthenticationSettings {
-  #passwords: Array<{ hash: string; validFrom: Date }> = [];
+  #passwords: Array<{ hash: string; validFrom: Date | null }> = [];
   #totp: {
     url: string;
     backupCodes: Array<{ code: string; used: Date | null }>;
@@ -133,8 +134,8 @@ export class AuthenticationSettings {
 
   static fromPasswordHash(hash: string): AuthenticationSettings {
     const auth = new AuthenticationSettings;
-    if (hash)
-      auth.#passwords.push({ hash, validFrom: new Date });
+    if (hash) //shouldn't set a validity date, the passord will look too recently changed and interfere with password resets
+      auth.#passwords.push({ hash, validFrom: null });
     return auth;
   }
 
@@ -152,7 +153,7 @@ export class AuthenticationSettings {
       for (const pwd of (obj.passwords ?? [])) {
         if (!pwd || !pwd.passwordhash || !pwd.validfrom)
           throw new Error("Invalid password record");
-        auth.#passwords.push({ hash: pwd.passwordhash, validFrom: pwd.validfrom });
+        auth.#passwords.push({ hash: pwd.passwordhash, validFrom: pwd.validfrom.getTime() === defaultDateTime.getTime() ? null : pwd.validfrom });
       }
 
     //FIXME we're not properly setting the various dates to 'null' currently, but to minimum datetime. we'll hit that as soon as we need to manipulate TOTP, but for now the round-trip works okay
@@ -167,7 +168,7 @@ export class AuthenticationSettings {
   }
 
   toHSON() {
-    const passwords = this.#passwords.map(_ => ({ passwordhash: _.hash, validfrom: _.validFrom }));
+    const passwords = this.#passwords.map(_ => ({ passwordhash: _.hash, validfrom: _.validFrom ?? defaultDateTime }));
     setHareScriptType(passwords, HareScriptType.RecordArray);
 
     return encodeHSON({
@@ -175,7 +176,7 @@ export class AuthenticationSettings {
       passwords,
       totp: this.#totp ? {
         url: this.#totp.url,
-        backupcodes: setHareScriptType(this.#totp.backupCodes.map(_ => ({ code: _.code, used: _.used ?? null })), HareScriptType.RecordArray),
+        backupcodes: setHareScriptType(this.#totp.backupCodes.map(_ => ({ code: _.code, used: _.used ?? defaultDateTime })), HareScriptType.RecordArray),
         locked: this.#totp.locked ?? null
       } : null
     });
@@ -232,7 +233,8 @@ export class AuthenticationSettings {
           return true;
       } else if (await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash))
         return true;
-      if (this.#passwords[i].validFrom.getTime() <= cutoff.epochMilliseconds)
+      const vf = this.#passwords[i].validFrom;
+      if (!vf || vf.getTime() <= cutoff.epochMilliseconds)
         break;
     }
     return false;
@@ -309,6 +311,20 @@ declare module "@webhare/services" {
       challenge: string;
       validUntil: Date;
       returnTo: string;
+    };
+    "platform:passwordreset": {
+      /** User to reset */
+      user: number;
+      /** Verifier expected, if any */
+      verifier?: string;
+      /** Creation */
+      iat: number;
+      /** Expiration */
+      exp: number;
+      /** Return URL */
+      returnUrl: string;
+      /** Is set password? */
+      isSet?: boolean;
     };
   }
 }
@@ -529,7 +545,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     this.wrdschema = wrdschema as unknown as WRDSchema<WRD_IdpSchemaType>;
   }
 
-  getAuthSettings(required: true): Promise<WRDAuthSettings & { passwordAttribute: string }>;
+  getAuthSettings(required: true): Promise<WRDAuthSettings & { loginAttribute: string; passwordAttribute: string; passwordIsAuthSettings: true }>;
   getAuthSettings(required: false): Promise<WRDAuthSettings | null>;
 
   async getAuthSettings(required: boolean): Promise<WRDAuthSettings | null> {
@@ -1113,7 +1129,125 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       setAuth: await prepCookies(prepped, userid, prepOptions),
     };
   }
-}
+
+  /** Create a password reset link for email, with optionally a raw code-enty for verification
+      @param baseurl - Base url to redirect the user to
+      @param user - Userid to reset
+      @returns Password reset link data
+  */
+  async createPasswordResetLink(targetUrl: string, user: number, options?: {
+    /** Optional code with which the verifier should start */
+    prefix?: string;
+    /** Do not log this request to the auditlog - needed to prevent unsollicited link requests from flooding the logs (eg webshop order confiration) */
+    skipAuditLog?: boolean;
+    separateCode?: boolean;
+    expires?: WaitPeriod;
+    /** This is a 'set (first) passsword' flow, not a 'reset password'. It changes some terminology  */
+    isSetPassword?: boolean;
+    /** Information about the source and actors in this event */
+    authAuditContext?: AuthAuditContext;
+    /** If we're hosting the password page ourself */
+    selfHosted?: boolean;
+  }): Promise<{
+    /** The link to reset the password (and optionally enter the code) */
+    link: string;
+    /** The verification code (should be sent to the user through a separate channel) */
+    verifier: string | null;
+  }> {
+    const iat = Date.now();
+    const exp = convertWaitPeriodToDate(options?.expires || defaultPasswordResetExpiry).getTime();
+    const verifier = options?.separateCode ? ((options?.prefix || "") + generateRandomId("hex", 6)).toUpperCase() : undefined;
+    const tok = encryptForThisServer("platform:passwordreset", { iat, exp, user, verifier, returnUrl: targetUrl, isSet: options?.isSetPassword || undefined });
+
+    if (!options?.skipAuditLog)
+      await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
+        entity: user,
+        type: "platform:resetpassword",
+        ...(options?.authAuditContext ?? getAuditContext())
+      }));
+
+    const link = options?.selfHosted ? new URL(targetUrl) : getAuthPageURL(targetUrl);
+    link.searchParams.set("wrd_pwdaction", "resetpassword");
+    link.searchParams.set("_ed", tok);
+
+    return {
+      link: link.toString(),
+      verifier: verifier || null
+    };
+  }
+
+  async verifyPasswordReset(tok: string, verifier: string | null, options?: { skipVerifierCheck?: boolean }): Promise<{
+    result: "expired" | "badverifier" | "ok" | "alreadychanged";
+    expired?: Temporal.Instant;
+    login?: string;
+    user?: number;
+    needsVerifier?: boolean;
+    isSetPassword?: boolean;
+    returnTo?: string;
+  }> {
+    const decode = decryptForThisServer("platform:passwordreset", tok, { nullIfInvalid: true });
+    if (!decode)
+      return { result: "expired" };
+
+    const isSetPassword = decode.isSet || false;
+    const returnTo = decode.returnUrl;
+    if (decode.exp < Date.now())
+      return { result: "expired", isSetPassword, expired: Temporal.Instant.fromEpochSeconds(decode.exp), returnTo };
+
+    const authsettings = await this.getAuthSettings(true);
+    const getfields = {
+      login: authsettings.loginAttribute,
+      whuserPassword: authsettings.passwordAttribute
+    };
+
+    const { login, whuserPassword } = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, decode.user, getfields) as {
+      login: string;
+      whuserPassword: AuthenticationSettings | null;
+    };
+    const lastchange = whuserPassword?.getLastPasswordChange();
+    if (lastchange && lastchange.epochMilliseconds > decode.iat) //password already changed
+      return { result: "alreadychanged", isSetPassword, expired: Temporal.Instant.fromEpochMilliseconds(lastchange.epochMilliseconds), returnTo };
+
+    const needsVerifier = Boolean(decode.verifier);
+    if (options?.skipVerifierCheck)
+      return { result: "ok", isSetPassword, needsVerifier, login, returnTo }; //we're not going to return a userid to ensure API users can't accidentally skip the verifier check
+
+    if (decode.verifier && decode.verifier.toUpperCase() !== verifier?.toUpperCase())
+      return { result: "badverifier", isSetPassword, returnTo };
+
+    return { result: "ok", isSetPassword, needsVerifier, login, user: decode.user, returnTo };
+  }
+
+  async updatePassword(user: number, newPassword: string): Promise<PasswordCheckResult> {
+    const authsettings = await this.getAuthSettings(true);
+    const getfields = {
+      whuserPassword: authsettings.passwordAttribute,
+      ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
+    };
+
+    let { whuserPassword, whuserUnit } = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, user, getfields) as {
+      whuserPassword: AuthenticationSettings | null;
+      whuserUnit?: number | null;
+    };
+
+    const passwordValidationChecks = await getUserValidationSettings(this.wrdschema, whuserUnit || null);
+    if (passwordValidationChecks) {
+      const passwordCheck = await checkPasswordCompliance(passwordValidationChecks, newPassword, {
+        isCurrentPassword: false,
+        authenticationSettings: whuserPassword || undefined
+      });
+      if (!passwordCheck.success)
+        return passwordCheck;
+    }
+
+    await runInWork(async () => {
+      whuserPassword ||= new AuthenticationSettings;
+      await whuserPassword.updatePassword(newPassword);
+      await this.wrdschema.update("wrdPerson", user, { [authsettings.passwordAttribute]: whuserPassword });
+    });
+    return { success: true };
+  }
+} //ends IdentityProvider
 
 /** Create a token for use with this server
  * @param type - Token type - "id" to identfy the user, "api" to allow access on behalf of the user
