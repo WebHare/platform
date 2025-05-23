@@ -247,6 +247,8 @@ MACRO SetupTestSite(OBJECT testsite)
 
     OBJECT wrdauthtest_router := testpages->CreateFile( [ name := basename || "-router", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
+    OBJECT wrdauthtest_router_nl := testpages->CreateFile( [ name := basename || "-router-nl", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
+
     OBJECT wrdauthtest_router_extended := testpages->CreateFile( [ name := basename || "-router-extended", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );
 
     OBJECT wrdauthtest_router_broken := testpages->CreateFile( [ name := basename || "-router-broken", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest-router", publish := TRUE ] );

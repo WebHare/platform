@@ -10,4 +10,14 @@
       <text tid="zip">PLZ</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="frontend">   <!-- frontend -->
+    <textgroup gid="worldwide">   <!-- frontend.worldwide -->
+      <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
+        <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
+          <text tid="incorrectlogin-email">Die Kombination aus Emailadresse und Passwort ist falsch</text>
+          <text tid="incorrectlogin-username">Die Kombination aus Emailadresse und Passwort ist falsch</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
 </language>

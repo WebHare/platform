@@ -13,4 +13,6 @@ export function getCompleteAccountNavigation(token: string, pathname: string): N
 export type LoginTweaks = {
   /** Limit session duration (development servers only) */
   limitExpiry?: number;
+  /** Language code */
+  lang?: string;
 };

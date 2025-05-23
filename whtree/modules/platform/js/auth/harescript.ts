@@ -7,7 +7,7 @@ import { prepAuth } from "@webhare/auth/src/support";
 import { defaultDateTime } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
 import { WRDSchema } from "@webhare/wrd";
-import { doLoginHeaders } from "./authservice";
+import { doLoginHeaders, mapLoginError } from "./authservice";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -68,7 +68,10 @@ export async function login(originUrl: string, username: string, password: strin
   });
 
   if (response.loggedIn === false)
-    return response;
+    if ("code" in response)
+      return { ...response, error: mapLoginError(response.code, lang) };
+    else
+      return response;
 
   return {
     loggedIn: true,

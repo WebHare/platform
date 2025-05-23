@@ -162,7 +162,7 @@ function failLogin(message: string, response: { code: string; data: string }, fo
     //TODO depending on error we may need to change a different field?
     const loginfield = dompack.qR<HTMLInputElement>(form, "input[name=password]");
     loginfield.setCustomValidity(message);
-    loginfield.reportValidity();
+    // loginfield.reportValidity(); //this actually blocks wh-form error handling from showing the error in-page when so desired
     loginfield.focus();
   }
 }
@@ -178,6 +178,10 @@ function getLoginTweaks(): LoginTweaks {
   const urlvars = new URL(location.href);
   if (urlvars.searchParams.has("wrdauth_limit_expiry"))
     tweaks.limitExpiry = parseInt(urlvars.searchParams.get("wrdauth_limit_expiry") || '0') || undefined;
+
+  const lang = document.documentElement.getAttribute("lang");
+  if (lang)
+    tweaks.lang = lang;
 
   return tweaks;
 }

@@ -174,7 +174,7 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
   }
 
   return {
-    success: true as const,
+    success: true
   };
 }
 

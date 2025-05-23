@@ -262,7 +262,6 @@ export type FrontendAuthResult = {
   navigateTo: NavigateInstruction;
 } | {
   loggedIn: false;
-  error: string;
   code: LoginErrorCodes;
 };
 
@@ -1059,7 +1058,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (!userid || !userInfo?.password) {
       return {
         loggedIn: false,
-        error: "Unknown username or password",
         code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
       }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
     }
@@ -1101,7 +1099,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     //TODO we should probably use the same token for the login page as well
     if (authsettings.hasAccountStatus) {
       if (userInfo?.wrdauthAccountStatus?.status !== "active")
-        return { loggedIn: false, code: "account-disabled", error: "Account is disabled" };
+        return { loggedIn: false, code: "account-disabled" };
     }
 
     if (customizer?.isAllowedToLogin) {
@@ -1111,7 +1109,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
       const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
       if (result)
-        return { loggedIn: false, ...result };
+        return { loggedIn: false, code: result.code }; //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
     }
 
     const prepOptions: AuthTokenOptions = { customizer, persistent: options?.persistent };

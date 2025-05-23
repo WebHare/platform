@@ -10,6 +10,18 @@
       <text tid="zip">Zip code</text>
     </textgroup>
   </textgroup>
+  <textgroup gid="frontend">   <!-- frontend -->
+    <textgroup gid="worldwide">   <!-- frontend.worldwide -->
+      <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
+        <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
+          <text tid="account-disabled">Account is disabled</text>
+          <text tid="incorrectlogin-email">The combination of email address and password is incorrect</text>
+          <text tid="incorrectlogin-username">The combination of username and password is incorrect</text>
+          <text tid="internal-error">An internal error occured, please try later</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
   <textgroup gid="module" limitlanguages="en nl">   <!-- module -->
     <textgroup gid="rights">   <!-- module.rights -->
       <text tid="api">WebHare API access</text>

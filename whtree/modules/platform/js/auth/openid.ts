@@ -5,16 +5,27 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { WRDSchema } from "@webhare/wrd";
 import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL } from "@webhare/std";
-import { IdentityProvider, type FrontendAuthResult } from "@webhare/auth/src/identity";
+import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
 import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/wrd/src/authfrontend";
+import type { LoginIncompleteCodes } from "@webhare/auth/src/customizer";
+import type { NavigateInstruction } from "@webhare/env";
 
-export type FrontendLoginResult = Omit<FrontendAuthResult, "setAuth">;
+export type FrontendLoginResult = {
+  loggedIn: true;
+} | {
+  loggedIn: false;
+  navigateTo: NavigateInstruction;
+} | {
+  loggedIn: false;
+  code: LoginErrorCodes;
+  error: string;
+};
 
 export type FrontendLogoutResult = { success: true } | {
   error: string;
-  code: LoginErrorCodes;
+  code: LoginErrorCodes | LoginIncompleteCodes;
 };
 
 async function findLoginPageForSchema(schema: string) {

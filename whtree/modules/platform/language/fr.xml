@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="fr" fallbacklanguage="en">
+  <textgroup gid="frontend">   <!-- frontend -->
+    <textgroup gid="worldwide">   <!-- frontend.worldwide -->
+      <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
+        <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
+          <text tid="incorrectlogin-email">La combinaison de l'adresse e-mail et le mot de passe est incorrecte.</text>
+          <text tid="incorrectlogin-username">La combinaison du nom d'utilisateur et du mot de passe est incorrecte</text>
+        </textgroup>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>

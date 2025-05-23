@@ -456,8 +456,8 @@ async function testAuthAPI() {
   test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
   //Test the frontend login
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
 
   const customizerUserInfo: AuthCustomizer = {
@@ -475,7 +475,7 @@ async function testAuthAPI() {
       return { error: "We do not like " + wrdContactEmail, code: "account-disabled" };
     }
   };
-  test.eq({ loggedIn: false, error: /We do not like jonshow@beta.webhare.net/, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", blockUser));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", blockUser));
 
   //Test the frontend login with customizer setting up multisite support
   const multisiteCustomizer: AuthCustomizer = {
@@ -486,9 +486,9 @@ async function testAuthAPI() {
     }
   };
 
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, error: /Unknown username/, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
   test.eqPartial({
     loggedIn: true,
     accessToken: /^[^.]+\.[^.]+\....*$/,
@@ -580,7 +580,7 @@ async function testAuthStatus() {
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
-  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //Remove authstatus field
   await whdb.beginWork();
@@ -609,7 +609,7 @@ async function testAuthStatus() {
   await whdb.commitWork();
 
   const provider_3 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
-  test.eq({ loggedIn: false, error: /Account is disabled/, code: "account-disabled" }, await provider_3.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider_3.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
