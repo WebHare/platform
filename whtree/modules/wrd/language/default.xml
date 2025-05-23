@@ -891,6 +891,7 @@
         <text tid="incorrectlogin-email">The combination of email address and password is incorrect</text>
         <text tid="incorrectlogin-username">The combination of username and password is incorrect</text>
         <text tid="incorrectpassword">The password you entered is incorrect</text>
+        <text tid="invalidverifier">The verification code is invalid</text>
         <text tid="linkexpired">The link you followed has expired</text>
         <text tid="linkexpired-title">Link expired</text>
         <text tid="login-button">Login</text>
@@ -924,6 +925,7 @@
         <text tid="totpsetup-save-backupcodes">These backup codes can be used if you cannot use your authenticator app. Please save them somewhere secure.</text>
         <text tid="totpsetup-showsecretkey">Show secret key</text>
         <text tid="username">Username</text>
+        <text tid="verifier">Verifier</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We cannot complete your request, as the new email address is already in use by another account.</text>
           <text tid="followlink">Click <html:a data-href-param="1">this link</html:a> to confirm your email address.</text>

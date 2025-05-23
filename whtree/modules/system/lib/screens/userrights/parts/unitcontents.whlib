@@ -535,8 +535,7 @@ PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
     OBJECT targetuser := this->contexts->userapi->GetUser(data.user);
     STRING resetpage := authplugin->__GetLoginPageURL() ?? this->contexts->controller->baseurl;
     RECORD resetlink := authplugin->CreatePasswordResetLink(resetpage, data.user, [ routerpage := "resetpassword"
-                                                                                  , verifierstart := "VC"
-                                                                                  , logdata := CELL[ data.resettype ]
+                                                                                  , verifierstart := data.resettype = "directresetlink" ? "" : "VC"
                                                                                   ]);
 
     // Bake the user language into the reset link, so it opens in the language of the user
@@ -544,6 +543,7 @@ PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
     ^resetlink->value := UpdateURLVariables(link, CELL[ targetuser->language ]);
 
     ^resetcode->visible := data.resettype = "codedresetlink";
-    ^resetcode->value := resetlink.verifier;
+    IF(data.resettype = "codedresetlink")
+      ^resetcode->value := resetlink.verifier;
   }
 >;

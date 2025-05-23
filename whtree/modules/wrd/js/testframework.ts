@@ -2,7 +2,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import { throwError } from "@webhare/std";
 
 ///run forgot password sequence and navigate through the reset procedure
-export function testResetPassword(options: { email: string; newpassword: string }) {
+export function testResetPassword(options: { email: string; newpassword: string; verifier?: string }) {
   return [
     `Start password reset for ${options.email}`,
     async function () {
@@ -22,7 +22,7 @@ export function testResetPassword(options: { email: string; newpassword: string 
     },
     'Set my new password',
     async function () {
-      await runPasswordSetForm(options.email, options.newpassword);
+      await runPasswordSetForm(options.email, options.newpassword, { verifier: options.verifier || '' });
     }
   ];
 }
@@ -39,18 +39,29 @@ export async function runLogin(login: string, pwd: string) {
   await test.wait("load");
 }
 
-export async function tryPasswordSetForm(login: string, pwd: string) {
+export async function tryPasswordSetForm(login: string, pwd: string, { verifier = "" } = {}) {
   test.eq(login, (await test.waitForElement(".wh-wrdauth-form [name=login]")).value);
   test.fill(".wh-wrdauth-form [name=passwordnew]", pwd);
   test.fill(".wh-wrdauth-form [name=passwordrepeat]", pwd);
+  if (verifier)
+    test.fill(".wh-wrdauth-form [name=verifier]", verifier);
+  else
+    test.assert(!test.qS(".wh-wrdauth-form [name=verifier]"), "Verifier field should not be present");
+
   test.click(await test.waitForElement(".wh-wrdauth-form button[type=submit]"));
   await test.wait('ui');
 }
 
-export async function runPasswordSetForm(login: string, pwd: string) {
-  await tryPasswordSetForm(login, pwd);
+export async function runPasswordSetForm(login: string, pwd: string, { verifier = "" } = {}) {
+  await tryPasswordSetForm(login, pwd, { verifier });
 
   test.eq(/password has been updated/, test.qR(".wh-form__page--visible").textContent);
   test.click(await test.waitForElement([".wh-form__page[data-wh-form-pagerole=thankyou]", 0, "a[href], button"]) ?? throwError("Login/continue button not found"));
   await test.wait('load');
+}
+
+export async function forceLogout() {
+  test.wrdAuthLogout();
+  await test.wait("load");
+  await test.wait("ui-nocheck");
 }

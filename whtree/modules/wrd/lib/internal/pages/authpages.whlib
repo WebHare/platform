@@ -20,6 +20,27 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 
+RECORD FUNCTION GetIncompleteAccountSessionData() {
+  /* identity.ts:
+  "platform:incomplete-account": {
+      user: number;
+      returnTo: string;
+      failedchecks: string[];
+      badPasswordTime: Temporal.Instant | null;
+    };
+  }*/
+
+  RECORD session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+  IF(NOT RecordExists(session))
+    RETURN DEFAULT RECORD;
+
+  RETURN EnforceStructure(CELL[
+    user := 0,
+    returnto := "",
+    failedchecks := STRING[],
+    badpasswordtime := DEFAULT DATETIME
+  ], session);
+}
 
 MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
 {
@@ -84,7 +105,7 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
       ^login->autocomplete := ["email"];
       this->loginemail := TRUE;
     }
-    
+
     RECORD ARRAY authpages_texts := GetWRDSetting(wrdschema, "authpages_texts");
     RECORD introtext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "login-intro" AND language = this->formlanguagecode;
     IF (RecordExists(introtext))
@@ -173,7 +194,7 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
               <p class="normal">${GetTid("wrd:site.forms.authpages.totp-intro")}</p>`)
           ];
   }
-  
+
   UPDATE PUBLIC MACRO PrepareForFrontend() {
     ^token->value := GetWebVariable("token"); //insert the POST variable, formapi's variable-based prefilling is client side so it can't use POST content
     FormBase::PrepareForFrontend();
@@ -255,7 +276,7 @@ PUBLIC OBJECTTYPE ForgotPasswordForm EXTEND Formbase
               <p class="normal">${GetTid("wrd:site.forms.authpages.forgotpassword-processed")}</p>`)
           ];
   }
-  
+
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
     OBJECT work := this->BeginWork([database := FALSE]);
@@ -307,11 +328,19 @@ STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase <
 PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
   PUBLIC RECORD verifyresult;
 
-  MACRO NEW() {
-    this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
-    ^login->value := this->wrdschema->accounttype->GetEntityField(this->verifyresult.entityid, this->wrdschema->accountlogintag);
+  UPDATE PUBLIC MACRO PrepareForFrontend() {
+    PasswordFormBase::PrepareForFrontend();
+
+    OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
+    // checkResetPassword(schemaTag: string, tok: string, verifier: string, skipVerifierCheck: boolean)
+    this->verifyresult := CallJS("@mod-platform/js/auth/harescript.ts#checkResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), "", TRUE);
+    IF(this->verifyresult.result = "ok")
+      ^login->value := this->verifyresult.login;
+
+    ^verifier->visible := this->verifyresult.needsverifier;
+    ^verifier->required := ^verifier->visible;
   }
-  
+
   PUBLIC MACRO SetAction(STRING action) {
     OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
     RECORD ARRAY authpages_texts := GetWRDSetting(wrdschema, "authpages_texts");
@@ -338,20 +367,23 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
     INSERT `wh-wrdauth-${action}__done` INTO ^intro->groupclasses AT END;
   }
 
-  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
-  {
-    OBJECT work := this->BeginWork();
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
+    OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
+    OBJECT work := this->BeginWork( [ database := FALSE ] );
 
     IF(^passwordnew->value != ^passwordrepeat->value) //mark the 2nd password as failed immediately
       work->AddErrorFor(^passwordrepeat, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
 
-    //We'll still check your new password though as it's nicer to dismiss it immediately if unusable, and not after repeating it right
-    RECORD updateres := this->formcontext->GetWRDAuthPlugin()->ExecutePasswordReset(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"), ^passwordnew->value, [ dryrun := work->HasFailed() ]);
-    IF(NOT updateres.success)
-      work->AddErrorFor(^passwordnew, updateres.message);
+    RECORD setresult := CallJS("@mod-platform/js/auth/harescript.ts#doResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), ^verifier->value, ^passwordnew->value);
+    IF(CellExists(setresult, "verifyFailed")) {
+      work->AddErrorFor(^verifier, GetTid("wrd:site.forms.authpages.invalidverifier"));
+    }
+    IF(CellExists(setresult, "updateFailed")) {
+      work->AddErrorFor(^passwordnew, setresult.updatefailed.message);
+    }
 
     IF(work->Finish())
-      this->formcontext->GetWRDAuthPlugin()->LoginById(this->verifyresult.entityid, FALSE);
+      this->formcontext->GetWRDAuthPlugin()->LoginById(setresult.entityid, FALSE);
 
     RETURN DEFAULT RECORD;
   }
@@ -362,19 +394,23 @@ PUBLIC OBJECT FUNCTION GetResetPasswordPage(OBJECT webdesign, STRING action, REC
   OBJECT loginform := webdesign->OpenForm("wrd:authpages#resetpassword");
   loginform->SetAction(action);
   webdesign->isstandardcontentpage := TRUE;
-  webdesign->pagetitle := action = "setpassword" ? GetTid("wrd:site.forms.authpages.setpassword-title")
+  webdesign->pagetitle := loginform->verifyresult.issetpassword
+                                                 ? GetTid("wrd:site.forms.authpages.setpassword-title")
                                                  : GetTid("wrd:site.forms.authpages.resetpassword-title");
 
   RECORD wittyvars := CELL[ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
                           ];
-  IF(NOT loginform->verifyresult.success) {
+  IF(loginform->verifyresult.result IN ["expired","alreadychanged"]) {
     INSERT CELL intro_render := RenderLinkExpiredText(webdesign) INTO wittyvars;
     RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "linkexpired", wittyvars));
   }
 
+  IF(webdesign->GetWRDAuthPlugin()->IsLoggedIn())
+    Redirect(loginform->verifyresult.returnto);
+
   wittyvars := CELL[ ...wittyvars
                    , form := loginform->GetWittyData()
-                   , continuelink := GetWRDPagesCleanURL()
+                   , continuelink := loginform->verifyresult.returnto
                    ];
 
   RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, action, wittyvars));
@@ -400,7 +436,7 @@ PUBLIC OBJECTTYPE EmailChangeForm EXTEND Formbase
               `<h2 class="heading2">${GetTid("wrd:site.forms.authpages.emailchange-title")}</h2>
               <p class="normal">${GetTid("wrd:site.forms.authpages.emailchange-intro")}</p>`)
           ];
-    
+
     RECORD donetext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "emailchange-done" AND language = this->formlanguagecode;
     IF (RecordExists(donetext))
       ^done->richvalue := donetext;
@@ -509,7 +545,7 @@ PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
 PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase <
   MACRO NEW() {
     ^login->value := this->wrdschema->accounttype->GetEntityField(this->formcontext->GetWRDAuthPlugin()->GetLoggedinEntity(), this->wrdschema->accountlogintag);
-    
+
     OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
     RECORD ARRAY authpages_texts := GetWRDSetting(wrdschema, "authpages_texts");
     RECORD introtext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "passwordchange-intro" AND language = this->formlanguagecode;
@@ -521,7 +557,7 @@ PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase <
               `<h2 class="heading2">${GetTid("wrd:site.forms.authpages.passwordchange-title")}</h2>
               <p class="normal">${GetTid("wrd:site.forms.authpages.passwordchange-intro")}</p>`)
           ];
-    
+
     RECORD donetext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "passwordchange-done" AND language = this->formlanguagecode;
     IF (RecordExists(donetext))
       ^done->richvalue := donetext;
@@ -576,7 +612,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
   PUBLIC RECORD session;
 
   MACRO NEW() {
-    this->session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+    this->session := GetIncompleteAccountSessionData();
     IF(NOT RecordExists(this->session))
       THROW NEW Exception("Session not found"); //FIXME redirect away or refresh the form and let upper error handlers deal with this
 
@@ -584,7 +620,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
     IF(wrdschema->accountemailtag = wrdschema->accountlogintag)
       ^login->title := GetTid("wrd:site.forms.authpages.email");
     ^login->value := wrdschema->accounttype->GetEntityField(this->session.user, wrdschema->accountlogintag);
-    
+
     RECORD ARRAY authpages_texts := GetWRDSetting(wrdschema, "authpages_texts");
     RECORD introtext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "completeaccount-intro" AND language = this->formlanguagecode;
     IF (RecordExists(introtext))
@@ -593,7 +629,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
       ^intro->richvalue :=
           [ htmltext := StringToBlob(`<h2 class="heading2">${GetTid("wrd:site.forms.authpages.completeaccount-title")}</h2>`)
           ];
-    
+
     RECORD donetext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "passwordchange-done" AND language = this->formlanguagecode;
     IF (RecordExists(donetext))
       ^done->richvalue := donetext;
@@ -635,7 +671,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
   PUBLIC RECORD session;
 
   MACRO NEW() {
-    this->session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+    this->session := GetIncompleteAccountSessionData();
     IF(NOT RecordExists(this->session))
       THROW NEW Exception("Session not found"); //FIXME redirect away or refresh the form and let upper error handlers deal with this
 
@@ -697,7 +733,7 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
 
 PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) {
   //FIXME dupe work, forms do this too
-  RECORD session := GetWebSessionData(GetFormWebVariable("token"), "platform:incomplete-account");
+  RECORD session := GetIncompleteAccountSessionData();
   BOOLEAN require2fa := "require2fa" IN session.failedchecks;
   STRING ARRAY failedpwdchecks := ArrayDelete(session.failedchecks,["require2fa"]);
 

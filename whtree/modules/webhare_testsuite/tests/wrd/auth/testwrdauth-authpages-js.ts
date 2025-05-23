@@ -5,6 +5,7 @@ import { rpc } from "@webhare/rpc";
 import { generateRandomId } from "@webhare/std";
 
 const newPasswordAfterHIBP = generateRandomId();
+const baseurl = test.getTestSiteRoot() + "testpages/wrdauthtest-router/";
 
 test.runTests(
   [
@@ -15,7 +16,7 @@ test.runTests(
 
     "Simple login",
     async function () {
-      await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
+      await test.load(baseurl);
 
       test.eq('', test.qR('[name="login"]').value);
       await testwrd.tryLogin('pietje-authpages-js@beta.webhare.net', 'fout');
@@ -31,7 +32,7 @@ test.runTests(
 
     ...testwrd.testResetPassword({
       email: 'pietje-authpages-js@beta.webhare.net',
-      newpassword: 'mylittlesecret$'
+      newpassword: 'mybigsecret$'
     }),
 
     'After login stuff',
@@ -39,6 +40,21 @@ test.runTests(
       test.assert(test.qR('#isloggedin').checked);
       test.assert(!test.qS('#emailchangelink')); //should not be available unless enabled
       test.assert(!test.qS('#passwordchangelink')); //should not be available unless enabled
+    },
+
+    "Start forgot password with separate code sequence",
+    async function () {
+      await testwrd.forceLogout();
+
+      const resetWithVerifier = await rpc("webhare_testsuite:authtestsupport").prepResetPassword(baseurl, { codePrefix: "V-" });
+      await test.load(resetWithVerifier.link);
+
+      await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'A', { verifier: "wrong" });
+      test.assert(test.qR("#resetpassword-verifier").classList.contains("wh-form__field--error"), "verifier SHOULD be marked as error");
+      await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'A', { verifier: resetWithVerifier.verifier! });
+      test.assert(!test.qR("#resetpassword-verifier").classList.contains("wh-form__field--error"), "verifier should NOT be marked as error");
+      test.assert(test.qR("#resetpassword-passwordnew").classList.contains("wh-form__field--error"), "password SHOULD be marked as error");
+      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'mylittlesecret$', { verifier: resetWithVerifier.verifier! });
     },
 
     "Change password",
@@ -50,7 +66,7 @@ test.runTests(
       await test.load(test.qR<HTMLAnchorElement>('#passwordchangelink').href);
 
       test.eq("pietje-authpages-js@beta.webhare.net", test.qR("#passwordchange-login").value);
-      test.fill('#passwordchange-currentpassword', 'secret');
+      test.fill('#passwordchange-currentpassword', 'secret$');
       test.fill('#passwordchange-passwordnew', 'secret2');
       test.fill('#passwordchange-passwordrepeat', 'secret2');
 

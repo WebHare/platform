@@ -28,6 +28,7 @@
     <page>
       <richtext name="intro" title="" />
       <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
+      <textedit name="verifier" tid=".verifier" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
       <richtext name="done" title="" />

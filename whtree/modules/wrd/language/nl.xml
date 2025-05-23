@@ -891,6 +891,7 @@
         <text tid="incorrectlogin-email">De combinatie van emailadres en gebruikersnaam is niet geldig</text>
         <text tid="incorrectlogin-username">De combinatie van gebruikersnaam en wachtwoord is niet geldig</text>
         <text tid="incorrectpassword">Het opgegeven wachtwoord is niet correct</text>
+        <text tid="invalidverifier">De verificatie code is niet correct</text>
         <text tid="linkexpired">De gevolgde link is verlopen</text>
         <text tid="linkexpired-title">Link verlopen</text>
         <text tid="login-button">Inloggen</text>
@@ -924,6 +925,7 @@
         <text tid="totpsetup-save-backupcodes">Deze backupcodes kunnen worden gebruikt om in te loggen als je je authenticator-app niet kunt gebruiken. Bewaar ze backupcodes op een veilige plaats.</text>
         <text tid="totpsetup-showsecretkey">Toon geheime sleutel</text>
         <text tid="username">Gebruikersnaam</text>
+        <text tid="verifier">Verificatiecode</text>
         <textgroup gid="emailchangemail">   <!-- site.forms.authpages.emailchangemail -->
           <text tid="emailinuse">We kunnen uw verzoek niet uitvoeren, omdat dit e-mail adres al in gebruik is door een ander account.</text>
           <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om uw e-mail adres te bevestigen.</text>

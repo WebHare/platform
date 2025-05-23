@@ -779,26 +779,7 @@ PUBLIC MACRO UpdateAuditContext(RECORD auditcontext)
       ]);
 }
 
-/** Log an audit event caused by a specific WebHare user
-    @param logsource Source or call of the error message
-    @param auditcontext Authentication context
-    @cell(string) auditcontext.type Event type
-    @cell(string) auditcontext.remoteip Remote IP (automatically filled within webserver requests)
-    @cell(string) auditcontext.country Country code (automatically determined from remoteip if not set)
-    @cell(string) auditcontext.browsertriplet Browser triplet
-    @cell(integer) auditcontext.impersonator_entityid Impersonator WRD entity id
-    @cell(string) auditcontext.impersonator_login Impersonator login name
-    @cell(integer) auditcontext.user_entityid User WRD entity id
-    @cell(integer) auditcontext.user_authobject User authobject id
-    @cell(string) auditcontext.user_login User login name
-    @cell(integer) auditcontext.affecteduser_entityid Affected user entity id
-    @cell(string) auditcontext.affecteduser_login Affected user login
-    @param data Event data
-    @return Written data
-    @cell return.auditcontext Final audit context @includecelldef #LogAuditEventBy.auditcontext
-*/
-PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RECORD data)
-{
+PUBLIC RECORD FUNCTION GetEnrichedAuditContext(RECORD auditcontext DEFAULTSTO DEFAULT RECORD) {
   RECORD curuser;
 
   IF (ObjectExists(effectiveuser))
@@ -856,6 +837,31 @@ PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RE
     auditcontext.impersonator_entityid := auditcontext.user_entityid;
     auditcontext.impersonator_login := auditcontext.user_login;
   }
+
+  RETURN auditcontext;
+}
+
+
+/** Log an audit event caused by a specific WebHare user
+    @param logsource Source or call of the error message
+    @param auditcontext Authentication context
+    @cell(string) auditcontext.type Event type
+    @cell(string) auditcontext.remoteip Remote IP (automatically filled within webserver requests)
+    @cell(string) auditcontext.country Country code (automatically determined from remoteip if not set)
+    @cell(string) auditcontext.browsertriplet Browser triplet
+    @cell(integer) auditcontext.impersonator_entityid Impersonator WRD entity id
+    @cell(string) auditcontext.impersonator_login Impersonator login name
+    @cell(integer) auditcontext.user_entityid User WRD entity id
+    @cell(integer) auditcontext.user_authobject User authobject id
+    @cell(string) auditcontext.user_login User login name
+    @cell(integer) auditcontext.affecteduser_entityid Affected user entity id
+    @cell(string) auditcontext.affecteduser_login Affected user login
+    @param data Event data
+    @return Written data
+    @cell return.auditcontext Final audit context @includecelldef #LogAuditEventBy.auditcontext
+*/
+PUBLIC RECORD FUNCTION LogAuditEventBy(STRING logsource, RECORD auditcontext, RECORD data) {
+  auditcontext := GetEnrichedAuditContext(auditcontext);
 
   STRING encodeddata := EncodeJSON(data);
   IF(Length(encodeddata)>63*1024) //TODO verify what our new TS logging protocols actually want/support ?
