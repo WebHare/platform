@@ -15,7 +15,7 @@
       <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
         <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
           <text tid="incorrectlogin-email">Die Kombination aus Emailadresse und Passwort ist falsch</text>
-          <text tid="incorrectlogin-username">Die Kombination aus Emailadresse und Passwort ist falsch</text>
+          <text tid="incorrectlogin-username">Die Kombination aus Benutzername und Passwort ist falsch</text>
         </textgroup>
       </textgroup>
     </textgroup>
