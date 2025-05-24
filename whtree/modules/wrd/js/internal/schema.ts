@@ -545,6 +545,20 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
     return this as unknown as WRDSchema<CombineSchemas<S, T>>;
   }
+
+  async getEventMasks(type: keyof S & string | Array<keyof S & string>): Promise<string[]> {
+    type = Array.isArray(type) ? type : [type];
+    const schemadata = await this.__ensureSchemaData();
+    const retval = new Set<string>([`wrd:schema.${schemadata.schema.id}.change`]);
+    for (const tag of type) {
+      const typeRec = schemadata.typeTagMap.get(tag);
+      if (!typeRec)
+        throw new Error(`No such type ${JSON.stringify(tag)}`);
+      for (const childId of typeRec.childTypeIds)
+        retval.add(`wrd:type.${childId}.change`);
+    }
+    return Array.from(retval).sort();
+  }
 }
 
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
@@ -867,8 +881,15 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async getEventMasks(): Promise<string[]> {
-    const type = await this._getType();
-    return (await type.GetEventMasks() as string[]).sort();
+    const schemadata = await this.schema.__ensureSchemaData();
+    const typeRec = schemadata.typeTagMap.get(this.tag);
+    if (!typeRec)
+      throw new Error(`No such type ${JSON.stringify(this.tag)}`);
+
+    return [
+      `wrd:schema.${typeRec.schemaId}.change`,
+      ...typeRec.childTypeIds.map(id => `wrd:type.${id}.change`),
+    ].sort();
   }
 
   /** Get the name to us in error messages */
