@@ -4,12 +4,13 @@ import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhar
 import { importJSObject } from "@webhare/services";
 import { pick, stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
-import type { AuthCustomizer } from "@webhare/auth";
+import type { AuthCustomizer, LoginErrorCodes } from "@webhare/auth";
 import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
 import type { FrontendLoginResult } from "./openid";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 import { prepAuth } from "@webhare/auth/src/support";
+import { getTid } from "@webhare/gettid";
 
 export function doPublicAuthDataCookie(cookieName: string, cookieSettings: ServersideCookieOptions, authData: PublicAuthData, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
@@ -52,12 +53,29 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
   hdrs.set("pragma", "no-cache");
 }
 
+export function mapLoginError(code: LoginErrorCodes, langCode?: string): string {
+  langCode ||= "en";
+  switch (code) {
+    case "incorrect-email-password":
+      return getTid("platform:frontend.worldwide.auth.login.incorrectlogin-email", { langCode });
+    case "incorrect-login-password":
+      return getTid("platform:frontend.worldwide.auth.login.incorrectlogin-username", { langCode });
+    case "account-disabled":
+      return getTid("platform:frontend.worldwide.auth.login.account-disabled", { langCode });
+    case "internal-error":
+      return getTid("platform:frontend.worldwide.auth.login.internal-error", { langCode });
+    default:
+      code satisfies never; //if this triggers an error add the missing codes
+      return code;
+  }
+}
+
 export const authService = {
   async login(context: RPCContext, username: string, password: string, cookieName: string, options?: LoginRemoteOptions): Promise<FrontendLoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
     const prepped = await prepAuth(originUrl, cookieName);
     if ("error" in prepped)
-      throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
+      throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for login: " + prepped.error);
 
     const { settings } = prepped;
     const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
@@ -68,10 +86,16 @@ export const authService = {
       ...pick({ ...options }, ["persistent", "site", "limitExpiry"]),
       returnTo: options?.returnTo || originUrl
     });
-    if (response.loggedIn === false)
-      return { loggedIn: false, code: response.code, error: response.error, token: response.token };
 
-    doLoginHeaders(response.setAuth, context.responseHeaders);
+    if (response.loggedIn === false)
+      if ("code" in response)
+        return { ...response, error: mapLoginError(response.code, options?.lang) };
+      else
+        return response;
+
+    if ("setAuth" in response)
+      doLoginHeaders(response.setAuth, context.responseHeaders);
+
     return { loggedIn: true };
   },
 

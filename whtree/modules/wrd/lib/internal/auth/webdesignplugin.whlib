@@ -324,21 +324,24 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   /** Handles a return to an original page
       @param logincontroltoken Contents of `wrdauth_logincontrol` webvariable
   */
-  PUBLIC MACRO ProcessReturnTo(STRING logincontroltoken)
-  {
+  PUBLIC MACRO ProcessReturnTo(STRING logincontroltoken) {
     IF (this->HasFailed() OR NOT this->IsLoggedIn())
       RETURN;
 
+    RECORD instr := this->__DoProcessControlToken(logincontroltoken);
+    IF(RecordExists(instr))
+      ExecuteSubmitInstruction(instr);
+   }
+
+  PUBLIC RECORD FUNCTION __DoProcessControlToken(STRING logincontroltoken) { //split off so we can invoke it witouht checks
     RECORD logincontrol := this->__DecryptLoginControlToken(logincontroltoken);
 
     // External login requires a login box, so no redirects
     // Only prompt modes "" and "none" allow immediate backredirection
     IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none" ])
-      RETURN;
+      RETURN DEFAULT RECORD;
 
-    RECORD submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
-    IF (RecordExists(submitinstruction))
-      ExecuteSubmitInstruction(submitinstruction);
+    RETURN this->__HandleAfterLogin(logincontrol, "wrdauth");
   }
 
   /** Prepares this plugin for rendering
@@ -655,6 +658,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   {
     this->CheckNotFailed();
     RETURN this->__GetWRDAuthIntegration()->GetLoggedinEntity();
+  }
+
+  PUBLIC MACRO __SetLoggedinEntity(INTEGER entityid) {
+    this->CheckNotFailed();
+    this->__GetWRDAuthIntegration()->SetLoggedinEntity(entityid);
   }
 
   /** Verify the specified password for the current user

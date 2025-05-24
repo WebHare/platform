@@ -11,6 +11,7 @@ import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
 import { navigateTo } from '@webhare/env';
+import { isHTMLElement } from '@webhare/dompack';
 
 let defaultauth: WRDAuthenticationProvider | null = null;
 
@@ -86,7 +87,7 @@ export class WRDAuthenticationProvider {
     location.replace(redirectto);
   }
 
-  setupLoginForm(form) {
+  setupLoginForm(form: HTMLFormElement) {
     if (!form)
       throw new Error("No such form");
 
@@ -94,11 +95,17 @@ export class WRDAuthenticationProvider {
     form.addEventListener("submit", evt => this._handleLoginForm(form, evt));
     form.addEventListener("click", evt => this._handleLoginClick(form, evt));
   }
-  _handleLoginClick(form, event) {
-    if (event.target.closest('.wh-wrdauth__loginbutton'))
+  _handleLoginClick(form: HTMLFormElement, event: MouseEvent) {
+    if (form.hasAttribute("data-wh-wrdauth-attached"))
+      return; //get out of the way - modern handlers are registered
+
+    if (isHTMLElement(event.target) && event.target.closest('.wh-wrdauth__loginbutton'))
       return this._handleLoginForm(form, event); //will stop the event too
   }
-  _handleLoginForm(form, event) {
+  _handleLoginForm(form: HTMLFormElement, event: Event) {
+    if (form.hasAttribute("data-wh-wrdauth-attached"))
+      return; //get out of the way - modern handlers are registered
+
     dompack.stop(event);
 
     const loginfield = form.querySelector('*[name="login"]');

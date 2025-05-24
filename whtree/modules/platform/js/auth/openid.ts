@@ -9,19 +9,23 @@ import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
 import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/wrd/src/authfrontend";
+import type { LoginIncompleteCodes } from "@webhare/auth/src/customizer";
+import type { NavigateInstruction } from "@webhare/env";
 
 export type FrontendLoginResult = {
   loggedIn: true;
 } | {
   loggedIn: false;
+  navigateTo: NavigateInstruction;
+} | {
+  loggedIn: false;
+  code: LoginErrorCodes;
   error: string;
-  code: LoginErrorCodes | "totp" | "incomplete-account";
-  token?: string;
 };
 
 export type FrontendLogoutResult = { success: true } | {
   error: string;
-  code: LoginErrorCodes;
+  code: LoginErrorCodes | LoginIncompleteCodes;
 };
 
 async function findLoginPageForSchema(schema: string) {

@@ -103,7 +103,11 @@ export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySch
 
 export type ReportedUserInfo = Record<string, unknown> & { error?: never };
 
+/** Login failure reasons that can also be used by custom isLoginDenied checks */
 export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password" | "account-disabled";
+
+/** Login reasons that require further client side work but are not errors per-se */
+export type LoginIncompleteCodes = "totp" | "incomplete-account";
 
 export type LoginDeniedInfo = {
   error: string;

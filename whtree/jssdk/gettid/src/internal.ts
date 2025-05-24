@@ -185,6 +185,9 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[]
 
 function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[], rich: boolean, render: GetTidRenderFunc | null): Array<string | object> {
   tid = getCanonicalTid(tid.toLowerCase());
+  if (langcode.match(/^[a-z]{2}-/)) //truncate country codes from language identifiers (eg en-GB) until we have actual support for those, so we don't break when en-GB is passed straight from eg. document.documentElement.lang
+    langcode = langcode.substring(0, 2);
+
   if (tid === "tollium:tilde.locale.datetimestrings") {
     return [getLanguageDatetimeStrings(langcode)];
   }

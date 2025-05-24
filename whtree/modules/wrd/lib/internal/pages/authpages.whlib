@@ -125,19 +125,30 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
       this->formcontext->GetWRDAuthPlugin()->ProcessReturnTo(this->logincontrol);
   }
 
-  PUBLIC RECORD FUNCTION Submit(RECORD extradata)
-  {
-    OBJECT work := this->BeginWork([database := FALSE]);
+  PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := authplugin->Login(^login->value, ^password->value, CELL[ this->logincontrol ]);
-    IF(NOT result.success)
-      work->AddErrorFor(^password, this->loginemail ? GetTid("wrd:site.forms.authpages.incorrectlogin-email")
-                                                    : GetTid("wrd:site.forms.authpages.incorrectlogin-username"));
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage());
 
-    IF(NOT work->Finish())
-      RETURN DEFAULT RECORD;
+    IF(CellExists(result,'headers'))
+      FOREVERY(RECORD toset FROM result.headers)
+        AddHTTPHeader(toset.field, toset.value, toset.always_add);
 
-    RETURN CELL[ result.submitinstruction ];
+    IF(result.loggedin) { //we're probably getting a reload instruction here, but the TS code isn't handling logincontrol yet
+      authplugin->__SetLoggedinEntity(result.user);
+      IF(this->logincontrol != "") {
+        RECORD instr := authplugin->__DoProcessControlToken(this->logincontrol);
+        IF(RecordExists(instr))
+          RETURN [ submitinstruction := instr ];
+      }
+    }
+
+    iF(CellExists(result,'navigateto'))
+      RETURN [ submitinstruction := result.navigateto ];
+
+    OBJECT work := this->BeginWork([ database := FALSE]);
+    work->AddErrorFor(^password, result.error);
+    work->Finish();
+    RETURN DEFAULT RECORD;
   }
 >;
 

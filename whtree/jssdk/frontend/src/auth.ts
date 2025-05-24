@@ -6,7 +6,7 @@ import { rpc } from "@webhare/rpc/src/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
-import { getCompleteAccountNavigation, PublicCookieSuffix, type LoginTweaks } from "@webhare/auth/src/shared";
+import { PublicCookieSuffix, type LoginTweaks } from "@webhare/auth/src/shared";
 import { parseTyped } from "@webhare/std";
 import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
 
@@ -49,8 +49,11 @@ export type LoginResult = {
   loggedIn: false;
   /** Error message */
   error: string;
+} | {
+  /** Did we log in? */
+  loggedIn: false;
   /** Navigation instruction */
-  navigateTo?: NavigateInstruction;
+  navigateTo: NavigateInstruction;
 };
 
 /** Current authoptions. undefined if setupWRDAuth hasn't been invoked yet */
@@ -75,6 +78,8 @@ function getAuthLocalData(): PublicAuthData | null {
 }
 
 async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
+  if (node.propWhFormhandler)
+    return; //already handled by publisher forms so we'll defer to that
   dompack.stop(event);
 
   const username = (node.elements.namedItem("login") as HTMLInputElement)?.value;
@@ -97,13 +102,11 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
       console.log("Reloading to process the new loggedIn status");
       navigateTo({ type: "reload" });
     }
-  } else {
-    if (loginresult.navigateTo) {
-      console.log("Login incomplete, redirecting to", loginresult.navigateTo);
-      navigateTo(loginresult.navigateTo);
-    } else
-      failLogin(loginresult.error, { code: "unknown", data: "" }, node); //FIXME restore the code & data members from old wrdauth
-  }
+  } else if ("navigateTo" in loginresult) {
+    console.log("Login incomplete, redirecting to", loginresult.navigateTo);
+    navigateTo(loginresult.navigateTo);
+  } else
+    failLogin(loginresult.error, { code: "unknown", data: "" }, node); //FIXME restore the code & data members from old wrdauth
 }
 
 function refreshLoginStatus() {
@@ -127,7 +130,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
 
   dompack.register<HTMLFormElement>('form.wh-wrdauth__loginform,form.wh-wrdauth-login__form', node => {
     node.setAttribute("data-wh-wrdauth-attached", "");
-    dompack.addDocEventListener(node, "submit", evt => submitLoginForm(node, evt), { capture: node.classList.contains("wh-wrdauth-login__form") }); //we need to intercept FormBase which would otherwise handle this form too, so capture
+    dompack.addDocEventListener(node, "submit", evt => submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
     async function handleLogoutClick(event: Event) {
@@ -159,7 +162,7 @@ function failLogin(message: string, response: { code: string; data: string }, fo
     //TODO depending on error we may need to change a different field?
     const loginfield = dompack.qR<HTMLInputElement>(form, "input[name=password]");
     loginfield.setCustomValidity(message);
-    loginfield.reportValidity();
+    // loginfield.reportValidity(); //this actually blocks wh-form error handling from showing the error in-page when so desired
     loginfield.focus();
   }
 }
@@ -176,6 +179,10 @@ function getLoginTweaks(): LoginTweaks {
   if (urlvars.searchParams.has("wrdauth_limit_expiry"))
     tweaks.limitExpiry = parseInt(urlvars.searchParams.get("wrdauth_limit_expiry") || '0') || undefined;
 
+  const lang = document.documentElement.getAttribute("lang");
+  if (lang)
+    tweaks.lang = lang;
+
   return tweaks;
 }
 
@@ -186,35 +193,10 @@ export async function login(username: string, password: string, options: LoginOp
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
 
   const result = await rpc("platform:authservice").login(username, password, cookieName, { ...options, ...getLoginTweaks() });
-  if (!result.loggedIn) {
-    if (result.code === "totp") {
-      return { //redirect to authpages to complete the account
-        loggedIn: false,
-        error: result.error, //this is a generic message about incomplete accounts
-        navigateTo: {
-          type: "form",
-          form: {
-            action: location.origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(location.pathname.substring(1)),
-            vars: [{ name: "token", value: result.token || '' }]
-          },
-        },
-      };
-    }
-    if (result.code === "incomplete-account")
-      return { //redirect to authpages to complete the account
-        loggedIn: false,
-        error: result.error, //this is a generic message about incomplete accounts
-        navigateTo: getCompleteAccountNavigation(result.token!, location.pathname.substring(1))
-      };
-
-    return { loggedIn: false, error: result.error };
-  }
-
-  if (!getAuthLocalData())
+  if (result.loggedIn && !getAuthLocalData())
     throw new Error("Login succeeded but no auth data was set in the cookie");
 
-  //we've logged in!
-  return { loggedIn: true };
+  return result as LoginResult;
 }
 
 export async function logout() {
