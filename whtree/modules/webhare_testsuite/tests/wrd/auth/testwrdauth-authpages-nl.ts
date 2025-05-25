@@ -9,7 +9,7 @@ const baseurl = test.getTestSiteRoot() + "testpages/wrdauthtest-router-nl/";
 test.runTests(
   [
     async function () {
-      await prepareWRDAuthTest("authpages-js", { js: true, multisite: false });
+      await prepareWRDAuthTest("authpages-js", { js: true, multisite: false, passwordValidationChecks: ["minlength:3", "require2fa"] });
       // await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     },
 
@@ -30,12 +30,15 @@ test.runTests(
       await test.wait("pageload");
 
       test.eq(/Wachtwoord herstellink/, test.qR('.wh-form__page--visible h2').textContent);
-      await testwrd.runResetPassword({
+      await testwrd.openResetPassword({
         email: 'pietje-authpages-js@beta.webhare.net',
-        newpassword: 'mybigsecret$',
         expectLang: 'nl'
       });
 
+      await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', '$$');
+      test.eq(/3 tekens/, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
+
+      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', '$$$', { expectLang: "nl" });
     },
 
   ]);

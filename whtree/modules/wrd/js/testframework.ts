@@ -1,8 +1,7 @@
 import * as test from "@mod-system/js/wh/testframework";
 import { throwError } from "@webhare/std";
 
-///run forgot password sequence and navigate through the reset procedure
-export async function runResetPassword(options: { email: string; newpassword: string; verifier?: string; expectLang?: string }) {
+export async function openResetPassword(options: { email: string; verifier?: string; expectLang?: string }) {
   test.subtest(`Start password reset for ${options.email}`);
 
   test.fill(test.qR('.wh-wrdauth-forgotpassword input[name="email"]'), options.email);
@@ -18,7 +17,11 @@ export async function runResetPassword(options: { email: string; newpassword: st
   test.eq(true, Boolean(resetlink), "Didn't find a reset link");
   test.getWin().location.href = resetlink.href;
   await test.wait('load');
+}
 
+///run forgot password sequence and navigate through the reset procedure
+export async function runResetPassword(options: { email: string; newpassword: string; verifier?: string; expectLang?: string }) {
+  await openResetPassword(options);
   test.subtest('Set my new password');
   await runPasswordSetForm(options.email, options.newpassword, { verifier: options.verifier || '', expectLang: options.expectLang });
 }

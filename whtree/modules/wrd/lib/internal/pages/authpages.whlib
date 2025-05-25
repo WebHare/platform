@@ -344,7 +344,7 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
 
     OBJECT plugin := this->formcontext->GetWRDAuthPlugin();
     // checkResetPassword(schemaTag: string, tok: string, verifier: string, skipVerifierCheck: boolean)
-    this->verifyresult := CallJS("@mod-platform/js/auth/harescript.ts#checkResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), "", TRUE);
+    this->verifyresult := CallJS("@mod-platform/js/auth/harescript.ts#checkResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), "", TRUE, GetTidLanguage());
     IF(this->verifyresult.result = "ok")
       ^login->value := this->verifyresult.login;
 
@@ -385,7 +385,7 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
     IF(^passwordnew->value != ^passwordrepeat->value) //mark the 2nd password as failed immediately
       work->AddErrorFor(^passwordrepeat, GetTid("wrd:site.forms.authpages.passwordsmismatch"));
 
-    RECORD setresult := CallJS("@mod-platform/js/auth/harescript.ts#doResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), ^verifier->value, ^passwordnew->value);
+    RECORD setresult := CallJS("@mod-platform/js/auth/harescript.ts#doResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), ^verifier->value, ^passwordnew->value, GetTidLanguage());
     IF(CellExists(setresult, "verifyFailed")) {
       work->AddErrorFor(^verifier, GetTid("wrd:site.forms.authpages.invalidverifier"));
     }
