@@ -251,6 +251,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
   private didLegacyWarning = false;
   /** Are we currently in the _submit handler? (prevent duplicate submit attemps while eg. inside onBeforeSubmit) */
   private inSubmit = false;
+  /** Where should the exitButton navigate to? */
+  private exitButtonNavigateTo?: NavigateInstruction;
 
   readonly data = new Proxy<DataShape>({} as DataShape, new FieldMapDataProxy(this));
 
@@ -811,10 +813,16 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           }
           return;
         }
-      default:
-        {
-          console.error(`Unknown form action '${action}'`);
-        }
+      case 'exit': {
+        if (!this.exitButtonNavigateTo)
+          throw new Error("No exit navigation target set for this form");
+
+        navigateTo(this.exitButtonNavigateTo);
+        return;
+      }
+      default: {
+        console.error(`Unknown form action '${action}'`);
+      }
     }
   }
 
@@ -1201,7 +1209,9 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
     this.node.classList.toggle("wh-form--allowprevious", Boolean((pagestate.curpage > 0 && curpagerole !== 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink)));
     this.node.classList.toggle("wh-form--allownext", morepages && nextpagerole !== 'thankyou');
-    this.node.classList.toggle("wh-form--allowsubmit", curpagerole !== 'thankyou' && (!morepages || nextpagerole === 'thankyou'));
+    this.node.classList.toggle("wh-form--allowsubmit", curpagerole === 'thankyou'
+      ? pagestate.pages[pagestate.curpage].dataset.whFormExitButton !== undefined
+      : (!morepages || nextpagerole === 'thankyou'));
   }
 
   _navigateToThankYou(richvalues?: RichValues) {
@@ -1209,19 +1219,35 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     if (state.curpage >= 0) {
       const nextpage = this._getDestinationPage(state, +1);
       if (nextpage !== -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole === 'thankyou') {
-        const redirectto = state.pages[nextpage].dataset.whFormPageredirect;
+        const rawNavigateTo = state.pages[nextpage].dataset.whFormNavigateTo;
+        const exitButton = state.pages[nextpage].dataset.whFormExitButton;
+        const parsedNavTo = rawNavigateTo ? JSON.parse(rawNavigateTo) : null;
+        if (parsedNavTo)
+          this.exitButtonNavigateTo = parsedNavTo;
+
         const redirectdelay = parseInt(state.pages[nextpage].dataset.whFormPageredirectDelay ?? "");
-        if (redirectto && !(redirectdelay >= 0))
-          navigateTo({ type: "redirect", url: redirectto });
-        else {
-          this.updateRichValues(state.pages[nextpage], richvalues);
-          this.gotoPage(nextpage, { __isSubmit: true });
-          if (redirectto) {
-            // If redirectdelay==0 (redirect immediately, while showing the thank you page), redirect after a small delay to
-            // give the browser time to hide the busy layer
-            // Might be caused by this: https://stackoverflow.com/a/60439478
-            setTimeout(() => navigateTo({ type: "redirect", url: redirectto }), redirectdelay * 1000 || 100);
+
+        if (exitButton) {
+          const submitButton = this.node.querySelector<HTMLElement>(".wh-form__button--submit");
+          const submitButtonLabel = submitButton?.querySelector<HTMLElement>(".wh-form__buttonlabel");
+          if (submitButton && submitButtonLabel) {
+            submitButton.dataset.whFormAction = "exit";
+            submitButtonLabel.textContent = exitButton;
           }
+        }
+
+        if (parsedNavTo && !(redirectdelay >= 0) && !exitButton) {
+          navigateTo(parsedNavTo);
+          return;
+        }
+
+        this.updateRichValues(state.pages[nextpage], richvalues);
+        this.gotoPage(nextpage, { __isSubmit: true });
+        if (parsedNavTo && redirectdelay >= 0) {
+          // If redirectdelay==0 (redirect immediately, while showing the thank you page), redirect after a small delay to
+          // give the browser time to hide the busy layer
+          // Might be caused by this: https://stackoverflow.com/a/60439478
+          setTimeout(() => navigateTo(parsedNavTo), redirectdelay * 1000 || 100);
         }
       }
     }
