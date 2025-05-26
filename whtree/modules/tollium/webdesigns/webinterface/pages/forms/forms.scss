@@ -25,6 +25,7 @@ body:has(.wh-wrdauth-form) {
 
 .wh-wrdauth-form {
   background: var(--tollium-background);
+  box-shadow: var(--tollium-screen-box-shadow);
   display: flex;
   flex-direction: column;
   grid-area: content;
