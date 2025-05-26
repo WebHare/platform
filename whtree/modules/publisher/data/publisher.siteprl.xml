@@ -18,9 +18,9 @@
       <textstyle tag="HEADING1" textstyles="i u" />
       <textstyle tag="HEADING2" textstyles="i u" />
       <textstyle tag="HEADING3" textstyles="i u" />
-      <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
-      <textstyle tag="UNORDERED" containertag="ul" textstyles="b a-href img sup sub strike" />
-      <textstyle tag="ORDERED" containertag="ol" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="NORMAL" textstyles="b i u a-href img sup sub strike" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href img sup sub strike" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href img sup sub strike" />
       <tablestyle tag="TABLE" />
     </blockstyles>
   </rtdtype>

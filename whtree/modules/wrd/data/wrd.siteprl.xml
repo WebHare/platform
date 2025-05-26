@@ -37,10 +37,10 @@
   <!-- Authpages intro texts -->
   <rtdtype namespace="http://www.webhare.net/xmlns/wrd/authtexttype">
     <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="HEADING2" containertag="h2" textstyles="i u sup sub strike" />
-      <textstyle tag="NORMAL" containertag="p" textstyles="b i u a-href sup sub strike" />
-      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href sup sub strike" />
-      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href sup sub strike" />
+      <textstyle tag="HEADING2" containertag="h2" textstyles="" />
+      <textstyle tag="NORMAL" containertag="p" textstyles="b i u a-href" />
+      <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href" />
+      <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href" />
 
     </blockstyles>
   </rtdtype>
