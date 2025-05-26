@@ -100,6 +100,7 @@ PUBLIC MACRO ReconfigureProxies()
     RECORD config := DownloadWebserverConfig();
 
     // Generate a new verification code for this registration round
+    // TODO move to a /.wh/ URL so application portal routing cannot interfere. add a test.
     STRING data := GenerateUFS128BitId();
     trans->BeginWork();
     WriteRegistryKey("system.webserver.global.proxyservers.verificationcode", data);

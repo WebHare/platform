@@ -443,15 +443,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     this->profiling := GetWebVariable("profile") IN ["1","true"] OR IsWHDebugOptionSet("apr");
     this->memoryprofiling := GetWebVariable("profile") = "memory";
 
-    IF (GetWebVariable("proxy_test") != "")
-    {
-      IF (GetWebVariable("proxy_test") = ReadRegistryKey("system.webserver.global.proxyservers.verificationcode"))
-        SendWebFile(StringToBlob("ok"));
-
-      AddHTTPHeader("Status", "500 Wrong proxy verification code", FALSE);
-      SendWebFile(StringToBlob("Wrong proxy verification code"));
-    }
-
     this->SetupPortal();
 
     IF (GetWebVariable("language") != "")
@@ -910,6 +901,14 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
   RECORD urlinfo := GetDynamicPageParameters();
   IF(urlinfo.subpath != "")
     AbortWithHTTPError(404);
+
+  IF (GetWebVariable("proxy_test") != "") {
+    IF (GetWebVariable("proxy_test") = ReadRegistryKey("system.webserver.global.proxyservers.verificationcode"))
+      SendWebFile(StringToBlob("ok"));
+
+    AddHTTPHeader("Status", "500 Wrong proxy verification code", FALSE);
+    SendWebFile(StringToBlob("Wrong proxy verification code"));
+  }
 
   IF (GetWebVariable("oauth_responseid") != "") { //a peering response
     BroadcastEvent("tollium:oauth_response",
