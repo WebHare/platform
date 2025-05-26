@@ -100,7 +100,7 @@ export function parsePasswordChecks(checks: string, options: { strict?: boolean 
      return.message Set when message does not comply with the checks
      return.failedchecks List of checks that failed. See [this](#ParsePasswordChecks.return.check) for the values.
 */
-export async function checkPasswordCompliance(checks: string, newpassword: string, options?: { authenticationSettings?: AuthenticationSettings; isCurrentPassword?: boolean }): Promise<PasswordCheckResult> {
+export async function checkPasswordCompliance(checks: string, newpassword: string, options?: { authenticationSettings?: AuthenticationSettings; isCurrentPassword?: boolean; lang?: string }): Promise<PasswordCheckResult> {
   const authenticationSettings = options?.authenticationSettings || new AuthenticationSettings;
   const failed = [];
   for (const check of parsePasswordChecks(checks)) {
@@ -158,11 +158,11 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
     if (failed.some((check) => check.check !== "hibp")) {
       const lines = [];
       for (const check of failed) {
-        lines.push(`- ${getRequirementTid(check)}`);
+        lines.push(`- ${getRequirementTid(check, { lang: options?.lang })}`);
       }
-      message = getTid("wrd:site.forms.authpages.passwordcheck.failure", lines.join("\n"));
+      message = getTid("wrd:site.forms.authpages.passwordcheck.failure", [lines.join("\n")], { langCode: options?.lang });
     } else {
-      message = getTid("wrd:site.forms.authpages.passwordcheck.foundinhibp");
+      message = getTid("wrd:site.forms.authpages.passwordcheck.foundinhibp", { langCode: options?.lang });
     }
 
     return {
@@ -268,24 +268,24 @@ export function checkAuthenticationSettings(checks: string, authenticationsettin
   };
 }
 
-function getRequirementTid(check: { check: string; value: number; duration: string }) {
+function getRequirementTid(check: { check: string; value: number; duration: string }, options?: { lang?: string }) {
   switch (check.check) {
     case "hibp":
       return getTid("wrd:site.forms.authpages.passwordcheck.requirements.hibp");
     case "minlength":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.minlength", check.value);
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.minlength", [check.value], { langCode: options?.lang });
     case "lowercase":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.lowercase", check.value);
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.lowercase", [check.value], { langCode: options?.lang });
     case "uppercase":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.uppercase", check.value);
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.uppercase", [check.value], { langCode: options?.lang });
     case "digits":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.digits", check.value);
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.digits", [check.value], { langCode: options?.lang });
     case "symbols":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.symbols", check.value);
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.symbols", [check.value], { langCode: options?.lang });
     case "maxage":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.maxage", getDurationTitle(check.duration));
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.maxage", [getDurationTitle(check.duration)], { langCode: options?.lang });
     case "noreuse":
-      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.noreuse", getDurationTitle(check.duration));
+      return getTid("wrd:site.forms.authpages.passwordcheck.requirements.noreuse", [getDurationTitle(check.duration)], { langCode: options?.lang });
     case "require2fa":
       return getTid("wrd:site.forms.authpages.passwordcheck.requirements.require2fa");
   }
@@ -323,16 +323,16 @@ function getDurationTitle(duration: string): string {
   }
 }
 
-export function describePasswordChecks(checks: string): string {
+export function describePasswordChecks(checks: string, options?: { lang?: string }): string {
   const parsedchecks = parsePasswordChecks(checks);
   if (!parsedchecks.length)
     return "";
 
   const lines = [];
   for (const check of parsedchecks) {
-    lines.push(`- ${getRequirementTid(check)}`);
+    lines.push(`- ${getRequirementTid(check, { lang: options?.lang })}`);
   }
-  return getTid("wrd:site.forms.authpages.passwordcheck.requirements", lines.join("\n"));
+  return getTid("wrd:site.forms.authpages.passwordcheck.requirements", [lines.join("\n")], { langCode: options?.lang });
 }
 
 export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string) {

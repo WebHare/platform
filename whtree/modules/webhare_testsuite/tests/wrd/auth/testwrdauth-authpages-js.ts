@@ -28,12 +28,12 @@ test.runTests(
     async function () {
       test.click(test.qR('.wh-wrdauth-login__forgotpasswordlink'));
       await test.wait("pageload");
-    },
 
-    ...testwrd.testResetPassword({
-      email: 'pietje-authpages-js@beta.webhare.net',
-      newpassword: 'mybigsecret$'
-    }),
+      await testwrd.runResetPassword({
+        email: 'pietje-authpages-js@beta.webhare.net',
+        newpassword: 'mybigsecret$'
+      });
+    },
 
     'After login stuff',
     async function () {

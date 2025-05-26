@@ -112,14 +112,14 @@ export async function checkResetPassword(schemaTag: string, tok: string, verifie
   };
 }
 
-export async function doResetPassword(schemaTag: string, tok: string, verifier: string, newPassword: string) {
+export async function doResetPassword(schemaTag: string, tok: string, verifier: string, newPassword: string, lang: string) {
   const wrdSchema = new WRDSchema(schemaTag);
   const idp = new IdentityProvider(wrdSchema);
   const result = await idp.verifyPasswordReset(tok, verifier);
   if (result.result !== "ok")  //FIXME audit log? and should probably happen inside IDP not here?
     return { verifyFailed: result };
 
-  const updResult = await idp.updatePassword(result.user!, newPassword);
+  const updResult = await idp.updatePassword(result.user!, newPassword, { lang });
   if (!updResult.success)
     return { updateFailed: updResult };
 

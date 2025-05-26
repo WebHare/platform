@@ -7,7 +7,7 @@ import FormBase, { type FormResultValue, type FormSubmitEmbeddedResult, type For
 import { getFormService, getTSFormService } from "@webhare/forms/src/formservice";
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
-import { debugFlags, isLive, navigateTo } from "@webhare/env";
+import { debugFlags, isLive, navigateTo, type NavigateInstruction } from "@webhare/env";
 import { isBlob, pick } from '@webhare/std';
 import { setFieldError } from './internal/customvalidation';
 import type { RPCFormTarget, RPCFormInvokeBase, RPCFormSubmission } from '@webhare/forms/src/types';
@@ -166,14 +166,28 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
 
   /* Override this to implement support for incoming field messages */
   processFieldMessage(field: string, prop: string, value: unknown) {
-    const fieldnode = this.node.querySelector<HTMLElement>(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
-    if (!fieldnode) {
-      console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + String(value));
-      return;
-    }
-    if (prop === 'value') {
-      this.setFieldValue(fieldnode, value);
-      return;
+    if (field.startsWith("#page.")) {
+      const matchpage = field === "#page.thankyou" ? this.node.querySelector<HTMLElement>(`.wh-form__page[data-wh-form-pagerole=thankyou]`) : null;
+      if (!matchpage) { //we currently don't have anything to edit on other pages than thankyou
+        console.warn("Message for non-page field: " + field + ", prop: " + prop + ", value: " + String(value));
+        return;
+      }
+
+      if (prop === 'data') {
+        const dataval = value as { redirect: NavigateInstruction | null; exitbutton: string };
+        matchpage.dataset.whFormNavigateTo = dataval.redirect ? JSON.stringify(dataval.redirect) : undefined;
+        matchpage.dataset.whFormExitButton = dataval.exitbutton;
+      }
+    } else {
+      const fieldnode = this.node.querySelector<HTMLElement>(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
+      if (!fieldnode) {
+        console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + String(value));
+        return;
+      }
+      if (prop === 'value') {
+        this.setFieldValue(fieldnode, value);
+        return;
+      }
     }
     console.warn("Unknown field message: field: " + field + ", prop: " + prop + ", value: " + String(value));
   }

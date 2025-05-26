@@ -95,7 +95,16 @@ STATIC OBJECTTYPE FormPage
   PUBLIC BOOLEAN visible;
   PUBLIC PROPERTY role(this->page.role,-);
   RECORD pvt_visiblecondition;
+  RECORD pvt_redirect;
+  STRING pvt_exitbutton;
   PUBLIC STRING title;
+
+  //Redirect submit instruction
+  PUBLIC PROPERTY redirect(pvt_redirect, SetRedirect);
+  //Delay (in seconds) after which we automatically redirect. default -1, and then we won't even show/update the thankyou page unless exitbutotn is set.
+  PUBLIC INTEGER redirectdelay;
+  //If set, show an 'exit' button (basically a submit button) with the requested title which must be clicekd to trigger the redirect (or if redirectdelay >= 0 we'll still redirect then)
+  PUBLIC PROPERTY exitbutton(pvt_exitbutton, SetExitButton);
 
   // ---------------------------------------------------------------------------
   //
@@ -117,6 +126,10 @@ STATIC OBJECTTYPE FormPage
     this->title := GetTid(page.title);
     this->pvt_visiblecondition := page.visiblecondition;
     this->fieldsrenderer := page.fieldsrenderer;
+
+    IF(page.redirect != "")
+      this->pvt_redirect := [ type := "redirect", url := page.redirect ];
+    this->redirectdelay := page.redirectdelay;
   }
 
   // ---------------------------------------------------------------------------
@@ -179,12 +192,13 @@ STATIC OBJECTTYPE FormPage
         // making screenreaders read out the content when it becomes visible.
         Print(` role="status"`);
 
-        STRING redirect := this->page.redirect;
-        IF (redirect != "")
+        IF(RecordExists(this->redirect))
         {
-          Print(` data-wh-form-pageredirect="${EncodeValue(redirect)}"`);
-          IF (this->page.redirectdelay >= 0)
-            Print(` data-wh-form-pageredirect-delay="${this->page.redirectdelay}"`);
+          Print(` data-wh-form-navigate-to="${EncodeValue(EncodeJSON(this->redirect))}"`);
+          IF (this->redirectdelay >= 0)
+            Print(` data-wh-form-pageredirect-delay="${this->redirectdelay}"`);
+          IF (this->exitbutton != "")
+            Print(` data-wh-form-exit-button="${EncodeValue(this->exitbutton)}"`);
         }
       }
     }
@@ -244,6 +258,28 @@ STATIC OBJECTTYPE FormPage
   {
     newcondition := ValidateFormCondition(newcondition);
     this->pvt_visiblecondition := newcondition;
+  }
+
+  MACRO SetExitButton(STRING title) {
+    IF(this->exitbutton = title)
+      RETURN;
+
+    this->pvt_exitbutton := title;
+    this->UpdatePage();
+  }
+
+  MACRO SetRedirect(RECORD redirect) {
+    IF(EncodeJSON(this->pvt_redirect) = EncodeJSON(redirect))
+      RETURN;
+
+    this->pvt_redirect := redirect;
+    this->UpdatePage();
+  }
+
+  MACRO UpdatePage() {
+    //FIXME setup guids for form pages so we can robustly refer to them, even with eg. captcha partway inserts
+    STRING pagename := "#page." || (this->role ?? ToString(SELECT AS INTEGER #page FROM this->form->GetFormPages() AS page WHERE page.page = this));
+    this->form->__SendFormMessage(pagename, 'data', CELL[ this->redirect, this->exitbutton ]);
   }
 >;
 
@@ -592,6 +628,12 @@ PUBLIC STATIC OBJECTTYPE FormBase
     RETURN EncodeJSON([ c := this->__ResolveConditionGUIDs(condition) ]);
   }
 
+  PUBLIC RECORD ARRAY FUNCTION GetFormPages() {
+    RETURN SELECT page := page.obj
+                , role := page.obj->role
+             FROM ToRecordArray(this->__formpages, "page");
+  }
+
   PUBLIC OBJECT FUNCTION EnsureFormCaptchaPage()
   {
     RECORD captchapage := SELECT * FROM this->__formpages WHERE role = "captcha";
@@ -605,7 +647,9 @@ PUBLIC STATIC OBJECTTYPE FormBase
       fieldsrenderer := "",
       fields := RECORD[],
       name := "",
-      role := "captcha"
+      role := "captcha",
+      redirect := "",
+      redirectdelay := -1
     ]);
 
     //insert before thankyou page. if not found, insert at end

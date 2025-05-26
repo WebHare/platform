@@ -762,10 +762,19 @@ PUBLIC STATIC OBJECTTYPE AddressForm EXTEND FormBase
 
 >;
 
-PUBLIC STATIC OBJECTTYPE RedirectForm EXTEND FormBase
-<
-  RECORD FUNCTION Submit(RECORD extradata)
-  {
+PUBLIC STATIC OBJECTTYPE RedirectForm EXTEND FormBase <
+  MACRO NEW() {
+    IF(GetFormWebVariable("exitbutton") != "") {
+      OBJECT thankyoupage := this->GetFormPages()[1].page;
+      thankyoupage->exitbutton := "Exit";
+    }
+  }
+
+  RECORD FUNCTION Submit(RECORD extradata) {
+    IF(GetFormWebVariable("exitbutton") != "") { //test dynamic update
+      OBJECT thankyoupage := this->GetFormPages()[1].page;
+      thankyoupage->redirect := [ type := "redirect", url := "about:blank?test=2" ];
+    }
     RETURN DEFAULT RECORD;
   }
 >;

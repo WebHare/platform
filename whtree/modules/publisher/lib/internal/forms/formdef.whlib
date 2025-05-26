@@ -221,7 +221,7 @@ STATIC OBJECTTYPE FormPage
 
   INTEGER FUNCTION GetRedirectDelay()
   {
-    RETURN ParseXSInt(this->node->GetAttribute("delay"));
+    RETURN this->node->HasAttribute("delay") ? ParseXSInt(this->node->GetAttribute("delay")) : -1;
   }
 
   RECORD FUNCTION GetVisibleCondition()

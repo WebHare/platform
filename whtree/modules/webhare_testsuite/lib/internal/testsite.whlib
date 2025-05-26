@@ -1620,6 +1620,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupForTestSetup(RECORD options DEFAULTSTO DE
 PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions([ multisite := FALSE
                              , js := FALSE
+                             , password_validation_checks := STRING["minlength:5", "symbols:1"]
                              ], options);
 
   OpenPrimary();
@@ -1629,12 +1630,12 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     //logout failed, but we don't care in tests
   }
 
-  RunTestFramework([ PTR DoSetupWRDAuth(options) ], [wrdauth := FALSE]);
+  RunTestFramework([ PTR DoSetupWRDAuth(CELL[...options, DELETE password_validation_checks]) ], [wrdauth := FALSE]);
 
   testfw->BeginWork();
   OBJECT wrdschema := options.js ? OpenWRDSchema("webhare_testsuite:testschema")
                                  : testfw->GetWRDSchema();
-  SetWRDSetting(wrdschema, "password_validation_checks", "minlength:5 symbols:1");
+  SetWRDSetting(wrdschema, "password_validation_checks", Detokenize(options.password_validation_checks,' '));
   INTEGER unit := options.js ? wrdschema->^whuser_unit->Search("WRD_TAG", "UNIT1") : testfw->testunit;
 
   wrdschema->^wrd_person->CreateEntity(

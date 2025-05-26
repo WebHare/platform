@@ -1217,7 +1217,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return { result: "ok", isSetPassword, needsVerifier, login, user: decode.user, returnTo };
   }
 
-  async updatePassword(user: number, newPassword: string): Promise<PasswordCheckResult> {
+  async updatePassword(user: number, newPassword: string, options?: { lang?: string }): Promise<PasswordCheckResult> {
     const authsettings = await this.getAuthSettings(true);
     const getfields = {
       whuserPassword: authsettings.passwordAttribute,
@@ -1233,7 +1233,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (passwordValidationChecks) {
       const passwordCheck = await checkPasswordCompliance(passwordValidationChecks, newPassword, {
         isCurrentPassword: false,
-        authenticationSettings: whuserPassword || undefined
+        authenticationSettings: whuserPassword || undefined,
+        lang: options?.lang,
       });
       if (!passwordCheck.success)
         return passwordCheck;
