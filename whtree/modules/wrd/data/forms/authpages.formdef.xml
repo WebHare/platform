@@ -24,23 +24,28 @@
     </page>
   </form>
 
-  <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm">
+  <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm" submitlabeltid="site.forms.authpages.resetpassword-button">
     <page>
       <richtext name="intro" title="" />
       <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
       <textedit name="verifier" tid=".verifier" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
+    </page>
+    <page role="thankyou">
       <richtext name="done" title="" />
     </page>
   </form>
 
-  <form name="completeaccountpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountPasswordForm">
+  <form name="completeaccountpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountPasswordForm" submitlabeltid="site.forms.authpages.passwordchange-button">
     <page>
       <richtext name="intro" title="" groupclasses="wh-wrdauth-completeaccount__intro" />
+      <richtext name="message" title="" visible="false" />
       <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
+    </page>
+    <page role="thankyou">
       <richtext name="done" title="" groupclasses="wh-wrdauth-completeaccount__done" />
     </page>
   </form>
@@ -64,13 +69,15 @@
     </page>
   </form>
 
-  <form name="completeaccounttotp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountTotpForm">
+  <form name="completeaccounttotp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountTotpForm" submitlabeltid="site.forms.authpages.completeaccount_totp_button">
     <page>
       <hidden name="setup" title="" />
       <richtext name="intro" title="" groupclasses="wh-wrdauth-completeaccount__intro" />
       <checkbox name="showsecretkey" title="" labeltid=".totpsetup-showsecretkey" />
       <textedit name="secret" />
       <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+    </page>
+    <page role="thankyou">
       <textarea name="backupcodes" enabled="false" tid=".totpsetup-backupcodes"/>
       <richtext name="done" title="" groupclasses="wh-wrdauth-completeaccount__done" />
     </page>

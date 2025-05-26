@@ -20,10 +20,10 @@ export async function openResetPassword(options: { email: string; verifier?: str
 }
 
 ///run forgot password sequence and navigate through the reset procedure
-export async function runResetPassword(options: { email: string; newpassword: string; verifier?: string; expectLang?: string }) {
+export async function runResetPassword(options: { email: string; newpassword: string; verifier?: string; expectLang?: string; loginAfterReset?: boolean }) {
   await openResetPassword(options);
   test.subtest('Set my new password');
-  await runPasswordSetForm(options.email, options.newpassword, { verifier: options.verifier || '', expectLang: options.expectLang });
+  await runPasswordSetForm(options.email, options.newpassword, { verifier: options.verifier || '', expectLang: options.expectLang, loginAfterReset: options.loginAfterReset });
 }
 
 export async function tryLogin(login: string, pwd: string) {
@@ -51,12 +51,15 @@ export async function tryPasswordSetForm(login: string, pwd: string, { verifier 
   await test.wait('ui');
 }
 
-export async function runPasswordSetForm(login: string, pwd: string, { verifier = "", expectLang = "" } = {}) {
+export async function runPasswordSetForm(login: string, pwd: string, { verifier = "", expectLang = "", loginAfterReset = false } = {}) {
   await tryPasswordSetForm(login, pwd, { verifier });
 
   test.eq(expectLang.startsWith('nl') ? /wachtwoord is bijgewerkt/ : /password has been updated/, test.qR(".wh-form__page--visible").textContent);
-  test.click(await test.waitForElement([".wh-form__page[data-wh-form-pagerole=thankyou]", 0, "a[href], button"]) ?? throwError("Login/continue button not found"));
+  test.click(await test.waitForElement(["button[data-wh-form-action=exit]"]) ?? throwError("Login/continue button not found"));
   await test.wait('load');
+  if (loginAfterReset) {
+    await runLogin(login, pwd);
+  }
 }
 
 export async function forceLogout() {

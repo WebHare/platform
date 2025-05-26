@@ -151,7 +151,6 @@ test.runTests(
       test.eq(/doesn't have/, test.qR(".wh-form__page--visible").textContent);
 
       await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3");
-      await test.runTolliumLogout();
     },
 
     "force 2fa",

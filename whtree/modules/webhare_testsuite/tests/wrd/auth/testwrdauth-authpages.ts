@@ -23,7 +23,8 @@ test.runTests(
 
       await testwrd.runResetPassword({
         email: 'pietjetester@beta.webhare.net',
-        newpassword: 'mylittlesecret$'
+        newpassword: 'mylittlesecret$',
+        loginAfterReset: true
       });
     },
 

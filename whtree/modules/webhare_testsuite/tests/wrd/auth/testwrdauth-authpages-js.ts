@@ -31,7 +31,8 @@ test.runTests(
 
       await testwrd.runResetPassword({
         email: 'pietje-authpages-js@beta.webhare.net',
-        newpassword: 'mybigsecret$'
+        newpassword: 'mybigsecret$',
+        loginAfterReset: true,
       });
     },
 
@@ -54,7 +55,10 @@ test.runTests(
       await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'A', { verifier: resetWithVerifier.verifier! });
       test.assert(!test.qR("#resetpassword-verifier").classList.contains("wh-form__field--error"), "verifier should NOT be marked as error");
       test.assert(test.qR("#resetpassword-passwordnew").classList.contains("wh-form__field--error"), "password SHOULD be marked as error");
-      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'mylittlesecret$', { verifier: resetWithVerifier.verifier! });
+      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'mylittlesecret$', {
+        verifier: resetWithVerifier.verifier!,
+        loginAfterReset: true
+      });
     },
 
     "Change password",

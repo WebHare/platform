@@ -121,7 +121,6 @@ test.runTests(
 
       // no need to test policy here, leave that to test_loginpasswordchecks
       await testwrd.runPasswordSetForm("pietje@example.com", "xecret");
-      await test.runTolliumLogout();
     },
 
     "Check passwork link expired after use", //TODO this should move to wrdauthpages tests, not tollium specific anymore
@@ -135,7 +134,6 @@ test.runTests(
     async function () {
       await test.load(jantje_resetlink);
       await testwrd.runPasswordSetForm("jantje@example.com", "xecret2");
-      await test.runTolliumLogout();
     },
 
     "Login as jantje",

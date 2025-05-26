@@ -131,24 +131,7 @@
 [! PLEASE NOTE - resetpassword and setpassword are identical except for the classnames/tids !]
 [component resetpassword]
   <div class="wh-wrdauth-form wh-wrdauth-resetpassword">
-    <form class="wh-form wh-styledinput wh-wrdauth-resetpassword__form" [form.formattributes]>
-      <div class="wh-form__page">
-        [form.intro.render]
-        [form.login.render]
-        [form.verifier.render]
-        [form.passwordnew.render]
-        [form.passwordrepeat.render]
-      </div>
-      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        [form.done.render]
-        <div class="wh-form__buttongroup wh-form__navbuttons">
-          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.resetpassword-continue]</a>
-        </div>
-      </div>
-      <div class="wh-form__buttongroup wh-form__navbuttons">
-        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-resetpassword__resetbutton">[gettid site.forms.authpages.resetpassword-button]</button>
-      </div>
-    </form>
+    [form.formrender]
   </div>
 [/component]
 
@@ -257,34 +240,7 @@
 
 [component completeaccount_password]
   <div class="wh-wrdauth-form wh-wrdauth-completeaccount wh-wrdauth-completeaccount--password">
-    <form class="wh-form wh-styledinput wh-wrdauth-completeaccount__form" [form.formattributes]>
-      <div class="wh-form__page">
-        [form.intro.render]
-        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext">
-          <div class="wh-form__fields">
-            <div class="wh-form__fieldline">
-              <div class="wh-form__richtext wh-wrdauth--text">
-                <p class="normal">
-                  [message]
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        [form.login.render]
-        [form.passwordnew.render]
-        [form.passwordrepeat.render]
-      </div>
-      <div class="wh-form__page" data-wh-form-pagerole="thankyou">
-        [form.done.render]
-        <div class="wh-form__buttongroup wh-form__navbuttons">
-          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
-        </div>
-      </div>
-      <div class="wh-form__buttongroup wh-form__navbuttons">
-        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-completeaccount__changebutton">[gettid site.forms.authpages.passwordchange-button]</button>
-      </div>
-    </form>
+    [form.formrender]
   </div>
 [/component]
 
@@ -327,13 +283,8 @@
             </div>
           </div>
         </div>
-        <div class="wh-form__buttongroup wh-form__navbuttons">
-          <a href="[continuelink]" class="wh-form__button wh-wrdauth-resetpassword__continuebutton">[gettid site.forms.authpages.login-button]</a>
-        </div>
       </div>
-      <div class="wh-form__buttongroup wh-form__navbuttons">
-        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-completeaccount__changebutton">[gettid site.forms.authpages.completeaccount_totp_button]</button>
-      </div>
+      [form.formrendernav]
     </form>
   </div>
 [/component]
