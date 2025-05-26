@@ -100,8 +100,8 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
       RETURN;
 
     this->pvt_unit := unit;
-    this->newuser->enabled := ObjectExists(unit) AND unit->authobjectid != 0;
-    this->newrole->enabled := ObjectExists(unit) AND unit->authobjectid != 0;
+    this->newuser->enabled := ObjectExists(unit) AND unit->authobjectid != 0 AND this->Contexts->user->HasRightOn("system:manageunit", unit->authobjectid);
+    this->newrole->enabled := ObjectExists(unit) AND unit->authobjectid != 0 AND this->Contexts->user->HasRightOn("system:manageroles", unit->authobjectid);
 
     IF (NOT this->SetColumnMode("unit"))
       this->ResetColumns();
