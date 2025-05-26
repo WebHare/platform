@@ -34,41 +34,37 @@
             <select name="round_minduration_unit" type="pulldown" title="" />
           </line>
         </tab>
-        <tab tid=".authtexts">
-          <line>
-            <select name="tag" type="pulldown" onchange="ontextselect" optiongid=".authtexts">
-              <option rowkey="login-intro" />
-              <option rowkey="totp-intro" />
-              <option rowkey="forgotpassword-intro" />
-              <option rowkey="forgotpassword-done" />
-              <option rowkey="resetpassword-intro" />
-              <option rowkey="setpassword-intro" />
-              <option rowkey="linkexpired-intro" />
-              <option rowkey="emailchange-intro" />
-              <option rowkey="emailchange-done" />
-              <option rowkey="passwordchange-intro" />
-              <option rowkey="passwordchange-done" />
-              <option rowkey="completeaccount-intro" />
-              <option rowkey="completeaccount-totp-intro" />
-              <option rowkey="completeaccount-totp-done" />
-            </select>
-            <select name="language" type="pulldown" optiongid="tollium:common.languages" onchange="ontextselect">
-              <option rowkey="en" />
-              <option rowkey="nl" />
-            </select>
-          </line>
-          <tabs name="texts" width="1pr" height="1pr" type="server">
-            <!-- Tabs will be loaded dynamically using the 'authtext' tabsextension -->
-          </tabs>
-        </tab>
       </tabs>
     </body>
   </screen>
-  
+
+  <screen name="wrdauthtexts" width="100x" height="30x" allowresize="true" footerbuttons="ok cancel" savestate="size">
+    <body>
+      <line layout="left">
+        <text width="1pr" valuetid=".authtexts-intro" wordwrap="true" />
+      </line>
+      <line>
+        <select name="tag" type="pulldown" onchange="ontextselect" optiongid=".authtexts" />
+        <select name="language" type="pulldown" onchange="ontextselect" optiongid="tollium:common.languages">
+          <option rowkey="en" />
+          <option rowkey="nl" />
+        </select>
+      </line>
+      <tabs name="texts" type="server" width="1pr" height="1pr">
+        <!-- Tabs will be loaded dynamically using the 'authtext' tabsextension -->
+      </tabs>
+    </body>
+  </screen>
+
   <tabsextension name="authtext">
     <newtab spacers="none">
       <richdocument name="text" width="1pr" height="1pr" rtdtype="http://www.webhare.net/xmlns/wrd/authtexttype" />
+      <text valuetid=".defaults" />
+      <panel borders="all" layout="left" spacers="all">
+        <heading name="defaultheading" width="1pr" title="" wordwrap="true" />
+        <text name="defaulttext" width="1pr" title="" wordwrap="true" />
+      </panel>
     </newtab>
   </tabsextension>
-  
+
 </screens>

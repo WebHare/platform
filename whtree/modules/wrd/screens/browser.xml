@@ -47,6 +47,7 @@
       <action name="newfree" frameflags="right_readwrite" onexecute="donewfree" />
       <action name="schemaprops" frameflags="right_metadata" onexecute="doschemaprops" />
       <action name="authsettings" frameflags="right_metadata" onexecute="doauthsettings" />
+      <action name="authtexts" frameflags="right_metadata" onexecute="doauthtexts" />
       <action name="auditlog" frameflags="has_accounts" onexecute="doauditlog" />
       <action name="oidcclient" frameflags="right_metadata" onexecute="dooidcclient" />
       <action name="samlauth" frameflags="right_metadata has_saml" onexecute="dosamlauth" />
@@ -90,6 +91,7 @@
         <item tid=".schema">
           <item action="schemaprops" />
           <item action="authsettings" />
+          <item action="authtexts" />
           <item action="anonymize" />
           <item action="auditlog" />
           <item action="oidcclient" />

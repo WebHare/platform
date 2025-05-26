@@ -1,10 +1,84 @@
 <?wh
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
+
+CONSTANT RECORD ARRAY authtext_options :=
+    [ [ rowkey := "login-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.login-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.login-title"
+      , texttid := "" // There are two different texts, which will both be shown
+      ]
+    , [ rowkey := "totp-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.totp-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.totp-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.totp-intro"
+      ]
+    , [ rowkey := "forgotpassword-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.forgotpassword-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.forgotpassword-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.forgotpassword-intro"
+      ]
+    , [ rowkey := "forgotpassword-done"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.forgotpassword-done"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.forgotpassword-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.forgotpassword-processed"
+      ]
+    , [ rowkey := "resetpassword-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.resetpassword-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.resetpassword-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.resetpassword-intro"
+      ]
+    , [ rowkey := "setpassword-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.setpassword-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.setpassword-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.setpassword-intro"
+      ]
+    , [ rowkey := "linkexpired-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.linkexpired-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.linkexpired-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.linkexpired"
+      ]
+    , [ rowkey := "emailchange-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.emailchange-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.emailchange-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.emailchange-intro"
+      ]
+    , [ rowkey := "emailchange-done"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.emailchange-done"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.emailchange-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.emailchange-processed"
+      ]
+    , [ rowkey := "passwordchange-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.passwordchange-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.passwordchange-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.passwordchange-intro"
+      ]
+    , [ rowkey := "passwordchange-done"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.passwordchange-done"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.passwordchange-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.passwordchange-processed"
+      ]
+    , [ rowkey := "completeaccount-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.completeaccount-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.completeaccount-title"
+      , texttid := /*tid*/"wrd:tolliumapps.auth.settings.completeaccount-intro-desc"
+      ]
+    , [ rowkey := "completeaccount-totp-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.completeaccount-totp-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.completeaccount-totp-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.completeaccount_totp_intro"
+      ]
+    , [ rowkey := "completeaccount-totp-done"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.completeaccount-totp-done"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.completeaccount-totp-title"
+      , texttid := /*tid*/"wrd:site.forms.authpages.totpsetup-processed"
+      ]
+    ];
 
 MACRO SetTimeUnit(OBJECT textedit, OBJECT unitpulldown, INTEGER64 setvalue)
 {
@@ -52,7 +126,6 @@ INTEGER64 FUNCTION GetTimeUnit(OBJECT textedit, OBJECT unitpulldown)
 */
 
 PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
-  RECORD ARRAY authtexts;
 
   MACRO Init(RECORD data) {
     //get settings, coerce them to the proper types
@@ -69,35 +142,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     this->OnRoundLoginsChange();
 
     ^passwordchecks->value := GetWRDSetting(this->contexts->wrdschema, "password_validation_checks");
-    
-    RECORD ARRAY authpages_texts := GetWRDSetting(this->contexts->wrdschema, "authpages_texts");
-    INTEGER first_text := -1;
-    FOREVERY (STRING tag FROM SELECT AS STRING ARRAY rowkey FROM ^tag->options)
-      FOREVERY (STRING language FROM SELECT AS STRING ARRAY rowkey FROM ^language->options) {
-        RECORD result := ^texts->LoadTabsExtension(Resolve("settings.xml#authtext"));
-        OBJECT addedtab := result.addedtabs[0];
-        addedtab->title := language || "/" || tag;
-        OBJECT text := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!text";
-        text->value := SELECT AS RECORD COLUMN text FROM authpages_texts WHERE COLUMN language = VAR language AND COLUMN tag = VAR tag;
-        IF (first_text < 0 AND RecordExists(text->value))
-          first_text := Length(this->authtexts);
-        INSERT CELL[ tag, language, addedtab, text ] INTO this->authtexts AT END;
-      }
-    ^texts->RunExtensionsPostInit();
-    IF (first_text >= 0) {
-      ^tag->value := this->authtexts[first_text].tag;
-      ^language->value := this->authtexts[first_text].language;
-    } ELSE
-      this->OnTextSelect();
   }
 
   MACRO OnRoundLoginsChange() {
     ^round_longlogins_to->enabled := ^roundlogins->value;
     ^round_longlogins_tz->enabled := ^roundlogins->value;
-  }
-  
-  MACRO OnTextSelect() {
-    ^texts->selectedtab := SELECT AS OBJECT addedtab FROM this->authtexts WHERE language = ^language->value AND tag = ^tag->value;
   }
 
   BOOLEAN FUNCTION Submit() {
@@ -113,12 +162,70 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
           , round_longlogins_tz := ^round_longlogins_tz->value
           ]);
 
+    RETURN work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE WRDAuthTexts EXTEND TolliumScreenBase <
+  RECORD ARRAY authtexts;
+
+  MACRO Init(RECORD data) {
+    ^tag->options :=
+        SELECT rowkey
+             , title := GetTid(titletid)
+          FROM authtext_options;
+          
+    RECORD ARRAY authpages_texts := GetWRDSetting(this->contexts->wrdschema, "authpages_texts");
+    INTEGER first_text := -1;
+    FOREVERY (STRING tag FROM SELECT AS STRING ARRAY rowkey FROM ^tag->options)
+      FOREVERY (STRING language FROM SELECT AS STRING ARRAY rowkey FROM ^language->options) {
+        RECORD result := ^texts->LoadTabsExtension(Resolve("settings.xml#authtext"));
+        OBJECT addedtab := result.addedtabs[0];
+        addedtab->title := language || "/" || tag;
+
+        OBJECT text := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!text";
+        text->value := SELECT AS RECORD COLUMN text FROM authpages_texts WHERE COLUMN language = VAR language AND COLUMN tag = VAR tag;
+
+        OBJECT defaultheading := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!defaultheading";
+        defaultheading->title := SELECT AS STRING GetTidForLanguage(language, headingtid) FROM authtext_options WHERE rowkey = tag;
+        OBJECT defaulttext := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!defaulttext";
+        // Handle some texts separately
+        IF (tag = "login-intro")
+          defaulttext->htmlvalue := GetHtmlTid("wrd:tolliumapps.auth.settings.login-intro-default", GetTidForLanguage(language, "wrd:site.forms.authpages.login-email-intro"), GetTidForLanguage(language, "wrd:site.forms.authpages.login-username-intro"));
+        ELSE IF (tag = "completeaccount-intro")
+          defaulttext->htmlvalue := SELECT AS STRING GetHtmlTid(texttid) FROM authtext_options WHERE rowkey = tag;
+        ELSE IF (tag = "emailchange-done") {
+          STRING translation := SELECT AS STRING GetTidForLanguage(language, texttid, "$$$") FROM authtext_options WHERE rowkey = tag;
+          defaulttext->htmlvalue := Substitute(translation, "$$$", GetHtmlTid("wrd:tolliumapps.auth.settings.emailchange-done-email"));
+        }
+        ELSE
+          defaulttext->value := SELECT AS STRING GetTidForLanguage(language, texttid) FROM authtext_options WHERE rowkey = tag;
+
+        IF (first_text < 0 AND RecordExists(text->value))
+          first_text := Length(this->authtexts);
+        INSERT CELL[ tag, language, addedtab, text ] INTO this->authtexts AT END;
+      }
+    ^texts->RunExtensionsPostInit();
+    IF (first_text >= 0) {
+      ^tag->value := this->authtexts[first_text].tag;
+      ^language->value := this->authtexts[first_text].language;
+    } ELSE
+      this->OnTextSelect();
+  }
+  
+  MACRO OnTextSelect() {
+    ^texts->selectedtab := SELECT AS OBJECT addedtab FROM this->authtexts WHERE language = ^language->value AND tag = ^tag->value;
+  }
+
+  BOOLEAN FUNCTION Submit() {
+    OBJECT work := this->BeginWork();
+
     RECORD ARRAY authpages_texts;
     FOREVERY (RECORD authtext FROM this->authtexts)
       IF (RecordExists(authtext.text->value))
         INSERT CELL[ authtext.language, authtext.tag, text := authtext.text->value ] INTO authpages_texts AT END;
     SetWRDSetting(this->contexts->wrdschema, "authpages_texts", authpages_texts);
-
+  
     RETURN work->Finish();
   }
 >;

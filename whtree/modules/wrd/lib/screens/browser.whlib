@@ -425,6 +425,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   {
     RunWRDAuthenticationSettings(this);
   }
+  MACRO DoAuthTexts()
+  {
+    this->RunScreen("mod::wrd/tolliumapps/auth/settings.xml#wrdauthtexts");
+  }
 
 
   ////////////////////////////////////////////////////////

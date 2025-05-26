@@ -1900,6 +1900,7 @@
       <text tid="delete-hint">Verwijder de geselecteerde element(en)</text>
       <text tid="edit">Eigenschappen</text>
       <text tid="edit-hint">Bewerk de eigenschappen van het geselecteerde item</text>
+      <text tid="editauthtexts">Teksten authenticatiepagina's</text>
       <text tid="editobject">Bewerken</text>
       <text tid="exportallgrants">Exporteer alle (rol) toekenningen</text>
       <text tid="exportobjectrights">Exporteer rechten op objecten</text>
@@ -2130,7 +2131,7 @@
       <text tid="editrootunit">Basis authenticatie instellingen</text>
       <text tid="editunit">Eenheid aanpassen</text>
       <text tid="locknologin">Blokkeer niet actieve gebruikers na</text>
-      <text tid="nospecificpolicy">Geen specifiek beleid</text>
+      <text tid="nospecificpolicy">Standaardbeleid</text>
       <text tid="override_expiration">Overschrijf account verloop</text>
       <text tid="override_passwordchecks">Overschrijf wachtwoordeisen</text>
       <text tid="policy">Beleid</text>

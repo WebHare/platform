@@ -341,6 +341,11 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     screen->RunModal();
   }
 
+  MACRO DoEditAuthTexts()
+  {
+    this->RunScreen("mod::wrd/tolliumapps/auth/settings.xml#wrdauthtexts");
+  }
+
   MACRO DoToggleSearchButton()
   {
     this->searchbar->visible := NOT this->searchbar->visible;
