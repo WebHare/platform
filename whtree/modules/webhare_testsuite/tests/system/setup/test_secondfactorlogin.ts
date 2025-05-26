@@ -49,7 +49,7 @@ test.runTests(
     "set Pietje password",
     async function () {
       await test.load(pietje_resetlink);
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "xecret");
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "xecret", { loginAfterReset: true });
     },
 
     "enable TOTP",

@@ -294,7 +294,7 @@ PUBLIC OBJECTTYPE ForgotPasswordForm EXTEND Formbase
     IF(NOT work->Finish())
       RETURN DEFAULT RECORD;
 
-    this->formcontext->GetWRDAuthPlugin()->HandleForgotPassword(^email->value);
+    this->formcontext->GetWRDAuthPlugin()->HandleForgotPassword(^email->value, [ currenturl := GetWRDPagesCleanURL() ]);
     RETURN DEFAULT RECORD;
   }
 >;
@@ -393,8 +393,12 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
       work->AddErrorFor(^passwordnew, setresult.updatefailed.message);
     }
 
-    IF(work->Finish())
-      this->formcontext->GetWRDAuthPlugin()->LoginById(setresult.entityid, FALSE);
+    IF(work->Finish()) {
+      OBJECT thankyoupage := this->GetFormPages()[END-1].page;
+      //FIXME if navigateto is not there, we may be dealing with eg. account-disabled. how to handle that? (I guess redirecting such pages to an explicit error page instead )
+      thankyoupage->redirect := [ type := "redirect", url := this->verifyresult.returnto ];
+      thankyoupage->exitbutton := GetTid("wrd:site.forms.authpages.resetpassword-continue");
+    }
 
     RETURN DEFAULT RECORD;
   }
@@ -415,9 +419,6 @@ PUBLIC OBJECT FUNCTION GetResetPasswordPage(OBJECT webdesign, STRING action, REC
     INSERT CELL intro_render := RenderLinkExpiredText(webdesign) INTO wittyvars;
     RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "linkexpired", wittyvars));
   }
-
-  IF(webdesign->GetWRDAuthPlugin()->IsLoggedIn())
-    Redirect(loginform->verifyresult.returnto);
 
   wittyvars := CELL[ ...wittyvars
                    , form := loginform->GetWittyData()
@@ -671,6 +672,10 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountPasswordForm EXTEND FormBase <
 
     IF(work->Finish()) {
       //FIXME invalidate the session for further password changing, or auto-skip this form once complexity requirements are reached
+      OBJECT thankyoupage := this->GetFormPages()[END-1].page;
+      thankyoupage->redirect := [ type := "redirect", url := GetFormRequestURL() ];
+      thankyoupage->exitbutton := GetTid("wrd:site.forms.authpages.login-button");
+
       RETURN [ success := TRUE ];
     } ELSE {
       RETURN DEFAULT RECORD;
@@ -731,6 +736,10 @@ PUBLIC STATIC OBJECTTYPE CompleteAccountTotpForm EXTEND FormBase <
                           ];
       wrdschema->accounttype->UpdateEntity(this->session.user, CellInsert(DEFAULT RECORD, wrdschema->accountpasswordtag, userauthinfo));
       ^backupcodes->value := Detokenize((SELECT AS STRING ARRAY code FROM totpsetup.backupcodes), "\n");
+
+      OBJECT thankyoupage := this->GetFormPages()[END-1].page;
+      thankyoupage->redirect := [ type := "redirect", url := GetFormRequestURL() ];
+      thankyoupage->exitbutton := GetTid("wrd:site.forms.authpages.login-button");
     }
 
     IF(work->Finish()) {
@@ -766,10 +775,13 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
   IF(Length(failedpwdchecks) > 0) { //there were issues with the password itself
     IF (Length(userauthinfo.passwords) = 0 OR userauthinfo.passwords[END-1].validfrom <= session.badpasswordtime) { //you haven't fixed the password yet
       OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccountpassword");
+      completeform->^message->richvalue := [ htmltext := StringToBlob(`<p class="normal">${GetHTMLTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")}</p>`) ];
+      completeform->^message->visible := TRUE;
+
       wittyvars := CELL[ ...wittyvars
                       , form := completeform->GetWittyData()
-                      , message := GetTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")
-                      , continuelink := GetRequestURL()
+                      // , message := GetTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")
+                      // , continuelink :=
                       ];
 
       RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "completeaccount_password", wittyvars));
@@ -789,7 +801,7 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
 
       wittyvars := CELL[ ...wittyvars
                       , form := completeform->GetWittyData()
-                      , continuelink := GetRequestURL()
+                      // , continuelink := GetRequestURL()
                       , qrcodelink := GetDataUrl(newtotp.qrpng, "image/png")
                       ];
 

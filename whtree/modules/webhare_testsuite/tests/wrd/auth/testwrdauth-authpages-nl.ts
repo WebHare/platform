@@ -38,7 +38,10 @@ test.runTests(
       await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', '$$');
       test.eq(/3 tekens/, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
 
-      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', '$$$', { expectLang: "nl" });
+      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', '$$$', { expectLang: "nl", loginAfterReset: true });
+
+      //Now we should see the setup 2fa screen!
+      test.eq(/Twee-factor authenticatie instellen/, test.qR('.wh-form__page--visible h2').textContent);
     },
 
   ]);
