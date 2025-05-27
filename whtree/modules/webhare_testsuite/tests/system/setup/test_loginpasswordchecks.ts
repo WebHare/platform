@@ -6,8 +6,6 @@ import * as testwrd from "@mod-wrd/js/testframework";
 const webroot = test.getTestSiteRoot();
 let setupdata: TestSetupData | null = null;
 let pietje_resetlink;
-let totpsecret;
-let totpdata;
 
 
 test.runTests(
@@ -36,8 +34,8 @@ test.runTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GrantSomeRights', "pietje@allow2fa.test.webhare.net");
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GrantSomeRights', "pietje@allow2fa.test.webhare.net");
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
           version: 1,
           passwords: [
@@ -67,7 +65,7 @@ test.runTests(
     "test logging in with non-compliant password AND 2FA",
     async function () {
       // reset password to be invalid, enable 2FA
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
           version: 1,
           passwords: [
@@ -85,9 +83,9 @@ test.runTests(
       await test.wait('load');
 
       // expect enter 2FA code window (before we allow you to change the password...)
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
+      const totpData = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: "OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK", offset: 0 });
       await test.waitForElement([".wh-form__page--visible", /Please enter your one-time code/]);
-      test.fill("[name=totp]", totpdata.code);
+      test.fill("[name=totp]", totpData.code);
       (test.findElement(["a,button", /Login/]) ?? throwError("Login button not found")).click();
       await test.wait('load');
 
@@ -102,7 +100,7 @@ test.runTests(
     "forgot password checks",
     async function () {
       // set a few previous passwords
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
           version: 1,
           passwords: [
@@ -157,7 +155,7 @@ test.runTests(
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetSchemaValidationChecks', "require2fa", { url: test.getWin().location.href });
 
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
+      await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
           version: 1,
           passwords: [
@@ -179,33 +177,11 @@ test.runTests(
       await test.wait('load');
 
       // should open 2FA setup screen
-      await test.waitForElement([".wh-form__page--visible", /Scan the QR-code below with an authentication/]);
-
-      // show the 2FA secret key, so we can read it
-      test.click(await test.waitForElement(['label', /Show secret key/]));
-      totpsecret = (await test.waitForElement("[name=secret]")).value;
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
-
-      test.fill("[name=totp]", totpdata.code);
-      (test.findElement(["a,button", /Confirm/]) ?? throwError("Confirm button not found")).click();
-
-      // complete the configuration
-      const backupcodes = (await test.waitForElement("#completeaccounttotp-backupcodes")).value;
-      test.eq(10, backupcodes.trim().split("\n").length, "10 backup codes should be generated");
-
-      (await test.waitForElement(["a,button", /Login/])).click();
+      const { totpSecret } = await testwrd.run2FAEnrollment();
       await test.runTolliumLogout();
 
       // login again, now with TOTP code
-      test.fill(await test.waitForElement("[name=login]"), "pietje@allow2fa.test.webhare.net");
-      test.fill("[name=password]", "secret");
-      (await test.waitForElement("button[type=submit]")).click();
-      await test.wait('load');
-      await test.wait('load');
-
-      totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret });
-      test.fill(await test.waitForElement("[name=totp]"), totpdata.code);
-      (await test.waitForElement(["a,button", /Login/])).click();
+      await testwrd.runLogin("pietje@allow2fa.test.webhare.net", "secret", { totpSecret });
 
       // should be logged in
       await test.runTolliumLogout();

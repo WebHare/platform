@@ -33,9 +33,17 @@ export async function tryLogin(login: string, pwd: string) {
   await test.wait('ui');
 }
 
-export async function runLogin(login: string, pwd: string) {
+export async function runLogin(login: string, pwd: string, options?: { totpSecret?: string; expectLang?: string }) {
   await tryLogin(login, pwd);
   await test.wait("load");
+  if (options?.totpSecret) {
+    test.fill("[name=totp]", options.totpSecret);
+
+    const totpData = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: options.totpSecret });
+    test.fill(await test.waitForElement("[name=totp]"), totpData.code);
+    (await test.waitForElement(["a,button", options?.expectLang === "nl" ? /Inloggen/ : /Login/])).click();
+    await test.wait('load');
+  }
 }
 
 export async function tryPasswordSetForm(login: string, pwd: string, { verifier = "" } = {}) {
@@ -66,4 +74,26 @@ export async function forceLogout() {
   test.wrdAuthLogout();
   await test.wait("load");
   await test.wait("ui-nocheck");
+}
+
+export async function run2FAEnrollment(options?: { expectLang?: string }) {
+  await test.waitForElement([".wh-form__page--visible", options?.expectLang === "nl" ? /Twee-factor authenticatie met eenmalige toegangscodes/ : /Scan the QR-code below with an authentication/]);
+  // show the 2FA secret key, so we can read it
+  test.click(await test.waitForElement(['label', options?.expectLang === "nl" ? /Toon geheime sleutel/ : /Show secret key/]));
+  const totpSecret = (await test.waitForElement("[name=secret]")).value;
+  const totpData = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpSecret });
+
+  test.fill("[name=totp]", totpData.code);
+  (test.findElement(["a,button", options?.expectLang === "nl" ? /Bevestigen/ : /Confirm/]) ?? throwError("Confirm button not found")).click();
+  await test.wait('ui');
+
+  // complete the configuration
+  const backupCodesText = (await test.waitForElement("#completeaccounttotp-backupcodes")).value;
+  const backupCodes = backupCodesText.trim().split("\n");
+  test.eq(10, backupCodes.length, "10 backup codes should be generated");
+
+  (await test.waitForElement(["a,button", options?.expectLang === "nl" ? /Inloggen/ : /Login/])).click();
+  await test.wait('load');
+
+  return { totpSecret, backupCodes };
 }
