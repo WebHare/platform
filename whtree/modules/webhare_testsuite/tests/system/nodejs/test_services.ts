@@ -474,7 +474,7 @@ async function testLogs() {
 
   test.eq("[function f]", hardlogline.value.f);
   test.eq("[function g2]", hardlogline.value.g);
-  test.eq("[undefined]", hardlogline.value.u);
+  test.eq(undefined, hardlogline.value.u);
   test.eq("[Symbol()]", hardlogline.value.s);
   test.eq("[Symbol(Prince)]", hardlogline.value.tafkap);
 
