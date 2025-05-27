@@ -25,4 +25,11 @@ PUBLIC OBJECTTYPE TestPageForm EXTEND FormBase
           comp->visible := FALSE;
 
   }
+
+  RECORD FUNCTION Submit(RECORD extradata) {
+    OBJECT thankyoupage := this->GetFormPages()[END-1].page;
+    thankyoupage->redirect := [ type := "reload" ];
+    thankyoupage->exitbutton := "Restart";
+    RETURN [DEFAULT RECORD];
+  }
 >;

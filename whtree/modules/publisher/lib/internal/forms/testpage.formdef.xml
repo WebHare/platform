@@ -90,6 +90,14 @@
       <upload name="multiupload" maxfiles="4" title="Up to 4 files" />
       <imgedit name="multiimage" maxfiles="8" title="Up to 8 images" />
     </page>
+
+    <page role="thankyou">
+      <richtext name="thankyou" title="Thank you">
+        <body xmlns="http://www.w3.org/1999/xhtml">
+          <p>Thank you for your submission.</p>
+        </body>
+      </richtext>
+    </page>
   </form>
 
 </formdefinitions>

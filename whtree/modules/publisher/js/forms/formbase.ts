@@ -1216,6 +1216,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
 
   _navigateToThankYou(richvalues?: RichValues) {
     const state = this._getPageState();
+
     if (state.curpage >= 0) {
       const nextpage = this._getDestinationPage(state, +1);
       if (nextpage !== -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole === 'thankyou') {
@@ -1233,6 +1234,8 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
           if (submitButton && submitButtonLabel) {
             submitButton.dataset.whFormAction = "exit";
             submitButtonLabel.textContent = exitButton;
+          } else {
+            console.error(`Unable to find the submit button '.wh-form__button--submit .wh-form__buttonlabel' - I need to replace its label with '${exitButton}'!`);
           }
         }
 
