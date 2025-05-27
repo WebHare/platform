@@ -1458,16 +1458,8 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
       , wrdauth_account_status := [ status := "active" ]
       ]);
 
-  //OBJECT dom_idp := wrdschema_idp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
-  //    [ wrd_tag :=                "BACKEND-IDP"
-  //    , wrd_title :=              "Backend form SAML test, IDP side"
-  //    , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
-  //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
-  //    ]);
-
   wrdschema_idp->^WRD_AUTHDOMAIN_SAML_IDP->CreateEntity(CELL
       [ wrd_tag :=                "TEST-IDP"
-//      , wrd_title :=              "Test IDP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/idp"
       , keypair :=                MakeIntExtInternalLink(keypair_idp.id, "")
       , hashmethod
@@ -1476,16 +1468,8 @@ PUBLIC STRING FUNCTION TestInvoke_SetupSaml(STRING hashmethod)
       , organization_url :=       "http://b-lex.com"
       ]);
 
-  //OBJECT dom_sp := wrdschema_sp->GetType("WRD_AUTHDOMAIN")->CreateEntity(
-  //    [ wrd_tag :=                "BACKEND-SP"
-  //    , wrd_title :=              "Backend form SAML test, SP side"
-  //    , wrdauth_lastloginfield := "WHUSER_LASTLOGIN"
-  //    , wrdauth_lastipfield :=    "WHUSER_LASTIP"
-  //    ]);
-
   wrdschema_sp->^WRD_AUTHDOMAIN_SAML_SP->CreateEntity(CELL
       [ wrd_tag :=                "TEST-SP"
-//      , wrd_title :=              "Test SP"
       , samlentityid :=           "http://webhare.net/webhare_testsuite/test-saml/saml/sp"
       , keypair :=                MakeIntExtInternalLink(keypair_sp.id, "")
       , hashmethod

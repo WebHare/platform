@@ -42,14 +42,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->wrd_sp := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_SP");
     this->wrd_providerbase := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAMLPROVIDERBASE");
     this->wrd_connectedproviders := this->contexts->wrdschema->GetType("WRD_AUTHDOMAIN_SAML_CONNECTED_ENTITY");
-    OBJECT wrd_authdomain := this->contexts->wrdschema->GetType("wrd_authdomain");
-
-    IF (NOT ObjectExists(wrd_authdomain))
-    {
-      this->RunMessageBox(".authnotcorrectlyconfigured");
-      this->tolliumresult := "cancel";
-      RETURN;
-    }
 
     IF (NOT ObjectExists(this->wrd_providerbase))
     {

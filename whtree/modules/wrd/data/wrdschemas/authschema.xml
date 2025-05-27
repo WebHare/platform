@@ -1,16 +1,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <object tag="wrd_authdomain" title="Authentication domain">
+  <object tag="wrd_authdomain" title="Authentication domain"> <!-- TODO cleared in WH5.8, now completely remove authdomain and this file -->
     <attributes>
-      <free tag="wrd_title" title="Descriptive domain title" />
-      <free tag="wrdauth_language" />  <!-- ignored but we'll leave it in the wrdschema at least until we complete AUTHDOMAIN phaseout -->
-      <free tag="wrdauth_lastipfield" title="Last login from IP" />
-      <free tag="wrdauth_lastloginfield" title="Last login field" />
-      <obsolete tag="wrdauth_emailbcc" />
-      <obsolete tag="wrdauth_emailsender" />
-      <obsolete tag="wrdauth_emailsubjectprefix" />
-      <obsolete tag="wrdauth_emailtemplate" />
-      <obsolete tag="wrdauth_loginpage" />
     </attributes>
   </object>
 

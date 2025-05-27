@@ -24,13 +24,9 @@ IF(UnpackURL(GetRequestURL()).urlpath LIKE "wrd/authtest/*")
   IF(NOT ObjectExists(myschema))
     THROW NEW Exception("No test schema");
 
-  BOOLEAN hasdomaintype := ObjectExists(myschema->GetType("WRD_AUTHDOMAIN"));
   //We must use the same origin as we're testing on or cookie/__Host/__Secure detection breaks
   STRING baseurl := UnpackURL(GetRequestURL()).origin || "/" || UnpackURL(OpenTestsuiteSite()->webroot).urlpath;
-  IF(hasdomaintype)
-    plugin := GetWRDAuthPlugin(baseurl || "portal1/");
-  ELSE //domainless test
-    plugin := GetWRDAuthPlugin(baseurl || "portal1-domainless/");
+  plugin := GetWRDAuthPlugin(baseurl || "portal1-domainless/");
 }
 ELSE
 {
