@@ -8,6 +8,7 @@ import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
+import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -23,6 +24,8 @@ export type WRDAuthPluginSettings = {
   sameSite: CookieOptions["sameSite"];
   supportObjectName: string | null;
   cacheFields: string[] | null;
+  firstLoginField: string | null;
+  lastLoginField: string | null;
 };
 
 interface PluginData extends CSPPluginBase {
@@ -91,7 +94,18 @@ export function buildPluginData(datas: CSPPluginDataRow[]): Omit<CSPPluginDataRo
 
 export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthPluginSettings {
   const wrdSchema = data?.wrdschema as string || null;
+  // TODO More users should probably rely on automatic cookieName selection!
   const cookieName = (data?.cookiename as string | null) || (wrdSchema ? "webharelogin-" + slugify(wrdSchema.replaceAll(":", "-")) : "webharelogin");
+
+  /* Unparsed so far:
+  - passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
+  - servicemailtemplate := siteprofile->ParseFSPath(node, "servicemailtemplate")
+  - spautocreate := node->GetAttribute("spautocreate") IN [ "1", "true" ]
+  - securecookie := ParseXSBoolean(node->GetAttribute("securecookie"))
+  - nohttponlycookies := ParseXSBoolean(node->GetAttribute("nohttponlycookies"))
+  - routerfeatures := ParseXSList(node->GetAttribute("routerfeatures"))
+  - authpageswitty := siteprofile->ParseFSPath(node, "authpageswitty")
+*/
   return {
     wrdSchema,
     loginPage: data?.loginpage as string || null,
@@ -101,6 +115,8 @@ export function getWRDPlugindata(data: Record<string, unknown> | null): WRDAuthP
     cookieDomain: data?.cookiedomain as string || null,
     cacheFields: data?.cachefields as string[] || null,
     sameSite: (data?.samesitecookie || "Lax") as CookieOptions["sameSite"],
+    firstLoginField: data?.firstloginfield ? tagToJS(data?.firstloginfield as string) : null,
+    lastLoginField: data?.lastloginfield ? tagToJS(data?.lastloginfield as string) : null
   };
 }
 

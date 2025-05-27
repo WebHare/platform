@@ -57,6 +57,7 @@
              wrdschema="webhare_testsuite:testschema"
              cookiename="webharelogin-wrdauthjs"
              customizer="webdesign/auth.ts#TestAuthCustomizer"
+             lastloginfield="whuser_lastlogin"
              loginpage="currentsite::/portal1/" /> <!-- TODO? supportobjectname="pages/wrdauthtest/wrdauthtest.whlib#WRDAuthSupport" -->
 
     <!-- Test a plugin -->

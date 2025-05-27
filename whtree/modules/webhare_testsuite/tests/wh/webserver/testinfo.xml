@@ -10,6 +10,6 @@
   <test script="websockets.whscr" />
   <test script="test-webserver-minimalconfig.whscr" />
   <jstest name="websockets" file="websockets.ts" />
-  <jstest file="accessrules.ts" />
+  <jstest file="accessrules.ts" tags="wrdauth" />
   <test name="remoting" path="remoting/" />
 </group>

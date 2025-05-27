@@ -455,10 +455,15 @@ async function testAuthAPI() {
   await test.sleep(2);
   test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
+  //FIXME whuserFirstLogin tests
+  test.eq({ whuserLastlogin: null }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
+
   //Test the frontend login
   test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
   test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
   test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+
+  test.eq({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   const customizerUserInfo: AuthCustomizer = {
     onFrontendUserInfo({ entityId }) {
@@ -574,7 +579,10 @@ async function testAuthAPI() {
 
   await test.setGeoIPDatabaseTestMode(true);
 
-  //Verify prepareFrontendLogin creates an audit event
+  //Verify prepareFrontendLogin creates an audit event and when impersonated, leaves whuserLastLogin alone
+  const { whuserLastlogin: lastLoginBeforeImpersonation } = await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]);
+  test.assert(lastLoginBeforeImpersonation);
+
   await prepareFrontendLogin(url, testuser, {
     authAuditContext: {
       impersonatedBy: test.getUser("sysop").wrdId,
@@ -593,6 +601,15 @@ async function testAuthAPI() {
   }, await test.getLastAuthAuditEvent(oidcAuthSchema, { type: "platform:login" }));
 
   await test.setGeoIPDatabaseTestMode(false);
+
+  const { whuserLastlogin: lastLoginAfterImpersonation } = await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]);
+  test.eq(lastLoginBeforeImpersonation, lastLoginAfterImpersonation, "whuserLastlogin should not be updated when impersonated");
+  test.assert(lastLoginAfterImpersonation);
+
+  //Now do a 'normal' frontend login, should update whuserLastLogin
+  await prepareFrontendLogin(url, testuser);
+  const { whuserLastlogin: lastLoginAfterPrepLogin } = await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]);
+  test.assert(lastLoginAfterPrepLogin && lastLoginAfterPrepLogin.getTime() > lastLoginAfterImpersonation.getTime(), "whuserLastlogin should be updated when not impersonated");
 }
 
 async function testAuthStatus() {

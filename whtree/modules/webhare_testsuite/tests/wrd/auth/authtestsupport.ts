@@ -1,3 +1,4 @@
+import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import type { RPCContext } from "@webhare/router";
 import { beginWork, commitWork } from "@webhare/whdb";
@@ -20,5 +21,12 @@ export const authTestSupportRPC = {
       separateCode: Boolean(options?.codePrefix),
       prefix: options?.codePrefix || ""
     });
+  },
+  async getUserInfo(context: RPCContext, email: string) {
+    const testuser = await wrdTestschemaSchema.find("wrdPerson", { wrdContactEmail: email });
+    if (!testuser)
+      return null;
+
+    return wrdTestschemaSchema.getFields("wrdPerson", testuser, ["wrdFirstName", "wrdLastName", "wrdContactEmail", "whuserLastlogin"]);
   }
 };

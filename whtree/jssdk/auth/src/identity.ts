@@ -31,7 +31,7 @@ const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
-/** Token creation options */
+/** Token creation options. DO NOT EXPOSE FROM \@webhare/auth . */
 export interface AuthTokenOptions {
   /** Customizer object */
   customizer?: AuthCustomizer;
@@ -57,6 +57,10 @@ export interface AuthTokenOptions {
   thirdParty?: boolean;
   /** Skip writing an audit event. This should only be used if an event was written at a higher level. We may consider removing this flag once all old wrdauth events are replaced by platform events */
   skipAuditEvent?: boolean;
+  /** Indicate to deeper APIs that they should not allocate their own work but share ours. If supported by that api. */
+  shareWork?: boolean;
+  /** Explicitly indicate that this is an impersonation, don't auditlog/update lastlogin as if it were real */
+  isImpersonation?: boolean;
 }
 
 export type ListedToken = {
@@ -717,7 +721,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (Buffer.from(metadata).length > 4096)
       throw new Error(`Metadata too large, max size is 4096 bytes`);
 
-    await beginWork();
+    if (!options?.shareWork)
+      await beginWork();
     const hash = hashSHA256(access_token);
     const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
       type: type,
@@ -743,7 +748,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
     }
 
-    await commitWork();
+    if (!options?.shareWork)
+      await commitWork();
 
     return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
   }
@@ -1125,7 +1131,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     return {
       loggedIn: true,
-      setAuth: await prepCookies(prepped, userid, prepOptions),
+      setAuth: await prepCookies(authsettings, prepped, userid, prepOptions),
     };
   }
 
@@ -1385,13 +1391,32 @@ async function buildPublicAuthData(prepped: PrepAuthResult, userId: number, expi
   return { expiresMs, userInfo: userInfo, persistent: persistent || undefined };
 }
 
-export async function prepCookies(prepped: PrepAuthResult, userId: number, options?: AuthTokenOptions): Promise<SetAuthCookies> {
+export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAuthResult, userId: number, options?: AuthTokenOptions): Promise<SetAuthCookies> {
   if ("error" in prepped)
     throw new Error(prepped.error);
 
   const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined);
   const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
-  const idToken = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer });
+
+  if (options?.shareWork)
+    throw new Error("shareWork is not supported in prepCookies");
+
+  const idToken = await runInWork(async () => {
+    //Create the token
+    const tok = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer, shareWork: true });
+
+    //Update first&last login if specified in wrdauth settings
+    const isImpersonation = options?.isImpersonation || Boolean(options?.authAuditContext?.impersonatedBy);
+    if (!isImpersonation && (prepped.settings.firstLoginField || prepped.settings.lastLoginField)) {
+      const needFirstLogin = prepped.settings.firstLoginField && (await wrdSchema.getFields(authsettings.accountType, userId, { firstLogin: prepped.settings.firstLoginField })).firstLogin === null;
+      const now = new Date;
+      await wrdSchema.update(authsettings.accountType, userId, {
+        ...(prepped.settings.lastLoginField ? { [prepped.settings.lastLoginField]: now } : {}),
+        ...(needFirstLogin ? { [prepped.settings.firstLoginField!]: now } : {}),
+      });
+    }
+    return tok;
+  });
 
   const setToken: SetAuthCookies = {
     ...prepped.cookies,
@@ -1415,7 +1440,7 @@ async function prepareLogin(targetUrl: string, userId: number, options?: AuthTok
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
-  return await prepCookies(prepped, userId, options);
+  return await prepCookies(await getAuthSettings(new WRDSchema(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?"), prepped, userId, options);
 }
 
 /** Generate a navigation instruction to set an Id Token cookie. This API can be used to construct a "Login As" service
@@ -1471,7 +1496,7 @@ async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition
    and should mostly correspond with handleFrontendLogin
    */
 export async function prepareLoginCookies(targetUrl: string, userId: number, isImpersonation: boolean, persistent: boolean, thirdParty: boolean, now: Date): Promise<{ headers: HSHeaders } | LoginDeniedInfo> {
-  const setAuthCookies = await prepareLogin(targetUrl, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant() }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
+  const setAuthCookies = await prepareLogin(targetUrl, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant(), isImpersonation }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
 
   if (!isImpersonation) {
     const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
