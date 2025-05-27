@@ -543,6 +543,33 @@ async function testAuthAPI() {
 
     test.assert(seenheaders, "verify onResponse isn't skipped");
     test.assert(loginres.loggedIn);
+
+    //Now verify proper headers on a logout request
+    seenheaders = false;
+
+    await rpc("platform:authservice", {
+      onBeforeRequest(inUrl, requestInit) {
+        const testsiteurl = new URL(url);
+        inUrl.searchParams.set("pathname", testsiteurl.pathname);
+        requestInit.headers.set("origin", testsiteurl.origin);
+      },
+      onResponse(response) {
+        test.eq("no-store", response.headers.get("cache-control"));
+        test.eq("no-cache", response.headers.get("pragma"));
+        seenheaders = true;
+
+        const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
+        test.eq(0, setcookie.length, "No cookie values should be set");
+        test.eq(4, response.headers.getSetCookie().length, "Expecting 4 cookeis currently, __Host, __Secure, plain and publicauthdata");
+
+        const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
+        test.assert(publicCookie);
+        console.error(publicCookie);
+        test.eq(null, publicCookie.match(/httpOnly/i), "publicauthdata cookie should not be httpOnly, Safari won't clear it out of document.cookie otherwise");
+      }
+    }).logout("webharelogin-wrdauthjs");
+
+    test.assert(seenheaders, "verify logout onResponse isn't skipped");
   }
 
   await test.setGeoIPDatabaseTestMode(true);

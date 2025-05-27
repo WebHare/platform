@@ -45,8 +45,9 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
     if (name === idCookie || ignoreCookies.includes(name))
       await closeFrontendLogin(value);
 
-  for (const killCookie of [idCookie, ...ignoreCookies, cookieName + PublicCookieSuffix])
+  for (const killCookie of [idCookie, ...ignoreCookies])
     hdrs.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
+  hdrs.append("Set-Cookie", buildCookieHeader(cookieName + PublicCookieSuffix, '', { ...cookieSettings, httpOnly: false }));
 
   /* You don't want either cookie update (login or logout) to be cached */
   hdrs.set("cache-control", "no-store");
