@@ -127,7 +127,7 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage());
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage(), GetClientRemoteIP(), GetWebHeader("User-Agent"));
 
     IF(CellExists(result,'headers'))
       FOREVERY(RECORD toset FROM result.headers)

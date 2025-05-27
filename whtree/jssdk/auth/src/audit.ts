@@ -12,7 +12,7 @@ import { decodeHSONorJSONRecord } from "@webhare/hscompat";
 
 export type AuthAuditContext = {
   /** Remote IP address */
-  remoteIp?: string;
+  clientIp?: string;
   /** Country. If not set it will be looked up */
   country?: string;
   /** User agent type: platform-browsername-version eg ios-safari-11 */
@@ -70,7 +70,7 @@ export async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Se
     entity: event.entity,
     entityLogin: event.login || undefined,
     type: event.type as Type,
-    remoteIp: event.ip || undefined,
+    clientIp: event.ip || undefined,
     browserTriplet: event.browsertriplet || undefined,
     impersonatedBy: event.impersonator_entity || null,
     impersonatedByLogin: event.impersonator_login || undefined,
@@ -112,8 +112,8 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     creationdate: new Date,
     wrdschema: schemaId,
     entity: event.entity || null,
-    ip: event.remoteIp || "",
-    country: event.remoteIp ? (await lookupCountryInfo(event.remoteIp))?.country?.iso_code || "" : "",
+    ip: event.clientIp || "",
+    country: event.clientIp ? (await lookupCountryInfo(event.clientIp))?.country?.iso_code || "" : "",
     browsertriplet: event.browserTriplet || "",
     type: event.type,
     impersonated: event.impersonatedBy ? true : false,

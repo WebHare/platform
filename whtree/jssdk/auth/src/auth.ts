@@ -17,6 +17,7 @@ export type WRDAuthAccountStatus = {
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
+  "platform:logout": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
   "platform:resetpassword": void;

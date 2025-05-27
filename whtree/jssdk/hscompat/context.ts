@@ -16,7 +16,7 @@ export type HarescriptJSCallContext = {
 
 export function toAuthAuditContext(hscontext: HarescriptAuditContext): AuthAuditContext {
   return {
-    remoteIp: hscontext.remoteip || undefined,
+    clientIp: hscontext.remoteip || undefined,
     browserTriplet: hscontext.browsertriplet || undefined,
     actionBy: hscontext.user_entityid || null,
     actionByLogin: hscontext.user_login || undefined,

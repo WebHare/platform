@@ -1101,7 +1101,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     UpdateAuditContext([ user_entityid := 0, user_login := "" ]);
 
     this->loggedinentity := 0;
-    CallJS("@webhare/auth/src/identity.ts#closeFrontendLogin", this->idcookie);
+    CallJS("@mod-platform/js/auth/harescript.ts#closeFrontendLogin", this->wrdschema->tag, this->idcookie, GetClientRemoteIP(), GetWebHeader("User-Agent"));
     this->wrdauthjs := DEFAULT RECORD;
   }
 

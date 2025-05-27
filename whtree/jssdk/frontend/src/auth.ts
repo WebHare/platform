@@ -192,7 +192,7 @@ export async function login(username: string, password: string, options: LoginOp
   if (!cookieName)
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
 
-  const result = await rpc("platform:authservice").login(username, password, cookieName, { ...options, ...getLoginTweaks() });
+  const result = await rpc("platform:authservice").login(username, password, cookieName, dompack.getBrowser().triplet, { ...options, ...getLoginTweaks() });
   if (result.loggedIn && !getAuthLocalData())
     throw new Error("Login succeeded but no auth data was set in the cookie");
 
@@ -204,7 +204,7 @@ export async function logout() {
   if (!cookieName)
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
 
-  await rpc("platform:authservice").logout(cookieName);
+  await rpc("platform:authservice").logout(cookieName, dompack.getBrowser().triplet);
 
   if (getAuthLocalData())
     throw new Error("Logged out but we still have auth data in the cookie");

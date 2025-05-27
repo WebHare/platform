@@ -115,7 +115,12 @@ export function getUser(name: string): TestUserDetails {
 }
 
 /** Get the last audit event generated in a WRD Schema */
-export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(w: WRDSchema<S>, filter?: { type?: string; since?: Date | Temporal.Instant }): Promise<AuthAuditEvent<Type>> {
+export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(
+  w: WRDSchema<S>,
+  filter?: {
+    type?: Type;
+    since?: Date | Temporal.Instant;
+  }): Promise<AuthAuditEvent<Type>> {
   let query = db<PlatformDB>().
     selectFrom("wrd.auditevents").selectAll().where("wrdschema", "=", await w.getId());
   if (filter?.type)
@@ -123,7 +128,9 @@ export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type
   if (filter?.since)
     query = query.where("creationdate", ">=", convertFlexibleInstantToDate(filter.since));
 
-  const eventRecord = await query.orderBy("creationdate desc").limit(1).executeTakeFirstOrThrow();
+  const eventRecord = await query.orderBy("creationdate desc").limit(1).executeTakeFirst();
+  if (!eventRecord)
+    throw new Error(`No audit event found for schema ${w.tag} with filter ${JSON.stringify(filter)}`);
   return unmapAuthEvent(eventRecord);
 }
 

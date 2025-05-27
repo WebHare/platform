@@ -73,7 +73,7 @@ TestEqMembers(
   , entity_login := "user@beta.webhare.net"
   , impersonated_by := testfw->GetUserWRDId("sysop")
   , impersonated_by_login := "sysop@beta.webhare.net"
-  , remote_ip := "67.43.156.0"
+  , client_ip := "67.43.156.0"
   , type := "platform:login"
   ], CallJS("./data/calls.ts#testTokenAudit", testfw->GetUserWRDId("user")), "*");
 
