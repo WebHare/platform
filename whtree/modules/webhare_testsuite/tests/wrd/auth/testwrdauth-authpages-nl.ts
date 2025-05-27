@@ -44,4 +44,14 @@ test.runTests(
       test.eq(/Twee-factor authenticatie instellen/, test.qR('.wh-form__page--visible h2').textContent);
     },
 
+    "2FA setup",
+    async function () {
+      const { totpSecret } = await testwrd.run2FAEnrollment({ expectLang: "nl" });
+      test.assert(test.qR('#isloggedin').checked);
+      await testwrd.forceLogout();
+      // login again, now with TOTP code
+      await testwrd.runLogin("pietje-authpages-js@beta.webhare.net", "$$$", { totpSecret, expectLang: "nl" });
+      test.assert(test.qR('#isloggedin').checked);
+    }
+
   ]);

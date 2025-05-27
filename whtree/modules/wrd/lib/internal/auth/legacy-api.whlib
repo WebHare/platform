@@ -776,10 +776,13 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, INTEGER cookietype, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT isimpersonation AND updatelogindata)
-      this->UpdateLastLoginAndIp(the_entity, ip, options);
-    IF(NOT isimpersonation AND CellExists(options,'updatepassword'))
+    // IF(NOT isimpersonation AND updatelogindata)  TS should do this now - and it will only trigger deadlocks!
+    //   this->UpdateLastLoginAndIp(the_entity, ip, options);
+    IF(NOT isimpersonation AND CellExists(options,'updatepassword')) {
+      GetPrimary()->BeginWork(); //FIXME move to TS
       the_entity->UpdatePassword(this->wrdschema->accountpasswordtag, options.updatepassword, [ inplace := TRUE ]); //TODO combine in one update with above
+      GetPrimary()->CommitWork();
+    }
 
     RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, isimpersonation, PickCells(options, ["SETCREATIONDATE"]));
     IF(NOT RecordExists(cookies))
@@ -982,7 +985,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     }
 
     this->loggedinentity := -1;
-    RECORD trylogin := GetPrimary()->ExecuteInWork(PTR this->serviceLogin(loginname, password, persistent ? cookietype_persistent : cookietype_session, remoteip, userid, FALSE, skippasswordcheck, options));
+    RECORD trylogin := this->serviceLogin(loginname, password, persistent ? cookietype_persistent : cookietype_session, remoteip, userid, FALSE, skippasswordcheck, options);
     IF(NOT trylogin.success)
       RETURN trylogin;
 

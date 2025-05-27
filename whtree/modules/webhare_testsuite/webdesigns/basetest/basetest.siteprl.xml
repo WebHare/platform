@@ -615,6 +615,7 @@
              wrdschema="wrd:testschema"
              cookiename="webharelogin-testsuite-portal1"
              loginpage="currentsite::/portal1/"
+             lastloginfield="whuser_lastlogin"
              customizer="pages/wrdauthtest/wrdauthtest.backend.ts#WRDAuthMyBackend" />
   </apply>
 

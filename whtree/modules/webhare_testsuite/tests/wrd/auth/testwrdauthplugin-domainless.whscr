@@ -103,7 +103,6 @@ MACRO CreateMyTestSchema()
 
   OBJECT schemaobj := testfw->GetWRDSchema();
   TestEq(TRUE, ObjectExists(schemaobj));
-  schemaobj->^wrd_authdomain->DeleteSelf();
 
   OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;
   persontype->CreateAttribute("LASTLOGIN",  "DATETIME");

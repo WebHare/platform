@@ -63,20 +63,6 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
 
   STRING ARRAY eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->^wrd_settings->GetEventMasks();
 
-  // temporary fallback so users can migrate to lastloginfield= setting
-  OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");
-  IF(ObjectExists(authdomaintype) AND RecordExists(authdomaintype->GetAttribute("WRDAUTH_LASTLOGINFIELD")))
-  {
-    eventmasks := eventmasks CONCAT authdomaintype->GetEventMasks();
-    FOREVERY(RECORD domain FROM  authdomaintype->RunQuery(
-        [ outputcolumns := CELL[ "WRDAUTH_LASTLOGINFIELD" ]
-        ]))
-    {
-      IF(domain.WRDAUTH_LASTLOGINFIELD != "" AND RecordExists(wrdschema->accounttype->GetAttribute(domain.WRDAUTH_LASTLOGINFIELD)))
-        wrdauthconfig.fallback_lastloginfield := domain.WRDAUTH_LASTLOGINFIELD;
-    }
-  }
-
   RETURN [ value := wrdauthconfig
          , ttl := 15 * 60 * 1000
          , eventmasks := eventmasks

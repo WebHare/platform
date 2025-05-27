@@ -2,6 +2,7 @@ import * as test from '@mod-tollium/js/testframework';
 import { invokeSetupForTestSetup, type TestSetupData } from '@mod-webhare_testsuite/js/wts-testhelpers';
 import { isTruthy, throwError } from '@webhare/std';
 import * as testwrd from "@mod-wrd/js/testframework";
+import { rpc } from '@webhare/rpc';
 
 const webroot = test.getTestSiteRoot();
 let setupdata: TestSetupData | null = null;
@@ -49,7 +50,10 @@ test.runTests(
     "set Pietje password",
     async function () {
       await test.load(pietje_resetlink);
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "xecret", { loginAfterReset: true });
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "xecret");
+      test.eq(null, (await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net"))?.whuserLastlogin, "Password reset is not a login!");
+      await testwrd.runLogin("pietje@allow2fa.test.webhare.net", "xecret");
+      test.eqPartial({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 5000) }, (await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net")));
     },
 
     "enable TOTP",
@@ -106,8 +110,12 @@ test.runTests(
 
     "login Pietje with 2FA code",
     async function () {
+      const { whuserLastlogin } = await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net") ?? throwError("Pietje not found");
+      test.assert(whuserLastlogin);
       await testwrd.runLogin('pietje@allow2fa.test.webhare.net', 'xecret');
       await test.wait('ui');
+
+      test.eqPartial({ whuserLastlogin }, await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net"), "Partial TOTP is not a real login!");
 
       // STORY: test an invalid code
       // gather a lot of valid codes
@@ -137,6 +145,10 @@ test.runTests(
 
       // should be logged in
       test.assert(Boolean(test.qS("#dashboard-logout")));
+
+      // verify lastlogin is updated
+      const userinfo = await rpc("webhare_testsuite:authtestsupport").getUserInfo("pietje@allow2fa.test.webhare.net");
+      test.eqPartial({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() > whuserLastlogin.getTime()) }, userinfo);
 
       // logout
       await test.runTolliumLogout();
