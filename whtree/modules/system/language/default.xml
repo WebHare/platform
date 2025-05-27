@@ -2087,6 +2087,7 @@
       <text tid="delete-hint">Delete the selected item(s)</text>
       <text tid="edit">Properties</text>
       <text tid="edit-hint">Edit the selected item properties</text>
+      <text tid="editauthtexts">Authentication page texts</text>
       <text tid="editobject">Edit</text>
       <text tid="exportallgrants">Export all (role) grants</text>
       <text tid="exportobjectrights">Export rights on objects</text>
@@ -2317,7 +2318,7 @@
       <text tid="editrootunit">Root authentication settings</text>
       <text tid="editunit">Edit unit</text>
       <text tid="locknologin">Lock inactive users after</text>
-      <text tid="nospecificpolicy">No specific policy</text>
+      <text tid="nospecificpolicy">General policy</text>
       <text tid="override_expiration">Override acount expiration</text>
       <text tid="override_passwordchecks">Override password restrictions</text>
       <text tid="policy">Policy</text>

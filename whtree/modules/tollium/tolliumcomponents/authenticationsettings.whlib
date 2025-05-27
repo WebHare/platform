@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
@@ -79,6 +80,8 @@ STATIC OBJECTTYPE LiveAuthenticationSettingValue EXTEND AuthenticationSettingVal
 
   /// Name of attribute with authentication settings
   STRING _attrtag;
+
+  PUBLIC PROPERTY wrdschema(this->_entity->wrdschema, -);
 
   MACRO NEW(OBJECT entity, STRING attrtag)
   {
@@ -646,7 +649,7 @@ PUBLIC STATIC OBJECTTYPE SetupTOTP EXTEND TolliumScreenBase <
   MACRO Init(RECORD xdata) {
     this->_valuekeeper := xdata.valuekeeper;
 
-    STRING issuer := ReadRegistryKey("system.backend.layout.title") ?? "Webhare";
+    STRING issuer := (ObjectExists(this->_valuekeeper->wrdschema) ? GetWRDSetting(this->_valuekeeper->wrdschema, "password_totp_issuer") : "") ?? "WebHare"; // Issuer may be shown in the authenticator app
     this->newtotp := PrepareTOTPForUser(this->tolliumuser->login, issuer);
 
     OBJECT qrcode := CreateQRCode(this->newtotp.url, [ size := 250, correctlevel := "L" ]);

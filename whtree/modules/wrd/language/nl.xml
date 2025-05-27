@@ -63,7 +63,8 @@
         <text tid="addlink">Voeg link toe</text>
         <text tid="anonymize">Schema anonimiseren</text>
         <text tid="auditlog">Inlog-events</text>
-        <text tid="authsettings">Inlog instellingen</text>
+        <text tid="authsettings">Inloginstellingen</text>
+        <text tid="authtexts">Teksten authenticatiepagina's</text>
         <text tid="deleteentity">Verwijderen</text>
         <text tid="deletelink">Koppeling verwijderen</text>
         <text tid="editentity">Bewerken</text>
@@ -991,11 +992,16 @@
         <text tid="title-placeholder">Bv: productie, ontwikkeling, groen…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
-        <text tid="authtexts">Teksten authenticatiepagina's</text>
+        <text tid="authtexts-intro">Overschrijf de standaardteksten op de authenticatiepagina's</text>
+        <text tid="completeaccount-intro-desc"><html:i>De reden voor de wijziging wordt automatisch toegevoegd</html:i></text>
+        <text tid="defaults">Standaardtekst:</text>
+        <text tid="emailchange-done-email"><html:i>[e-mailadres]</html:i></text>
         <text tid="expire_login">Login verloopt na</text>
         <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
         <text tid="expiry">Verloopinstellingen</text>
         <text tid="language">Taal</text>
+        <text tid="login-intro-default"><html:i>Bij inloggen met e-mailadres</html:i>: <param p="1"/><br/><html:i>Bij inloggen met gebruikersnaam</html:i>: <param p="2"/></text>
+        <text tid="password_totp_issuer">Label TOTP-issuer</text>
         <text tid="passwordrestrictions">Wachtwoordeisen</text>
         <text tid="round_longlogins_to">Afronden naar</text>
         <text tid="round_longlogins_tz">Volgens tijdzone</text>
@@ -1003,6 +1009,7 @@
         <text tid="roundlogins">Rond de verlooptijd af naar een specifiek moment</text>
         <text tid="tag">Tekst</text>
         <text tid="wrdauthsettings">Authenticatie- en inloginstellingen</text>
+        <text tid="wrdauthtexts">Teksten authenticatiepagina's</text>
         <textgroup gid="authtexts">   <!-- tolliumapps.auth.settings.authtexts -->
           <text tid="completeaccount-intro">Update vereist introductie</text>
           <text tid="completeaccount-totp-done">2FA instellen afgerond</text>

@@ -791,7 +791,7 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
   IF(require2fa) { //we wanted you to setup 2FA
     IF(NOT RecordExists(userauthinfo.totp)) {
       OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccounttotp");
-      STRING issuer := "webhare"; // FIXME why/where does the issuer matter?
+      STRING issuer := GetWRDSetting(wrdschema, "password_totp_issuer") ?? "WebHare"; // Issuer may be shown in the authenticator app
       STRING username := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountlogintag);
       RECORD newtotp := PrepareTOTPForUser(username, issuer);
 

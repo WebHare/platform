@@ -64,6 +64,7 @@
         <text tid="anonymize">Anonymize schema</text>
         <text tid="auditlog">Login events</text>
         <text tid="authsettings">Login settings</text>
+        <text tid="authtexts">Authentication page texts</text>
         <text tid="deleteentity">Delete</text>
         <text tid="deletelink">Delete link</text>
         <text tid="editentity">Edit</text>
@@ -991,11 +992,16 @@
         <text tid="title-placeholder">Eg: production, dev, green…</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.auth.settings -->
-        <text tid="authtexts">Authentication page texts</text>
+        <text tid="authtexts-intro">Overwrite the standard authentication page texts</text>
+        <text tid="completeaccount-intro-desc"><html:i>The update reason will be added automatically</html:i></text>
+        <text tid="defaults">Default text:</text>
+        <text tid="emailchange-done-email"><html:i>[email address]</html:i></text>
         <text tid="expire_login">Expire login after</text>
         <text tid="expire_persistentlogin">"Remember me" expires after</text>
         <text tid="expiry">Expiry settings</text>
         <text tid="language">Language</text>
+        <text tid="login-intro-default"><html:i>When logging in using email address</html:i>: <param p="1"/><br/><html:i>When logging in using user name</html:i>: <param p="2"/></text>
+        <text tid="password_totp_issuer">TOTP issuer label</text>
         <text tid="passwordrestrictions">Password restrictions</text>
         <text tid="round_longlogins_to">Round to</text>
         <text tid="round_longlogins_tz">In timezone</text>
@@ -1003,6 +1009,7 @@
         <text tid="roundlogins">Round login expiry to a specific time</text>
         <text tid="tag">Text</text>
         <text tid="wrdauthsettings">Authentication and login settings</text>
+        <text tid="wrdauthtexts">Authentication page texts</text>
         <textgroup gid="authtexts">   <!-- tolliumapps.auth.settings.authtexts -->
           <text tid="completeaccount-intro">Update required introduction</text>
           <text tid="completeaccount-totp-done">Setup 2FA finished</text>
