@@ -29,11 +29,25 @@ test.runTests(
       test.click(test.qR('.wh-wrdauth-login__forgotpasswordlink'));
       await test.wait("pageload");
 
-      await testwrd.runResetPassword({
-        email: 'pietje-authpages-js@beta.webhare.net',
-        newpassword: 'mybigsecret$',
-        loginAfterReset: true,
-      });
+      const resetpwd = await testwrd.openResetPassword({ email: 'pietje-authpages-js@beta.webhare.net' });
+
+      //STORY: Open the same reset in a second window - a user accidentally following the link twice and forgotting he already set the password
+      await test.addFrame("reset2", { width: 1024 });
+      await test.selectFrame("reset2");
+      await test.load(resetpwd.link);
+
+      //Back to main frame
+      await test.selectFrame("main");
+      await testwrd.runPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'mybigsecret$', { loginAfterReset: true });
+
+      //Now reset in second frame
+      await test.selectFrame("reset2");
+      await testwrd.tryPasswordSetForm('pietje-authpages-js@beta.webhare.net', 'myothersecret$');
+      //TODO a redirect to completely clear the form would have been nicer here, but forms can't do that yet
+      test.eq(/link you followed has expired/, test.qR('.wh-form__error').textContent, "Should have an error about the link being expired");
+
+      await test.selectFrame("main");
+      await test.removeFrame("reset2");
     },
 
     'After login stuff',
