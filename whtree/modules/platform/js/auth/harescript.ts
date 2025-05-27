@@ -32,10 +32,13 @@ export function mapHSAuditContext(auditContext: AuthAuditContextHS): AuthAuditCo
     c.remoteIp = auditContext.remoteip;
   if (auditContext.browsertriplet)
     c.browserTriplet = auditContext.browsertriplet;
-  if (auditContext.user_entityid)
+  if (auditContext.user_entityid > 0)
     c.actionBy = auditContext.user_entityid;
-  if (auditContext.impersonator_entityid)
+  else if (auditContext.user_login) // This may be set (with user_entityid -1) for console actions. we then attempt to log the WEBHARE_CLI_USER
+    c.actionByLogin = auditContext.user_login;
+  if (auditContext.impersonator_entityid > 0)
     c.impersonatedBy = auditContext.impersonator_entityid;
+
   return c;
 }
 

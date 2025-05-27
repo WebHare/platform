@@ -150,7 +150,7 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getTempDir() {
-    return process.env.WEBHARE_TEMP || path.join(backendConfig.dataRoot || "tmp/");
+    return process.env.WEBHARE_TEMP || (path.join(backendConfig.dataRoot, "tmp/"));
   }
 
   getWHResourceDir() {
