@@ -387,7 +387,13 @@ PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase <
 
     RECORD setresult := CallJS("@mod-platform/js/auth/harescript.ts#doResetPassword", plugin->wrdschema->tag, GetFormWebVariable("_ed"), ^verifier->value, ^passwordnew->value, GetTidLanguage());
     IF(CellExists(setresult, "verifyFailed")) {
-      work->AddErrorFor(^verifier, GetTid("wrd:site.forms.authpages.invalidverifier"));
+      IF(setresult.verifyFailed.result IN ["expired","alreadychanged"]) {
+        work->AddErrorFor(^passwordnew, GetTid("wrd:site.forms.authpages.linkexpired"));
+      } ELSE IF(setresult.verifyFailed.result = "badverifier") {
+        work->AddErrorFor(^verifier, GetTid("wrd:site.forms.authpages.invalidverifier"));
+      } ELSE {
+        THROW NEW Exception("Unexpected verify result: " || setresult.verifyFailed.result);
+      }
     }
     IF(CellExists(setresult, "updateFailed")) {
       work->AddErrorFor(^passwordnew, setresult.updatefailed.message);

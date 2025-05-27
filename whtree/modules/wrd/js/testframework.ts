@@ -17,6 +17,8 @@ export async function openResetPassword(options: { email: string; verifier?: str
   test.eq(true, Boolean(resetlink), "Didn't find a reset link");
   test.getWin().location.href = resetlink.href;
   await test.wait('load');
+
+  return { link: resetlink.href };
 }
 
 ///run forgot password sequence and navigate through the reset procedure
