@@ -10,6 +10,7 @@
         <tab tid=".passwordrestrictions">
           <heading tid=".passwordrestrictions" />
           <system:passwordvalidationchecks name="passwordchecks" />
+          <textedit name="password_totp_issuer" placeholder="WebHare" />
         </tab>
         <tab tid=".expiry">
           <heading tid=".expiry" />

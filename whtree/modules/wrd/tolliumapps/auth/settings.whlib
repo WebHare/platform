@@ -142,6 +142,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
     this->OnRoundLoginsChange();
 
     ^passwordchecks->value := GetWRDSetting(this->contexts->wrdschema, "password_validation_checks");
+    ^password_totp_issuer->value := GetWRDSetting(this->contexts->wrdschema, "password_totp_issuer");
   }
 
   MACRO OnRoundLoginsChange() {
@@ -152,6 +153,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase <
   BOOLEAN FUNCTION Submit() {
     OBJECT work := this->BeginWork();
     SetWRDSetting(this->contexts->wrdschema, "password_validation_checks", ^passwordchecks->value);
+    SetWRDSetting(this->contexts->wrdschema, "password_totp_issuer", ^password_totp_issuer->value);
 
     SetWRDSetting(this->contexts->wrdschema, "login_settings",
       CELL[ ...GetWRDSetting(this->contexts->wrdschema, "login_settings")
@@ -174,7 +176,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthTexts EXTEND TolliumScreenBase <
         SELECT rowkey
              , title := GetTid(titletid)
           FROM authtext_options;
-          
+
     RECORD ARRAY authpages_texts := GetWRDSetting(this->contexts->wrdschema, "authpages_texts");
     INTEGER first_text := -1;
     FOREVERY (STRING tag FROM SELECT AS STRING ARRAY rowkey FROM ^tag->options)
@@ -212,7 +214,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthTexts EXTEND TolliumScreenBase <
     } ELSE
       this->OnTextSelect();
   }
-  
+
   MACRO OnTextSelect() {
     ^texts->selectedtab := SELECT AS OBJECT addedtab FROM this->authtexts WHERE language = ^language->value AND tag = ^tag->value;
   }
@@ -225,7 +227,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthTexts EXTEND TolliumScreenBase <
       IF (RecordExists(authtext.text->value))
         INSERT CELL[ authtext.language, authtext.tag, text := authtext.text->value ] INTO authpages_texts AT END;
     SetWRDSetting(this->contexts->wrdschema, "authpages_texts", authpages_texts);
-  
+
     RETURN work->Finish();
   }
 >;

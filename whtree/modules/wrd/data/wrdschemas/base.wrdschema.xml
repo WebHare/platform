@@ -31,7 +31,10 @@
       </array>
       <free tag="domain_secret" description="Shared secret for WRDAuth tokens" unsafetocopy="true" />
       <free tag="password_validation_checks" description="Global checks" />
-      <json tag="login_settings" description="Login configuration (see wrdauth_defaultconfiguration)" typedeclaration="@webhare/auth/src/support#WRDAuthLoginSettings"/>
+      <json tag="login_settings"
+            description="Login configuration (see wrdauth_defaultconfiguration)"
+            typedeclaration="@webhare/auth/src/support#WRDAuthLoginSettings" />
+      <free tag="password_totp_issuer" description="The issuer to use in TOTP urls" />
       <array tag="authpages_texts" description="Overwritten texts for authpages">
         <enum tag="language" allowedvalues="en nl" />
         <enum tag="tag"
