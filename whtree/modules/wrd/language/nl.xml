@@ -998,7 +998,7 @@
         <text tid="emailchange-done-email"><html:i>[e-mailadres]</html:i></text>
         <text tid="expire_login">Login verloopt na</text>
         <text tid="expire_persistentlogin">"Onthoud mij" verloopt na</text>
-        <text tid="expiry">Verloopinstellingen</text>
+        <text tid="expiry">Sessieduur</text>
         <text tid="language">Taal</text>
         <text tid="login-intro-default"><html:i>Bij inloggen met e-mailadres</html:i>: <param p="1"/><br/><html:i>Bij inloggen met gebruikersnaam</html:i>: <param p="2"/></text>
         <text tid="password_totp_issuer">Label TOTP-issuer</text>
