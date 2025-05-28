@@ -5,16 +5,15 @@
 declare module "@webhare/test-backend" {
 }
 
-import { beginWork, db } from "@webhare/whdb";
+import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
-import { convertFlexibleInstantToDate, convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
-import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
-import { unmapAuthEvent } from "@webhare/auth/src/audit";
+import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
 
 export const passwordHashes = {
@@ -115,16 +114,13 @@ export function getUser(name: string): TestUserDetails {
 }
 
 /** Get the last audit event generated in a WRD Schema */
-export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(w: WRDSchema<S>, filter?: { type?: string; since?: Date | Temporal.Instant }): Promise<AuthAuditEvent<Type>> {
-  let query = db<PlatformDB>().
-    selectFrom("wrd.auditevents").selectAll().where("wrdschema", "=", await w.getId());
-  if (filter?.type)
-    query = query.where("type", "=", filter.type);
-  if (filter?.since)
-    query = query.where("creationdate", ">=", convertFlexibleInstantToDate(filter.since));
-
-  const eventRecord = await query.orderBy("creationdate desc").limit(1).executeTakeFirstOrThrow();
-  return unmapAuthEvent(eventRecord);
+export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(
+  w: WRDSchema<S>,
+  filter?: {
+    type?: Type;
+    since?: Date | Temporal.Instant;
+  }): Promise<AuthAuditEvent<Type>> {
+  return (await getAuditEvents<S, Type>(w, { ...filter, limit: 1 }))[0] || throwError(`No audit event found for schema ${w.tag} with filter ${JSON.stringify(filter)}`);
 }
 
 /** Wait for publication to complete

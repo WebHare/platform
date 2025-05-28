@@ -7,7 +7,8 @@ import { prepAuth } from "@webhare/auth/src/support";
 import { defaultDateTime } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
 import { WRDSchema } from "@webhare/wrd";
-import { doLoginHeaders, mapLoginError } from "./authservice";
+import { doLoginHeaders, mapLoginError, closeAccessToken } from "./authservice";
+import { parseUserAgent } from "@webhare/dompack/src/browser";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -29,7 +30,7 @@ export type AuthAuditContextHS = {
 export function mapHSAuditContext(auditContext: AuthAuditContextHS): AuthAuditContext {
   const c: AuthAuditContext = {};
   if (auditContext.remoteip)
-    c.remoteIp = auditContext.remoteip;
+    c.clientIp = auditContext.remoteip;
   if (auditContext.browsertriplet)
     c.browserTriplet = auditContext.browsertriplet;
   if (auditContext.user_entityid > 0)
@@ -54,9 +55,9 @@ export function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
   return headers;
 }
 
-export async function login(originUrl: string, username: string, password: string, lang: string) {
+export async function login(targetUrl: string, username: string, password: string, lang: string, clientIp: string, userAgent: string) {
   //TODO can we share more with authservice.ts#login - or should we replace it? at least share through the IDP but basically we're two routes to the same end!
-  const prepped = await prepAuth(originUrl, null);
+  const prepped = await prepAuth(targetUrl, null);
   if ("error" in prepped)
     throw new Error("Unable to prepare auth for login: " + prepped.error);
 
@@ -65,9 +66,13 @@ export async function login(originUrl: string, username: string, password: strin
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
-  const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, {
-    // ...pick({ ...options }, ["persistent", "site", "limitExpiry"]),
-    returnTo: /*options?.returnTo || */originUrl
+  const response = await provider.handleFrontendLogin({
+    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: targetUrl }, tokenOptions: {
+      authAuditContext: {
+        clientIp: clientIp,
+        browserTriplet: parseUserAgent(userAgent)?.triplet || "",
+      }
+    }
   });
 
   if (response.loggedIn === false)
@@ -127,4 +132,11 @@ export async function doResetPassword(schemaTag: string, tok: string, verifier: 
     return { updateFailed: updResult };
 
   return { success: true, entityId: result.user! };
+}
+
+export async function closeFrontendLogin(wrdSchema: string, idCookie: string, remoteIp: string, userAgent: string) {
+  await closeAccessToken(wrdSchema, idCookie, {
+    clientIp: remoteIp,
+    browserTriplet: parseUserAgent(userAgent)?.triplet || ""
+  });
 }

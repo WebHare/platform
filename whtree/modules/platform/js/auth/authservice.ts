@@ -2,15 +2,17 @@ import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { buildCookieHeader, type ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { expandCookies, HTTPErrorCode, RPCError, type RPCContext } from "@webhare/router";
 import { importJSObject } from "@webhare/services";
-import { pick, stringify, throwError } from "@webhare/std";
+import { stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
-import type { AuthCustomizer, LoginErrorCodes } from "@webhare/auth";
-import { closeFrontendLogin, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
+import { writeAuthAuditEvent, type AuthAuditContext, type AuthCustomizer, type LoginErrorCodes } from "@webhare/auth";
+import { hashSHA256, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
 import type { FrontendLoginResult } from "./openid";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix } from "@webhare/auth/src/shared";
 import { prepAuth } from "@webhare/auth/src/support";
 import { getTid } from "@webhare/gettid";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { db, runInWork } from "@webhare/whdb";
 
 export function doPublicAuthDataCookie(cookieName: string, cookieSettings: ServersideCookieOptions, authData: PublicAuthData, hdrs: Headers): void {
   /* Set safety headers when returning tokens just like openid */
@@ -34,7 +36,24 @@ export function doLoginHeaders(authCookies: SetAuthCookies, hdrs: Headers): void
     hdrs.append("Set-Cookie", buildCookieHeader(toClear, '', authCookies.cookieSettings));
 }
 
-export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers): Promise<void> {
+export async function closeAccessToken(wrdSchema: string, accessToken: string, auditContext: AuthAuditContext): Promise<void> {
+  const hash = hashSHA256(accessToken);
+  await runInWork(async () => {
+    const tokeninfo = await db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).returning(["entity"]).executeTakeFirst();
+
+    if (tokeninfo) {
+      await writeAuthAuditEvent(new WRDSchema(wrdSchema), {
+        type: "platform:logout",
+        ...auditContext,
+        entity: tokeninfo.entity,
+        data: { tokenHash: hash.toString("base64url") }
+      });
+
+    }
+  });
+}
+
+export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers, auditContext: AuthAuditContext): Promise<void> {
   const prepped = await prepAuth(url, cookieName);
   if ("error" in prepped)
     throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
@@ -42,8 +61,11 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
   const { idCookie, ignoreCookies, cookieSettings } = prepped.cookies;
 
   for (const [name, value] of Object.entries(expandCookies(currentCookie)))
-    if (name === idCookie || ignoreCookies.includes(name))
-      await closeFrontendLogin(value);
+    if (name === idCookie || ignoreCookies.includes(name)) {
+      const accessToken = value?.match(/ accessToken:(.+)$/)?.[1];
+      if (accessToken)
+        await closeAccessToken(prepped.settings.wrdSchema, accessToken, auditContext);
+    }
 
   for (const killCookie of [idCookie, ...ignoreCookies])
     hdrs.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
@@ -72,7 +94,7 @@ export function mapLoginError(code: LoginErrorCodes, langCode?: string): string 
 }
 
 export const authService = {
-  async login(context: RPCContext, username: string, password: string, cookieName: string, options?: LoginRemoteOptions): Promise<FrontendLoginResult> {
+  async login(context: RPCContext, username: string, password: string, cookieName: string, browserTriplet: string, loginOptions?: LoginRemoteOptions): Promise<FrontendLoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
     const prepped = await prepAuth(originUrl, cookieName);
     if ("error" in prepped)
@@ -82,15 +104,15 @@ export const authService = {
     const customizer = settings.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
-
-    const response = await provider.handleFrontendLogin(originUrl, username, password, customizer, {
-      ...pick({ ...options }, ["persistent", "site", "limitExpiry"]),
-      returnTo: options?.returnTo || originUrl
+    const response = await provider.handleFrontendLogin({
+      targetUrl: originUrl, login: username, password, customizer,
+      loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo },
+      tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });
 
     if (response.loggedIn === false)
       if ("code" in response)
-        return { ...response, error: mapLoginError(response.code, options?.lang) };
+        return { ...response, error: mapLoginError(response.code, loginOptions?.lang) };
       else
         return response;
 
@@ -103,8 +125,11 @@ export const authService = {
   /** Logout current user, reset session
    * @param cookieName - The name of the session cookie used
   */
-  async logout(context: RPCContext, cookieName: string): Promise<void> {
+  async logout(context: RPCContext, cookieName: string, browserTriplet: string): Promise<void> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
-    await doLogout(originUrl, cookieName, context.request.headers.get("cookie"), context.responseHeaders);
+    await doLogout(originUrl, cookieName, context.request.headers.get("cookie"), context.responseHeaders, {
+      clientIp: context.request.clientIp,
+      browserTriplet
+    });
   }
 };

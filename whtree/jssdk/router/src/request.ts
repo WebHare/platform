@@ -29,7 +29,7 @@ export type WebRequestTransferData = {
 
 export type RPCContext = {
   /** The RPC request */
-  request: SupportedRequestSubset; //reduced to SupportedRequestSubset so we can move towards Response without users expecting any WebResponse-unique fields
+  request: SupportedRequestSubset & { clientIp: string }; //reduced to SupportedRequestSubset so we can move towards Response without users expecting any WebResponse-unique fields
   /** The function/method invoked (unrelated to the request.method which is currently always POST for WebHare RPCs) */
   method: string;
   /** Get the URL of the caller */

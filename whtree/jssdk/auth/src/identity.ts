@@ -118,6 +118,15 @@ interface HSONAuthenticationSettings {
   };
 }
 
+export type FrontendLoginRequest = {
+  targetUrl: string;
+  login: string;
+  password: string;
+  customizer?: AuthCustomizer;
+  loginOptions?: LoginRemoteOptions;
+  tokenOptions: AuthTokenOptions & { authAuditContext: { clientIp: string; browserTriplet: string } }; //some auditfields are required coming from the frontend
+};
+
 export type FirstPartyToken = {
   /** Token id in database (wrd.tokens) */
   id: number;
@@ -512,7 +521,7 @@ export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, 
   return data;
 }
 
-function hashSHA256(secret: string): Buffer {
+export function hashSHA256(secret: string): Buffer {
   const hasher = crypto.createHash("SHA-256");
   hasher.update(secret);
   return hasher.digest();
@@ -1034,14 +1043,18 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async handleFrontendLogin(targeturl: string, username: string, password: string, customizer?: AuthCustomizer, options?: LoginRemoteOptions): Promise<FrontendAuthResult> {
-    const prepped = await prepAuth(targeturl, null);
+  async handleFrontendLogin(request: FrontendLoginRequest): Promise<FrontendAuthResult> {
+    const prepped = await prepAuth(request.targetUrl, null);
     if ("error" in prepped)
       throw new Error(prepped.error);
 
-    const authsettings = await this.getAuthSettings(true);
+    if (!request.tokenOptions?.authAuditContext?.clientIp)
+      throw new Error("Remote IP address is required for authentication auditing");
+    if (!request.tokenOptions?.authAuditContext?.browserTriplet)
+      throw new Error("BrowserTriplet is required for authentication auditing");
 
-    let userid = await this.lookupUser(authsettings, username, customizer, undefined, options);
+    const authsettings = await this.getAuthSettings(true);
+    let userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
     let userInfo;
     if (userid) {
       const getfields = {
@@ -1057,7 +1070,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       };
 
       //TODO ratelimits/auditing
-      if (userid && !await userInfo?.password?.verifyPassword(password))
+      if (userid && !await userInfo?.password?.verifyPassword(request.password))
         userid = 0;
     }
 
@@ -1065,14 +1078,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       return {
         loggedIn: false,
         code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
-      }; //TOOD gettid, adapt to whether usernames or email addresses are set up (see HS WRD, it has the tids)
+      };
     }
 
     if (userInfo!.password.hasTOTP()) {
       const validUntil = new Date(Date.now() + 5 * 60_000);
       const challenge = generateRandomId();
       //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing session/tokens ?
-      const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password, returnTo: options?.returnTo || '' });
+      const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password: request.password, returnTo: request.loginOptions?.returnTo || '' });
 
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
         type: "platform:secondfactor.challenge",
@@ -1086,18 +1099,18 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         navigateTo: {
           type: "form",
           form: {
-            action: new URL(targeturl).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(targeturl).pathname.substring(1)),
+            action: new URL(request.targetUrl).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(request.targetUrl).pathname.substring(1)),
             vars: [{ name: "token", value: token }]
           },
         },
       };
     }
 
-    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, password, userInfo.password, options?.returnTo || "");
+    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "");
     if (complianceToken) {
       return { //redirect to authpages to complete the account
         loggedIn: false,
-        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(targeturl).pathname.substring(1))
+        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(request.targetUrl).pathname.substring(1))
       };
     }
 
@@ -1108,8 +1121,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { loggedIn: false, code: "account-disabled" };
     }
 
-    if (customizer?.isAllowedToLogin) {
-      const awaitableResult = customizer.isAllowedToLogin({
+    if (request.customizer?.isAllowedToLogin) {
+      const awaitableResult = request.customizer.isAllowedToLogin({
         wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
         user: userid,
       });
@@ -1118,15 +1131,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         return { loggedIn: false, code: result.code }; //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
     }
 
-    const prepOptions: AuthTokenOptions = { customizer, persistent: options?.persistent };
+    const prepOptions = { ...request.tokenOptions, customizer: request.customizer, persistent: request.loginOptions?.persistent };
+
     // Use ?wrdauth_limit_expiry=<seconds> to limit expiry up to 15 minutes - but only on development servers
-    if (options?.limitExpiry) {
+    if (request.loginOptions?.limitExpiry) {
       if (dtapStage !== "development")
         throw new Error("Limit expiry (wrdauth_limit_expiry) is only allowed on development servers");
-      if (!(options.limitExpiry > 0 && options.limitExpiry <= 15 * 60))
+      if (!(request.loginOptions.limitExpiry > 0 && request.loginOptions.limitExpiry <= 15 * 60))
         throw new Error("Limit expiry (wrdauth_limit_expiry) must be between 0 and 15 minutes");
 
-      prepOptions.expires = options.limitExpiry * 1000;
+      prepOptions.expires = request.loginOptions.limitExpiry * 1000;
     }
 
     return {
@@ -1230,7 +1244,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
     };
 
-    let { whuserPassword, whuserUnit } = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, user, getfields) as {
+    let {
+      whuserPassword, whuserUnit
+    } = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, user, getfields) as {
       whuserPassword: AuthenticationSettings | null;
       whuserUnit?: number | null;
     };
@@ -1523,14 +1539,6 @@ export async function preparePublicAuthDataCookie(targetUrl: string, idToken: st
   return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
 }
 
-export async function closeFrontendLogin(cookie: string): Promise<void> {
-  const accessToken = cookie?.match(/ accessToken:(.+)$/)?.[1];
-  if (accessToken) {
-    const hash = hashSHA256(accessToken);
-    await runInWork(() => db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).execute());
-  }
-}
-
 /** HS Callback into the customizer infrastructure that expects validation to already be done */
 export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, loginfield: string): Promise<number> {
   const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
@@ -1557,20 +1565,25 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 /* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
 */
 export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const setAuthCookies = await prepareLogin(targetUrl, userId);//FIXME persiistence setting?
+  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
+  if ("error" in prep)
+    throw new Error(prep.error);
 
-  const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
+  const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
+  const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
+
+  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
   if (result)
     return result;
 
-  const idp = new IdentityProvider(setAuthCookies.wrdSchema);
+  const idp = new IdentityProvider(wrdSchema);
   const authsettings = await idp.getAuthSettings(true);
   const getfields = {
     auth: authsettings.passwordAttribute,
     ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
   };
 
-  const userInfo = await (setAuthCookies.wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
+  const userInfo = await (wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
     auth: AuthenticationSettings | null;
     whuserUnit?: number | null;
   };
@@ -1578,7 +1591,7 @@ export async function verifyPasswordComplianceForHS(targetUrl: string, userId: n
   if (!userInfo.auth)
     throw new Error(`User '${userId}' has no password set`);
 
-  const complianceToken = await verifyPasswordCompliance(setAuthCookies.wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
+  const complianceToken = await verifyPasswordCompliance(wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
   if (complianceToken) //need to further fix passwords etc
     return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
 

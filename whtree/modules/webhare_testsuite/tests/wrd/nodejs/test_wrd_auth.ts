@@ -2,7 +2,7 @@ import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult } from "@webhare/auth/src/identity";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
@@ -339,7 +339,7 @@ async function testAuthAPI() {
     isSetPassword: true,
     authAuditContext: {
       actionBy: test.getUser("sysop").wrdId,
-      remoteIp: "67.43.156.0"
+      clientIp: "67.43.156.0"
     }
   });
   test.eq({ link: /^https.*.wh\/common\/authpages.*_ed=/, verifier: null }, reset0);
@@ -348,7 +348,7 @@ async function testAuthAPI() {
   test.eqPartial({
     entity: testuser,
     type: "platform:resetpassword",
-    remoteIp: "67.43.156.0",
+    clientIp: "67.43.156.0",
     entityLogin: "jonshow@beta.webhare.net",
     impersonatedBy: null,
     actionBy: test.getUser("sysop").wrdId,
@@ -459,9 +459,20 @@ async function testAuthAPI() {
   test.eq({ whuserLastlogin: null }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   //Test the frontend login
-  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "nosuchuser@beta.webhare.net", "secret123"));
-  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret123"));
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+  const baseLogin: FrontendLoginRequest = {
+    targetUrl: url,
+    login: "jonshow@beta.webhare.net",
+    password: "secret$",
+    tokenOptions: {
+      authAuditContext: {
+        clientIp: "1.2.3.4",
+        browserTriplet: "ios-safari-1"
+      }
+    }
+  };
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, login: "nosuchuser@beta.webhare.net" }));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, password: "secret123" }));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin })));
 
   test.eq({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
@@ -472,7 +483,7 @@ async function testAuthAPI() {
       return { userId: entityId, firstName: "Josie" };
     }
   };
-  test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", customizerUserInfo)));
+  test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin, customizer: customizerUserInfo })));
 
   const blockUser: AuthCustomizer = {
     async isAllowedToLogin({ wrdSchema, user }) {
@@ -480,7 +491,7 @@ async function testAuthAPI() {
       return { error: "We do not like " + wrdContactEmail, code: "account-disabled" };
     }
   };
-  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", blockUser));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin({ ...baseLogin, customizer: blockUser }));
 
   //Test the frontend login with customizer setting up multisite support
   const multisiteCustomizer: AuthCustomizer = {
@@ -491,23 +502,25 @@ async function testAuthAPI() {
     }
   };
 
-  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer));
-  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site1" }));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, customizer: multisiteCustomizer }));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, login: "jonny", customizer: multisiteCustomizer }));
+  test.eq({ loggedIn: false, code: "incorrect-email-password" }, await provider.handleFrontendLogin({ ...baseLogin, login: "jonny", customizer: multisiteCustomizer, loginOptions: { site: "site1" } }));
   test.eqPartial({
     loggedIn: true,
     accessToken: /^[^.]+\.[^.]+\....*$/,
     expireDays: 4 //normal logins are 4 days
-  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2" })));
+  }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin, login: "jonny", customizer: multisiteCustomizer, loginOptions: { site: "site2" } })));
   test.eqPartial({
     loggedIn: true,
     accessToken: /^[^.]+\.[^.]+\....*$/,
     expireDays: 30 //persistent logins are 30 days (default)
-  }, parseLoginResult(await provider.handleFrontendLogin(url, "jonny", "secret$", multisiteCustomizer, { site: "site2", persistent: true })));
+  }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin, login: "jonny", customizer: multisiteCustomizer, loginOptions: { site: "site2", persistent: true } })));
+
 
   //Test the frontend login RPC - do we see the proper cache headers
   for (const testStep of [{ persistent: false }, { persistent: true }]) {
-    let seenheaders = false;
+    const start = new Date;
+    let seenheaders = false, authCookieName = '', authCookieValue = '';
     const loginres = await rpc("platform:authservice", {
       onBeforeRequest(inUrl, requestInit) {
         const testsiteurl = new URL(url);
@@ -521,6 +534,7 @@ async function testAuthAPI() {
 
         const setcookie = response.headers.getSetCookie().filter(c => c.match(/eyJ.*\.eyJ/));
         test.eq(1, setcookie.length);
+        [, authCookieName, authCookieValue] = setcookie[0].match(/^([^=]+)=([^;]*)/)!;
 
         const setCookieExpiry = setcookie[0].match(/expires=[A-Z][a-z][a-z],.* \d\d\d\d \d\d:\d\d:\d\d GMT/);
         if (testStep.persistent) {
@@ -544,10 +558,19 @@ async function testAuthAPI() {
         test.assert(deleteCookieExpiry);
         test.eq(0, Date.parse(deleteCookieExpiry[0].substring(8)));
       }
-    }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs", testStep?.persistent ? { persistent: true } : undefined);
+    }).login("jonshow@beta.webhare.net", "secret$", "webharelogin-wrdauthjs", "ios-safari-1", testStep?.persistent ? { persistent: true } : undefined);
 
     test.assert(seenheaders, "verify onResponse isn't skipped");
     test.assert(loginres.loggedIn);
+
+    const loginAuditEvent = await test.getLastAuthAuditEvent(oidcAuthSchema, { type: "platform:login", since: start });
+    test.eqPartial({
+      type: "platform:login",
+      entity: testuser,
+      clientIp: /^...*$/,
+      browserTriplet: "ios-safari-1",
+      entityLogin: "jonshow@beta.webhare.net",
+    }, loginAuditEvent);
 
     //Now verify proper headers on a logout request
     seenheaders = false;
@@ -557,6 +580,7 @@ async function testAuthAPI() {
         const testsiteurl = new URL(url);
         inUrl.searchParams.set("pathname", testsiteurl.pathname);
         requestInit.headers.set("origin", testsiteurl.origin);
+        requestInit.headers.set("cookie", `${authCookieName}=${authCookieValue}`);
       },
       onResponse(response) {
         test.eq("no-store", response.headers.get("cache-control"));
@@ -572,9 +596,19 @@ async function testAuthAPI() {
         console.error(publicCookie);
         test.eq(null, publicCookie.match(/httpOnly/i), "publicauthdata cookie should not be httpOnly, Safari won't clear it out of document.cookie otherwise");
       }
-    }).logout("webharelogin-wrdauthjs");
+    }).logout("webharelogin-wrdauthjs", "ios-safari-2");
 
     test.assert(seenheaders, "verify logout onResponse isn't skipped");
+
+    test.eqPartial({
+      type: "platform:logout",
+      entity: testuser,
+      clientIp: /^...*$/,
+      browserTriplet: "ios-safari-2",
+      entityLogin: "jonshow@beta.webhare.net",
+      data: { tokenHash: loginAuditEvent.data.tokenHash }
+    }, await test.getLastAuthAuditEvent(oidcAuthSchema, { type: "platform:logout", since: start }));
+
   }
 
   await test.setGeoIPDatabaseTestMode(true);
@@ -586,14 +620,14 @@ async function testAuthAPI() {
   await prepareFrontendLogin(url, testuser, {
     authAuditContext: {
       impersonatedBy: test.getUser("sysop").wrdId,
-      remoteIp: "67.43.156.0"
+      clientIp: "67.43.156.0"
     }
   });
 
   test.eqPartial({
     entity: testuser,
     type: "platform:login",
-    remoteIp: "67.43.156.0",
+    clientIp: "67.43.156.0",
     country: "BT",
     entityLogin: "jonshow@beta.webhare.net",
     impersonatedBy: test.getUser("sysop").wrdId,
@@ -614,9 +648,21 @@ async function testAuthAPI() {
 
 async function testAuthStatus() {
   const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
+  const baseLogin: FrontendLoginRequest = {
+    targetUrl: url,
+    login: "jonshow@beta.webhare.net",
+    password: "secret$",
+    tokenOptions: {
+      authAuditContext: {
+        clientIp: "1.2.3.4",
+        browserTriplet: "ios-safari-1"
+      }
+    }
+  };
+
   const provider = new IdentityProvider(oidcAuthSchema);
   const testuser = await oidcAuthSchema.find("wrdPerson", { wrdContactEmail: "jonshow@beta.webhare.net" }) ?? throwError("Where did jon show go?");
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider.handleFrontendLogin(baseLogin)));
 
   //Deactivate user. should block login
   await whdb.runInWork(async () => {
@@ -624,7 +670,7 @@ async function testAuthStatus() {
     //@ts-expect-error TS doesn't know we dropped isRequired
     await oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: null });
   });
-  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider.handleFrontendLogin(baseLogin));
 
   //Remove authstatus field
   await whdb.beginWork();
@@ -639,7 +685,7 @@ async function testAuthStatus() {
 
   //Now we can login again even without an active wrdauthAccountStatus
   const provider_2 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
-  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider_2.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$")));
+  test.eqPartial({ loggedIn: true, accessToken: /^eyJ[^.]+\.[^.]+\....*$/ }, parseLoginResult(await provider_2.handleFrontendLogin(baseLogin)));
 
   //Add an authstatus field
   await whdb.beginWork();
@@ -653,7 +699,7 @@ async function testAuthStatus() {
   await whdb.commitWork();
 
   const provider_3 = new IdentityProvider(oidcAuthSchema); //recreate the IDP, it doesn't know how to flush its caches (and should it? this is not normal usage)
-  test.eq({ loggedIn: false, code: "account-disabled" }, await provider_3.handleFrontendLogin(url, "jonshow@beta.webhare.net", "secret$"));
+  test.eq({ loggedIn: false, code: "account-disabled" }, await provider_3.handleFrontendLogin(baseLogin));
 
   //restore active status
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));

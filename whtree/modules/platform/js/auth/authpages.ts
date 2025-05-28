@@ -1,4 +1,5 @@
 import { doLoginHeaders, doLogout } from "@mod-platform/js/auth/authservice";
+import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { createRedirectResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, type WebHareRouter, type WebRequest, type WebResponse } from "@webhare/router";
 import { decryptForThisServer } from "@webhare/services";
 import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
@@ -14,7 +15,8 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
       return createWebResponse("", { status: 400 });
 
     const responseHeaders = new Headers;
-    await doLogout(origurl, null, req.headers.get("cookie"), responseHeaders);
+    const browserTriplet = parseUserAgent(req.headers.get("user-agent") || "")?.triplet || "";
+    await doLogout(origurl, null, req.headers.get("cookie"), responseHeaders, { clientIp: req.clientIp, browserTriplet });
     return createRedirectResponse(origurl, HTTPSuccessCode.TemporaryRedirect, { headers: responseHeaders });
   }
 

@@ -17,6 +17,7 @@ export type WRDAuthAccountStatus = {
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
+  "platform:logout": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
   "platform:resetpassword": void;
@@ -32,5 +33,5 @@ export type { ClientConfig, ServiceProviderInit } from "./oauth2";
 //export all the types needed to implement a AuthCustomizer
 export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
 
-export { writeAuthAuditEvent, getAuditContext, updateAuditContext } from "./audit";
+export { writeAuthAuditEvent, getAuditContext, updateAuditContext, getAuditEvents } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";

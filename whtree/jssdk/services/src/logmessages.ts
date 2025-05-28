@@ -10,8 +10,6 @@ function replaceLogParts(key: string, value: unknown) {
       return `[${value.toString()}]`;
     case "function":
       return value.name ? `[function ${value.name}]` : "[function]";
-    case "undefined":
-      return "[undefined]"; //can't print 'undefined' as that wouldn't be JSON
     case "string":
       if (value.length > 3000) //truncate too long strings
         return value.substring(0, 3000) + "… (" + value.length + " chars)";

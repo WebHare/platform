@@ -1035,18 +1035,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
            ];
   }
 
-  MACRO SetLoginCookie(STRING value, INTEGER64 lifetime)
-  {
-    RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := lifetime ];
-    UpdateWebCookie(this->cookiename, value, opts);
-    //when logging out also erase the 'modern' wdauth login cookies
-    IF(value = "") {
-      UpdateWebCookie("__Host-" || this->cookiename, "", opts);
-      UpdateWebCookie("__Secure-" || this->cookiename, "", opts);
-      UpdateWebCookie(this->cookiename || "_publicauthdata", "", opts);
-    }
-  }
-
   PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
   {
     RETURN this->logintime > 0 ? this->logintime * 60 : 365*86400;
@@ -1072,37 +1060,33 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN [ success := TRUE, code := "" ];
   }
 
-  PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions([ logauditevent := TRUE ], options);
+  PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD) {
+    this->CheckForSession(); //ensures this->wrdauthjs is set
 
-    INTEGER entityid := this->GetLoggedinEntity();
-    STRING login := this->GetLoggedinEntityLogin();
-    this->loggedinentity := -1;
-    this->loggedinexpires := DEFAULT DATETIME;
-    IF(this->sessionid = "")
-      this->sessionid := this->GetCachedCookies().sessionid;
-
-    CloseWebSession(this->sessionid, "wrd:authsession");
-    this->sessiondata := DEFAULT RECORD;
-    this->SetLoginCookie("", 0);
-
-    this->sessionid := "";
-    this->cookiecache := [ sessionid := "", enclogindata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies
-
-    IF(entityid != 0 AND options.logauditevent)
-    {
-      this->WriteAuditEvent("wrd:logout", CELL
-          [ account := entityid > 0 ? entityid : 0
-          , login
-          ]);
+    //Delete session in database, Cleanup idtoken. TODO use doLogout to improve code sharing?
+    IF(RecordExists(this->wrdauthjs)) {
+      CallJS("@mod-platform/js/auth/harescript.ts#closeFrontendLogin", this->wrdschema->tag, this->wrdauthjs.idtoken, GetClientRemoteIP(), GetWebHeader("User-Agent"));
+      __WHS_CloseWebSession(this->wrdauthjs.sessionid, "wrd:authlogin");
     }
 
-    UpdateAuditContext([ user_entityid := 0, user_login := "" ]);
+    //Clear the cookies
+    RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := 0
+                       ];
+    UpdateWebCookie(this->cookiename, "", opts);
+    UpdateWebCookie("__Host-" || this->cookiename, "", opts);
+    UpdateWebCookie("__Secure-" || this->cookiename, "", opts);
+    UpdateWebCookie(this->cookiename || "_publicauthdata", "", CELL[...opts, httponly := FALSE]);
 
+    //Reset the plugin state
     this->loggedinentity := 0;
-    CallJS("@webhare/auth/src/identity.ts#closeFrontendLogin", this->idcookie);
+    this->loggedinexpires := DEFAULT DATETIME;
+    this->sessionid := "";
+    this->sessiondata := DEFAULT RECORD;
+    this->cookiecache := [ sessionid := "", enclogindata := ""]; //prevent GetWebCookie from seeing the (now stale) cookies
     this->wrdauthjs := DEFAULT RECORD;
+    this->idcookie := "";
+
+    UpdateAuditContext([ user_entityid := 0, user_login := "" ]);
   }
 
   /** Writes a audit event to the logs in a separate transction

@@ -72,7 +72,7 @@ PUBLIC RECORD FUNCTION TestAuditEvent(VARIANT expected)
     IF (NOT rec.impersonated)
       rec := CELL[ impersonator_entity := rec.byentity, impersonator_login := rec.bylogin, ...rec ];
     IF (CellExists(rec, "__ignoredata"))
-      rec := CELL[ ...rec, data := SELECT AS STRING data FROM auditevents WHERE type = rec.type, DELETE __ignoredata ];
+      rec := CELL[ ...rec, data := SELECT AS RECORD data FROM auditevents WHERE type = rec.type, DELETE __ignoredata ];
     expected[#rec] := rec;
     IF(NOT CellExists(rec,'IP')) //some tests do not care about IP address (prevent connecting to webhareinterface from causing issues)
       auditevents := SELECT *, DELETE ip FROM auditevents;

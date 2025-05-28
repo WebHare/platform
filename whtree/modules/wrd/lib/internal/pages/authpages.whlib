@@ -127,7 +127,7 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage());
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage(), GetClientRemoteIP(), GetWebHeader("User-Agent"));
 
     IF(CellExists(result,'headers'))
       FOREVERY(RECORD toset FROM result.headers)
@@ -230,13 +230,16 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
       RETURN DEFAULT RECORD;
     }
 
-    //TODO audit log?!
-    STRING baseurl := this->formcontext->GetWRDAuthPlugin()->webcontext->baseurl;
-    RECORD checkresult := CalLJS("@webhare/auth/src/identity.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto);
-    IF(CellExists(checkresult,'navigateto') AND Work->Finish())
-      RETURN [ submitinstruction := checkresult.navigateto ];
+    IF(NOT work->HasFailed()) {
+      STRING baseurl := this->formcontext->GetWRDAuthPlugin()->webcontext->baseurl;
+      RECORD checkresult := CalLJS("@webhare/auth/src/identity.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto);
 
-    work->AddErrorFor(^totp, checkresult.error); //FIXME use 'code' for translateable error
+      IF(CellExists(checkresult,'navigateto'))
+        RETURN work->Finish() ? [ submitinstruction := checkresult.navigateto ] : DEFAULT RECORD;
+
+      work->AddErrorFor(^totp, checkresult.error); //FIXME use 'code' for translateable error
+    }
+
     work->Finish();
     RETURN DEFAULT RECORD;
   }
