@@ -13,7 +13,7 @@ import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { AuthenticationSettings } from "@webhare/auth/src/identity";
+import { AuthenticationSettings } from "@webhare/wrd/src/authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getRTDFromWHFS, storeRTDinWHFS } from "@webhare/wrd/src/wrd-whfs";
 import { isPromise } from "node:util/types";
