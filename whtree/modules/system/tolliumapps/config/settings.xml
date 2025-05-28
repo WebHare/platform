@@ -5,6 +5,7 @@
 
   <screen name="settings" minwidth="450px" footerbuttons="ok cancel">
     <actions>
+      <action name="editauthpagetexts" onexecute="doeditauthpagetexts" title="" />
       <windowopenaction name="registergeonames" onwindowopen="doregistergeonames" />
       <windowopenaction name="registergeoip2" onwindowopen="doregistergeoip2" />
     </actions>
@@ -53,8 +54,9 @@
         </tab>
         <tab tid=".login">
           <heading tid=".logindialog" />
-          <textedit name="infotitle" width="1pr" tid=".infotitle" />
-          <textarea name="infotext" width="1pr" tid=".infotext" />
+          <line layout="left">
+            <text name="authpagetexts" action="editauthpagetexts" title="" valuetid=".authpagetexts" />
+          </line>
           <heading tid=".dashboardbackground" />
           <line layout="left">
             <imgedit name="loginbackground" width="1pr" height="1pr" allowedactions="all refpoint" title="" />
@@ -70,7 +72,7 @@
             <option rowkey="test" />
             <option rowkey="development" />
           </select>
-          <heading tid=".caching" doclink="system:globalsettings/caching" />
+          <heading doclink="system:globalsettings/caching" tid=".caching" />
           <select name="defaultimageformat" type="pulldown">
             <option rowkey="" tid=".defaultimageformat-keepsource" />
             <option rowkey="image/webp" title="WEBP" />
