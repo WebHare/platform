@@ -61,15 +61,26 @@ class Mutex {
 
 //Connect, set up IPC port in mutexmanager. TODO: Reuse connections - but this will *also* require us to locally handle mutex conflicts inside our link
 async function connectMutexManager(): Promise<MutexManagerLink> {
+  const deadline = Date.now() + 60000; //60 seconds from now
+
   //Wait up to 60 seconds (perhaps a bit more) for the mutexmanager to be reachable.
   //it might be unreachable for a few seconds after a crash or during webhare startup
-  const link = bridge.connect<MutexManagerLinkType>("system:mutexmanager", { global: true });
-  // link.on("close", function () { // cleanup on disconnect - not after every lock..
-  await link.activate();
+  do {
+    let link;
+    try {
+      link = bridge.connect<MutexManagerLinkType>("system:mutexmanager", { global: true });
+      // link.on("close", function () { // cleanup on disconnect - not after every lock..
+      await link.activate();
 
-  const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: process.pid + "#" + bridge.getGroupId() });
-  await std.wrapInTimeout(connectrequest, 60000, new Error("Unable to connect to the mutex manager"));
-  return link;
+      const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: process.pid + "#" + bridge.getGroupId() });
+      await std.wrapInTimeout(connectrequest, 1000, "");
+      return link;
+    } catch {
+      link?.close();
+      await std.sleep(100);
+    }
+  } while (Date.now() < deadline);
+  throw new Error("Unable to connect to the mutex manager");
 }
 
 /** Lock the requested mutex

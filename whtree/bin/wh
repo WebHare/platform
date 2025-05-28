@@ -306,7 +306,8 @@ case $INSTR in
     elif [ -x "$WEBHARE_DIR/bin/$PROCESS" ]; then
       PROCESS="$WEBHARE_DIR/bin/$PROCESS"
     else
-      echo "No such subbinary '$PROCESS'"
+      echo "No such subbinary '$PROCESS'" 1>&2
+      exit 255
     fi
 
     exec $PROCESS "$@"
