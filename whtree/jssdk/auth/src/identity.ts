@@ -124,7 +124,7 @@ export type FrontendLoginRequest = {
   password: string;
   customizer?: AuthCustomizer;
   loginOptions?: LoginRemoteOptions;
-  tokenOptions: AuthTokenOptions & { authAuditContext: { clientIp: string; browserTriplet: string } }; //some audifields are required coming from the frontend
+  tokenOptions: AuthTokenOptions & { authAuditContext: { clientIp: string; browserTriplet: string } }; //some auditfields are required coming from the frontend
 };
 
 export type FirstPartyToken = {
@@ -1565,7 +1565,7 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 /* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
 */
 export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const prep = await prepAuth(targetUrl, null);//FIXME persiistence setting?
+  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
   if ("error" in prep)
     throw new Error(prep.error);
 

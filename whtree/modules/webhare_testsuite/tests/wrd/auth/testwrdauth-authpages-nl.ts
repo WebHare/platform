@@ -15,7 +15,7 @@ test.runTests(
       // await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     },
 
-    "Simple login with reset and @FA enrollment",
+    "Simple login with reset and 2FA enrollment",
     async function () {
       const start = new Date;
       await test.load(baseurl);
@@ -48,9 +48,9 @@ test.runTests(
 
       test.subtest("2FA setup page");
 
-      const { totpSecret } = await testwrd.run2FAEnrollment({ expectLang: "nl" }); //*this* triggers a pltaform:login event
+      const { totpSecret } = await testwrd.run2FAEnrollment({ expectLang: "nl" }); //*this* triggers a platform:login event
       test.assert(test.qR('#isloggedin').checked);
-      await testwrd.forceLogout(); //and here we should have a platform::logout
+      await testwrd.forceLogout(); //and here we should have a platform:logout
 
       // login again, now with TOTP code
       await testwrd.runLogin("pietje-authpages-js@beta.webhare.net", "$$$", { totpSecret, expectLang: "nl" });
