@@ -168,7 +168,7 @@ class ControlledCall {
     } catch (exception) {
       if (this.client.debug)
         console.warn(`[rpc] Response was not valid JSON`, exception);
-      throw new Error("RPC Failed: Invalid response received");
+      throw new Error("RPC Failed: Invalid response received", { cause: exception });
     }
 
     if ("error" in jsonresponse) {

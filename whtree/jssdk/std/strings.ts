@@ -205,6 +205,9 @@ export function parseTyped(input: string) {
       case "PlainDateTime":
       case "ZonedDateTime":
         // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we just assume/require you to have Temporal installed if you expect to receive/decode Temporal types. browsers should catch up eventually
+        if (!(globalThis as any).Temporal)
+          throw new Error(`Temporal is not available in this environment, cannot deserialize value of type Temporal.${value["$stdType"]}. Load eg. @webhare/deps/temporal-polyfill to use Temporal types in browsers`);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we just assume/require you to have Temporal installed if you expect to receive/decode Temporal types. browsers should catch up eventually
         return (globalThis as any).Temporal[value["$stdType"]].from(value[value["$stdType"].toLowerCase()]);
       case undefined:
         return value;
