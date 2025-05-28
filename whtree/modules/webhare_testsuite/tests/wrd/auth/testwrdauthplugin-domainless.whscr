@@ -200,14 +200,16 @@ MACRO CreateMyTestSchema()
   TestEq(0, result.entityid);
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:logout"
+      , type := "platform:logout"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := DEFAULT RECORD
-      , browsertriplet := ""
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
+      , impersonator_entity := 0
+      , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
+      , __ignoredata := TRUE
+      , browsertriplet := "other-unknown-0"
+      , byentity := 0
+      , bylogin := "" //compared to HS we'll stop setting these to the entity if there was no external actor at all
       ]);
 
   DATETIME logginginat := GetCurrentDatetime();
@@ -253,14 +255,16 @@ MACRO CreateMyTestSchema()
   TestEq(FALSE, result.isloggedin);
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:logout"
+      , type := "platform:logout"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := DEFAULT RECORD
-      , browsertriplet := ""
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
+      , __ignoredata := TRUE
+      , browsertriplet := "other-unknown-0"
+      , byentity := 0
+      , bylogin := ""
+      , impersonator_entity := 0
+      , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
       ]);
 
   logginginat := GetCurrentDatetime();
@@ -440,13 +444,15 @@ MACRO TestRequireExternalLoggedinUser()
   testEq(TRUE, testfw->browser->GotoWebPage(GetTestsuiteWRDauthPlugin()->GetLogoutLink()));
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("sysop")
-      , type := "wrd:logout"
+      , type := "platform:logout"
       , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
-      , data := DEFAULT RECORD
-      , browsertriplet := ""
-      , byentity := testfw->GetUserWRDId("sysop")
-      , bylogin := "sysop@beta.webhare.net"
+      , impersonator_entity := 0
+      , impersonator_login := ""
+      , __ignoredata := TRUE
+      , browsertriplet := "other-unknown-0"
+      , byentity := 0
+      , bylogin := ""
       ]);
 
   // FIXME: when the disk audit log is converted to JSON, test if the WRD schema is set in this log entry
@@ -551,7 +557,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
 
   //dumpvalue(onshowdata);
   TestEq(testfw->GetUserWRDId("sysop"), onshowdata.entity);
-  TestEq("wrd:logout", onshowdata.type);
+  TestEq("platform:logout", onshowdata.type);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
   RETURN TRUE;

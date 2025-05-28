@@ -40,7 +40,7 @@ export async function closeAccessToken(wrdSchema: string, accessToken: string, a
   const hash = hashSHA256(accessToken);
   await runInWork(async () => {
     const tokeninfo = await db<PlatformDB>().deleteFrom("wrd.tokens").where("hash", "=", hash).returning(["entity"]).executeTakeFirst();
-    console.error({ accessToken, tokeninfo });
+
     if (tokeninfo) {
       await writeAuthAuditEvent(new WRDSchema(wrdSchema), {
         type: "platform:logout",

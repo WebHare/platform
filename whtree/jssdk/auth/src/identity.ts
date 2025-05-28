@@ -1565,20 +1565,25 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 /* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
 */
 export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const setAuthCookies = await prepareLogin(targetUrl, userId);//FIXME persiistence setting?
+  const prep = await prepAuth(targetUrl, null);//FIXME persiistence setting?
+  if ("error" in prep)
+    throw new Error(prep.error);
 
-  const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
+  const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
+  const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
+
+  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
   if (result)
     return result;
 
-  const idp = new IdentityProvider(setAuthCookies.wrdSchema);
+  const idp = new IdentityProvider(wrdSchema);
   const authsettings = await idp.getAuthSettings(true);
   const getfields = {
     auth: authsettings.passwordAttribute,
     ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
   };
 
-  const userInfo = await (setAuthCookies.wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
+  const userInfo = await (wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
     auth: AuthenticationSettings | null;
     whuserUnit?: number | null;
   };
@@ -1586,7 +1591,7 @@ export async function verifyPasswordComplianceForHS(targetUrl: string, userId: n
   if (!userInfo.auth)
     throw new Error(`User '${userId}' has no password set`);
 
-  const complianceToken = await verifyPasswordCompliance(setAuthCookies.wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
+  const complianceToken = await verifyPasswordCompliance(wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
   if (complianceToken) //need to further fix passwords etc
     return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
 

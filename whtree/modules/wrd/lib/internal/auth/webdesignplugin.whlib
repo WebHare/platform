@@ -443,13 +443,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part)
     INTEGER match := this->accounttype->Search(this->wrdschema->accountemailtag, email, [matchcase := FALSE]);
 
-    this->LogCustomAuditEvent("wrd:forgotpassword",
+    IF(match = 0) {
+      this->LogCustomAuditEvent("platform:passwordreset",
         [ account := match
         , login := email
         ]);
 
-    IF(match = 0)
       RETURN;
+    }
 
     RECORD emaildata := [ email := email
                         , hostname := UnpackURL(options.currenturl).host
@@ -631,24 +632,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
   /** Log the user out.
       @cell options.explicit Set to true if the user explicitly requested to logout (eg clicked a logout linK)
-      @cell options.browsertriplet Browser triplet
   */
   PUBLIC MACRO Logout(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(
-        [ explicit := TRUE
-        ], options);
-
-    INTEGER entityid := this->GetLoggedinEntity();
-    IF(entityid != 0 AND options.explicit)
-    {
-      this->LogCustomAuditEvent("wrd:logout",
-          [ account := entityid
-          , login := this->__GetWRDAuthIntegration()->GetLoggedinEntityLogin()
-          ]);
-    }
-
-    this->__GetWRDAuthIntegration()->Logout([logauditevent := FALSE]);
+    this->__GetWRDAuthIntegration()->Logout();
   }
 
   /** Returns the WRD id of the currently logged in entity

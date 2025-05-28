@@ -4,7 +4,7 @@ import { lookupCountryInfo } from "@webhare/geoip";
 import { broadcastOnCommit, db, type Insertable, type Selectable } from "@webhare/whdb/src/impl";
 import { describeEntity, WRDSchema } from "@webhare/wrd";
 import { getAuthSettings } from "./support";
-import { stringify } from "@webhare/std";
+import { convertFlexibleInstantToDate, stringify, type FlexibleInstant } from "@webhare/std";
 import { log } from "@webhare/services";
 import type { AuthEventData } from "@webhare/auth";
 import { getScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -45,6 +45,11 @@ export type AuthAuditEvent<Type extends keyof AuthEventData> = AuthAuditContext 
     : unknown
   );
 
+export type SelectedAuditEvent<Type extends keyof AuthEventData> = AuthAuditEvent<Type> & {
+  /** When the event was generated */
+  creationDate: Temporal.Instant;
+};
+
 async function describeActingEntity(user: number, requireAuthInfo: boolean) {
   const actor = await describeEntity(user);
   if (!actor)
@@ -65,8 +70,9 @@ async function describeActingEntity(user: number, requireAuthInfo: boolean) {
   };
 }
 
-export async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Selectable<PlatformDB, "wrd.auditevents">): Promise<AuthAuditEvent<Type>> {
+async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Selectable<PlatformDB, "wrd.auditevents">): Promise<SelectedAuditEvent<Type>> {
   return {
+    creationDate: event.creationdate.toTemporalInstant(),
     entity: event.entity,
     entityLogin: event.login || undefined,
     type: event.type as Type,
@@ -80,6 +86,37 @@ export async function unmapAuthEvent<Type extends keyof AuthEventData>(event: Se
     data: decodeHSONorJSONRecord(event.data, { typed: true }) as AuthEventData[Type]
   };
 }
+
+/** Get audit events in a WRD Schema */
+export async function getAuditEvents<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(
+  w: WRDSchema<S>,
+  filter?: {
+    type?: string;
+    since?: FlexibleInstant;
+    until?: FlexibleInstant;
+    user?: number;
+    /** Get the most recent N events */
+    limit?: number;
+  }): Promise<Array<SelectedAuditEvent<Type>>> {
+  let query = db<PlatformDB>().
+    selectFrom("wrd.auditevents").selectAll().where("wrdschema", "=", await w.getId());
+  if (filter?.type)
+    query = query.where("type", "=", filter.type);
+  if (filter?.since)
+    query = query.where("creationdate", ">=", convertFlexibleInstantToDate(filter.since));
+  if (filter?.until)
+    query = query.where("creationdate", "<=", convertFlexibleInstantToDate(filter.until));
+  if (filter?.user)
+    query = query.where("entity", "=", filter.user);
+
+  if (filter?.limit !== undefined)
+    query = query.orderBy("creationdate desc").limit(filter.limit);
+
+  const rows = await query.execute();
+  //unmap and sort back to ascending order
+  return (await Promise.all(rows.map(eventRecord => unmapAuthEvent<Type>(eventRecord)))).sort((a, b) => a.creationDate.epochMilliseconds - b.creationDate.epochMilliseconds);
+}
+
 
 export function getAuditContext() {
   return getScopedResource<AuthAuditContext>("platform:authcontext");
