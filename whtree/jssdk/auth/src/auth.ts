@@ -35,3 +35,5 @@ export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, Look
 
 export { writeAuthAuditEvent, getAuditContext, updateAuditContext, getAuditEvents } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";
+
+export { getRequestUser } from "./authfrontend";

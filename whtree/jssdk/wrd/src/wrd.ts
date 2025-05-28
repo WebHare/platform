@@ -3,7 +3,6 @@ declare module "@webhare/wrd" {
 }
 
 import { WRDSchema, type WRDSchemaTypeOf, type AnyWRDSchema } from "@mod-wrd/js/internal/schema";
-export { getRequestUser } from "./authfrontend";
 export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";

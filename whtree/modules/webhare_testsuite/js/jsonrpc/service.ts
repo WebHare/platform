@@ -2,7 +2,7 @@ import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
 import type { MyService } from "./type";
 import { debugFlags } from "@webhare/env";
 import type { WebRequest } from "@webhare/router";
-import { getRequestUser } from "@webhare/wrd";
+import { getRequestUser } from "@webhare/auth";
 import { beginWork } from "@webhare/whdb";
 
 export class TestNoAuthJS implements MyService {

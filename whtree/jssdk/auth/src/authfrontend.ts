@@ -1,7 +1,7 @@
-import type { WebRequest } from "@webhare/router/src/request";
+import type { WebRequest } from "@webhare/router";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import type { AnyWRDSchema } from "@webhare/wrd";
-import { IdentityProvider } from "@webhare/auth/src/identity";
+import { IdentityProvider } from "./identity";
 
 /** Get cookie names to use AND which ones to ignore */
 export function getIdCookieName(url: string, wrdauth: WRDAuthPluginSettings) {
