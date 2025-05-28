@@ -20,7 +20,7 @@ export function decodeHSONorJSONRecord(input: string | null, { typed = false } =
     const hson = decodeHSON(input);
     if (hson !== null && typeof hson !== "object")
       throw new Error(`Expected a record encoded in HSON, but got a ${typeof hson}`);
-    return JSON.parse(JSON.stringify(hson)); //ensure flattening of Money etc values
+    return typed ? hson : JSON.parse(JSON.stringify(hson)); //ensure flattening of Money etc values if we didn't expect typed output
   }
   if (input.startsWith("{"))
     return typed ? parseTyped(input) : JSON.parse(input);
