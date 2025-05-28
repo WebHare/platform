@@ -122,7 +122,7 @@ async function testAuthSettings() {
     // { hash: "PLAIN:123", validFrom: new Date("2021-10-12T10:20:04.930Z") },
     // { hash: "PLAIN:456", validFrom: new Date("2021-10-12T10:20:37.024Z") }
 
-    await auth.updatePassword("Hi!", 'PLAIN');
+    await auth.updatePassword("Hi!", { algorithm: 'PLAIN' });
     test.eq(4, auth.getNumPasswords());
     const lastchange = auth.getLastPasswordChange();
     test.assert(lastchange && lastchange.epochMilliseconds <= Date.now() && lastchange.epochMilliseconds >= Date.now() - 100);
@@ -593,7 +593,6 @@ async function testAuthAPI() {
 
         const publicCookie = response.headers.getSetCookie().find(c => c.startsWith("webharelogin-wrdauthjs_publicauthdata="));
         test.assert(publicCookie);
-        console.error(publicCookie);
         test.eq(null, publicCookie.match(/httpOnly/i), "publicauthdata cookie should not be httpOnly, Safari won't clear it out of document.cookie otherwise");
       }
     }).logout("webharelogin-wrdauthjs", "ios-safari-2");
@@ -709,11 +708,24 @@ async function testSlowPasswordHash() {
   const start = new Date;
   {
     const auth = new AuthenticationSettings;
+    test.eq(true, auth.isPasswordStillSecure(), 'not having a password at all is very secure');
     await auth.updatePassword("secret");
     await auth.updatePassword("secret2");
+    test.eq(true, auth.isPasswordStillSecure());
     test.eq(2, auth.getNumPasswords());
     test.assert(!await auth.verifyPassword("secret"));
     test.assert(await auth.verifyPassword("secret2"));
+  }
+
+  {
+    const auth = AuthenticationSettings.fromHSON(`hson:{"passwords":ra[{"passwordhash":"PLAIN:secret","validfrom":d"20211012T101930.779"}],"version":1}`);
+    test.eq(1, auth.getNumPasswords());
+    test.eq(false, auth.isPasswordStillSecure(), "PLAIN passwords are not secure");
+    test.assert(await auth.verifyPassword("secret"));
+    test.assert(!await auth.verifyPassword("secret2"));
+    await auth.updatePassword("secret2", { inPlace: true });
+    test.eq(1, auth.getNumPasswords());
+    test.eq(true, auth.isPasswordStillSecure(), "And now its secure");
   }
 
   {

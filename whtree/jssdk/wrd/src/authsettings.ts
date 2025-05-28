@@ -82,6 +82,11 @@ export class AuthenticationSettings {
     return this.#passwords.at(-1)?.validFrom?.toTemporalInstant() ?? null;
   }
 
+  isPasswordStillSecure(): boolean {
+    //TODO we need to fully replace WHBF with something standardized so not caring  about WHBF hash rounds anymore
+    return this.#passwords.length === 0 || this.#passwords.at(-1)!.hash.startsWith("WHBF:");
+  }
+
   getNumPasswords(): number {
     return this.#passwords.length;
   }
@@ -91,11 +96,12 @@ export class AuthenticationSettings {
    * @param password - The new password
    * @param alg - The hash algorithm to use. If not set, use best known method (may change in future versions)
   */
-  async updatePassword(password: string, alg: "PLAIN" | "WHBF" = "WHBF"): Promise<void> {
+  async updatePassword(password: string, options?: { algorithm?: "PLAIN" | "WHBF"; inPlace?: boolean }): Promise<void> {
     if (!password)
       throw new Error("Password cannot be empty");
 
     let hash = '';
+    const alg = options?.algorithm ?? "WHBF"; //default to WHBF, which is the best known method
     if (alg === "PLAIN")
       hash = 'PLAIN:' + password;
     else if (alg === "WHBF")
@@ -103,7 +109,10 @@ export class AuthenticationSettings {
     else
       throw new Error(`Unsupported password hash algorithm '${alg}'`);
 
-    this.#passwords.push({ hash, validFrom: new Date });
+    if (options?.inPlace && this.#passwords.length > 0)
+      this.#passwords.at(-1)!.hash = hash;
+    else
+      this.#passwords.push({ hash, validFrom: new Date });
   }
 
   async verifyPassword(password: string): Promise<boolean> {
