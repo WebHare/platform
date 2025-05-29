@@ -27,6 +27,8 @@ export interface AuthEventData {
   "platform:insufficient-security": { failedChecks: PasswordCheck[]; badPasswordTime: Temporal.Instant | null };
   "platform:resetpassword": void;
   "platform:secondfactor.challenge": { challenge: string };
+  //FIXME old style, remove
+  "wrd:loginbyid:ok": void;
 }
 
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
