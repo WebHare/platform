@@ -39,7 +39,6 @@ import * as $todd from './support';
 import { type ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
-import "./apps/login";
 import "./apps/oauth";
 import "../css/vars.scss";
 require('../css/shell.css');
@@ -83,8 +82,6 @@ class ShellSettings { //see applicationportal.whlib GetCurrentShellSettings
   newsitems: unknown[] = [];
   dashboard: boolean = false;
   dashboardbg: unknown | null = null; //TODO WrapCachedImage result
-  loginbg: unknown | null = null; //TODO WrapCachedImage result
-  allowpasswordreset: boolean = false;
   displayimage: string = '';
   displayname: string = '';
   personalsettings: AppLaunchInstruction | null = null;

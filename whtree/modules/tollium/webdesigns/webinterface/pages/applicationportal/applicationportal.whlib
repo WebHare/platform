@@ -44,8 +44,6 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/pages.whlib";
 
 
-///Apps that are always whitelisted when masked and don't require logging in as they support basic tollium functionality
-CONSTANT STRING ARRAY loginapps := ["system:forgotpassword","system:resetpassword","system:managetwofactorauth"];
 ///Expected protocol version. Bump if we break backwards compatible with JS code
 CONSTANT INTEGER expecttoddprotocolversion := 1;
 
@@ -690,12 +688,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
     RETURN ObjectExists(dashboardbg) ? WrapCachedImage(dashboardbg->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD;
   }
-  RECORD FUNCTION GetLoginBackground()
-  {
-    OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
-    RETURN ObjectExists(loginbg) ? WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD;
-  }
-
   STRING FUNCTION GetTabBarImage()
   {
     OBJECT tabbarimg := OpenWHFSObjectByPath("/webhare-private/system/backend/tabbarimage");
@@ -746,8 +738,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
             , dashboard := this->config.dashboard AND GetWebVariable("appmode") != "singleapp" //TODO singleapp should hide entire menubar
             , dashboardbg := this->GetDashboardBackground()
-            , loginbg := this->GetLoginBackground()
-            , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")
             , displayimage := ""
             , displayname := ""
             , personalsettings := GetAppLaunchInstruction(this->config.personalsettingsapp, [reuse_instance := "always" ])
@@ -831,10 +821,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND (NOT ObjectExists(this->currentuser) OR NOT this->currentuser->HasRight("system:supervisor")))
       RETURN CELL[ error := "launcherror", errormessage := GetTid("tollium:commondialogs.messageboxes.webhareclosedformaintenance") ];
 
-    IF(ObjectExists(this->wrdauthplugin) AND NOT ObjectExists(this->currentuser) AND appname NOT IN loginapps)
+    IF(ObjectExists(this->wrdauthplugin) AND NOT ObjectExists(this->currentuser))
       RETURN [ error := "notloggedin" ];
 
-    IF(appname NOT IN loginapps AND Length(this->config.applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->config.applicationmasks))
+    IF(Length(this->config.applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->config.applicationmasks))
       THROW NEW Exception(`Application '${appname}' is not permitted by this portal's applicationmasks`);
 
     RECORD parsedappname := this->ParseAppName(appname);

@@ -72,15 +72,6 @@
         <requireright right="system:supervisor" />
       </accesscheck>
     </application>
-    <application name="forgotpassword" screen="tolliumapps/login/forgotpassword.xml#forgotpassword">
-      <accesscheck />
-    </application>
-    <application name="resetpassword" screen="tolliumapps/login/forgotpassword.xml#resetpassword">
-      <accesscheck />
-    </application>
-    <application name="managetwofactorauth" startmacro="tolliumapps/login/forgotpassword.whlib#RunManageTwoFactor">
-      <accesscheck />
-    </application>
     <application name="userrights"
                  group="setup"
                  icon="tollium:users/users"
@@ -1467,7 +1458,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
             <string name="token" description="The override token to use" />
             <integer name="duration" description="Duration of normal override tokens" initialval="1800000" />  <!-- 30 minutes -->
           </node>
-          <boolean name="allowpasswordreset" description="Allow users to reset their password" initialval="true" />
+          <obsoletekey name="allowpasswordreset" />
         </node>
         <node name="exclusiveaccess">
           <integer name="takeovertime"

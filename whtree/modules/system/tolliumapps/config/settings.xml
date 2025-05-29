@@ -108,9 +108,6 @@
         </tab>
         <tab tid=".security">
           <line layout="left">
-            <checkbox name="allowpasswordreset" labeltid=".allowpasswordreset" title="" />
-          </line>
-          <line layout="left">
             <checkbox composition="security" cellname="autodenyipv6" labeltid=".autodenyipv6" title="" />  <!-- "Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" / -->
           </line>
           <textedit name="checkipallowmask" width="1pr" />
