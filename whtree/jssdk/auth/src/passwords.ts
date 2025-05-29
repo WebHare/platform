@@ -6,6 +6,7 @@ import { getUserValidationSettings } from "./support";
 import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import { runInWork } from "@webhare/whdb";
 import { createServerSession } from "@webhare/services";
+import { writeAuthAuditEvent, type AuthAuditContext } from "@webhare/auth";
 
 export type PasswordCheck = "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
 
@@ -335,7 +336,7 @@ export function describePasswordChecks(checks: string, options?: { lang?: string
   return getTid("wrd:site.forms.authpages.passwordcheck.requirements", [lines.join("\n")], { langCode: options?.lang });
 }
 
-export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string) {
+export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, userId: number, unit: number | null, password: string, authsettings: AuthenticationSettings, returnTo: string, authAuditContext: AuthAuditContext) {
   /* Verify the user is sufficiently secure, ie HIBP and complexity/age requirements, 2FA requirements
       If not, the user should go through a forced password change but we'll pass him a 'signin' token
       that will be valid to complete signin
@@ -351,6 +352,13 @@ export async function verifyPasswordCompliance<T extends SchemaTypeDefinition>(w
 
   if (passwordCheck.success)
     return null;
+
+  await runInWork(() => writeAuthAuditEvent(wrdschema, {
+    type: "platform:insufficient-security",
+    entity: userId,
+    ...authAuditContext,
+    data: { failedChecks: passwordCheck.failedChecks, badPasswordTime: passwordCheck.badPasswordTime }
+  }));
 
   //Go to complete account
   const session = await runInWork(() => createServerSession(

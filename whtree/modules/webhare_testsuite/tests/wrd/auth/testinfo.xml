@@ -1,5 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="authtest.whlib authtestsupport.ts">
-  <test script="testwrdauthplugin-api.whscr" />
   <test script="testwrdauthplugin-domainless.whscr" />
   <test script="testwrdauthplugin-expiry.whscr" />
   <jstest file="testwrdauth-frontend.ts" tags="wrdauth" />

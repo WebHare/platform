@@ -913,7 +913,25 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
+  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, code: LoginErrorCodes): Promise<FrontendAuthResult> {
+    await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
+      type: "platform:login-failed",
+      entity: userid,
+      entityLogin: request.login,
+      ...request.tokenOptions?.authAuditContext,
+      data: { code }
+    }));
+
+    return { loggedIn: false, code };
+  }
+
   async handleFrontendLogin(request: FrontendLoginRequest): Promise<FrontendAuthResult> {
+    type UserInfo = {
+      password: AuthenticationSettings | null;
+      wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+      whuserUnit?: number | null;
+    };
+
     const prepped = await prepAuth(request.targetUrl, null);
     if ("error" in prepped)
       throw new Error(prepped.error);
@@ -924,34 +942,28 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("BrowserTriplet is required for authentication auditing");
 
     const authsettings = await this.getAuthSettings(true);
-    let userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
-    let userInfo;
-    if (userid) {
-      const getfields = {
-        password: authsettings.passwordAttribute,
-        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}),
-        ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
-      };
+    const userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
+    if (!userid)
+      return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
 
-      userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as {
-        password: AuthenticationSettings | null;
-        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
-        whuserUnit?: number | null;
-      };
+    const getfields = {
+      password: authsettings.passwordAttribute,
+      ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}),
+      ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
+    };
 
-      //TODO ratelimits/auditing
-      if (userid && !await userInfo?.password?.verifyPassword(request.password))
-        userid = 0;
+    const userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as UserInfo;
+
+    //TODO ratelimits/auditing
+    if (!userInfo?.password || !await userInfo.password.verifyPassword(request.password))
+      return await this.returnLoginFail(request, userid, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
+
+    if (!userInfo.password.isPasswordStillSecure()) { //upgrade using re-entered password
+      await userInfo.password?.updatePassword(request.password, { inPlace: true });
+      await runInWork(() => this.wrdschema.update("wrdPerson", userid, { [authsettings.passwordAttribute]: userInfo.password }));
     }
 
-    if (!userid || !userInfo?.password) {
-      return {
-        loggedIn: false,
-        code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
-      };
-    }
-
-    if (userInfo!.password.hasTOTP()) {
+    if (userInfo.password.hasTOTP()) {
       const validUntil = new Date(Date.now() + 5 * 60_000);
       const challenge = generateRandomId();
       //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing session/tokens ?
@@ -960,7 +972,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
         type: "platform:secondfactor.challenge",
         entity: userid,
-        // ...(options?.authAuditContext ?? getAuditContext()), //FIXME ? We can't get from scope but caller should build a context!
+        entityLogin: request.login,
+        ...request.tokenOptions.authAuditContext,
         data: { challenge }
       }));
 
@@ -976,7 +989,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       };
     }
 
-    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "");
+    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "", request.tokenOptions.authAuditContext);
     if (complianceToken) {
       return { //redirect to authpages to complete the account
         loggedIn: false,
@@ -986,10 +999,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     //TODO ratelimits/auditing
     //TODO we should probably use the same token for the login page as well
-    if (authsettings.hasAccountStatus) {
-      if (userInfo?.wrdauthAccountStatus?.status !== "active")
-        return { loggedIn: false, code: "account-disabled" };
-    }
+    if (authsettings.hasAccountStatus && userInfo?.wrdauthAccountStatus?.status !== "active")
+      return await this.returnLoginFail(request, userid, "account-disabled");
 
     if (request.customizer?.isAllowedToLogin) {
       const awaitableResult = request.customizer.isAllowedToLogin({
@@ -998,7 +1009,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
       const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
       if (result)
-        return { loggedIn: false, code: result.code }; //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
+        return await this.returnLoginFail(request, userid, result.code); //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
     }
 
     const prepOptions = { ...request.tokenOptions, customizer: request.customizer, persistent: request.loginOptions?.persistent };
@@ -1354,7 +1365,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   };
 }
 
-async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
@@ -1430,41 +1441,4 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 
   const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
   return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
-}
-
-/* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
-*/
-export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
-  if ("error" in prep)
-    throw new Error(prep.error);
-
-  const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
-  const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
-
-  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
-  if (result)
-    return result;
-
-  const idp = new IdentityProvider(wrdSchema);
-  const authsettings = await idp.getAuthSettings(true);
-  const getfields = {
-    auth: authsettings.passwordAttribute,
-    ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
-  };
-
-  const userInfo = await (wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
-    auth: AuthenticationSettings | null;
-    whuserUnit?: number | null;
-  };
-
-  if (!userInfo.auth)
-    throw new Error(`User '${userId}' has no password set`);
-
-  const complianceToken = await verifyPasswordCompliance(wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
-  if (complianceToken) //need to further fix passwords etc
-    return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
-
-  //successful login
-  return { navigateTo: await prepareFrontendLogin(returnto, userId) };
 }

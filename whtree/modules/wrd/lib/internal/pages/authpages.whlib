@@ -10,6 +10,7 @@ LOADLIB "wh::util/otp.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/forms/base.whlib";
@@ -127,23 +128,9 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", authplugin->webcontext->baseurl, ^login->value, ^password->value, GetTidLanguage(), GetClientRemoteIP(), GetWebHeader("User-Agent"));
-
-    IF(CellExists(result,'headers'))
-      FOREVERY(RECORD toset FROM result.headers)
-        AddHTTPHeader(toset.field, toset.value, toset.always_add);
-
-    IF(result.loggedin) { //we're probably getting a reload instruction here, but the TS code isn't handling logincontrol yet
-      authplugin->__SetLoggedinEntity(result.user);
-      IF(this->logincontrol != "") {
-        RECORD instr := authplugin->__DoProcessControlToken(this->logincontrol);
-        IF(RecordExists(instr))
-          RETURN [ submitinstruction := instr ];
-      }
-    }
-
-    iF(CellExists(result,'navigateto'))
-      RETURN [ submitinstruction := result.navigateto ];
+    RECORD result := authplugin->__DoLoginTS(^login->value, ^password->value, CELL [ useragent := GetWebHeader("User-Agent"), this->logincontrol ]);
+    IF(CellExists(result,'submitinstruction'))
+      RETURN CELL[ result.submitinstruction ];
 
     OBJECT work := this->BeginWork([ database := FALSE]);
     work->AddErrorFor(^password, result.error);
@@ -232,7 +219,7 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
 
     IF(NOT work->HasFailed()) {
       STRING baseurl := this->formcontext->GetWRDAuthPlugin()->webcontext->baseurl;
-      RECORD checkresult := CalLJS("@webhare/auth/src/identity.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto);
+      RECORD checkresult := CalLJS("@mod-platform/js/auth/harescript.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto, GetEnrichedAuditContext());
 
       IF(CellExists(checkresult,'navigateto'))
         RETURN work->Finish() ? [ submitinstruction := checkresult.navigateto ] : DEFAULT RECORD;

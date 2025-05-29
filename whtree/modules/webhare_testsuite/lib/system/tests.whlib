@@ -69,8 +69,7 @@ PUBLIC RECORD FUNCTION TestAuditEvent(VARIANT expected)
   // add defaults for impersonator
   FOREVERY (RECORD rec FROM expected)
   {
-    IF (NOT rec.impersonated)
-      rec := CELL[ impersonator_entity := rec.byentity, impersonator_login := rec.bylogin, ...rec ];
+    rec := CELL[ impersonated := FALSE, impersonator_entity := 0, impersonator_login := "", byentity := 0, bylogin := "", ... rec ];
     IF (CellExists(rec, "__ignoredata"))
       rec := CELL[ ...rec, data := SELECT AS RECORD data FROM auditevents WHERE type = rec.type, DELETE __ignoredata ];
     expected[#rec] := rec;

@@ -1054,7 +1054,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     }
 
     IF(CellExists(trylogin, "error")) { //login denied
-      RETURN [ success := FALSE, code := trylogin.code = "account-disabled" ? "DISABLED" : "NOACCESS" ];
+      RETURN [ success := FALSE, code := "NOACCESS" ];
     }
 
     RETURN [ success := TRUE, code := "" ];

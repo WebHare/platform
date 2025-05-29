@@ -66,7 +66,9 @@ ASYNC MACRO ManageAuthenticationSettings()
       , browsertriplet :=   ""
       , ip :=               ""
       , type :=             "wrd:authsettings.disabletotp"
-      , impersonated :=     FALSE
+      //HS always sets impersonator to the editing user even when he's not using login-as
+      , impersonator_login  := "sysop@beta.webhare.net"
+      , impersonator_entity := testfw->GetUserObject("sysop")->entityid
       , data :=             DEFAULT RECORD
       ]);
 
@@ -87,7 +89,8 @@ ASYNC MACRO ManageAuthenticationSettings()
       , browsertriplet :=   ""
       , ip :=               ""
       , type :=             "wrd:authsettings.setpassword"
-      , impersonated :=     FALSE
+      , impersonator_login  := "sysop@beta.webhare.net"
+      , impersonator_entity := testfw->GetUserObject("sysop")->entityid
       , data :=             DEFAULT RECORD
       ]);
 

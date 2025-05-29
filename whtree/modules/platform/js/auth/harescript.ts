@@ -1,14 +1,17 @@
 /* HareScript auth entry points */
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import type { AuthCustomizer, AuthAuditContext } from "@webhare/auth";
-import { IdentityProvider } from "@webhare/auth/src/identity";
+import type { AuthCustomizer, AuthAuditContext, LoginDeniedInfo } from "@webhare/auth";
+import { IdentityProvider, prepareFrontendLogin, verifyAllowedToLogin } from "@webhare/auth/src/identity";
 import { prepAuth } from "@webhare/auth/src/support";
 import { defaultDateTime } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
-import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema, type AnyWRDSchema, type AuthenticationSettings } from "@webhare/wrd";
 import { doLoginHeaders, mapLoginError, closeAccessToken } from "./authservice";
 import { parseUserAgent } from "@webhare/dompack/src/browser";
+import { verifyPasswordCompliance } from "@webhare/auth/src/passwords";
+import { getCompleteAccountNavigation } from "@webhare/auth/src/shared";
+import type { NavigateInstruction } from "@webhare/env";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -55,7 +58,7 @@ export function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
   return headers;
 }
 
-export async function login(targetUrl: string, username: string, password: string, lang: string, clientIp: string, userAgent: string) {
+export async function login(targetUrl: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
   //TODO can we share more with authservice.ts#login - or should we replace it? at least share through the IDP but basically we're two routes to the same end!
   const prepped = await prepAuth(targetUrl, null);
   if ("error" in prepped)
@@ -66,12 +69,10 @@ export async function login(targetUrl: string, username: string, password: strin
   const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
   const provider = new IdentityProvider(wrdschema);
 
+  const browserTriplet = userAgent.match(/[a-z]+-[a-z]+-[0-9]+$/) ? userAgent : parseUserAgent(userAgent)?.triplet || "";
   const response = await provider.handleFrontendLogin({
-    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: targetUrl }, tokenOptions: {
-      authAuditContext: {
-        clientIp: clientIp,
-        browserTriplet: parseUserAgent(userAgent)?.triplet || "",
-      }
+    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: targetUrl, persistent }, tokenOptions: {
+      authAuditContext: { clientIp, browserTriplet }
     }
   });
 
@@ -139,4 +140,41 @@ export async function closeFrontendLogin(wrdSchema: string, idCookie: string, re
     clientIp: remoteIp,
     browserTriplet: parseUserAgent(userAgent)?.triplet || ""
   });
+}
+
+/* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
+*/
+export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string, auditContext: AuthAuditContextHS): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
+  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
+  if ("error" in prep)
+    throw new Error(prep.error);
+
+  const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
+  const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
+
+  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
+  if (result)
+    return result;
+
+  const idp = new IdentityProvider(wrdSchema);
+  const authsettings = await idp.getAuthSettings(true);
+  const getfields = {
+    auth: authsettings.passwordAttribute,
+    ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
+  };
+
+  const userInfo = await (wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
+    auth: AuthenticationSettings | null;
+    whuserUnit?: number | null;
+  };
+
+  if (!userInfo.auth)
+    throw new Error(`User '${userId}' has no password set`);
+
+  const complianceToken = await verifyPasswordCompliance(wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto, mapHSAuditContext(auditContext));
+  if (complianceToken) //need to further fix passwords etc
+    return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
+
+  //successful login
+  return { navigateTo: await prepareFrontendLogin(returnto, userId) };
 }
