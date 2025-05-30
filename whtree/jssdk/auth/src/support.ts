@@ -5,7 +5,7 @@ import type { WRDAuthSettings } from "./identity";
 import { db } from "@webhare/whdb";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
-import { getIdCookieName } from "@webhare/wrd/src/authfrontend";
+import { getIdCookieName } from "@webhare/auth/src/authfrontend";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 
 //TODO Export from @webhare/auth? but camelcase first

@@ -9,9 +9,8 @@ import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateabl
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, createServerSession, decryptForThisServer, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { loadlib } from "@webhare/harescript";
 import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
-import { HareScriptType, decodeHSON, defaultDateTime, encodeHSON, setHareScriptType } from "@webhare/hscompat";
+import { defaultDateTime } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginErrorCodes, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
@@ -24,6 +23,7 @@ import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks } from "./shared";
 import { returnHeaders, type HSHeaders } from "@mod-platform/js/auth/harescript";
+import { AuthenticationSettings } from "@webhare/wrd";
 
 const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
@@ -105,19 +105,6 @@ export type SetAuthCookies = {
   customizer: AuthCustomizer | undefined;
 };
 
-interface HSONAuthenticationSettings {
-  version: number;
-  passwords?: Array<{ passwordhash: string; validfrom: Date }>;
-  totp?: {
-    url: string;
-    backupcodes?: Array<{
-      code: string;
-      used?: Date;
-    }>;
-    locked?: Date;
-  };
-}
-
 export type FrontendLoginRequest = {
   targetUrl: string;
   login: string;
@@ -135,123 +122,6 @@ export type FirstPartyToken = {
   /** Access token expiration (null if set to never expire) */
   expires: Temporal.Instant | null;
 };
-
-export class AuthenticationSettings {
-  #passwords: Array<{ hash: string; validFrom: Date | null }> = [];
-  #totp: {
-    url: string;
-    backupCodes: Array<{ code: string; used: Date | null }>;
-    locked: Date | null;
-  } | null = null;
-
-  static fromPasswordHash(hash: string): AuthenticationSettings {
-    const auth = new AuthenticationSettings;
-    if (hash) //shouldn't set a validity date, the passord will look too recently changed and interfere with password resets
-      auth.#passwords.push({ hash, validFrom: null });
-    return auth;
-  }
-
-  static fromHSON(hson: string): AuthenticationSettings {
-    const obj = decodeHSON(hson) as unknown as HSONAuthenticationSettings;
-    if (typeof obj !== "object")
-      throw new Error(`Expected a HSON encoded record, got '${typeof obj}'`);
-    if (!obj || !("version" in obj))
-      throw new Error("Missing version field");
-    if (obj.version !== 1)
-      throw new Error(`Unsupported authentication settings version ${obj.version}`);
-
-    const auth = new AuthenticationSettings;
-    if (Array.isArray(obj.passwords))
-      for (const pwd of (obj.passwords ?? [])) {
-        if (!pwd || !pwd.passwordhash || !pwd.validfrom)
-          throw new Error("Invalid password record");
-        auth.#passwords.push({ hash: pwd.passwordhash, validFrom: pwd.validfrom.getTime() === defaultDateTime.getTime() ? null : pwd.validfrom });
-      }
-
-    //FIXME we're not properly setting the various dates to 'null' currently, but to minimum datetime. we'll hit that as soon as we need to manipulate TOTP, but for now the round-trip works okay
-    if (obj.totp) {
-      auth.#totp = {
-        url: obj.totp.url,
-        backupCodes: (obj.totp.backupcodes ?? []).map(_ => ({ code: _.code, used: _.used ?? null })),
-        locked: obj.totp.locked ?? null
-      };
-    }
-    return auth;
-  }
-
-  toHSON() {
-    const passwords = this.#passwords.map(_ => ({ passwordhash: _.hash, validfrom: _.validFrom ?? defaultDateTime }));
-    setHareScriptType(passwords, HareScriptType.RecordArray);
-
-    return encodeHSON({
-      version: 1,
-      passwords,
-      totp: this.#totp ? {
-        url: this.#totp.url,
-        backupcodes: setHareScriptType(this.#totp.backupCodes.map(_ => ({ code: _.code, used: _.used ?? defaultDateTime })), HareScriptType.RecordArray),
-        locked: this.#totp.locked ?? null
-      } : null
-    });
-  }
-
-  hasTOTP(): boolean {
-    return Boolean(this.#totp);
-  }
-
-  getLastPasswordChange(): Temporal.Instant | null {
-    return this.#passwords.at(-1)?.validFrom?.toTemporalInstant() ?? null;
-  }
-
-  getNumPasswords(): number {
-    return this.#passwords.length;
-  }
-
-  //TODO when to clear password? probably needs to be a WRD schema setting enforced on updateEntity
-  /** Update the password in this setting
-   * @param password - The new password
-   * @param alg - The hash algorithm to use. If not set, use best known method (may change in future versions)
-  */
-  async updatePassword(password: string, alg: "PLAIN" | "WHBF" = "WHBF"): Promise<void> {
-    if (!password)
-      throw new Error("Password cannot be empty");
-
-    let hash = '';
-    if (alg === "PLAIN")
-      hash = 'PLAIN:' + password;
-    else if (alg === "WHBF")
-      hash = await loadlib("wh::crypto.whlib").CREATEWEBHAREPASSWORDHASH(password);
-    else
-      throw new Error(`Unsupported password hash algorithm '${alg}'`);
-
-    this.#passwords.push({ hash, validFrom: new Date });
-  }
-
-  async verifyPassword(password: string): Promise<boolean> {
-    if (!password || !this.#passwords.length)
-      return false;
-
-    const tryHash = this.#passwords[this.#passwords.length - 1].hash;
-    if (tryHash.startsWith("PLAIN:"))
-      return password === tryHash.substring(6);
-
-    return await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash);
-  }
-
-  async isUsedSince(password: string, cutoff: Temporal.Instant): Promise<boolean> {
-    for (let i = this.#passwords.length - 1; i >= 0; i--) {
-      const tryHash = this.#passwords[i].hash;
-      if (tryHash.startsWith("PLAIN:")) {
-        if (password === tryHash.substring(6))
-          return true;
-      } else if (await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash))
-        return true;
-      const vf = this.#passwords[i].validFrom;
-      if (!vf || vf.getTime() <= cutoff.epochMilliseconds)
-        break;
-    }
-    return false;
-  }
-}
 
 export interface LoginRemoteOptions extends LoginUsernameLookupOptions, LoginTweaks {
   /** Request a persistent login */
@@ -1043,7 +913,25 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
+  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, code: LoginErrorCodes): Promise<FrontendAuthResult> {
+    await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
+      type: "platform:login-failed",
+      entity: userid,
+      entityLogin: request.login,
+      ...request.tokenOptions?.authAuditContext,
+      data: { code }
+    }));
+
+    return { loggedIn: false, code };
+  }
+
   async handleFrontendLogin(request: FrontendLoginRequest): Promise<FrontendAuthResult> {
+    type UserInfo = {
+      password: AuthenticationSettings | null;
+      wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+      whuserUnit?: number | null;
+    };
+
     const prepped = await prepAuth(request.targetUrl, null);
     if ("error" in prepped)
       throw new Error(prepped.error);
@@ -1054,34 +942,28 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("BrowserTriplet is required for authentication auditing");
 
     const authsettings = await this.getAuthSettings(true);
-    let userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
-    let userInfo;
-    if (userid) {
-      const getfields = {
-        password: authsettings.passwordAttribute,
-        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}),
-        ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
-      };
+    const userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
+    if (!userid)
+      return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
 
-      userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as {
-        password: AuthenticationSettings | null;
-        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
-        whuserUnit?: number | null;
-      };
+    const getfields = {
+      password: authsettings.passwordAttribute,
+      ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}),
+      ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
+    };
 
-      //TODO ratelimits/auditing
-      if (userid && !await userInfo?.password?.verifyPassword(request.password))
-        userid = 0;
+    const userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as UserInfo;
+
+    //TODO ratelimits/auditing
+    if (!userInfo?.password || !await userInfo.password.verifyPassword(request.password))
+      return await this.returnLoginFail(request, userid, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
+
+    if (!userInfo.password.isPasswordStillSecure()) { //upgrade using re-entered password
+      await userInfo.password?.updatePassword(request.password, { inPlace: true });
+      await runInWork(() => this.wrdschema.update("wrdPerson", userid, { [authsettings.passwordAttribute]: userInfo.password }));
     }
 
-    if (!userid || !userInfo?.password) {
-      return {
-        loggedIn: false,
-        code: authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password"
-      };
-    }
-
-    if (userInfo!.password.hasTOTP()) {
+    if (userInfo.password.hasTOTP()) {
       const validUntil = new Date(Date.now() + 5 * 60_000);
       const challenge = generateRandomId();
       //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing session/tokens ?
@@ -1090,7 +972,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
         type: "platform:secondfactor.challenge",
         entity: userid,
-        // ...(options?.authAuditContext ?? getAuditContext()), //FIXME ? We can't get from scope but caller should build a context!
+        entityLogin: request.login,
+        ...request.tokenOptions.authAuditContext,
         data: { challenge }
       }));
 
@@ -1106,7 +989,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       };
     }
 
-    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "");
+    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "", request.tokenOptions.authAuditContext);
     if (complianceToken) {
       return { //redirect to authpages to complete the account
         loggedIn: false,
@@ -1116,10 +999,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     //TODO ratelimits/auditing
     //TODO we should probably use the same token for the login page as well
-    if (authsettings.hasAccountStatus) {
-      if (userInfo?.wrdauthAccountStatus?.status !== "active")
-        return { loggedIn: false, code: "account-disabled" };
-    }
+    if (authsettings.hasAccountStatus && userInfo?.wrdauthAccountStatus?.status !== "active")
+      return await this.returnLoginFail(request, userid, "account-disabled");
 
     if (request.customizer?.isAllowedToLogin) {
       const awaitableResult = request.customizer.isAllowedToLogin({
@@ -1128,7 +1009,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       });
       const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
       if (result)
-        return { loggedIn: false, code: result.code }; //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
+        return await this.returnLoginFail(request, userid, result.code); //Maybe we'll reintroduce custom errors again in the future, but we'd also need to pass langcode context then or rely on CodeContext
     }
 
     const prepOptions = { ...request.tokenOptions, customizer: request.customizer, persistent: request.loginOptions?.persistent };
@@ -1484,7 +1365,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   };
 }
 
-async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
@@ -1560,41 +1441,4 @@ export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, lo
 
   const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
   return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
-}
-
-/* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
-*/
-export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
-  if ("error" in prep)
-    throw new Error(prep.error);
-
-  const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
-  const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
-
-  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
-  if (result)
-    return result;
-
-  const idp = new IdentityProvider(wrdSchema);
-  const authsettings = await idp.getAuthSettings(true);
-  const getfields = {
-    auth: authsettings.passwordAttribute,
-    ...(authsettings.hasWhuserUnit ? { whuserUnit: "whuserUnit" } : {})
-  };
-
-  const userInfo = await (wrdSchema as AnyWRDSchema).getFields(authsettings.accountType, userId, getfields) as {
-    auth: AuthenticationSettings | null;
-    whuserUnit?: number | null;
-  };
-
-  if (!userInfo.auth)
-    throw new Error(`User '${userId}' has no password set`);
-
-  const complianceToken = await verifyPasswordCompliance(wrdSchema, userId, userInfo.whuserUnit || null, password, userInfo.auth, returnto);
-  if (complianceToken) //need to further fix passwords etc
-    return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
-
-  //successful login
-  return { navigateTo: await prepareFrontendLogin(returnto, userId) };
 }

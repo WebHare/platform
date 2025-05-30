@@ -158,7 +158,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
     impersonator_login: impersonatedBy?.login || "",
     byentity: event.actionBy || null,
     bylogin: actionBy?.login || "",
-    login: accountInfo?.login || "",
+    login: event.entityLogin || accountInfo?.login || "",
     data: "data" in event && event.data ? stringify(event.data, { typed: true }) : ""
   };
 

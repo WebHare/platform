@@ -63,14 +63,16 @@ test.runTests(
       console.log(auditevents);
 
       test.eqPartial([
-        //FIXME should start with a login failure
-        { type: "platform:resetpassword" },
+        { type: "platform:login-failed", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        { type: "platform:resetpassword", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        //@ts-expect-error fixing TS to understand data's type is a challenge for another day..
+        { type: "platform:insufficient-security", entityLogin: "pietje-authpages-js@beta.webhare.net", data: { failedChecks: ["require2fa"] } },
         //FIXME should see the 2FA onboarded event
-        { type: "platform:login" },
-        { type: "platform:logout" },
-        { type: "platform:secondfactor.challenge" },
-        { type: "platform:login" },
-        { type: "platform:logout" },
+        { type: "platform:login", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        { type: "platform:logout", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        { type: "platform:secondfactor.challenge", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        { type: "platform:login", entityLogin: "pietje-authpages-js@beta.webhare.net" },
+        { type: "platform:logout", entityLogin: "pietje-authpages-js@beta.webhare.net" },
       ], auditevents);
     }
 

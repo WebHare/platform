@@ -1,3 +1,6 @@
+import type { LoginErrorCodes } from "./customizer";
+import type { PasswordCheck } from "./passwords";
+
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
 declare module "@webhare/auth" {
 }
@@ -17,9 +20,11 @@ export type WRDAuthAccountStatus = {
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
+  "platform:login-failed": { code: LoginErrorCodes };
   "platform:logout": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
+  "platform:insufficient-security": { failedChecks: PasswordCheck[]; badPasswordTime: Temporal.Instant | null };
   "platform:resetpassword": void;
   "platform:secondfactor.challenge": { challenge: string };
 }
@@ -35,3 +40,5 @@ export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, Look
 
 export { writeAuthAuditEvent, getAuditContext, updateAuditContext, getAuditEvents } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";
+
+export { getRequestUser } from "./authfrontend";

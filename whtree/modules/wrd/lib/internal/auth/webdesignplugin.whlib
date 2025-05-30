@@ -6,6 +6,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
@@ -755,6 +756,36 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     RETURN STRING[];
   }
 
+  //codepath shared with authpages.whlib loginform
+  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    options := ValidateOptions([ logincontrol := ""
+                               , remoteip := IsRequest() ? GetClientRemoteIp() : ""
+                               , browsertriplet := ""
+                               , useragent := ""
+                               , persistent := FALSE
+                               ], options);
+
+    STRING agent := options.browsertriplet ?? options.useragent ?? (CellExists(__auditcontext,'browsertriplet') ? __auditcontext.browsertriplet : "");
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
+
+    IF(CellExists(result,'headers') AND IsRequest())
+      FOREVERY(RECORD toset FROM result.headers)
+        AddHTTPHeader(toset.field, toset.value, toset.always_add);
+
+     IF(result.loggedin) { //we're probably getting a reload instruction here, but the TS code isn't handling logincontrol yet
+      this->__SetLoggedinEntity(result.user);
+      IF(options.logincontrol != "") {
+        RECORD instr := this->__DoProcessControlToken(options.logincontrol);
+        IF(RecordExists(instr))
+          RETURN [ success := TRUE, submitinstruction := instr ];
+      }
+    }
+    IF(CellExists(result,'navigateto'))
+      RETURN [ success := result.loggedin, submitinstruction := result.navigateto ];
+
+    RETURN CELL [result.code, result.error ];
+  }
+
   /** Logs in a user by password
       @param loginname Login name
       @param password Password
@@ -767,8 +798,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @cell return.code Login error code
       @cell return.submitinstruction Form action to execute to complete SAML / external login flow
   */
-  PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ rawlogin := FALSE
                                , logincontrol := ""
                                , skippasswordcheck := FALSE
@@ -800,94 +830,17 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     RECORD submitinstruction;
 
     BOOLEAN allowexternaluserlogin := "externaluser" IN logincontrol.logintypes;
-    IF ("wrdauth" IN logincontrol.logintypes)
-    {
-      IF(options.rawlogin)
-        trylogin := this->__GetWRDAuthIntegration()->Login(loginname, password, options);
+    IF ("wrdauth" IN logincontrol.logintypes) {
+      RECORD result := this->__DoLoginTS(loginname, password, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
+      IF(CellExists(result,'submitinstruction'))
+        RETURN CELL[ ...trylogin, ...result  ];
+
+      IF(result.code = "incorrect-email-password" OR result.code = "incorrect-login-password")
+        trylogin := CELL[...trylogin, success := FALSE, code := "INCORRECTPASSWORD", error := result.error ];
+      ELSE IF(result.code = "account-disabled")
+        trylogin := CELL[...trylogin, success := FALSE, code := "NOACCESS", error := result.error ];
       ELSE
-      {
-        IF(NOT options.skippasswordcheck)
-          INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
-        trylogin := this->GetSupportObject()->Login(loginname, password, options);
-      }
-
-      INTEGER entityid;
-      IF(trylogin.success)
-        entityid := this->GetLoggedinEntity();
-      ELSE IF(CellExists(trylogin,'entityid'))
-        entityid := trylogin.entitiyd;
-      ELSE //FIXME they should all return that!
-        entityid := this->LookupLogin(loginname);
-
-      UpdateAuditContext(CELL
-          [ user_entityid :=      entityid
-          , user_login :=         options.auditloginname ?? loginname
-          ]);
-
-      IF(NOT trylogin.success)
-        options.auditmessage := CELL[ failurecode := trylogin.code, ...options.auditmessage];
-      IF(CellExists(trylogin,'userinfo'))
-        options.auditmessage := CELL[ userinfo := trylogin.userinfo, ...options.auditmessage];
-
-      STRING loginresultcode := trylogin.success
-          ? "ok"
-          : trylogin.code = "REQUIRESECONDFACTOR"
-                ? "requiresecondfactor"
-                : trylogin.code = "REQUIRESETUPSECONDFACTOR"
-                      ? "requiresetupsecondfactor"
-                      : trylogin.code = "FAILEDVALIDATIONCHECKS"
-                            ? "failedvalidationchecks"
-                            : "failed";
-
-      IF (loginresultcode = "failedvalidationchecks")
-      {
-        STRING ARRAY failedvalidationchecks := ArrayIntersection(trylogin.failedvalidationchecks, [ "hibp", "maxage", "require2fa" ]);
-        IF (IsValueSet(ArrayDelete(trylogin.failedvalidationchecks, [ "hibp", "maxage", "require2fa" ])))
-          INSERT "complexity" INTO failedvalidationchecks AT END;
-
-        options.auditmessage := CELL[ ...options.auditmessage, failedvalidationchecks ];
-      }
-      ELSE IF (loginresultcode = "requiresetupsecondfactor")
-      {
-        RECORD linkdata := this->GenerateSetupSecondFactorLink(GetRequestURL(), entityid);
-        options.auditmessage := CELL[ ...options.auditmessage, linkdata.challenge ];
-        INSERT CELL setuplink := linkdata.setuplink INTO trylogin;
-      }
-
-      IF (CellExists(trylogin, "secondfactordata"))
-      {
-        options.auditmessage := CELL
-            [ ...options.auditmessage
-            , secondfactordata := CELL
-                  [ trylogin.secondfactordata.challenge
-                  ]
-            ];
-      }
-
-      this->LogCustomAuditEvent(`wrd:login:${loginresultcode}`
-                                , [ account :=  entityid
-                                  , login := options.auditloginname ?? loginname
-                                  , message := options.auditmessage
-                                  , wrdschema := this->wrdschema->tag
-                                  ]);
-
-      IF (trylogin.success)
-      {
-        IF (this->GetLoggedinEntity() = 0)
-          THROW NEW Exception("Logged in, but no WRD user found");
-
-        submitinstruction := this->__HandleAfterLogin(logincontrol, "wrdauth");
-      }
-      // ELSE IF (loginresultcode = "failedvalidationchecks") //TODO Why were we doing this (and not even suppressing the audit events?)
-      // {
-      //   INSERT CELL passwordresetlink := this->CreatePasswordResetLink(GetRequestURL(), entityid, CELL
-      //       [ routerpage := "resetpassword"
-      //       ]).verifiedlink INTO trylogin;
-      // }
-
-      // only allow external login if the login returned code 'failed'
-      IF (loginresultcode != "failed")
-        allowexternaluserlogin := FALSE;
+        THROW NEW Exception(`Internal error, unexpected code path in WRDAuth::Login: ${result.code} - ${result.error}`);
     }
 
     IF (NOT trylogin.success AND "externaluser" IN logincontrol.logintypes)

@@ -8,7 +8,7 @@ import { joinURL } from "@webhare/std";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
 import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
-import { getCookieBasedUser } from "@webhare/wrd/src/authfrontend";
+import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import type { LoginIncompleteCodes } from "@webhare/auth/src/customizer";
 import type { NavigateInstruction } from "@webhare/env";
 

@@ -9,7 +9,8 @@ import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { logError } from "@webhare/services";
 import type { TypedServiceDescriptor } from "@mod-system/js/internal/generation/gen_extracts";
-import { getRequestUser, type AnyWRDSchema } from "@webhare/wrd";
+import type { AnyWRDSchema } from "@webhare/wrd";
+import { getRequestUser } from "@webhare/auth";
 
 const MaxRPCArguments = 16;
 

@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/dialogs.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -64,8 +65,7 @@ MACRO InvalidateExternalLoginSessions()
 }
 
 
-MACRO PrepareServer()
-{
+MACRO PrepareServer() {
   RECORD testport := testfw->GetLocalhostWebinterface();
   thirdpartytest  := testfw->CreateWebserverPort([ virtualhosts := ["localhost.beta.webhare.net"]]); //note: localhost.webhare.com maps to 127.0.0.1
 
@@ -126,21 +126,21 @@ MACRO CreateMyTestSchema()
   DATETIME starttest := GetCurrentDatetime();
   result := DoReq( [ action := "login", username := "testaccount@test.invali", pwd := "wrongpassword", browsertriplet := "mac-chrome-01" ]);
   TestEq(FALSE, result.success);
-  TestEq("UNKNOWNLOGIN", result.code);
+  TestEq("INCORRECTPASSWORD", result.code); //we will no longer differentiate between UNKNOWNLOGIN and INCORRECTPASSWORD as the TS API can't currently do that
   TestAuditEvent(
       [ entity := 0
-      , type := "wrd:login:failed"
+      , type := "platform:login-failed"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invali"
       , impersonated := FALSE
-      , data := [failurecode := "UNKNOWNLOGIN"]
+      , impersonator_entity := 0
+      , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
+      , data := [ code := "incorrect-email-password" ]
       , browsertriplet := "mac-chrome-01"
-      , byentity := 0
-      , bylogin := "testaccount@test.invali"
       ]);
 
   RECORD ARRAY events := ReadJSONLogLines("system:audit", starttest);
-  TestEqMembers( [[ wrdschema := "wrd:testschema", type := "wrd:login:failed" ]], events,"*");
+  TestEqMembers( [[ wrdschema := "wrd:testschema", type := "platform:login-failed" ]], events,"*");
 
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "wrongpassword", browsertriplet := "mac-chrome-01"]);
   TestEq(FALSE, result.success);
@@ -148,14 +148,11 @@ MACRO CreateMyTestSchema()
   TestEq("", testfw->browser->GetCookie("webharelogin-wrd-testschema"));
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:failed"
+      , type := "platform:login-failed"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
-      , impersonated := FALSE
-      , data := [failurecode := "INCORRECTPASSWORD"]
+      , data := [ code := "incorrect-email-password" ]
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 
   result := DoReq( [ action := "checkstatus" ]);
@@ -167,6 +164,7 @@ MACRO CreateMyTestSchema()
   TestEq(FALSE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
 
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  TestEq(TRUE, result.success);
   TestEq(TRUE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
   TestEqLike("WHBF:*", entity->GetField("whuser_password").passwords[0].passwordhash);
   TestEq(1,length(entity->GetField("whuser_password").passwords));
@@ -174,17 +172,14 @@ MACRO CreateMyTestSchema()
   RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE name LIKE "*webharelogin-wrd-testschema" AND data != "";
   TEstEq(TRUE, RecordExists(logincookie), "Verifies automatic cookiename ((Host-|Secure-|)webharelogin-<slug>)");
 
-  TestEq(TRUE, result.success);
-  TestAuditEvent(
+  RECORD loginevent := TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 
   result := DoReq( [ action := "checkstatus" ]);
@@ -198,6 +193,7 @@ MACRO CreateMyTestSchema()
   TestEq(FALSE, result.isloggedin);
   TestEq("", result.loginname);
   TestEq(0, result.entityid);
+
   TestAuditEvent(
       [ entity := entityid
       , type := "platform:logout"
@@ -206,7 +202,7 @@ MACRO CreateMyTestSchema()
       , impersonated := FALSE
       , impersonator_entity := 0
       , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
-      , __ignoredata := TRUE
+      , data := loginevent.data
       , browsertriplet := "other-unknown-0"
       , byentity := 0
       , bylogin := "" //compared to HS we'll stop setting these to the entity if there was no external actor at all
@@ -219,14 +215,11 @@ MACRO CreateMyTestSchema()
   TestEq("INCORRECTPASSWORD", result.code);
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:failed"
+      , type := "platform:login-failed"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
-      , impersonated := FALSE
-      , data := [failurecode := "INCORRECTPASSWORD"]
+      , data := [ code := "incorrect-email-password" ]
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 
   TestEq(TRUE, entity->GetField("LASTLOGIN") < logginginat, "Failed login shouldn't have updated LASTLOGIN");
@@ -239,11 +232,11 @@ MACRO CreateMyTestSchema()
       , type := "wrd:loginbyid:ok"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
-      , impersonated := TRUE
       , data := DEFAULT RECORD
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "testaccount@test.invalid"
+      , impersonated := TRUE
       , impersonator_entity := entityid
       , impersonator_login := "testaccount@test.invalid"
       ]);
@@ -261,8 +254,6 @@ MACRO CreateMyTestSchema()
       , impersonated := FALSE
       , __ignoredata := TRUE
       , browsertriplet := "other-unknown-0"
-      , byentity := 0
-      , bylogin := ""
       , impersonator_entity := 0
       , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
       ]);
@@ -275,14 +266,12 @@ MACRO CreateMyTestSchema()
 
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
       , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 }
 
@@ -331,14 +320,11 @@ MACRO TestPersistentLogin()
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
-      , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 
   RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE name LIKE "*webharelogin-wrd-testschema" AND data != "";
@@ -355,14 +341,11 @@ MACRO TestPersistentLogin()
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", persistent := "1", browsertriplet := "mac-chrome-01" ]);
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , ip := "127.0.0.1"
       , login := "testaccount@test.invalid"
-      , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "testaccount@test.invalid"
       ]);
 
   //Close the user
@@ -412,13 +395,10 @@ MACRO TestRequireExternalLoggedinUser()
 
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("sysop")
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , login := "sysop@beta.webhare.net"
-      , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := testfw->GetUserWRDId("sysop")
-      , bylogin := "sysop@beta.webhare.net"
       ]);
 
   TestEq('redirect', rec.result.submitinstruction.type);
@@ -451,15 +431,12 @@ MACRO TestRequireExternalLoggedinUser()
       , impersonator_login := ""
       , __ignoredata := TRUE
       , browsertriplet := "other-unknown-0"
-      , byentity := 0
-      , bylogin := ""
       ]);
 
   // FIXME: when the disk audit log is converted to JSON, test if the WRD schema is set in this log entry
 }
 
-MACRO TestCrossDomainLogin()
-{
+MACRO TestCrossDomainLogin() {
   OBJECT auditlogtype := testfw->GetWRDSchema()->GetType("WRD_AUDITLOG");
   testfw->browser->DeleteCookies("*webharelogin-*");
 
@@ -493,13 +470,10 @@ MACRO TestCrossDomainLogin()
   //TestEq('reload', rec.result.submitinstruction.type);
   TestAuditEvent(
       [ entity := testfw->GetUserWRDId("sysop")
-      , type := "wrd:login:ok"
+      , type := "platform:login"
       , login := "sysop@beta.webhare.net"
-      , impersonated := FALSE
-      , data := DEFAULT RECORD
+      , __ignoredata := TRUE
       , browsertriplet := "mac-chrome-01"
-      , byentity := testfw->GetUserWRDId("sysop")
-      , bylogin := "sysop@beta.webhare.net"
       ]);
 
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submitinstruction");
@@ -549,7 +523,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
 
   //dumpvalue(onshowdata);
   TestEq(testfw->GetUserWRDId("sysop"), onshowdata.entity);
-  TestEq("wrd:login:ok", onshowdata.type);
+  TestEq("platform:login", onshowdata.type);
 
   topscreen->events->selection := (SELECT * FROM topscreen->events->rows ORDER BY wrd_creationdate)[1];
   topscreen->events->openaction->TolliumClick();
@@ -598,14 +572,11 @@ MACRO TestLoginDenied()
   TestEq(FALSE, CellExists(result, "_INTERNAL"));
   TestAuditEvent(
       [ entity := entityid
-      , type := "wrd:login:failed"
+      , type := "platform:login-failed"
       , ip := "127.0.0.1"
       , login := "logindenied@test.invalid"
-      , impersonated := FALSE
-      , data := [ failurecode := "NOACCESS" ]
+      , data := [ code := "account-disabled" ]
       , browsertriplet := "mac-chrome-01"
-      , byentity := entityid
-      , bylogin := "logindenied@test.invalid"
       ]);
 
   // User still not logged in
@@ -630,6 +601,8 @@ MACRO TestLoginDenied()
       , browsertriplet := "mac-chrome-01"
       , byentity := entityid
       , bylogin := "logindenied@test.invalid"
+      , impersonator_entity := entityid
+      , impersonator_login := "logindenied@test.invalid"
       ]);
 
   // User still not logged in
@@ -665,7 +638,6 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestCrossDomainLogin
                   , PTR TestAuditDialog
                   , PTR TestLoginDenied
-                  // , PTR TestWRDAuthRouter //removed, the frontend tests are much nicer to debug and much further ahead now
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);
