@@ -105,6 +105,11 @@ export async function createResetPasswordLink(schemaTag: string, targetUrl: stri
   return result;
 }
 
+export async function verifyCurrentPassword(schemaTag: string, userId: number, password: string) {
+  const wrdSchema = new WRDSchema(schemaTag);
+  const idp = new IdentityProvider(wrdSchema);
+  return await idp.verifyPassword(userId, password);
+}
 
 export async function checkResetPassword(schemaTag: string, tok: string, verifier: string, skipVerifierCheck: boolean) {
   const wrdSchema = new WRDSchema(schemaTag);
