@@ -11,5 +11,9 @@
       "./hscompat.ts"
     ]
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "bcrypt": "^6.0.0"
+  }
 }
