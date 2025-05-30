@@ -317,7 +317,7 @@ ASYNC MACRO UnpublishedSavesTest()
 }
 
 ASYNC MACRO ViewHistory() {
-  //Verify the history info. (lives on Inpsect tab until we're ready to expose it to non-sysops)
+  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
   OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/unpublishedfile.html");
 
   //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/unpublishedfile.html)/inspect
