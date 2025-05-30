@@ -45,6 +45,11 @@ function getDataRootNodeModules(): DataRootItem[] {
       target: `${installationroot}node_modules/@types/node`
     },
     {
+      subPath: "eslint",
+      type: "symboliclink",
+      target: `${installationroot}node_modules/eslint`
+    },
+    {
       subPath: "@webhare",
       type: "symboliclink",
       target: `${installationroot}jssdk/`
