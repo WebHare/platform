@@ -595,6 +595,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const prefix = options?.prefix ?? (type !== "id" ? "secret-token:" : ""); //if undefined/null, we fall back to the default
     if (options?.claims)
       Object.assign(atPayload, options.claims);
+    if (options?.customizer?.onFrontendIdToken)
+      await options.customizer.onFrontendIdToken({
+        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
+        user: subject,
+        entityId: subject
+      }, atPayload as JWTPayload);
     const access_token = prefix + this.signJWT(atPayload, config.signingKeys, "EC");
     const metadata = options?.metadata ? stringify(options.metadata, { typed: true }) : "";
     if (Buffer.from(metadata).length > 4096)

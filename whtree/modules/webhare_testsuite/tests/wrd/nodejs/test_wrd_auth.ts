@@ -411,8 +411,17 @@ async function testAuthAPI() {
 
   test.eq({ blockedTo: 'https://www.webhare.dev/blocked' }, await mockAuthorizeFlow(provider, robotClient!, testuser, blockingcustomizer));
 
-  // Test modifying the claims
+  // Test modifying the accessToken claims
   const claimCustomizer: AuthCustomizer = {
+    onFrontendIdToken({ user }, payload: JWTPayload) {
+      payload.isSuperUser = user === testuser;
+    }
+  };
+  const claimLogin = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { customizer: claimCustomizer });
+  test.eqPartial({ isSuperUser: true }, decodeJWT(claimLogin.accessToken));
+
+  // Test modifying the openID idToken claims
+  const openIdCustomizer: AuthCustomizer = {
     async onOpenIdToken(params: OpenIdRequestParameters, payload: JWTPayload) {
       test.assert(payload.exp >= (Date.now() / 1000) && payload.exp < (Date.now() / 1000 + 30 * 86400));
       const userinfo = await oidcAuthSchema.getFields("wrdPerson", params.user, ["wrdFullName"]);
@@ -420,7 +429,7 @@ async function testAuthAPI() {
         throw new Error(`No such user`);
       payload.name = userinfo?.wrdFullName;
     },
-    async onOpenIdUserInfo(params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
+    async onOpenIdUserInfo(_params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
       await test.sleep(20);
       userinfo.bob = "Beagle";
       userinfo.answer = 42;
@@ -428,15 +437,15 @@ async function testAuthAPI() {
     },
   };
 
-  const claimResult = await mockAuthorizeFlow(provider, robotClient!, testuser, claimCustomizer);
-  test.assert(claimResult.idToken);
-  test.eqPartial({ name: "Jon Show" }, await provider.validateToken(claimResult.idToken));
-  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken("oidc", claimResult.accessToken));
-  test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(claimResult.accessToken, claimCustomizer));
+  const openIdResult = await mockAuthorizeFlow(provider, robotClient!, testuser, openIdCustomizer);
+  test.assert(openIdResult.idToken);
+  test.eqPartial({ name: "Jon Show" }, await provider.validateToken(openIdResult.idToken));
+  test.eqPartial({ client: robotClient!.wrdId }, await provider.verifyAccessToken("oidc", openIdResult.accessToken));
+  test.eq({ sub: "JON SHOW", name: /^.* .*$/, given_name: /.*/, family_name: /.*/, bob: "Beagle", answer: 42 }, await provider.getUserInfo(openIdResult.accessToken, openIdCustomizer));
 
-  //Test simple login tokens. Disable prefix so we can pass 'm straight to decodeJWT
-  const login1 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "" });
-  const login2 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "" });
+  //Test simple login tokens
+  const login1 = await createFirstPartyToken(oidcAuthSchema, "id", testuser);
+  const login2 = await createFirstPartyToken(oidcAuthSchema, "id", testuser);
   test.assert(decodeJWT(login1.accessToken).jti, "A token has to have a jti");
   test.assert(decodeJWT(login1.accessToken).jti! !== decodeJWT(login2.accessToken).jti, "Each token has a different jti");
 
@@ -451,7 +460,7 @@ async function testAuthAPI() {
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdLimitDate: null, wrdauthAccountStatus: { status: "active" } }));
 
   // STORY: test expired token
-  const login3 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { prefix: "", expires: "PT0.001S" });
+  const login3 = await createFirstPartyToken(oidcAuthSchema, "id", testuser, { expires: "PT0.001S" });
   await test.sleep(2);
   test.eqPartial({ error: `Token expired at ${new Date(login3.expires.epochMilliseconds).toISOString()}` }, await provider.verifyAccessToken("id", login3.accessToken));
 
@@ -477,10 +486,10 @@ async function testAuthAPI() {
   test.eq({ whuserLastlogin: (d: Date | null) => Boolean(d && d.getTime() <= Date.now() && d.getTime() >= Date.now() - 1000) }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   const customizerUserInfo: AuthCustomizer = {
-    onFrontendUserInfo({ entityId }) {
-      if (!entityId)
+    onFrontendUserInfo({ user }) {
+      if (!user)
         throw new Error("No such user - shouldn't be invoked for failed logins");
-      return { userId: entityId, firstName: "Josie" };
+      return { userId: user, firstName: "Josie" };
     }
   };
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin, customizer: customizerUserInfo })));
