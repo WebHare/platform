@@ -6,7 +6,7 @@ import * as bcrypt from "bcrypt";
    - it's not officically recommended so may introduce complexities to audits
 
   OWASP recommends argon2id (see https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html), so as soon as we don't need HareScript
-  to verify our passwords (it may not be worth it to integrate argon2id in HS) we should consider switching over and sing isPasswordStillSecure to phase out bcrypt hashes
+  to verify our passwords (it may not be worth it to integrate argon2id in HS) we should consider switching over and use isPasswordStillSecure to phase out bcrypt hashes
 
   https://www.npmjs.com/package/bcrypt:
   - bcrypt supports $2a$ and $2b$ prefix bcrypt hashes. $2x$ and $2y$ hashes are specific to bcrypt implementation developed for John the Ripper. In theory, they should be compatible with $2b$ prefix.
