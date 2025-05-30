@@ -30,7 +30,6 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
   INTEGER ARRAY reindexes; // reindex these objects explicitly, e.g. for invisible updates
   RECORD ARRAY analyzertasks;
 
-  PUBLIC RECORD ARRAY historyitems;
   BOOLEAN checksitesettings;
   BOOLEAN scancompilables;
 

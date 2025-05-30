@@ -133,10 +133,10 @@
           <text name="dynamicexecution_cached" visible="false" />
         </tab>
         <tab name="history">
-          <list name="historyitems" width="1pr" height="1pr">
+          <list name="historyitems" width="1pr" height="1pr" sortascending="false">
+            <column name="version" type="text" sortkeyname="versionsort" />
             <column name="when" type="datetime" precision="milliseconds" storeutc="true" />
             <column name="type" type="text" />
-            <column name="user" type="integer" />
             <column name="login" type="text" tid="~username" />
             <column name="fullname" type="text" tid="~fullname" />
           </list>

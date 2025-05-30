@@ -7,6 +7,7 @@ LOADLIB "wh::float.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/history.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
@@ -30,6 +31,13 @@ CONSTANT RECORD dbinfo_baserow :=
   , canpreview  := FALSE
   ];
 
+INTEGER64 FUNCTION VersionToLong(STRING version) {
+  STRING ARRAY toks := Tokenize(version, ".");
+  IF(Length(toks)=2)
+    RETURN ToInteger(toks[0], 0) * 100000 + ToInteger(toks[1], 0);
+  ELSE
+    RETURN 0;
+}
 
 STRING FUNCTION LeftPad(STRING val, INTEGER len)
 {
@@ -807,8 +815,17 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase
       this->FillDBInfo(^draftdbinfo, DEFAULT OBJECT, 0);
   }
 
-  MACRO RefreshHistory()
-  {
+  MACRO RefreshHistory() {
+    RECORD ARRAY rows := ListObjectHistory(this->fsobjid);
+    ^historyitems->rows := SELECT
+        rowkey := id,
+        when,
+        type,
+        login := CellExists(userdata,'login') ? userdata.login : user !=0 ? "#" || user : "",
+        fullname := CellExists(userdata,'fullname') ? userdata.fullname : "",
+        version,
+        versionsort := VersionToLong(version)
+      FROM rows;
     //FIXME restore with history v4 code
   }
 

@@ -335,6 +335,7 @@
         <text tid="typetitle">Type name</text>
         <text tid="unknownuser">Unknown user</text>
         <text tid="user">Owner</text>
+        <text tid="version">Version</text>
         <text tid="when">Date</text>
       </textgroup>
       <textgroup gid="stringfieldpreview">   <!-- filemanager.inspect.stringfieldpreview -->

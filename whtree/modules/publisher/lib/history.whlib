@@ -24,7 +24,8 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
 */
 PUBLIC RECORD ARRAY FUNCTION ListObjectHistory(INTEGER objid)
 {
-  RETURN SELECT type := type >= 0 AND type <= 5 ? eventnames[type] : "#" || type
+  RETURN SELECT id
+              , type := type >= 0 AND type <= 5 ? eventnames[type] : "#" || type
               , user
               , userdata := userdata LIKE "hson:*" ? DecodeHSON(userdata) : DEFAULT RECORD
               , when
