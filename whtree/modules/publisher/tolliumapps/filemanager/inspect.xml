@@ -146,7 +146,8 @@
                 selectcontextmenu="historymenu"
                 selectmode="single"
                 sortascending="false">
-            <column name="when" type="datetime" precision="milliseconds" storeutc="true" />
+            <column name="version" type="text" sortkeyname="versionsort" width="10x" align="right"/>
+            <column name="when" type="datetime" precision="milliseconds" storeutc="true" width="24x" />
             <column name="type" type="text" />
             <column name="login" type="text" tid="~username" />
             <column name="fullname" type="text" tid="~fullname" />
