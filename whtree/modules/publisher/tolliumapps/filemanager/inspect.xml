@@ -35,6 +35,9 @@
       <action name="openineditor" tid="~openineditor">
         <enableon source="applies" min="1" max="1" onexecute="doopenineditor" />
       </action>
+      <action name="openversion" tid="~open">
+        <enableon source="historyitems" min="1" max="1" onexecute="doopenversion" />
+      </action>
     </actions>
 
     <menus>
@@ -46,6 +49,9 @@
       </menu>
       <menu name="appliesmenu">
         <item action="openineditor" />
+      </menu>
+      <menu name="historymenu">
+        <item action="openversion" />
       </menu>
     </menus>
 
@@ -133,10 +139,15 @@
           <text name="dynamicexecution_cached" visible="false" />
         </tab>
         <tab name="history">
-          <list name="historyitems" width="1pr" height="1pr">
+          <list name="historyitems"
+                width="1pr"
+                height="1pr"
+                openaction="openversion"
+                selectcontextmenu="historymenu"
+                selectmode="single"
+                sortascending="false">
             <column name="when" type="datetime" precision="milliseconds" storeutc="true" />
             <column name="type" type="text" />
-            <column name="user" type="integer" />
             <column name="login" type="text" tid="~username" />
             <column name="fullname" type="text" tid="~fullname" />
           </list>

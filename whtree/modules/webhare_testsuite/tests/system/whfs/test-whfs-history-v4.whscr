@@ -11,6 +11,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
+LOADLIB "mod::publisher/lib/dialogs.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -315,9 +316,20 @@ ASYNC MACRO UnpublishedSavesTest()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+ASYNC MACRO ViewHistory() {
+  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
+  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/unpublishedfile.html");
+
+  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/unpublishedfile.html)/inspect
+  AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), unpublishedfile->id));
+  DumpValue(TT("historyitems")->rows);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
 RunTestframework([ PTR Prep
                  , PTR DraftingTest
                  , PTR UnpublishedSavesTest
+                 , PTR ViewHistory
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ,[ login := "marge" ]
                                    ,[ login := "homer" ]

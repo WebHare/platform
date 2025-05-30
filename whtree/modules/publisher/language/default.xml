@@ -68,6 +68,7 @@
       <text tid="failrecyclefortheseoutputsites">You cannot recycle the current selection, because it contains the output of the following sites in one or more foreign folders:<br/><param p="1"/></text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">This file already exists in the list. Are you sure you want to add it again?<else/>Multiple of the files you chose were already in the list. Are you sure you want to add those again?</ifparam></text>
       <text tid="movetotrashconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Are you sure you want to move the folder '<param p="3"/>' to the trash?<else/>Are you sure you want to move the file '<param p="2"/>' to the trash?</ifparam><else/>Are you sure you want to move these <param p="1"/> items to the trash?</ifparam></text>
+      <text tid="noreadonlysuppprt">This file cannot be opened as its editor does not support read-only mode</text>
       <text tid="norightsforpublisher">You don't have enough rights to open this object in the Publisher</text>
       <text tid="norightstoeditfile">You don't have enough rights to edit this file.</text>
       <text tid="norightstoviewfile">You don't have enough rights to open this file.</text>
@@ -335,6 +336,7 @@
         <text tid="typetitle">Type name</text>
         <text tid="unknownuser">Unknown user</text>
         <text tid="user">Owner</text>
+        <text tid="version">Version</text>
         <text tid="when">Date</text>
       </textgroup>
       <textgroup gid="stringfieldpreview">   <!-- filemanager.inspect.stringfieldpreview -->
