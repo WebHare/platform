@@ -622,6 +622,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
    * (false). If retvalStore was not set, the return value is the return value of the function.
    */
   async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar, options?: { skipAccess?: boolean }): Promise<unknown> {
+    let startcall;
+    if (debugFlags.vmcalls)
+      startcall = performance.now();
+
     if (this.inSyncSyscall)
       throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
 
@@ -689,22 +693,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
       return { value: retval };
     });
 
+    if (debugFlags.vmcalls)
+      console.log(`[${this.currentgroup}] Call function ${functionref} complete, took ${(performance.now() - startcall!).toFixed(3)}ms`);
+
     return execResult.value;
-
-    /*/
-    if (this.inSyncSyscall)
-      throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
-
-    //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
-    const defer = Promise.withResolvers<unknown | undefined>();
-    const id = ++this.syscallPromiseIdCounter;
-    const object = objectid ? this.allocateVariableCopy(objectid) : null;
-    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, retvalStore, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
-
-    // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
-    this.injectEvent("system:wasm-promises", null);
-    return defer.promise;
-    //*/
   }
 
   parseMessageList(): MessageList {

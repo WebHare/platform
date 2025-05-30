@@ -1,5 +1,4 @@
 import EventSource from "../eventsource";
-import { isTruthy } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { type DebugIPCLinkType, DebugRequestType, DebugResponseType, type DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, type ForwardByRequestType } from "./debug";
 
@@ -9,12 +8,18 @@ type ProcessRegistration = {
   workernr: number;
   workerid: string;
   link: DebugIPCLinkType["AcceptEndPoint"];
-  inspectorport: number | undefined;
 };
 
 type HandlerEvents = {
   processlist: void;
 };
+
+const firstInsectorPort = 15001; // first port to use for inspectors
+const maxInspectorPort = 65535; // maximum port to use for inspectors
+let nextInspectorPort = firstInsectorPort;
+
+// Map existing inspectors. Note that process/worker closing will leak on this map but we don't expect that to be a real issue in practice
+const inspectorPortMap = new Map<string, number>();
 
 class DebuggerHandler extends EventSource<HandlerEvents> {
 
@@ -55,6 +60,11 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
     switch (packet.message.type) {
       case DebugResponseType.register: {
         const procid = packet.message.pid + '.' + packet.message.workernr;
+        if (this.processes.has(procid)) {
+          console.error(`Process with id ${packet.message.pid}.${packet.message.workernr} already registered`);
+          return;
+        }
+
         reg.pid = packet.message.pid;
         reg.workernr = packet.message.workernr;
         reg.workerid = packet.message.workerid;
@@ -76,15 +86,15 @@ class DebuggerHandler extends EventSource<HandlerEvents> {
   }
 
   allocateInspectorPort(reg: ProcessRegistration) {
-    if (reg.inspectorport)
-      return reg.inspectorport;
-    const allports = new Set(Array.from(this.processes.values()).map(otherReg => otherReg.inspectorport).filter(isTruthy));
-    for (let port = inspectorportbase; ; ++port) {
-      if (!allports.has(port)) {
-        reg.inspectorport = port;
-        return port;
-      }
-    }
+    if (inspectorPortMap.has(reg.workerid)) //as DebuggerHandler doesn't persist when it has no clients, we can't look at this.processes
+      return inspectorPortMap.get(reg.workerid)!;
+
+    const listenerPort = nextInspectorPort++;
+    if (nextInspectorPort > maxInspectorPort)
+      nextInspectorPort = firstInsectorPort; //wrap around
+
+    inspectorPortMap.set(reg.workerid, listenerPort);
+    return listenerPort;
   }
 
   close() {
@@ -101,7 +111,6 @@ async function start() {
   await port.activate();
 }
 
-const inspectorportbase = 15001;
 void start();
 
 class DebugMgrClient {
@@ -234,6 +243,9 @@ class DebugMgrClient {
           const port = this.handler.allocateInspectorPort(reg);
 
           const res = await reg.link.doRequest({ type: DebugRequestType.enableInspector, port });
+          if (!res.url)
+            inspectorPortMap.delete(reg.workerid); //remove the port from the map as it might be broken if enableInspector fails. often caused by a restart of debugmgr-ts losing track of ports in use
+
           this.link.send({
             type: DebugMgrClientLinkResponseType.enableInspectorResult,
             url: res.url
