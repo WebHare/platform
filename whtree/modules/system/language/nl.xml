@@ -1099,6 +1099,7 @@
         <text tid="allowpasswordreset">Sta wachtwoord reset toe</text>
         <text tid="archivedays">Archiveer moduleversies</text>
         <text tid="archiving">Archivering</text>
+        <text tid="authpagetexts">Klik hier om de teksten op de inlogpagina aan te passen</text>
         <text tid="autodenyipv6">Weiger IPv6 toegang voor URL's als er een globaal IPv4 weigering bestaat</text>
         <text tid="branding">Huisstijl</text>
         <text tid="cachesecret">Afbeeldingscache sleutel</text>
@@ -1120,8 +1121,6 @@
         <text tid="geonamesinfo">De GeoNames-webservice wordt gebruikt om de tijdzone te bepalen op basis van de locatie van de gebruiker of door te zoeken naar een locatie. Hiervoor is een (gratis) GeoNames-account vereist.</text>
         <text tid="harescript">HareScript</text>
         <text tid="identity">Identiteit</text>
-        <text tid="infotext">Inloginformatie tekst</text>
-        <text tid="infotitle">Inloginformatie titel</text>
         <text tid="licensekey">Licentiesleutel</text>
         <text tid="logfiles">Logbestanden</text>
         <text tid="login">Loginscherm</text>

@@ -1285,6 +1285,7 @@
         <text tid="allowpasswordreset">Allow password reset</text>
         <text tid="archivedays">Archive module versions</text>
         <text tid="archiving">Archiving</text>
+        <text tid="authpagetexts">Click here to edit the login screen texts</text>
         <text tid="autodenyipv6">Automatically deny IPv6 access to URLs, if a global IPv4 deny exists</text>
         <text tid="branding">Branding</text>
         <text tid="cachesecret">Image cache key</text>
@@ -1306,8 +1307,6 @@
         <text tid="geonamesinfo">The GeoNames webservice is used to determine the time zone based on the user's location or by searching for a location. This requires a (free) GeoNames account.</text>
         <text tid="harescript">HareScript</text>
         <text tid="identity">Identity</text>
-        <text tid="infotext">Information</text>
-        <text tid="infotitle">Login info title</text>
         <text tid="licensekey">License key</text>
         <text tid="logfiles">Logfiles</text>
         <text tid="login">Login</text>

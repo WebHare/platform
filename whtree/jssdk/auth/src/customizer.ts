@@ -79,7 +79,7 @@ export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = Any
   user: number;
 }
 
-export interface FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
+export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Current WRD schema */
   wrdSchema: WRDSchema<S>;
   /** User id to check (available since WH 5.8) */
@@ -89,6 +89,9 @@ export interface FrontendUserInfoParameters<S extends SchemaTypeDefinition = Any
   @deprecated Deprecated since W5.8 for consistency as all the other Parameters use 'entityid' */
   entityId: number;
 }
+
+/** @deprecated Use FrontendRequestParameters instead */
+export type FrontendUserInfoParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> = FrontendRequestParameters<S>;
 
 export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   /** Current WRD schema */
@@ -125,6 +128,8 @@ export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDe
   onOpenIdToken?: (params: OpenIdRequestParameters<S>, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when the /userinfo endpoint is requested. Allows you to add or modify the returned fields */
   onOpenIdUserInfo?: (params: OpenIdRequestParameters<S>, userinfo: ReportedUserInfo) => Promise<void> | void;
+  /** Invoked when creating an access token. Allows you to add or modify claims before it's signed */
+  onFrontendIdToken?: (params: FrontendRequestParameters<S>, payload: JWTPayload) => Promise<void> | void;
   /** Invoked when the user logged in to the frontend, returned to clientside JavaScript */
-  onFrontendUserInfo?: (params: FrontendUserInfoParameters<S>) => Promise<object> | object;
+  onFrontendUserInfo?: (params: FrontendRequestParameters<S>) => Promise<object> | object;
 }

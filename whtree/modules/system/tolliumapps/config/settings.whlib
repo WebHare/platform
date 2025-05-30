@@ -1,18 +1,20 @@
 <?wh
+
 LOADLIB "wh::ipc.whlib";
+
 LOADLIB "mod::publisher/lib/siteapi.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
-LOADLIB "mod::system/lib/userrights.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
-LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
@@ -50,9 +52,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     OBJECT loginbackground := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
     IF(ObjectExists(loginbackground))
       ^loginbackground->value := loginbackground->GetWrapped();
-
-    ^infotitle->value := ReadRegistryKey("system.backend.layout.infotitle");
-    ^infotext->value := ReadRegistryKey("system.backend.layout.infotext");
 
     ^modulemgr->ReadFromRegistry();
     ^tweaks->ReadFromRegistry();
@@ -132,9 +131,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       ELSE IF(RecordExists(^loginbackground->value))
         backendfolder->CreateFile([name := "loginbackground", type := 12, data := ^loginbackground->value.data]);
 
-      WriteRegistryKey("system.backend.layout.infotitle", ^infotitle->value);
-      WriteRegistryKey("system.backend.layout.infotext", ^infotext->value);
-
       GetPrimary()->RegisterCommitHandler("", PTR this->RefreshGLobalDashboard);
       WriteRegistryKey("system.backend.security.allowpasswordreset", ^allowpasswordreset->value);
 
@@ -174,6 +170,11 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   MACRO RefreshGLobalDashboard(BOOLEAN iscommit)
   {
     BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+  }
+
+  MACRO DoEditAuthPageTexts()
+  {
+    this->RunScreen("mod::wrd/tolliumapps/auth/settings.xml#wrdauthtexts");
   }
 
   MACRO DoRegisterGeoNames(OBJECT handler)

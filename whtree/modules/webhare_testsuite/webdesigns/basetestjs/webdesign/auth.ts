@@ -1,5 +1,5 @@
 import { testschemaSchema, type JsschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import type { JWTPayload, OpenIdRequestParameters, ReportedUserInfo, AuthCustomizer, FrontendUserInfoParameters } from "@webhare/auth";
+import type { JWTPayload, OpenIdRequestParameters, ReportedUserInfo, AuthCustomizer, FrontendRequestParameters } from "@webhare/auth";
 import { WRDSchema } from "@webhare/wrd";
 
 export class TestAuthCustomizer implements AuthCustomizer {
@@ -16,17 +16,17 @@ export class TestAuthCustomizer implements AuthCustomizer {
     }
   }
 
-  onOpenIdReturn(params: OpenIdRequestParameters) {
+  onOpenIdReturn(_params: OpenIdRequestParameters) {
     return null;
   }
-  onOpenIdUserInfo(params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
+  onOpenIdUserInfo(_params: OpenIdRequestParameters, userinfo: ReportedUserInfo) {
     userinfo.answer = 43;
   }
 
-  async onFrontendUserInfo(params: FrontendUserInfoParameters) {
+  async onFrontendUserInfo(params: FrontendRequestParameters) {
     if (params.wrdSchema.tag !== testschemaSchema.tag)
       throw new Error(`Invalid schema - invoked for ${params.wrdSchema.tag} instead of ${testschemaSchema.tag}`);
-    const userinfo = await testschemaSchema.getFields("wrdPerson", params.entityId, ["wrdFirstName"]);
+    const userinfo = await testschemaSchema.getFields("wrdPerson", params.user, ["wrdFirstName"]);
     return { firstName: userinfo.wrdFirstName, aDate: new Date("2025-03-18") };
   }
 }
