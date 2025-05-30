@@ -1,7 +1,7 @@
 /** This library implements the AuthenticationSettings type */
 
-import { loadlib } from "@webhare/harescript";
 import { decodeHSON, defaultDateTime, encodeHSON, HareScriptType, setHareScriptType } from "@webhare/hscompat";
+import { createWebHarePasswordHash, isPasswordStillSecure, verifyWebHarePasswordHash } from "@webhare/hscompat/passwords";
 
 interface HSONAuthenticationSettings {
   version: number;
@@ -83,8 +83,7 @@ export class AuthenticationSettings {
   }
 
   isPasswordStillSecure(): boolean {
-    //TODO we need to fully replace WHBF with something standardized so not caring about WHBF hash rounds anymore
-    return this.#passwords.length === 0 || this.#passwords.at(-1)!.hash.startsWith("WHBF:");
+    return this.#passwords.length === 0 || isPasswordStillSecure(this.#passwords.at(-1)!.hash);
   }
 
   getNumPasswords(): number {
@@ -105,7 +104,7 @@ export class AuthenticationSettings {
     if (alg === "PLAIN")
       hash = 'PLAIN:' + password;
     else if (alg === "WHBF")
-      hash = await loadlib("wh::crypto.whlib").CREATEWEBHAREPASSWORDHASH(password);
+      hash = await createWebHarePasswordHash(password);
     else
       throw new Error(`Unsupported password hash algorithm '${alg}'`);
 
@@ -123,7 +122,7 @@ export class AuthenticationSettings {
     if (tryHash.startsWith("PLAIN:"))
       return password === tryHash.substring(6);
 
-    return await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash);
+    return await verifyWebHarePasswordHash(password, tryHash);
   }
 
   async isUsedSince(password: string, cutoff: Temporal.Instant): Promise<boolean> {
@@ -132,7 +131,7 @@ export class AuthenticationSettings {
       if (tryHash.startsWith("PLAIN:")) {
         if (password === tryHash.substring(6))
           return true;
-      } else if (await loadlib("wh::crypto.whlib").VERIFYWEBHAREPASSWORDHASH(password, tryHash))
+      } else if (await verifyWebHarePasswordHash(password, tryHash))
         return true;
       const vf = this.#passwords[i].validFrom;
       if (!vf || vf.getTime() <= cutoff.epochMilliseconds)

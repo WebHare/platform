@@ -1082,6 +1082,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     };
   }
 
+  async verifyPassword(userId: number, password: string): Promise<boolean> {
+    const authsettings = await this.getAuthSettings(true);
+    const { whuserPassword } = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userId, { whuserPassword: authsettings.passwordAttribute }) ?? throwError(`Unable to find user #${userId} in schema ${this.wrdschema.tag}`);
+    return whuserPassword?.verifyPassword(password) || false;
+  }
+
   async verifyPasswordReset(tok: string, verifier: string | null, options?: { skipVerifierCheck?: boolean }): Promise<{
     result: "expired" | "badverifier" | "ok" | "alreadychanged";
     expired?: Temporal.Instant;
