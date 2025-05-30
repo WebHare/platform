@@ -83,7 +83,7 @@ export class AuthenticationSettings {
   }
 
   isPasswordStillSecure(): boolean {
-    //TODO we need to fully replace WHBF with something standardized so not caring  about WHBF hash rounds anymore
+    //TODO we need to fully replace WHBF with something standardized so not caring about WHBF hash rounds anymore
     return this.#passwords.length === 0 || this.#passwords.at(-1)!.hash.startsWith("WHBF:");
   }
 
