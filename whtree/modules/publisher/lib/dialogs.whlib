@@ -211,6 +211,7 @@ PUBLIC INTEGER FUNCTION RunNewFSObjectDialog(OBJECT parentscreen, INTEGER parent
       , parentfolder := parentfolder
       , type := options.issite ? 0 : createres.createtype
       , fsobj := options.issite ? 0 : createres.template
+      , readonly := FALSE
       ], options.issite ? "site"
                         : "objectprops");
 }
@@ -346,6 +347,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 {
   options := ValidateOptions(CELL[ assumereadaccess := FALSE
                                  , siteproperties := FALSE
+                                 , readonly := FALSE
                                  ], options);
 
   IF (NOT options.assumereadaccess AND NOT parentscreen->contexts->user->HasRightOn("system:fs_browse", objectid))
@@ -360,7 +362,7 @@ PUBLIC MACRO RunFSObjectPropertiesDialog(OBJECT parentscreen, INTEGER objectid, 
 
   TRY
   {
-    __RunHistoryPropsDialog(parentscreen, [ why := "edit", fsobj := objectid ], options.siteproperties ? "site" : "objectprops");
+    __RunHistoryPropsDialog(parentscreen, CELL[ why := "edit", fsobj := objectid, options.readonly ], options.siteproperties ? "site" : "objectprops");
   }
   CATCH(OBJECT err)
   {
@@ -408,6 +410,7 @@ PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECO
 PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ forceintegrated := FALSE
+                             , readonly := FALSE
                              , assumereadaccess := FALSE
                              , assumewriteaccess := FALSE
                              , internallinkroots := INTEGER[]
@@ -428,6 +431,11 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
     objeditor := GetObjectEditor(editorinfo.name);
 
   BOOLEAN haswriteaccess;
+  IF(options.readonly AND (NOT RecordExists(objeditor) OR NOT objeditor.supportsreadonly)) {
+    parentscreen->RunSimpleScreen("info", GetTid("publisher:commondialogs.messageboxes.noreadonlysuppprt"));
+    RETURN;
+  }
+
   IF(NOT options.assumewriteaccess AND (NOT RecordExists(objeditor) OR NOT objeditor.supportsreadonly))
   {
     IF (NOT parentscreen->contexts->user->HasRightOn("system:fs_fullaccess", objectid))
@@ -466,6 +474,7 @@ PUBLIC MACRO RunFSObjectEditApplication(OBJECT parentscreen, INTEGER objectid, R
                                               , options.assumereadaccess
                                               , options.assumewriteaccess
                                               , options.internallinkroots
+                                              , options.readonly
                                               ]);
     }
 

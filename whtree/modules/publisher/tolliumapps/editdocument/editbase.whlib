@@ -67,6 +67,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
   RECORD metatabsconfig;
   // Controllers for the metadata. For now we'll rely on compositions
   PUBLIC RECORD ARRAY metacontrollers;
+  /// Force opening as readonly
+  BOOLEAN forcereadonly;
   /// Whether to assume the user has write access (often used by editdocument into otherwise locked/hidden folders)
   BOOLEAN assumewriteaccess;
   /// Whether the edited object is in the recycle bin, and if so, what the original name etc was
@@ -82,9 +84,9 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 
   RECORD basesettings;
 
-  BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj)
-  {
-    RETURN (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
+  BOOLEAN FUNCTION IsReadOnly(OBJECT fsobj) {
+    RETURN this->forcereadonly
+           OR (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
            OR (this->itemid != 0 AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid));
 
   }
@@ -141,8 +143,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
     RETURN CELL [pinned, parentfullaccess];
   }
 
-  MACRO SetupEditBaseForExistingObject(INTEGER objectid)
-  {
+  MACRO SetupEditBaseForExistingObject(INTEGER objectid, BOOLEAN isreadonly) {
+    this->forcereadonly := isreadonly;
     this->__SetupEditBase(objectid, 01, FALSE, -1);
   }
   MACRO SetupEditBaseForNewObject(INTEGER parent, BOOLEAN isfolder, INTEGER type)

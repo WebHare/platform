@@ -68,6 +68,7 @@
       <text tid="failrecyclefortheseoutputsites">De huidige selectie kan niet naar de prullenbak verplaatst worden, omdat het de uitvoer van de volgende sites in een of meerdere externe mappen bevat:<br/><param p="1"/></text>
       <text tid="fsobjectalreadyinlist"><ifparam p="1" value="1">Dit betand komt al een keer voor in de lijst. Weet u zeker dat u het nog een keer wilt toevoegen?<else/>Meerdere van de gekozen bestanden komen al voor in de lijst. Weet u zeker dat u deze nog een keer wilt toevoegen?</ifparam></text>
       <text tid="movetotrashconfirm"><ifparam p="1" value="1"><ifparam p="2" value="">Weet u zeker dat u de map '<param p="3"/>' naar de prullenbak wilt verplaatsen?<else/>Weet u zeker dat u het bestand '<param p="2"/>' naar de prullenbak wilt verplaatsen?</ifparam><else/>Weet u zeker dat u de <param p="1"/> geselecteerde onderdelen naar de prullenbak wilt verplaatsen?</ifparam></text>
+      <text tid="noreadonlysuppprt">Deze file kan niet gewijzigd worden omdat de editor geen alleen-lezen mode ondersteunt</text>
       <text tid="norightsforpublisher">U heeft onvoldoende rechten om dit object in de Publisher te openen</text>
       <text tid="norightstoeditfile">U heeft niet genoeg rechten om dit bestand te bewerken.</text>
       <text tid="norightstoviewfile">U heeft niet genoeg rechten om dit bestand te openen.</text>

@@ -140,8 +140,8 @@ OBJECTTYPE ObjectPropsAPI
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -235,8 +235,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     this->showpinning := this->showdeveloperoptions OR this->tolliumuser->HasRight("publisher:pinning");
   }
 
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
     this->startdata := data;
     this->sidetabs := data.sidetabs;
     this->isduplicate := this->startdata.why = "duplicate";
@@ -436,8 +435,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     RETURN CELL[ acceptableindex := TRUE, canedit ];
   }
 
-  MACRO SetCurrentObjectData() //always invoked by Init(), just after reading user prefs
-  {
+  MACRO SetCurrentObjectData() { //always invoked by Init(), just after reading user prefs
     IF (this->startdata.why IN [ "duplicate", "newfile", "newfolder" ])
     {
       BOOLEAN isfolder := (this->startdata.why = "duplicate") ? (SELECT AS BOOLEAN COLUMN isfolder FROM system.fs_objects WHERE id = this->startdata.fsobj) : this->startdata.why = "newfolder";
@@ -466,7 +464,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase
     }
     ELSE IF (this->startdata.why = "edit")
     {
-      this->SetupEditBaseForExistingObject(this->startdata.fsobj);
+      this->SetupEditBaseForExistingObject(this->startdata.fsobj, this->startdata.readonly);
       this->itemid := this->startdata.fsobj;
       this->sourceitem := OpenWHFSObject(this->itemid);
 

@@ -95,7 +95,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
       this->assumewriteaccess := data.assumewriteaccess;
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
-    this->SetupEditBaseForExistingObject(data.id);
+    this->SetupEditBaseForExistingObject(data.id, data.readonly);
 
     OBJECT fsobject := OpenWHFSObject(this->itemid);
 

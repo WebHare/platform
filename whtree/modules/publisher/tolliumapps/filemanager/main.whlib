@@ -2233,6 +2233,7 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
                        , appoptions.assumereadaccess
                        , appoptions.assumewriteaccess
                        , appoptions.internallinkroots
+                       , appoptions.readonly
                        ];
       }
     }
