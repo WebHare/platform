@@ -13,7 +13,6 @@ import { createServiceProvider, initializeIssuer } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
-import { getAuditLog } from "@webhare/wrd/src/auditevents";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { createSchema, updateSchemaSettings } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
@@ -249,7 +248,15 @@ async function verifyAsOpenIDSP() {
   test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
 
   //and verify audit event
-  test.eqPartial([{ type: "wrd:loginbyid:ok", ip: /^.*$/ }], await getAuditLog(wrdId));
+  test.eqPartial({
+    entity: wrdId,
+    type: "wrd:loginbyid:ok",
+    clientIp: /^.+$/,
+    entityLogin: "sysop@beta.webhare.net",
+    impersonatedBy: wrdId,
+    actionBy: wrdId,
+    actionByLogin: "sysop@beta.webhare.net"
+  }, await test.getLastAuthAuditEvent(schemaSP));
 
   //analyze the login cookies so we can verify the expiration. FIXME can't do this until we've merged the login providers
   const loginCookie = (await context.cookies()).find(c => c.name.endsWith("webharelogin-wrdauthjs"));

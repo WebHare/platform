@@ -38,7 +38,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^servertype->value := GetDTAPStage();
     ^displayname->value := ReadRegistryKey("system.backend.layout.title");
     ^checkipallowmask->value := ReadRegistryKey("system.backend.check.ipallowmask");
-    ^allowpasswordreset->value := ReadRegistryKey("system.backend.security.allowpasswordreset");
     ^defaultimageformat->SetValueIfValid(ReadRegistryKey("platform.cache.defaultimageformat"));
 
     OBJECT dashboardbg := OpenWHFSObjectByPath("/webhare-private/system/backend/dashboardbackground");
@@ -132,7 +131,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
         backendfolder->CreateFile([name := "loginbackground", type := 12, data := ^loginbackground->value.data]);
 
       GetPrimary()->RegisterCommitHandler("", PTR this->RefreshGLobalDashboard);
-      WriteRegistryKey("system.backend.security.allowpasswordreset", ^allowpasswordreset->value);
 
       OpenSite(whconstant_whfsid_webharebackend)->SetPrimaryOutput(^webhareurl->value, "/");
     }

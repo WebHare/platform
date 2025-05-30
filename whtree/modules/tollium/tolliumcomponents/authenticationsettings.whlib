@@ -716,23 +716,3 @@ PUBLIC STATIC OBJECTTYPE ResetBackupCodes EXTEND TolliumScreenBase
     ^backupcodes_text->value := codes.text;
   }
 >;
-
-PUBLIC STRING FUNCTION RunManageTwoFAAuthDialog(OBJECT parentscreen, OBJECT entity, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ validationchecks :=       ""
-      , requireauthorization :=   TRUE
-      , attributetag :=           ""
-      ], options,
-      [ required :=   [ "validationchecks" ]
-      ]);
-
-  OBJECT valuekeeper := NEW LiveAuthenticationSettingValue(entity, options.attributetag ?? parentscreen->contexts->userapi->wrdschema->accountpasswordtag);
-
-  RETURN parentscreen->RunScreen(Resolve("authenticationsettings.xml#managetwofaauth"), CELL
-      [ options.requireauthorization
-      , managementmode :=   FALSE
-      , valuekeeper
-      , options.validationchecks
-      ]);
-}
