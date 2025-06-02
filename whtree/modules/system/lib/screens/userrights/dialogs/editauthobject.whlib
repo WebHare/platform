@@ -4,7 +4,6 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
 
-LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -16,15 +15,6 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    ^usereditpolicy->options := RECORD
-        [ [ rowkey := "", title := this->GetTid(".nospecificpolicy") ]
-        , ...(SELECT TEMPORARY title := GetTid/*nocheck*/(tid)
-                   , rowkey := name
-                   , title := title
-                FROM GetUserEditPolicies()
-            ORDER BY title)
-        ];
-
     SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:unitproperties" ]);
 
     ^unitentity->Load(data.unit);

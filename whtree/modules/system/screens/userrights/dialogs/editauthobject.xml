@@ -38,8 +38,6 @@
                         name="expiraton_locknologin"
                         onbrowse="selectduration"
                         onmapvalue="mapduration" />
-          <heading tid=".policy" />
-          <select composition="unitentity" cellname="usereditpolicy" name="usereditpolicy" type="pulldown" />
         </tab>
       </tabs>
     </body>

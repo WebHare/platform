@@ -28,7 +28,7 @@
       <free tag="passwordchecks" title="Password check overrides for users in this unit" />
       <boolean tag="override_expiration" title="Override expiration settings" />
       <record tag="expiration" title="Expiration settings" />
-      <free tag="usereditpolicy" title="User edit policy" />
+      <obsolete tag="usereditpolicy" />
     </attributes>
   </domain>
 

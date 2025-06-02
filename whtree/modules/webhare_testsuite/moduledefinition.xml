@@ -56,7 +56,6 @@
     <managedtask type="temporaryfailure_js" taskrunner="tests/system/queues/data/testtasks.ts#failingTaskJS" />
     <managedtask type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
     <managedtask type="timelimitedtask_js" taskrunner="tests/system/queues/data/testtasks.ts#timelimitedtaskJS" timeout="300" />
-    <managedtask type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />
     <managedtask type="doublescheduletask" cluster="testcluster" objectname="lib/internal/tasks.whlib#DoubleScheduleTask" />
     <managedtask type="doublescheduletask_js"
                  cluster="testcluster"
@@ -243,9 +242,6 @@
       <tryfile path="storage::webhare_testsuite/tmp/file.shtml" />
       <tryfile path="mod::[modulename]/web/resources/tests/static.html" />
     </webrule>
-    <usereditpolicy name="usereditpolicy"
-                    title="webhare_testsuite test user edit policy"
-                    usereditedmanagedtask="usereditedtask" />
   </backend>
 
   <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
