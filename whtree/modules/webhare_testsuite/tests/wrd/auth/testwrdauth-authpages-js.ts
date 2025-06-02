@@ -6,6 +6,7 @@ import { generateRandomId } from "@webhare/std";
 
 const newPasswordAfterHIBP = generateRandomId();
 const baseurl = test.getTestSiteRoot() + "testpages/wrdauthtest-router/";
+let totpSecret = '';
 
 test.runTests(
   [
@@ -242,13 +243,7 @@ test.runTests(
     "Verify new email works",
     async function () {
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
-
-      test.fill(test.qR('[name="login"]'), 'pietjenieuw-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
-      test.click('.wh-wrdauth-login__loginbutton');
-
-      await test.wait("pageload");
-
+      await testwrd.runLogin('pietjenieuw-authpages-js@beta.webhare.net', newPasswordAfterHIBP);
       test.assert(test.qR('#isloggedin').checked);
     },
 
@@ -262,12 +257,9 @@ test.runTests(
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/codeprotected");
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router/"), "should be redirected to login page");
 
-      // login with (new) email and password
-      test.fill(test.qR('[name="login"]'), 'pietjenieuw-authpages-js@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), newPasswordAfterHIBP);
-      test.click('.wh-wrdauth-login__loginbutton');
+      // login with (new) email and password (TODO ALSO TEST WITH TOTP ENABLED)
+      await testwrd.runLogin('pietjenieuw-authpages-js@beta.webhare.net', newPasswordAfterHIBP);
 
-      await test.wait('load');
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/codeprotected/"));
       test.eq(/THE CODE PROTECTED CONTENT/, test.qR("#content").textContent);
 
@@ -290,5 +282,21 @@ test.runTests(
 
       test.click('#logoutlink');
       await test.wait('pageload');
-    }
+    },
+
+    "Test login widget with totp",
+    async function () {
+      await rpc("webhare_testsuite:authtestsupport").updateSchemaSettings({ passwordTotpIssuer: "BetaTeste", passwordValidationChecks: "require2fa" });
+      await test.load(baseurl);
+      await testwrd.runLogin('pietjenieuw-authpages-js@beta.webhare.net', newPasswordAfterHIBP);
+
+      totpSecret = (await testwrd.run2FAEnrollment()).totpSecret;
+      test.assert(test.qR('#isloggedin').checked);
+
+      await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
+
+      await testwrd.runLogin('pietjenieuw-authpages-js@beta.webhare.net', newPasswordAfterHIBP, { totpSecret });
+      test.assert(test.qR('#isloggedin').checked);
+    },
+
   ]);

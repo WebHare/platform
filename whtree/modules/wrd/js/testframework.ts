@@ -38,14 +38,20 @@ export async function tryLogin(login: string, pwd: string) {
 export async function runLogin(login: string, pwd: string, options?: { totpSecret?: string; expectLang?: string }) {
   await tryLogin(login, pwd);
   await test.wait("load");
-  if (options?.totpSecret) {
-    test.fill("[name=totp]", options.totpSecret);
+  if (options?.totpSecret)
+    await runTotp(options);
+}
 
-    const totpData = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: options.totpSecret });
-    test.fill(await test.waitForElement("[name=totp]"), totpData.code);
-    (await test.waitForElement(["a,button", options?.expectLang === "nl" ? /Inloggen/ : /Login/])).click();
-    await test.wait('load');
-  }
+export async function runTotp(options: { totpSecret?: string; expectLang?: string }) {
+  if (!options?.totpSecret)
+    throw new Error("TOTP secret is required for 2FA login");
+
+  test.fill("[name=totp]", options.totpSecret);
+
+  const totpData = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: options.totpSecret });
+  test.fill(await test.waitForElement("[name=totp]"), totpData.code);
+  (await test.waitForElement(["a,button", options?.expectLang === "nl" ? /Inloggen/ : /Login/])).click();
+  await test.wait('load');
 }
 
 export async function tryPasswordSetForm(login: string, pwd: string, { verifier = "" } = {}) {

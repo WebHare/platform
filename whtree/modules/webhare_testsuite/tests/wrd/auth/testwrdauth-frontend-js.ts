@@ -1,6 +1,8 @@
 import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelpers";
 import type { FrontendAuthApi } from "@mod-webhare_testsuite/webdesigns/basetestjs/pages/wrdauthtest";
+import { rpc } from "@webhare/rpc";
 import { parseTyped } from "@webhare/std";
+import * as testwrd from "@mod-wrd/js/testframework";
 import * as test from "@webhare/test-frontend";
 
 let setupdata: Awaited<ReturnType<typeof prepareWRDAuthTest>>;
@@ -85,5 +87,38 @@ test.runTests([
     test.eq(true, allclaims["custom.impersonate"]);
     test.eq("Pietje", test.qR("#js_fullname").value);
     test.eq("1", test.qR("#numsessions").value);
-  }
+  },
+
+  "Test login widget with totp", // login widget uses authservices and not necessarily publisher:forms, and these paths still have significant differences
+  async function () {
+    await rpc("webhare_testsuite:authtestsupport").updateSchemaSettings({ passwordTotpIssuer: "BetaTeste", passwordValidationChecks: "require2fa" });
+    await testwrd.forceLogout();
+    await test.load(setupdata.starturl);
+
+    test.click(test.qSA('button').filter(button => button.textContent === 'JS Logout')[0]);
+    await test.waitForLoad();
+
+    test.eq(false, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
+    test.assert(!test.qR('#isloggedin').checked);
+    test.assert(!test.qR('#js_isloggedin').checked);
+    test.fill(test.qR('#login'), 'pietje-js@beta.webhare.net');
+    test.fill(test.qR('#password'), 'secret$');
+    test.click(test.qR('#loginbutton'));
+    await test.waitForLoad();
+
+    const { totpSecret } = await testwrd.run2FAEnrollment();
+
+    test.assert(test.qR('#isloggedin').checked);
+
+    test.click(test.qSA('button').filter(button => button.textContent === 'JS Logout')[0]);
+    await test.waitForLoad();
+
+    test.fill(test.qR('#login'), 'pietje-js@beta.webhare.net');
+    test.fill(test.qR('#password'), 'secret$');
+    test.click(test.qR('#loginbutton'));
+    await test.waitForLoad();
+
+    await testwrd.runTotp({ totpSecret });
+    test.assert(test.qR('#isloggedin').checked);
+  },
 ]);
