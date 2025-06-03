@@ -194,7 +194,6 @@ PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumFragmentBase
   MACRO DoSearch()
   {
     STRING searchfor := ^searchforarea->visible ? ^searchforarea->value : ^searchfor->value;
-    RECORD searchablefields := GetPolicyForUser(this->contexts, this->tolliumuser->entityid).searchablefields;
     RECORD ARRAY user_filters := ConstructSearchFilters(searchfor, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
     RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, user_filters, this->tolliumuser);
 

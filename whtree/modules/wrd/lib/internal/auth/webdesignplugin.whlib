@@ -1696,44 +1696,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
         ]);
   }
 
-  /** Returns the user edit policy for a user
-      @param user User
-      @cell options.atsubmit @includecelldef #WRDAuthSupportBase::GetUserEditPolicy.atsubmit
-      @cell options.defaultunit Unit to use when the user could not be found (eg for new users)
-      @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
-  */
-  PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions(
-        [ atsubmit :=       FALSE
-        , defaultunit :=    0
-        ], options);
-
-    BOOLEAN have_unit := RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
-    STRING ARRAY getfields := STRING[ ...(have_unit ? [ "WHUSER_UNIT" ] : STRING[])
-                                    , this->wrdschema->accountlogintag
-                                    ];
-
-    IF(this->wrdschema->accountemailtag != this->wrdschema->accountlogintag)
-      INSERT this->wrdschema->accountemailtag INTO getfields AT END;
-
-    RECORD fields;
-    RECORD userfields := this->wrdschema->accounttype->GetEntityFields(user, getfields);
-    IF(RecordExists(userfields))
-    {
-      fields := [ username := GetCell(userfields, this->wrdschema->accountlogintag)
-                , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
-                , unit :=     have_unit ? userfields.whuser_unit : 0
-                ];
-    }
-    ELSE
-    {
-      fields := [ username := "", email := "", unit := options.defaultunit ];
-    }
-
-    RETURN this->GetSupportObject()->GetUserEditPolicy(user, fields, options.atsubmit);
-  }
-
   /** Initiates a SAML initiated login. Looks up the SAML IdP endpoint file in the
       current site and lets that file start the flow for the currently logged in user
       @param spentityid Entity id of the connected SP to login

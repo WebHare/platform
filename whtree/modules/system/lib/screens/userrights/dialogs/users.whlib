@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
 
     this->policy := ObjectExists(data.user)
        ? GetUserUnitPolicy(this->contexts->wrdschema, data.user->entityid)
-       : GetSchemaUnitPolicy(this->contexts->wrdschema, this->pvt_parent->id);
+       : GetSchemaUnitPolicy(this->contexts->wrdschema, this->pvt_parent->entityid);
 
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
 

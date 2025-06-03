@@ -23,8 +23,6 @@ PUBLIC OBJECTTYPE UserRoleSearch EXTEND TolliumFragmentBase
       RETURN;
     }
 
-    RECORD searchablefields := GetPolicyForUser(this->contexts, this->tolliumuser->entityid).searchablefields;
-
     RECORD ARRAY filters := ConstructSearchFilters(term, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
     RECORD ARRAY filteredusers := GetUsersByFilter(this->owner->tolliumcontroller, filters, this->owner->tolliumuser);
                  filters := ConstructSearchFilters(term, "role", GetFieldsFor(searchablefields.role, "role", this->tolliumcontroller));
