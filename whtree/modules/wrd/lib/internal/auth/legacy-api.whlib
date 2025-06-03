@@ -466,30 +466,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   //
 
 
-  /** Updates the last login date and ip address for an entity
-      @param the_entity Entity
-      @param ip IP address
-      @cell options.firstloginfield Name of field with first login date
-      @cell options.lastloginfield Name of field with the last login date (override for field name set in domain settings)
-  */
-  PUBLIC MACRO UpdateLastLoginAndIp(OBJECT the_entity, STRING ip, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    IF(NOT ObjectExists(the_entity))
-      RETURN;
-
-    RECORD upd;
-    STRING firstloginfield := options.firstloginfield;
-    IF(firstloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(firstloginfield)) AND the_entity->GetField(firstloginfield) = DEFAULT DATETIME)
-      upd := CellInsert(upd, firstloginfield, GetCurrentDatetime());
-
-    STRING lastloginfield :=  options.lastloginfield;
-    IF(lastloginfield != "" AND RecordExists(the_entity->wrdtype->GetAttribute(lastloginfield)))
-      upd := CellInsert(upd, lastloginfield, GetCurrentDatetime());
-
-    IF(RecordExists(upd))
-      the_entity->UpdateEntity(upd);
-  }
-
   /** Encrypts and signes data with the domain secret
       @param indata Data to encrypt
       @param type Type of data (also needed for decryption)
@@ -546,83 +522,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   {
     // WebAuthn 13.4.3. Cryptographic Challenges: challenges should be at least 16 bytes long.
     RETURN EncodeBase64(GenerateRandomBinaryValue(16));
-  }
-
-  RECORD FUNCTION serviceLogin(STRING login, STRING password, INTEGER cookietype, STRING ip, INTEGER userid DEFAULTSTO 0, BOOLEAN requiremasterpassword DEFAULTSTO FALSE, BOOLEAN skippasswordcheck DEFAULTSTO FALSE, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    IF(requiremasterpassword)
-      THROW NEW Exception("We no longer support master passwords"); //parameter is hard to remove with all the defaults - at least its an internal api
-    INTEGER entityid := userid ?? this->LookupLogin(login);
-    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(entityid);
-    IF(NOT ObjectExists(the_entity))
-      RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
-
-    BOOLEAN updatepassword;
-    IF(NOT skippasswordcheck)
-    {
-      STRING pwdstatus := the_entity->CheckPassword(this->wrdschema->accountpasswordtag, password); //TODO we need to load it anyway for the checks below, might as well combine
-      IF(pwdstatus = "rehash")
-        updatepassword := TRUE;
-      ELSE IF (pwdstatus != "ok")
-        RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
-    }
-
-    VARIANT authenticationsettings := "";
-    IF (this->wrdschema->accountpasswordisauthsettings OR CellExists(options, "checkpassword"))
-      authenticationsettings := the_entity->GetField(this->wrdschema->accountpasswordtag);
-
-    IF (CellExists(options, "checkpassword"))
-    {
-      STRING ARRAY failedvalidationchecks := options.checkpassword(the_entity, password, authenticationsettings);
-      IF (IsValueSet(failedvalidationchecks))
-      {
-        RETURN CELL
-            [ success :=    FALSE
-            , code :=       Detokenize(failedvalidationchecks, ", ") = "require2fa"
-                                ? "REQUIRESETUPSECONDFACTOR"
-                                : "FAILEDVALIDATIONCHECKS"
-            , failedvalidationchecks
-            ];
-      }
-    }
-
-    IF (this->wrdschema->accountpasswordisauthsettings)
-    {
-      // TOTP needs to be enabled for second factor login
-      IF (RecordExists(authenticationsettings) AND RecordExists(authenticationsettings.totp))
-      {
-        DATETIME now := GetCurrentDatetime();
-
-        STRING challenge := this->GenerateSecondFactorLoginChallenge();
-        RECORD state := GetSecondFactorState(this->wrdschema, entityid);
-
-        // FIXME: this should run within a lock
-        RETURN CELL
-            [ success :=          FALSE
-            , code :=             "REQUIRESECONDFACTOR"
-            , secondfactordata := CELL
-                  [ totp :=             TRUE
-                  , challenge :=        challenge
-                  , state.totpattemptsleft
-                  , firstfactorproof := this->EncryptData(CELL
-                                            [ entityid
-                                            , challenge
-                                            , isimpersonation :=  FALSE
-                                            , login
-                                            , remoteip :=         ip
-                                            , browsertriplet :=   CellExists(options, "browsertriplet") ? options.browsertriplet : ""
-                                            , cookietype :=       cookietype
-                                            , validuntil :=       AddTimeToDate(5*60*1000, now)
-                                            ], "wrd:2faloginproof")
-                  ]
-            ];
-      }
-    }
-
-    RECORD finalizeoptions := PickCells(options, [ "firstloginfield", "lastloginfield" ]);
-    IF(updatepassword)
-      INSERT CELL updatepassword := password INTO finalizeoptions;
-    RETURN this->FinalizeLogin(the_entity, FALSE, cookietype, login, ip, TRUE, finalizeoptions);
   }
 
   /** @param loginproof Login proof generated by #Login
@@ -727,30 +626,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
         ];
   }
 
-  RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
-  {
-    /* TODO are we sure that every LoginByCookie should be updating last logindata (and perhaps it also auditlogs? auditlog knows about cookie
-       logins...)  or perhaps only for PERSISTENT logins if the session truly expired, or for the first login on the day? */
-
-    DATETIME now := GetCurrentDatetime();
-    RECORD cookiedata := this->__ParseCookie(cookie, "session");
-    IF(NOT RecordExists(cookiedata))// OR (cookiedata.expires != DEFAULT DATETIME AND now >= cookiedata.expires)) //old cookies may not contain expires. and perhaps we should only encode it if it's shorter than default?
-      RETURN DEFAULT RECORD;
-
-    IF(logintime > 0) //there's a maximum cookie validity FIXME remove,should be replaced wiith new expiry logic. logintime isn't actually settable!
-    {
-      DATETIME cookieend := AddTimeToDate(logintime * 1000i64, cookiedata.creationdate);
-      IF(NOT (cookiedata.creationdate <= now AND now < cookieend))
-        RETURN DEFAULT RECORD; //expired cookie
-    }
-
-    OBJECT the_entity := this->wrdschema->accounttype->GetEntity(cookiedata.userid);
-    IF(NOT ObjectExists(the_entity))
-      RETURN DEFAULT RECORD;
-
-    RETURN this->FinalizeLogin(the_entity, FALSE, cookiedata.cookietype, "", "", FALSE, CELL[ setcreationdate := cookiedata.creationdate ]);
-  }
-
   /** @param the_entity WRD entity of the user to log in
       @param isimpersonation Whether this is an impersonation
       @param cookietype The type of cookie: cookietype_session, cookietype_thirdparty, cookietype_persistent or cookietype_external
@@ -776,14 +651,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, INTEGER cookietype, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    // IF(NOT isimpersonation AND updatelogindata)  TS should do this now - and it will only trigger deadlocks!
-    //   this->UpdateLastLoginAndIp(the_entity, ip, options);
-    IF(NOT isimpersonation AND CellExists(options,'updatepassword')) {
-      GetPrimary()->BeginWork(); //FIXME move to TS
-      the_entity->UpdatePassword(this->wrdschema->accountpasswordtag, options.updatepassword, [ inplace := TRUE ]); //TODO combine in one update with above
-      GetPrimary()->CommitWork();
-    }
-
     RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, isimpersonation, PickCells(options, ["SETCREATIONDATE"]));
     IF(NOT RecordExists(cookies))
       RETURN DEFAULT RECORD;
@@ -823,21 +690,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   PUBLIC STRING samesitecookie;
   /// Automatically authenticate the web session for the access rule ? (defaults to TRUE)
   PUBLIC BOOLEAN authenticatewebsession;
-
-  RECORD FUNCTION GetCachedCookies()
-  {
-    IF(NOT RecordExists(this->cookiecache))
-    {
-      STRING sessioncookie := GetWebCookie(this->cookiename);
-      STRING sessionid := Tokenize(sessioncookie,' ')[0];
-      STRING enclogindata := Substring(sessioncookie,Length(sessionid)+1);
-
-      this->cookiecache := [ sessionid := sessionid
-                           , enclogindata := enclogindata
-                           ];
-    }
-    RETURN this->cookiecache;
-  }
 
   BOOLEAN FUNCTION IsValidAccountEntity(INTEGER entityid) {
     //TODO deal with parent/child types? not sure if they're ever relevant though
@@ -954,46 +806,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN res;
   }
 
-
-  /** @short Login
-      @return A record
-      @cell return.success True if the login was successful
-      @cell return.code Error code ("", "UNKNOWNLOGIN", "INCORRECTPASSWORD")
-  */
-  PUBLIC RECORD FUNCTION Login(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    STRING remoteip;
-    FUNCTION PTR lookuplogin;
-    INTEGER userid;
-    BOOLEAN skippasswordcheck := CellExists(options,'SKIPPASSWORDCHECK') AND options.skippasswordcheck;
-
-    BOOLEAN persistent := CellExists(options, 'persistent') AND options.persistent;
-
-    IF(CellExists(options,"REMOTEIP"))
-      remoteip := options.remoteip;
-    ELSE
-    {
-      remoteip := IsRequest() ? GetClientRemoteIp() : "";
-      INSERT CELL remoteip := remoteip INTO options;
-    }
-
-    IF(CellExists(options,"LOOKUPLOGIN") AND options.lookuplogin != DEFAULT FUNCTION PTR)
-    {
-      userid := options.lookuplogin(loginname);
-      IF(userid=0)
-        RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
-    }
-
-    this->loggedinentity := -1;
-    RECORD trylogin := this->serviceLogin(loginname, password, persistent ? cookietype_persistent : cookietype_session, remoteip, userid, FALSE, skippasswordcheck, options);
-    IF(NOT trylogin.success)
-      RETURN trylogin;
-
-    RECORD res := this->CompleteLogin(trylogin, TRUE, "", options);
-    RETURN res;
-  }
-
-
   PUBLIC RECORD FUNCTION LoginSecondFactor(STRING loginproof, STRING type, RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(
@@ -1025,19 +837,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     RETURN res;
   }
 
-  RECORD FUNCTION GetCookieOpts(BOOLEAN httponly, BOOLEAN persist)
+  RECORD FUNCTION GetCookieOpts()
   {
     RETURN [ domain := this->cookiedomain
-           , httponly := httponly AND NOT this->nohttponlycookies
+           , httponly := NOT this->nohttponlycookies
            , secure := this->securecookie
-           , lifetime := persist ? this->GetPersistentCookieLifetime() : -1
+           , lifetime := -1
            , samesite := this->samesitecookie
            ];
-  }
-
-  PUBLIC INTEGER FUNCTION GetPersistentCookieLifetime()
-  {
-    RETURN this->logintime > 0 ? this->logintime * 60 : 365*86400;
   }
 
   /** @param trylogin
@@ -1070,7 +877,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
     }
 
     //Clear the cookies
-    RECORD opts := CELL[...this->GetCookieOpts(TRUE, FALSE), lifetime := 0
+    RECORD opts := CELL[...this->GetCookieOpts(), lifetime := 0
                        ];
     UpdateWebCookie(this->cookiename, "", opts);
     UpdateWebCookie("__Host-" || this->cookiename, "", opts);

@@ -819,7 +819,7 @@ class TestFramework {
     iframe.addEventListener("load", () => deferred.resolve(), { signal: loadEventRemover.signal });
 
     // Remove both load/error events when receiving one of them
-    void deferred.promise.finally(() => {
+    deferred.promise = deferred.promise.finally(() => {
       loadEventRemover.abort();
     });
 

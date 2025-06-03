@@ -205,28 +205,38 @@ export function sendPxlEvent(event: string, data?: PxlEventData | null, options?
   const finaloptions = buildOptions(options);
   const baseurl = useAltRecordURL ? finaloptions.altUrl : finaloptions.url;
 
-  // Add the pxl event to the url
-  const url = makePxlURL(baseurl, event, data, finaloptions);
-  if (!url)
-    return;
-
   if (debugFlags.pxl)
     console.log(`[pxl] Event '${event}'`, data);
 
-  if (finaloptions.beacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
-    navigator.sendBeacon(url);
-    finaloptions.onComplete?.();
-  } else {
-    // Load the pxl file using fetch
-    const promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
-    if (debugFlags.pxl) {
+  // Add the pxl event to the url. We wrap it in async() for simpler code but we won't force our callers to await us, they rarely want to
+  (async () => {
+    const url = makePxlURL(baseurl, event, data, finaloptions);
+    if (!url)
+      return;
+
+    if (finaloptions.beacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
+      navigator.sendBeacon(url);
+      return; //as beacons don't return anything per definition, we can stop here
+    }
+
+    if (debugFlags.pxl)
       console.log(`[pxl] Pinging pxl '${url}'`);
-      if (debugFlags.pxl)
-        promise.then(() => console.log(`[pxl] Pinged pxl`), error => console.error(`[pxl] Error while pinging pxl`, error));
+
+    // Load the pxl file using fetch
+    const fetchRes = await fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
+    if (!fetchRes.ok) {
+      console.error(`[pxl] Failed to send pxl event '${event}'`, fetchRes);
+      return;
     }
-    if (finaloptions.onComplete) {
-      //discard text, just make sure all processing is complete before *we* onComplete
-      void promise.then(response => response.text()).finally(() => finaloptions.onComplete?.());
-    }
-  }
+
+    if (finaloptions.onComplete) //if we care about completion, we'll explicitly wait for the body to come in
+      await fetchRes.text(); //this will throw if the request failed, so we can skip the next check
+
+    if (debugFlags.pxl)
+      console.log(`[pxl] Successfully sent pxl event '${event}'`);
+  })().catch((error: Error) => {
+    console.error(`[pxl] Error while sending pxl event '${event}'`, error);
+  }).finally(() => {
+    finaloptions.onComplete?.(); //any exception here we'll keep uncaught
+  });
 }

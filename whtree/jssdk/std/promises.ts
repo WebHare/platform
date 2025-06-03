@@ -42,7 +42,7 @@ export function wrapInTimeout<T>(promise: Promise<T>, timeout: WaitPeriod, rejec
     }, until.getTime() - Date.now());
 
     //ensure timer cancellation. No need to wait on this promise
-    void promise.finally(() => clearTimeout(timer)).catch(() => 0 /* ignore errors */);
+    promise = promise.finally(() => clearTimeout(timer));
   });
 
   return Promise.race([promise, timeoutpromise]);
