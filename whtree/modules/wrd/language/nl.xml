@@ -934,7 +934,7 @@
           <text tid="subject">Over uw e-mailadres wijzigingsverzoek</text>
         </textgroup>
         <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
-          <text tid="emailunknown">Helaas hebben wij geen account kunnen vinden dat bij dit e-mailadres ('<param p="1"/>') behoort.</text>
+          <text tid="emailunknown">Helaas hebben wij geen account kunnen vinden dat bij dit e-mailadres hoort.</text>
           <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om een nieuw wachtwoord te kiezen.</text>
           <text tid="receivedfor">We hebben een verzoek ontvangen om het wachtwoord opnieuw in te stellen voor: <param p="1"/></text>
           <text tid="subject">Uw wachtwoord herstellen voor <param p="1"/></text>

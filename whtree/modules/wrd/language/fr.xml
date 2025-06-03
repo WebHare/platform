@@ -49,7 +49,7 @@
           <text tid="subject">À propos de votre demande de changement d'adresse e-mail</text>
         </textgroup>
         <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
-          <text tid="emailunknown">Malheureusement, aucun compte n'a été trouvé pour cette adresse e-mail ('<param p="1"/>').</text>
+          <text tid="emailunknown">Malheureusement, aucun compte n'a été trouvé pour cette adresse e-mail.</text>
           <text tid="followlink">Utilisez <html:a data-href-param="1">ce lien</html:a> pour choisir un nouveau mot de passe.</text>
           <text tid="receivedfor">Nous avons reçu une demande de réinitialisation du mot de passe pour <param p="1"/></text>
           <text tid="subject">Réinitialiser le mot de passe pour <param p="1"/></text>
