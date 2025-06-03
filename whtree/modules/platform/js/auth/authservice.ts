@@ -87,6 +87,10 @@ export function mapLoginError(code: LoginErrorCodes, langCode?: string): string 
       return getTid("platform:frontend.worldwide.auth.login.account-disabled", { langCode });
     case "internal-error":
       return getTid("platform:frontend.worldwide.auth.login.internal-error", { langCode });
+    case "unknown-account":
+      return getTid("platform:frontend.worldwide.auth.login.unknown-account", { langCode });
+    case "require-external-login":
+      return getTid("platform:frontend.worldwide.auth.login.require-external-login", { langCode });
     default:
       code satisfies never; //if this triggers an error add the missing codes
       return code;

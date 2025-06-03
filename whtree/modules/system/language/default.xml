@@ -28,6 +28,7 @@
   <textgroup gid="components">   <!-- components -->
     <textgroup gid="passwordvalidationchecks">   <!-- components.passwordvalidationchecks -->
       <text tid="password_digits">Minimum number of digits</text>
+      <text tid="password_externallogin">Require identity service login (disable passwords)</text>
       <text tid="password_lowercase">Minimum number of lowercase letters</text>
       <text tid="password_maxage">Maximum age of a password</text>
       <text tid="password_minlength">Minimum number of characters</text>

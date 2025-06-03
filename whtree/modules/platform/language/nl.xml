@@ -18,6 +18,8 @@
           <text tid="incorrectlogin-email">De combinatie van e-mailadres en wachtwoord is onjuist</text>
           <text tid="incorrectlogin-username">De combinatie van gebruikersnaam en wachtwoord is onjuist</text>
           <text tid="internal-error">Er heeft een interne fout plaatsgevonden, probeer het later nog eens</text>
+          <text tid="require-external-login">Je moet via een identity service inloggen</text>
+          <text tid="unknown-account">Onbekend account</text>
         </textgroup>
       </textgroup>
     </textgroup>

@@ -106,6 +106,8 @@
     <p>
       [if resetlink]
         [gethtmltid site.forms.authpages.forgotpasswordmail.followlink resetlink]
+      [elseif requireexternallogin]
+        [gethtmltid site.forms.authpages.forgotpasswordmail.requireexternallogin]
       [else]
         [gethtmltid site.forms.authpages.forgotpasswordmail.emailunknown]
       [/if]

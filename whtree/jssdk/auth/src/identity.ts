@@ -919,16 +919,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, code: LoginErrorCodes): Promise<FrontendAuthResult> {
+  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, userCode: LoginErrorCodes, logCode?: LoginErrorCodes): Promise<FrontendAuthResult> {
     await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
       type: "platform:login-failed",
       entity: userid,
       entityLogin: request.login,
       ...request.tokenOptions?.authAuditContext,
-      data: { code }
+      data: { code: logCode ?? userCode }
     }));
 
-    return { loggedIn: false, code };
+    return { loggedIn: false, code: userCode };
   }
 
   async handleFrontendLogin(request: FrontendLoginRequest): Promise<FrontendAuthResult> {
@@ -950,7 +950,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const authsettings = await this.getAuthSettings(true);
     const userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
     if (!userid)
-      return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
+      return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password", "unknown-account");
 
     const getfields = {
       password: authsettings.passwordAttribute,
@@ -960,9 +960,16 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
     const userInfo = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, userid, getfields) as UserInfo;
 
-    //TODO ratelimits/auditing
-    if (!userInfo?.password || !await userInfo.password.verifyPassword(request.password))
-      return await this.returnLoginFail(request, userid, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password");
+    //TODO reuse the unitInfo for later password checks
+    const passwordValidationChecks = await getUserValidationSettings(this.wrdschema, userInfo.whuserUnit || null);
+    const noExternalLogin = passwordValidationChecks.split(' ').includes("externallogin");
+    if (noExternalLogin
+      || !userInfo?.password
+      || !await userInfo.password.verifyPassword(request.password)) {
+      const userCode = authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password";
+      const logCode = noExternalLogin ? "require-external-login" : userCode;
+      return await this.returnLoginFail(request, userid, userCode, logCode);
+    }
 
     if (!userInfo.password.isPasswordStillSecure()) { //upgrade using re-entered password
       await userInfo.password?.updatePassword(request.password, { inPlace: true });

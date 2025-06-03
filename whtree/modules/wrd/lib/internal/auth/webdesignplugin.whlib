@@ -441,7 +441,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     IF(options.currenturl = "")
       options.currenturl := GetFormRequestURL();
 
-    //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part)
+    //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part) and we can dedupe/rate limit easier
     INTEGER match := this->accounttype->Search(this->wrdschema->accountemailtag, email, [matchcase := FALSE]);
 
     IF(match = 0) {
@@ -453,12 +453,17 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       RETURN;
     }
 
+    INTEGER unit := RecordExists(this->accounttype->GetAttribute("WHUSER_UNIT")) ? this->accounttype->GetEntityField(match, "whuser_unit") : 0;
+    RECORD fallbacks := GetSchemaUnitPolicy(this->wrdschema, unit);
+
     RECORD emaildata := [ email := email
                         , hostname := UnpackURL(options.currenturl).host
                         , resetlink := ""
+                        , requireexternallogin := "externallogin" IN Tokenize(fallbacks.passwordchecks, " ")
                         ];
 
-    emaildata.resetlink := this->CreatePasswordResetLink(options.currenturl, match, [ routerpage := "resetpassword" ]).verifiedlink;
+    IF(NOT emaildata.requireexternallogin) //only give a reset link if passowrds are available to you
+      emaildata.resetlink := this->CreatePasswordResetLink(options.currenturl, match, [ routerpage := "resetpassword" ]).verifiedlink;
 
     STRING mailtemplate := this->webcontext->targetapplytester->GetDefaultMailTemplate();
     OBJECT mail := this->PrepareAuthPageMail("forgotpasswordmail");
@@ -467,7 +472,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     GetPrimary()->BeginWork();
     mail->QueueMailInWork( [ ignorerecipientwhitelist := TRUE
-                           , sensitive := TRUE
+                           , sensitive := emaildata.resetlink != ""
                            ]);
     GetPrimary()->CommitWork();
   }

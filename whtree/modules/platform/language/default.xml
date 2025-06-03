@@ -18,6 +18,8 @@
           <text tid="incorrectlogin-email">The combination of email address and password is incorrect</text>
           <text tid="incorrectlogin-username">The combination of username and password is incorrect</text>
           <text tid="internal-error">An internal error occured, please try later</text>
+          <text tid="require-external-login">You must login using an identity service</text>
+          <text tid="unknown-account">Unknown account</text>
         </textgroup>
       </textgroup>
     </textgroup>

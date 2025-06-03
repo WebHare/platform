@@ -61,9 +61,10 @@ test.runTests([
   "reset password bad mail",
 
   async function () {
-    test.fill(test.qR('#resetlogin'), 'bestaatniet@example.net');
-    test.click(test.qR('#passwordresetbutton'));
-    await test.waitForLoad();
+    await test.expectLoad(() => {
+      test.fill('#resetlogin', 'bestaatniet@example.net');
+      test.click('#passwordresetbutton');
+    });
   },
   async function () {
     test.eq('No such user', test.qR('#errormessage').textContent);

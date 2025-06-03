@@ -937,6 +937,7 @@
           <text tid="emailunknown">Helaas hebben wij geen account kunnen vinden dat bij dit e-mailadres hoort.</text>
           <text tid="followlink">Klik op <html:a data-href-param="1">deze link</html:a> om een nieuw wachtwoord te kiezen.</text>
           <text tid="receivedfor">We hebben een verzoek ontvangen om het wachtwoord opnieuw in te stellen voor: <param p="1"/></text>
+          <text tid="requireexternallogin">De accountnaam klopt maar kan niet inloggen met een wachtwoord. Dit account moet inloggen via een identity provider.</text>
           <text tid="subject">Uw wachtwoord herstellen voor <param p="1"/></text>
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->
