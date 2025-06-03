@@ -10,6 +10,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -438,4 +439,29 @@ PUBLIC STRING FUNCTION GetDurationTitle(STRING duration)
     CASE 4 { retval := GetTid("wrd:site.forms.authpages.passwordcheck.duration.parts4", parts[0], parts[1], parts[2], parts[3]); }
   }
   RETURN retval;
+}
+
+PUBLIC RECORD FUNCTION GetSchemaUnitPolicy(OBJECT wrdschema, INTEGER unit) {
+  //Get base settings
+  BOOLEAN have_passwordchecks, have_expiration;
+  RECORD base_expiration;
+  STRING base_passwordchecks;
+
+  FOR (INTEGER maxiter := 0; unit != 0 AND maxiter < 16; maxiter := maxiter + 1) {
+    RECORD unitdata := wrdschema->^whuser_unit->GetEntityFields(unit, [ "wrd_leftentity", "override_passwordchecks", "passwordchecks", "override_expiration", "expiration" ]);
+    IF(have_passwordchecks = FALSE AND unitdata.override_passwordchecks) {
+      have_passwordchecks := TRUE;
+      base_passwordchecks := unitdata.passwordchecks;
+    }
+    IF(have_expiration = FALSE AND unitdata.override_expiration) {
+      have_expiration := TRUE;
+      base_expiration := unitdata.expiration;
+    }
+    unit := unitdata.wrd_leftentity;
+  }
+
+  RETURN CELL[
+    passwordchecks := have_passwordchecks ? base_passwordchecks : GetWRDSetting(wrdschema, "password_validation_checks"),
+    expiration := base_expiration
+  ];
 }
