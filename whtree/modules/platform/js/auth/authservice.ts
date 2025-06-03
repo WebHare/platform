@@ -69,7 +69,7 @@ export async function doLogout(url: string, cookieName: string | null, currentCo
 
   for (const killCookie of [idCookie, ...ignoreCookies])
     hdrs.append("Set-Cookie", buildCookieHeader(killCookie, '', cookieSettings));
-  hdrs.append("Set-Cookie", buildCookieHeader(cookieName + PublicCookieSuffix, '', { ...cookieSettings, httpOnly: false }));
+  hdrs.append("Set-Cookie", buildCookieHeader(prepped.cookies.cookieName + PublicCookieSuffix, '', { ...cookieSettings, httpOnly: false }));
 
   /* You don't want either cookie update (login or logout) to be cached */
   hdrs.set("cache-control", "no-store");
@@ -106,7 +106,7 @@ export const authService = {
     const provider = new IdentityProvider(wrdschema);
     const response = await provider.handleFrontendLogin({
       targetUrl: originUrl, login: username, password, customizer,
-      loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo },
+      loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo || originUrl },
       tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });
 

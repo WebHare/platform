@@ -3,8 +3,8 @@ import { getAuditEvents } from "@webhare/auth";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import type { RPCContext } from "@webhare/router";
 import type { FlexibleInstant } from "@webhare/std";
-import { beginWork, commitWork } from "@webhare/whdb";
-import { AuthenticationSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
+import { beginWork, commitWork, runInWork } from "@webhare/whdb";
+import { AuthenticationSettings, updateSchemaSettings, WRDSchema, type WRDUpdatable } from "@webhare/wrd";
 import type { JsschemaSchemaType } from "wh:wrd/webhare_testsuite";
 
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
@@ -41,5 +41,9 @@ export const authTestSupportRPC = {
     }
 
     return await getAuditEvents(jsAuthSchema, { user, since: filter.since });
+  },
+  async updateSchemaSettings(context: RPCContext, settings: WRDUpdatable<JsschemaSchemaType["wrdSettings"]>): Promise<void> {
+    if (settings)
+      await runInWork(() => updateSchemaSettings(jsAuthSchema, settings));
   }
 };

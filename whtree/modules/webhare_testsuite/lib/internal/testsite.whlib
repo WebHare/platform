@@ -1607,6 +1607,10 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
                              , password_validation_checks := STRING["minlength:5", "symbols:1"]
                              ], options);
 
+  //Clear out any _e ecookies to make the accessrule test repeatable
+  FOREVERY(RECORD _e_cookie FROM SELECT * FROM GetAllWebCookies() WHERE name LIKE "*_e")
+    UpdateWebCookie(_e_cookie.name, "");
+
   OpenPrimary();
   TRY {
     GetWRDAuthPlugin(forurl)->Logout();
