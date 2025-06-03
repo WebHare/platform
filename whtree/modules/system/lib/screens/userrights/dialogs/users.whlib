@@ -9,6 +9,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
 
@@ -64,23 +65,20 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
     ^username->cellname := this->contexts->userapi->wrdschema->accountlogintag;
 
     IF(this->contexts->wrdschema->accountemailtag = ""
-       OR this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag)
-    {
+       OR this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag) {
       ^email->composition := DEFAULT OBJECT;
       ^email->visible := FALSE;
       ^email->enabled := FALSE;
       IF(this->contexts->wrdschema->accountlogintag = this->contexts->wrdschema->accountemailtag)
         ^username->title := GetTid("~email");
-    }
-    ELSE
-    {
+    } ELSE {
       ^email->cellname := this->contexts->wrdschema->accountemailtag;
       ^email->required := this->contexts->wrdschema->accounttype->GetAttribute(this->contexts->wrdschema->accountemailtag).isrequired;
     }
 
-    this->policy := GetPolicyForUser(this->contexts, ObjectExists(data.user) ? data.user->entityid : 0,
-        [ defaultunit := ObjectExists(this->pvt_parent) ? this->pvt_parent->entityid : 0
-        ]);
+    this->policy := ObjectExists(data.user)
+       ? GetUserUnitPolicy(this->contexts->wrdschema, data.user->entityid)
+       : GetSchemaUnitPolicy(this->contexts->wrdschema, this->pvt_parent->id);
 
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
     this->LoadScreenExtensions();

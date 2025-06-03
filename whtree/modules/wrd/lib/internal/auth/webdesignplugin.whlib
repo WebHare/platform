@@ -739,23 +739,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     RETURN trylogin;
   }
 
-  STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
-  {
-    RECORD policy := this->GetUserEditPolicyForUser(entity->id);
-
-    // Check only when the policy has validation checks, AND the user can set their own password
-    IF (policy.passwordvalidationchecks != "" AND policy.haspassword)
-    {
-      RECORD options := TypeID(authenticationsettings) = TypeID(RECORD)
-          ? CELL[ authenticationsettings, isexisting := TRUE ]
-          : CELL[];
-
-      RECORD res := CheckPassword(policy.passwordvalidationchecks, password, options);
-      RETURN res.failedchecks;
-    }
-    RETURN STRING[];
-  }
-
   //codepath shared with authpages.whlib loginform
   PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ logincontrol := ""

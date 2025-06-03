@@ -35,14 +35,12 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   // Tollium init
   //
 
-  MACRO NEW()
-  {
+  MACRO NEW() {
     this->contexts->wrdschema := this->contexts->userapi->wrdschema;
   }
 
-  MACRO Init(RECORD data)
-  {
-    this->policy := GetPolicyForUser(this->contexts, this->contexts->user->entityid);
+  MACRO Init(RECORD data) {
+    this->policy := GetUserUnitPolicy(this->contexts->wrdschema, this->contexts->user->entityid);
 
     //app passwords currently only make sense for webdav, so hide the option if you're not allowed to do that
     ^openapppasswords->enabled := this->contexts->user->HasRight("system:webdav");
@@ -131,8 +129,8 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
     BOOLEAN passwordexpired, passwordabouttoexpire, passwordrequire2fa;
     TRY
     {
-      RECORD usereditpolicy := this->contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(^userobj->wrdentity->id);
-      IF (usereditpolicy.passwordvalidationchecks != "")
+      RECORD usereditpolicy := GetUserUnitPolicy(this->contexts->wrdschema, ^userobj->wrdentity->id);
+      IF (usereditpolicy.passwordchecks != "")
       {
         RECORD authsettings := ^userobj->wrdentity->GetField(this->contexts->controller->wrdauthplugin->wrdschema->accountpasswordtag);
 
@@ -140,7 +138,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
             AND IsValueSet(authsettings.passwords)
             AND authsettings.passwords[END-1].passwordhash NOT IN [ "", "*" ])
         {
-          RECORD ARRAY parsedchecks := ParsePasswordChecks(usereditpolicy.passwordvalidationchecks);
+          RECORD ARRAY parsedchecks := ParsePasswordChecks(usereditpolicy.passwordchecks);
 
           // ADDME: warn when password is becoming too old
           STRING expire_duration := SELECT AS STRING duration FROM parsedchecks WHERE check = "maxage";

@@ -465,3 +465,11 @@ PUBLIC RECORD FUNCTION GetSchemaUnitPolicy(OBJECT wrdschema, INTEGER unit) {
     expiration := base_expiration
   ];
 }
+
+PUBLIC RECORD FUNCTION GetUserUnitPolicy(OBJECT wrdschema, INTEGER user) {
+  INTEGER unit;
+  IF(ObjectExists(wrdschema->accounttype) AND RecordExists(wrdschema->accounttype->GetAttribute("WHUSER_UNIT")))
+    unit := wrdschema->accounttype->GetEntityField(user, "WHUSER_UNIT");
+
+  RETURN GetSchemaUnitPolicy(wrdschema, unit);
+}
