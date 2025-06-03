@@ -27,7 +27,8 @@ ASYNC MACRO TestFilteredHooks()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("{item}:WH testsuite: Add export"), [ messagemask := "AddExport()"]);
   AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("{item}:WH testsuite: testschema"), [ messagemask := "AddExport2()"]);
-  TestEq(FALSE, ObjectExists(TT("{item}:WH testsuite: usermgmt schema", [ allowmissing:=TRUE])));
+  TestEq(FALSE, ObjectExists(TT("{item}:Should Not Be seen", [ allowmissing := TRUE])));
+  TestEq(FALSE, ObjectExists(TT("{item}:WH testsuite: usermgmt schema", [ allowmissing := TRUE])));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 

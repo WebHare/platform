@@ -138,7 +138,7 @@ $defs:
     type: object
     additionalProperties: false
     patternProperties:
-      "^[a-z_][-a-z0-9_]*$": # Service name
+      "^[a-z_][-a-z0-9_]*$": # Hook name
         type: object
         additionalProperties: false
         required:

@@ -30,6 +30,15 @@ backendHooks: # Where this extension hooks into the backend
     - title: "WH testsuite: usermgmt schema"
       category: export
       onExecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport3
+  adduserright43:
+    screen: "platform:userrights"
+    addActions:
+    - title: "Should Not Be seen"
+      category: export
+      onExecute: tests/publisher/tollium/data/backendhooks.whlib#AddExport4
+    ifWebHare: # test-backend-hooks.whscr tests whether this backendHook is ignored
+      envVars:
+        - NEVERSET=1
 
 backendServices:
   demoservice:

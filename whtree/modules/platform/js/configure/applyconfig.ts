@@ -2,7 +2,7 @@ import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/inte
 import { generatorTypes, type GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
+import { backendConfig, broadcast, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
 import { updateWebHareConfigFile } from '@mod-system/js/internal/generation/gen_config';
 import { updateConsilioCatalogs } from './consilio';
 import { updateTypeScriptInfrastructure } from '@mod-system/js/internal/generation/gen_typescript';
@@ -162,6 +162,7 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       await updateConsilioCatalogs(generateContext, options);
     }
 
+    broadcast("platform:appliedconfig");
     logDebug("platform:configuration", { type: "done", at: Date.now() - start });
   } catch (e) {
     logDebug("platform:configuration", { type: "error", at: Date.now() - start, message: (e as Error)?.message ?? "", stack: (e as Error)?.stack ?? "" });
