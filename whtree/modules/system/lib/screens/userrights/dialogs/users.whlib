@@ -12,10 +12,11 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
-< // -----------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase <
+  // -----------------------------------------------------------------------------
   //
   // Global variables and such
   //
@@ -48,8 +49,10 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
   // Tollium init
   //
 
-  MACRO Init(RECORD data)
-  {
+  MACRO Init(RECORD data) {
+    ^screentabs->extendposition := 1;
+    SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:userproperties" ]);
+
     RECORD prefs := CollectUserPreferenceOptions(this->tolliumcontroller);
     ^language->options := prefs.languages;
 
@@ -81,7 +84,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
        : GetSchemaUnitPolicy(this->contexts->wrdschema, this->pvt_parent->id);
 
     ConfigurePasswordFieldForPolicy(^authenticationsettings, this->policy);
-    this->LoadScreenExtensions();
 
     ^userobj->LoadEntity(this->contexts->userapi->wrdschema->accounttype, ObjectExists(this->pvt_user) ? this->pvt_user->entityid : 0);
     ^authenticationsettings->cellname := this->contexts->wrdschema->accountpasswordtag;
@@ -147,8 +149,7 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
   // Actions
   //
 
-  BOOLEAN FUNCTION Submit()
-  {
+  BOOLEAN FUNCTION Submit() {
     OBJECT work := this->BeginUnvalidatedWork();
     ^userinfopage->ValidateValue(work);
 
@@ -246,33 +247,6 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
   //
   // Helper functions
   //
-
-  /** Load a user screen extension fragment from the policy record
-  */
-  MACRO LoadScreenExtensions()
-  {
-    IF (NOT RecordExists(this->policy.screenextension))
-      RETURN;
-
-    ^screentabs->extendposition := 1;
-    ^screentabs->insertpoints := [ [ name := "email", component := ^email ]
-                                 , [ name := "username", component := ^username ]
-                                 //new apps should use the 'safe' insertpoints below
-                                 , [ name := "account", component := ^insertpoint_account ]
-                                 , [ name := "advanced", component := ^insertpoint_advanced ]
-                                 ];
-    ^screentabs->extendcomponents := [ [ name := "user_email", component := ^email ]
-                                     , [ name := "user_username", component := ^username ]
-                                     , [ name := "user_firstname", component := ^userobj->GetComponent("WRD_FIRSTNAME") ]
-                                     , [ name := "user_infix", component := ^userobj->GetComponent("WRD_INFIX") ]
-                                     , [ name := "user_lastname", component := ^userobj->GetComponent("WRD_LASTNAME") ]
-                                     , [ name := "userobj", component := ^userobj ]
-                                     ];
-
-    RECORD screendata := this->policy.screenextension;
-    IF (RecordExists(screendata))
-      ^screentabs->LoadTabsExtension(screendata.file || "#" || screendata.name);
-  }
 
   // -----------------------------------------------------------------------------
   //

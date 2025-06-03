@@ -20,3 +20,12 @@ unitproperties:            # describes the system userrights unit properties dia
     - extensionpoint
     extendcomponents:      # .. and extendComponents ?
     - unitentity           # a wrd:entity representing the unit
+
+userproperties:            # describes the system userrights user properties dialog
+  extendtabs:
+    component: screentabs
+    insertpoints:          # .. and insertPoints ?
+    - account
+    - advanced
+    extendcomponents:      # .. and extendComponents ?
+    - userobj              # a wrd:entity representing the unit
