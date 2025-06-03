@@ -83,6 +83,9 @@ definitions:
             type: string
           when:
             $ref: "#/definitions/ContextFilter"
+          ifWebHare:
+            description: "Restrict hook to specific installations or versions"
+            type: object
           tabsExtension:
             type: string
           addActions:
