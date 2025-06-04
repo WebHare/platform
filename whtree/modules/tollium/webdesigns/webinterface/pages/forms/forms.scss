@@ -32,11 +32,42 @@ body:has(.wh-wrdauth-form) {
   min-height: var(--form-size);
   overflow: auto;
   padding: calc(var(--form-padding) / 2) calc(var(--form-padding) / 2) calc(var(--form-padding) / 2 + 5px);
-  
+
   .wh-form {
     flex: 1;
   }
-  
+
+  .wh-form__navbuttons--flex {
+    display: flex;
+    justify-content: space-between;
+
+    button {
+      flex: 1;
+      max-width: calc(50% - 7px);
+    }
+  }
+
+  .wh-wrdauth-loginmethodbutton
+  {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 14px;
+    padding: 0 14px;
+    transition: background-color 0.2s;
+
+    &:hover, &:focus {
+      background: var(--tollium-background-shaded);
+    }
+  }
+
+  .wh-wrdauth-loginmethodicon
+  {
+    width: 24px;
+    height: auto;
+    margin-right: 14px;
+  }
+
   .wh-wrdauth-backlinkholder {
     flex: none;
     padding: calc(var(--form-padding) / 2);
@@ -50,16 +81,16 @@ body:has(.wh-wrdauth-form) {
   .wh-form__fieldgroup {
     padding: calc(var(--form-padding) / 2) calc(var(--form-padding) / 2) 5px;
   }
-  
+
   p {
     font-size: var(--font-size);
   }
-  
+
   h2 {
     color: var(--tollium-color-accent);
     font-weight: 500;
     font-size: var(--heading-font-size);
-    
+
     &:not(:last-child) {
       margin-bottom: calc(var(--form-padding) / 2);
     }
@@ -81,7 +112,7 @@ body:has(.wh-wrdauth-form) {
     padding: var(--input-padding);
     width: 100%;
   }
-  
+
   input[type="checkbox"]:not(.wh-checkbox),
   input[type="radio"]:not(.wh-radiobutton) {
     border-radius: 3px;
@@ -91,16 +122,16 @@ body:has(.wh-wrdauth-form) {
     padding: 0;
     vertical-align: middle;
     width: var(--input-size);
-    
+
     & ~ span {
       line-height: var(--input-size);
-      
+
       label {
         font-weight: 400;
       }
     }
   }
-  
+
   .wh-form__fieldgroup[data-wh-form-group-for="backupcodes"] textarea {
     font: var(--tollium-monospace-font);
     height: calc(10 * 16px + 2 * var(--input-padding) + 2 * var(--tollium-border-width)); /* Show 10 codes/lines, add padding and border */
@@ -112,22 +143,22 @@ body:has(.wh-wrdauth-form) {
     margin-bottom: calc(var(--form-padding) / 2);
     margin-top: calc(var(--form-padding) / 2);
     padding: calc(var(--form-padding) / 2);
-    
+
     label {
       color: #d41100;
     }
   }
-  
+
   .wh-form__error {
     color: #d41100;
     padding-left: 24px;
     padding-top: calc(var(--form-padding) / 2);
     position: relative;
-    
+
     &:empty {
       display: none;
     }
-    
+
     &::before {
       content: "\f071";
       font: normal normal normal 14px/1 FontAwesome;
@@ -135,7 +166,7 @@ body:has(.wh-wrdauth-form) {
       position: absolute;
     }
   }
-  
+
   .wh-wrdauth-qrcode {
     display: inline-block;
     margin-left: 50%;
@@ -145,7 +176,7 @@ body:has(.wh-wrdauth-form) {
   .wh-form__buttongroup {
     padding: calc(var(--form-padding) / 2);
   }
-  
+
   /* Hide button groups without <a> links (e.g. 'Continue') if none of the navigation buttons are visible */
   .wh-form:not(.wh-form--allowprevious):not(.wh-form--allownext):not(.wh-form--allowsubmit) .wh-form__buttongroup:not(:has(a)) {
     display: none;
@@ -155,7 +186,7 @@ body:has(.wh-wrdauth-form) {
   a.wh-form__button {
     background: var(--tollium-color-accent);
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     box-shadow: none;
     color: #ffffff;
     display: inline-block;
@@ -168,15 +199,26 @@ body:has(.wh-wrdauth-form) {
     width: 100%;
   }
 
+  .wh-form__button--previous {
+    background-color: #fff;
+    color: var(--tollium-text-color);
+    border: 1px solid var(--tollium-color-accent);
+    transition: background-color 0.2s;
+
+    &:hover, &:focus {
+      background: var(--tollium-background-shaded);
+    }
+  }
+
   .wh-wrdauth-login__forgotpasswordlinkholder {
     padding: calc(var(--form-padding) / 2);
   }
-  
+
   .wh-wrdauth-loginmethods {
     form {
       padding: calc(var(--form-padding) / 2);
     }
-      
+
     button {
       background: var(--tollium-background);
       border: var(--tollium-border-width) solid var(--tollium-border-color);
@@ -184,14 +226,6 @@ body:has(.wh-wrdauth-form) {
       font-size: var(--input-font-size);
       font-weight: 400;
       text-align: left;
-    }
-    
-    img {
-      display: inline-block;
-      height: 20px;
-      margin: 0 10px -4px 5px;
-      position: relative;
-      width: 20px;
     }
   }
 }

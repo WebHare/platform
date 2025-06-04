@@ -20,7 +20,8 @@
       <enum tag="visibility"
             allowedvalues="hidden ifused"
             description="Limit visibility of this login option. hidden: always hide. ifused: show after first use or triggering. " />
-            <free tag="comments" />
+      <free tag="comments" />
+      <image tag="icon" />
     </attributes>
   </object>
 

@@ -54,6 +54,7 @@
       <heading doclink="platform:wrdauth/oidc/configuration" tid=".configuration" />
       <textedit composition="entity" cellname="additionalscopes" width="1pr" />
       <textedit composition="entity" cellname="loginfield" width="1pr" placeholder="sub" value="sub" />
+      <imgedit composition="entity" cellname="icon" recommendedsize="48x48" width="1pr" height="100px" publisher="false" />
       <textarea composition="entity" cellname="comments"  width="1pr" minheight="3gr" tid="~comments" />
     </body>
   </screen>

@@ -900,6 +900,7 @@
         <text tid="login-services">Login using identity services</text>
         <text tid="login-title">Login</text>
         <text tid="login-username-intro">Enter your username and password to login</text>
+        <text tid="login-withemail">Login with email</text>
         <text tid="password">Password</text>
         <text tid="passwordchange-button">Change password</text>
         <text tid="passwordchange-intro">Changing the password</text>
@@ -1047,6 +1048,7 @@
         <text tid="clientsettings">Client settings</text>
         <text tid="configuration">Configuration</text>
         <text tid="editprovider">OpenID Connet provider settings</text>
+        <text tid="icon">Icon</text>
         <text tid="loginfield">Login field</text>
         <text tid="metadataurl">Metadata URL</text>
         <text tid="provider">Provider</text>
