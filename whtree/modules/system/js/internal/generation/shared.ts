@@ -48,7 +48,7 @@ function getEnvironment(unsafeEnv: boolean): Record<string, string> {
   return Object.fromEntries(Object.entries(process.env).filter(([key]) => unsafeEnv || key.startsWith("WEBHARE_")).map(([key, value]) => [key, value ?? '']));
 }
 
-/** @param unsafeEnv - Allow unsafe environment variables to be tested, eg TESTSECRET__ */
+/** @param unsafeEnv - Allow unsafe environment variables to be tested, eg TESTSECRET__. You should only enable this for 'trusted' ifWebHare sources (eg static moduledefinition.ymls are okay, a RPC from a connecting peer server is not) */
 export function getMyApplicabilityInfo({ unsafeEnv = false } = {}): WebHareVersionInfo {
   return {
     versionnum: getVersionInteger(),

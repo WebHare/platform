@@ -45,102 +45,27 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
   RETURN screendef;
 }
 
-RECORD ARRAY FUNCTION FixAddActions(STRING resourcename, RECORD ARRAY addactions)
-{
-  addactions := EnforceStructure([[ title := "", onexecute := "", category := "" ]], addactions);
-  UPDATE addactions
-         SET title := title != "" ? ":" || title : ""
-           , onexecute := MakeAbsoluteResourcePath(resourcename, onexecute);
-  RETURN addactions;
-}
-
-RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
-{
-  //This is getting a bit convoluted *especially* as long as we're only dealing with one field here.. we should start making an extract of this and deal with all trouble in JS
-  IF(CellExists(def,'backendhooks') AND TYPEID(def.backendhooks) = TYPEID(RECORD ARRAY))
-  {
-    //This is the WH5.3 backendhook structure
-    RECORD newbackendhooks;
-    FOREVERY(RECORD row FROM def.backendhooks)
-      IF(CellExists(row,"tag"))
-        newbackendhooks := CellInsert(row,row.tag,CellDelete(row,"tag"));
-     ELSE
-        newbackendhooks := CellInsert(row,"hook" || #row,row);
-    def := CELL[...def, backendhooks := newbackendhooks];
-  }
-
-  def := EnforceStructure(
-    CELL[ backendhooks := DEFAULT RECORD
-        ], def);
-
-  RECORD ARRAY thehooks := EnforceStructure(
-        [[ name := ""
-         , value := [ screen := ""
-                    , tabsextension := ""
-                    , addactions := RECORD[]
-                    ]
-         ]
-        ], UnpackRecord(def.backendhooks));
-
-  FOREVERY(RECORD hook FROM thehooks)
-  {
-    thehooks[#hook].value.tabsextension := MakeAbsoluteResourcePath(resourcename, thehooks[#hook].value.tabsextension);
-    thehooks[#hook].value.addactions := FixAddActions(resourcename, thehooks[#hook].value.addactions);
-    INSERT CELL module := GetModuleNameFromResourcePath(resourcename) INTO thehooks[#hook].value;
-  }
-
-  def.backendhooks := RepackRecord(thehooks);
-
-  RETURN CELL[ def.backendhooks ];
-}
-
-RECORD FUNCTION GetAllHooks()
-{
-  RECORD ARRAY allhooks;
-
-  FOREVERY(STRING modulename FROM GetInstalledModuleNames())
-  {
-    STRING path := `mod::${modulename}/moduledefinition.yml`;
-    RECORD def;
-
-    BLOB moduledef := GetWebHareResource(path, [ allowmissing := TRUE ]);
-    IF(Length(moduledef) != 0)
-    {
-      TRY
-      {
-        def := DecodeYAML(BlobToString(moduledef));
-      }
-      CATCH(OBJECT e) //Throwing on parse failures would cause vital screens to break. Some check/validation needs to pick this up instead
-      {
-        LogHarescriptException(e);
-        CONTINUE;
-      }
-    }
-
-    IF(NOT CellExists(def, 'backendhooks'))
-      CONTINUE;
-
-    def := StructureModuleYamlDefSettings(path, def);
-    allhooks := allhooks CONCAT SELECT tag := name, ...value FROM UnpackRecord(def.backendhooks);
-  }
+RECORD FUNCTION GetAllHooks() {
+  RECORD ARRAY allhooks := EnforceStructure(
+    [[ tabsextension := ""
+     , addactions := RECORD[]
+     , when := DEFAULT RECORD
+     ]], __GetExtractedConfig("hooks").backendhooks);
 
   RETURN [ ttl := 24 * 60 * 60 * 1000
          , value := allhooks
-         , eventmasks := ["system:modulesupdate"]
+         , eventmasks := ["platform:appliedconfig"]
          ];
 }
 
-BOOLEAN FUNCTION MatchWhen(STRING module, RECORD when, OBJECT contexts)
+BOOLEAN FUNCTION MatchWhen(RECORD when, OBJECT contexts)
 {
   IF(CellExists(when,'wrdschema'))
   {
     IF(NOT ObjectExists(contexts->wrdschema) OR TYPEID(when.wrdschema) != TYPEID(STRING))
       RETURN FALSE;
 
-    STRING schemaname := when.wrdschema;
-    IF(schemaname NOT LIKE "*:*")
-      schemaname := module || ":" || when.wrdschema;
-    RETURN contexts->wrdschema->tag = schemaname;
+    RETURN contexts->wrdschema->tag = when.wrdschema;
   }
 
   RETURN TRUE;
@@ -152,7 +77,7 @@ RECORD ARRAY FUNCTION GetHooksFor(OBJECT contexts, STRING screenname)
   RETURN SELECT *
            FROM allhooks
           WHERE allhooks.screen = VAR screenname
-                AND (CellExists(allhooks, 'when') ? MatchWhen(allhooks.module, allhooks.when, contexts) : TRUE);
+                AND MatchWhen(allhooks.when, contexts);
 }
 
 MACRO InvokeWithContext(OBJECT contexts, MACRO PTR toinvoke)
