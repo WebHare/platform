@@ -565,6 +565,14 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         throw new Error("Unable to create ID token without a thirdparty client");
 
       const payload = preparePayload(subjectValue, relativeTo, validUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
+      if (options?.scopes?.includes("email")) { //TODO authorize somewhere whether 'email' is allowed for this client
+        const authsettings = await this.getAuthSettings(true);
+        if (authsettings.emailAttribute) {
+          const { email } = await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, { email: authsettings.emailAttribute });
+          if (email)
+            payload.email = email;
+        }
+      }
 
       //We allow customizers to hook into the payload, but we won't let them overwrite the issuer as that can only break signing
       if (options?.customizer?.onOpenIdToken) //force-cast it to make clear which fields are already set and which you shouldn't modify

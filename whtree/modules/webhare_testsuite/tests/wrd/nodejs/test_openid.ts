@@ -154,6 +154,7 @@ async function verifyRoutes() {
 
   const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
+  test.eq("sysop@beta.webhare.net", parsedPayload.email);
 }
 
 async function verifyOpenIDClient() {
