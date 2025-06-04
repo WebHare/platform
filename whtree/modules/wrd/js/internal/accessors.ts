@@ -1409,7 +1409,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
   isSet(value: Date | null) { return Boolean(value); }
   validateFilterInput(value: Date | null) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null`);
   }
   checkFilter(cv: WRDDBDateTimeConditions) {
     if (cv.condition === "in")
@@ -1467,8 +1467,8 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && this.attr.tag === "wrdDateOfDeath" && value.getTime() > Date.now() && !checker.importMode)
       throw new Error(`Provided date of death in the future for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
@@ -1531,8 +1531,8 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
   isSet(value: Date | null) { return Boolean(value); }
 
   validateFilterInput(value: Date | null) {
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
   }
 
   checkFilter(cv: WRDDBDateTimeConditions) {
@@ -1604,8 +1604,8 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
     if (value !== null && (!isDate(value) || isNaN(value.getTime())))
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     // FIXME: check temp mode
-    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use null`);
     if (!value && this.attr.tag === "wrdCreationDate" && !checker.temp && !checker.importMode)
       throw new Error(`Not allowed to use \`null\` for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} for non-temp entities`);
   }
@@ -1625,7 +1625,8 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
   isSet(value: Date | null) { return Boolean(value); }
 
   validateFilterInput(value: Date) {
-    throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
   }
 
   checkFilter(cv: WRDDBDateTimeConditions) {
@@ -1675,8 +1676,8 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (!value)
       throw new Error(`Not allowed to use null for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
-    if (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs)
-      throw new Error(`Not allowed to use defaultDatetime or maxDatetime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs)
+      throw new Error(`Not allowed to use defaultDateTime or maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
