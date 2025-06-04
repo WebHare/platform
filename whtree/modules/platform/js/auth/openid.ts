@@ -62,7 +62,16 @@ async function findLoginPageForSchema(schema: string) {
 
     loginPage = joinURL(site.webRoot, targeted[2]);
   }
-  return { loginPage, wrdauth: candidates[0].wrdauth };
+  return { loginPage, metadataUrl: candidates[0].webRoot + ".well-known/openid-configuration", wrdauth: candidates[0].wrdauth };
+}
+
+export async function getOpenIDMetadataURL(schema: string) {
+  try {
+    const loginInfo = await findLoginPageForSchema(schema);
+    return loginInfo.metadataUrl;
+  } catch (ignore) {
+  }
+  return null;
 }
 
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {

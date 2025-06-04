@@ -9,7 +9,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
 import { Issuer, generators } from 'openid-client';
 import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
-import { createServiceProvider, initializeIssuer } from "@webhare/auth";
+import { registerRelyingParty, initializeIssuer } from "@webhare/auth";
 import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
@@ -84,7 +84,7 @@ async function setupOIDC() {
     await initializeIssuer(oidcAuthSchema, "https://my.webhare.dev/testfw/issuer");
 
     //TODO convert client creation to a @webhare/wrd or wrdauth api ?
-    ({ wrdId: clientWrdId, clientId, clientSecret } = await createServiceProvider(oidcAuthSchema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
+    ({ wrdId: clientWrdId, clientId, clientSecret } = await registerRelyingParty(oidcAuthSchema, { title: "testClient", callbackUrls: [await loadlib("mod::system/lib/webapi/oauth2.whlib").GetDefaultOauth2RedirectURL(), callbackUrl] }));
 
     //Also register it ourselves for later use
     const testsite = await test.getTestSiteJS();
@@ -154,6 +154,7 @@ async function verifyRoutes() {
 
   const { wrdGuid: sysopguid } = await oidcAuthSchema.getFields("wrdPerson", test.getUser("sysop").wrdId, ["wrdGuid"]);
   test.eq(sysopguid, parsedPayload.sub);
+  test.eq("sysop@beta.webhare.net", parsedPayload.email);
 }
 
 async function verifyOpenIDClient() {

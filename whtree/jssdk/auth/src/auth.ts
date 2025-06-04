@@ -34,8 +34,9 @@ export interface AuthEventData {
 export { createFirstPartyToken, listTokens, deleteToken, getToken, updateToken, prepareFrontendLogin } from "./identity";
 export type { FirstPartyToken } from "./identity";
 
-export { createServiceProvider, initializeIssuer } from "./oauth2";
-export type { ClientConfig, ServiceProviderInit } from "./oauth2";
+export { getOpenIDMetadataURL } from "@mod-platform/js/auth/openid";
+export { registerRelyingParty, initializeIssuer } from "./oauth2";
+export type { RelyingPartyConfig as ClientConfig, RelyingProviderInit as ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
 export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";

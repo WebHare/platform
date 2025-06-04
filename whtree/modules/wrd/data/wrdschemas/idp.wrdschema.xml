@@ -3,7 +3,7 @@
   <domain tag="wrdauth_service_provider">
     <!-- these are service providers registered to our IDP -->
     <attributes>
-      <free tag="wrd_title" required="true" />
+      <free tag="wrd_title" required="true" unique="true" />
       <array tag="client_secrets">
         <datetime tag="created" required="true" />
         <free tag="secret_hash" required="true" />

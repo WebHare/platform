@@ -1,4 +1,4 @@
-import { type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
+import { HTTPErrorCode, type WebHareRouter, type WebRequest, type WebResponse, createJSONResponse } from "@webhare/router";
 import { lookupPublishedTarget } from "@webhare/router/src/corerouter";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 //TOOD make this a public export somewhere? but should it include wrdOrg and wrdPerson though
@@ -15,12 +15,12 @@ export async function wellKnownRouter(req: WebRequest): Promise<WebResponse> {
   const tester = await getApplyTesterForObject(target.targetObject);
   const wrdSchemaTag = (await tester.getWRDAuth())?.wrdSchema;
   if (!wrdSchemaTag)
-    throw new Error(`No WRD schema defined for this location`);
+    return createJSONResponse(HTTPErrorCode.NotFound, { error: `No WRD schema defined for this location` });
 
   const authSchema = new WRDSchema<Platform_BasewrdschemaSchemaType>(wrdSchemaTag);
   const settings = await getSchemaSettings(authSchema, ["issuer", "signingKeys"]);
   if (!settings.issuer)
-    throw new Error(`WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer`);
+    return createJSONResponse(HTTPErrorCode.NotFound, { error: `WRD schema '${wrdSchemaTag}' is not configured with a JWKS issuer` });
 
   const id_token_signing_alg_values_supported: string[] = [];
   if (settings.signingKeys.find(_ => _.privateKey.kty === "RSA"))

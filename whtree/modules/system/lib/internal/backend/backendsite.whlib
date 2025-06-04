@@ -89,10 +89,14 @@ PUBLIC MACRO UpdateSystemBackendSite()
       setoutputweb := bestmatch.id;
   }
 
+  STRING ARRAY webfeatures := backendsite->webfeatures;
+  IF("platform:identityprovider" NOT IN webfeatures)
+    INSERT "platform:identityprovider" INTO webfeatures AT END;
+
   backendsite->UpdateSiteMetadata(
-      [ sitedesign := "tollium:webinterface"
-      , outputfolder := "/"
-      , outputweb := setoutputweb
-      , locked := FALSE
-      ]);
+      CELL[ sitedesign := "tollium:webinterface"
+          , outputfolder := "/"
+          , webfeatures
+          , locked := FALSE
+          ]);
 }
