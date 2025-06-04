@@ -133,9 +133,9 @@ img:not([src])
   position:relative;
   top:-8px;
 }
-.t-apptab__icon[height="28"] /*bunny icon*/
+.t-apptab__icon[height="24"] /*bunny icon*/
 {
-  top:-3px;
+  top:-4px;
 }
 .t-apptab--hasicon .t-apptab__icon
 {
