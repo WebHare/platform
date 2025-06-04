@@ -1,6 +1,6 @@
 import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, createServiceProvider, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
+import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerRelyingParty, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
 import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
@@ -261,11 +261,11 @@ async function setupOpenID() {
   test.assert("kid" in jwks.keys[0]);
   test.assert(!("d" in jwks.keys[0]), "no private key info!");
 
-  peopleClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts people testclient" });
+  peopleClient = await registerRelyingParty(oidcAuthSchema, { title: "test_wrd_auth.ts people testclient" });
   test.assert(isLikeRandomId(peopleClient.clientId), "verify clientid is not a UUID");
 
-  robotClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
-  evilClient = await createServiceProvider(oidcAuthSchema, { title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  robotClient = await registerRelyingParty(oidcAuthSchema, { title: "test_wrd_auth.ts robot testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
+  evilClient = await registerRelyingParty(oidcAuthSchema, { title: "test_wrd_auth.ts evil testclient", subjectField: "wrdContactEmail", callbackUrls: [cbUrl] });
 
   await whdb.commitWork();
 }

@@ -5,13 +5,13 @@ import { updateSchemaSettings } from "@webhare/wrd/src/settings";
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { generateRandomId } from "@webhare/std";
 
-export interface ClientConfig {
+export interface RelyingPartyConfig {
   wrdId: number;
   clientId: string;
   clientSecret: string;
 }
 
-export interface ServiceProviderInit {
+export interface RelyingProviderInit {
   title: string;
   callbackUrls?: string[];
   subjectField?: string;
@@ -24,7 +24,7 @@ export async function initializeIssuer<S extends SchemaTypeDefinition>(wrdSchema
   await updateSchemaSettings(wrdSchema as unknown as WRDSchema<WRD_IdpSchemaType>, { issuer });
 }
 
-export async function createServiceProvider<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, spSettings: ServiceProviderInit): Promise<ClientConfig> {
+export async function registerRelyingParty<S extends SchemaTypeDefinition>(wrdSchemaIn: WRDSchema<S>, spSettings: RelyingProviderInit): Promise<RelyingPartyConfig> {
   const wrdSchema = wrdSchemaIn as unknown as WRDSchema<WRD_IdpSchemaType>;
 
   const clientId = generateRandomId("uuidv4");

@@ -9,8 +9,8 @@ import { compressUUID } from "@webhare/auth/src/identity";
 import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
-import { run } from "@webhare/cli";
-import { createServiceProvider, initializeIssuer } from '@webhare/auth';
+import { CLIRuntimeError, run } from "@webhare/cli";
+import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL } from '@webhare/auth';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -24,7 +24,8 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
   const settings = await getSchemaSettings(schema, ["issuer", "signingKeys"]);
   return {
     issuer: settings.issuer,
-    keys: pick(settings.signingKeys, ["availableSince", "keyId"])
+    keys: pick(settings.signingKeys, ["availableSince", "keyId"]),
+    metadataUrl: await getOpenIDMetadataURL(schema.tag)
   };
 }
 
@@ -48,8 +49,9 @@ run({
             ...idp
           }));
         } else {
-          console.log("WRD Schema:    " + wrdSchema);
-          console.log("OpenID Issuer: " + (idp.issuer || "not set"));
+          console.log("WRD Schema:      " + wrdSchema);
+          console.log("OpenID Issuer:   " + (idp.issuer || "not set"));
+          console.log("OpenID Metadata: " + (idp.metadataUrl || "not set"));
         }
       }
     },
@@ -75,14 +77,22 @@ run({
         }
       }
     },
-    "oidc-callback-url": {
-      shortDescription: "Obtain this server's OIDC callback URL",
+    "get-callback-url": {
+      shortDescription: "Obtain this server's OpenID Connect/OAuth2 callback URL",
       main: async ({ opts, args }) => {
         const url = backendConfig.backendURL + ".wh/common/oauth2/";
         console.log(opts.json ? JSON.stringify({ url }) : url);
       }
     },
-    "oidc-add": {
+    "get-metadata-url": {
+      shortDescription: "Get an identity provider's metadata url",
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName(opts);
+        const url = await getOpenIDMetadataURL(wrdSchema);
+        console.log(opts.json ? JSON.stringify({ url }) : url);
+      }
+    },
+    "add-idp": {
       shortDescription: "Connect schema to a OIDC Identity provider",
       options: {
         "additionalscopes": { description: "Additional scopes to request, eg email" },
@@ -123,8 +133,9 @@ run({
 
         console.log(opts.json ? JSON.stringify({ wrdId }) : `Added client #${wrdId} to schema ${wrdSchema}`);
       }
-    }, "oidc-delete": {
-      shortDescription: "Delete OIDC client",
+    },
+    "delete-idp": {
+      shortDescription: "Delete an identity provider",
       arguments: [{ name: "<tag>", description: "Identity provider wrdTag" }],
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
@@ -140,29 +151,40 @@ run({
         console.log(opts.json ? JSON.stringify({ wrdId }) : `Delete client #${wrdId} from schema ${wrdSchema}`);
       }
     },
-    "sp-add": {
-      shortDescription: "Add a service provider",
-      arguments: [{ name: "<name>", description: "Service provider name" }, { name: "<callbackurl>", description: "Service provider callback URL" }],
+    "add-rp": {
+      shortDescription: "Register a relying party (service provider) with our OpenID Provider",
+      arguments: [
+        { name: "<name>", description: "Relying party name" },
+        { name: "<callbackurl>", description: "Relying party's callback URL" }
+      ],
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
 
+        if (await schema.search("wrdauthServiceProvider", "wrdTitle", args.name, { matchCase: false }))
+          throw new CLIRuntimeError(`An relying party named '${args.name}' already exists`);
+
         await beginWork();
-        const newSp = await createServiceProvider(schema, { title: args.name, callbackUrls: [args.callbackurl] });
+        const newSp = {
+          ...await registerRelyingParty(schema, { title: args.name, callbackUrls: [args.callbackurl] }),
+          metadataUrl: await getOpenIDMetadataURL(schema.tag)
+        };
         await commitWork();
 
         if (opts.json) {
-          console.log(JSON.stringify(await newSp));
+          console.log(JSON.stringify(newSp));
         } else {
-          console.log("Created service provider");
+          console.log("Created relying party");
           console.log("Client ID: " + newSp.clientId);
           console.log("Client secret: " + newSp.clientSecret);
+          if (newSp.metadataUrl)
+            console.log("Metadata URL: " + newSp.metadataUrl);
         }
       }
     },
 
-    "sp-list": {
-      shortDescription: "List service provider",
+    "list": {
+      shortDescription: "List relying parties and service providers",
       main: async ({ opts, args }) => {
         const wrdSchema = await getUserApiSchemaName(opts);
         const schema = new WRDSchema<WRD_IdpSchemaType>(wrdSchema);
