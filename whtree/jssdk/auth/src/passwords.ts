@@ -106,7 +106,6 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
   const authenticationSettings = options?.authenticationSettings || new AuthenticationSettings;
   const failed = [];
   for (const check of parsePasswordChecks(checks, { strict: true })) {
-    console.error(check);
     switch (check.check) {
       case "hibp": {
         const breachcount = await getPasswordBreachCount(newpassword);
@@ -153,7 +152,6 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
         break;
       case "externallogin": //any password fails if externallogin is enabled..
         failed.push(check);
-        console.error({ failed, check });
         break;
       default:
         throw new Error(`No such password check '${check.check satisfies never}'`);
