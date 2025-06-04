@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -326,13 +327,23 @@ ASYNC MACRO UnpublishedSavesTest()
 }
 
 ASYNC MACRO ViewHistory() {
-  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
-  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/unpublishedfile.html");
+  DATETIME startcopy := GetCurrentDatetime();
 
-  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/unpublishedfile.html)/inspect
+  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
+  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
+
+  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/inspect
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), unpublishedfile->id));
-  DumpValue(TT("historyitems")->rows);
+  TT("historyitems")->selection := SELECT * FROM TT("historyitems")->rows WHERE version="0.2"; //this one contained temproary data
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Copy to"));
+  TT("folders")->value := GetTestsuiteTempFolder()->id;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD ARRAY newobjects := SELECT * FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id AND creationdate >= startcopy;
+  TestEq(1, Length(newobjects), "There should be one new object created by the copy");
 }
 
 RunTestframework([ PTR Prep

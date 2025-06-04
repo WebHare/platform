@@ -38,6 +38,9 @@
       <action name="openversion" tid="~open">
         <enableon source="historyitems" min="1" max="1" onexecute="doopenversion" />
       </action>
+      <action name="copyversion" ellipsis="true" tid="~copyto">
+        <enableon source="historyitems" min="1" max="1" onexecute="docopyversion" />
+      </action>
     </actions>
 
     <menus>
@@ -52,6 +55,7 @@
       </menu>
       <menu name="historymenu">
         <item action="openversion" />
+        <item action="copyversion" />
       </menu>
     </menus>
 

@@ -34,7 +34,9 @@ PUBLIC RECORD FUNCTION CopyMoveFilesAndFolders(OBJECT work, INTEGER ARRAY object
     @param type Copy/move type: 'copy', 'move', 'internallink', 'contentlink'
     @return Whether operaction succeeded
 */
-PUBLIC BOOLEAN FUNCTION RunCopyMoveObjects(OBJECT parentscreen, INTEGER ARRAY selection, STRING type) {
+PUBLIC BOOLEAN FUNCTION RunCopyMoveObjects(OBJECT parentscreen, INTEGER ARRAY selection, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ suggestdestination := lastmovedestination ], options);
+
   IF (Length(selection) = 0)
     RETURN FALSE;
 
@@ -42,8 +44,7 @@ PUBLIC BOOLEAN FUNCTION RunCopyMoveObjects(OBJECT parentscreen, INTEGER ARRAY se
     CELL[ acceptforeignfolders := FALSE
         , acceptfiles := FALSE
         , showreadonly := TRUE
-        , value := lastmovedestination >= 0 ? lastmovedestination
-                                            : (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0] AND isactive)
+        , value := options.suggestdestination ?? (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0] AND isactive)
         , title := ""
         , description := ""
         , recyclebinid := type="move" ? -2 : 0 //only show recyclebin when moving
