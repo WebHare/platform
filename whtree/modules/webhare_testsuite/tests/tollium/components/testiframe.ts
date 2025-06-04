@@ -232,7 +232,7 @@ test.runTests(
         // The test action should display a 'not implemented' message with a 'information' icon
         test.assert(test.qR(`img[data-toddimg^="tollium:messageboxes/information"]`), "'not implemented' message box should be visible");
         // Close the message
-        test.clickTolliumButton("Close");
+        test.clickTolliumButton("OK");
         await test.wait("ui");
         await new Promise(resolve => setTimeout(resolve, 1));
         test.assert(!test.compByName("testbutton").classList.contains("todd--disabled"), "test action should still be enabled");
@@ -241,7 +241,7 @@ test.runTests(
         await test.wait("ui");
         // The test action should display a 'not implemented' message with a 'information' icon
         test.assert(test.qR(`img[data-toddimg^="tollium:messageboxes/information"]`), "'not implemented' message box should be visible again");
-        test.clickTolliumButton("Close");
+        test.clickTolliumButton("OK");
 
         // Click the 'Confirm' button, which should display a confirm dialog within Tollium (outside of the iframe)
         test.click(iframe.contentWindow!.document.querySelector("button.confirmnode")!);
