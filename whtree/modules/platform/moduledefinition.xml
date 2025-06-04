@@ -50,6 +50,7 @@
     </webrule>
     <!-- configuration, limited cachability. used to inform sites about active interface webservers (TODO and perhaps public keys for password encryption in the future?) -->
     <webrule path="allroots:/.wh/ea/config/" match="initial" cachecontrol="public, max-age=15" priority="after" handlebydir="whdata::config/public/" />
+    <!-- shared static assets. always put in a topical subfolder -->
     <webrule path="allroots:/.wh/ea/p/" match="initial" handlebydir="web/wh-assets/" priority="after" />
     <webrule path="allroots:/.wh/ea/uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />

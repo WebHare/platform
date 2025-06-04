@@ -897,10 +897,10 @@
         <text tid="linkexpired-title">Link verlopen</text>
         <text tid="login-button">Inloggen</text>
         <text tid="login-email-intro">Voer het e-mailadres en wachtwoord in om in te loggen</text>
-        <text tid="login-services">Inloggen met identiteitsdiensten</text>
+        <text tid="login-services">Kies een inlogmethode</text>
         <text tid="login-title">Inloggen</text>
         <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
-        <text tid="login-withemail">Login met email</text>
+        <text tid="login-withemail">Login met gebruikersnaam en wachtwoord</text>
         <text tid="password">Wachtwoord</text>
         <text tid="passwordchange-button">Wijzig wachtwoord</text>
         <text tid="passwordchange-intro">Wachtwoord wijzigen</text>

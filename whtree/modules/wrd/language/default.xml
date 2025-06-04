@@ -897,10 +897,10 @@
         <text tid="linkexpired-title">Link expired</text>
         <text tid="login-button">Login</text>
         <text tid="login-email-intro">Enter your email address and password to login</text>
-        <text tid="login-services">Login using identity services</text>
+        <text tid="login-services">Select a login method</text>
         <text tid="login-title">Login</text>
         <text tid="login-username-intro">Enter your username and password to login</text>
-        <text tid="login-withemail">Login with email</text>
+        <text tid="login-withemail">Login with username and password</text>
         <text tid="password">Password</text>
         <text tid="passwordchange-button">Change password</text>
         <text tid="passwordchange-intro">Changing the password</text>
