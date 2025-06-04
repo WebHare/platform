@@ -370,7 +370,6 @@
       <text tid="additionaltitle">Additional information</text>
       <text tid="description">Error details</text>
       <text tid="email">Report this error</text>
-      <text tid="emailsent">The report has been successfully sent</text>
       <text tid="exception">The application encountered an unexpected error and had to be terminated.</text>
       <text tid="explainadditional">You may provide additional information here, for example what you were doing when this error occurred. This information can be useful for solving the problem. It is not required to provide this information.</text>
       <text tid="title">An application error occured</text>
@@ -398,17 +397,13 @@
       <text tid="addedtostartmenu">This item has been added to your Start Menu Favorites. <br/><br/>You can manage your favorites in your Personal Settings: click on your username displayed at the bottom of the Start Menu.</text>
       <text tid="alreadyaddedtostartmenu">This item has already been added to the favorites.</text>
       <text tid="applaunchfailure">The application '<param p="1"/>' could not be started</text>
-      <text tid="confirmclearcontents">Are you sure you want to delete all contents?<br/><br/>This operation cannot be undone.</text>
       <text tid="confirmclearformatting">Are you sure you want to discard all style?<br/><br/>This operation cannot be undone.</text>
       <text tid="confirmdeleteembeddedobject">Are you sure you want to delete this embedded object?<br/><br/>This operation cannot be undone.</text>
       <text tid="confirmrowdeletion">Are you sure you want to delete the selected item?</text>
-      <text tid="errors"><param p="1"/></text>
       <text tid="notimplemented">This feature has not yet been implemented</text>
       <text tid="remove_file_confirmation">Are you sure you want to remove the file?</text>
       <text tid="remove_image_confirmation">Are you sure you want to remove the image?</text>
-      <text tid="showmessage"><param p="1"/></text>
       <text tid="some_wrong_file_type">Some of the uploaded files have the wrong file type (<param p="1"/>). Do you want to continue uploading the file with the correct file type (<param p="2"/>)?</text>
-      <text tid="warnings"><param p="1"/></text>
       <text tid="webhareclosedformaintenance">WebHare has been closed for maintainance. Please try again later.  <br/><br/>We apologise for the inconvienence.</text>
       <text tid="wrong_file_type"><ifparam p="2" value="1">The uploaded file(s) <param p="1"/> has the wrong file type.<else/>The uploaded files '<param p="1"/>' all have the wrong file type.</ifparam></text>
     </textgroup>
@@ -541,21 +536,6 @@
         <text tid="sharpen">Sharpen</text>
         <text tid="smartcrop">Automatic Crop</text>
         <text tid="title">Edit image</text>
-      </textgroup>
-      <textgroup gid="filters">   <!-- components.imgedit.filters -->
-        <text tid="autocontrast">Automatic Contrast</text>
-        <text tid="blue">Blue</text>
-        <text tid="blur">Blur</text>
-        <text tid="brightness">Brightness</text>
-        <text tid="brightnesscontrast">Brightness and Contrast</text>
-        <text tid="coloradjust">Adjust Colors</text>
-        <text tid="contrast">Contrast</text>
-        <text tid="green">Green</text>
-        <text tid="level">Level</text>
-        <text tid="posterize">Limit colors</text>
-        <text tid="preview">Preview</text>
-        <text tid="radius">Radius</text>
-        <text tid="red">Red</text>
       </textgroup>
       <textgroup gid="hints">   <!-- components.imgedit.hints -->
         <text tid="add_image">Upload an image</text>
@@ -697,36 +677,8 @@
       <text tid="title">Feedback</text>
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
-      <text tid="apptitle">WebHare</text>
-      <text tid="cancel">Cancel</text>
-      <text tid="closedlogin">It's currently not possible to login. Please try again later.</text>
-      <text tid="disabledlogin">Login failed: this user account is disabled</text>
-      <text tid="enterauthenticatorcode">Please enter your one-time code</text>
-      <text tid="enterbackupcode">Too many incorrect codes entered, please enter a backup code</text>
-      <text tid="enterusernameandpassword">Please enter your username and password.</text>
-      <text tid="forgotpassword">Forgot password</text>
-      <text tid="genericerror">An error occurred. Please try again, if the error keeps occurring please contact your system administrator.</text>
-      <text tid="infotitle">Important information</text>
-      <text tid="invaliddata">Your login session has expired, please login again</text>
-      <text tid="invalidlogin">Invalid username and/or password.</text>
-      <text tid="loginbutton">Login</text>
-      <text tid="loginidentityservices">Login using identity services</text>
-      <text tid="loginsecondfactor">Second factor login</text>
-      <text tid="logintitle">Login</text>
-      <text tid="loginwithwebhareaccount">Login with a WebHare account</text>
-      <text tid="musteditauthsettings">Your authentication settings must be updated before proceeding.</text>
       <text tid="notloggedin">You no longer seem to be logged in. You may need to reload this webpage to relogin.</text>
-      <text tid="nowebhareaccount">No corresponding WebHare account found. Please contact your system administrator.</text>
-      <text tid="password">Password</text>
-      <text tid="savelogin">Remember me</text>
-      <text tid="secondfactorauthentication">Second factor login</text>
-      <text tid="totpattemptsleft">Please enter your one-time code (you have <param p="1"/> attempts left)</text>
-      <text tid="totpcode">One-time login code</text>
-      <text tid="totpinvalidcode">This code is not valid</text>
-      <text tid="totplocked">You have entered too many invalid codes, you will have to enter a backup code to login in</text>
-      <text tid="totpreusedcode">This code has already been used to log in, please wait until the next code before trying again</text>
       <text tid="unexpectedprotocolversion">It looks like your browser is running an outdated version of this webpage. Please try Shift-F5 (or Shift-Cmd-R on a Mac or Alt-Cmd-R in Safari) to reload this page.<br/><br/>If that doesn't work please try restarting your browser.</text>
-      <text tid="username">Username</text>
     </textgroup>
     <textgroup gid="logout">   <!-- shell.logout -->
       <text tid="surelogout">Are you sure you want to logout?</text>

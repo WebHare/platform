@@ -846,12 +846,12 @@ PUBLIC OBJECTTYPE TolliumUploadAction EXTEND ActionBase
       STRING ARRAY incorrect := SELECT AS STRING ARRAY filename FROM orgfiles WHERE filename NOT IN correct ORDER BY ToUppercase(filename);
 
       IF (LENGTH(files) = 0)
-        this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", Detokenize(incorrect, "', '"), ToString(LENGTH(incorrect)));
+        this->owner->RunSimpleScreen("error", GetTid("tollium:commondialogs.messageboxes.wrong_file_type", Detokenize(incorrect, "', '"), ToString(LENGTH(incorrect))));
       ELSE IF (LENGTH(files) != LENGTH(orgfiles))
       {
-        IF (this->owner->RunMessageBox("tollium:commondialogs.some_wrong_file_type",
+        IF (this->owner->RunSimpleScreen("question", GetTid("tollium:commondialogs.messageboxes.some_wrong_file_type",
             "'" || Detokenize(incorrect, "', '") || "'",
-            "'" || Detokenize(correct, "', '") || "'") != "yes")
+            "'" || Detokenize(correct, "', '") || "'")) != "yes")
         {
           files := DEFAULT RECORD ARRAY;
         }

@@ -479,11 +479,11 @@ PUBLIC OBJECTTYPE ScreenManager
 
       IF(Length(workresult.errors)>0)
       {
-        this->screen->RunMessageBox("tollium:commondialogs.errors", Detokenize((SELECT AS STRING ARRAY text FROM workresult.errors),'\n'));
+        this->screen->RunSimpleScreen("error", Detokenize((SELECT AS STRING ARRAY text FROM workresult.errors),'\n'));
       }
       ELSE IF(Length(workresult.warnings)>0)
       {
-        this->screen->RunMessageBox("tollium:commondialogs.warnings", Detokenize((SELECT AS STRING ARRAY text FROM workresult.warnings),'\n'));
+        this->screen->RunSimpleScreen("warning", Detokenize((SELECT AS STRING ARRAY text FROM workresult.warnings),'\n'));
       }
     }
   }

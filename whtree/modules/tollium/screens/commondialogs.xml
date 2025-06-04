@@ -1,24 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="commondialogs" library="/lib/screens/commondialogs.whlib">
 
-  <messageboxes gid=".messageboxes">
-    <!-- The 'showmessage' messagebox just shows the first parameter in an information messagebox, can be used to quickly
-         display some information without having to create a (temporary) messagebox -->
-    <messagebox name="showmessage" icon="" buttons="ok" />
-    <messagebox name="errors" icon="error" buttons="ok" />
-    <messagebox name="warnings" icon="warning" buttons="ok" />
-    <messagebox name="wrong_file_type" icon="error" buttons="ok" />
-    <messagebox name="some_wrong_file_type" icon="question" buttons="yes no" />
-    <messagebox name="remove_file_confirmation" icon="question" buttons="yes no" default="no" />
-    <messagebox name="remove_image_confirmation" icon="question" buttons="yes no" default="no" />
-    <messagebox name="notimplemented" icon="information" buttons="close" />
-    <messagebox name="confirmrowdeletion" icon="information" buttons="yes no" />
-    <messagebox name="exceptionemailsent" icon="information" buttons="close" tid="commondialogs.exception.emailsent" />
-    <messagebox name="confirmclearcontents" icon="warning" buttons="yes no" />
-    <messagebox name="webhareclosedformaintenance" icon="warning" buttons="ok" />
-    <messagebox name="addedtostartmenu" icon="information" buttons="ok" dontshowagain="ok" />
-    <messagebox name="alreadyaddedtostartmenu" icon="information" buttons="ok" />
-  </messageboxes>
-
   <screen name="showmessagebox" title="">
     <body name="toppanel" layout="right">
       <grid height="1pr">

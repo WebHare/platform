@@ -1065,7 +1065,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       IF (NOT handler(this->list->selection))
         RETURN;
     }
-    ELSE IF(this->owner->RunMessageBox("tollium:commondialogs.confirmrowdeletion") != "yes")
+    ELSE IF(this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.confirmrowdeletion")) != "yes")
       RETURN;
 
     IF (this->list->selectmode = "multiple")

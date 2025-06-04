@@ -737,12 +737,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
                                                  title,
                                                  folder.pvt_iconname))
     {
-      this->RunMessageBox("tollium:commondialogs.alreadyaddedtostartmenu");
+      this->RunSimpleScreen("error", GetTid("tollium:commondialogs.messageboxes.alreadyaddedtostartmenu"));
       work->Cancel();
       RETURN;
     }
     work->Finish();
-    this->RunMessageBox(".addedtostartmenu");
+    this->RunSimpleScreen("info", GetTid("tollium:commondialogs.messageboxes.addedtostartmenu"));
   }
 
   // ---------------------------------------------------------------------------

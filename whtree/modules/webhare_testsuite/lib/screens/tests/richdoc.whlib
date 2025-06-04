@@ -160,7 +160,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoShowMessage()
   {
-    this->RunMessageBox("tollium:commondialogs.showmessage", "Keyboard shortcut is working!");
+    this->RunSimpleScreen("info", "Keyboard shortcut is working!");
   }
 
   RECORD FUNCTION GetMailValue(BLOB eml)
