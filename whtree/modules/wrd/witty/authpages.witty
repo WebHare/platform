@@ -1,8 +1,39 @@
 [component login]
+  [forevery loginmethods]
+    <form method="post" action="[action]" id="[formid]">
+    </form>
+  [/forevery]
   <div class="wh-wrdauth-form wh-wrdauth-login">
     <form class="wh-form wh-styledinput wh-wrdauth-login__form" [form.formattributes]>
+      [if loginmethods]
+        <div class="wh-form__page">
+          <div class="wh-wrdauth-loginmethods">
+            <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-login__services" data-wh-form-group-for="services">
+              <div class="wh-form__fields">
+                <div class="wh-form__fieldline">
+                  <div class="wh-form__richtext wh-wrdauth--text">
+                    <h2 class="heading2">
+                      [gettid site.forms.authpages.login-services]
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            [forevery loginmethods]
+              [! FIXME some login methods even *require* specific buttons to be used !]
+              <button type="submit" class="wh-wrdauth-loginmethodbutton" form="[formid]">
+                [if icon]<img class="wh-wrdauth-loginmethodicon" src="[icon]" alt="" />[/if]
+                <span class="wh-wrdauth-loginmethodlabel">[title]</span>
+              </button>
+            [/forevery]
+            <button type="button" data-wh-form-action="next" class="wh-wrdauth-loginmethodbutton">
+              <img class="wh-wrdauth-loginmethodicon" src="[imgroot]mail.svg" alt="" />
+              <span class="wh-wrdauth-loginmethodlabel">[gettid site.forms.authpages.login-withemail]</span>
+            </button>
+          </div>
+        </div>
+      [/if]
       <div class="wh-form__page">
-
         [form.intro.render]
         [form.login.render]
         [form.password.render]
@@ -10,37 +41,17 @@
           <a class="wh-wrdauth-login__forgotpasswordlink" href="[forgotpasswordlink]">[gettid site.forms.authpages.forgotpassword]</a>
         </div>
       </div>
-      <div class="wh-form__buttongroup wh-form__navbuttons">
-        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-login__loginbutton">[gettid site.forms.authpages.login-button]</button>
+      <div class="wh-form__buttongroup wh-form__navbuttons [if loginmethods]wh-form__navbuttons--flex[/if]">
+        [if loginmethods]
+          <button type="button" data-wh-form-action="previous" class="wh-form__button wh-form__button--previous">
+            <span class="wh-form__buttonlabel">[gettid site.forms.authpages.back]</span>
+          </button>
+        [/if]
+        <button type="submit" class="wh-form__button wh-form__button--submit wh-wrdauth-login__loginbutton">
+          [gettid site.forms.authpages.login-button]
+        </button>
       </div>
     </form>
-
-    [if loginmethods]
-      <div class="wh-wrdauth-loginmethods">
-        <div class="wh-form__fieldgroup wh-form__fieldgroup--richtext wh-wrdauth-login__services"
-             data-wh-form-group-for="services">
-          <div class="wh-form__fields">
-            <div class="wh-form__fieldline">
-              <div class="wh-form__richtext wh-wrdauth--text">
-                <h2 class="heading2">
-                  [gettid site.forms.authpages.login-services]
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        [forevery loginmethods]
-          <form method="post" action="[action]">
-            [! FIXME some login methods even *require* specific buttons to be used !]
-            <button type="submit" class="wh-wrdauth-loginmethodbutton">
-              [if icon]<img class="wh-wrdauth-loginmethodicon" src="[icon]" />[/if]
-              [title]
-            </button>
-          </form>
-        [/forevery]
-      </div>
-    [/if]
   </div>
 [/component]
 

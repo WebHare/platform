@@ -163,6 +163,7 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
                       , loginmethods := (SELECT action := UpdateURLVariables(GetRequestURL(), CELL["wrdauth_loginmethod" := tag])
                                               , title
                                               , icon
+                                              , formid := "sso" || #loginmethods
                                            FROM options.loginmethods)
                       , form := loginform->GetWittyData()
                       ];
