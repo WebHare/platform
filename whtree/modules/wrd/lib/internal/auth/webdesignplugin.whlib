@@ -441,7 +441,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     IF(options.currenturl = "")
       options.currenturl := GetFormRequestURL();
 
-    //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part)
+    //ADDME queue the password reset through a managed task, so it always takes the same amount of time (at least the processing part) and we can dedupe/rate limit easier
     INTEGER match := this->accounttype->Search(this->wrdschema->accountemailtag, email, [matchcase := FALSE]);
 
     IF(match = 0) {
@@ -453,12 +453,17 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       RETURN;
     }
 
+    INTEGER unit := RecordExists(this->accounttype->GetAttribute("WHUSER_UNIT")) ? this->accounttype->GetEntityField(match, "whuser_unit") : 0;
+    RECORD fallbacks := GetSchemaUnitPolicy(this->wrdschema, unit);
+
     RECORD emaildata := [ email := email
                         , hostname := UnpackURL(options.currenturl).host
                         , resetlink := ""
+                        , requireexternallogin := "externallogin" IN Tokenize(fallbacks.passwordchecks, " ")
                         ];
 
-    emaildata.resetlink := this->CreatePasswordResetLink(options.currenturl, match, [ routerpage := "resetpassword" ]).verifiedlink;
+    IF(NOT emaildata.requireexternallogin) //only give a reset link if passowrds are available to you
+      emaildata.resetlink := this->CreatePasswordResetLink(options.currenturl, match, [ routerpage := "resetpassword" ]).verifiedlink;
 
     STRING mailtemplate := this->webcontext->targetapplytester->GetDefaultMailTemplate();
     OBJECT mail := this->PrepareAuthPageMail("forgotpasswordmail");
@@ -467,7 +472,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     GetPrimary()->BeginWork();
     mail->QueueMailInWork( [ ignorerecipientwhitelist := TRUE
-                           , sensitive := TRUE
+                           , sensitive := emaildata.resetlink != ""
                            ]);
     GetPrimary()->CommitWork();
   }
@@ -732,23 +737,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     RECORD submitinstruction;
     INSERT CELL submitinstruction := submitinstruction INTO trylogin;
     RETURN trylogin;
-  }
-
-  STRING ARRAY FUNCTION __CheckPassword(OBJECT entity, STRING password, VARIANT authenticationsettings)
-  {
-    RECORD policy := this->GetUserEditPolicyForUser(entity->id);
-
-    // Check only when the policy has validation checks, AND the user can set their own password
-    IF (policy.passwordvalidationchecks != "" AND policy.haspassword)
-    {
-      RECORD options := TypeID(authenticationsettings) = TypeID(RECORD)
-          ? CELL[ authenticationsettings, isexisting := TRUE ]
-          : CELL[];
-
-      RECORD res := CheckPassword(policy.passwordvalidationchecks, password, options);
-      RETURN res.failedchecks;
-    }
-    RETURN STRING[];
   }
 
   //codepath shared with authpages.whlib loginform
@@ -1706,44 +1694,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
         [ httponly := TRUE
         , secure :=   GetClientRequestURL() LIKE "https://*"
         ]);
-  }
-
-  /** Returns the user edit policy for a user
-      @param user User
-      @cell options.atsubmit @includecelldef #WRDAuthSupportBase::GetUserEditPolicy.atsubmit
-      @cell options.defaultunit Unit to use when the user could not be found (eg for new users)
-      @return legacy-api.whlib#WRDAuthSupportBase::GetUserEditPolicy.return
-  */
-  PUBLIC RECORD FUNCTION GetUserEditPolicyForUser(INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    options := ValidateOptions(
-        [ atsubmit :=       FALSE
-        , defaultunit :=    0
-        ], options);
-
-    BOOLEAN have_unit := RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_UNIT"));
-    STRING ARRAY getfields := STRING[ ...(have_unit ? [ "WHUSER_UNIT" ] : STRING[])
-                                    , this->wrdschema->accountlogintag
-                                    ];
-
-    IF(this->wrdschema->accountemailtag != this->wrdschema->accountlogintag)
-      INSERT this->wrdschema->accountemailtag INTO getfields AT END;
-
-    RECORD fields;
-    RECORD userfields := this->wrdschema->accounttype->GetEntityFields(user, getfields);
-    IF(RecordExists(userfields))
-    {
-      fields := [ username := GetCell(userfields, this->wrdschema->accountlogintag)
-                , email :=    GetCell(userfields, this->wrdschema->accountemailtag)
-                , unit :=     have_unit ? userfields.whuser_unit : 0
-                ];
-    }
-    ELSE
-    {
-      fields := [ username := "", email := "", unit := options.defaultunit ];
-    }
-
-    RETURN this->GetSupportObject()->GetUserEditPolicy(user, fields, options.atsubmit);
   }
 
   /** Initiates a SAML initiated login. Looks up the SAML IdP endpoint file in the

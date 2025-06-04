@@ -8,7 +8,7 @@ import { runInWork } from "@webhare/whdb";
 import { createServerSession } from "@webhare/services";
 import { writeAuthAuditEvent, type AuthAuditContext } from "@webhare/auth";
 
-export type PasswordCheck = "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
+export type PasswordCheck = "externallogin" | "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
 
 export type PasswordCheckResult = {
   success: false;
@@ -42,7 +42,7 @@ export function parsePasswordChecks(checks: string, options: { strict?: boolean 
   for (const token of checks.split(" ")) {
     try {
       const parts = token.split(":");
-      if (parts.length !== (["", "hibp", "require2fa"].includes(parts[0]) ? 1 : 2))
+      if (parts.length !== (["", "hibp", "require2fa", "externallogin"].includes(parts[0]) ? 1 : 2))
         throw new Error(`Password check '${token}' has a syntax error`);
 
       let value = parts.length === 2 ? parseInt(parts[1], 10) : 0;
@@ -70,6 +70,7 @@ export function parsePasswordChecks(checks: string, options: { strict?: boolean 
         case "maxage":
         case "noreuse":
         case "require2fa":
+        case "externallogin":
           retval.push({ check: parts[0], value, duration });
           break;
         default:
@@ -104,7 +105,7 @@ export function parsePasswordChecks(checks: string, options: { strict?: boolean 
 export async function checkPasswordCompliance(checks: string, newpassword: string, options?: { authenticationSettings?: AuthenticationSettings; isCurrentPassword?: boolean; lang?: string }): Promise<PasswordCheckResult> {
   const authenticationSettings = options?.authenticationSettings || new AuthenticationSettings;
   const failed = [];
-  for (const check of parsePasswordChecks(checks)) {
+  for (const check of parsePasswordChecks(checks, { strict: true })) {
     switch (check.check) {
       case "hibp": {
         const breachcount = await getPasswordBreachCount(newpassword);
@@ -149,8 +150,11 @@ export async function checkPasswordCompliance(checks: string, newpassword: strin
         if (options?.isCurrentPassword && !authenticationSettings?.hasTOTP())
           failed.push(check);
         break;
+      case "externallogin": //any password fails if externallogin is enabled..
+        failed.push(check);
+        break;
       default:
-        throw new Error(`No such password check '${check.check}'`);
+        throw new Error(`No such password check '${check.check satisfies never}'`);
     }
   }
 
@@ -234,7 +238,7 @@ function checkMaxAge(authenticationsettings: AuthenticationSettings, duration: s
 export function checkAuthenticationSettings(checks: string, authenticationsettings?: AuthenticationSettings) {
   authenticationsettings ||= new AuthenticationSettings;
   const failed = [];
-  for (const check of parsePasswordChecks(checks)) {
+  for (const check of parsePasswordChecks(checks, { strict: true })) {
     switch (check.check) {
       case "maxage": {
         if (!checkMaxAge(authenticationsettings, check.duration))
@@ -325,7 +329,7 @@ function getDurationTitle(duration: string): string {
 }
 
 export function describePasswordChecks(checks: string, options?: { lang?: string }): string {
-  const parsedchecks = parsePasswordChecks(checks);
+  const parsedchecks = parsePasswordChecks(checks, { strict: true });
   if (!parsedchecks.length)
     return "";
 

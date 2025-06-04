@@ -135,7 +135,7 @@ MACRO CreateMyTestSchema()
       , impersonated := FALSE
       , impersonator_entity := 0
       , impersonator_login := "" //compared to HS we'll stop setting these to the entity if there was no impersonation at all
-      , data := [ code := "incorrect-email-password" ]
+      , data := [ code := "unknown-account" ]
       , browsertriplet := "mac-chrome-01"
       ]);
 

@@ -104,66 +104,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSupportBase <
   {
     RETURN NEW SAMLWebhareIDPConfig(plugin, configdata);
   }
-
-  /** @short Get the current user editing policy
-      @long Get the current policry for editing users<br>
-      This function is called:<br>
-      - when the user data has just been loaded (atsubmit is FALSE)<br>
-      - when the user presses submit (atsubmit is TRUE)<br>
-      - when the submit request has been handled  (atsubmit is FALSE)<br>
-      The state of input fields is then updated according to the returned policy.
-      @param userid Current user id. 0 for new users
-      @param fields Current values. Is DEFAULT RECORD at user screen initialization and when getting searchable fields.
-      @cell(string) fields.username Current filled in username
-      @cell(string) fields.email Currently filled in email
-      @cell(integer) fields.unit Currently selected unit
-      @param atsubmit Whether the data is being submitted (might have more stringent rules)
-      @return Policy record
-      @cell(boolean) return.haspassword Whether the user can set a password in WebHare (eg not synced to AD or LDAP)
-      @cell(string) return.passwordvalidationchecks Password validation checks
-      @cell(record) return.searchablefields For every authorisation object (unit, role and person) the list of searchable fields
-      @cell(string array) return.searchablefields.unit List of searchable fields for a unit
-      @cell(string array) return.searchablefields.role List of searchable fields for a role
-      @cell(string array) return.searchablefields.person List of searchable fields for a person
-      @cell(record) return.screenextension Optional screen extension to load for the user screen
-      @cell(string) return.screenextension.file File with the screen tabextension
-      @cell(string) return.screenextension.name Name of the tabextension node
-  */
-  PUBLIC RECORD FUNCTION GetUserEditPolicy(INTEGER userid, RECORD fields, BOOLEAN atsubmit) {
-    // When updating this function, please call WRDAuthSupportBase::GetUserEditPolicy, and then
-    // edit the returned policy record
-    RECORD retval :=
-        [ haspassword :=        TRUE
-        , searchablefields := [ unit   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
-                              , role   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
-                              , person := [ "WRD_FIRSTNAME", "WRD_FIRSTNAMES", "WRD_FULLNAME", "WRD_LASTNAME", "WHUSER_LOGIN", "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
-                              ]
-        , screenextension := DEFAULT RECORD
-        , passwordvalidationchecks := ""
-        ];
-
-    IF (ObjectExists(this->plugin->wrdschema))
-    {
-      retval := CELL[ ...retval, ...GetDefaultWRDSchemaPasswordPolicy(this->plugin->wrdschema) ];
-
-      IF (RecordExists(fields)) // not always set
-      {
-        INTEGER unit := fields.unit;
-        WHILE (unit != 0)
-        {
-          RECORD data := this->plugin->wrdschema->^whuser_unit->GetEntityFields(unit, [ "wrd_leftentity", "override_passwordchecks", "passwordchecks" ]);
-          IF (data.override_passwordchecks)
-          {
-            retval.passwordvalidationchecks := data.passwordchecks;
-            BREAK;
-          }
-          unit := data.wrd_leftentity;
-        }
-      }
-    }
-
-    RETURN retval;
-  }
 >;
 
 /** Check whether the URL has its own checks (eg authorization or hashed URLs) and should be excepted from login checks */

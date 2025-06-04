@@ -4,7 +4,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
 
-LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -16,24 +16,32 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    ^usereditpolicy->options := RECORD
-        [ [ rowkey := "", title := this->GetTid(".nospecificpolicy") ]
-        , ...(SELECT TEMPORARY title := GetTid/*nocheck*/(tid)
-                   , rowkey := name
-                   , title := title
-                FROM GetUserEditPolicies()
-            ORDER BY title)
-        ];
-
     SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:unitproperties" ]);
 
     ^unitentity->Load(data.unit);
-    IF(data.unit = 0)
+
+    INTEGER parent;
+    IF(data.unit = 0) {
+      parent := data.parent;
       ^unitentity->extradata := [ wrd_leftentity := data.parent ];
+    } ELSE {
+      parent := ^unitentity->wrdentity->GetField("WRD_LEFTENTITY");
+    }
 
     ^override_passwordchecks->enabled := this->contexts->user->HasRight("system:sysop");
     ^override_expiration->enabled := this->contexts->user->HasRight("system:sysop");
     ^maintabs->RunExtensionsPostInit();
+
+    //Get base settings
+    IF(NOT ^override_passwordchecks->value OR NOT ^override_expiration->value) {
+      RECORD fallbacks := GetSchemaUnitPolicy(this->contexts->wrdschema, parent);
+
+      IF(NOT ^override_passwordchecks->value) //if not overridden, copy parents value
+        ^unitentity->^passwordchecks->value := fallbacks.passwordchecks;
+
+      IF(NOT ^override_expiration->value)
+        ^unitentity->^expiration->value := fallbacks.expiration;
+    }
   }
 
   STRING FUNCTION SelectDuration(STRING value)

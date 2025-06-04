@@ -934,9 +934,10 @@
           <text tid="subject">About your email address change request</text>
         </textgroup>
         <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
-          <text tid="emailunknown">Unfortunately no account was found for this email address ('<param p="1"/>').</text>
+          <text tid="emailunknown">Unfortunately no account was found for this email address.</text>
           <text tid="followlink">Use <html:a data-href-param="1">this link</html:a> to choose a new password</text>
           <text tid="receivedfor">We have received a request to reset the password for <param p="1"/></text>
+          <text tid="requireexternallogin">Your accountname is valid but this account must use an identity provider instead of trying to login using a passowrd</text>
           <text tid="subject">Reset your password for <param p="1"/></text>
         </textgroup>
         <textgroup gid="passwordcheck">   <!-- site.forms.authpages.passwordcheck -->

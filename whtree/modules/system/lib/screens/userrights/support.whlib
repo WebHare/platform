@@ -9,6 +9,13 @@ LOADLIB "mod::system/lib/userrights.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+// TODO restore searchablefields configuration somehow? as the functionality is there, but noone was hooking it anymore
+PUBLIC CONSTANT RECORD searchablefields :=
+    [ unit   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
+    , role   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
+    , person := [ "WRD_FIRSTNAME", "WRD_FIRSTNAMES", "WRD_FULLNAME", "WRD_LASTNAME", "WHUSER_LOGIN", "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
+    ];
+
 
 PUBLIC OBJECT __usereditcomposition;
 
@@ -589,23 +596,7 @@ PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)
          ];
 }
 
-/** Get the user edit policy for a user
-    @param(object mod::tollium/lib/internal/contexts.whlib#TolliumContexts) contexts Tollium contexts
-    @param user User entityid
-    @cell(integer) options.defaultunit Unit to use when the user = 0
-    @return @includecelldef %WRDAuthPlugin::GetUserEditPolicyForUser.return
-*/
-PUBLIC RECORD FUNCTION GetPolicyForUser(OBJECT contexts, INTEGER user, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ defaultunit :=    0 // for when user = 0
-      ], options);
-
-  RETURN contexts->controller->wrdauthplugin->GetUserEditPolicyForUser(user, options);
-}
-
-PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy)
-{
-  pwdfield->visible := policy.haspassword;
-  pwdfield->validationchecks := policy.passwordvalidationchecks;
+PUBLIC MACRO ConfigurePasswordFieldForPolicy(OBJECT pwdfield, RECORD policy) {
+  pwdfield->visible := "externallogin" NOT IN Tokenize(policy.passwordchecks,' ');
+  pwdfield->validationchecks := policy.passwordchecks;
 }

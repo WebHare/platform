@@ -57,7 +57,7 @@
           <text tid="subject">Über Ihre Anfrage zur Änderung der Emailadresse</text>
         </textgroup>
         <textgroup gid="forgotpasswordmail">   <!-- site.forms.authpages.forgotpasswordmail -->
-          <text tid="emailunknown">Leider wurde für diese Emailadresse kein Konto gefunden ('<param p="1"/>').</text>
+          <text tid="emailunknown">Leider wurde für diese Emailadresse kein Konto gefunden.</text>
           <text tid="followlink">Verwenden Sie <html:a data-href-param="1">diesen Link</html:a>, um ein neues Passwort zu wählen</text>
           <text tid="receivedfor">Wir haben eine Anfrage zum Zurücksetzen des Passworts für <param p="1"/> erhalten</text>
           <text tid="subject">Setzen Sie Ihr Passwort für <param p="1"/> zurück</text>

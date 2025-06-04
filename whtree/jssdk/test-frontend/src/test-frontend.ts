@@ -21,9 +21,15 @@ export async function waitForUI({ optional = false } = {}): Promise<void> {
   await oldWait(optional ? "ui-nocheck" : "ui");
 }
 
-/** Wait for a pageload to complete, triggered by either await load() or an action by the page
- *
- * @throws If that the UI has never been busy since the last wait (and inside the current test step) */
+/** Expect a pageload to be triggered by the callback */
+export async function expectLoad<T>(cb: () => T | Promise<T>, { waitUI = true } = {}): Promise<T> {
+  //FIXME verify no earlier load is pending
+  const result = await cb();
+  await waitForLoad({ waitUI });
+  return result;
+}
+
+/** Wait for a pageload to complete, triggered by either await load() or an action by the page  */
 export async function waitForLoad({ waitUI = true } = {}): Promise<void> {
   await oldWait("load");
   if (waitUI)

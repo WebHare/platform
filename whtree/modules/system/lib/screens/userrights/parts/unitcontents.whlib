@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/screens/userrights/commondialogs-api.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib";
 
 LOADLIB "mod::wrd/lib/dialogs.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 
 PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
@@ -461,16 +462,15 @@ PUBLIC OBJECTTYPE UnitContents EXTEND TolliumFragmentBase
     MakeDeleteDialog(this->owner, this->GetSelectedWRDAuthobjects())->RunModal();
   }
 
-  MACRO DoGetResetLink()
-  {
-    RECORD policy := GetPolicyForUser(this->contexts, this->GetSelectedWRDAuthobject()->entityid);
-    IF(NOT policy.haspassword)
-    {
+  MACRO DoGetResetLink() {
+    INTEGER user := this->GetSelectedWRDAuthobject()->entityid;
+    RECORD policy := GetUserUnitPolicy(this->contexts->wrdschema, user);
+    IF("externallogin" IN Tokenize(policy.passwordchecks, " ")) {
       this->contexts->screen->RunSimpleScreen("info", GetTid("system:userrights.dialogues.cannotresetunmanageduser"));
       RETURN;
     }
 
-    this->contexts->screen->RunScreen("mod::system/screens/userrights/parts/unitcontents.xml#prepareresetlink", [ user := this->GetSelectedWRDAuthobject()->entityid ]);
+    this->contexts->screen->RunScreen("mod::system/screens/userrights/parts/unitcontents.xml#prepareresetlink", CELL[ user ]);
   }
 
   MACRO DoShowAuditLog()

@@ -28,6 +28,7 @@
   <textgroup gid="components">   <!-- components -->
     <textgroup gid="passwordvalidationchecks">   <!-- components.passwordvalidationchecks -->
       <text tid="password_digits">Minimum aantal cijfers</text>
+      <text tid="password_externallogin">Vereis inlog via identity service (geen wachtwoorden)</text>
       <text tid="password_lowercase">Minimum aantal kleine letters</text>
       <text tid="password_maxage">Maximum ouderdom wachtwoord</text>
       <text tid="password_minlength">Minimum aantal karakters</text>
@@ -2134,7 +2135,6 @@
       <text tid="override_expiration">Overschrijf account verloop</text>
       <text tid="override_passwordchecks">Overschrijf wachtwoordeisen</text>
       <text tid="policy">Beleid</text>
-      <text tid="usereditpolicy">Gebruikersbewerkingsbeleid</text>
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>

@@ -149,11 +149,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     IF(NOT this->authapi->wrdschema->usermgmt)
       THROW NEW Exception("The WRD schema '" || this->authapi->wrdschema->tag || "' has not been blessed for user management");
 
-    /// Start applying the UserEdit policy
-    RECORD policy := GetPolicyForUser(this->contexts, this->tolliumuser->entityid);
-    /// Check for searchable fields, if any:
-    RECORD searchablefields := policy.searchablefields;
-
     IF(CellExists(searchablefields, "PERSON") AND Length(searchablefields.person) > 0
        AND CellExists(searchablefields, "ROLE") AND Length(searchablefields.role) > 0
        AND CellExists(searchablefields, "UNIT") AND Length(searchablefields.unit) > 0
@@ -164,18 +159,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
     ELSE
       this->togglesearchbarbutton->enabled := FALSE;
-
-    /// Check for hidden fields, if any:
-    STRING ARRAY hiddenfields;
-    IF(CellExists(policy, "HIDDENFIELDS"))
-      hiddenfields := policy.hiddenfields;
-
-    /// Apply for non-sysops:
-    IF(Length(hiddenfields) > 0 AND NOT this->tolliumuser->HasRight("system:sysop"))
-    {
-      /// Apply
-      Reflect("Should now apply limitations on hidden fields");
-    }
   }
 
   // ---------------------------------------------------------------------------
