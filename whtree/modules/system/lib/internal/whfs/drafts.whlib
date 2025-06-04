@@ -164,6 +164,7 @@ STATIC OBJECTTYPE WHFSDraft
 <
   OBJECT pvt_fsobject;
   BOOLEAN pvt_ispublic;
+  // The live object on which this draft is based
   INTEGER pvt_source;
 
   PUBLIC PROPERTY ispublic(pvt_ispublic, -);
@@ -171,8 +172,10 @@ STATIC OBJECTTYPE WHFSDraft
   //TODO get rid of when, user and fsobject. They're caches and already hid some bugs in the versioning code, but we should probably wait until all Versioning code is removed - 90% of fsobject references are there.
   PUBLIC PROPERTY fsobject(pvt_fsobject,-);
 
+  //The ID of the draft object (lives in private autosave/draft folders) which holds the changed (meta)data
   PUBLIC PROPERTY id(pvt_fsobject->id, -);
 
+  //The ID of the live/original object on which this draft is based (lives in the original site)
   PUBLIC PROPERTY source(pvt_source, -);
 
   PUBLIC PROPERTY when(this->pvt_fsobject->creationdate, -);
@@ -228,10 +231,9 @@ STATIC OBJECTTYPE WHFSDraft
   }
 
 
-  /** @short Save this draft to a new public draft
+  /** @short Marks an autosave (private draft) as the next public draft
       @cell(string array) options.basefields If present, list of cells to save from fs_object
-      @cell(string array) options.contenttypes If present, list of contenttypes to save
-      @return The public draft into which this draft was merged */
+      @cell(string array) options.contenttypes If present, list of contenttypes to save */
   PUBLIC MACRO SaveAsNewPublicDraft(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ basefields := STRING[]
@@ -264,7 +266,7 @@ STATIC OBJECTTYPE WHFSDraft
       INSERT OpenWHFSType(ns)->id INTO managedtypes AT END;
 
     //Merge the unmanaged copyable fields from the source
-    FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(this->source))
+    FOREVERY(INTEGER cancopy FROM GetCopyableInstanceTypes(this->source)) //FIXME unsafe with empty types - see https://gitlab.webhare.com/webharebv/codekloppers/-/issues/211
       IF(cancopy NOT IN managedtypes)
       {
         OBJECT typeobj := OpenWHFSTypeById(cancopy);
@@ -273,7 +275,7 @@ STATIC OBJECTTYPE WHFSDraft
 
     //And reapply managed fields
     RECORD sourcedata := SELECT data, title, description, keywords FROM system.fs_objects WHERE id = this->source;
-    UPDATE system.fs_objects SET RECORD CELL[...sourcedata, ...PickCells(sourcedata, options.basefields), modificationdate := now ] WHERE id = this->id;
+    UPDATE system.fs_objects SET RECORD CELL [...OmitCells(sourcedata, options.basefields), modificationdate := now ] WHERE id = this->id;
 
     //TODO require a locked transaction?
     //Get next version#
