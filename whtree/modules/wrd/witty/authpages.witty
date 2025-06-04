@@ -1,6 +1,6 @@
 [component login]
   [forevery loginmethods]
-    <form method="post" action="[action]" id="[formid]">
+    <form method="post" action="[action]" id="[formid]" hidden>
     </form>
   [/forevery]
   <div class="wh-wrdauth-form wh-wrdauth-login">
