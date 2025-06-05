@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -62,7 +63,7 @@ MACRO DraftingTest()
 
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
 
-  //Start editting this document. Create a private draft.
+  //Start editting this document. Create a private draft (autosave)
   OBJECT draft := CreateDraft(testfile, testfile->id, FALSE);
   TestEq(FALSE, draft->ispublic);
   TestEq(TRUE, ObjectExists(draft->fsobject));
@@ -70,6 +71,7 @@ MACRO DraftingTest()
 
   TestEq(['a','b','d'], draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
 
+  draft->fsobject->UpdateData(StringToBlob("This just went into a temporary draft"));
   draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["a","e","f"]]);
   TestEq(['a','b','d'], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
   TestEq(['a','e','f'], draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
@@ -92,7 +94,7 @@ MACRO DraftingTest()
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 ], ListObjectHistory(testfile->id), "*", "Private drafts always stay out of the history");
 
-  //Now create a public draft from the first version. A public draft will destroy all autosaves
+  //Now create a public draft from the first autosave. A public draft will destroy all autosaves
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
 
@@ -100,14 +102,19 @@ MACRO DraftingTest()
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge"), userdata := [ login := "marge@beta.webhare.net" ] ]
                 ], history, "*");
+
   TestEq(['a','b','d'], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq("I'm a jolly good file", BlobToString(OpenWHFSObject(testfile->id)->data), "Testfile is still untouched");
+
   TestEq(['a','e','f'], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
   TestEq(OpenWHFSObject(history[1].snapshot)->modificationdate, history[1].when);
+  TestEq("This just went into a temporary draft", BlobToString(OpenWHFSObject(history[1].snapshot)->data), "Content of autosave is still updated");
 
   //Verify the autosaves were cleaned up
   drafts := GetDrafts(testfile->id);
-  TestEq(1, Length(drafts));
-  TestEq(TRUE, drafts[0].ispublic);
+  TestEqMembers([
+    [ ispublic := TRUE, mine := TRUE ]
+  ], drafts, "*", "SaveAsNewPublicDraft should have discarded all autosaves and private drafts");
 
   draft := OpenDraft(testfile->id, drafts[0].id);
   TestEq(TRUE, draft->ispublic);
@@ -121,21 +128,22 @@ MACRO DraftingTest()
   //Create a draft!
   Sleep(1);
   draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft->fsobject->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
 
   //We need more drafts!
   Sleep(1);
   testfw->SetTestUser("homer");
   draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft->fsobject->UpdateData(StringToBlob("I'm a jolly good file with some data added by Homer!"));
 
   drafts := GetDrafts(testfile->id);
-  TestEq(3, Length(drafts));
-  TestEq(testfw->GetUserAuthobjectId("marge"), drafts[0].user);
-  TestEq(testfw->GetUserAuthobjectId("marge"), drafts[1].user);
-  TestEq(TRUE, drafts[0].creationdate < drafts[1].creationdate);
-  TestEq(FALSE, drafts[0].mine);
-  TestEq(FALSE, drafts[1].mine);
-  TestEq(testfw->GetUserAuthobjectId("homer"), drafts[2].user);
-  TestEq(TRUE, drafts[2].mine);
+  TestEq(TRUE, drafts[0].creationdate < drafts[1].creationdate, "Verify sort");
+  TestEqMembers([
+    [ ispublic := TRUE,  mine := FALSE,  user := testfw->GetUserAuthobjectId("marge") ],
+    [ ispublic := FALSE, mine := FALSE , user := testfw->GetUserAuthobjectId("marge") ],
+    [ ispublic := FALSe, mine := TRUE, user := testfw->GetUserAuthobjectId("homer")  ]
+  ], drafts, "*", "1 public draft and 2 autosaves, one of which is Homer's");
+
 
   //Cleanup discardable work from other users
   CleanupOtherPrivateDrafts(testfile->id);
@@ -147,7 +155,7 @@ MACRO DraftingTest()
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
 
   //Let's save another draft
-  draft := OpenWHFSDraft(drafts[1].id);
+  draft := OpenWHFSDraft(drafts[1].id); //This is taking the autosave I created
   draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := [ "yet-another-draft" ]]);
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
 
@@ -185,6 +193,7 @@ MACRO DraftingTest()
 
   testfile := OpenWHFSObject(testfile->id);
   TestEq(["yet-another-draft" ], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq("I'm a jolly good file with some data added by Homer!", BlobToString(OpenWHFSObject(testfile->id)->data));
 
   TestEq(0, Length(GetDrafts(testfile->id)));
   TestEq(TRUE, testfile->modificationdate > oldmoddate);
@@ -296,6 +305,7 @@ ASYNC MACRO UnpublishedSavesTest()
 
   //Create an autosave or an unpublished file and finalize it straight away
   draft := CreateAutosave(testfw->GetUserObject("marge"), unpublishedfile->id);
+  draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["homer"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
 
@@ -317,13 +327,23 @@ ASYNC MACRO UnpublishedSavesTest()
 }
 
 ASYNC MACRO ViewHistory() {
-  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
-  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/unpublishedfile.html");
+  DATETIME startcopy := GetCurrentDatetime();
 
-  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/unpublishedfile.html)/inspect
+  //Verify the history info. (lives on Inspect tab until we're ready to expose it to non-sysops)
+  OBJECT unpublishedfile := GetTestsuiteTempFolder()->OpenByPath("sub/test.html");
+
+  //https://my.webhare.dev/?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp/sub/test.html)/inspect
   AWAIT ExpectScreenChange(+1, PTR RunFSObjectInspectDialog(GetTestController(), unpublishedfile->id));
-  DumpValue(TT("historyitems")->rows);
+  TT("historyitems")->selection := SELECT * FROM TT("historyitems")->rows WHERE version="0.2"; //this one contained temproary data
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("{item}:Copy to"));
+  TT("folders")->value := GetTestsuiteTempFolder()->id;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  RECORD ARRAY newobjects := SELECT * FROM system.fs_objects WHERE parent = GetTestsuiteTempFolder()->id AND creationdate >= startcopy;
+  TestEq(1, Length(newobjects), "There should be one new object created by the copy");
 }
 
 RunTestframework([ PTR Prep

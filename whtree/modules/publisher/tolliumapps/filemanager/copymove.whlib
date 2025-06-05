@@ -1,0 +1,91 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/dialogs.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
+LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+INTEGER lastmovedestination := -1; //keeping as global to share between CopyMove invocations
+
+PUBLIC RECORD FUNCTION CopyMoveFilesAndFolders(OBJECT work, INTEGER ARRAY objects, OBJECT destfolder, STRING type, OBJECT newowner) {
+  TRY {
+    OBJECT mover := NEW ObjectCopyMover(type, destfolder->id);
+    mover->SetupAuditing("publisher:app");
+    FOREVERY (INTEGER cmobj FROM objects)
+      mover->AddSourceById(cmobj);
+    mover->Go(newowner);
+
+    RETURN [ draftids := mover->drafts ];
+  } CATCH(OBJECT<CopyMoveException> e) {
+    AddCopyMoveExceptionToWork(work, e, destfolder);
+  }
+
+  RETURN [ draftids := DEFAULT INTEGER ARRAY ];
+}
+
+
+/** Copy/moves/create links a selection to a destination, selected within this function
+    @param selection
+    @param type Copy/move type: 'copy', 'move', 'internallink', 'contentlink'
+    @return Whether operaction succeeded
+*/
+PUBLIC BOOLEAN FUNCTION RunCopyMoveObjects(OBJECT parentscreen, INTEGER ARRAY selection, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ suggestdestination := lastmovedestination ], options);
+
+  IF (Length(selection) = 0)
+    RETURN FALSE;
+
+  RECORD opts :=
+    CELL[ acceptforeignfolders := FALSE
+        , acceptfiles := FALSE
+        , showreadonly := TRUE
+        , value := options.suggestdestination ?? (SELECT AS INTEGER parent FROM system.fs_objects WHERE id = selection[0] AND isactive)
+        , title := ""
+        , description := ""
+        , recyclebinid := type="move" ? -2 : 0 //only show recyclebin when moving
+        ];
+
+  SWITCH(type) {
+    CASE "copy" {
+      opts.title := GetTid("publisher:filemanager.main.app.copymove.copytitle");
+      opts.description := GetTid("publisher:filemanager.main.app.copymove.copydescr");
+    }
+    CASE "move" {
+      opts.title := GetTid("publisher:filemanager.main.app.copymove.movetitle");
+      opts.description := GetTid("publisher:filemanager.main.app.copymove.movedescr");
+    }
+    CASE "internallink" {
+      opts.title := GetTid("publisher:filemanager.main.app.copymove.internallinktitle");
+      opts.description := GetTid("publisher:filemanager.main.app.copymove.internallinkdescr");
+    }
+    CASE "contentlink" {
+      opts.title := GetTid("publisher:filemanager.main.app.copymove.contentlinktitle");
+      opts.description := GetTid("publisher:filemanager.main.app.copymove.contentlinkdescr");
+    }
+  }
+
+  INTEGER objectsto := RunBrowseForFSObjectDialog(parentscreen, opts);
+  IF (objectsto = 0)
+    RETURN FALSE;
+
+  IF(type="move" AND objectsto = -2) {
+    IF(NOT RunDeleteFSObjectsDialog(parentscreen, selection, [ confirm := FALSE]))
+      RETURN FALSE;
+  } ELSE {
+    lastmovedestination := objectsto;
+
+    OBJECT work := parentscreen->BeginUnvalidatedWork();
+
+    OBJECT targetobj := objectsto = -1 ? OpenWHFSRootObject() : OpenWHFSObject(objectsto);
+    RECORD opres := CopyMoveFilesAndFolders(work, selection, targetobj, type, parentscreen->tolliumuser);
+    IF (NOT work->Finish())
+      RETURN FALSE;
+  }
+
+  RETURN TRUE;
+}
