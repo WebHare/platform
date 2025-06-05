@@ -86,8 +86,8 @@ STRING FUNCTION MyFormatFileSize(INTEGER64 fsize, INTEGER decimals, STRING decim
 
 /** @short The Tollium user object
 */
-PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //

@@ -985,8 +985,8 @@ STATIC OBJECTTYPE AuthObject
 /** Base object for querying rights
     This object can be queried if it has a right, and may be granted rights (when overridden)
 */
-STATIC OBJECTTYPE RightsObject EXTEND AuthObject
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE RightsObject EXTEND AuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1609,8 +1609,8 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   }
 >;
 
-STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
