@@ -1,6 +1,6 @@
 [component login]
   [forevery loginmethods]
-    <form method="post" action="[action]" id="[formid]">
+    <form method="post" action="[action]" id="[formid]" hidden>
     </form>
   [/forevery]
   <div class="wh-wrdauth-form wh-wrdauth-login">
@@ -27,7 +27,7 @@
               </button>
             [/forevery]
             <button type="button" data-wh-form-action="next" class="wh-wrdauth-loginmethodbutton">
-              <img class="wh-wrdauth-loginmethodicon" src="[imgroot]mail.svg" alt="" />
+              <img class="wh-wrdauth-loginmethodicon" src="/.wh/ea/p/providers/password.24x24.b.svg" alt="" />
               <span class="wh-wrdauth-loginmethodlabel">[gettid site.forms.authpages.login-withemail]</span>
             </button>
           </div>

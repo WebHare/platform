@@ -159,6 +159,7 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
   webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
 
+  //TODO: extract loginmethods from WRD instead of requiring an option.  we can do this as soon as siteprofile <loginmethods> is dropped
   RECORD wittyvars := [ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
                       , loginmethods := (SELECT action := UpdateURLVariables(GetRequestURL(), CELL["wrdauth_loginmethod" := tag])
                                               , title
