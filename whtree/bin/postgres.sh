@@ -43,6 +43,20 @@ else
   fi
 fi
 
+(
+  cd "$PSROOT/db"
+
+  if [ -n "$WEBHARE_POSTGRES_OPENPORT" ]; then
+    if [ ! -f server.key ] || [ ! -f server.crt ]; then
+      echo "Generating SSL key and certificate files for PostgreSQL..."
+      # TODO -quiet but Linux builds still needs to move away from openssl 1 for that
+      openssl req -new -x509 -days 365 -nodes -text -out server.crt -keyout server.key -subj "/CN=my.webhare.dev" -batch
+    fi
+    chmod 600 server.key #because the server will reject the file if its permissions are more liberal than this
+    [ -n "$WEBHARE_IN_DOCKER" ] && chown postgres:whdata server.key
+  fi
+) # exit PSROOT/db
+
 mkdir -p "$PSROOT/tmp" # ensure we can upload blobs!
 echo "Starting $PSNAME"
 exec $RUNAS "$WEBHARE_PGBIN/postgres" -D "$PSROOT/db" -c "unix_socket_directories=$PGHOST" -c "port=$PGPORT" 2>&1
