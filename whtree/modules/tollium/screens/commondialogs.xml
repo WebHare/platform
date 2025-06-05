@@ -136,15 +136,26 @@
     </footer>
   </screen>
 
-  <screen name="qrcallback" footerbuttons="close" gid=".qrcallback" tid=".title">
+  <screen name="qrcallback" gid=".qrcallback" tid=".title">
+    <actions>
+      <downloadaction name="download" ondownload="dodownload" tid="~download" />
+    </actions>
     <compositions>
       <callbacklistener name="callbacklistener" oncallback="onqrcallback" />
     </compositions>
 
     <body layout="left">
       <image name="qrcode" title="" />
+
       <text name="description" width="1pr" public="true" title="" valuetid=".description" wordwrap="true" />
     </body>
+
+    <footer>
+      <line layout="right">
+        <button action="download" tid="~download" />
+        <button tid="~close" tolliumresult="cancel" />
+      </line>
+    </footer>
   </screen>
 
   <screen name="ordering" minwidth="60x" minheight="30x" footerbuttons="ok cancel" gid=".ordering">

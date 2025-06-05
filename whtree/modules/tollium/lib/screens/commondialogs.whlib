@@ -545,7 +545,9 @@ PUBLIC OBJECTTYPE WindowOpen EXTEND TolliumScreenBase
 >;
 
 PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+< RECORD qrcodeimage;
+
+  // ---------------------------------------------------------------------------
   //
   // Public variables
   //
@@ -563,6 +565,9 @@ PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase
     OBJECT qrcode := CreateQRCode(qrurl, [ size := 500, correctlevel := "L" ]);
     BLOB qrpng := qrcode->ExportAsPalettedPNG(TRUE);
     RECORD qrdata := ScanBlob(qrpng, "qr.png");
+
+    this->qrcodeimage := CELL[ data := qrpng, ...qrdata ]; // store in case the user wants to download
+
     this->qrcode->width := qrdata.width || "px";
     this->qrcode->height := qrdata.height || "px";
     this->qrcode->SetImage(qrpng, "qr.png");
@@ -572,6 +577,11 @@ PUBLIC OBJECTTYPE QRCallback EXTEND TolliumScreenBase
   //
   // Event handlers
   //
+
+  MACRO DoDownload(OBJECT obj)
+  {
+    obj->SendFile(this->qrcodeimage.data, this->qrcodeimage.mimetype, "qrcode.png");
+  }
 
   MACRO OnQRCallback(OBJECT handler)
   {
