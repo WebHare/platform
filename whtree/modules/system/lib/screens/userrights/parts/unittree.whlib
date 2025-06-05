@@ -105,8 +105,6 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
   // Variables
   //
 
-  INTEGER cbid;
-
   OBJECT unittoselect;
 
   STRING pvt_selectright;
@@ -154,7 +152,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
 
   UPDATE MACRO PreInitComponent()
   {
-    this->cbid := RegisterMultiEventCallback("system:rights.change", PTR this->OnUpdateEvent);
+    ^listener->masks := this->contexts->userapi->wrdschema->^whuser_unit->GetEventMasks();
 
     this->ReloadList();
 
@@ -163,13 +161,6 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
     INSERT selectid INTO this->unitlist->expanded AT END;
   }
 
-  UPDATE PUBLIC MACRO OnUnloadComponent()
-  {
-    IF (this->cbid != 0)
-      UnregisterCallback(this->cbid);
-    this->cbid := 0;
-    TolliumFragmentBase::OnUnloadComponent();
-  }
 
   // ---------------------------------------------------------------------------
   //
@@ -222,7 +213,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
   // Callbacks
   //
 
-  MACRO OnUpdateEvent(STRING event, RECORD ARRAY data)
+  MACRO OnUpdateEvent(RECORD ARRAY events)
   {
     this->ReloadList();
   }
