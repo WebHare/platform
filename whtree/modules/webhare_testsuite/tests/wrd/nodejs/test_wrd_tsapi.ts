@@ -16,7 +16,7 @@ import { wrdSettingId } from "@webhare/services/src/symbols";
 import { compare, Money, type AddressValue, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@mod-wrd/js/internal/settings";
-import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "@webhare/hscompat";
+import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
 import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
 
 
@@ -335,6 +335,23 @@ async function testNewAPI() {
 
   // find should throw when finding multiple matches
   await test.throws(/at most one/i, () => schema.find("wrdPerson", { whuserUnit: unit_id }));
+
+  //Verify hscompat-protection of new TS API
+  for (const datefield of ["wrdCreationDate", "wrdLimitDate", "wrdModificationDate"] as const) {
+    await test.throws(/Not allowed to use.*defaultDateTime /, () => schema.query("wrdPerson").select("wrdId").where(datefield, "=", defaultDateTime).execute());
+    await test.throws(/Not allowed to use.*maxDateTime/, () => schema.query("wrdPerson").select("wrdId").where(datefield, "=", maxDateTime).execute());
+  }
+
+  //Verify whether moddate filtering actually works, it was broken pre WH5.8
+  const personModDate = (await schema.getFields("wrdPerson", firstperson, "wrdModificationDate"));
+  test.eq([firstperson], await schema.query("wrdPerson").select("wrdId").
+    where("wrdId", "=", firstperson).
+    where("wrdModificationDate", "=", personModDate).execute());
+  test.eq([firstperson], await schema.query("wrdPerson").select("wrdId").
+    where("wrdId", "=", firstperson).
+    where("wrdModificationDate", ">", new Date(personModDate.getTime() - 2)).
+    where("wrdModificationDate", "<", new Date(personModDate.getTime() + 2)).
+    execute());
 
   await whdb.commitWork();
 

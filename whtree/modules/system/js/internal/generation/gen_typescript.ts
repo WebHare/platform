@@ -192,8 +192,14 @@ export async function updateTypeScriptInfrastructure(options?: { verbose?: boole
 
   await updateFile(backendConfig.dataRoot + "eslint.config.mjs",
     `import { relaxedConfig } from "@webhare/eslint-config";
-export default relaxedConfig;
-`);
+export default [...relaxedConfig, {
+  name: "WebHare whdata settings",
+  files: ["config/**/*.ts"],
+  linterOptions: {
+    //we want eslint to spot issues in config files - but they disable a few warnings by default and that otherwise triggers more warnings:
+    reportUnusedDisableDirectives: "off"
+  }
+}];`);
 
   /* When runnning `npm install` in the dataroot or a subdirectory (without its own package.json),
      npm will use the node_modules in the dataroot to place the new packages. It will then happily
