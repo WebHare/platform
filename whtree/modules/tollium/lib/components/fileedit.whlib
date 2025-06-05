@@ -133,7 +133,7 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
     IF (NOT RecordExists(this->pvt_fileinfo) OR NOT this->AllowExternalUpdates())
       RETURN; // No file to remove
 
-    IF (this->owner->RunMessageBox("tollium:commondialogs.remove_file_confirmation", "") = "yes")
+    IF (this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.remove_file_confirmation")) = "yes")
     {
       this->value := DEFAULT RECORD;
       IF (this->onchange != DEFAULT FUNCTION PTR)
@@ -269,4 +269,3 @@ PUBLIC OBJECTTYPE FileEdit EXTEND TolliumFragmentBase
   }
 
 >;
-

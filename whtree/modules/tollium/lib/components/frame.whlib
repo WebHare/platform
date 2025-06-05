@@ -611,7 +611,7 @@ PUBLIC OBJECTTYPE TolliumFrame EXTEND TolliumComponentBase
       CASE "typeerror"
       {
         //ADDME: Maybe a more user-friendly way to handle this situation than just giving an error message?
-        this->owner->RunMessageBox("tollium:commondialogs.wrong_file_type", uploaddialog->error_file.filename, "1");
+        this->owner->RunSimpleScreen("error", GetTid("tollium:commondialogs.messageboxes.wrong_file_type", uploaddialog->error_file.filename, "1"));
       }
     }
     RETURN DEFAULT RECORD ARRAY;

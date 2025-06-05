@@ -458,7 +458,7 @@ PUBLIC OBJECTTYPE TolliumImgEdit EXTEND TolliumFragmentBase
   // 'clear' button action callback
   MACRO ClearImage()
   {
-    IF (RecordExists(this->value) AND this->owner->RunMessageBox("tollium:commondialogs.remove_image_confirmation") = "yes")
+    IF (RecordExists(this->value) AND this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.remove_image_confirmation")) = "yes")
     {
       this->value := DEFAULT RECORD;
       IF (this->onchange != DEFAULT FUNCTION PTR)

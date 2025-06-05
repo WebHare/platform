@@ -366,7 +366,7 @@ PUBLIC OBJECTTYPE TolliumImageEdit EXTEND TolliumPanel
     IF (NOT RecordExists(this->img->value) OR NOT this->AllowExternalUpdates())
       RETURN; // No image to remove
 
-    IF (this->owner->RunMessageBox("tollium:commondialogs.remove_image_confirmation", "") = "yes")
+    IF (this->owner->RunSimpleScreen("confirm", GetTid("tollium:commondialogs.messageboxes.remove_image_confirmation")) = "yes")
     {
       this->img->value := DEFAULT RECORD;
       this->orgval := DEFAULT RECORD;

@@ -977,7 +977,7 @@ PUBLIC OBJECT ASYNC FUNCTION ExpectAndAnswerMessageBox(STRING answer, MACRO PTR 
 */
 PUBLIC OBJECT FUNCTION ExpectWorkErrors(MACRO PTR call, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  INSERT CELL namemask := "mod::tollium/screens/commondialogs.xml#errors" INTO options;
+  INSERT CELL namemask := "ShowMessageBox" INTO options;
   RETURN ExpectAndAnswerMessageBox("ok", call, options);
 }
 

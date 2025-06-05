@@ -26,7 +26,7 @@ INTEGER screencounter;
 //ADDME MOve to separate file
 MACRO Builtin_NotImplemented(OBJECT screen)
 {
-  screen->RunMessageBox("tollium:commondialogs.notimplemented");
+  screen->RunSimpleScreen("info", GetTid("tollium:commondialogs.messageboxes.notimplemented"));
 }
 
 STRING FUNCTION FixupLocalTid(STRING localtid)
@@ -48,9 +48,9 @@ PUBLIC OBJECTTYPE TolliumScope
   {
     //ADDME cleaner?
     IF(this EXTENDSFROM TolliumScreenBase)
-      this->RunMessageBox("tollium:commondialogs.notimplemented");
+      this->RunSimpleScreen("info", GetTid("tollium:commondialogs.messageboxes.notimplemented"));
     ELSE
-      this->owner->RunMessageBox("tollium:commondialogs.notimplemented");
+      this->owner->RunSimpleScreen("info", GetTid("tollium:commondialogs.messageboxes.notimplemented"));
   }
 
   PUBLIC RECORD FUNCTION __tolliumscope_lookuphandler(STRING handlername)

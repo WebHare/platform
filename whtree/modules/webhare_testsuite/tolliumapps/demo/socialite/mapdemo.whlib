@@ -130,7 +130,7 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase
     {
       RECORD placemark := this->GetLocation(this->query->value);
       IF (NOT RecordExists(placemark))
-        this->RunMessageBox("tollium:commondialogs.showmessage", "Geen resultaten gevonden");
+        this->RunSimpleScreen("info", "Geen resultaten gevonden");
       ELSE
       {
         INSERT [ rowkey := this->GetRowkey()
@@ -455,9 +455,9 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase
     this->editroute->enabled := RecordExists(this->directions);
 
     IF (RecordExists(this->directions))
-      this->RunMessageBox("tollium:commondialogs.showmessage", "Er is een route gevonden van " || (this->directions.distance / 1000) || "." || ((this->directions.distance % 1000) / 100) || " km (" || this->tolliumuser->FormatTimespan(0, this->directions.duration * 1000) || ").");
+      this->RunSimpleScreen("info", "Er is een route gevonden van " || (this->directions.distance / 1000) || "." || ((this->directions.distance % 1000) / 100) || " km (" || this->tolliumuser->FormatTimespan(0, this->directions.duration * 1000) || ").");
     ELSE
-      this->RunMessageBox("tollium:commondialogs.showmessage", "Er is geen route gevonden: " || status);
+      this->RunSimpleScreen("info", "Er is geen route gevonden: " || status);
   }
 
   RECORD FUNCTION GetLocation(STRING query)

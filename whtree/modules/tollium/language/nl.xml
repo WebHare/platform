@@ -370,7 +370,6 @@
       <text tid="additionaltitle">Aanvullende informatie</text>
       <text tid="description">Gegevens over de fout</text>
       <text tid="email">Rapporteer deze fout</text>
-      <text tid="emailsent">Het rapport is succesvol verzonden</text>
       <text tid="exception">De applicatie is afgesloten omdat een overwachte fout opgetreden is.</text>
       <text tid="explainadditional">U kunt hier aanvullende informatie opgeven, zoals welke handeling u uitvoerde toen de fout is opgetreden. Deze informatie kan helpen bij het oplossen van het probleem. Het is niet verplicht deze informatie door te geven.</text>
       <text tid="title">Er is een fout opgetreden in de applicatie</text>
@@ -398,17 +397,13 @@
       <text tid="addedtostartmenu">Het item is toegevoegd aan de favorieten in uw startmenu.<br/><br/>U kunt uw favorieten beheren via uw Persoonlijke Instellingen - deze vindt u door onder in het startmenu op uw gebruikersnaam te klikken.</text>
       <text tid="alreadyaddedtostartmenu">Dit item is al aan de favorieten toegevoegd.</text>
       <text tid="applaunchfailure">De applicatie '<param p="1"/>' kon niet opgestart worden</text>
-      <text tid="confirmclearcontents">Weet u zeker dat u alle inhoud wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
       <text tid="confirmclearformatting">Weet u zeker dat u alle opmaak wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
       <text tid="confirmdeleteembeddedobject">Weet u zeker dat u dit ingevoegde object wilt verwijderen?<br/><br/>Deze operatie kan niet ongedaan gemaakt worden.</text>
       <text tid="confirmrowdeletion">Weet u zeker dat u het geselecteerde wilt verwijderen?</text>
-      <text tid="errors"><param p="1"/></text>
       <text tid="notimplemented">Deze optie is nog niet geïmplementeerd</text>
       <text tid="remove_file_confirmation">Weet u zeker dat u het bestand wilt verwijderen?</text>
       <text tid="remove_image_confirmation">Weet u zeker dat u de afbeelding wilt verwijderen?</text>
-      <text tid="showmessage"><param p="1"/></text>
       <text tid="some_wrong_file_type">Sommige van de bestanden (<param p="1"/>) zijn van het verkeerde bestandstype. Wilt u de bestanden met het correcte bestandstype (<param p="2"/>) nog plaatsen?</text>
-      <text tid="warnings"><param p="1"/></text>
       <text tid="webhareclosedformaintenance">WebHare is gesloten voor onderhoud. Probeer het later a.u.b. nogmaals.  <br/><br/>Onze verontschuldigingen voor het ongemak.</text>
       <text tid="wrong_file_type"><ifparam p="2" value="1">Het geplaatste bestand '<param p="1"/>' is van het verkeerde bestandstype.<else/>De geplaatste bestanden '<param p="1"/>' hebben allen het verkeerde bestandstype.</ifparam></text>
     </textgroup>
@@ -542,21 +537,6 @@
         <text tid="smartcrop">Automatisch bijsnijden</text>
         <text tid="title">Afbeelding bewerken</text>
       </textgroup>
-      <textgroup gid="filters">   <!-- components.imgedit.filters -->
-        <text tid="autocontrast">Automatisch contrast</text>
-        <text tid="blue">Blauw</text>
-        <text tid="blur">Vager maken</text>
-        <text tid="brightness">Helderheid</text>
-        <text tid="brightnesscontrast">Helderheid en contrast</text>
-        <text tid="coloradjust">Kleuren aanpassen</text>
-        <text tid="contrast">Contrast</text>
-        <text tid="green">Groen</text>
-        <text tid="level">Niveau</text>
-        <text tid="posterize">Kleuren beperken</text>
-        <text tid="preview">Voorvertoning</text>
-        <text tid="radius">Radius</text>
-        <text tid="red">Rood</text>
-      </textgroup>
       <textgroup gid="hints">   <!-- components.imgedit.hints -->
         <text tid="add_image">Een afbeelding uploaden</text>
         <text tid="save_image">Afbeelding opslaan</text>
@@ -677,36 +657,8 @@
       <text tid="title">Feedback</text>
     </textgroup>
     <textgroup gid="login">   <!-- shell.login -->
-      <text tid="apptitle">WebHare</text>
-      <text tid="cancel">Annuleren</text>
-      <text tid="closedlogin">Het is momenteel niet mogelijk in te loggen. Probeer het later nog eens.</text>
-      <text tid="disabledlogin">Inloggen mislukt: dit account is niet actief</text>
-      <text tid="enterauthenticatorcode">Voer uw inlogcode in</text>
-      <text tid="enterbackupcode">Te veel incorrecte codes ingevoerd, voer een backup code in</text>
-      <text tid="enterusernameandpassword">Vult u a.u.b. uw gebruikersnaam en wachtwoord in.</text>
-      <text tid="forgotpassword">Wachtwoord vergeten</text>
-      <text tid="genericerror">Er is een fout opgetreden, probeer het a.u.b. opnieuw. Als de fout blijft optreden, neem dan contact op met uw systeembeheerder.</text>
-      <text tid="infotitle">Belangrijke informatie</text>
-      <text tid="invaliddata">Uw inlogsessie is verlopen, log a.u.b. opnieuw in</text>
-      <text tid="invalidlogin">U heeft een ongeldige gebruikersnaam en/of wachtwoord ingevoerd. Probeert u het a.u.b. opnieuw.</text>
-      <text tid="loginbutton">Inloggen</text>
-      <text tid="loginidentityservices">Inloggen met identiteitsservices</text>
-      <text tid="loginsecondfactor">Tweede factor inlog</text>
-      <text tid="logintitle">Inloggen</text>
-      <text tid="loginwithwebhareaccount">Inloggen met een WebHare account</text>
-      <text tid="musteditauthsettings">Uw authenticatie-instellingen moeten worden aangepast voordat u verder gaat.</text>
       <text tid="notloggedin">U lijkt niet meer ingelogd te zijn. Mogelijk moet u deze pagina opnieuw inladen om weer in te loggen.</text>
-      <text tid="nowebhareaccount">Er is geen gekoppeld WebHare account gevonden. Neem contact op met uw systeembeheerder.</text>
-      <text tid="password">Wachtwoord</text>
-      <text tid="savelogin">Onthoud mij</text>
-      <text tid="secondfactorauthentication">Tweede factor inlog</text>
-      <text tid="totpattemptsleft">Voer uw inlogcode in (u heeft nog <param p="1"/> pogingen over)</text>
-      <text tid="totpcode">Eenmalige toegangscode</text>
-      <text tid="totpinvalidcode">Dit is geen geldige code</text>
-      <text tid="totplocked">Te veel ongeldige codes ingevoerd, u moet nu een backup code invoeren om in te loggen</text>
-      <text tid="totpreusedcode">Deze code is al gebruikt om in te loggen, wacht tot de volgende code beschikbaar is voordat u het opnieuw probeert.</text>
       <text tid="unexpectedprotocolversion">Het lijkt erop dat uw browser een verouderde versie van deze webpagina heeft ingeladen. Probeer Shift-F5 (of Shift-Cmd-R op een Mac of Alt-Cmd-R in Safari) om deze pagina opnieuw in te laden.<br/><br/>Mocht dit niet werken probeer dan uw browser opnieuw te starten.</text>
-      <text tid="username">Gebruikersnaam</text>
     </textgroup>
     <textgroup gid="logout">   <!-- shell.logout -->
       <text tid="surelogout">Weet u zeker dat u wilt uitloggen?</text>
