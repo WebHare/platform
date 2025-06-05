@@ -79,8 +79,8 @@ class DashboardApp {
     this.app.updateApplicationProperties({
       title: getTid("tollium:shell.dashboard.apptitle"),
       appicon: 'tollium:objects/webhare',
-      appiconwidth: 28,
-      appiconheight: 28,
+      appiconwidth: 24,
+      appiconheight: 24,
       tabmodifier: 'dashboard'
     });
     this.updateShellSettings();

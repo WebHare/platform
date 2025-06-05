@@ -196,6 +196,7 @@
   left: 0px;
   position: absolute;
   width: 313px;
+  z-index:1; /* ensure logout button is reachable on small widths, otherwise news will overlap */
 }
 
 #dashboard-user

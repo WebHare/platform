@@ -168,3 +168,35 @@ header div.navlevel nav li a.selected
   pointer-events: none;
   overflow: hidden;
 }
+
+.wh-backend__appbar {
+  html:not(:has(.wh-wrdauth-form)) & {
+    display: none;
+  }
+
+  height: 36px;
+  background-color:var(--tollium-background-apps);
+  width:100%;
+  grid-column: 1 / span 3;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 1px 11px 0 12px;
+
+  &__logo {
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    font-size: 13px;
+    opacity: 0.3;
+
+    img {
+      flex: none;
+      width: 24px;
+      height: auto;
+      vertical-align: bottom;
+      margin-right: 5px;
+      margin-top:-1px;
+    }
+  }
+}
