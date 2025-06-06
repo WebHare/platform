@@ -34,7 +34,7 @@ declare module "@webhare/frontend" {
 declare global {
   interface Window {
     $wh$legacyAuthProvider: WRDAuthenticationProvider;
-    triggerWebHareSSO?: (tag: string) => Promise<void>;
+    triggerWebHareSSO?: (tag: string, options?: SSOLoginOptions) => Promise<void>;
   }
 }
 
