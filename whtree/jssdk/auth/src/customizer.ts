@@ -1,6 +1,7 @@
 import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
 import type { NavigateInstruction } from "@webhare/env";
 import type { WRDSchema } from "@webhare/wrd";
+import type { LoginErrorCode } from "./shared";
 
 export type JWTPayload = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- like JwtPayload did. At most we could pick a JSON-Serializable type?
@@ -106,15 +107,10 @@ export interface OpenIdRequestParameters<S extends SchemaTypeDefinition = AnySch
 
 export type ReportedUserInfo = Record<string, unknown> & { error?: never };
 
-/** Login failure reasons that can also be used by custom isLoginDenied checks */
-export type LoginErrorCodes = "internal-error" | "incorrect-login-password" | "incorrect-email-password" | "account-disabled" | "unknown-account" | "require-external-login";
-
-/** Login reasons that require further client side work but are not errors per-se */
-export type LoginIncompleteCodes = "totp" | "incomplete-account";
 
 export type LoginDeniedInfo = {
   error: string;
-  code: LoginErrorCodes;
+  code: LoginErrorCode;
 };
 
 export interface AuthCustomizer<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {

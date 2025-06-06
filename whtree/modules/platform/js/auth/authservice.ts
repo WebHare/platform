@@ -5,10 +5,9 @@ import { importJSObject } from "@webhare/services";
 import { stringify, throwError } from "@webhare/std";
 import { WRDSchema } from "@webhare/wrd";
 import { writeAuthAuditEvent, type AuthAuditContext, type AuthCustomizer, type LoginErrorCodes } from "@webhare/auth";
-import { hashSHA256, IdentityProvider, type LoginRemoteOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
-import type { FrontendLoginResult } from "./openid";
+import { hashSHA256, IdentityProvider, type LoginOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
-import { PublicCookieSuffix } from "@webhare/auth/src/shared";
+import { PublicCookieSuffix, type LoginResult } from "@webhare/auth/src/shared";
 import { prepAuth } from "@webhare/auth/src/support";
 import { getTid } from "@webhare/gettid";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -98,7 +97,7 @@ export function mapLoginError(code: LoginErrorCodes, langCode?: string): string 
 }
 
 export const authService = {
-  async login(context: RPCContext, username: string, password: string, cookieName: string, browserTriplet: string, loginOptions?: LoginRemoteOptions): Promise<FrontendLoginResult> {
+  async login(context: RPCContext, username: string, password: string, cookieName: string, browserTriplet: string, loginOptions?: LoginOptions): Promise<LoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
     const prepped = await prepAuth(originUrl, cookieName);
     if ("error" in prepped)
@@ -113,6 +112,7 @@ export const authService = {
       loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo || originUrl },
       tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });
+    console.error(loginOptions, response);
 
     if (response.loggedIn === false)
       if ("code" in response)
@@ -120,10 +120,10 @@ export const authService = {
       else
         return response;
 
-    if ("setAuth" in response)
+    if (response.setAuth)
       doLoginHeaders(response.setAuth, context.responseHeaders);
 
-    return { loggedIn: true };
+    return { loggedIn: true, navigateTo: response.navigateTo };
   },
 
   /** Logout current user, reset session

@@ -20,7 +20,10 @@
   [/if]
   [if bobimagelink]<div id="bobimagelink">[bobimagelink.link]</div>[/if]
   [if wrdauthplugin]
-    <div id="wrdauthplugin"><a id="logoutlink" href="[logoutlink]">Logoutlink</a></div>
+    <div id="wrdauthplugin">
+      <a id="logoutlink" href="[logoutlink]">Logoutlink</a>
+      <a href="[siteroot]testpages/wrdauthtest/" class="wh-wrdauth__logout">Logout to wrdauthtest</a>
+    </div>
   [/if]
   [if comments]<div id="comments">[comments]</div>[/if]
   [if sharedblocks]<div id="sharedblocks">[forevery sharedblocks]<div class="basetest__sharedblock">[sharedblocks]</div>[/forevery]</div>[/if]

@@ -11,7 +11,7 @@ import { closeServerSession, createServerSession, decryptForThisServer, encryptF
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
 import { defaultDateTime } from "@webhare/hscompat";
-import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginErrorCodes, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
+import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
@@ -21,7 +21,7 @@ import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/au
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
-import { getCompleteAccountNavigation, type LoginTweaks } from "./shared";
+import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
 import { returnHeaders, type HSHeaders } from "@mod-platform/js/auth/harescript";
 import { AuthenticationSettings } from "@webhare/wrd";
 
@@ -110,7 +110,7 @@ export type FrontendLoginRequest = {
   login: string;
   password: string;
   customizer?: AuthCustomizer;
-  loginOptions?: LoginRemoteOptions;
+  loginOptions?: LoginOptions;
   tokenOptions: AuthTokenOptions & { authAuditContext: { clientIp: string; browserTriplet: string } }; //some auditfields are required coming from the frontend
 };
 
@@ -123,7 +123,7 @@ export type FirstPartyToken = {
   expires: Temporal.Instant | null;
 };
 
-export interface LoginRemoteOptions extends LoginUsernameLookupOptions, LoginTweaks {
+export interface LoginOptions extends LoginUsernameLookupOptions, LoginTweaks {
   /** Request a persistent login */
   persistent?: boolean;
   /** Return url */
@@ -137,16 +137,7 @@ type TokenResponse = {
   expires_in?: number;
 };
 
-export type FrontendAuthResult = {
-  loggedIn: true;
-  setAuth: SetAuthCookies;
-} | {
-  loggedIn: false;
-  navigateTo: NavigateInstruction;
-} | {
-  loggedIn: false;
-  code: LoginErrorCodes;
-};
+export type FrontendAuthResult = LoginResult & { setAuth?: SetAuthCookies };
 
 const validCodeChallengeMethods = ["plain", "S256"] as const;
 export type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
@@ -927,7 +918,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return user || null;
   }
 
-  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, userCode: LoginErrorCodes, logCode?: LoginErrorCodes): Promise<FrontendAuthResult> {
+  async returnLoginFail(request: FrontendLoginRequest, userid: number | null, userCode: LoginErrorCode, logCode?: LoginErrorCode): Promise<FrontendAuthResult> {
     await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
       type: "platform:login-failed",
       entity: userid,
@@ -1048,6 +1039,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       loggedIn: true,
       setAuth: await prepCookies(authsettings, prepped, userid, prepOptions),
+      navigateTo: { type: "redirect", url: request.loginOptions?.returnTo || request.targetUrl },
     };
   }
 

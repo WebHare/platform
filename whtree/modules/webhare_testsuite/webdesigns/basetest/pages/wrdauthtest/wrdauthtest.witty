@@ -42,6 +42,11 @@
             <form id="loginform" class="wh-wrdauth__loginform" autocomplete="off" method="POST">
               <input name="login" id="login" placeholder="login"><br>
               <input name="password" id="password" placeholder="password" type="password"><br>
+              Redirect to:
+                <label><input id="returnto_here" name="returnto" type="radio" value="" checked/>here</label>
+                <label><input id="returnto_postlogin" name="returnto" type="radio" value="?postlogin" />?postlogin</label>
+                <label><input id="returnto_staticpage" name="returnto" type="radio" value="[siteroot]TestPages/staticpage-en-gb" />TestPages/staticpage-en-gb</label>
+                <br>
               <input type="submit" id="loginbutton" value="Login">
             </form>
             <div id="loginform_response"></div>

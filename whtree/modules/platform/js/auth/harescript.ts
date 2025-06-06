@@ -84,9 +84,9 @@ export async function login(targetUrl: string, username: string, password: strin
 
   return {
     loggedIn: true,
-    headers: returnHeaders(hdrs => doLoginHeaders(response.setAuth, hdrs)),
+    headers: response.setAuth ? returnHeaders(hdrs => doLoginHeaders(response.setAuth!, hdrs)) : [],
     navigateTo: { type: "reload" },
-    user: response.setAuth.userId
+    user: response.setAuth?.userId || 0
   };
 }
 
