@@ -457,16 +457,6 @@ case $INSTR in
     fi
     ;;
 
-  "terminate")
-    check_webhare_running
-    kill `pgrep -f $WEBHARE_DIR/bin`
-    ;;
-
-  "kill")
-    check_webhare_running
-    kill -9 `pgrep -f $WEBHARE_DIR/bin`
-    ;;
-
   "activity")
     getlog LOGFILE access
     cut -d' ' -f4 -- "$LOGFILE" | cut -d':' -f2,3 | sort | uniq -c

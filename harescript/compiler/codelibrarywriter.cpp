@@ -45,7 +45,7 @@ uint32_t getdword(std::vector<uint8_t> &code, unsigned at)
 std::string EncodeJSONString(std::string const &str)
 {
         std::string retval = "\"";
-        Blex::EncodeJava(str.begin(), str.end(), std::back_inserter(retval));
+        Blex::EncodeJSON(str.begin(), str.end(), std::back_inserter(retval));
         return retval + "\"";
 }
 

@@ -62,13 +62,16 @@ load_postgres_settings()
   export PSNAME PSROOT RUNAS PGVERSION WEBHARE_PGBIN
 }
 
-function generate_config_file()
-{
+function generate_config_file() {
   if [ -z "$WEBHARE_PGCONFIGFILE" ]; then
-    if [ -n "$WEBHARE_IN_DOCKER" ]; then
-      WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-docker.conf"
+    if [ -z "$WEBHARE_POSTGRES_OPENPORT" ] && [ -n "$WEBHARE_IN_DOCKER" ]; then  # In Docker, we always open the port
+      WEBHARE_POSTGRES_OPENPORT=1
+    fi
+
+    if [ -n "$WEBHARE_POSTGRES_OPENPORT" ] ; then
+      WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-openport.conf"
     else
-      WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-sourceinstall.conf"
+      WEBHARE_PGCONFIGFILE="${BASH_SOURCE%/*}/../etc/postgresql-unixonly.conf"
     fi
  fi
 

@@ -21,6 +21,9 @@ The base port number for various connections. If not set, assumed to be 13679. T
 - `+7` (13686) - Used to connnect to chrome headless runner
 - `+8` (13687) - Reserved for OpenSearch dashboard (WebHare runkit)
 
+### WEBHARE_POSTGRES_OPENPORT
+If set allows TCP access to PostgeSQL on the port 'baseport + 8', usually 13687.
+
 ### WEBHARE_DTAPSTAGE
 Lock the DTAP stage. Must be one of 'production', 'acceptance', 'test' or 'development'. If not set, configurable in WebHare.
 

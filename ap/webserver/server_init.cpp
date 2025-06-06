@@ -90,7 +90,7 @@ struct LogLineBuilder
         void AppendQuotedString(std::string::const_iterator const &start, std::string::const_iterator const &end)
         {
                 data.push_back('"');
-                Blex::EncodeJava(start, end, std::back_inserter(data));
+                Blex::EncodeJSON(start, end, std::back_inserter(data));
                 data.push_back('"');
         }
         void AppendQuotedString(std::string const &value, unsigned maxlen)
