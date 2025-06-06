@@ -5,9 +5,10 @@ import * as dompack from 'dompack';
 import * as domevents from '../src/events';
 import * as domfocus from "../browserfix/focus";
 import { getName, getPlatform } from "../extra/browser";
-import { qSA } from '@webhare/test-frontend';
+import { findElement, qSA } from '@webhare/test-frontend';
 import { SimulatedFileSystemFileEntry, type RawDragItem } from './filesystem';
 import { getRelativeBounds } from "@webhare/dompack";
+import type { Selector } from '@mod-tollium/js/testframework';
 
 const default_mousestate =
 {
@@ -520,6 +521,16 @@ function _processPartPositionTarget(part: MouseGesture) {
 
 
 export function _resolveToSingleElement(element: ValidElementTarget): HTMLElement {
+  if (Array.isArray(element)) {
+    //This is a SelectorPart[]
+    const match = findElement(element);
+    if (!match) {
+      console.error("No element matches selector:", element);
+      throw new Error("No element matches selector");
+    }
+    return match;
+  }
+
   if (element instanceof NodeList) {
     if (element.length === 0)
       throw new Error("Passed an empty $$()");
@@ -1209,7 +1220,7 @@ function fireMouseEvent(eventtype: string, cx: number, cy: number, el: Element, 
 export interface CastableToElement {
   [toElement]: () => Element;
 };
-export type ValidElementTarget = Element | string;
+export type ValidElementTarget = Element | string | SelectorPart[];
 export type ElementTargetOptions = {
   /** X coordinate to target. A number is interpreted as a pixel coordinate relative tot the top left corner, a string is interpreted as a percentage of the full width. If not set, defaults to 50% */
   x?: number | string;
