@@ -2418,21 +2418,6 @@ template < std::back_insert_iterator<Blex::PodVector<char> > (*codefunc)(char co
 
 void InitStrings(BuiltinFunctionsRegistrator &bifreg)
 {
-        /* ADDME: is there a workaround to make this code work?
-         *
-
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEHTML",HarescriptCodeFunc< Blex::EncodeHtml<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEJAVA",HarescriptCodeFunc< Blex::EncodeJava<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEURL",HarescriptCodeFunc< Blex::EncodeUrl<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEVALUE",HarescriptCodeFunc< Blex::EncodeValue<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ENCODEBASE16",HarescriptCodeFunc< Blex::EncodeBase16<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEHTML",HarescriptCodeFunc< Blex::DecodeHtml<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEJAVA",HarescriptCodeFunc< Blex::DecodeJava<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEURL",HarescriptCodeFunc< Blex::DecodeUrl<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEVALUE",HarescriptCodeFunc< Blex::DecodeValue<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DECODEBASE16",HarescriptCodeFunc< Blex::DecodeBase16<char const*, std::back_insert_iterator<std::vector<char> > > >));
-        */
-
         BuiltinFunctionPtr he = HarescriptCodeFunc< Blex::EncodeHtml<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr tne = HarescriptCodeFunc< Blex::EncodeTextNode<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
         BuiltinFunctionPtr je = HarescriptCodeFunc< Blex::EncodeJava<char const*, std::back_insert_iterator<Blex::PodVector<char> > > >;
