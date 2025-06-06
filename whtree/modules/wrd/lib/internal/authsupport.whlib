@@ -10,11 +10,8 @@ PUBLIC INTEGER FUNCTION LookupMagicSysop(STRING name)
   RETURN SELECT AS INTEGER id FROM system.authobjects WHERE type=1 AND guid = VAR name;
 }
 
-PUBLIC STATIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser
-<
-  MACRO NEW(INTEGER overrideuser)
-  : TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, overrideuser, "<overrideuser>")
-  {
+PUBLIC STATIC OBJECTTYPE TolliumMagicSysopUserObject EXTEND TolliumUser <
+  MACRO NEW(INTEGER overrideuser) : TolliumUser(DEFAULT OBJECT, DEFAULT OBJECT, overrideuser, "<overrideuser>") {
     this->login := "<override-sysop>";
   }
   UPDATE PUBLIC BOOLEAN FUNCTION HasRight(STRING rightname)

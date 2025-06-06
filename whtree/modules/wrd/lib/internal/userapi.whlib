@@ -70,8 +70,8 @@ PUBLIC MACRO ValidateAccountStatus(RECORD status) {
     @topic wrdauth/api
     @public
 */
-STATIC OBJECTTYPE WHUserApi
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WHUserApi <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1186,8 +1186,7 @@ STATIC OBJECTTYPE WHUserApi
       @cell(string) return.impersonatedtitle Logn of the user or title of the role being impersonated
       @cell(string) return.error Failure reason
   */
-  PUBLIC RECORD FUNCTION GetTolliumUserByIdAndImpersonation(INTEGER entityid, STRING openas)
-  {
+  PUBLIC RECORD FUNCTION GetTolliumUserByIdAndImpersonation(INTEGER entityid, STRING openas) {
     RECORD retval := [ impersonatinguser := DEFAULT OBJECT, userobject := DEFAULT OBJECT, isimpersonation := FALSE, impersonatedtitle := "", error := "" ];
     IF (entityid = 0)
       RETURN CELL[ ...retval, error := "entityid=0" ];
@@ -1196,14 +1195,11 @@ STATIC OBJECTTYPE WHUserApi
     INTEGER userid, impersonated_authobject;
     RECORD userinfo;
 
-    IF(entityid = -1)
-    {
+    IF(entityid = -1) {
       userid := LookupMagicSysop("<overrideuser>");
       IF(userid = 0)
         THROW NEW Exception("No overrideuser defined");
-    }
-    ELSE
-    {
+    } ELSE {
       OBJECT accounttype := this->wrdschema->accounttype;
       IF(NOT ObjectExists(accounttype))
         THROW NEW Exception("WRD Schema '" || this->wrdschema->tag || "' hasn't configured an account type");

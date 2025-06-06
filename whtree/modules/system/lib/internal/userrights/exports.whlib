@@ -12,10 +12,6 @@ LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
-CONSTANT INTEGER authobjecttype_user := 1;
-CONSTANT INTEGER authobjecttype_unit := 2;
-CONSTANT INTEGER authobjecttype_role := 3;
-
 RECORD FUNCTION LookupRecord(RECORD ARRAY list, RECORD find, STRING ARRAY sortorder)
 {
   RECORD pos := RecordLowerBound(list, find, sortorder);

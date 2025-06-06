@@ -40,6 +40,9 @@
         <item action="edit" disablemode="hidden" />
       </menu>
     </menus>
+    <compositions>
+      <eventlistener name="listener" onevents="OnUpdateEvent" />
+    </compositions>
     <contents>
       <list name="unitlist"
             borders="all"

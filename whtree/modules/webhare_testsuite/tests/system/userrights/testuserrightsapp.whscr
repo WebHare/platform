@@ -50,7 +50,7 @@ ASYNC MACRO Setup()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   //Add a user
-  AWAIT ExpectScreenChange(+1, PTR TT("unitcontents->newuser")->TolliumClick);
+  AWAIT ExpectScreenChange(+1, PTR TTClick("unitcontents->newuser"));
 
   TT("username")->value := "bart@example.net";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));

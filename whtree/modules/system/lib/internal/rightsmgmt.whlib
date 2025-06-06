@@ -11,6 +11,9 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 LOADLIB "mod::system/lib/internal/userrights/dbmgmt.whlib";
 
+PUBLIC CONSTANT INTEGER authobjecttype_user := 1;
+PUBLIC CONSTANT INTEGER authobjecttype_unit := 2;
+PUBLIC CONSTANT INTEGER authobjecttype_role := 3;
 
 /*  Rights management library, version 2.
 
@@ -985,8 +988,8 @@ STATIC OBJECTTYPE AuthObject
 /** Base object for querying rights
     This object can be queried if it has a right, and may be granted rights (when overridden)
 */
-STATIC OBJECTTYPE RightsObject EXTEND AuthObject
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE RightsObject EXTEND AuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1609,8 +1612,8 @@ STATIC OBJECTTYPE RightsUserObject EXTEND RightsObject
   }
 >;
 
-STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WebhareUnitObject EXTEND AuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //

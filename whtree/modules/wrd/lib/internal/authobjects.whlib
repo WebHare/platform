@@ -16,8 +16,8 @@ PUBLIC STRING FUNCTION CreatePasswordId(STRING userguid, STRING inpassword)
   RETURN Left(EncodeUFS(GetMD5Hash(userguid || inpassword)),4);
 }
 
-PUBLIC STATIC OBJECTTYPE WRDAuthObject
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE WRDAuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -66,8 +66,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthObject
   // Constructor
   //
 
-  MACRO NEW(OBJECT authapi, OBJECT entity)
-  {
+  MACRO NEW(OBJECT authapi, OBJECT entity) {
     this->pvt_authapi := authapi;
     this->pvt_entity := entity;
   }
@@ -426,8 +425,8 @@ PUBLIC OBJECTTYPE WRDAuthUnit EXTEND WRDAuthObject
   //
 >;
 
-PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject
-< // ---------------------------------------------------------------------------
+PUBLIC OBJECTTYPE WRDAuthUser EXTEND WRDAuthObject <
+  // ---------------------------------------------------------------------------
   //
   // Public properties
   //
