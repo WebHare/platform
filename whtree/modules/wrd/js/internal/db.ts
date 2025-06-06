@@ -91,6 +91,15 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   return attrs;
 }
 
+export async function schemaExists(tag: string): Promise<boolean> {
+  const schema = await db<PlatformDB>()
+    .selectFrom("wrd.schemas")
+    .select(["id"]) //we need to select *something* or the PG/Kysely integration goes boom
+    .where("name", "=", tag)
+    .executeTakeFirst();
+  return Boolean(schema);
+}
+
 export async function getSchemaData(tag: string): Promise<SchemaData> {
   let schemaquery = db<PlatformDB>()
     .selectFrom("wrd.schemas")

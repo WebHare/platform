@@ -5,7 +5,7 @@ export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
 import { tagToHS, tagToJS, type WRDAttributeConfiguration, type WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
-import { getSchemaData, type SchemaData } from "./db";
+import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
@@ -352,19 +352,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async __getTypeTag(type: number): Promise<string | null> {
-    const typelist = await this.__listTypes();
-    const match = typelist.find(t => t.id === type);
-    return match ? tagToJS(match.tag) : null;
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeIdMap.get(type)?.tag ?? null;
   }
 
   async __listTypes() {
-    const schemaobj = await this.getWRDSchema();
-    return await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeIdMap.entries().map(([id, tag]) => ({ id, tag }));
   }
 
   /** Test whether a type exists in this schema */
   async hasType(tag: string): Promise<boolean> {
-    return Boolean((await this.__listTypes()).find(_ => tagToJS(_.tag) === tag));
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeTagMap.has(tag);
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {
@@ -390,12 +390,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
   /** Test whether this schema actually exists in the database */
   async exists(): Promise<boolean> {
-    try {
-      await this.getWRDSchema(); //FIXME Don't trigger stacktracing just to test for existence
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return schemaExists(this.tag);
   }
 
   async[getWRDSchemaType](type: string, allowMissingType: true): Promise<HSVMObject | null>;
