@@ -152,7 +152,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
 
   UPDATE MACRO PreInitComponent()
   {
-    ^listener->masks := this->contexts->userapi->wrdschema->^whuser_unit->GetEventMasks();
+    ^listener->masks := this->contexts->userapi->wrdschema->^whuser_unit->GetEventMasks() CONCAT ["system:rights.change"];
 
     this->ReloadList();
 
