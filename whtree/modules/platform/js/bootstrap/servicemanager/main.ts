@@ -200,9 +200,11 @@ class ProcessManager {
   }
 
   processExit(exitCode: number | null, signal: string | null, error: Error | null) {
-    for (const stream of ["stdout", "stderr"] as const)
+    for (const stream of ["stdout", "stderr"] as const) {
       if (this[stream])
         this.renderOutput(stream, [this[stream]]);
+      this.process?.[stream]?.destroy(); //prevent the streams from keeping us alive (ie if something forked off them keeping the FD open)
+    }
 
     if (this.killTimeout)
       clearTimeout(this.killTimeout);
