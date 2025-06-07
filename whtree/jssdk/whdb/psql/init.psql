@@ -1,0 +1,5 @@
+/* Initialize the 'webhare' database */
+CREATE USER root WITH SUPERUSER;
+CREATE DATABASE webhare WITH OWNER root;
+GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;
+GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;

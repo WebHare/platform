@@ -53,7 +53,9 @@ fi
       openssl req -new -x509 -days 365 -nodes -text -out server.crt -keyout server.key -subj "/CN=my.webhare.dev" -batch
     fi
     chmod 600 server.key #because the server will reject the file if its permissions are more liberal than this
-    [ -n "$WEBHARE_IN_DOCKER" ] && chown postgres:whdata server.key
+    if [ -n "$WEBHARE_IN_DOCKER" ]; then
+      chown postgres:whdata server.key
+    fi
   fi
 ) # exit PSROOT/db
 

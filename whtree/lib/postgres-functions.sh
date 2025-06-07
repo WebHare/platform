@@ -82,9 +82,10 @@ function generate_config_file() {
   fi
 }
 
+
 init_webhare_pg_db()
 {
-  local DATAROOTDIR PGBINDIR
+  local DATAROOTDIR PGBINDIR rc
 
   DATAROOTDIR="$1"
   PGBINDIR="$2"
@@ -107,22 +108,30 @@ init_webhare_pg_db()
   # Set the configuration file
   generate_config_file > "$DATAROOTDIR/postgresql.conf"
 
-  # CREATE DATABASE cannot be combined with other commands
-  # log in to 'postgres' database so we can create our own
-  if ! echo "CREATE DATABASE \"$WEBHARE_DBASENAME\";" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" postgres  >"$LOGFILE" 2>&1 ; then
-    echo DB create db failed
-    cat "$LOGFILE"
-    exit 1
-  fi
-  DOCKERGRANTS=
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    DOCKERGRANTS="GRANT SELECT ON ALL TABLES IN SCHEMA pg_catalog TO root;GRANT SELECT ON ALL TABLES IN SCHEMA information_schema TO root;"
-  fi
-  if ! echo "CREATE USER root;ALTER USER root WITH SUPERUSER;GRANT ALL ON DATABASE \"$WEBHARE_DBASENAME\" TO root;$DOCKERGRANTS" | $RUNAS "$PGBINDIR/postgres" --single -D "$DATAROOTDIR" "$WEBHARE_DBASENAME" >"$LOGFILE" 2>&1 ; then
-    echo DB create user failed
-    cat "$LOGFILE"
-    exit 1
-  fi
+  # Launch the database on a separate port so we can configure it without interference
+  INSTALL_PORT="$(( $PGPORT + 1 ))"
+  pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
+  $RUNAS "$PGBINDIR/postgres"  -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$INSTALL_PORT" -c "ssl=off" -D "$DATAROOTDIR" &
+  POSTMASTER_PID=$!
+  popd
 
+  # Use psql to wait for it to become available
+  until $RUNAS "$PGBINDIR/psql" -U postgres -d postgres -p "$INSTALL_PORT" -c '\q' 2>/dev/null ; do
+    >&2 echo "Postgres is unavailable - sleeping"
+    sleep .2
+  done
+
+  # Bootstrap the database
+  rc=0
+  $RUNAS "$PGBINDIR/psql" -p "$INSTALL_PORT" -U postgres -d postgres -f "$WEBHARE_DIR/jssdk/whdb/psql/init.psql" ; rc=$?
+
+  # Shut it down so we can start a fully configured postgres on its normal port
+  $RUNAS "$PGBINDIR/pg_ctl" -D "$DATAROOTDIR" -m fast stop
+
+  if [ "$rc" != "0" ]; then
+    echo DB bootstrap failed with errorcode $rc
+    cat "$LOGFILE"
+    exit $rc
+  fi
   return 0
 }
