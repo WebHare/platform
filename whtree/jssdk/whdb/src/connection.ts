@@ -111,9 +111,6 @@ function onDebug(evt: PGConnectionDebugEvent) {
 }
 
 export function getPGConnection() {
-  if (!process.env.WEBHARE_BASEPORT)
-    throw new Error("WEBHARE_BASEPORT not set in environment");
-
   const pgclient = new Connection({
     port: parseInt(process.env.PGPORT!) || 5432,
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST),
@@ -135,9 +132,6 @@ export class WHDBPgClient {
   connectpromise: Promise<void>;
 
   constructor() {
-    if (!process.env.WEBHARE_BASEPORT)
-      throw new Error("WEBHARE_BASEPORT not set in environment");
-
     this.pgclient = getPGConnection();
 
     const client = this.pgclient;

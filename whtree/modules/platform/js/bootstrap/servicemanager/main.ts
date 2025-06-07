@@ -562,7 +562,6 @@ async function setConfigAndVersion() {
     ...backendConfig.buildinfo,
     basedataroot: backendConfig.dataRoot,
     installationroot: backendConfig.installationRoot,
-    baseport: fullconfig.baseport,
     moduledirs: fullconfig.modulescandirs,
     docker: Boolean(process.env.WEBHARE_IN_DOCKER),
     versionnum: getVersionInteger(),

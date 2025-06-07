@@ -21,6 +21,7 @@ import type { AttachedIndex, CatalogListEntry, CatalogSuffix } from "./types";
 import { isValidIndexSuffix } from "./support";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getExpectedCatalogs } from "@mod-platform/js/configure/consilio";
+import { getBasePort } from "@webhare/services/src/config";
 
 interface AttachedIndexWithAddress extends AttachedIndex {
   baseurl: string;
@@ -28,7 +29,7 @@ interface AttachedIndexWithAddress extends AttachedIndex {
 }
 
 function getBuiltinOpensearchAddress() {
-  const baseport = parseInt(process.env["WEBHARE_BASEPORT"] || "") || 13679;
+  const baseport = getBasePort();
   const host = process.env["WEBHARE_OPENSEARCH_BINDHOST"] || "127.0.0.1";
   return `http://${host}:${baseport + whconstant_consilio_osportoffset}/`;
 }

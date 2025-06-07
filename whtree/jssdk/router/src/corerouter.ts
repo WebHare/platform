@@ -1,10 +1,11 @@
 import * as whfs from "@webhare/whfs";
 import { type WebHareWHFSRouter, type WebRequest, type WebResponse, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
-import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
 import * as undici from "undici";
 import { importJSFunction } from "@webhare/services";
+import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/internal/webhareconstants";
+import { getBasePort } from "@webhare/services/src/config";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
   const lookupresult = await whfs.lookupURL(url, options);
@@ -27,7 +28,7 @@ export async function lookupPublishedTarget(url: string, options?: whfs.LookupUR
 }
 
 export function getHSWebserverTarget(request: WebRequest) {
-  const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
+  const trustedlocalport = getBasePort() + whconstant_webserver_hstrustedportoffset;
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
   //Convert Request headers to Undici compatible headers, filter out the dangeorus ones
   const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto"].includes(header)));

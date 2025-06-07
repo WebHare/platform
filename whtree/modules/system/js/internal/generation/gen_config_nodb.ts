@@ -16,20 +16,15 @@ export function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
   return ["production", "acceptance", "test", "development"].includes(dtapstage);
 }
 
-type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "buildinfo" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
+type NoDBConfig = Pick<ConfigFile, "modulescandirs"> & { public: Pick<BackendConfiguration, "dataRoot" | "installationRoot" | "module" | "buildinfo" | "dataroot" | "installationroot" | "whVersion"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
 
 type ModuleScanData = ModuleData & { creationdate: Date };
 type ModuleScanMap = Map<string, ModuleScanData>;
 
 export function generateNoDBConfig(): NoDBConfig {
-  let baseport = Number(process.env.WEBHARE_BASEPORT || "0");
   const dataRoot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   const installationRoot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");
 
-  if (baseport === 0)
-    baseport = 13679; //default port, needed for backwards compatibility
-  if (baseport < 1024 || baseport > 65500)
-    throw new Error("Invalid WEBHARE_BASEPORT");
   if (!dataRoot)
     throw new Error("Invalid WEBHARE_DATAROOT");
   if (!installationRoot)
@@ -81,7 +76,6 @@ export function generateNoDBConfig(): NoDBConfig {
 
   const module: ModuleMap = Object.fromEntries([...scanmap.entries()].map(([name, data]) => [name, { root: data.root }]));
   const retval: NoDBConfig = {
-    baseport,
     modulescandirs,
     public: {
       dataRoot: dataRoot,
