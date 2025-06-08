@@ -115,7 +115,7 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
   const type = await db<PlatformDB>().selectFrom("wrd.types").select(["tag"]).where("id", "=", settings.accounttype).executeTakeFirstOrThrow();
   const accountType = tagToJS(type.tag);
   const persontype = wrdschema.getType(accountType);
-  const attrs = await persontype.ensureAttributes();
+  const attrs = await persontype.listAttributes();
 
   const email = attrs.find(_ => _.id === settings.accountemail);
   const login = attrs.find(_ => _.id === settings.accountlogin);
@@ -123,13 +123,13 @@ export async function getAuthSettings<T extends SchemaTypeDefinition>(wrdschema:
 
   return {
     accountType,
-    emailAttribute: email ? tagToJS(email.tag) : null,
-    loginAttribute: login ? tagToJS(login.tag) : null,
+    emailAttribute: email?.tag ?? null,
+    loginAttribute: login?.tag ?? null,
     loginIsEmail: Boolean(email?.id && email?.id === login?.id),
-    passwordAttribute: password ? tagToJS(password.tag) : null,
-    passwordIsAuthSettings: password?.attributetypename === "AUTHENTICATIONSETTINGS",
-    hasAccountStatus: attrs.some(_ => _.tag === "WRDAUTH_ACCOUNT_STATUS"),
-    hasWhuserUnit: attrs.some(_ => _.tag === "WHUSER_UNIT")
+    passwordAttribute: password?.tag ?? null,
+    passwordIsAuthSettings: password?.attributeType === "authenticationSettings",
+    hasAccountStatus: attrs.some(_ => _.tag === "wrdauthAccountStatus"),
+    hasWhuserUnit: attrs.some(_ => _.tag === "whuserUnit")
   };
 }
 

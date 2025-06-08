@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, nextVal } from "@webhare/whdb";
-import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
+import { db, nextVal, sql } from "@webhare/whdb";
+import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
@@ -271,13 +271,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     if (!tag)
       return 0;
 
-    const hstag = tagToHS(tag);
-    const schemaobj = await this.getWRDSchema();
-    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
-    const match = typelist.find(t => t.tag === hstag);
-    if (!match)
+    const schemaData = await this.__ensureSchemaData();
+    const type = schemaData.typeTagMap.get(tag);
+    if (!type)
       throw new Error(`No such type '${tag}' in schema '${this.tag}'`);
-    return match.id;
+    return type.id;
   }
 
 
@@ -560,9 +558,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   schema: WRDSchema<S>;
   tag: T;
 
-  private attrs: null | WRDAttributeConfiguration_HS[] = null;
-  private attrPromise: null | Promise<WRDAttributeConfiguration_HS[]> = null;
-
   constructor(schema: WRDSchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
@@ -585,19 +580,33 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return this.schema[getWRDSchemaType](this.tag, false);
   }
 
-  async ensureAttributes() {
-    if (!this.attrPromise)
-      this.attrPromise = (await this._getType()).listAttributes(0) as Promise<WRDAttributeConfiguration_HS[]>;
+  async listAttributes(parent?: number): Promise<WRDAttributeConfiguration[]> {
+    const schemadata = await this.schema.__ensureSchemaData();
+    const typeRec = schemadata.typeTagMap.get(this.tag);
 
-    const attrs = await this.attrPromise;
-    const genderattr = attrs.find(_ => _.tag === "WRD_GENDER");
-    if (genderattr) { //patch for JS
-      genderattr.attributetypename = "ENUM";
-      genderattr.attributetype = 23;
-      genderattr.allowedvalues = Object.values(WRDGender);
-    }
+    const attrRecs = parent ?
+      typeRec?.parentAttrMap.get(parent) ?? [] :
+      typeRec?.rootAttrMap.values().toArray() ?? [];
 
-    return this.attrs = await this.attrPromise;
+    const extraFields = new Map((await db<PlatformDB>()
+      .selectFrom("wrd.attrs")
+      .select(["id", "title"])
+      .where("id", "=", sql<number>`any(${attrRecs.map(attr => attr.id)})`)
+      .execute()).map(attr => [attr.id, attr]));
+
+    return attrRecs.map((attrRec): WRDAttributeConfiguration => ({
+      id: attrRec.id,
+      tag: attrRec.tag,
+      attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
+      title: extraFields.get(attrRec.id)?.title ?? "",
+      checkLinks: attrRec.checklinks,
+      domain: attrRec.domain ? schemadata.typeIdMap.get(attrRec.domain)?.tag ?? null : null,
+      isUnsafeToCopy: attrRec.isunsafetocopy,
+      isRequired: attrRec.required,
+      isOrdered: attrRec.ordered,
+      isUnique: attrRec.isunique,
+      allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
+    }));
   }
 
   async updateMetadata(newmetadata: Partial<Omit<WRDTypeMetadata, "id" | "metaType">>) {
@@ -624,8 +633,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, WRDUpdatable<S[T]>>, ...options: UpsertOptions<Omit<WRDInsertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
-    if (!this.attrs)
-      await this.ensureAttributes();
     if (Array.isArray(query)) {
       // @ts-expect-error Fallback code for old upsert function signature. remove in WH5.7 or when all modules are updated
       [query, value] = [pick(value, query), omit(value, query)];
@@ -816,6 +823,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
     if (tag === "wrdGender" && this.tag === "wrdPerson")  // HS doesn't fully know wrdGender is an enum in JS
       return {
+        id: 0,
         tag: "wrdGender",
         attributeType: "enum",
         title: '',
@@ -834,7 +842,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       return null;
 
     return {
-      tag: result.tag,
+      id: result.id,
+      tag: tagToJS(result.tag),
       attributeType: WRDAttributeTypes[result.attributetype - 1],
       title: result.title || "",
       checkLinks: result.checklinks,
