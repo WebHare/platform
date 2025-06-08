@@ -112,7 +112,6 @@ export const authService = {
       loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo || originUrl },
       tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });
-    console.error(loginOptions, response);
 
     if (response.loggedIn === false)
       if ("code" in response)

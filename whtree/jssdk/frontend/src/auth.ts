@@ -82,7 +82,6 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
   });
   if (loginresult.loggedIn) {
     refreshLoginStatus();
-    console.error(loginresult, location.href, authOptions);
     if (loginresult.navigateTo.type === "redirect" && loginresult.navigateTo.url.split('#')[0] === location.href.split('#')[0]  //stay on same page
       && authOptions?.onLogin) {
 
@@ -128,8 +127,13 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
   dompack.register('.wh-wrdauth__logout', node => {
     function handleLogoutClick(event: Event) {
       dompack.stop(event);
+
+      //letting rejections escape - our trigger is generally setup in HTML so there's nothing to catch but uncaugh rejection handlers anyway
       if (node instanceof HTMLAnchorElement && node.href && node.href.split('#')[0] !== location.href.split('#')[0]) { //logout link sending you elsewhere
-        void doLogout().then(() => location.href = node.href);
+        void doLogout().then(() => {
+          console.log("Logout complete, redirecting to", node.href);
+          navigateTo({ type: "redirect", url: node.href });
+        });
       } else {
         void logout(); //TODO what if the logout only changed the anchor? but what's the usecase for that?
       }
