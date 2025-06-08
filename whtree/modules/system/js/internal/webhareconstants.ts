@@ -73,6 +73,12 @@ export const whconstant_webservertype_interface = 1;
 //'Webserver' type of a webserver group
 export const whconstant_webservertype_group = 6;
 
+//base port offset for LB trusted port
+export const whconstant_webserver_trustedportoffset = 5;
+
+//base port offset for HS trusted port
+export const whconstant_webserver_hstrustedportoffset = 3;
+
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/normafolder
 export const whconstant_whfstype_normalfolder = 0;
 

@@ -9,7 +9,6 @@ export const defaultShutDownStage = Stage.Terminating;
 /** The WebHare version file contains basic build/runtime info about this installation for use by upgrade scripts, automated checks and other things for the underlying platform */
 export type WebHareVersionFile = {
   basedataroot: string;
-  baseport: number;
   branch: string;
   builddate: string;
   builddatetime: string;

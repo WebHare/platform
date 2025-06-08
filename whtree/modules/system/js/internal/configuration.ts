@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import { updateWebHareConfigWithoutDB } from "./generation/gen_config_nodb";
 import { freezeRecursive } from "./util/algorithms";
-import type { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
+import { type WebHareBackendConfiguration, type ConfigFile, type WebHareConfigFile, getBasePort } from "@webhare/services/src/config";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
@@ -59,12 +59,12 @@ export function getFullConfigFile(): RecursiveReadonly<ConfigFile> {
 
 export function getRescueOrigin() {
   const rescueip = process.env["WEBHARE_RESCUEPORT_BINDIP"] || "127.0.0.1";
-  const rescueport = process.env["WEBHARE_BASEPORT"] || "13679";
+  const rescueport = getBasePort();
   return `http://${rescueip}:${rescueport}`;
 }
 
 export function getCompileServerOrigin() {
-  return `http://127.0.0.1:${getFullConfigFile().baseport + 1}`;
+  return `http://127.0.0.1:${getBasePort() + 1}`;
 }
 
 export function getVersionInteger(): number {

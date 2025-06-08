@@ -94,7 +94,7 @@ fi
 init_webhare_pg_db "$RECREATE_DIR" "$NEWBINDIR"
 
 pushd "${WEBHARE_DIR}/etc/" # this allows PG when running to find the pg_hba-XXX.conf file
-$RUNAS "$NEWBINDIR/postgres" -c "unix_socket_directories=$PGHOST" -c "port=$RECREATE_PORT" -D "${RECREATE_DIR}" &
+$RUNAS "$NEWBINDIR/postgres" -c "listen_addresses=" -c "unix_socket_directories=$PGHOST" -c "port=$RECREATE_PORT" -c "ssl=off" -D "${RECREATE_DIR}" &
 POSTMASTER_PID=$!
 popd
 
