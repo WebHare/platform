@@ -1,7 +1,8 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { getTid } from "@webhare/gettid";
 import { throwError } from "@webhare/std";
-import { db, sql } from "@webhare/whdb";
+import { db } from "@webhare/whdb";
+import { selectFSFullPath, selectFSLink } from "@webhare/whdb/src/functions";
 import { PublishedFlag_Warning, getPrioOrErrorFromPublished, testFlagFromPublished } from "@webhare/whfs/src/support";
 
 /** Get all ids from a specific starting point
@@ -52,8 +53,8 @@ async function listSiteIssues() {
     const mysitefiles = (await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .select(["id", "title", "name", "errordata", "published"])
-      .select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("url"))
-      .select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath"))
+      .select(selectFSLink().as("url"))
+      .select(selectFSFullPath().as("fullpath"))
       .where("id", "in", brokenfiles)
       .execute()).map(file => ({
         ...file,
