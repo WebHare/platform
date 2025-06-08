@@ -491,12 +491,10 @@ async function testLookup() {
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html&param");
-  test.eq(testfolder.id, lookupresult.folder);
-  test.eq(testfile.id, lookupresult.file);
+  // NOTE: ignoring HS edge case where params start with '&' - URL() doesn't recognize that either
 
   // !part ignored?
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!ignored/test.html&param");
+  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!ignored/test.html?param");
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 

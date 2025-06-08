@@ -605,13 +605,22 @@ export function getUnifiedCC(date: Date) {
   return parts.days ^ parts.msecs;
 }
 
-export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
-  if (!fileData.dbLoc)
-    throw new Error("Cannot use toResize on a resource not backed by a supported database location");
-
+export function getUCPacketHash(packet: Uint8Array, useExtension: string): string {
   const key = getFullConfigFile().secrets.cache;
   if (!key)
     throw new Error("No cache secret configured");
+
+  const hash2 = crypto.createHash('md5');
+  hash2.update(packet);
+  hash2.update(useExtension, "utf8");
+  hash2.update(key, "utf8");
+
+  return hash2.digest("hex").substring(0, 8);
+}
+
+export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: ResourceMetaData, dataType: number, useExtension: string): string {
+  if (!fileData.dbLoc)
+    throw new Error("Cannot use toResize on a resource not backed by a supported database location");
 
   /* Format of added imginfo fields
    _t type (U8)
@@ -651,7 +660,7 @@ export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: 
   const view = new DataView(packet.buffer);
   view.setUint8(0, 1);
   view.setUint8(1, fileData.dbLoc.source);
-  view.setUint32(2, fileData.dbLoc.id, true);
+  view.setUint32(2, fileData.dbLoc.id, true); //FIXME fssetting/wrdsetting ids are 53bit - this is not future proof!
   view.setInt32(6, fileData.dbLoc.cc, true);
   view.setInt32(10, md, true);
   view.setInt32(14, ms, true);
@@ -659,12 +668,7 @@ export function getUCSubUrl(scaleMethod: PackableResizeMethod | null, fileData: 
   if (imgdata)
     packet.set(new Uint8Array(imgdata), 19);
 
-  const hash2 = crypto.createHash('md5');
-  hash2.update(packet);
-  hash2.update(useExtension, "utf8");
-  hash2.update(key, "utf8");
-
-  return hash2.digest("hex").substring(0, 8) + Buffer.from(packet).toString("hex");
+  return getUCPacketHash(packet, useExtension) + Buffer.from(packet).toString("hex");
 }
 
 function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, options?: ResourceResizeOptions): string {
