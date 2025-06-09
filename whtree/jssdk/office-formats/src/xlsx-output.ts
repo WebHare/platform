@@ -7,7 +7,9 @@ import { ReadableStream } from "node:stream/web";
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
 //get name for column, 1-based
-function getNameForColumn(col: number): string {
+function getNameForCell(col: number, row: number): string {
+  if (col < 1 || row < 1)
+    throw new Error(`Invalid column or row number: col=${col}, row=${row}`);
   let name = "";
   col -= 1;
   while (true) {
@@ -16,14 +18,14 @@ function getNameForColumn(col: number): string {
       break;
     col = (col - 26) / 26;
   }
-  return name;
+  return name + row;
 }
 
 function createHeaderRow(sheetSettings: FixedSpreadsheetOptions) {
   let result = '';
   result += `<row r="1">`;
   for (const [idx, col] of sheetSettings.columns.entries()) {
-    result += `<c r="${getNameForColumn(idx + 1)}1" t="inlineStr"><is><t>${encodeString(col.title, 'attribute')}</t></is></c>`;
+    result += `<c r="${getNameForCell(idx + 1, 1)}" t="inlineStr"><is><t>${encodeString(col.title, 'attribute')}</t></is></c>`;
   }
   result += `</row>`;
   return result;
@@ -112,7 +114,7 @@ class WorksheetBuilder {
         if (value === null || value === undefined)
           continue;
 
-        const cellId = getNameForColumn(idx + 1) + currow;
+        const cellId = getNameForCell(idx + 1, currow);
         result += this.renderCell(cellId, value, col);
       }
 
@@ -159,7 +161,7 @@ export class XLSXDocBuilder {
 function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean): ReadableStream {
   const builder = new WorksheetBuilder(doc);
   const rows = builder.createRows(sheetSettings);
-  const dimensions = getNameForColumn(sheetSettings.columns.length) + (sheetSettings.rows.length + 1);
+  const dimensions = getNameForCell(sheetSettings.columns.length || 1, sheetSettings.rows.length + 1);
   let preamble = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n`;
   preamble += `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}">`;
   preamble += `<dimension ref="A1:${dimensions}"/>`;
