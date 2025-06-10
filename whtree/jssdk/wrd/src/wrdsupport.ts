@@ -91,6 +91,22 @@ export function tagToHS(tag: string): string {
   return nameToSnakeCase(tag).toUpperCase();
 }
 
+export function checkValidWRDTag(tag: string, options?: { allowMultiLevel?: boolean }): void {
+  for (const part of options?.allowMultiLevel ? tag.split('.') : [tag]) {
+    if (part[0] === part[0].toUpperCase())
+      throw new Error(`A JS WRD name may not start with an uppercase letter: ${part}`);
+    if (part.match(/_[a-z]/i))
+      throw new Error(`Invalid JS WRD name - are you passing a HareScript tag? (eg WRD_PERSON instead of wrdPerson): ${part}`);
+
+    if (!part.match(/^[a-z][a-zA-Z0-9]*$/))
+      throw new Error(`Invalid WRD tag: ${JSON.stringify(part)}. Must be alphanumeric, cannot start with an uppercase character and cannot contain underscores`);
+    // A-Z in JS takes up 2 chars in HS to encode ('_' + character)
+    const uppercaseCount = part.replace(/[^A-Z]/g, '').length;
+    if (part.length + uppercaseCount > 64)
+      throw new Error(`Invalid WRD tag: ${JSON.stringify(part)}. Must be at most 64 characters long (with uppercase characters counting as 2 characters)`);
+  }
+}
+
 export function isValidWRDTag(tag: string): boolean {
   return Boolean(tag.match(/^[A-Z][A-Z0-9_]{0,63}$/) && !tag.endsWith('_'));
 }

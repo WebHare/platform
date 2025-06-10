@@ -4,7 +4,7 @@ import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type Record
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, type WRDAttributeConfiguration } from "@webhare/wrd/src/wrdsupport";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
@@ -582,6 +582,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async listAttributes(parent?: number | string | null): Promise<WRDAttributeConfiguration[]> {
+    if (typeof parent === "string")
+      checkValidWRDTag(parent, { allowMultiLevel: true });
     const schemadata = await this.schema.__ensureSchemaData();
     const typeRec = schemadata.typeTagMap.get(this.tag);
     if (!typeRec)
@@ -834,6 +836,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
+    checkValidWRDTag(tag, { allowMultiLevel: true });
     const schemaData = await this.schema.__ensureSchemaData();
     const typeRec = schemaData.typeTagMap.get(this.tag);
     if (!typeRec)
