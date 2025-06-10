@@ -243,7 +243,9 @@ PUBLIC OBJECT FUNCTION GetTotpPage(OBJECT webdesign, RECORD options) {
                       , backlink := ""//FIXME
                       ];
 
+  webdesign->isstandardcontentpage := TRUE;
   webdesign->pagetitle := GetTid("wrd:site.forms.authpages.login-title");
+
   RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "totp", wittyvars));
 }
 
@@ -528,6 +530,9 @@ PUBLIC OBJECT FUNCTION GetEmailChangePage(OBJECT webdesign, RECORD options)
 
 PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
 {
+  webdesign->isstandardcontentpage := TRUE;
+  webdesign->pagetitle := GetTid("wrd:site.forms.authpages.emailchange-title");
+
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
   RECORD verifyresult := authplugin->ProcessVerificationLink(GetWebVariable("_ed"),GetWebVariable("verifier"));
   RECORD wittyvars := CELL[ ...authplugin->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
