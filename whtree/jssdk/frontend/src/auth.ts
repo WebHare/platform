@@ -128,7 +128,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
     function handleLogoutClick(event: Event) {
       dompack.stop(event);
 
-      //letting rejections escape - our trigger is generally setup in HTML so there's nothing to catch but uncaugh rejection handlers anyway
+      //letting rejections escape - our trigger is generally setup in HTML so there's nothing to catch but uncaught rejection handlers anyway
       if (node instanceof HTMLAnchorElement && node.href && node.href.split('#')[0] !== location.href.split('#')[0]) { //logout link sending you elsewhere
         void doLogout().then(() => {
           console.log("Logout complete, redirecting to", node.href);
