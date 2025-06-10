@@ -689,11 +689,13 @@ async function testCollections() {
     std.appendToArray(biggerArray, bigArray);
   for (let i = 0; i < 10; ++i)
     std.appendToArray(hugeArray, biggerArray);
+  /* @ts-expect-error -- Don't let us add an incorrect array. Note that at runtime this works fine, it just breaks the type checks */
+  std.appendToArray(hugeArray, ["big"]);
   test.eq(100000, bigArray.length);
   test.eq(1000000, biggerArray.length);
-  test.eq(10000000, hugeArray.length);
+  test.eq(10000001, hugeArray.length);
   test.eq(5, hugeArray[100000 + 5]);
-  test.eq(99999, hugeArray.at(-1));
+  test.eq(99999, hugeArray.at(-2));
 }
 
 async function testSortedSetMap() {

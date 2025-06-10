@@ -176,7 +176,7 @@ export function isTruthy<T>(a: T): a is (T & {}) {
  * @param array - Array to append to
  * @param values - Values to append
 */
-export function appendToArray<T extends unknown[]>(array: T, values: readonly unknown[]): void {
+export function appendToArray<T>(array: T[], values: ReadonlyArray<NoInfer<T>>): void {
   if (values.length < 1000)
     array.push(...values); //push should be safe enough
   else for (const value of values) //performance wise this appears just as fast as tricks with pushing blocks of slices

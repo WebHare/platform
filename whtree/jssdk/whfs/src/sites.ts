@@ -4,6 +4,7 @@ import { type WHFSFile, type WHFSFolder, openWHFSObject, type OpenWHFSObjectOpti
 import { excludeKeys, formatPathOrId } from "./support";
 import { openType } from "./contenttypes";
 import { createAppliedPromise } from "@webhare/services/src/applyconfig.ts";
+import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 
 // Adds the custom generated columns
 export interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
@@ -127,7 +128,7 @@ export async function openSite(site: number | string, options?: { allowMissing: 
   const match = await db<PlatformDB>()
     .selectFrom("system.sites")
     .selectAll()
-    .select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot"))
+    .select(selectSitesWebRoot().as("webroot"))
     .$call(qb => {
       if (typeof site === "number")
         return qb.where("id", "=", site);
@@ -171,7 +172,7 @@ export async function listSites<K extends keyof ListableSiteRow = never>(keys: K
   let rows = await db<PlatformDB>()
     .selectFrom("system.sites")
     .select(excludeKeys([...selectkeys], ["webroot"]))
-    .$if(selectkeys.has("webroot"), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))
+    .$if(selectkeys.has("webroot"), qb => qb.select(selectSitesWebRoot().as("webroot")))
     .execute();
 
   if (getSiteProps.length) {

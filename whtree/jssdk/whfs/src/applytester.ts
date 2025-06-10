@@ -1,6 +1,6 @@
 import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
-import { db, type Selectable, sql } from "@webhare/whdb";
+import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace, omit, pick, slugify } from "@webhare/std";
@@ -9,6 +9,7 @@ import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -126,7 +127,7 @@ async function getBaseInfoForMockedApplyCheck(parent: WHFSFolder, isFolder: bool
   if (parent.parentSite) {
     site = await db<PlatformDB>().selectFrom("system.sites").
       selectAll().
-      select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")).
+      select(selectSitesWebRoot().as("webroot")).
       where("id", "=", parent.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
@@ -193,7 +194,7 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   if (obj.parentSite) {
     site = await db<PlatformDB>().selectFrom("system.sites").
       selectAll().
-      select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")).
+      select(selectSitesWebRoot().as("webroot")).
       where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 

@@ -11,6 +11,7 @@ import { readRegistryKey, type WebHareBlob } from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
+import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
@@ -358,10 +359,10 @@ export class WHFSFolder extends WHFSObject {
       .where("parent", "=", this.id)
       .orderBy("name")
       .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
-      .$if(getkeys.has("link"), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
-      .$if(getkeys.has("sitePath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
-      .$if(getkeys.has("whfsPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
-      .$if(getkeys.has("parentSite"), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
+      .$if(getkeys.has("link"), qb => qb.select(selectFSLink().as("link")))
+      .$if(getkeys.has("sitePath"), qb => qb.select(selectFSFullPath().as("fullpath")))
+      .$if(getkeys.has("whfsPath"), qb => qb.select(selectFSWHFSPath().as("whfspath")))
+      .$if(getkeys.has("parentSite"), qb => qb.select(selectFSHighestParent().as("parentsite")))
       .$if(getkeys.has("publish"), qb => qb.select("published"))
       .execute();
 
@@ -467,7 +468,7 @@ export class WHFSFolder extends WHFSObject {
 
     const siteInfo = await db<PlatformDB>()
       .selectFrom("system.sites")
-      .select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot"))
+      .select(selectSitesWebRoot().as("webroot"))
       .where("id", "=", this.parentSite)
       .executeTakeFirst();
 
@@ -754,11 +755,11 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
     dbrecord = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .selectAll()
-      .select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link"))
-      .select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath"))
-      .select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath"))
-      .select(sql<number | null>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite"))
-      .select(sql<boolean>`webhare_proc_fs_objects_publish(isfolder, published)`.as("publish"))
+      .select(selectFSLink().as("link"))
+      .select(selectFSFullPath().as("fullpath"))
+      .select(selectFSWHFSPath().as("whfspath"))
+      .select(selectFSHighestParent().as("parentsite"))
+      .select(selectFSPublish().as("publish"))
       .where("id", "=", location)
       .executeTakeFirst();
   }

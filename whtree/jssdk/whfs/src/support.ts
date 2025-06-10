@@ -47,7 +47,7 @@ export const PublishedFlag_HasPublicDraft = 3200000; //there are drafts associat
 export const PublishedFlag_SubmittedForApproval = 6400000; //the draft has been submitted for approval (versioning)
 
 export function testFlagFromPublished(published: number, flag_to_test: number) {
-  return ((published % (flag_to_test * 2)) / flag_to_test) === 1;
+  return Math.floor((published % (flag_to_test * 2)) / flag_to_test) === 1;
 }
 
 export function getPrioOrErrorFromPublished(published: number) {
