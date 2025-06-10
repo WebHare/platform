@@ -1,12 +1,12 @@
 import { createClient } from "@webhare/jsonrpc-client";
 import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
-import type { LoginRemoteOptions } from "@webhare/auth/src/identity";
+import type { LoginOptions } from "@webhare/auth/src/identity";
 import { rpc } from "@webhare/rpc/src/rpc-client";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';
-import { PublicCookieSuffix, type LoginTweaks } from "@webhare/auth/src/shared";
+import { PublicCookieSuffix, type LoginErrorCode, type LoginResult, type LoginTweaks } from "@webhare/auth/src/shared";
 import { parseTyped } from "@webhare/std";
 import type WRDAuthenticationProvider from "@mod-wrd/js/auth";
 
@@ -34,27 +34,9 @@ declare module "@webhare/frontend" {
 declare global {
   interface Window {
     $wh$legacyAuthProvider: WRDAuthenticationProvider;
-    triggerWebHareSSO?: (tag: string) => Promise<void>;
+    triggerWebHareSSO?: (tag: string, options?: SSOLoginOptions) => Promise<void>;
   }
 }
-
-export interface LoginOptions extends LoginRemoteOptions {
-}
-
-export type LoginResult = {
-  /** Did we log in? */
-  loggedIn: true;
-} | {
-  /** Did we log in? */
-  loggedIn: false;
-  /** Error message */
-  error: string;
-} | {
-  /** Did we log in? */
-  loggedIn: false;
-  /** Navigation instruction */
-  navigateTo: NavigateInstruction;
-};
 
 /** Current authoptions. undefined if setupWRDAuth hasn't been invoked yet */
 let authOptions: WRDAuthOptions | undefined;
@@ -85,6 +67,7 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
   const username = (node.elements.namedItem("login") as HTMLInputElement)?.value;
   const password = (node.elements.namedItem("password") as HTMLInputElement)?.value;
   const site = (node.elements.namedItem("site") as HTMLInputElement)?.value || undefined;
+  const returnto = (node.elements.namedItem("returnto") as HTMLInputElement)?.value || undefined;
   const persistentlogin = (node.elements.namedItem("persistent") as HTMLInputElement)?.checked;
   if (!login || !password)
     throw new Error(`submitLoginForm: required elements login/password not set or missing`);
@@ -92,21 +75,30 @@ async function submitLoginForm(node: HTMLFormElement, event: SubmitEvent) {
   using lock = dompack.flagUIBusy({ modal: true });
   void (lock);
 
-  const loginresult = await login(username, password, { persistent: persistentlogin, site });
+  const loginresult = await login(username, password, {
+    persistent: persistentlogin,
+    site,
+    returnTo: returnto ? new URL(returnto, location.href).toString() : location.href.split('#')[0]
+  });
   if (loginresult.loggedIn) {
     refreshLoginStatus();
-    if (authOptions?.onLogin) {
+    if (loginresult.navigateTo.type === "redirect" && loginresult.navigateTo.url.split('#')[0] === location.href.split('#')[0]  //stay on same page
+      && authOptions?.onLogin) {
+
+      if (loginresult.navigateTo.url.includes('#')) //execute any #hash instruction
+        history.replaceState(null, "", loginresult.navigateTo.url.substring(loginresult.navigateTo.url.indexOf('#')));
+
       await authOptions.onLogin();
     } else {
       //Reload the page to get the new login status - TODO put this behind a 'login state change' event and allow users to cancel it if they can deal with login/logout on-page
-      console.log("Reloading to process the new loggedIn status");
-      navigateTo({ type: "reload" });
+      console.log("Post login redirect", loginresult.navigateTo);
+      navigateTo(loginresult.navigateTo);
     }
   } else if ("navigateTo" in loginresult) {
     console.log("Login incomplete, redirecting to", loginresult.navigateTo);
     navigateTo(loginresult.navigateTo);
   } else
-    failLogin(loginresult.error, { code: "unknown", data: "" }, node); //FIXME restore the code & data members from old wrdauth
+    failLogin(loginresult.error ?? loginresult.code, { code: loginresult.code, data: "" }, node); //FIXME restore the code & data members from old wrdauth
 }
 
 function refreshLoginStatus() {
@@ -133,9 +125,18 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
     dompack.addDocEventListener(node, "submit", evt => submitLoginForm(node, evt));
   });
   dompack.register('.wh-wrdauth__logout', node => {
-    async function handleLogoutClick(event: Event) {
+    function handleLogoutClick(event: Event) {
       dompack.stop(event);
-      await logout();
+
+      //letting rejections escape - our trigger is generally setup in HTML so there's nothing to catch but uncaught rejection handlers anyway
+      if (node instanceof HTMLAnchorElement && node.href && node.href.split('#')[0] !== location.href.split('#')[0]) { //logout link sending you elsewhere
+        void doLogout().then(() => {
+          console.log("Logout complete, redirecting to", node.href);
+          navigateTo({ type: "redirect", url: node.href });
+        });
+      } else {
+        void logout(); //TODO what if the logout only changed the anchor? but what's the usecase for that?
+      }
     }
 
     dompack.addDocEventListener(node, "click", event => handleLogoutClick(event));
@@ -150,7 +151,7 @@ export function setupWRDAuth(options?: WRDAuthOptions) {
   refreshLoginStatus();
 }
 
-function failLogin(message: string, response: { code: string; data: string }, form: HTMLFormElement) {
+function failLogin(message: string, response: { code: LoginErrorCode; data: string }, form: HTMLFormElement) {
   const evtdetail = {
     message: message,
     code: response.code,
@@ -196,10 +197,11 @@ export async function login(username: string, password: string, options: LoginOp
   if (result.loggedIn && !getAuthLocalData())
     throw new Error("Login succeeded but no auth data was set in the cookie");
 
-  return result as LoginResult;
+  return result;
 }
 
-export async function logout() {
+/** Execute and verify cookie clearance to prepare for logging out */
+async function doLogout() {
   const cookieName = getCookieName();
   if (!cookieName)
     throw new Error("WRDAuth not initialized, please call setupWRDAuth first and ensure this page has a <wrdauth> rule");
@@ -208,7 +210,11 @@ export async function logout() {
 
   if (getAuthLocalData())
     throw new Error("Logged out but we still have auth data in the cookie");
+}
 
+/** Logout the current user */
+export async function logout() {
+  await doLogout();
   console.log("Reloading to process the new logged out status");
   navigateTo({ type: "reload" }); //TODO put this behind a 'login state change' event
 }

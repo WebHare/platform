@@ -7,26 +7,8 @@ import { listSites, openFolder, openSite } from "@webhare/whfs";
 import { joinURL } from "@webhare/std";
 import { IdentityProvider } from "@webhare/auth/src/identity";
 import { importJSObject } from "@webhare/services";
-import type { LoginErrorCodes, AuthCustomizer } from "@webhare/auth";
+import type { AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
-import type { LoginIncompleteCodes } from "@webhare/auth/src/customizer";
-import type { NavigateInstruction } from "@webhare/env";
-
-export type FrontendLoginResult = {
-  loggedIn: true;
-} | {
-  loggedIn: false;
-  navigateTo: NavigateInstruction;
-} | {
-  loggedIn: false;
-  code: LoginErrorCodes;
-  error: string;
-};
-
-export type FrontendLogoutResult = { success: true } | {
-  error: string;
-  code: LoginErrorCodes | LoginIncompleteCodes;
-};
 
 async function findLoginPageForSchema(schema: string) {
   const sites = (await listSites(["webFeatures", "webRoot"])).filter((site) => site.webFeatures?.includes("platform:identityprovider"));

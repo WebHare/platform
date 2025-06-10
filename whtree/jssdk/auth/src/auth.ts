@@ -1,4 +1,4 @@
-import type { LoginErrorCodes } from "./customizer";
+import type { LoginErrorCode } from "./shared";
 import type { PasswordCheck } from "./passwords";
 
 // This gets TypeScript to refer to us by our @webhare/... name in auto imports:
@@ -20,7 +20,7 @@ export type WRDAuthAccountStatus = {
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
-  "platform:login-failed": { code: LoginErrorCodes };
+  "platform:login-failed": { code: LoginErrorCode };
   "platform:logout": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };
@@ -39,7 +39,9 @@ export { registerRelyingParty, initializeIssuer } from "./oauth2";
 export type { RelyingPartyConfig as ClientConfig, RelyingProviderInit as ServiceProviderInit } from "./oauth2";
 
 //export all the types needed to implement a AuthCustomizer
-export type { LoginErrorCodes, LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+export type { LoginDeniedInfo, AuthCustomizer, JWTPayload, LookupUsernameParameters, IsAllowedToLoginParameters, OpenIdRequestParameters, FrontendRequestParameters, FrontendUserInfoParameters, ReportedUserInfo } from "./customizer";
+
+export type { LoginErrorCode as LoginErrorCodes } from "./shared";
 
 export { writeAuthAuditEvent, getAuditContext, updateAuditContext, getAuditEvents } from "./audit";
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";

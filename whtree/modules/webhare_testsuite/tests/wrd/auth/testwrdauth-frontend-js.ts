@@ -25,10 +25,12 @@ test.runTests([
     test.assert(!test.qR('#isloggedin').checked);
     test.assert(!test.qR('#js_isloggedin').checked);
     test.fill(test.qR('#password'), 'secret$');
+    test.click('#returnto_postlogin');
     test.click(test.qR('#loginbutton'));
     await test.waitForLoad();
 
     test.eq(true, test.qR("html").classList.contains("wh-wrdauth--isloggedin"));
+    test.eq(/\?postlogin$/, test.getWin().location.href, "Expected to be redirected to postlogin page");
     test.assert(test.qR('#isloggedin').checked);
     test.assert(test.qR('#js_isloggedin').checked, "JavaScript isloggedin should be set");
     const frontendAuthApi = test.importExposed<FrontendAuthApi>("frontendAuthApi");
@@ -52,6 +54,22 @@ test.runTests([
   async function () {
     test.assert(!test.qR('#js_isloggedin').checked);
     test.eq('', test.qR('#js_fullname').value);
+  },
+
+  "test login and directly to an other page",
+  async function () {
+    await test.load(setupdata.starturl);
+    test.fill('#login', 'pietje-js@beta.webhare.net');
+    test.fill('#password', 'secret$');
+    test.click('#returnto_staticpage');
+    await test.expectLoad(() => test.click('#loginbutton'));
+    test.eq(/staticpage-en-gb/, test.getWin().location.href);
+    test.assert(test.getDoc().documentElement.classList.contains("wh-wrdauth--isloggedin"), "Expected to be logged in after login and redirect");
+
+    //Links can be tagged to log out
+    await test.expectLoad(() => test.click(['a', /Logout to wrdauthtest/]));
+    test.eq(/wrdauthtest\/$/, test.getWin().location.href, "Expected to be redirected to wrdauthtest after logout");
+    test.assert(!test.qR('#js_isloggedin').checked);
   },
 
   "test nav-less login",

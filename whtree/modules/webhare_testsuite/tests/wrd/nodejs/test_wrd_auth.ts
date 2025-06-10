@@ -273,6 +273,8 @@ async function setupOpenID() {
 function parseLoginResult(result: FrontendAuthResult) {
   if (!result.loggedIn)
     return result;
+  if (!result.setAuth)
+    throw new Error("No setAuth in succesful FrontendAuthResult");
 
   const accessToken = result.setAuth.value.match(/ accessToken:(.*)$/)?.[1] ?? throwError("No access token found in FrontendAuthResult");
   return {
