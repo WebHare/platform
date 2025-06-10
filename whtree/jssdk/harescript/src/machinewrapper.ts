@@ -78,7 +78,7 @@ export async function createVM(options?: StartupOptions) {
 
 function shutdownHSVM(vm: HareScriptVM) {
   if (debugFlags.vmlifecycle)
-    console.log(`[${vm.currentgroup}] shutdownHSVM (${vm.isShutdown() ? "active" : "already shutdown"}}`);
-  if (!vm.isShutdown())
+    console.log(`[${vm.currentgroup}] shutdownHSVM (${vm.__isShutdown() ? "active" : "already shutdown"}}`);
+  if (!vm.__isShutdown())
     vm.shutdown();
 }

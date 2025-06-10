@@ -149,7 +149,7 @@ async function testPlugins() {
     []
   ]) {
     const expect = [1, 2].filter((id) => testArray.includes(id));
-    test.eq(expect, (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("id").where("id", "in", testArray).execute()).map((r) => r.id));
+    test.eq(expect, (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select("id").where("id", "in", testArray).orderBy("id").execute()).map((r) => r.id));
   }
 }
 
@@ -303,7 +303,7 @@ async function testHSCommitHandlers() {
   const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
   await invoketarget.setGlobal(null); //cleanup
 
-  const manualvm = await createVM();
+  await using manualvm = await createVM();
   //Manual VMs don't auto-open a transaction
   await manualvm.loadlib("mod::system/lib/database.whlib").openPrimary();
 
