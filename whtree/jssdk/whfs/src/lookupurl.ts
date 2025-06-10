@@ -134,7 +134,7 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
     const data = decryptForThisServer("publisher:preview", baseurl, { nullIfInvalid: true });
     if (data) {
       const info = await db<PlatformDB>().selectFrom("system.fs_objects").
-        select(["parent", "isfolder"]).
+        select(["parent", "isfolder", "indexdoc"]).
         select(selectFSHighestParent().as("parentsite")).
         where("id", "=", data.id).
         executeTakeFirst();
@@ -143,7 +143,7 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
           ...result,
           site: info.parentsite,
           folder: info.isfolder ? data.id : info.parent,
-          file: info.isfolder ? (await db<PlatformDB>().selectFrom("system.fs_objects").select("indexdoc").where("id", "=", data.id).executeTakeFirst())?.indexdoc ?? 0 : data.id,
+          file: info.isfolder ? info.indexdoc : data.id,
           // TODO is there still need for this?
           // __directfile: info.isfolder ? 0 : data.id,
           // ispreview: true

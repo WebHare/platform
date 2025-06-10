@@ -69,7 +69,7 @@ export async function enumerateAllWebServers(minimalConfig: boolean): Promise<We
         type: server.type,
         diskfolder: server.diskfolder,
         stricttransportsecurity: server.stricttransportsecurity
-      } satisfies WebServer;
+      };
     }));
   }
   return hosts;
