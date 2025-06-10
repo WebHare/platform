@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, nextVal } from "@webhare/whdb";
-import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, WRDGender, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes } from "./types";
+import { db, nextVal, sql } from "@webhare/whdb";
+import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, type WRDAttributeConfiguration, type WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
-import { getSchemaData, type SchemaData } from "./db";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration } from "@webhare/wrd/src/wrdsupport";
+import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
@@ -15,6 +15,7 @@ import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/types";
 import { wrdFinishHandler } from "./finishhandler";
+import { getTid } from "@webhare/gettid";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -271,13 +272,11 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     if (!tag)
       return 0;
 
-    const hstag = tagToHS(tag);
-    const schemaobj = await this.getWRDSchema();
-    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
-    const match = typelist.find(t => t.tag === hstag);
-    if (!match)
+    const schemaData = await this.__ensureSchemaData();
+    const type = schemaData.typeTagMap.get(tag);
+    if (!type)
       throw new Error(`No such type '${tag}' in schema '${this.tag}'`);
-    return match.id;
+    return type.id;
   }
 
 
@@ -352,19 +351,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async __getTypeTag(type: number): Promise<string | null> {
-    const typelist = await this.__listTypes();
-    const match = typelist.find(t => t.id === type);
-    return match ? tagToJS(match.tag) : null;
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeIdMap.get(type)?.tag ?? null;
   }
 
   async __listTypes() {
-    const schemaobj = await this.getWRDSchema();
-    return await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeIdMap.entries().map(([id, tag]) => ({ id, tag }));
   }
 
   /** Test whether a type exists in this schema */
   async hasType(tag: string): Promise<boolean> {
-    return Boolean((await this.__listTypes()).find(_ => tagToJS(_.tag) === tag));
+    const schemaData = await this.__ensureSchemaData();
+    return schemaData.typeTagMap.has(tag);
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {
@@ -390,12 +389,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
   /** Test whether this schema actually exists in the database */
   async exists(): Promise<boolean> {
-    try {
-      await this.getWRDSchema(); //FIXME Don't trigger stacktracing just to test for existence
-      return true;
-    } catch (e) {
-      return false;
-    }
+    return schemaExists(this.tag);
   }
 
   async[getWRDSchemaType](type: string, allowMissingType: true): Promise<HSVMObject | null>;
@@ -565,9 +559,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   schema: WRDSchema<S>;
   tag: T;
 
-  private attrs: null | WRDAttributeConfiguration_HS[] = null;
-  private attrPromise: null | Promise<WRDAttributeConfiguration_HS[]> = null;
-
   constructor(schema: WRDSchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
@@ -590,19 +581,47 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return this.schema[getWRDSchemaType](this.tag, false);
   }
 
-  async ensureAttributes() {
-    if (!this.attrPromise)
-      this.attrPromise = (await this._getType()).listAttributes(0) as Promise<WRDAttributeConfiguration_HS[]>;
+  async listAttributes(parent?: number | string | null): Promise<WRDAttributeConfiguration[]> {
+    if (typeof parent === "string")
+      checkValidWRDTag(parent, { allowMultiLevel: true });
+    const schemadata = await this.schema.__ensureSchemaData();
+    const typeRec = schemadata.typeTagMap.get(this.tag);
+    if (!typeRec)
+      throw new Error(`No such type ${JSON.stringify(this.tag)}`);
 
-    const attrs = await this.attrPromise;
-    const genderattr = attrs.find(_ => _.tag === "WRD_GENDER");
-    if (genderattr) { //patch for JS
-      genderattr.attributetypename = "ENUM";
-      genderattr.attributetype = 23;
-      genderattr.allowedvalues = Object.values(WRDGender);
+    if (typeof parent === "string") {
+      const parentId = typeRec?.attrByFullTagMap.get(parent)?.id;
+      if (!parentId)
+        throw new Error(`No such parent attribute ${JSON.stringify(parent)} in type ${this.tag}`);
+      parent = parentId;
     }
 
-    return this.attrs = await this.attrPromise;
+    const attrRecs = parent ?
+      typeRec?.parentAttrMap.get(parent) ?? [] :
+      typeRec?.rootAttrMap.values().toArray() ?? [];
+
+    const dbAttributeIds = attrRecs.map(attr => attr.id).filter(attrId => attrId !== 0);
+    const extraFields = dbAttributeIds.length ?
+      new Map((await db<PlatformDB>()
+        .selectFrom("wrd.attrs")
+        .select(["id", "title"])
+        .where("id", "=", sql<number>`any(${dbAttributeIds})`)
+        .execute()).map(attr => [attr.id, attr])) :
+      new Map;
+
+    return attrRecs.map((attrRec): WRDAttributeConfiguration => ({
+      id: attrRec.id || null,
+      tag: attrRec.fullTag,
+      attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
+      title: attrRec.id ? extraFields.get(attrRec.id)?.title ?? "" : getTid(`wrd:common.baseattributes.${tagToHS(attrRec.tag)}`),
+      checkLinks: attrRec.checklinks,
+      domain: attrRec.domain ? schemadata.typeIdMap.get(attrRec.domain)?.tag ?? null : null,
+      isUnsafeToCopy: attrRec.isunsafetocopy,
+      isRequired: attrRec.required,
+      isOrdered: attrRec.ordered,
+      isUnique: attrRec.isunique,
+      allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
+    }));
   }
 
   async updateMetadata(newmetadata: Partial<Omit<WRDTypeMetadata, "id" | "metaType">>) {
@@ -629,8 +648,6 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async upsert<Q extends object, U extends object>(query: Q & EnsureExactForm<Q, UpsertMatchQueryable<S[T]>>, value: U & EnsureExactForm<U, WRDUpdatable<S[T]>>, ...options: UpsertOptions<Omit<WRDInsertable<S[T]>, RequiredKeys<Q> | RequiredKeys<U>>, { historyMode?: SimpleHistoryMode | HistoryModeData }>): Promise<[number, boolean]> {
-    if (!this.attrs)
-      await this.ensureAttributes();
     if (Array.isArray(query)) {
       // @ts-expect-error Fallback code for old upsert function signature. remove in WH5.7 or when all modules are updated
       [query, value] = [pick(value, query), omit(value, query)];
@@ -819,36 +836,38 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
-    if (tag === "wrdGender" && this.tag === "wrdPerson")  // HS doesn't fully know wrdGender is an enum in JS
-      return {
-        tag: "wrdGender",
-        attributeType: "enum",
-        title: '',
-        checkLinks: false,
-        domain: null,
-        isUnsafeToCopy: false,
-        isRequired: false,
-        isOrdered: false,
-        isUnique: false,
-        allowedValues: ['male', 'female', 'other']
-      };
-
-    const typeobj = await this._getType();
-    const result = await typeobj.GetAttribute(tagToHS(tag)) as WRDAttributeConfiguration_HS;
-    if (!result)
+    checkValidWRDTag(tag, { allowMultiLevel: true });
+    const schemaData = await this.schema.__ensureSchemaData();
+    const typeRec = schemaData.typeTagMap.get(this.tag);
+    if (!typeRec)
+      throw new Error(`No such type ${JSON.stringify(this.tag)}`);
+    const attrRec = typeRec.attrByFullTagMap.get(tag);
+    if (!attrRec)
       return null;
 
+    let title: string;
+    if (attrRec.id === 0) //  base attribute
+      title = getTid(`wrd:common.baseattributes.${tagToHS(attrRec.tag)}`);
+    else {
+      title = (await db<PlatformDB>()
+        .selectFrom("wrd.attrs")
+        .select("title")
+        .where("id", "=", attrRec.id)
+        .executeTakeFirst())?.title || "";
+    }
+
     return {
-      tag: result.tag,
-      attributeType: WRDAttributeTypes[result.attributetype - 1],
-      title: result.title || "",
-      checkLinks: result.checklinks,
-      domain: result.domain ? await this.schema.__getTypeTag(result.domain) : null,
-      isUnsafeToCopy: result.isunsafetocopy,
-      isRequired: result.isrequired,
-      isOrdered: result.isordered,
-      isUnique: result.isunique,
-      allowedValues: result.allowedvalues.length ? result.allowedvalues : []
+      id: attrRec.id || null,
+      tag: attrRec.fullTag,
+      attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
+      title,
+      checkLinks: attrRec.checklinks,
+      domain: attrRec.domain ? schemaData.typeIdMap.get(attrRec.domain)?.tag ?? null : null,
+      isUnsafeToCopy: attrRec.isunsafetocopy,
+      isRequired: attrRec.required,
+      isOrdered: attrRec.ordered,
+      isUnique: attrRec.isunique,
+      allowedValues: attrRec.allowedvalues ? attrRec.allowedvalues.split("\t") : [],
     };
   }
 

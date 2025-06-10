@@ -140,6 +140,41 @@
     <text tid="linktypes">Type</text>
   </textgroup>
   <textgroup gid="common" limitlanguages="en nl">   <!-- common -->
+    <textgroup gid="baseattributes" keepemptyreason="Tids are constructed from attribute names" limitlanguages="de en nl">   <!-- common.baseattributes -->
+      <text tid="wrd_address_formal">Address (formal)</text>
+      <text tid="wrd_creationdate">Creation date</text>
+      <text tid="wrd_dateofbirth">Date of birth</text>
+      <text tid="wrd_dateofdeath">Date of death</text>
+      <text tid="wrd_firstname">Calling name</text>
+      <text tid="wrd_firstnames">First names</text>
+      <text tid="wrd_formalname">Formal name</text>
+      <text tid="wrd_fullname">Full name</text>
+      <text tid="wrd_gender">Gender</text>
+      <text tid="wrd_gender_female">Female</text>
+      <text tid="wrd_gender_male">Male</text>
+      <text tid="wrd_guid">Unique global ID</text>
+      <text tid="wrd_id">Unique database id</text>
+      <text tid="wrd_infix">Infix</text>
+      <text tid="wrd_initials">Initials</text>
+      <text tid="wrd_lastname">Last name</text>
+      <text tid="wrd_limitdate">Limit date</text>
+      <text tid="wrd_linkof">Link from</text>
+      <text tid="wrd_linkto">Link to</text>
+      <text tid="wrd_modificationdate">Last modification date</text>
+      <text tid="wrd_ordering">Ordering</text>
+      <text tid="wrd_organization">Organization</text>
+      <text tid="wrd_orgname">Organization name</text>
+      <text tid="wrd_person">Person</text>
+      <text tid="wrd_photo">Photo</text>
+      <text tid="wrd_relation">Relation</text>
+      <text tid="wrd_salute_formal">Salute (formal)</text>
+      <text tid="wrd_salute_informal">Salute (informal)</text>
+      <text tid="wrd_tag">Tag</text>
+      <text tid="wrd_title">Title</text>
+      <text tid="wrd_titles">Title(s)</text>
+      <text tid="wrd_titles_suffix">Suffix</text>
+      <text tid="wrd_type">Type (id)</text>
+    </textgroup>
     <textgroup gid="gender" limitlanguages="de en nl">   <!-- common.gender -->
       <text tid="female">Female</text>
       <text tid="label">Gender</text>

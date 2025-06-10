@@ -71,6 +71,20 @@ export enum WRDAttributeTypeId {
   JSON = 30
 }
 
+export const WRDBaseAttributeTypes = [
+  "integer", // -1 Base_Integer, wrd_ordering
+  "string", // -2 Base_Guid, wrd_guid
+  "string", // -3 Base_Tag, tag
+  "dateTime", // -4 Base_CreationLimitDate, wrdCreationDate, wrdLimitDate
+  "date", // -5 Base_Date, wrdDateOfBirth, wrdDateOfDeath
+  "string", // -6 Base_GeneratedString, wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
+  "string", // -7 Base_NameString, wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
+  "domain", // -8 Base_Domain, wrdLeftEntity, wrdRightEntity
+  "enum", // -9 Base_Gender, wrd_gender
+  "dateTime", // -10 Base_ModificationDate, wrdModificationDate
+  "integer", // -11 Base_FixedDomain, wrd_id, wrd_type
+] as const;
+
 export const WRDAttributeTypes = [
   "domain", /*2*/"string", "address", "email", "telephone", "date", "password",
   "domainArray", /*9*/"image", "file", "time", "dateTime",/*13*/  "array", "money",
