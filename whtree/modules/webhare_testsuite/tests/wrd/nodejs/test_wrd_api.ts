@@ -21,6 +21,33 @@ async function testWRDUntypedApi() { //  tests
   test.eqPartial({ attributeType: "email" }, await persontype.describeAttribute("wrdContactEmail"));
   test.eqPartial({ attributeType: "domain", domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
   test.eqPartial({ attributeType: "enum", isRequired: false, allowedValues: ["male", "female", "other"] }, await persontype.describeAttribute("wrdGender"));
+  test.eqPartial({ attributeType: "array", tag: "testArray.testArray2" }, await persontype.describeAttribute("testArray.testArray2"));
+
+  const attributes = await persontype.listAttributes();
+  test.eq(await persontype.describeAttribute("wrdContactEmail"), attributes.find(attr => attr.tag === "wrdContactEmail") ?? null);
+  test.eq(await persontype.describeAttribute("wrdGender"), attributes.find(attr => attr.tag === "wrdGender") ?? null);
+  const testArrayId = (await persontype.describeAttribute("testArray"))?.id;
+  test.assert(testArrayId, "testArray attribute should exist");
+  let arrayAttributes = await persontype.listAttributes(testArrayId);
+  test.assert(arrayAttributes.find(attr => attr.tag === "testArray.testArray2"));
+  arrayAttributes = await persontype.listAttributes("testArray");
+  test.assert(arrayAttributes.find(attr => attr.tag === "testArray.testArray2"));
+
+  // compare all attributes in the worklist with the describeAttribute result
+  const rootAttrs = await persontype.listAttributes();
+  const worklist = rootAttrs.slice();
+  for (const attr of worklist) {
+    test.eq(attr, await persontype.describeAttribute(attr.tag), `Describe should return the same attribute for ${attr.tag}`);
+    if (attr.id === null)
+      continue;
+    const childAttrs = await persontype.listAttributes(attr.id);
+    test.assert(childAttrs.every(child => child.tag.startsWith(attr.tag + ".")), `Child attributes of ${attr.tag} should start with ${attr.tag}.`);
+    const childAttrsByTag = await persontype.listAttributes(attr.tag);
+    test.eq(childAttrs, childAttrsByTag, `Child attributes of ${attr.tag} should be the same when listed by tag or id.`);
+  }
+
+  test.eq(rootAttrs.length, (await persontype.listAttributes(null)).length);
+  test.eq(rootAttrs.length, (await persontype.listAttributes(0)).length);
 
   test.eq(null, await wrdschema.describeType("noSuchType"));
   test.eqPartial({ left: "wrdPerson", right: undefined, tag: "personattachment" }, await wrdschema.describeType("personattachment"));

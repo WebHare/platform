@@ -29,7 +29,8 @@ export interface WRDAttributeConfigurationBase {
 }
 
 export interface WRDAttributeConfiguration extends WRDAttributeConfigurationBase {
-  id: number;
+  /// Attribute ID, null if a base attribute
+  id: number | null;
   tag: string;
   title: string;
   checkLinks: boolean;

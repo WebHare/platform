@@ -1,6 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="de" fallbacklanguage="en">
   <textgroup gid="common">   <!-- common -->
+    <textgroup gid="baseattributes">   <!-- common.baseattributes -->
+      <text tid="wrd_address_formal">Addressierung (formell)</text>
+      <text tid="wrd_creationdate">Erstellungsdatum</text>
+      <text tid="wrd_dateofbirth">Geburtsdatum</text>
+      <text tid="wrd_dateofdeath">Sterbedatum</text>
+      <text tid="wrd_firstname">Rufname</text>
+      <text tid="wrd_firstnames">Vornamen</text>
+      <text tid="wrd_formalname">Vollständige name</text>
+      <text tid="wrd_fullname">Vollständige name</text>
+      <text tid="wrd_gender">Geschlecht</text>
+      <text tid="wrd_gender_female">Frau</text>
+      <text tid="wrd_gender_male">Mann</text>
+      <text tid="wrd_guid">Einmalige global ID</text>
+      <text tid="wrd_id">Einmalige database ID</text>
+      <text tid="wrd_infix">Infix</text>
+      <text tid="wrd_initials">Initialen</text>
+      <text tid="wrd_lastname">Nachname</text>
+      <text tid="wrd_limitdate">Ablaufdatum</text>
+      <text tid="wrd_linkof">Link von</text>
+      <text tid="wrd_linkto">Link zu</text>
+      <text tid="wrd_modificationdate">Letztes Änderungsdatum</text>
+      <text tid="wrd_ordering">Anordnung</text>
+      <text tid="wrd_organization">Organisation</text>
+      <text tid="wrd_orgname">Name der Organisation</text>
+      <text tid="wrd_person">Person</text>
+      <text tid="wrd_photo">Foto</text>
+      <text tid="wrd_relation">Relation</text>
+      <text tid="wrd_salute_formal">Anrede (formell)</text>
+      <text tid="wrd_salute_informal">Anrede (informell)</text>
+      <text tid="wrd_tag">Tag</text>
+      <text tid="wrd_title">Titel</text>
+      <text tid="wrd_titles">Anrede</text>
+      <text tid="wrd_titles_suffix">Namenszusatz</text>
+      <text tid="wrd_type">Type (id)</text>
+    </textgroup>
     <textgroup gid="gender">   <!-- common.gender -->
       <text tid="female">Frau</text>
       <text tid="label">Geslecht</text>

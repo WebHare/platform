@@ -14,14 +14,25 @@ export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTyp
   parentTypeIds: number[];
   childTypeIds: number[];
 
+  /// All attributes for this type, grouped by parent attribute id (null for root attributes)
   parentAttrMap: Map<number | null, AttrRec[]>;
+  /// All root attributes for this type, indexed by tag. FIXME: use attrByFullTagMap and check if parent is null
   rootAttrMap: Map<string, AttrRec>;
+  /// All attributes for this type, indexed by full tag.
+  attrByFullTagMap: Map<string, AttrRec>;
+  /// Maps attribute id to HS attribute name
   attrHSNameMap: Map<number, string>;
+  /// Root attribute for all attributes of this type
   attrRootAttrMap: Map<number, AttrRec>;
+  /// All attributes that are used for consilio link checks
   consilioLinkCheckAttrs: Set<number>;
+  /// All attributes that are used for WHFS links
   whfsLinkAttrs: Set<number>;
+  /// All attributes that are unique
   uniqueAttrs: Set<number>;
+  /// All attributes that are used for email addresses
   emailAttrs: Set<number>;
+  /// The schema id this type belongs to
   schemaId: number;
 };
 export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeTypeId | WRDAttributeTypeId; fullTag: string; schemaId: number };
@@ -54,10 +65,10 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
     id: 0,
   };
   const attrs: AttrRec[] = [
-    { ...baseEmptyAttrRec, tag: "wrdGuid", fullTag: "wrdGuid", attributetype: WRDBaseAttributeTypeId.Base_Guid },
-    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdGuid", fullTag: "wrdGuid", attributetype: WRDBaseAttributeTypeId.Base_Guid, isunique: true },
+    { ...baseEmptyAttrRec, tag: "wrdId", fullTag: "wrdId", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isunique: true }, // FIXME: make only insertable, not updatable!
     { ...baseEmptyAttrRec, tag: "wrdType", fullTag: "wrdType", attributetype: WRDBaseAttributeTypeId.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
-    { ...baseEmptyAttrRec, tag: "wrdTag", fullTag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag },
+    { ...baseEmptyAttrRec, tag: "wrdTag", fullTag: "wrdTag", attributetype: WRDBaseAttributeTypeId.Base_Tag, isunique: true },
     { ...baseEmptyAttrRec, tag: "wrdCreationDate", fullTag: "wrdCreationDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdLimitDate", fullTag: "wrdLimitDate", attributetype: WRDBaseAttributeTypeId.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdModificationDate", fullTag: "wrdModificationDate", attributetype: WRDBaseAttributeTypeId.Base_ModificationDate },
@@ -123,6 +134,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       childTypeIds: [type.id],
       parentAttrMap: new Map<number | null, AttrRec[]>,
       rootAttrMap: new Map<string, AttrRec>,
+      attrByFullTagMap: new Map<string, AttrRec>,
       attrRootAttrMap: new Map<number, AttrRec>,
       attrHSNameMap: new Map<number, string>,
       consilioLinkCheckAttrs: new Set<number>,
@@ -193,6 +205,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.rootAttrMap.set(attr.tag, attr);
         type.attrRootAttrMap.set(attr.id, attr);
         type.attrHSNameMap.set(attr.id, tagToHS(attr.tag));
+        type.attrByFullTagMap.set(attr.fullTag, attr);
       }
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
@@ -204,7 +217,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
         type.emailAttrs.add(attr.id);
     }
     for (const rootAttr of type.rootAttrMap.values())
-      recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, type.attrHSNameMap, rootAttr.tag + ".");
+      recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap, type.attrByFullTagMap, type.attrHSNameMap, rootAttr.tag + ".");
   }
   return {
     schema,
@@ -215,14 +228,15 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
 }
 
 // Set root attr for every attr, and also the fullTag
-function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap: Map<number | null, AttrRec[]>, attrRootAttrMap: Map<number, AttrRec>, attrHSNameMap: Map<number, string>, attrBasePath: string) {
+function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap: Map<number | null, AttrRec[]>, attrRootAttrMap: Map<number, AttrRec>, attrByFullTagMap: Map<string, AttrRec>, attrHSNameMap: Map<number, string>, attrBasePath: string) {
   const attrs = parentAttrMap.get(current);
   if (attrs)
     for (const attr of attrs) {
       attr.fullTag = attrBasePath + attr.tag;
+      attrByFullTagMap.set(attr.fullTag, attr);
       attrHSNameMap.set(attr.id, tagToHS(attr.fullTag));
       attrRootAttrMap.set(attr.id, rootAttr);
       if (parentAttrMap.has(attr.id))
-        recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap, attrHSNameMap, attr.fullTag + ".");
+        recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap, attrByFullTagMap, attrHSNameMap, attr.fullTag + ".");
     }
 }

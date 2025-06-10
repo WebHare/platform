@@ -82,7 +82,7 @@ export const WRDBaseAttributeTypes = [
   "domain", // -8 Base_Domain, wrdLeftEntity, wrdRightEntity
   "enum", // -9 Base_Gender, wrd_gender
   "dateTime", // -10 Base_ModificationDate, wrdModificationDate
-  "domain", // -11 Base_FixedDomain, wrd_id, wrd_type
+  "integer", // -11 Base_FixedDomain, wrd_id, wrd_type
 ] as const;
 
 export const WRDAttributeTypes = [
