@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -202,6 +203,7 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
                                    , entitylink := wrdauthplugin->entityid != 0 AND this->currentuser->HasRightOn("wrd:read", wrdauthplugin->wrdschema->id)
                                                     ? GetPrimaryWebhareInterfaceURL() || "?app=wrd(" || wrdauthplugin->entityid || ")"
                                                     : ""
+                                   , expires := FormatISO8601DateTime(wrdauthplugin->sessionexpires)
                                    , wrdschema := wrdauthplugin->wrdschema->tag
                                    , logoutlink := UpdateURLVariables(GetRequestURL(), [ debug_wrdauthaction := "forcelogout" ])
                                    ];

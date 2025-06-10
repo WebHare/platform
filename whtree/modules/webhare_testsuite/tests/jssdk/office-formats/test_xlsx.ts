@@ -3,7 +3,6 @@ import { generateXLSX, type SpreadsheetColumn } from "@webhare/office-formats";
 import { Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
-import { storeDiskFile } from "@webhare/system-tools";
 import { DOMParser, type Document } from "@xmldom/xmldom";
 import { isValidSheetName } from "@webhare/office-formats/src/support";
 
@@ -108,7 +107,7 @@ export async function testXLSXColumnFiles() {
   const output2 = await generateXLSX({ rows: reftrestrows, columns, timeZone: "CET" });
   test.eq(/\.xlsx$/, output2.name);
 
-  await storeDiskFile("/tmp/test_xlsx_columnfiles.xlsx", output2, { overwrite: true });
+  // await storeDiskFile("/tmp/test_xlsx_columnfiles.xlsx", output2, { overwrite: true });
 
   //debug using HS apis
   const sheet1xml2 = await getSheet1(output2);
@@ -211,28 +210,36 @@ async function testXLSXMultipleSheets() {
     title: "Empty Sheet"
   };
 
+  const sheet4 = {
+    rows: [],
+    title: "Truly Empty Sheet"
+  };
+
   const output = await generateXLSX({
     title: "Cool document",
     timeZone: "Europe/Amsterdam",
-    sheets: [sheet1, sheet2, sheet3]
+    sheets: [sheet1, sheet2, sheet3, sheet4]
   });
-  await storeDiskFile("/tmp/test_xlsx_multiple_sheets.xlsx", output, { overwrite: true });
+  // await storeDiskFile("/tmp/test_xlsx_multiple_sheets.xlsx", output, { overwrite: true });
 
   test.eq(/\.xlsx$/, output.name);
   test.eq('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', output.type);
 
   const xlsxin = await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").OpenOOXMLSpreadSheetFile(await WebHareBlob.fromBlob(output));
-  // console.log(await )
   test.eqPartial([
     { sheetnr: 0, name: 'First Sheet', sheetid: '1' },
     { sheetnr: 1, name: 'Sheet2', sheetid: '2' },
-    { sheetnr: 2, name: 'Empty Sheet', sheetid: '3' }
+    { sheetnr: 2, name: 'Empty Sheet', sheetid: '3' },
+    { sheetnr: 3, name: 'Truly Empty Sheet', sheetid: '4' }
   ], await xlsxin.getSheets());
 
   const xlssheet = await xlsxin.OpenSheet(1);
   const outrows = await xlssheet.GetAllRows();
   test.eq([['Col 1:title', 'Col 2:bool'], ['Tit&le 2\nnext line!', false]], outrows);
 
+  const xlssheet3 = await xlsxin.OpenSheet(3);
+  const outrows3 = await xlssheet3.GetAllRows();
+  test.eq([[]], outrows3);
 }
 
 test.runTests([

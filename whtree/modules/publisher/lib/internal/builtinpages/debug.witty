@@ -168,6 +168,7 @@
         <ul>
           [if entityid]
             <li>Logged in as entity [if entitylink]<a href="[entitylink]" target="_blank">#[entityid]</a>[else]#[entityid][/if] (WRD Schema [wrdschema])</li>
+            [if expires]<li>Expires: [expires]</li>[/if]
             <li><a href="[logoutlink]">Force logout</a></li>
           [else]
             <li>Not logged in (WRD Schema [wrdschema])</li>
