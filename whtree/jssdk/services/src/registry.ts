@@ -87,7 +87,6 @@ export async function readRegistryKey<Key extends keyof RegistryKeys>(key: Key, 
 export async function readRegistryKey<ExpectedType = never>(key: string & KeyErrorForValueType<ExpectedType>, defaultValue?: ExpectedType, opts?: { acceptInvalidKeyNames: boolean }): Promise<ExpectedType>;
 
 export async function readRegistryKey(key: string, defaultValue?: unknown, opts?: { acceptInvalidKeyNames: boolean }): Promise<unknown> {
-  // return (await loadlib("mod::system/lib/configure.whlib").ReadRegistryKey(key, { fallback: defaultValue: }));
   if (key[0] === '<' && defaultValue === undefined)
     throw new Error(`Reading a user registry requires you to set a fallback value`); // as you can't initialize it
 
