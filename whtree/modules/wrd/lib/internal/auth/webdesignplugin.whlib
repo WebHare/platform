@@ -1137,8 +1137,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @cell(boolean) options.skipauditlog Do not log this request to the auditlog - needed to prevent unsollicited link requests from flooding the logs (eg webshop order confiration)
       @return Password reset link data
       @cell return.verifier The verification code (should be emailed to the user). Only if verifierstart is set
-      @cell return.verifiedlink The verified link (should be emailed to the user). Only if verifierstart is set
-      @cell return.entrylink The code-entry link (user may be redirected or navigate here). Only if verifierstart is not set
+      @cell return.verifiedlink The verified link (should be emailed to the user). Only if verifierstart is not set
+      @cell return.entrylink The code-entry link (user may be redirected or navigate here). Only if verifierstart is set
   */
   PUBLIC RECORD FUNCTION CreatePasswordResetLink(STRING baseurl, INTEGER entityid, RECORD options DEFAULTSTO DEFAULT RECORD) {
     //the new API has been cleaned not to set

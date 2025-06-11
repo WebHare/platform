@@ -563,9 +563,9 @@ PUBLIC BOOLEAN FUNCTION __INTERNAL_HandleEventCallbackEvents(INTEGER handle, STR
     }
     ELSE
     {
-      INTEGER pos := SearchElement(waitwritehandles, handle);
+      INTEGER pos := SearchElement(check_writehandles, handle);
       IF (pos != -1)
-        DELETE FROM waitwritehandles AT pos;
+        DELETE FROM check_writehandles AT pos;
     }
 
     // check all other handles, but handle them max 1 time in this loop
