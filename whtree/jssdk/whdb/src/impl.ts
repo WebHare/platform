@@ -75,7 +75,8 @@ class HandlerList implements Disposable {
       if (handler.vm.__isShutdown()) {
         /* This may happen if the lifecycles of VMs aren't managed properly. This is because we simply invoke __CallCommitHandlers on
            all VMs known to the context as its pretty fast and this absolves us of having to coordinate stashed works and commit handlers
-           between HSVM and TS. We should normally get away with is as loadlib VMs  */
+           between HSVM and TS. We should normally get away with this as loadlib VMs last as long as the codecontext and thus live longer than
+           database transactions */
         throw new Error(`VM associated with finish handler is already shutdown`);
       }
       await handler.vm.loadlib("wh::internal/transbase.whlib").__CallCommitHandlers(handler.handlers, stage);
