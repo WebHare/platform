@@ -1221,29 +1221,29 @@
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
-        <text tid="altserver">SMTP server</text>
         <text tid="blocked">Blocked</text>
         <text tid="correctionsempty">No corrections have been specified yet</text>
         <text tid="correctiontype">Correction type</text>
         <text tid="correctiontype-block">Block</text>
         <text tid="correctiontype-rewrite">Fix domain name</text>
         <text tid="defaultport">(usually 25)</text>
-        <text tid="defaultsendsettings">Outgoing mailserver</text>
-        <text tid="defaultsmtp">Default</text>
+        <text tid="defaultserver">Default server</text>
+        <text tid="defaultserver-label">This is the default mailserver</text>
         <text tid="editcorrection">Address correction</text>
         <text tid="editmailroute">Mail route</text>
         <text tid="editmailrouterule">Mail route rule</text>
+        <text tid="editmailserver">Mail server properties</text>
         <text tid="editmask">Edit mask</text>
         <text tid="editmaskrow">Mask</text>
-        <text tid="editsmtpserver">Edit SMTP server</text>
         <text tid="emailcorrectionstab">Address corrections</text>
         <text tid="fallbackvalues">Fallback values</text>
         <text tid="hostname">Server name</text>
         <text tid="ignore">Black hole (don't send)</text>
+        <text tid="integrations">Integrations</text>
         <text tid="invalidredirectto">The rewrite must be of the form '*@domainname'</text>
-        <text tid="mailconfig">Configure</text>
         <text tid="mailfrom">Default "from" address</text>
         <text tid="mailroutes">Email routing</text>
+        <text tid="mailservers">Mail servers</text>
         <text tid="mask">Mask</text>
         <text tid="masks">Conditions</text>
         <text tid="masks_from">The sender (From:) matches one of:</text>
@@ -1266,18 +1266,19 @@
         <text tid="sendermask">Sender (From:)</text>
         <text tid="sendersempty">All sender addresses are blocked</text>
         <text tid="senderstab">Senders</text>
+        <text tid="server">Server</text>
+        <text tid="serversempty">No SMTP servers configured yet</text>
         <text tid="serverurl">SMTP server</text>
         <text tid="smtp_test_error">Testing the mailserver gave the following error:<br/><param p="1"/></text>
         <text tid="smtp_test_success">Could succesfully connect to the specified SMTP server</text>
-        <text tid="smtpconfig">Default mail server</text>
         <text tid="smtpserver">Server</text>
+        <text tid="smtpserver-null">Black hole (block all email)</text>
+        <text tid="smtpserver-use">Use SMTP server</text>
         <text tid="snsendpoint">SNS Endpoint</text>
         <text tid="suggestionfuzz">Suggestion fuzz factor</text>
         <text tid="suredontsendemail">Are you sure you want to block all emails that follow this mailroute?</text>
         <text tid="target">Target</text>
-        <text tid="usealternativesmtpserver-alternative">Alternative server</text>
-        <text tid="usealternativesmtpserver-default">Use the default SMTP server</text>
-        <text tid="usealternativesmtpserver-dontsend">Black hole (block all email)</text>
+        <text tid="testsmtpserver">Test SMTP server</text>
         <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->

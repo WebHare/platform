@@ -60,96 +60,49 @@ PUBLIC RECORD FUNCTION TestSMTP(STRING url)
 }
 
 
-// FIXME: due to arrayedit controlling the rowkey's, upon deletion other rows will be selected
-PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE MailRoutes EXTEND TolliumScreenBase <
   RECORD ARRAY columns;
 
   STRING smtpserverurl;
 
-  MACRO NEW()
-  {
+  MACRO NEW() {
     this->contexts->wrdschema := OpenWRDSchema("system:config");
   }
 
-  MACRO Init()
-  {
+  MACRO Init() {
+    ^mailservers->embeddedlist->highlightname := "highlight";
     this->RefreshConfig();
   }
 
-  MACRO RefreshConfig()
-  {
-    this->smtpserverurl := ReadRegistryKey("system.services.smtp.defaultmailroute");
-    ^smtpserver->value := HideSMTPPassword(this->smtpserverurl);
+  MACRO RefreshConfig() {
     ^snsendpoint->value := GetSNSEndpoint();
     ^mailfrom->value := ReadRegistryKey("system.services.smtp.mailfrom");
   }
 
-  MACRO DoMailConfig()
-  {
-    this->RunScreen("#mailconfig");
-    this->RefreshConfig();
-  }
-
-  MACRO DoSenderConfig()
-  {
+  MACRO DoSenderConfig() {
     this->RunScreen("#senderconfig");
-    this->RefreshConfig();
   }
 
-  RECORD ARRAY FUNCTION OnMapRoutes(RECORD ARRAY routes)
-  {
+  RECORD ARRAY FUNCTION OnMapServers(RECORD ARRAY routes) {
     RETURN SELECT *
-                , sendermasks :=    Detokenize((SELECT AS STRING ARRAY mask FROM sendermasks),"\n")
-                , recipientmasks := Detokenize((SELECT AS STRING ARRAY mask FROM recipientmasks),"\n")
-                , serverurl :=      serverurl = "" ? this->GetTid('.defaultsmtp')
-                                    : serverurl = "null" ? this->GetTid('.ignore')
-                                    : HideSMTPPassword(serverurl)
+                , serverurl :=     HideSMTPPassword(serverurl)
+                , highlight := wrd_tag = "DEFAULTSERVER"
           FROM routes;
   }
 
-  RECORD ARRAY FUNCTION OnMapCorrections(RECORD ARRAY corrections)
-  {
+  RECORD ARRAY FUNCTION OnMapRoutes(RECORD ARRAY routes) {
+    RETURN SELECT *
+                , sendermasks :=    Detokenize((SELECT AS STRING ARRAY mask FROM sendermasks),"\n")
+                , recipientmasks := Detokenize((SELECT AS STRING ARRAY mask FROM recipientmasks),"\n")
+                , server :=         rewritemailaddress = "null" ? this->GetTid('.ignore') : this->contexts->wrdschema->^mailroute->GetDomValTitle("server", server)
+          FROM routes;
+  }
+
+  RECORD ARRAY FUNCTION OnMapCorrections(RECORD ARRAY corrections) {
     RETURN SELECT *
                 , masks := Detokenize((SELECT AS STRING ARRAY mask FROM masks),"\n")
                 , target := block ? this->GetTid(".blocked") : rewriteto
              FROM corrections;
-  }
->;
-
-
-PUBLIC STATIC OBJECTTYPE MailConfig EXTEND TolliumScreenBase
-<
-  STRING smtpserverurl;
-
-  MACRO Init()
-  {
-    this->smtpserverurl := ReadRegistryKey("system.services.smtp.defaultmailroute");
-    IF (this->smtpserverurl != "")
-    {
-      RECORD rec := UnpackURL(this->smtpserverurl);
-      ^port->value         := rec.port;
-      ^authusername->value := rec.user;
-      ^authpassword->value := rec.password;
-      ^hostname->value     := rec.host;
-    }
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    IF (work->HasFailed())
-      RETURN FALSE;
-
-    RECORD rec := UnpackURL("smtp://example.net"); // get a record with all URL fields and protocol prefilled
-    rec.host     := ^hostname->value;
-    rec.port     := ^port->value;
-    rec.user     := ^authusername->value;
-    rec.password := ^authpassword->value;
-
-    WriteRegistryKey("system.services.smtp.defaultmailroute", RepackURL(rec));
-
-    RETURN work->Finish();
   }
 >;
 
@@ -174,34 +127,15 @@ PUBLIC STATIC OBJECTTYPE SenderConfig EXTEND TolliumScreenBase
 >;
 
 
-PUBLIC STATIC OBJECTTYPE EditSMTPServer EXTEND TolliumScreenBase
-<
-  PUBLIC STRING value;
-
-  MACRO Init(RECORD data)
-  {
-    IF (data.value = "")
-      RETURN;
-
-    RECORD rec := UnpackURL(data.value);
-    ^port->value         := rec.port;
-    ^authusername->value := rec.user;
-    ^authpassword->value := rec.password;
-    ^hostname->value     := rec.host;
+PUBLIC STATIC OBJECTTYPE EditMailServer EXTEND WRDEntityEditScreenBase <
+  UPDATE MACRO Init(RECORD data) {
+    WRDEntityEditScreenBase::Init(data);
+    IF(data.id != 0 AND ^entity->wrdentity->GetField("WRD_TAG") = "DEFAULTSERVER") {
+      ^defaultserver->value := TRUE;
+      ^defaultserver->enabled := FALSE;
+    }
   }
-
-  MACRO DoTestSMTPServer()
-  {
-    RECORD result := TestSMTP(this->GetValue());
-
-    IF (result.success)
-      this->RunSimpleScreen("info", this->GetTid(".smtp_test_success"));
-    ELSE
-      this->RunSimpleScreen("error", this->GetTid(".smtp_test_error", result.error));
-  }
-
-  STRING FUNCTION GetValue()
-  {
+  STRING FUNCTION OnGetServerURL() {
     RECORD rec := UnpackURL("smtp://"); // get a record with all URL fields and protcol prefilled
     // RepackURL uses the schemspecificpart?
     rec.host     := ^hostname->value;
@@ -211,11 +145,41 @@ PUBLIC STATIC OBJECTTYPE EditSMTPServer EXTEND TolliumScreenBase
     RETURN RepackURL(rec);
   }
 
-  BOOLEAN FUNCTION Submit()
+  MACRO OnSetServerURL(STRING url) {
+    RECORD rec := url != "" ? UnpackURL(url) : CELL[port := 0, user := "", password := "", host := ""];
+    ^port->value         := rec.port;
+    ^authusername->value := rec.user;
+    ^authpassword->value := rec.password;
+    ^hostname->value     := rec.host;
+  }
+
+  MACRO DoTestSMTPServer()
   {
-    OBJECT work := this->BeginWork();
-    this->value := this->GetValue();
-    RETURN work->Finish();
+    RECORD result := TestSMTP(^serverurl->value);
+
+    IF (result.success)
+      this->RunSimpleScreen("info", this->GetTid(".smtp_test_success"));
+    ELSE
+      this->RunSimpleScreen("error", this->GetTid(".smtp_test_error", result.error));
+  }
+
+  UPDATE RECORD FUNCTION Submitter(OBJECT work, RECORD updatevalue) {
+    BOOLEAN setasdefault := (^defaultserver->value AND ^defaultserver->enabled)
+                            OR
+                            Length(this->contexts->wrdschema->^mailserver->RunQuery(CELL[])) = 0; //first mailserver!
+
+    IF (setasdefault) {
+      updatevalue := CELL[...updatevalue, wrd_tag := "DEFAULTSERVER"];
+      //clear the other one
+      FOREVERY(RECORD other FROM this->contexts->wrdschema->^mailserver->RunQuery(
+        [ outputcolumns := CELL[ "wrd_id" ]
+        , filters := [[ field := "wrd_tag", value := "DEFAULTSERVER" ]
+                     ,[ field := "wrd_id", matchtype := "!=", value := ^entity->entityid ]]
+        ]))
+        this->contexts->wrdschema->^mailserver->UpdateEntity(other.wrd_id, CELL[ wrd_tag := "" ]);
+    }
+
+    RETURN updatevalue;
   }
 >;
 
@@ -223,56 +187,32 @@ PUBLIC STATIC OBJECTTYPE EditSMTPServer EXTEND TolliumScreenBase
 PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND WRDEntityEditScreenBase
 <
   STRING smtpserverurl;
-  STRING org_usealternativesmtpserver;
+  BOOLEAN org_nullroute;
 
-  UPDATE MACRO Init(RECORD params)
-  {
+  UPDATE MACRO Init(RECORD params) {
+    ^entity->^server->options := SELECT *, rowkey := id FROM this->contexts->wrdschema->^mailroute->ListDomVals("server") ORDER BY ToUppercase(title);
     WRDEntityEditScreenBase::Init(params);
-    IF(^entity->entityid = 0)  // Is this a new route?
-    {
-      ^usealternativesmtpserver->value := "default";
+    IF(^entity->entityid = 0) { // Is this a new route?
+      ^smtpserver->value := "use";
+      ^entity->^server->selection := SELECT * FROM ^entity->^server->options WHERE tag = "DEFAULTSERVER";
       ^entity->^sendermasks->value := [[ mask := "*" ]];
       ^entity->^recipientmasks->value := [[ mask := "*" ]];
     }
-    this->org_usealternativesmtpserver := ^usealternativesmtpserver->value;
+    this->org_nullroute := ^smtpserver->value = "null";
   }
 
-  STRING FUNCTION GetRewriteMailAddress()
-  {
-    RETURN ^outgoingredirect->value ? ^outgoingmailaddress->value : "";
+  STRING FUNCTION GetRewriteMailAddress() {
+    RETURN ^smtpserver->value = "null" ? "null" : ^outgoingredirect->value ? ^outgoingmailaddress->value : "";
   }
 
-  MACRO SetRewriteMailAddress(STRING address)
-  {
+  MACRO SetRewriteMailAddress(STRING address) {
+    ^smtpserver->value := address = "null" ? "null" : "use";
     ^outgoingmailaddress->value := address;
     ^outgoingredirect->value := address != "";
   }
 
-  STRING FUNCTION GetServerURL()
-  {
-    RETURN ^usealternativesmtpserver->value = "alternative"
-            ? this->smtpserverurl
-            : ^usealternativesmtpserver->value = "dontsend"
-              ? "null"
-              : "";
-  }
-
-  MACRO SetServerURL(STRING serverurl)
-  {
-    this->smtpserverurl := serverurl;
-    ^usealternativesmtpserver->value := serverurl = ""
-        ? "default"
-        : serverurl = "null"
-              ? "dontsend"
-              : "alternative";
-
-    this->GotSMTPServerChange();
-    this->RefreshConfig();
-  }
-
-  MACRO GotSMTPServerChange()
-  {
-    ^outgoingredirect->enabled := ^usealternativesmtpserver->value != "dontsend";
+  MACRO OnSMTPServerChange() {
+    ^outgoingredirect->enabled := ^smtpserver->value != "null";
   }
 
   // workaround so we can also support getting multiple rows back when editting a single row
@@ -308,28 +248,12 @@ PUBLIC STATIC OBJECTTYPE EditMailRoute EXTEND WRDEntityEditScreenBase
     RETURN ToRecordArray(dialog->value, "mask"); // Return each (space separated) mask as separate row
   }
 
-  MACRO DoEditSMTPServer()
-  {
-    OBJECT dialog := this->LoadScreen(".editsmtpserver", [ value := this->smtpserverurl ]);
-    IF (dialog->RunModal() = "ok")
-    {
-      this->smtpserverurl := dialog->value;
-      this->RefreshConfig();
-    }
-  }
-
-  MACRO RefreshConfig()
-  {
-    ^serverurl->value := HideSMTPPassword(this->smtpserverurl);
-  }
-
   UPDATE BOOLEAN FUNCTION Submit()
   {
     IF(NOT this->BeginFeedback()->Finish())
       RETURN FALSE;
 
-    IF (this->org_usealternativesmtpserver != "dontsend" AND ^usealternativesmtpserver->value = "dontsend")
-    {
+    IF (this->org_nullroute = FALSE AND ^smtpserver->value = "null") {
       IF (this->RunSimpleScreen("confirm", this->GetTid(".suredontsendemail")) != "yes")
         RETURN FALSE;
     }

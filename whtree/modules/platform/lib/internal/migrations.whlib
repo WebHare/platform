@@ -1,5 +1,8 @@
 <?wh
 
+LOADLIB "mod::system/lib/configure.whlib";
+
+
 PUBLIC RECORD FUNCTION MigrateAccountStatus(OBJECT wrdschema) {
   IF(NOT RecordExists(wrdschema->^wrd_person->GetAttribute("whuser_disabled")))
     RETURN DEFAULT RECORD; //this schema never had whuser_disabled. even though we use at=update this may happen if usermgmt is applied to an already created wrdschema
@@ -39,4 +42,39 @@ PUBLIC RECORD FUNCTION MigrateAccountStatus(OBJECT wrdschema) {
     wrdschema->^wrd_person->DeleteAttribute("whuser_disable_type");
 
   RETURN CELL[ numinactive, numactive, numblocked ];
+}
+
+PUBLIC RECORD FUNCTION MigrateMailServers(OBJECT wrdschema) {
+  IF(NOT RecordExists(wrdschema->^mailroute->GetAttribute("serverurl")))
+    RETURN DEFAULT RECORD; //nothing to migrate
+
+  RECORD ARRAY servermapping;
+  RECORD ARRAY currentroutes := wrdschema->^mailroute->RunQuery([outputcolumns := CELL[ "wrd_id", "serverurl" ]]);
+  STRING defaultroute := ReadRegistryKey("system.services.smtp.defaultmailroute", [ fallback := "" ]);
+  INTEGER defaultrouteid;
+
+  IF(defaultroute != "")
+    defaultrouteid := wrdschema->^mailserver->CreateEntity(CELL[wrd_title := "Default route",  serverurl := defaultroute, wrd_tag := "DEFAULTSERVER" ])->id;
+
+  DeleteRegistryKey("system.services.smtp.defaultmailroute");
+
+  FOREVERY(RECORD route FROM currentroutes) {
+    IF(route.serverurl = "null") //blackhole
+      wrdschema->^mailroute->UpdateEntity(route.wrd_id, CELL[ rewritemailaddress := "null" ]);
+    ELSE {
+      INTEGER newserver := defaultrouteid;
+      IF(route.serverurl != "") {
+        newserver := wrdschema->^mailserver->Search("serverurl", route.serverurl);
+        IF(newserver = 0)
+          newserver := wrdschema->^mailserver->CreateEntity(CELL[ wrd_title := "Mailserver #" || Length(wrdschema->^mailserver->RunQuery(CELL[])) + 1, serverurl := route.serverurl ])->id;
+        ELSE
+          print('reuse server ' || newserver ||'\n');
+      }
+      wrdschema->^mailroute->UpdateEntity(route.wrd_id, CELL[ server := newserver ]);
+    }
+  }
+
+  wrdschema->^mailroute->DeleteAttribute("serverurl"); //not backing up as it may contain passwords
+
+  RETURN DEFAULT RECORD;
 }

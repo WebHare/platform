@@ -959,6 +959,7 @@ STATIC OBJECTTYPE TestFramework <
     OBJECT systemconfigschema := OpenWRDSchema("system:config");
     this->CleanupWRDSchema(systemconfigschema, [[ type := "MAILROUTE", tagmasks := [ "TESTFW_*" ] ]
                                                ,[ type := "MAILSENDER", tagmasks := [ "TESTFW_*" ] ]
+                                               ,[ type := "MAILSERVER", tagmasks := [ "TESTFW_*" ] ]
                                                ,[ type := "MAILRECIPIENT", tagmasks := [ "TESTFW_*" ] ]
                                                ,[ type := "MAILCORRECTION", tagmasks := [ "TESTFW_*" ] ]
                                                ]);

@@ -3,16 +3,29 @@
          gid="tolliumapps.config.mailrouting"
          library="mailrouting.whlib">
 
-  <screen name="mailconfig" footerbuttons="ok cancel">
+  <screen name="editmailserver" footerbuttons="ok cancel">
+    <actions>
+      <action name="testsmtpserver" onexecute="DoTestSMTPServer" />
+    </actions>
+
+    <compositions>
+      <wrd:entity name="entity" wrdtype="mailserver" />
+      <virtualcell composition="entity" cellname="serverurl" name="serverurl" onget="ongetserverurl" onset="onsetserverurl" />
+    </compositions>
+
     <body>
-      <heading tid=".defaultsendsettings" />
+      <checkbox name="defaultserver" labeltid=".defaultserver-label" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" required="true" tid="~title" />
       <textedit name="hostname" width="1pr" required="true" />
       <line>
-        <textedit name="port" width="6x" required="true" valuetype="integer" />
+        <textedit name="port" width="6x" emptyvalue="0" required="true" valuetype="integer" />
         <text valuetid=".defaultport" />
       </line>
       <textedit name="authusername" tid="~username" />
       <textedit name="authpassword" password="true" tid="~password" />
+      <line layout="right">
+        <button action="testsmtpserver" />
+      </line>
     </body>
   </screen>
 
@@ -26,35 +39,26 @@
     </body>
   </screen>
 
-  <screen name="editsmtpserver" width="50x" footerbuttons="ok cancel">
-    <body>
-      <!-- heading tid=".heading_smtpserver" -->
-      <textedit name="hostname" width="1pr" required="true" />
-      <line>
-        <textedit name="port" width="6x" required="true" value="25" valuetype="integer" />
-        <text valuetid=".defaultport" />
-      </line>
-      <textedit name="authusername" tid="~username" />
-      <textedit name="authpassword" password="true" tid="~password" />
-    </body>
-  </screen>
-
   <screen name="mailroutes" width="130x" height="40x" allowresize="true" footerbuttons="close">
     <actions>
-      <action name="mailconfig" onexecute="domailconfig" tid="~edit" />
       <action name="senderconfig" onexecute="dosenderconfig" tid="~edit" />
     </actions>
 
     <body spacers="none">
       <tabs height="1pr">
         <tab name="routestab">
-          <heading tid=".smtpconfig" />
-          <line>
-            <textedit name="smtpserver" width="1pr" enabled="false" />
-            <button action="mailconfig" />
-          </line>
-          <textedit name="snsendpoint" width="1pr" enabled="false" />
-          <hr />
+          <heading tid=".mailservers" />
+          <wrd:entitiesedit name="mailservers"
+                            height="1pr"
+                            deletemode="delete-denyreferred"
+                            emptytid=".serversempty"
+                            entityeditscreen="#editmailserver"
+                            onmaprows="onmapservers"
+                            requestcolumns="wrd_tag wrd_title serverurl"
+                            wrdtype="mailserver">
+            <column name="wrd_title" type="text" width="2pr" tid="~title" />
+            <column name="serverurl" type="text" width="2pr" tid=".serverurl" />
+          </wrd:entitiesedit>
           <heading tid=".mailroutes" />
           <wrd:entitiesedit name="routes"
                             height="1pr"
@@ -68,8 +72,10 @@
             <column name="sendermasks" type="text" width="2pr" tid=".sendermask" />
             <column name="recipientmasks" type="text" width="2pr" tid=".mask" />
             <column name="rewritemailaddress" type="text" width="2pr" tid=".outgoingmailaddress" />
-            <column name="serverurl" type="text" width="2pr" tid=".altserver" />
+            <column name="server" type="text" width="2pr" tid=".server" />
           </wrd:entitiesedit>
+          <heading tid=".integrations" />
+          <textedit name="snsendpoint" width="1pr" enabled="false" />
         </tab>
         <tab name="senderstab">
           <heading tid=".fallbackvalues" />
@@ -120,14 +126,8 @@
   </screen>
 
   <screen name="editmailroute" width="70x" minwidth="60x" allowresize="true" footerbuttons="ok cancel">
-    <actions>
-      <action name="editsmtpserver" onexecute="doeditsmtpserver" title="" />
-    </actions>
-
     <compositions>
-      <wrd:entity name="entity" wrdtype="MAILROUTE" />
-      <radiogroup name="usealternativesmtpserver" onchange="gotsmtpserverchange" />
-      <virtualcell composition="entity" cellname="serverurl" onget="getserverurl" onset="setserverurl" />
+      <wrd:entity name="entity" wrdtype="mailroute" />
       <virtualcell composition="entity"
                    cellname="rewritemailaddress"
                    onget="getrewritemailaddress"
@@ -163,22 +163,12 @@
         <column name="mask" type="text" width="1pr" />
       </arrayedit>
       <heading tid=".outgoing" />
-      <lines layout="left">
-        <radiobutton group="usealternativesmtpserver" labeltid=".usealternativesmtpserver-default" rowkey="default" title="" />
-        <line>
-          <radiobutton enablecomponents="editserverurl"
-                       group="usealternativesmtpserver"
-                       labeltid=".usealternativesmtpserver-alternative"
-                       rowkey="alternative"
-                       title="" />
-          <textedit name="serverurl" width="1pr" enabled="false" errorlabeltid=".serverurl" title="" />
-          <button name="editserverurl" action="editsmtpserver" tid="~edit" />
-        </line>
-        <radiobutton group="usealternativesmtpserver"
-                     labeltid=".usealternativesmtpserver-dontsend"
-                     rowkey="dontsend"
-                     title="" />
-      </lines>
+      <select name="smtpserver" type="radio" onchange="onsmtpserverchange">
+        <option rowkey="use">
+          <select composition="entity" cellname="server" type="pulldown" required="true" />
+        </option>
+        <option rowkey="null" />
+      </select>
       <heading tid=".redirect" />
       <lines layout="left">
         <select name="outgoingredirect" type="radio" implicitenablecomponents="false" rowkeytype="boolean" title="">

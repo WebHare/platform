@@ -15,7 +15,7 @@ RECORD FUNCTION GetCacheableMailRoutes()
                     , mailsenders := configschema->^mailsender->RunQuery([ outputcolumns := [ "*" ]])
                     , mailrecipients := configschema->^mailrecipient->RunQuery([ outputcolumns := [ "*" ]])
                     , mailcorrections := configschema->^mailcorrection->RunQuery([ outputcolumns := [ "*" ]])
-                    , defaultserver := ReadRegistryKey("system.services.smtp.defaultmailroute")
+                    , mailservers := configschema->^mailserver->RunQuery([ outputcolumns := [ "*" ]])
                     , usemailfromfornonwhitelisted := ReadRegistryKey("system.services.smtp.usemailfromfornonwhitelisted")
                     ]
          , ttl := 60 * 1000 * 1000
@@ -23,7 +23,8 @@ RECORD FUNCTION GetCacheableMailRoutes()
                          CONCAT configschema->^mailsender->GetEventMasks()
                          CONCAT configschema->^mailrecipient->GetEventMasks()
                          CONCAT configschema->^mailcorrection->GetEventMasks()
-                         CONCAT GetRegistryKeyEventMasks([ "system.services.smtp.defaultmailroute", "system.services.smtp.usemailfromfornonwhitelisted" ])
+                         CONCAT configschema->^mailserver->GetEventMasks()
+                         CONCAT GetRegistryKeyEventMasks([  "system.services.smtp.usemailfromfornonwhitelisted" ])
          ];
 }
 
@@ -50,6 +51,7 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
 
   //some tests inject routes with ordering < -999 which need to be above everything
   mailroutes := SELECT *
+                     , serverurl := rewritemailaddress = "null" ? "null" : (SELECT AS STRING serverurl FROM routedata.mailservers WHERE wrd_id = mailroutes.server)
                      , DELETE wrd_id
                      , DELETE wrd_ordering
                   FROM routedata.mailroutes
@@ -64,16 +66,17 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   mailroutes := mailroutes
                 CONCAT
                 SELECT *
-                     , serverurl := serverurl ?? routedata.defaultserver
+                     , serverurl := rewritemailaddress = "null" ? "null" : (SELECT AS STRING serverurl FROM routedata.mailservers WHERE wrd_id = mailroutes.server)
                      , DELETE wrd_id
                      , DELETE wrd_ordering
                   FROM routedata.mailroutes
                  WHERE wrd_ordering >= -999
               ORDER BY wrd_ordering, wrd_id;
 
-  IF(routedata.defaultserver != "")
+  RECORD defaultserver := SELECT * FROM routedata.mailservers WHERE wrd_tag = "DEFAULTSERVER";
+  IF(RecordExists(defaultserver))
     INSERT CELL[ ...base_anymailroute
-               , serverurl := routedata.defaultserver
+               , serverurl := defaultserver.serverurl
                ] INTO mailroutes AT END;
 
   RETURN mailroutes;
