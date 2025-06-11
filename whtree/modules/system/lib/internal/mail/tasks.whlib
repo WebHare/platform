@@ -70,8 +70,7 @@ PUBLIC BLOB FUNCTION GetEMLFromMaiLTask(RECORD mailtask)
 }
 
 //Send a mail using Webhare's routing rules
-PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions( [ ignorerecipientwhitelist := FALSE
                               , origin := ""
                               , messageid := ""
@@ -91,11 +90,13 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
     smtpmgr := NEW WebHareSMTPManager;
 
   STRING senderemail := SplitEmailName(mail.sender).email;
-  INTEGER sendstatus := IsAllowedEmailSender(senderemail);
-  IF(sendstatus = 2) //usemailfromfornonwhitelisted
-  {
+  RECORD mailroutes := GetMailroutes();
+  RECORD matchsender := MatchMailRule(senderemail, mailroutes.mailsenders);
+
+  IF(NOT RecordExists(matchsender) AND mailroutes.usemailfromfornonwhitelisted) {
     STRING mailfrom := ReadRegistryKey("system.services.smtp.mailfrom");
-    IF(IsAllowedEmailSender(mailfrom) != 1) //if this one is not whitelisted, we're not allowed to send
+    matchsender := MatchMailRule(mailfrom, mailroutes.mailsenders);
+    IF(NOT RecordExists(matchsender)) //if this one is not whitelisted, we're not allowed to send
       RETURN CELL[ ...baseretval, nextaction := "retry", response := `Fallback sender '${mailfrom}' is not whitelisted` ];
 
     RECORD split_mailfrom := SplitEmailName(mailfrom);
@@ -107,9 +108,7 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
 
     UPDATE mail.mimeheaders SET value := mail.sender WHERE ToUppercase(field) = "FROM";
     UPDATE mail.mimeheaders SET value := "<" || senderemail || ">" WHERE ToUppercase(field) IN ["ERRORS-TO","RETURN-PATH"];
-  }
-  ELSE IF(sendstatus = 0)
-  {
+  } ELSE IF(NOT RecordExists(matchsender)) {
     RETURN CELL[ ...baseretval, nextaction := "retry", response := `Sender '${senderemail}' is not whitelisted` ];
   }
 
@@ -142,6 +141,16 @@ PUBLIC RECORD FUNCTION SendWebHareMail(RECORD mail, RECORD options DEFAULTSTO DE
 
   DELETE FROM mail.mimeheaders WHERE TOUppercase(field)="MESSAGE-ID";
   INSERT [ field := "Message-ID", value := options.messageid ] INTO mail.mimeheaders AT END;
+
+  STRING ARRAY current_headers := SELECT AS STRING ARRAY ToUppercase(field) FROM mail.mimeheaders; //these headers should NOT be touched
+
+  FOREVERY(RECORD header FROM route.setheaders CONCAT matchsender.setheaders) {
+    IF(ToUppercase(header.field) IN current_headers)
+      CONTINUE; //already set, don't overwrite
+    DELETE FROM mail.mimeheaders WHERE ToUppercase(field) = ToUppercase(header.field);
+    IF(header.value != "")
+      INSERT header INTO mail.mimeheaders AT END;
+  }
 
   RECORD sendresult := smtpconn.conn->SendMessage([receiver], mail.sender, mail.mimeheaders, mail.toppart, [ rawheaders := options.rawheaders ]);
   baseretval.serverip := sendresult.smtpserverip;

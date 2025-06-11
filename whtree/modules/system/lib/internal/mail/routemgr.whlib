@@ -28,7 +28,7 @@ RECORD FUNCTION GetCacheableMailRoutes()
          ];
 }
 
-RECORD FUNCTION GetMailRoutes()
+PUBLIC RECORD FUNCTION GetMailRoutes()
 {
   RETURN GetAdhocCached([ type := "mailroutes" ], PTR GetCacheableMailRoutes);
 }
@@ -47,14 +47,20 @@ CONSTANT RECORD base_anymailroute := [ recipientmasks := [[ mask := "*" ]]
 RECORD ARRAY FUNCTION GetSMTPRoutes()
 {
   RECORD routedata := GetMailroutes();
+  RECORD ARRAY baseroutes :=
+                SELECT TEMPORARY matchserver := (SELECT * FROM routedata.mailservers WHERE wrd_id = mailroutes.server)
+                     , *
+                     , serverurl := rewritemailaddress = "null" ? "null" : RecordExists(matchserver) ? matchserver.serverurl : ""
+                     , setheaders := RecordExists(matchserver) ? matchserver.setheaders : RECORD[]
+                  FROM routedata.mailroutes;
+
   RECORD ARRAY mailroutes;
 
   //some tests inject routes with ordering < -999 which need to be above everything
   mailroutes := SELECT *
-                     , serverurl := rewritemailaddress = "null" ? "null" : (SELECT AS STRING serverurl FROM routedata.mailservers WHERE wrd_id = mailroutes.server)
                      , DELETE wrd_id
                      , DELETE wrd_ordering
-                  FROM routedata.mailroutes
+                  FROM baseroutes
                  WHERE wrd_ordering < -999
               ORDER BY wrd_ordering, wrd_id;
 
@@ -66,10 +72,9 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   mailroutes := mailroutes
                 CONCAT
                 SELECT *
-                     , serverurl := rewritemailaddress = "null" ? "null" : (SELECT AS STRING serverurl FROM routedata.mailservers WHERE wrd_id = mailroutes.server)
                      , DELETE wrd_id
                      , DELETE wrd_ordering
-                  FROM routedata.mailroutes
+                  FROM baseroutes
                  WHERE wrd_ordering >= -999
               ORDER BY wrd_ordering, wrd_id;
 
@@ -77,23 +82,23 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   IF(RecordExists(defaultserver))
     INSERT CELL[ ...base_anymailroute
                , serverurl := defaultserver.serverurl
+               , setheades := defaultserver.setheaders
                ] INTO mailroutes AT END;
 
   RETURN mailroutes;
 }
 
-BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, RECORD ARRAY masks)
-{
-  IF(RecordExists(SELECT FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask)))
-    RETURN TRUE;
-
-  IF(lookfor LIKE "*+*@*") //plus address ? check if the address without the plus is whitelisted
-  {
+PUBLIC RECORD FUNCTION MatchMailRule(STRING lookfor, RECORD ARRAY masks) {
+  RECORD match := SELECT * FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask) ORDER BY Length(mask) DESC; //find most specific match
+  IF(NOT RecordExists(match) AND lookfor LIKE "*+*@*") { //plus address ? check if the address without the plus is whitelisted
     lookfor := Tokenize(lookfor,'+')[0] || '@' || Tokenize(lookfor,'@')[1];
-    IF(RecordExists(SELECT FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask)))
-      RETURN TRUE;
+    match := SELECT *  FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask) ORDER BY Length(mask) DESC; //find most specific match
   }
-  RETURN FALSE;
+  RETURN match;
+}
+
+BOOLEAN FUNCTION IsInLikeUC(STRING lookfor, RECORD ARRAY masks) {
+  RETURN RecordExists(MatchMailRule(lookfor,masks));
 }
 
 PUBLIC INTEGER FUNCTION IsAllowedEmailSender(STRING email)

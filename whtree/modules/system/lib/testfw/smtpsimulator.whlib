@@ -225,6 +225,10 @@ PUBLIC OBJECT FUNCTION SetupTestSMTPReceiver(STRING recipientmask, RECORD option
   OBJECT server := OpenWRDSchema("system:config")->^mailserver->CreateEntity(
     [ wrd_tag := "TESTFW_TESTSMTPRECEIVER_" || mailserverport
     , serverurl := `smtp://127.0.0.1:${mailserverport}`
+    , setheaders := [[ field := "X-Header-1", value := "One"],
+                     [ field := "X-Header-2", value := "Two"],
+                     [ field := "X-Header-3", value := "Three"]
+                    ]
     ]);
   OpenWRDSchema("system:config")->^mailroute->CreateEntity(
     [ wrd_tag := "TESTFW_TESTSMTPRECEIVER_" || mailserverport
