@@ -1235,8 +1235,12 @@
         <text tid="editmailserver">Mail server properties</text>
         <text tid="editmask">Edit mask</text>
         <text tid="editmaskrow">Mask</text>
+        <text tid="editreceiver">Allowed receiver</text>
+        <text tid="editsender">Allowed sender</text>
+        <text tid="editsetheaderrow">Mailheader</text>
         <text tid="emailcorrectionstab">Address corrections</text>
         <text tid="fallbackvalues">Fallback values</text>
+        <text tid="field">Header</text>
         <text tid="hostname">Server name</text>
         <text tid="ignore">Black hole (don't send)</text>
         <text tid="integrations">Integrations</text>
@@ -1269,6 +1273,7 @@
         <text tid="server">Server</text>
         <text tid="serversempty">No SMTP servers configured yet</text>
         <text tid="serverurl">SMTP server</text>
+        <text tid="setheaders">Set mail headers</text>
         <text tid="smtp_test_error">Testing the mailserver gave the following error:<br/><param p="1"/></text>
         <text tid="smtp_test_success">Could succesfully connect to the specified SMTP server</text>
         <text tid="smtpserver">Server</text>
@@ -1280,6 +1285,7 @@
         <text tid="target">Target</text>
         <text tid="testsmtpserver">Test SMTP server</text>
         <text tid="usefornonwhitelisted">Use if sender is not whitelisted</text>
+        <text tid="value">Value</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Keep access log</text>

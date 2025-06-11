@@ -26,6 +26,17 @@
       <line layout="right">
         <button action="testsmtpserver" />
       </line>
+      <heading tid=".setheaders" />
+      <arrayedit composition="entity"
+                 cellname="setheaders"
+                 height="1pr"
+                 minwidth="50x"
+                 minheight="4gr"
+                 errorlabeltid=".setheaders"
+                 roweditscreen="#editsetheaderrow">
+        <column name="field" type="text" width="1pr" />
+        <column name="value" type="text" width="1pr" />
+      </arrayedit>
     </body>
   </screen>
 
@@ -88,7 +99,7 @@
                             height="1pr"
                             deletemode="close"
                             emptytid=".sendersempty"
-                            entityeditscreen="#editmask"
+                            entityeditscreen="#editsender"
                             wrdtype="mailsender">
             <column name="mask" type="text" width="1pr" tid=".mask" />
             <column name="wrd_title" type="text" width="2pr" tid="~description" />
@@ -99,7 +110,7 @@
                             height="1pr"
                             deletemode="close"
                             emptytid=".receiversempty"
-                            entityeditscreen="#editmask"
+                            entityeditscreen="#editreceiver"
                             wrdtype="mailrecipient">
             <column name="mask" type="text" width="1pr" tid=".mask" />
             <column name="wrd_title" type="text" width="2pr" tid="~description" />
@@ -197,7 +208,40 @@
     </body>
   </screen>
 
-  <screen name="editmask" footerbuttons="ok cancel" implementation="wrd:entityedit">
+  <screen name="editsender" footerbuttons="ok cancel" implementation="wrd:entityedit">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body>
+      <textedit composition="entity" cellname="mask" width="1pr" required="true" />
+      <textedit composition="entity" cellname="wrd_title" width="1pr" tid="~description" />
+      <heading tid=".setheaders" />
+      <arrayedit composition="entity"
+                 cellname="setheaders"
+                 height="1pr"
+                 minwidth="50x"
+                 minheight="4gr"
+                 errorlabeltid=".setheaders"
+                 roweditscreen="#editsetheaderrow">
+        <column name="field" type="text" width="1pr" />
+        <column name="value" type="text" width="1pr" />
+      </arrayedit>
+    </body>
+  </screen>
+
+  <screen name="editsetheaderrow" footerbuttons="ok cancel" implementation="rowedit">
+    <compositions>
+      <record name="row" />
+    </compositions>
+
+    <body>
+      <textedit composition="row" cellname="field" width="1pr" required="true" />
+      <textedit composition="row" cellname="value" width="1pr" />
+    </body>
+  </screen>
+
+  <screen name="editreceiver" footerbuttons="ok cancel" implementation="wrd:entityedit">
     <compositions>
       <wrd:entity name="entity" />
     </compositions>

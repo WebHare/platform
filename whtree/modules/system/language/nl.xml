@@ -1049,8 +1049,12 @@
         <text tid="editmailserver">Mailserver eigenschappen</text>
         <text tid="editmask">Wijzig masker</text>
         <text tid="editmaskrow">Masker</text>
+        <text tid="editreceiver">Toegestane ontvanger</text>
+        <text tid="editsender">Toegestane afzender</text>
+        <text tid="editsetheaderrow">Mailheader</text>
         <text tid="emailcorrectionstab">Adrescorrecties</text>
         <text tid="fallbackvalues">Terugval waarden</text>
+        <text tid="field">Header</text>
         <text tid="hostname">Servernaam</text>
         <text tid="ignore">Zwart gat (blokkeer mail)</text>
         <text tid="integrations">Integraties</text>
@@ -1083,6 +1087,7 @@
         <text tid="server">Server</text>
         <text tid="serversempty">Er zijn nog geen SMTP servers ingesteld</text>
         <text tid="serverurl">SMTP Server</text>
+        <text tid="setheaders">Stel mail headers in</text>
         <text tid="smtp_test_error">Bij het testen van de mailserver is de volgende fout opgetreden:<br/><param p="1"/></text>
         <text tid="smtp_test_success">Het is gelukt om te verbinden met de SMTP server</text>
         <text tid="smtpserver">Server</text>
@@ -1094,6 +1099,7 @@
         <text tid="target">Doel</text>
         <text tid="testsmtpserver">Test SMTP server</text>
         <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
+        <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Bewaar toegangslog</text>
