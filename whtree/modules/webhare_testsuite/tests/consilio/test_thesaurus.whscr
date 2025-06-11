@@ -56,9 +56,11 @@ MACRO TestThesaurus()
 
   // Add some thesaurus words
   testfw->BeginWork();
-  INTEGER wordgroupid := (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
-  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "b" ] ] ]);
+  testcatalog->SetSynonyms([ CELL[ words := [ "a", "b" ] ] ]);
   testfw->CommitWork();
+  // Regression: New word groups (without wordgroupid) wouldn't be actually created
+  INTEGER wordgroupid := SELECT AS INTEGER COLUMN wordgroupid FROM testcatalog->GetSynonyms(); // There is only one word group
+  TestAssert(wordgroupid > 0);
   TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]));
 
   // Search again
