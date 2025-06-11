@@ -1018,8 +1018,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       INTEGER wordgroupid := CellExists(row, "wordgroupid")
           ? row.wordgroupid
           : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
-      IF (CellExists(row, "wordgroupid"))
-        INSERT row.wordgroupid INTO updated AT END;
+      INSERT wordgroupid INTO updated AT END;
 
       RECORD ARRAY oldwordgroup := SELECT id, word FROM consilio.thesaurus WHERE wordgroup = wordgroupid;
       STRING ARRAY newwordgroup := row.words;
