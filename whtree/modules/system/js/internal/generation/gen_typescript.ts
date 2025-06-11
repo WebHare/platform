@@ -137,7 +137,7 @@ export async function generateTSConfigTextForModule(module: string) {
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
-  const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, used: false, subPath: entry.fullPath.substring(basepath.length) }));
+  const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, used: false }));
 
   for (const item of want) {
     const itemPath = basepath + item.subPath;
