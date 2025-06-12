@@ -92,7 +92,7 @@ PUBLIC RECORD FUNCTION MatchMailRule(STRING lookfor, RECORD ARRAY masks) {
   RECORD match := SELECT * FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask) ORDER BY Length(mask) DESC; //find most specific match
   IF(NOT RecordExists(match) AND lookfor LIKE "*+*@*") { //plus address ? check if the address without the plus is whitelisted
     lookfor := Tokenize(lookfor,'+')[0] || '@' || Tokenize(lookfor,'@')[1];
-    match := SELECT *  FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask) ORDER BY Length(mask) DESC; //find most specific match
+    match := SELECT * FROM masks WHERE ToUppercase(lookfor) LIKE ToUppercase(mask) ORDER BY Length(mask) DESC; //find most specific match
   }
   RETURN match;
 }

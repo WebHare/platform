@@ -137,7 +137,7 @@ PUBLIC STATIC OBJECTTYPE EditMailServer EXTEND WRDEntityEditScreenBase <
   }
   STRING FUNCTION OnGetServerURL() {
     RECORD rec := UnpackURL("smtp://"); // get a record with all URL fields and protcol prefilled
-    // RepackURL uses the schemspecificpart?
+    // RepackURL uses the schemespecificpart?
     rec.host     := ^hostname->value;
     rec.port     := ^port->value;
     rec.user     := ^authusername->value;
