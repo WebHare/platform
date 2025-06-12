@@ -77,7 +77,7 @@ async function testFS() {
   test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper/deepest.txt` && _.name === "deepest.txt")?.type);
   test.eq("deepest.txt", direntries.find(_ => _.subPath === 'subdir/deeper/deepest.txt')?.name);
 
-  // "Regression" - fullPath didn't contain the exact basedir if eg. there were multiple slahses, breaking tricks taking fullPath.substring(basepath.length) - so now explicitly returning subPath
+  // "Regression" - fullPath didn't contain the exact basedir if eg. there were multiple slashes, breaking tricks taking fullPath.substring(basepath.length) - so now explicitly returning subPath
   const lastSlash = tempdir.lastIndexOf('/');
   const tripleSlashTempDir = tempdir.substring(0, lastSlash) + '//' + tempdir.substring(lastSlash);
   const tripleSlashEntries = await listDirectory(tripleSlashTempDir, { recursive: true });
