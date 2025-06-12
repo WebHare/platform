@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import { Readable } from "node:stream";
+import { backendConfig } from "@webhare/services";
 
 async function rewindAndGetModTime(file: string) {
   /* Just reading modtime and sleeping is unreliable because a FS may have only 1 second precision (eg overlayfs used in CI)
@@ -74,6 +75,27 @@ async function testFS() {
   test.eq("symboliclink", direntries.find(_ => _.fullPath === `${tempdir}/subdir/backup` && _.name === "backup")?.type);
   test.eq("directory", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper` && _.name === "deeper")?.type);
   test.eq("file", direntries.find(_ => _.fullPath === `${tempdir}/subdir/deeper/deepest.txt` && _.name === "deepest.txt")?.type);
+  test.eq("deepest.txt", direntries.find(_ => _.subPath === 'subdir/deeper/deepest.txt')?.name);
+
+  // "Regression" - fullPath didn't contain the exact basedir if eg. there were multiple slashes, breaking tricks taking fullPath.substring(basepath.length) - so now explicitly returning subPath
+  const lastSlash = tempdir.lastIndexOf('/');
+  const tripleSlashTempDir = tempdir.substring(0, lastSlash) + '//' + tempdir.substring(lastSlash);
+  const tripleSlashEntries = await listDirectory(tripleSlashTempDir, { recursive: true });
+  test.eq("deepest.txt", tripleSlashEntries.find(_ => _.subPath === 'subdir/deeper/deepest.txt')?.name);
+  test.eq(direntries, tripleSlashEntries);
+
+  // And now try with a relative basepath:
+  const saveCWD = process.cwd();
+  try {
+    process.chdir(backendConfig.dataRoot + "config"); //in dataroot/config we surely should go up to find the temp dir..
+    const relPath = path.relative(process.cwd(), tempdir);
+    test.assert(relPath.startsWith("../"));
+    const relativeSlashEntries = await listDirectory(relPath, { recursive: true });
+    test.eq("deepest.txt", relativeSlashEntries.find(_ => _.subPath === 'subdir/deeper/deepest.txt')?.name);
+    test.eq(direntries, relativeSlashEntries);
+  } finally {
+    process.chdir(saveCWD); //restore CWD
+  }
 
   const direntries_txt = await listDirectory(tempdir, { recursive: true, mask: "*.txt" });
   test.eq(4, direntries_txt.length);

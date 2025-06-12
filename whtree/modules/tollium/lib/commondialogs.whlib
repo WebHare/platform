@@ -3,21 +3,16 @@
 
 LOADLIB "wh::promise.whlib";
 
-/** @short Returns a Promise that is resolved if a QR encoded url is scanned and opened
-    @long This function creates a Promise that, when run, opens a window with a QR code. The QR code contains a link, that,
-          when opened, closes the window and resolves the Promise. The resolve function receives a TolliumWebAsyncCallback
-          object argument, which can be used to redirect to another URL or send a web file.
+/** @short Show QR code
     @param parent The parent window to use when opening the QR code window
     @param options
     @cell(record) options.data Optional data to encode into the URL
     @cell(string) options.title The QR window title
     @cell(string) options.description The QR window description text below the code, set to empty string to remove the
                                       description from the window
-    @return A promise that is resolved when the QR encoded url is opened and rejected when the window is closed by the user
 */
-PUBLIC OBJECT FUNCTION CreateQRPromise(OBJECT parent, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN CreatePromise(PTR RunQRPromise(parent, options, #1, #2));
+PUBLIC MACRO RunQRDialog(OBJECT parent, STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  parent->contexts->opener->RunScreen("mod::tollium/screens/commondialogs.xml#qrcallback", CELL[ url, options := options ]);
 }
 MACRO RunQRPromise(OBJECT parent, RECORD options, FUNCTION PTR resolve, FUNCTION PTR reject)
 {

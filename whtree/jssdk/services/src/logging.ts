@@ -138,7 +138,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     const continueAfterOffset: number = options?.continueAfter?.split(':')[0] === `A${datetok}` ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
 
     //Okay, this one is in range. Start parsing
-    const content = options?.content ?? readFileSync(basedir + "/" + file.name, "utf8");
+    const content = options?.content ?? readFileSync(file.fullPath, "utf8");
     const loglines = content.split("\n");
     let curOffset = 0;
     for (const line of loglines) {

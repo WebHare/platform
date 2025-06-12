@@ -1,16 +1,19 @@
 import { appendToArray, generateRandomId, regExpFromWildcards } from "@webhare/std";
 import type { Dirent } from "node:fs";
 import { mkdir, open, type FileHandle, rename, unlink, readdir, rmdir, writeFile, readFile } from "node:fs/promises";
-import { join, parse } from "node:path";
+import { isAbsolute, join, parse } from "node:path";
 import type { Stream } from "node:stream";
 import type { ReadableStream } from "node:stream/web";
 
 class ListDirectoryEntry {
   readonly type: "file" | "directory" | "symboliclink" | "socket" | null;
   readonly name;
+  /** Full path to file */
   readonly fullPath;
+  /** Relative path from listDirectory's starting point */
+  readonly subPath;
 
-  constructor(d: Dirent) {
+  constructor(d: Dirent, subPath: string) {
     if (d.isDirectory())
       this.type = "directory";
     else if (d.isFile())
@@ -23,6 +26,7 @@ class ListDirectoryEntry {
       this.type = null;
 
     this.name = d.name;
+    this.subPath = subPath;
     this.fullPath = join(d.parentPath, d.name);
   }
 }
@@ -95,7 +99,7 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
   try {
     for (const entry of await readdir(join(basepath, subpath), { withFileTypes: true })) {
       if (!mask || mask.test(entry.name))
-        direntries.push(new ListDirectoryEntry(entry));
+        direntries.push(new ListDirectoryEntry(entry, join(subpath, entry.name)));
       if (recursive && entry.isDirectory())
         subdirs.push(entry.name);
     }
@@ -115,6 +119,9 @@ async function doReadDir(basepath: string, subpath: string, allowMissing: boolea
 export async function listDirectory(basepath: string, { allowMissing, recursive, mask }: { allowMissing?: boolean; recursive?: boolean; mask?: string | RegExp } = {}): Promise<ListDirectoryEntry[]> {
   if (typeof mask === "string")
     mask = regExpFromWildcards(mask);
+
+  if (!isAbsolute(basepath))
+    basepath = join(process.cwd(), basepath); //ensure stable fullPaths
 
   return await doReadDir(basepath, "", allowMissing || false, recursive || false, mask);
 }
