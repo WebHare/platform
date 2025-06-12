@@ -1,5 +1,10 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
+  <migration tag="mailservers"
+             at="update"
+             stage="afterEntities"
+             updatefunction="mod::platform/lib/internal/migrations.whlib#MigrateMailServers" />
+
   <!-- The system:config schema stores various structured settings which would be quite complex in the registry but don't
        warrant their own tables -->
   <domain tag="configapp">
@@ -58,17 +63,33 @@
       <array tag="recipientmasks">
         <free tag="mask" />
       </array>
-      <free tag="serverurl" />
-      <free tag="rewritemailaddress" />
+
+      <!-- <free tag="serverurl" /> -->
+      <domain tag="server" domain="mailserver" />
+      <free tag="rewritemailaddress" description="Set to 'null' to blackhole mail on this route" />
       <boolean tag="includeoriginaladdress" />
     </attributes>
   </object>
+
+  <domain tag="mailserver" keephistorydays="2600">
+    <attributes>
+      <free tag="serverurl" required="true" />
+      <array tag="setheaders">
+        <free tag="field" required="true" />
+        <free tag="value" />
+      </array>
+    </attributes>
+  </domain>
 
   <object tag="mailsender" keephistorydays="2600">
     <!-- sender whitelist -->
     <attributes>
       <free tag="wrd_title" />
       <free tag="mask" />
+      <array tag="setheaders">
+        <free tag="field" required="true" />
+        <free tag="value" />
+      </array>
     </attributes>
   </object>
 

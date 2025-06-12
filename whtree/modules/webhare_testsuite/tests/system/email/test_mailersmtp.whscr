@@ -21,6 +21,9 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::system/lib/internal/smtpmgr.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
 OBJECT mailserverobject;
 
 MACRO Prepare()
@@ -202,15 +205,49 @@ MACRO MailNewComposerSendTest()
   //ensure no double encoding
   TestEq("Subject: =?ISO-8859-1?Q?Mail_subj=E9ct?=", subject);
 
-  STRING xtest := SELECT AS STRING line FROM ToRecordArray(rawoutput,"line") WHERE ToUppercase(line) LIKE "X-TEST:*";
-  Testeq("X-Test: headervalue", xtest);
+  RECORD mimemessage := DecodeMIMEMessage(mailserverobject->messages[0].data);
+  TestEq([ "headervalue" ], SELECT AS STRING ARRAY value FROM mimemessage.headers WHERE field="X-Test");
+  TestEq([[ field := "X-Header-1", value := "One" ]
+         ,[ field := "X-Header-2", value := "Two" ]
+         ,[ field := "X-Header-3", value := "Three" ]
+         ], SELECT field, value FROM mimemessage.headers WHERE ToUppercase(field) LIKE "X-HEADER-*" ORDER BY ToUppercase(field));
+
+  //reconfigure a specific sender to override headers
+  testfw->BeginWork();
+  OpenWRDSchema("system:config")->^mailsender->CreateEntity(
+    CELL[ wrd_tag := "TESTFW_HEADERTEST"
+        , mask := "headertest@sender.beta.webhare.net"
+        , setheaders := [[ field := "X-Header-2", value := "One2" ]
+                        ,[ field := "X-HEADER-3", value := "" ]
+                        ,[ field := "X-HEADER-4", value := "I can only count till 4" ]
+                        ]
+        ]);
+
+  OBJECT outmail2 := PrepareMailWitty(Resolve("data/simplemail.html.witty"));
+  outmail2->mergerecord := [ firstname := "Pietje", thelink := "http://example.net/", extra := "" ];
+  outmail2->mailfrom := "headertest@sender.beta.webhare.net";
+  outmail2->mailto := "to+outmail2@smtp.beta.webhare.net";
+  INSERT [ field := "X-header-1", value := "EEN" ] INTO outmail2->headers AT END;
+  INTEGER mail2id := outmail2->QueueMailInWork()[0];
+
+  testfw->CommitWork();
+
+  RetrieveManagedTaskResult(mail2id, MAX_DATETIME);
+
+  RECORD mimemessage2 := DecodeMIMEMessage(mailserverobject->messages[1].data);
+  TestEq(STRING[], SELECT AS STRING ARRAY value FROM mimemessage2.headers WHERE ToUppercase(field)="X-TEST");
+  TestEq([[ field := "X-header-1", value := "EEN" ]
+         ,[ field := "X-Header-2", value := "One2" ]
+         ,[ field := "X-HEADER-4", value := "I can only count till 4" ]
+         ], SELECT field, value FROM mimemessage2.headers WHERE ToUppercase(field) LIKE "X-HEADER-*" ORDER BY ToUppercase(field));
+
 }
 
 ASYNC MACRO TestInspectMailqueue()
 {
   AWAIT ExpectScreenChange(+1, PTR RunMailQueueDialog(GetTestController(), "*simplemail*"));
   RECORD ARRAY mails := SELECT * FROM TT("body")->contents->mailqueue->rows WHERE NOT iscancelled;
-  TestEq(2,Length(mails));
+  TestEq(4,Length(mails));
 
   TT("body")->contents->mailqueue->selection := SELECT * FROM mails WHERE receiver = "to@smtp.beta.webhare.net";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":View"));

@@ -1035,29 +1035,33 @@
         </textgroup>
       </textgroup>
       <textgroup gid="mailrouting">   <!-- tolliumapps.config.mailrouting -->
-        <text tid="altserver">SMTP server</text>
         <text tid="blocked">Geblokkeerd</text>
         <text tid="correctionsempty">Er zijn nog geen correcties gespecificeerd</text>
         <text tid="correctiontype">Correctietype</text>
         <text tid="correctiontype-block">Blokkeren</text>
         <text tid="correctiontype-rewrite">Corrigeer domeinnaam</text>
         <text tid="defaultport">(standaard 25)</text>
-        <text tid="defaultsendsettings">Uitgaande mailserver</text>
-        <text tid="defaultsmtp">Standaard</text>
+        <text tid="defaultserver">Standaard server</text>
+        <text tid="defaultserver-label">Dit is de standaard mailserver</text>
         <text tid="editcorrection">Adrescorrectie</text>
         <text tid="editmailroute">Mailroute</text>
         <text tid="editmailrouterule">Mailroute regel</text>
+        <text tid="editmailserver">Mailserver eigenschappen</text>
         <text tid="editmask">Wijzig masker</text>
         <text tid="editmaskrow">Masker</text>
-        <text tid="editsmtpserver">SMTP server bewerken</text>
+        <text tid="editreceiver">Toegestane ontvanger</text>
+        <text tid="editsender">Toegestane afzender</text>
+        <text tid="editsetheaderrow">Mailheader</text>
         <text tid="emailcorrectionstab">Adrescorrecties</text>
         <text tid="fallbackvalues">Terugval waarden</text>
+        <text tid="field">Header</text>
         <text tid="hostname">Servernaam</text>
         <text tid="ignore">Zwart gat (blokkeer mail)</text>
+        <text tid="integrations">Integraties</text>
         <text tid="invalidredirectto">De herschrijving moet van de vorm '*@domeinnaam' zijn</text>
-        <text tid="mailconfig">Instellen</text>
         <text tid="mailfrom">Standaard afzenderadres</text>
         <text tid="mailroutes">E-mailinstellingen</text>
+        <text tid="mailservers">Mailservers</text>
         <text tid="mask">Masker</text>
         <text tid="masks">Voorwaarden</text>
         <text tid="masks_from">De verzender (Van:) voldoet aan één van:</text>
@@ -1080,19 +1084,22 @@
         <text tid="sendermask">Afzender (Van:)</text>
         <text tid="sendersempty">Alle afzenders zijn geblokkeerd</text>
         <text tid="senderstab">Afzenders</text>
+        <text tid="server">Server</text>
+        <text tid="serversempty">Er zijn nog geen SMTP servers ingesteld</text>
         <text tid="serverurl">SMTP Server</text>
+        <text tid="setheaders">Stel mail headers in</text>
         <text tid="smtp_test_error">Bij het testen van de mailserver is de volgende fout opgetreden:<br/><param p="1"/></text>
         <text tid="smtp_test_success">Het is gelukt om te verbinden met de SMTP server</text>
-        <text tid="smtpconfig">Standaard mailserver</text>
         <text tid="smtpserver">Server</text>
+        <text tid="smtpserver-null">Zwart gat (blokkeert de uitgaande mail)</text>
+        <text tid="smtpserver-use">Gebruik SMTP server</text>
         <text tid="snsendpoint">SNS Endpoint</text>
         <text tid="suggestionfuzz">Suggestie fuzz factor</text>
         <text tid="suredontsendemail">Weet je zeker dat je alle e-mails die deze mailroute volgen wilt blokkeren?</text>
         <text tid="target">Doel</text>
-        <text tid="usealternativesmtpserver-alternative">Alternatieve server</text>
-        <text tid="usealternativesmtpserver-default">Gebruik de standaard SMTP-server</text>
-        <text tid="usealternativesmtpserver-dontsend">Zwart gat (blokkeert de uitgaande mail)</text>
+        <text tid="testsmtpserver">Test SMTP server</text>
         <text tid="usefornonwhitelisted">Gebruik indien afzender niet toegestaan</text>
+        <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="settings">   <!-- tolliumapps.config.settings -->
         <text tid="accesslog">Bewaar toegangslog</text>
