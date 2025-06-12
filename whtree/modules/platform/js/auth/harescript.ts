@@ -58,7 +58,7 @@ export function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
   return headers;
 }
 
-export async function login(targetUrl: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
+export async function login(targetUrl: string, returnTo: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
   //TODO can we share more with authservice.ts#login - or should we replace it? at least share through the IDP but basically we're two routes to the same end!
   const prepped = await prepAuth(targetUrl, null);
   if ("error" in prepped)
@@ -71,7 +71,7 @@ export async function login(targetUrl: string, username: string, password: strin
 
   const browserTriplet = userAgent.match(/[a-z]+-[a-z]+-[0-9]+$/) ? userAgent : parseUserAgent(userAgent)?.triplet || "";
   const response = await provider.handleFrontendLogin({
-    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: targetUrl, persistent }, tokenOptions: {
+    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: returnTo, persistent }, tokenOptions: {
       authAuditContext: { clientIp, browserTriplet }
     }
   });

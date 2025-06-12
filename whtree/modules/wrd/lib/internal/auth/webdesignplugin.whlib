@@ -701,8 +701,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @return @includecelldef #WRDAuth::LoginById.return
       @cell return.submitinstruction Submit instruction (used to return a SAML IdP login response)
   */
-  PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC RECORD FUNCTION LoginById(INTEGER userid, BOOLEAN is_impersonation, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ allowlogout := TRUE
                                , auditmessage := DEFAULT RECORD
                                , setcookies := TRUE
@@ -740,7 +739,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   }
 
   //codepath shared with authpages.whlib loginform
-  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, STRING returnto, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ logincontrol := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , browsertriplet := ""
@@ -749,7 +748,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                ], options);
 
     STRING agent := options.browsertriplet ?? options.useragent ?? (CellExists(__auditcontext,'browsertriplet') ? __auditcontext.browsertriplet : "");
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->webcontext->baseurl, returnto ?? this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
 
     IF(CellExists(result,'headers') AND IsRequest())
       FOREVERY(RECORD toset FROM result.headers)
@@ -793,6 +792,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , lastloginfield := ""
                                , browsertriplet := ""
                                , persistent := FALSE
+                               , returnto := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
@@ -814,7 +814,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     BOOLEAN allowexternaluserlogin := "externaluser" IN logincontrol.logintypes;
     IF ("wrdauth" IN logincontrol.logintypes) {
-      RECORD result := this->__DoLoginTS(loginname, password, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
+      RECORD result := this->__DoLoginTS(loginname, password, options.returnto, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
       IF(CellExists(result,'submitinstruction'))
         RETURN CELL[ ...trylogin, ...result  ];
 

@@ -128,7 +128,7 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
-    RECORD result := authplugin->__DoLoginTS(^login->value, ^password->value, CELL [ useragent := GetWebHeader("User-Agent"), this->logincontrol ]);
+    RECORD result := authplugin->__DoLoginTS(^login->value, ^password->value, GetFormRequestURL(), CELL [ useragent := GetWebHeader("User-Agent"), this->logincontrol ]);
     IF(CellExists(result,'submitinstruction'))
       RETURN CELL[ result.submitinstruction ];
 
