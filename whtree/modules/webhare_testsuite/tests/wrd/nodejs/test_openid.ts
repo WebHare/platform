@@ -14,7 +14,7 @@ import { createCodeVerifier, IdentityProvider } from "@webhare/auth/src/identity
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { broadcast, toResourcePath } from "@webhare/services";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
-import { createSchema, updateSchemaSettings } from "@webhare/wrd";
+import { AuthenticationSettings, createSchema, updateSchemaSettings } from "@webhare/wrd";
 import { defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
 
 const callbackUrl = "http://localhost:3000/cb";
@@ -58,12 +58,22 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   return finalurl;
 }
 
-async function runWebHareLoginFlow(page: Puppeteer.Page) {
+async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: string; changePasswordTo?: string }) {
   console.error("Login with sysop", test.getUser("sysop").login, "and password", test.getUser("sysop").password);
   await page.waitForSelector('[name=login]');
   await page.type('[name=login]', test.getUser("sysop").login);
-  await page.type('[name=password]', test.getUser("sysop").password);
+  await page.type('[name=password]', options?.password || test.getUser("sysop").password);
   await page.click('button[type=submit]');
+
+  if (options?.changePasswordTo) {
+    await page.waitForSelector('#completeaccountpassword-passwordnew');
+    await page.type('#completeaccountpassword-passwordnew', options.changePasswordTo);
+    await page.type('#completeaccountpassword-passwordrepeat', options.changePasswordTo);
+    await page.click('button[type=submit]');
+
+    await page.waitForSelector('[data-wh-form-action="exit"]');
+    await page.click('[data-wh-form-action="exit"]');
+  }
 }
 
 async function setupOIDC() {
@@ -109,7 +119,7 @@ async function setupOIDC() {
     });
   });
 
-  await broadcast("system:internal.clearopenidcaches");
+  broadcast("system:internal.clearopenidcaches");
 }
 
 async function verifyRoutes() {
@@ -225,6 +235,12 @@ async function verifyAsOpenIDSP() {
   const starttest = new Date();
   const testsite = await test.getTestSiteJS();
 
+  //Setup test sysop user
+  await beginWork();
+  const pwd = AuthenticationSettings.fromPasswordHash("PLAIN:pass$");
+  await oidcAuthSchema.update("wrdPerson", test.getUser("sysop").wrdId, { whuserPassword: pwd });
+  await commitWork();
+
   if (!puppeteer)
     puppeteer = await launchPuppeteer({ headless });
 
@@ -237,11 +253,12 @@ async function verifyAsOpenIDSP() {
   await page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()');
   //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
   await page.waitForNavigation();
-  await runWebHareLoginFlow(page);
+  await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo: "pass$" + Math.random().toString(36).substring(2, 8) });
 
   //wait for WebHare username
   const usernameNode = await page.waitForSelector("#dashboard-user-name");
-  test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode));
+  test.eq(/portal1-oidc\/$/, page.url(), "We should be on the OIDC protected portal (and especially NOT on /portal1/ or it forgot to redirect us back");
+  test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode), "If (OIDC) is missing we're on the wrong portal!");
 
   //verify user's lastlogin was updated
   const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
