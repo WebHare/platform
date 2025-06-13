@@ -1,7 +1,7 @@
 import type { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { type IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 import type { PromisifyFunctionReturnType } from "@webhare/js-api-tools";
-import { parseTyped, stringify } from "@webhare/std";
+import { parseTyped, sleep, stringify } from "@webhare/std";
 import type { BackendServices } from "@webhare/services";
 
 /** Get the client interface for a given backend service
@@ -135,6 +135,7 @@ export async function openBackendService<Service extends object>(name: string, a
   const startconnect = Date.now(); //only used for exception reporting
   const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
   let attemptedstart = false;
+  let waitMs = 1;
 
   for (; ;) { //repeat until we're connected
     const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
@@ -156,6 +157,10 @@ export async function openBackendService<Service extends object>(name: string, a
       if (!attemptedstart && !options?.notOnDemand) {
         attemptAutoStart(name).catch(() => { }); //ignore exceptions, we'll just timeout then
         attemptedstart = true;
+      } else {
+        // Exponential backoff until 100 ms
+        await sleep(waitMs);
+        waitMs = Math.min(waitMs * 2, 100);
       }
       continue;
     }

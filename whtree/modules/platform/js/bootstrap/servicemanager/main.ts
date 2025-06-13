@@ -375,7 +375,7 @@ async function startBackendService(name: string) {
 
 class ServiceManager {
   keepAlive: NodeJS.Timeout | null = setInterval(() => { }, 1000 * 60 * 60 * 24); //keep us alive
-  shuttingDown = false;
+  shuttingDown: { finished: Promise<void> } | null = null;
   readonly includeServices;
   readonly excludeServices;
 
@@ -435,34 +435,36 @@ class ServiceManager {
       process.kill(process.pid, "SIGSTOP");
   };
 
-  shutdown(): void {
+  shutdown(): { finished: Promise<void> } {
     if (this.shuttingDown)
-      return;
+      return this.shuttingDown;
     if (this.keepAlive)
       clearTimeout(this.keepAlive);
 
-    this.shuttingDown = true;
-    void (async () => { //we handle our own async as we handle our own exceptions
-      try {
-        const shutdownMonitor = setInterval(() => this.checkShutdownProgress(), 1000);
-        await this.startStage(Stage.Terminating);
-        await this.startStage(Stage.ShuttingDown);
-        clearInterval(shutdownMonitor);
-        updateTitle('');
+    this.shuttingDown = {
+      finished: (async () => { //we handle our own async as we handle our own exceptions
+        try {
+          const shutdownMonitor = setInterval(() => this.checkShutdownProgress(), 1000);
+          await this.startStage(Stage.Terminating);
+          await this.startStage(Stage.ShuttingDown);
+          clearInterval(shutdownMonitor);
+          updateTitle('');
 
-        if (!this.isSecondaryManager) {
-          try {
-            fs.unlinkSync(backendConfig.dataRoot + ".webhare.pid");
-          } catch (e) {
-            console.error("Failed to remove webhare.pid file", e);
+          if (!this.isSecondaryManager) {
+            try {
+              fs.unlinkSync(backendConfig.dataRoot + ".webhare.pid");
+            } catch (e) {
+              console.error("Failed to remove webhare.pid file", e);
+            }
           }
+        } catch (e) {
+          smLog("Exception during shutdown", { error: String(e) });
+          console.error("Exception during shutdown", e);
+          process.exit(1);
         }
-      } catch (e) {
-        smLog("Exception during shutdown", { error: String(e) });
-        console.error("Exception during shutdown", e);
-        process.exit(1);
-      }
-    })();
+      })()
+    };
+    return this.shuttingDown;
   }
 
   checkShutdownProgress() {
@@ -633,7 +635,7 @@ class ServiceManagerManager {
     }
 
     smLog("Relaunching service manager");
-    await this.mgr?.shutdown();
+    await this.mgr?.shutdown().finished;
 
     const strayprocs = await getServiceManagerChildPids();
     if (strayprocs.length) {
