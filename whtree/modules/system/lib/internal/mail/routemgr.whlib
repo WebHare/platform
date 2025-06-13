@@ -82,7 +82,7 @@ RECORD ARRAY FUNCTION GetSMTPRoutes()
   IF(RecordExists(defaultserver))
     INSERT CELL[ ...base_anymailroute
                , serverurl := defaultserver.serverurl
-               , setheades := defaultserver.setheaders
+               , setheaders := defaultserver.setheaders
                ] INTO mailroutes AT END;
 
   RETURN mailroutes;
