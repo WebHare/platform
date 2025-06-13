@@ -11,7 +11,8 @@
                         onentityedit="oneditprovider"
                         requestcolumns="wrd_title clientid metadataurl"
                         wrdtype="wrdauth_oidc_client"
-                        deletemode="delete">
+                        deletemode="delete"
+                        onmaprows="mapproviders">
         <column name="wrd_title" type="text" tid=".buttontitle" />
         <column name="metadataurl" type="text" />
         <column name="clientid" type="text" />
