@@ -1044,13 +1044,18 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
     if (unmatchedCloseMode !== 'keep')
       validateCloseMode(unmatchedCloseMode);
 
-    //sample first row to get desired 'current' cells
-    const currentCells = Object.keys(inrows[0] || {}).filter(_ => _ !== joinAttribute);
+    //gather rows to sync
+    const currentCells = new Set<string>;
+    for (const row of inrows)
+      for (const key of Object.keys(row))
+        if (key !== joinAttribute)
+          currentCells.add(key);
+
     const outputColumns = {
       wrdId: "wrdId",
       wrdLimitDate: "wrdLimitDate",
       joinField: joinAttribute,
-      current: currentCells
+      current: [...currentCells]
     };
 
     //TODO we should filter on joinField too or make this a two stage select. we don't need the currentcells for entities we won't be updating
@@ -1066,7 +1071,7 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
 
     const inrowKeys = new Map<unknown, number>;
     for (const [idx, row] of inrows.entries()) {
-      //@ts-ignore yes it exists?
+      //@ts-expect-error yes it exists?
       const rowkey = row[joinAttribute];
       if (!rowkey)
         throw new Error(`Import row #${idx} has no value for '${joinAttribute}'`);
@@ -1075,7 +1080,6 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
       inrowKeys.set(rowkey, idx);
     }
 
-    //@ts-ignore -- yes it doest exist!
     const expectedKeys = new Set;
     for (const inrow of inrows as any[]) {
       if (!(joinAttribute in inrow))
@@ -1095,12 +1099,9 @@ export class WRDModificationBuilder<S extends SchemaTypeDefinition, T extends ke
         if (currentRow.wrdLimitDate)
           changes.wrdLimitDate = null;
 
-        for (const key of currentCells) {
-          if (isChange(currentRow.current[key], inrow[key])) {
-            // console.log("ischange", key, currentRow.current[key], inrow[key]); //debug where the change was detected
+        for (const key of currentCells)
+          if (key in inrow && isChange(currentRow.current[key], inrow[key]))
             changes[key] = inrow[key];
-          }
-        }
 
         if (Object.keys(changes).length) { // we need to update
           await this.type.updateEntity(currentRow.wrdId, changes);
