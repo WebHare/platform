@@ -74,6 +74,8 @@ MACRO AddXMLType(OBJECT wrdschema, RECORD typeinfo, OBJECT parentnode)
       basenode->SetAttribute("parent", typeinfo.parenttype);
     IF(typeinfo.deleteclosedafter > 0)
       basenode->SetAttribute("deleteclosedafter", ToString(typeinfo.deleteclosedafter));
+    IF(typeinfo.keephistorydays > 0)
+      basenode->SetAttribute("keephistorydays", ToString(typeinfo.keephistorydays));
   }
 
   OBJECT attributesnode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, "attributes");
@@ -94,6 +96,7 @@ PUBLIC MACRO CreateWRDSchemaDefinitionNodes(OBJECT wrdschema, OBJECT root)
                                  , requiretype_left := metatype IN [2,3] ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_left) : ""
                                  , requiretype_right := metatype = 2 ? (SELECT AS STRING subtypes.tag FROM wrd.types AS subtypes WHERE subtypes.id=types.requiretype_right) : ""
                                  , deleteclosedafter
+                                 , keephistorydays
                               FROM wrd.types
                              WHERE wrd_schema = wrdschema->id
                           ORDER BY metatype, ToUppercase(tag);

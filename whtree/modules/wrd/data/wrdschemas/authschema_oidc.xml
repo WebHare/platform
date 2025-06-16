@@ -2,7 +2,7 @@
 
   <import definitionfile="/data/wrdschemas/authschema.xml" />
 
-  <object tag="wrdauth_oidc_client">
+  <object tag="wrdauth_oidc_client" keephistorydays="1100"> <!-- keep history for about 3 years (1 or 2 rotations if secrets expire after 1 or 2 years) -->
     <!-- these are our OIDC Client Registrations, ie where this WRD Schema is a service provider to an external identity provider
          but you could also consider this a list of our providers
     -->
