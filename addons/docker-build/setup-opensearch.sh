@@ -11,12 +11,11 @@
 ASSETROOT="$1"
 GETVERSION="$2"
 
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk
 if [ "$(uname -m)" == "x86_64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
   GETFILE=opensearch-${GETVERSION}-linux-x64.tar.gz
   FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
 elif [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
   GETFILE=opensearch-${GETVERSION}-linux-arm64.tar.gz
   FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
 else

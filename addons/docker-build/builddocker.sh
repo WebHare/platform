@@ -33,7 +33,7 @@ while [[ $1 =~ ^-.* ]]; do
     # without label=disable we can't run our build scripts. Adding `,relabel=shared` to RUN --mount=type=bind helps but makes us Docker incompatible
     # but still buildah lets us enter intermediate stages like old docker build did, so maintaining podman is already useful for that
     DOCKERBUILDARGS+=(--security-opt=label=disable)
-    echo "WARNING: podman builds are unsafe (stale layers) until https://github.com/containers/buildah/issues/5400 is fixed"
+    echo "WARNING: podman builds were unsafe (stale layers) until https://github.com/containers/buildah/issues/5400 was fixed. not verified yet if it actualy resolves the issue"
   elif [ "$1" == "--nocache" ] || [ "$1" == "--no-cache"  ]; then
     DOCKERBUILDARGS+=(--no-cache)
   elif [ "$1" == "--dockerfile" ]; then

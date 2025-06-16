@@ -2,7 +2,7 @@
 # Updating the #date/timestamp comment on a command can help to force a rebuild
 
 ################# STAGE 0 - base image. shared between builder and runner
-FROM       docker.io/ubuntu:20.04 AS base
+FROM       almalinux:10 AS base
 MAINTAINER WebHare bv <info@webhare.com>
 
 ARG WEBHARE_NODE_MAJOR # Depend on this setting to let builder.sh download the proper node
@@ -26,8 +26,7 @@ ENV LC_ALL=C \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN --mount=type=bind,source=addons/docker-build/setup-imagebase.sh,target=/setup-imagebase.sh \
-    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
-    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
     WHBUILD_NODE_URL=$WHBUILD_NODE_URL /bin/bash /setup-imagebase.sh # 2024-10-31
 
 ################# STAGE 1 - builder image
@@ -54,8 +53,7 @@ COPY vendor/ /opt/wh/vendor/
 # Base image setup
 RUN --mount=type=bind,source=addons/docker-build/setup-builder.sh,target=/setup-builder.sh \
     --mount=type=cache,id=builderdownloads,target=/tmp/downloads \
-    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
-    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    --mount=type=cache,id=baseimage3,sharing=locked,target=/var/cache/dnf \
     /bin/bash /setup-builder.sh "$WHBUILD_ASSETROOT" # 2024-08-19
 
 # Add base source code and stuff needed to compile it

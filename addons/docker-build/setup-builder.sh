@@ -16,88 +16,55 @@
 # Fail on any error
 set -eo pipefail
 
-ASSETROOT="$1"
+# ASSETROOT="$1"
 
 if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
   echo WHBUILD_DOWNLOADCACHE not set
   exit 1
 fi
 
+# Keep dnf downloads
+grep -q '^keepcache' /etc/dnf/dnf.conf && \
+  ( sed -i 's/^keepcache=.*/keepcache=1/' /etc/dnf/dnf.conf || \
+    sed -i '/^\[main\]/a keepcache=1' /etc/dnf/dnf.conf )
+
+
+dnf config-manager --set-enabled crb # Needed for giflib-devel and libmaxminddb-devel
+
+# 2025-03-16: Conversion to RL10
 # 2023-05-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 
 # We don't ship the builder image to WebHare prod or CI, so there's no need to keep it small
-PACKAGES="automake
-    autoconf
-    ccache
-    libfreetype6-dev
-    g++
-    libgif-dev
-    git
-    inotify-tools
-    libtool
-    libaio1
-    libcurl4-openssl-dev
-    libmaxminddb-dev
-    libicu-dev
-    libjpeg-turbo8
-    libjpeg-turbo8-dev
-    libpng-dev
-    libpq-dev
-    libssl-dev
-    libtiff-dev
-    make
-    libpixman-1-dev
-    pkg-config
-    python
-    rapidjson-dev
-"
+PACKAGES=(
+  automake
+  autoconf
+  ccache
+  freetype-devel
+  gcc-c++
+  giflib-devel
+  git
+  inotify-tools
+  libtool
+  libaio
+  libcurl-devel
+  libmaxminddb-devel
+  libicu-devel
+  libjpeg-turbo
+  libjpeg-turbo-devel
+  libpng-devel
+  postgresql-devel
+  openssl-devel
+  libtiff-devel
+  make
+  mawk # needed by libxml2
+  pixman-devel
+  pkgconfig
+  python3
+  rapidjson-devel
+  valgrind-devel
+)
 
-if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGES ); then
-  echo "APT-GET failed"
-  exit 1
-fi
-
-# ubuntu 20.04 ships with outdated automake, libxml2 doesn't like it. download a better one
-mkdir -p "$WHBUILD_DOWNLOADCACHE"
-
-AUTOMAKE_VERSION=1.16.5
-AUTOMAKE_GETFILE="automake-${AUTOMAKE_VERSION}.tar.gz"
-AUTOMAKE_DLPATH="$WHBUILD_DOWNLOADCACHE/${AUTOMAKE_GETFILE}"
-
-if ! curl -fsS -o "$AUTOMAKE_DLPATH" -z "$AUTOMAKE_DLPATH" "${ASSETROOT}${AUTOMAKE_GETFILE}" ; then
-  echo "Primary download failed, attempting fallback location"
-  if ! curl -fsS -o "$AUTOMAKE_DLPATH" -z "$AUTOMAKE_DLPATH" "http://ftp.gnu.org/gnu/automake/${AUTOMAKE_GETFILE}" ; then
-    rm -f "$AUTOMAKE_DLPATH"
-    echo "Download failed"
-    exit 1
-  fi
-fi
-
-cd /tmp
-tar zxf "$AUTOMAKE_DLPATH"
-cd "automake-${AUTOMAKE_VERSION}/"
-./configure
-make -j install
-
-# update make too
-MAKE_VERSION=4.4.1
-MAKE_GETFILE="make-${MAKE_VERSION}.tar.gz"
-MAKE_DLPATH="$WHBUILD_DOWNLOADCACHE/${MAKE_GETFILE}"
-
-if ! curl -fsS -o "$MAKE_DLPATH" -z "$MAKE_DLPATH" "${ASSETROOT}${MAKE_GETFILE}" ; then
-  echo "Primary download failed, attempting fallback location"
-  if ! curl -fsS -o "$MAKE_DLPATH" -z "$MAKE_DLPATH" "http://ftp.gnu.org/gnu/make/${MAKE_GETFILE}" ; then
-    rm -f "$MAKE_DLPATH"
-    echo "Download failed"
-    exit 1
-  fi
-fi
-
-cd /tmp
-tar zxf "$MAKE_DLPATH"
-cd "make-${MAKE_VERSION}/"
-./configure
-make -j install
+dnf install -y "${PACKAGES[@]}"
 
 if [ -z "$WHBUILD_EMSCRIPTEN_VERSION" ]; then
   echo "WHBUILD_EMSCRIPTEN_VERSION not set"
