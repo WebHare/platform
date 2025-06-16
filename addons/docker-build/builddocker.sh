@@ -8,6 +8,8 @@ fi
 
 DOCKERBUILDARGS=()
 USEPODMAN=""
+NOPULL=""
+DEBUG=""
 
 source "$WEBHARE_DIR/lib/wh-functions.sh"
 cd "$WEBHARE_CHECKEDOUT_TO" || exit 1
@@ -20,7 +22,9 @@ DOCKERFILE="$(pwd)/addons/docker-build/Dockerfile"
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "--nopull" ]; then
-    DOCKERPULLARG=""
+    NOPULL=1
+  elif [ "$1" == "--debug" ]; then
+    DEBUG=1
   elif [ "$1" == "--podman" ]; then
     USEPODMAN="1"
     # without label=disable we can't run our build scripts. Adding `,relabel=shared` to RUN --mount=type=bind helps but makes us Docker incompatible
@@ -67,8 +71,6 @@ else
   SUDO=
 fi
 
-DOCKERPULLARG=--pull
-
 if [ "$#" != "0" ]; then
   echo "Invalid argument '$1'"
   echo "Syntax: builddocker.sh [ --withoutts ]"
@@ -83,9 +85,15 @@ echo "Packaging source tree for the WebHare runner"
 # Prune empty directories
 find "$WEBHARE_CHECKEDOUT_TO" -type d -empty -delete
 
-# Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
-DOCKERBUILDARGS+=(--progress)
-DOCKERBUILDARGS+=(plain)
+# if [ -z "$DEBUG" ]; then
+  if [ -z "$NOPULL" ]; then
+    DOCKERBUILDARGS+=(--pull)
+  fi
+
+  # Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
+  DOCKERBUILDARGS+=(--progress)
+  DOCKERBUILDARGS+=(plain)
+# fi
 
 [ -n "$WEBHARE_NODE_MAJOR" ] || die "WEBHARE_NODE_MAJOR not set"
 [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"
@@ -154,9 +162,17 @@ function RunBuilder()
 echo "Build args:" "${DOCKERBUILDARGS[@]}"
 
 # Build webhare image
-if ! RunBuilder build $DOCKERPULLARG "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
-  echo "Build of webhare image ($BUILD_IMAGE) failed."
-  exit 1
+if [ -n "$DEBUG" ]; then
+  export BUILDX_EXPERIMENTAL=1
+  if ! RunBuilder buildx build --invoke /bin/bash "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
+    echo "Build of webhare image ($BUILD_IMAGE) failed."
+    exit 1
+  fi
+else
+  if ! RunBuilder build "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
+    echo "Build of webhare image ($BUILD_IMAGE) failed."
+    exit 1
+  fi
 fi
 
 # If requested, push to CI
