@@ -120,6 +120,8 @@ PACKAGES+=(certbot
     postgresql-client-11
     postgresql-16
     postgresql-client-16
+    postgresql-17
+    postgresql-client-17
     procps
     psmisc
     runit
