@@ -45,7 +45,7 @@
       <text tid="linkfrom">Link from</text>
       <text tid="links">Links</text>
       <text tid="linkto">Link to</text>
-      <text tid="oidcclient-not-configured">This schema has not been configured to support acting as an oidc client. <br/><br/>The schema must import mod::wrd/data/wrdschemas/authschema_oidc.xml</text>
+      <text tid="oidcclient-not-configured">This schema has not been configured to support acting as an OIDC Relying party.<br/><br/>The schema must import mod::wrd/data/wrdschemas/authschema_oidc.xml</text>
       <text tid="orgname">Organization name</text>
       <text tid="preview">Preview</text>
       <text tid="quickfilter">Filter</text>
@@ -89,7 +89,7 @@
         <text tid="neworg">New organization</text>
         <text tid="newperson">New person</text>
         <text tid="newschema">New schema</text>
-        <text tid="oidcclient">OIDC Client configuration</text>
+        <text tid="oidcproviders">OpenID Connect identity providers</text>
         <text tid="openlink">Open link</text>
         <text tid="openschema">Open schema</text>
         <text tid="querybuilder">Query builder</text>

@@ -92,3 +92,18 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
                           ]
     ]);
 }
+
+PUBLIC RECORD FUNCTION GuessOpenIdIcon(STRING metadataurl) {
+  IF(metadataurl LIKE "https://login.microsoftonline.com/*")
+    RETURN [ frontend := "/.wh/ea/p/providers/microsoft.24x24.c.svg"
+           , tollium := "tollium:misc/microsoft"
+           ];
+  IF(metadataurl LIKE "https://accounts.google.com/*")
+    RETURN [ frontend := "/.wh/ea/p/providers/google.24x24.c.svg"
+           , tollium := "tollium:misc/google"
+           ];
+
+  RETURN [ frontend := "/.wh/ea/p/providers/idp.24x24.c.svg"
+         , tollium := "tollium:misc/loginservice"
+         ];
+}

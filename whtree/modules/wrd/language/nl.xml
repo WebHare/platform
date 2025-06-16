@@ -45,7 +45,7 @@
       <text tid="linkfrom">Koppeling vanaf</text>
       <text tid="links">Koppelingen</text>
       <text tid="linkto">Koppeling naar</text>
-      <text tid="oidcclient-not-configured">Dit schema is niet geconfigureerd om zich als OIDC client te gedragen.<br/><br/>Het schema moet mod::wrd/data/wrdschemas/authschema_oidc.xml importeren</text>
+      <text tid="oidcclient-not-configured">Dit schema is niet geconfigureerd om zich als OIDC Relying party te gedragen.<br/><br/>Het schema moet mod::wrd/data/wrdschemas/authschema_oidc.xml importeren</text>
       <text tid="orgname">Organisatienaam</text>
       <text tid="preview">Samenvatting</text>
       <text tid="quickfilter">Filter</text>
@@ -89,7 +89,7 @@
         <text tid="neworg">Nieuwe organisatie</text>
         <text tid="newperson">Nieuw persoon</text>
         <text tid="newschema">Nieuw schema</text>
-        <text tid="oidcclient">OIDC client configuratie</text>
+        <text tid="oidcproviders">OpenID Connect identity providers</text>
         <text tid="openlink">Open koppeling</text>
         <text tid="openschema">Schema openen</text>
         <text tid="querybuilder">Query constructie</text>

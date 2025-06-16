@@ -1101,6 +1101,16 @@ async function testTypeSync() { //this is WRDType::ImportEntities
     { "wrdTag": "THREE", "wrdTitle": "" }
   ], await getDomain1());
 
+  //A sync with inconsistent row formats should still work
+  await schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "TEST_DOMAINVALUE_1_1" }, { wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Updated Domval" }]);
+
+  test.eqPartial([
+    { "wrdTag": "TEST_DOMAINVALUE_1_1", "wrdTitle": "Domain value 1.1" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_2", "wrdTitle": "Updated Domval" },
+    { "wrdTag": "TEST_DOMAINVALUE_1_3", "wrdTitle": "Domain value 1.3" },
+    { "wrdTag": "THREE", "wrdTitle": "" }
+  ], await getDomain1());
+
   //@ts-expect-error -- TS knows we can't do closeMode
   await test.throws(/Illegal delete mode 'typo'/, schema.modify("testDomain_1").sync("wrdTag", [{ wrdTag: "THREE", wrdTitle: "Third" }], { unmatched: "typo" }));
 

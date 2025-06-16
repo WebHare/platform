@@ -137,19 +137,18 @@ export async function generateTSConfigTextForModule(module: string) {
 }
 
 async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
-  const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, used: false }));
+  const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, matched: false }));
 
   for (const item of want) {
     const itemPath = basepath + item.subPath;
     const pos = contents.findIndex(entry => entry.subPath === item.subPath);
     if (pos !== -1) {
       const found = contents[pos];
-      contents[pos].used = true;
+      contents[pos].matched = true;
       if (found.type === item.type && (item.type === "directory" || (await readlink(found.fullPath)) === item.target))
         continue;
-
       if (found.type === "directory")
-        await rm(found.fullPath, { recursive: true });
+        await rm(found.fullPath, { recursive: true, force: true }); //ignore ENOENT races
     }
 
     //If we get here, either the item (no longer) exists *or* it's a symlink we can just overwrite
@@ -162,11 +161,9 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
     }
   }
 
-  if (clean) {
-    for (const rec of contents)
-      if (!rec.used)
-        await rm(rec.fullPath, { recursive: rec.type === "directory" });
-  }
+  if (clean) //remove remaining unmatched entries
+    for (const rec of contents.filter(_ => !_.matched).sort((a, b) => b.fullPath.length - a.fullPath.length)) //delete deepest first
+      await rm(rec.fullPath, { recursive: rec.type === "directory", force: true }); //ignore any ENOENT races
 }
 
 

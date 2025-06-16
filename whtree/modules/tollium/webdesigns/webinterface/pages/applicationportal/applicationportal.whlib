@@ -42,7 +42,7 @@ LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/pages.whlib";
-
+LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 
 ///Expected protocol version. Bump if we break backwards compatible with JS code
 CONSTANT INTEGER expecttoddprotocolversion := 1;
@@ -79,15 +79,6 @@ RECORD FUNCTION GetCacheableUIFilesKey()
   RETURN [ ttl := 60 * 60 * 1000
          , value := FormatDatetime("%Y%m%d%H%M", maxdate)
          ];
-}
-
-STRING FUNCTION GuessIcon(STRING metadataurl) {
-  IF(metadataurl LIKE "https://login.microsoftonline.com/*")
-    RETURN "/.wh/ea/p/providers/microsoft.24x24.c.svg";
-  IF(metadataurl LIKE "https://accounts.google.com/*")
-    RETURN "/.wh/ea/p/providers/google.24x24.c.svg";
-
-  RETURN "/.wh/ea/p/providers/idp.24x24.c.svg";
 }
 
 PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT applytester)
@@ -201,7 +192,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
                                    , autologin := FALSE
                                    , tid := ":" || wrd_title
                                    , icon := ""
-                                   , wrdicon := RecordExists(icon) ? WrapCachedImage(icon, [ method := "fit", setwidth := 24, setheight := 24 ]).link : GuessIcon(metadataurl)
+                                   , wrdicon := RecordExists(icon) ? WrapCachedImage(icon, [ method := "fit", setwidth := 24, setheight := 24 ]).link : GuessOpenIdIcon(metadataurl).frontend
                                    , visibility := "always"
                                 FROM clients
                              ORDER BY wrd_ordering, ToUppercase(wrd_title));

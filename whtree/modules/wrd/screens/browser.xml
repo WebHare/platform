@@ -49,7 +49,7 @@
       <action name="authsettings" frameflags="right_metadata" onexecute="doauthsettings" />
       <action name="authtexts" frameflags="right_metadata" onexecute="doauthtexts" />
       <action name="auditlog" frameflags="has_accounts" onexecute="doauditlog" />
-      <action name="oidcclient" frameflags="right_metadata" onexecute="dooidcclient" />
+      <action name="oidcproviders" frameflags="right_metadata" onexecute="dooidcclient" />
       <action name="samlauth" frameflags="right_metadata has_saml" onexecute="dosamlauth" />
       <action name="openlink" onexecute="doopenlink">
         <enableon source="links" min="1" max="1" />
@@ -94,7 +94,7 @@
           <item action="authtexts" />
           <item action="anonymize" />
           <item action="auditlog" />
-          <item action="oidcclient" />
+          <item action="oidcproviders" />
           <item action="samlauth" />
           <divider />
           <item action="managetypes" />
