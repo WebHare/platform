@@ -110,7 +110,8 @@ BOOLEAN FUNCTION TextFieldHasNotNullCheck(STRING for_table_schema, STRING for_ta
                                     AND table_constraints.constraint_name = check_constraints.constraint_name
                                     AND table_constraints.table_name = for_table_name;
 
-  RETURN RecordExists(SELECT FROM candidates WHERE check_clause = `(((${for_column_name})::text <> \'\'::text))`);
+  RETURN RecordExists(SELECT FROM candidates WHERE check_clause = `(((${for_column_name})::text <> \'\'::text))`) //PG < 17
+         OR RecordExists(SELECT FROM candidates WHERE check_clause = `((${for_column_name})::text <> \'\'::text)`); //PG 17
 }
 
 MACRO TestColumnCreate()
