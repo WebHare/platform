@@ -1474,6 +1474,9 @@ async function testImportMode() {
       money: IsRequired<WRDAttributeTypeId.Money>;
       address: IsRequired<WRDAttributeTypeId.Address>;
     } & WRDTypeBaseSettings;
+    testImportModeDom: {
+      wrdTitle: WRDAttributeTypeId.String;
+    } & WRDTypeBaseSettings;
   };
 
   const wrdschema = await getWRDSchema<MySchema>();
@@ -1552,6 +1555,10 @@ async function testImportMode() {
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       address: null,
     }, { importMode: true });
+
+  const tempDom = await wrdschema.insert("testImportModeDom", {}, { temp: true });
+  const tempLink = await wrdschema.insert("testImportModeLink", {}, { temp: true });
+  await wrdschema.update("testImportModeLink", tempLink, { wrdLeftEntity: tempDom, wrdRightEntity: tempDom });
 
   await whdb.commitWork();
 }
