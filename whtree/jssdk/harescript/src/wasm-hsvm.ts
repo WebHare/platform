@@ -367,6 +367,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       } catch (e) {
         console.error("Exception during HSVM cleanup", e);
       }
+
+      this.runContextStore.disable();
     }
   }
 
