@@ -51,7 +51,7 @@ ifeq ($(WEBHARE_PLATFORM),darwin)
 	BREWPREFIX := $(BREWPREFIX)
 	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
 
-	# The pkgconfig dirs of postgresql@13, postgresql@14 and postgresql@17. Include all patterns
+	# The pkgconfig dirs of postgresql@13, postgresql@14 and postgresql@17 differ. Include all patterns
 	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/postgresql/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
