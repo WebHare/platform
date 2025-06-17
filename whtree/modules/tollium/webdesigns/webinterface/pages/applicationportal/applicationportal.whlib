@@ -456,15 +456,20 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
        img-src blob: is required by the image editor to process uploaded images client side
        img-src https: is required for eg the video browser to load thumbnails from youtube
        connect-src 'self' to allow websockets to connect to us
+       connect-src maps.googleapis.com is needed for the Google Map API loader (Chrome, Firefox)
        style-src unsafe-inline is required for the RTD which sets element styles through innerHTML
        style-src and font-src * so RTDs can load fonts.google.com and similar sites
+       script-src maps.googleapis.com is needed for the Google Map API loader (Safari)
     */
     STRING connectsrc;
-    IF(GetWebHeader("User-Agent") LIKE "*Safari/*") //this issue was fixed in Safari 16+ but we need a better useragent parser
-      connectsrc := "'self' ws: wss:"; //workaround https://bugs.webkit.org/show_bug.cgi?id=235873
+    // This was a bug in Safari before 16 (https://bugs.webkit.org/show_bug.cgi?id=235873), but Firefox (which should support
+    // this: https://bugzilla.mozilla.org/show_bug.cgi?id=1345615) now gives an error connecting to wss when it's not
+    // explicitly added to connect-src
+    IF(GetWebHeader("User-Agent") LIKE "*Firefox/*") //quick-n-dirty browser sniffing
+      connectsrc := "'self' ws: wss:"; //workaround, should be implicit
     ELSE
       connectsrc := "'self'";
-    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src ${connectsrc}; frame-src *; font-src *`, FALSE);
+    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src ${connectsrc} https://maps.googleapis.com; frame-src *; font-src *; script-src 'self' https://maps.googleapis.com`, FALSE);
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
 

@@ -158,6 +158,9 @@
     <node name="embedscripts">
       <string name="tagmanagers" />
     </node>
+    <node name="maps">
+      <string name="defaultprovider" initialval="leaflet" />
+    </node>
   </moduleregistry>
 
 </module>

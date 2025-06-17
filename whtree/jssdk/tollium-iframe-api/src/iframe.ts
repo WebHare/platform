@@ -227,7 +227,7 @@ async function processMessage(msg: HostRuntimeMessage) {
     }
 
     case "theme": {
-      // The host changed the theme, dispatch the 'theme-change' event to the Theme class
+      // The host changed the theme, dispatch the 'theme-change' event
       window.dispatchEvent(new CustomEvent("tollium-iframe-api:theme-change", { detail: { name: msg.name } }));
       break;
     }

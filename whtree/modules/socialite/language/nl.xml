@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="nl">
   <textgroup gid="commondialogs">   <!-- commondialogs -->
     <textgroup gid="location">   <!-- commondialogs.location -->
       <text tid="mapbox">Locatie</text>
@@ -107,18 +107,38 @@
       <text tid="apikey">API-sleutel</text>
       <text tid="apitab">API sleutels</text>
       <text tid="confirmdeleteapikeys">Weet u zeker dat u de geselecteede sleutel(s) wil verwijderen ?</text>
+      <text tid="defaultprovider">Standaardprovider voor kaarten in de WebHare backend</text>
+      <text tid="defaultprovider-googlemap">Google Map</text>
+      <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
       <text tid="domain">Domein</text>
       <text tid="editapikey">API sleutel</text>
       <text tid="googleapikeys">Google API-sleutelbeheer</text>
+      <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
       <text tid="keytype">Sleuteltype</text>
       <text tid="keytype-google">Google cloud APIs</text>
       <text tid="keytype-google-recaptcha">Google Recaptcha</text>
+      <text tid="maps">Kaarten</text>
       <text tid="nokeys">Er zijn nog geen sleutels ingevoerd</text>
       <text tid="privatekey">Prive sleutel</text>
       <text tid="scopetype">Scope</text>
       <text tid="scopetype-any">Elke</text>
       <text tid="scopetype-client">Client</text>
       <text tid="scopetype-server">Server</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="map">   <!-- tolliumcomponents.map -->
+      <text tid="center">Huidige location tonen</text>
+      <text tid="error-permission-denied">Tollium heeft geen toestemming om de huidige locatie op te vragen</text>
+      <text tid="error-position-unavailable">Opvragen van de huidige locatie is niet mogelijk</text>
+      <text tid="error-timeout">Er is een time-out opgetreden bij het opvragen van de huidige locatie</text>
+      <text tid="error-unknown">Er is een fout opgetreden bij het opvragen van de huidige locatie</text>
+      <text tid="godown">Zuidwaarts bewegen</text>
+      <text tid="goleft">Westwaards bewegen</text>
+      <text tid="goright">Oostwaarts bewegen</text>
+      <text tid="goup">Noordwaarts bewegen</text>
+      <text tid="zoomin">Inzoomen</text>
+      <text tid="zoomout">Uitzoomen</text>
     </textgroup>
   </textgroup>
 </language>

@@ -10,7 +10,7 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 /////////////////////////////////////////////////////////////////////
 // The location edit component
 
-PUBLIC OBJECTTYPE GoogleLocationEdit EXTEND TolliumComponentBase
+PUBLIC OBJECTTYPE LocationEdit EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
   //
   // Variables

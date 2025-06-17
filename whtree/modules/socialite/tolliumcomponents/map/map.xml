@@ -1,0 +1,9 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="map.whlib">
+
+  <fragment name="mapcomponent">
+    <contents>
+      <iframe name="mapframe" width="1pr" height="1pr" onclientmessage="onclientmessage" />
+    </contents>
+  </fragment>
+
+</screens>

@@ -1,5 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?>
-<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="en" xmlns:html="http://www.w3.org/1999/xhtml">
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
   <textgroup gid="commondialogs">   <!-- commondialogs -->
     <textgroup gid="location">   <!-- commondialogs.location -->
       <text tid="mapbox">Location</text>
@@ -107,18 +107,38 @@
       <text tid="apikey">API Key</text>
       <text tid="apitab">API keys</text>
       <text tid="confirmdeleteapikeys">Are you sure you want to delete the selected key(s) ?</text>
+      <text tid="defaultprovider">Default provider for maps in the WebHare backend</text>
+      <text tid="defaultprovider-googlemap">Google Map</text>
+      <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
       <text tid="domain">Domain</text>
       <text tid="editapikey">API Key</text>
       <text tid="googleapikeys">Manage Google API Keys</text>
+      <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain that is accessible by the url 'about:srcdoc'</text>
       <text tid="keytype">Keytype</text>
       <text tid="keytype-google">Google cloud APIs</text>
       <text tid="keytype-google-recaptcha">Google Recaptcha</text>
+      <text tid="maps">Maps</text>
       <text tid="nokeys">No keys have been added yet</text>
       <text tid="privatekey">Private key</text>
       <text tid="scopetype">Scope</text>
       <text tid="scopetype-any">Any</text>
       <text tid="scopetype-client">Client</text>
       <text tid="scopetype-server">Server</text>
+    </textgroup>
+  </textgroup>
+  <textgroup gid="tolliumcomponents">   <!-- tolliumcomponents -->
+    <textgroup gid="map">   <!-- tolliumcomponents.map -->
+      <text tid="center">Show current location</text>
+      <text tid="error-permission-denied">Tollium does not have permission to request the current location</text>
+      <text tid="error-position-unavailable">The current location is currently unavailable</text>
+      <text tid="error-timeout">A timeout occurred when requesting the current location</text>
+      <text tid="error-unknown">An error has occurred when requesting the current location</text>
+      <text tid="godown">Move south</text>
+      <text tid="goleft">Move west</text>
+      <text tid="goright">Move east</text>
+      <text tid="goup">Move north</text>
+      <text tid="zoomin">Zoom in</text>
+      <text tid="zoomout">Zoom out</text>
     </textgroup>
   </textgroup>
 </language>
