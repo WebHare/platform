@@ -116,26 +116,6 @@ MACRO ReadDebugConfig()
     __SYSTEM_SETSYSTEMCONFIG(CELL[...systemconfig, debugconfig := ReadDebugSetting(debug_str) ]);
 }
 
-/** Returns the debug configuration of the database
-    @return Database debug configuration
-    @cell(boolean) return.readonly Read-only mode
-    @cell(integer) return.logstacktraces Number of stack trace items to log
-    @loadlib mod::system/lib/internal/dbase/base.whlib
-*/
-PUBLIC RECORD FUNCTION GetDatabaseRuntimeConfig()
-{
-  RECORD config := EnforceStructure(
-      [ database :=   [ readonly := FALSE
-                      , logstacktraces := 0
-                      ]
-      ], __SYSTEM_GETSYSTEMCONFIG());
-
-  IF (GetEnvironmentVariable("WEBHARE_DBASE_READONLY") != "") //this is normally set through wh-function.sh
-    config.database.readonly := TRUE;
-
-  RETURN config.database;
-}
-
 STRING profilingtype;
 DATETIME profilingstart;
 STRING profilingsession;
@@ -151,9 +131,6 @@ MACRO HandleConfigChange()
     HandleDebugConfig(NOT gotfirstconfig);
     gotfirstconfig := TRUE;
   }
-  OBJECT primary := GetPrimaryWebhareTransactionObject();
-  IF (ObjectExists(primary))
-    primary->__UpdateDebugConfig(GetDatabaseRuntimeConfig());
 }
 
 MACRO HandleDebugConfig(BOOLEAN initialapply)
@@ -287,4 +264,3 @@ __LibraryLoadRemapper := PTR LibraryLoadRemapper;
 __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
-__GetDatabaseRuntimeConfig := PTR GetDatabaseRuntimeConfig;

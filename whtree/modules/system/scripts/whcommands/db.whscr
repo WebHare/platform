@@ -133,15 +133,11 @@ SWITCH (args.command)
       {
         CASE "readonly"
         {
-          RECORD dbaseconfig := GetDatabaseRuntimeConfig();
-          UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := TRUE ] ]);
-          ReloadWebhareConfig2("ALL");
+          MutateDebugSettings([ enable := [ "db-readonly" ] ]);;
         }
         CASE "readwrite"
         {
-          RECORD dbaseconfig := GetDatabaseRuntimeConfig();
-          UpdateSystemConfigurationRecord(CELL[ database := CELL[ ...dbaseconfig, readonly := FALSE ] ]);
-          ReloadWebhareConfig2("ALL");
+          MutateDebugSettings([ disable := [ "db-readonly" ] ]);;
         }
       }
     }

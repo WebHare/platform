@@ -14,5 +14,5 @@ export type {
   GeneratedAlways
 } from "kysely";
 
-export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, uploadBlob } from "./impl";
+export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, uploadBlob, DBReadonlyError } from "./impl";
 export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions } from "./impl";
