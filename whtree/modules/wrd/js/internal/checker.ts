@@ -76,6 +76,7 @@ export class ValueQueryChecker {
         .query(typeTag)
         .select("wrdId")
         .where("wrdId", "in", [...toCheck])
+        .historyMode("unfiltered")
         .execute();
 
       if (exists.length < toCheck.size) {

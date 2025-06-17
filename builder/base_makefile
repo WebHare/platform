@@ -50,8 +50,9 @@ ifeq ($(WEBHARE_PLATFORM),darwin)
 	# Convert BREWPREFIX and POSTGRESQLPACKAGE to a static value, so the shell command will be evaluated only once.
 	BREWPREFIX := $(BREWPREFIX)
 	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
-	# The pkgconfig dirs of postgresql@13 and postgresql@14 differ. Include both patterns
-	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/
+
+	# The pkgconfig dirs of postgresql@13, postgresql@14 and postgresql@17 differ. Include all patterns
+	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/postgresql/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
 
