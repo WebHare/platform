@@ -42,12 +42,40 @@ function postToHost(message: GuestMessage) {
   window.parent.postMessage(message, setup.origin);
 }
 
+/** Checks if the user requested the defeault browser menu
+    @param event - The mouse event that triggered the context menu (this event is used to display the default browser context
+        menu if requested and prevents the default browser context menu from being shown otherwise)
+*/
+export function requestedBrowserContextMenu(event: MouseEvent) {
+  // If both ctrl and shift are pressed when the right mouse button was clicked, show the default context menu
+  if (event?.ctrlKey && event.shiftKey) {
+    event.stopPropagation(); // Make sure no-one will intercept the default context menu
+    return true;
+  }
+  // Don't show the browser context menu
+  event?.preventDefault();
+  return false;
+}
+
 /** Show a menu at a given position
     @param menuName - The name of the menu to show
     @param pos - The position to show the menu at, relative to the top left of the iframe
+    @param event - The mouse event that triggered the context menu
 */
-export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }) {
-  postToHost({ tollium_iframe: "contextMenu", name: menuName, x: pos.x, y: pos.y });
+export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }): void;
+
+/** Show a menu at a given position
+    @param menuName - The name of the menu to show
+    @param pos - The position to show the menu at, relative to the top left of the iframe
+    @param event - The mouse event that triggered the context menu (this event is used to display the default browser context
+        menu if requested and prevents the default browser context menu from being shown otherwise)
+*/
+export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }, event: MouseEvent): void;
+
+export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }, event?: MouseEvent): void {
+  if (!event || !requestedBrowserContextMenu(event)) {
+    postToHost({ tollium_iframe: "contextMenu", name: menuName, x: pos.x, y: pos.y });
+  }
 }
 
 /** Close any currently opened (context) menus */
