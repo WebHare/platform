@@ -110,19 +110,6 @@ STRING FUNCTION GetScriptShow(RECORD authrec, STRING script)
   RETURN script;
 }
 
-STRING ARRAY FUNCTION GetDebugTagStringParts(RECORD debugconfig)
-{
-  IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
-    RETURN STRING[];
-
-  STRING ARRAY tags := debugconfig.tags;
-  IF(debugconfig.outputsession != "default")
-    INSERT "session=" || debugconfig.outputsession INTO tags AT END;
-  IF(debugconfig.context != "")
-    INSERT "context=" || debugconfig.context INTO tags AT END;
-  RETURN tags;
-}
-
 MACRO ShowDebugConfig(RECORD debugconfig)
 {
   IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
@@ -611,29 +598,17 @@ Executed instrs.:   ${stats.instructions}
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
         Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");
 
-      STRING ARRAY tags := GetDebugTagStringParts(__debugconfig);
       FOREVERY(RECORD flag FROM SELECT DISTINCT * FROM updateflags ORDER BY name)
-      {
         Print(`${args.command = "enable" ? "Enabling" : "Disabling"} ${flag.name} (${flag.description})\n`);
-        IF(args.command = "enable")
-          tags := tags CONCAT STRING[flag.name];
-        ELSE
-          tags := ArrayDelete(tags, STRING[flag.name]);
-      }
 
-      RECORD debugconfig := ReadDebugSetting(Detokenize(GetSortedSet(tags),','));
-      // Update the configuration record (HareScript)
-      UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
-      // Update generated platform.json (TypeScript)
-      UpdateDebugSettings(debugconfig);
+      STRING ARRAY flags := SELECT AS STRING ARRAY name FROM updateflags;
+      MutateDebugSettings(args.command = "enable" ? [ enable := flags ] : [ disable := flags ]);
     }
-    CASE "setconfig"
-    {
+    CASE "setconfig" { //TODO replace with wildcard support for wh debug disable as this is mostly used to shut down all debug flags
       ParseSubArgs(
             [ [ name := "tags", type := "paramlist" ]
             ]);
 
-      //we'll accept both space and comma seperated
       RECORD debugconfig := ReadDebugSetting(Detokenize(args.tags,','));
       IF (GetEnvironmentVariable("WEBHARE_DEBUG") != "")
         Print("Warning: The WEBHARE_DEBUG environment variable is currently set, the debug configuration only has effect on processes that don't have it set.\n");

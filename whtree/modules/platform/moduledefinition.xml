@@ -76,11 +76,13 @@
     <debugflag name="handles" description="Record stack traces when handles are created (currently only outputobjects)" />
     <debugflag name="startup" description="Log startup processes and timing" />
     <debugflag name="traceadhoccache" description="Record stack traces when new items are inserted in the adhoc cache" />
+    <debugflag name="db-readonly" description="Mark database as readonly" />
     <debugflag name="pg-auto_explain"
                description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log (for JS: no support)" />
     <debugflag name="pg-logcommands"
                description="Log all SQL queries sent to the PostgreSQL database to the debug log (for JS: to console)" />
     <debugflag name="pg-logsocket" description="Log all raw PGL socket commands (JS only)" />
+    <debugflag name="pg-logstacktraces" description="Log PGL stack traces (currently HS only)" />
     <debugflag name="pg-noerrordelay"
                description="Immediately report errors on insert queries (normally these are detected when the next SQL query is executed) (for JS: no support)" />
     <debugflag name="whfsplan" description="Print WHFS copy/move planning and mapping actions" />

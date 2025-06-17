@@ -24,13 +24,6 @@ RECORD FUNCTION GetUpdateRec(STRING colname, INTEGER renumberto, BOOLEAN recordr
   RETURN upd;
 }
 
-/** Returns the database debug configuration
-    @private
-    @cell(boolean) readonly Init in readonly mode
-    @cell(boolean) logstacktrace Log stack traces
-*/
-PUBLIC FUNCTION PTR __GetDatabaseRuntimeConfig;
-
 /** Returns whether the database is online
     @public
     @loadlib mod::system/lib/database.whlib
@@ -47,11 +40,8 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseOnline()
     @loadlib mod::system/lib/database.whlib
     @return FALSE if in readonly or online mode. If so, BeginWork and CommitWork calls will throw an exception.
 */
-PUBLIC BOOLEAN FUNCTION IsDatabaseWritable()
-{
-  IF (__GetDatabaseRuntimeConfig = DEFAULT FUNCTION PTR)
-    RETURN TRUE;
-  RETURN NOT __GetDatabaseRuntimeConfig().readonly;
+PUBLIC BOOLEAN FUNCTION IsDatabaseWritable() {
+  RETURN NOT IsDebugTagEnabled("db-readonly");
 }
 
 //Callback for whdb.ts to get the any finish handlers in one call

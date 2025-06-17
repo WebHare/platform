@@ -7,8 +7,10 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::internal/debug.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -389,9 +391,37 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
   RETURN retval;
 }
 
-PUBLIC MACRO UpdateDebugSettings(RECORD newsettings, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO UpdateDebugSettings(RECORD newsettings, RECORD options DEFAULTSTO DEFAULT RECORD) {
   //FIXME this may still be dangerous, we should go through the service to update config files
-  WaitForPromise(ImportJS("@mod-system/js/internal/generation/generator.ts")->updateDebugSettings(newsettings, CELL[ verbose := IsDebugTagEnabled("startup"), ...options ]));
+  CallJS("@mod-system/js/internal/generation/generator.ts#updateDebugSettings", newsettings, CELL[ verbose := IsDebugTagEnabled("startup"), ...options ]);
   BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about the new settings
+}
+
+PUBLIC STRING ARRAY FUNCTION GetDebugTagStringParts(RECORD debugconfig) {
+  IF (NOT RecordExists(debugconfig) OR IsDefaultValue(debugconfig.tags))
+    RETURN STRING[];
+
+  STRING ARRAY tags := debugconfig.tags;
+  IF(debugconfig.outputsession != "default")
+    INSERT "session=" || debugconfig.outputsession INTO tags AT END;
+  IF(debugconfig.context != "")
+    INSERT "context=" || debugconfig.context INTO tags AT END;
+  RETURN tags;
+}
+
+PUBLIC MACRO MutateDebugSettings(RECORD updates) {
+  updates := ValidateOptions([ enable := STRING[]
+                             , disable := STRING[]
+                             , disable_all := FALSE
+                             ], updates, [ title := "updatses" ]);
+
+  STRING ARRAY currenttags := updates.disable_all ? STRING[] : GetDebugTagStringParts(__debugconfig);
+  STRING ARRAY withnewtags := GetSortedSet(currenttags CONCAT updates.enable);
+  STRING ARRAY finaltags := ArrayDelete(withnewtags, updates.disable);
+
+  RECORD debugconfig := ReadDebugSetting(Detokenize(finaltags,','));
+  // Update the configuration record (HareScript)
+  UpdateSystemConfigurationRecord(CELL[ debugconfig ]);
+  // Update generated platform.json (TypeScript)
+  UpdateDebugSettings(debugconfig);
 }

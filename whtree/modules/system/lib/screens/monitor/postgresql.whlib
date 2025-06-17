@@ -23,29 +23,25 @@ STRING FUNCTION FormatQuery(STRING query)
 }
 
 
-PUBLIC STATIC OBJECTTYPE PostgreSQLTransactions EXTEND DashboardPanelBase
-< OBJECT trans;
+PUBLIC STATIC OBJECTTYPE PostgreSQLTransactions EXTEND DashboardPanelBase <
+  OBJECT trans;
   RECORD ARRAY columns;
 
-  MACRO Init()
-  {
+  MACRO Init() {
     this->trans := GetPrimaryWebhareTransactionObject();
     this->columns := ^transactions->columns;
-    RegisterEventCallback("system:systemconfig", PTR this->GotConfigChange);
+    RegisterEventCallback("system:configupdate", PTR this->GotConfigChange);
     this->RefreshConfig();
   }
 
-  MACRO GotConfigChange(STRING event, RECORD data)
-  {
+  MACRO GotConfigChange(STRING event, RECORD data) {
     this->RefreshConfig();
   }
 
   MACRO RefreshConfig()
   {
-    RECORD debugconfig := GetDatabaseRuntimeConfig();
-
     RECORD ARRAY columns := this->columns;
-    IF (debugconfig.logstacktraces = 0)
+    IF (NOT IsDebugTagEnabled("pg-logstacktraces"))
       DELETE FROM columns WHERE name = "debuginfo";
 
     RECORD ARRAY rows := ^transactions->rows;
@@ -202,32 +198,26 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobCleanup EXTEND DashboardPanelBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase
-< OBJECT trans;
+PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase <
+  OBJECT trans;
   OBJECT analyzer;
 
-  MACRO Init()
-  {
+  MACRO Init() {
     this->trans := GetPrimaryWebhareTransactionObject();
-
-    this->RefreshConfig();
+    RegisterEventCallback("system:configupdate", PTR this->GotConfigChange);
   }
 
-  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
-  {
+  UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency() {
     RETURN 0;
   }
 
-  MACRO GotConfigChange(STRING event, RECORD data)
-  {
-    this->RefreshConfig();
+  MACRO GotConfigChange(STRING event, RECORD data) {
+    this->RefreshDashboardPanel();
   }
 
-  MACRO RefreshConfig()
-  {
-    RECORD debugconfig := GetDatabaseRuntimeConfig();
-    ^readonly->value := debugconfig.readonly;
-    ^logstacktraces->value := debugconfig.logstacktraces > 0;
+  UPDATE PUBLIC MACRO RefreshDashboardPanel() {
+    ^readonly->value := IsDebugTagEnabled("db-readonly");
+    ^logstacktraces->value := IsDebugTagEnabled("pg-logstacktraces");
   }
 
   MACRO GotBlobManifestChange(STRING event, RECORD data)
@@ -235,8 +225,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase
     this->RefreshBlobManifest();
   }
 
-  MACRO RefreshBlobManifest()
-  {
+  MACRO RefreshBlobManifest() {
     RECORD manifest := this->analyzer->ReadBlobManifest();
     ^unreferencedblobs->value := SELECT AS INTEGER SUM(LENGTH(ids)) FROM manifest.unreferenced;
     ^unreferencednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->unreferenced_period_secs * 1000, MakeDateFromText(date))) FROM manifest.unreferenced;
@@ -244,18 +233,8 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLSettings EXTEND DashboardPanelBase
     ^unlinkednextremoval->value := SELECT AS DATETIME Min(AddTimeToDate(this->analyzer->keep_removed_files_secs * 1000, MakeDateFromText(date))) FROM manifest.unlinked;
   }
 
-  UPDATE PUBLIC MACRO RefreshDashboardPanel()
-  {
-  }
-
-  MACRO GotLogStackTracesChange()
-  {
-    INTEGER newlogstacktraces := ^logstacktraces->value ? 10 : 0;
-    RECORD database := GetDatabaseRuntimeConfig();
-    IF (database.logstacktraces != newlogstacktraces)
-    {
-      database.logstacktraces := ^logstacktraces->value ? 10 : 0;
-      UpdateSystemConfigurationRecord(CELL[ database ]);
-    }
+  MACRO GotLogStackTracesChange() {
+    MutateDebugSettings(^logstacktraces->value ? CELL[ enable := [ "pg-logstacktraces" ]]
+                                               : CELL[ disable := [ "pg-logstacktraces" ]]);
   }
 >;

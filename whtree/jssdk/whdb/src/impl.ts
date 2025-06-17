@@ -49,6 +49,12 @@ export interface FinishHandler {
   onRollback?: () => unknown | Promise<unknown>;
 }
 
+export class DBReadonlyError extends Error {
+  constructor() {
+    super("The database is in read-only mode");
+  }
+}
+
 class HandlerList implements Disposable {
   handlerlist = new Array<{
     vm: HareScriptVM;
@@ -151,6 +157,8 @@ class Work implements WorkObject {
       throw new Error(`Work is already closed`);
     if (!this.conn.pgclient)
       throw new Error(`Connection was already closed`);
+    if (debugFlags["db-readonly"])
+      throw new DBReadonlyError();
 
     const lock = this.conn.reftracker.getLock("query lock: UPLOADBLOB");
     try {
@@ -165,6 +173,8 @@ class Work implements WorkObject {
       throw new Error(`Work is already closed`);
     if (!this.conn.pgclient)
       throw new Error(`Connection was already closed`);
+    if (debugFlags["db-readonly"])
+      throw new DBReadonlyError();
 
     let handlers;
 
@@ -374,6 +384,8 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
           this.openwork.addMutex(await lockMutex(name));
       if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
         throw new Error(`Invalid isolation level ${options.isolationLevel}`);
+      if (debugFlags["db-readonly"])
+        throw new DBReadonlyError();
 
       const isolationLevel = options?.isolationLevel ?? "read committed";
       await this.connectpromise;

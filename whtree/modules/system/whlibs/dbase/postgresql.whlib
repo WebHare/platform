@@ -1827,12 +1827,8 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF (ObjectExists(transinfo.blobhandler))
     params := transinfo.blobhandler->GetConnectParams();
 
-  IF (transinfo.isprimary AND IsValueSet(__GetDatabaseRuntimeConfig))
-  {
-    RECORD config := __GetDatabaseRuntimeConfig();
-    IF (config.logstacktraces > 0)
-      INSERT [ name := "webhare:logstacktraces", value := ToString(config.logstacktraces) ] INTO params AT END;
-  }
+  IF (transinfo.isprimary AND IsDebugTagEnabled("pg-logstacktraces"))
+    INSERT [ name := "webhare:logstacktraces", value := "16" ] INTO params AT END; //TODO make depthlevel configurable again? but I doubt we really use it that much
 
   IF (GetEnvironmentVariable("WEBHARE_PGHOST") != "")
     INSERT [ name := "host", value := GetEnvironmentVariable("WEBHARE_PGHOST") ] INTO params AT END;
