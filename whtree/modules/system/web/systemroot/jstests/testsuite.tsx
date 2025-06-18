@@ -194,6 +194,7 @@ class TestFramework {
   args?: string[];
   waitforanimationframe?: boolean;
   setcallbacksfunc!: (callbacks: TestFrameWorkCallbacks) => void;
+  onAbort?: () => void;
   animationframerequest?: number;
 
   constructor() {
@@ -217,7 +218,12 @@ class TestFramework {
     if (waitTimeoutParam)
       this.waittimeout = parseInt(waitTimeoutParam);
 
-    qR('#stoptests')?.addEventListener('click', (e) => { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); (e.target as HTMLButtonElement).disabled = true; });
+    qR('#stoptests')?.addEventListener('click', (e) => {
+      this.onAbort?.();
+      this.stop = true;
+      this.stoppromise.reject(Error("test was cancelled"));
+      (e.target as HTMLButtonElement).disabled = true;
+    });
     qR('#logmoreinfo').addEventListener('click', () => document.documentElement.classList.add('testframework--showfullerror'));
     qR('#testframetabs').addEventListener(`click`, evt => {
       if ((evt.target as HTMLButtonElement).classList.contains("testframetab")) {
@@ -253,7 +259,7 @@ class TestFramework {
       ];
 
       const setTestSuiteCallbacks = () => void (0);
-      this.runTestSteps(steps, setTestSuiteCallbacks);
+      this.runTestSteps(steps, setTestSuiteCallbacks, () => { });
     }
   };
 
@@ -1229,10 +1235,11 @@ class TestFramework {
     }
   }
 
-  runTestSteps(steps: TestStep[], setcallbacksfunc: (callbacks: TestFrameWorkCallbacks) => void) {
+  runTestSteps(steps: TestStep[], setcallbacksfunc: (callbacks: TestFrameWorkCallbacks) => void, onAbort: () => void) {
     if (this.currentsteps)
       return console.error("Multiple teststeps received");
     this.setcallbacksfunc = setcallbacksfunc;
+    this.onAbort = onAbort;
 
     this.currentsteps = steps;
     this.guaranteeTestNames(this.currentsteps);

@@ -2,6 +2,7 @@ import * as testsupport from "./testsupport";
 import * as diff from 'diff';
 import { Money, isError, isPromise, sleep, stdTypeOf } from "@webhare/std";
 import { getCompiledJSONSchema, type JSONSchemaObject, type AjvValidateFunction } from "./ajv-wrapper";
+import { flagWait } from "./monitor";
 
 export type { LoadTSTypeOptions } from "./testsupport";
 export type { JSONSchemaObject } from "./ajv-wrapper";
@@ -578,6 +579,8 @@ export type WaitOptions<T> = Annotation | { timeout?: number; test?: (value: T) 
  * @returns The value that the waitfor function last resolved to
  */
 export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T> {
+  using waitState = flagWait("wait");
+
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
@@ -589,16 +592,18 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
 
   if (typeof waitfor === "function") {
     const timeout_cb = setTimeout(() => gottimeout = true, timeout);
-    while (!gotTimeout()) {
-      const result = await waitfor();
-      const done = options?.test ? options?.test(result) : result;
-      if (done) {
-        if (!gotTimeout())
-          clearTimeout(timeout_cb);
-        return result as unknown as WaitRetVal<T>;
-      }
+    try {
+      while (!gotTimeout()) {
+        const result = await waitState.race([waitfor()]);
+        const done = options?.test ? options?.test(result) : result;
+        if (done) {
+          return result as unknown as WaitRetVal<T>;
+        }
 
-      await new Promise(resolve => setTimeout(resolve, 1));
+        await new Promise(resolve => setTimeout(resolve, 1));
+      }
+    } finally {
+      clearTimeout(timeout_cb);
     }
     throw new TestError(`test.wait timed out after ${timeout} ms`, annotation);
   } else {
@@ -613,7 +618,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
       }, timeout);
     });
     try {
-      return await Promise.race([waitfor, timeoutpromise]) as WaitRetVal<T>;
+      return await waitState.race([waitfor, timeoutpromise]) as WaitRetVal<T>;
     } finally {
       if (cb)
         clearTimeout(cb);

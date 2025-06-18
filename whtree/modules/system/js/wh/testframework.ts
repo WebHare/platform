@@ -12,6 +12,7 @@ import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
 import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
 import { throwError } from '@webhare/std';
+import { TestMonitor } from '@webhare/test/src/monitor';
 
 export {
   eq,
@@ -71,9 +72,6 @@ function setTestSuiteCallbacks(cb: TestFrameWorkCallbacks) {
   callbacks = cb;
 }
 
-function initialize_tests(steps: TestStep[]) {
-  testfw?.runTestSteps(steps, setTestSuiteCallbacks);
-}
 
 function rewriteNodeAttributes(node: HTMLElement) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
@@ -93,10 +91,18 @@ export function runTests(steps: RegisteredTestSteps) {
     console.error("This script should be run in a browser test environment");
     process.exit(1);
   }
+  dompack.onDomReady(() => runActualTests(steps));
+}
 
+function runActualTests(steps: RegisteredTestSteps) {
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
+
+  /* runTests runs inside the test script frame and is (re)loaded for every test, so we just need
+     one global monitor*/
+  const monitor = new TestMonitor;
+  //TODO get a callback from monitor when wait states change, and then update the Wait indicator in the toplevel frame
 
   let lasttestname;
   const finalsteps: TestStep[] = [];
@@ -118,8 +124,11 @@ export function runTests(steps: RegisteredTestSteps) {
     }
     finalsteps.push(step);
   }
-  dompack.onDomReady(() => initialize_tests(finalsteps));
+
+  //NOTE: this is a cross-frame call to our persistent parent
+  testfw.runTestSteps(finalsteps, setTestSuiteCallbacks, () => monitor.abort());
 }
+
 export function getTestArgument(idx: number) {
   if (!testfw?.args)
     throw new Error(`No test started yet`);
