@@ -7,7 +7,7 @@ import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/do
 import * as whtest from '@webhare/test';
 import * as pointer from 'dompack/testframework/pointer';
 import * as keyboard from 'dompack/testframework/keyboard';
-import type { Annotation } from '@webhare/test/src/checks';
+import type { Annotation, WaitOptions, WaitRetVal } from '@webhare/test/src/checks';
 import { invoke } from "@mod-platform/js/testing/whtest";
 import { isFormControl } from '@webhare/dompack';
 import type { TestFramework, TestStep, TestWaitItem } from '@mod-system/web/systemroot/jstests/testsuite';
@@ -336,14 +336,20 @@ export async function writeLogMarker(text: string) {
   await invoke("mod::system/lib/testframework.whlib#WriteLogMarker", text);
 }
 
+export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T>;
 export async function wait<T>(waitfor: (doc: Document, win: Window) => T | Promise<T>, annotation?: string): Promise<NonNullable<T>>;
 export async function wait(waitfor: TestWaitItem, annotation?: string): Promise<void>;
 
-export async function wait(waitfor: TestWaitItem, annotation?: string) {
-  if (annotation && typeof annotation !== "string")
-    throw new Error("wait()ing on multiple things is no longer supported");
 
-  return await callbacks!.executeWait(waitfor);
+export async function wait<T>(waitfor: TestWaitItem | (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>) {
+  if (typeof waitfor === "string" || typeof waitfor === "number")
+    return await callbacks!.executeWait(waitfor); //forward to old wait API
+
+  if (typeof waitfor === "function" && waitfor.length === 2) {
+    console.warn("Rebinding wait() caller, remove its doc/win arguments!");
+    waitfor = () => (waitfor as (doc: Document, win: Window) => unknown)(getDoc(), getWin());
+  }
+  return await whtest.wait(waitfor as (() => T | PromiseLike<T>) | PromiseLike<T>, options);
 }
 
 // email: The email address to look for

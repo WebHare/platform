@@ -570,13 +570,14 @@ export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise
 
 //We want to make clear ('assert') that wait will not return falsy values
 export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
+export type WaitOptions<T> = Annotation | { timeout?: number; test?: (value: T) => boolean; annotation?: Annotation };
 
 /** Wait for a condition to become truthy
  * @param waitfor - A function/promiose that should resolve to true for the wait to finish
  * @param test - An optional test that should return true for the wait to end. By default wait() waits for a truthy value
  * @returns The value that the waitfor function last resolved to
  */
-export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: Annotation | { timeout?: number; test?: (value: T) => boolean; annotation?: Annotation }): WaitRetVal<T> {
+export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T> {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
