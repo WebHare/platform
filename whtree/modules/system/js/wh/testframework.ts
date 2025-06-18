@@ -89,6 +89,11 @@ export type RegisteredTestStep = TestStep | string | NonNullable<TestStep["test"
 export type RegisteredTestSteps = RegisteredTestStep[];
 
 export function runTests(steps: RegisteredTestSteps) {
+  if (typeof window === "undefined" && typeof process !== "undefined") {
+    console.error("This script should be run in a browser test environment");
+    process.exit(1);
+  }
+
   //get our parent test framework
   if (!testfw)
     throw new Error("This page is not being invoked by the test framework");
