@@ -16,7 +16,10 @@ export { backendConfig } from "./config";
 export type { WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, subscribeToEventStream, signalOnEvent } from "./backendevents";
 export type { BackendEvent, BackendEventSubscription } from "./backendevents";
+
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
+export type { LoggableRecord } from "./logmessages";
+
 export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
 
@@ -34,7 +37,9 @@ export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
 export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
-export { buildRTD, buildWidget, RichTextDocument, type Widget } from "./richdocument";
+export { buildRTD, buildWidget, RichTextDocument } from "./richdocument";
+export type { Widget, RTDBuildSource } from "./richdocument";
+
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";
 export { IntExtLink } from "./intextlink";
