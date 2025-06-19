@@ -74,7 +74,7 @@ test.runTests(
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
-      const confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
+      const confirmlink = emails[0].links.filter(_ => _.textContent === "click here").map(_ => _.href)[0];
       await test.load(confirmlink);
 
       test.assert(test.qR('[data-wh-form-group-for="thankyou_unconfirmed"]').classList.contains('wh-form__fieldgroup--hidden'));
