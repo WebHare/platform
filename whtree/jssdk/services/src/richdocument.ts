@@ -55,7 +55,7 @@ export type RTDBuildBlock = RTDBaseBlock<true>;
 export type RTDBuildBlockItem = RTDBaseBlockItem;
 export type RTDBuildBlockItems = RTDBaseBlockItems<true>;
 
-/** The base RTD type accepted by  buildRTD */
+/** The base RTD type accepted by buildRTD */
 export type RTDBuildSource = RTDBuildBlock[];
 
 export function isValidRTDClassName(className: string): boolean {
