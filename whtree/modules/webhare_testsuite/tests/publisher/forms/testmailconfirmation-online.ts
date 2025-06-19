@@ -1,12 +1,11 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
+import { throwError } from "@webhare/std";
 
-let setupdata;
+let setupdata: any;
 const rand = Math.floor(100000000 * Math.random());
 const testemail = rand + "-testformfile-online+jstest@beta.webhare.net";
-let confirmlink;
-let testemail_guid;
+let confirmlink = '';
+let testemail_guid = '';
 
 test.runTests(
   [
@@ -37,7 +36,7 @@ test.runTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
-      testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
+      testemail_guid = test.qR("form[data-wh-form-resultguid]").dataset.whFormResultguid ?? throwError("Missing whFormResultguid on form");
       const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "custom2", allowpending: true });
       test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
@@ -52,7 +51,7 @@ test.runTests(
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
-      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
+      confirmlink = emails[0].links.filter(_ => _.textContent === "click here").map(_ => _.href)[0];
     },
 
     "Confirm result",
@@ -115,7 +114,7 @@ test.runTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
-      testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
+      testemail_guid = test.qR("form[data-wh-form-resultguid]").dataset.whFormResultguid ?? throwError("Missing whFormResultguid on form");
       const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "custom2", allowpending: true });
       test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
@@ -130,7 +129,7 @@ test.runTests(
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
-      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
+      confirmlink = emails[0].links.filter(_ => _.textContent === "click here").map(_ => _.href)[0];
     },
 
     "Confirm result",
@@ -185,7 +184,7 @@ test.runTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should not see thankyou_confirmed text");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_duplicate"]'), "Should not see thankyou_duplicate text");
 
-      testemail_guid = test.qS("form[data-wh-form-resultguid]").dataset.whFormResultguid;
+      testemail_guid = test.qR("form[data-wh-form-resultguid]").dataset.whFormResultguid ?? throwError("Missing whFormResultguid on form");
       const formresult = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult", testemail_guid, { which: "custom2", allowpending: true });
       test.assert(formresult.response);
       test.eq("Pietje & Henkie", formresult.response.firstname);
@@ -200,7 +199,7 @@ test.runTests(
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
 
-      confirmlink = emails[0].links.filter(_ => _.textcontent = "click here").map(_ => _.href)[0];
+      confirmlink = emails[0].links.filter(_ => _.textContent === "click here").map(_ => _.href)[0];
     },
 
     "Confirm result",

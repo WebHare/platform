@@ -127,7 +127,7 @@ test.runTests(
       test.eq(/pietjetester@beta.webhare.net.*pietjenieuw@beta.webhare.net/, emails[0].plaintext);
       test.eq(/Crude test of email override/, emails[0].plaintext);
 
-      const confirmlink = emails[0].links.filter(link => link.textcontent === "this link")[0];
+      const confirmlink = emails[0].links.filter(link => link.textContent === "this link")[0];
       test.assert(confirmlink, "Didn't find a confirm link");
       test.getWin().location.href = confirmlink.href;
 
@@ -178,7 +178,7 @@ test.runTests(
       test.eq(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
       test.eq(/pietjenieuw@beta.webhare.net.*jantjetester@beta.webhare.net/, emails[0].plaintext);
 
-      const confirmlink = emails[0].links.filter(link => link.textcontent === "this link")[0];
+      const confirmlink = emails[0].links.filter(link => link.textContent === "this link")[0];
       test.assert(!confirmlink, "Shouldn't have a confirm link");
     },
 

@@ -30,14 +30,17 @@ interface ExtractedMailLink {
   className: string;
   href: string;
   textContent: string;
+
+  /** @deprecated Switch to textContent in WH5.8+ */
+  textcontent: string;
 }
 
 export interface ExtractedMail {
   envelopeSender: string;
   headers: Array<{ field: string; value: string }>;
   html: string;
-  links: ExtractedMailLink[];
-  linkById: Record<string, ExtractedMailLink>;
+  links: Array<Readonly<ExtractedMailLink>>;
+  linkById: Record<string, Readonly<ExtractedMailLink>>;
   plainText: string;
   subject: string;
   messageId: string;
@@ -53,7 +56,14 @@ export interface ExtractedMail {
   receiver: string;
 
   // toppart: unknown; //MIME structure. not specified yet (TODO remove?)
+
+  // Properties that have inconsistent names between the two waitForEmails APIs
+  /** @deprecated Switch to linkById in WH5.8+ */
+  linkbyid: Record<string, ExtractedMailLink>;
+  /** @deprecated Switch to plainText in WH5.8+ */
+  plaintext: string;
 }
+
 
 interface RawExtractedMailResult { //See HS ProcessExtractedMail
   envelope_sender: string;
@@ -113,13 +123,17 @@ export async function invoke(libfunc: string, ...params: unknown[]): Promise<any
 */
 export async function waitForEmails(email: string, options?: WaitForEmailOptions): Promise<ExtractedMail[]> {
   const emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", email, options) as RawExtractedMailResult[];
-  return emails.map(mail => {
-    const links: Array<ExtractedMail["links"][number]> = mail.links.map(link => ({
+  const outmails = emails.map(mail => {
+    //Links are readonly because we caught instances of 'links.filter(_ => _.textContent = "click here").'
+    const links: Array<Readonly<ExtractedMailLink>> = mail.links.map(link => Object.freeze({
       tagName: link.tagname,
       id: link.id,
       className: link.classname,
       href: link.href,
-      textContent: link.textcontent
+      textContent: link.textcontent,
+
+      //Deprecated pre WH5.8 names
+      textcontent: link.textcontent
     }));
     return {
       envelopeSender: mail.envelope_sender,
@@ -137,15 +151,13 @@ export async function waitForEmails(email: string, options?: WaitForEmailOptions
         // fileName: '', //TODO not receiving this yet, getting lost somehwere in mime.whlib?
         mediaType: attachment.mimetype,
         data: Uint8Array.from(atob(attachment.data), c => c.charCodeAt(0))
-      }))
-    };
+      })),
+
+      //Deprecated pre WH5.8 names
+      linkbyid: Object.fromEntries(links.map(link => [link.id, link])),
+      plaintext: mail.plaintext
+    } satisfies ExtractedMail;
   });
 
-  // //Add simple DOMs so we can also querySelector the mail HTML
-  // return emails.map(email => {
-  //   const doc = document.createElement('div');
-  //   doc.style.display = "none";
-  //   doc.innerHTML = email.html;
-  //   return { ...email, doc };
-  // });
+  return outmails;
 }

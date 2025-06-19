@@ -13,7 +13,7 @@ export async function openResetPassword(options: { email: string; verifier?: str
   const emails = await test.waitForEmails(options.email, { count: 1, timeout: 10000 });
   test.eq(options.expectLang?.startsWith('nl') ? /Uw wachtwoord herstellen/ : /Reset your password for/, emails[0].subject, "Unexpected subject " + emails[0].subject);
 
-  const resetlink = emails[0].links.filter(link => link.textcontent === (options.expectLang?.startsWith('nl') ? "deze link" : "this link"))[0];
+  const resetlink = emails[0].links.filter(link => link.textContent === (options.expectLang?.startsWith('nl') ? "deze link" : "this link"))[0];
   test.eq(true, Boolean(resetlink), "Didn't find a reset link");
   test.getWin().location.href = resetlink.href;
   await test.wait('load');
