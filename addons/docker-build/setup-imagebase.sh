@@ -85,6 +85,7 @@ if ! ( grep -q CVE-2021-3449 < $TEMPCHANGELOG ) ; then
 fi
 echo Updates are verified
 
+# 2025-06-19: Add 'socat' because a lot of quick debugging connections depend on a forwarder
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for finalize-webhare (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version. But keep it for analyzing logs!
@@ -126,6 +127,7 @@ PACKAGES+=(certbot
     psmisc
     runit
     rsync
+    socat
     software-properties-common
     stunnel4
     tar
