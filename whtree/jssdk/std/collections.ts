@@ -185,6 +185,42 @@ export function appendToArray<T>(array: T[], values: ReadonlyArray<NoInfer<T>>):
   //not returning the original array to make it clear we're not creating a new one
 }
 
+type TypedEntriesInternal<T extends object, K extends keyof T> = K extends keyof T ? [K, T[K]] : never;
+
+/** Returns a union of [ key, value ] types for an object */
+export type TypedEntries<T extends object> = TypedEntriesInternal<T, keyof T & string>;
+
+/** Returns an array of key/values of the enumerable own properties of an object, with exact types. Use when
+ * no extra properties are expected on the object. Exists because Object.entries returns always string as key type.
+ * @param obj - Object that contains the properties and methods
+ */
+export function typedEntries<T extends object>(obj: T): Array<TypedEntries<T>> {
+  return Object.entries(obj) as Array<TypedEntries<T>>;
+}
+
+/** Returns an array of keys of the enumerable own properties of an object, with exact types. Use when
+ * no extra properties are expected on the object. Exists because Object.keys returns always string as key type.
+ * @param obj - Object that contains the properties and methods
+ */
+export function typedKeys<T extends object>(obj: T): Array<keyof T & string> {
+  return Object.keys(obj) as Array<keyof T & string>;
+}
+
+/** Given a union of [key, value] types, returns the object constructed from those pairs. Exists because
+ *  Object.fromEntries does not take the type of the keys and values into account.
+ * @typeParam T - Union of [key, value] pairs
+ */
+export type TypedFromEntries<T extends [string, unknown]> = { [C in T as C[0]]: C[1] };
+
+/** Returns an object from an iterable of [key, value] pairs, with exact types. Exists because Object.fromEntries
+ * doesn't take the type of the keys and values into account.
+ * @param entries - Iterable of [key, value] pairs
+ * @returns An object with the same keys and values as the input
+ */
+export function typedFromEntries<T extends [string, unknown]>(entries: Iterable<T>): TypedFromEntries<T> {
+  return Object.fromEntries(entries) as TypedFromEntries<T>;
+}
+
 
 export class SortedMultiSet<V> {
   private contents: V[] = [];

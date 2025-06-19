@@ -696,6 +696,22 @@ async function testCollections() {
   test.eq(10000001, hugeArray.length);
   test.eq(5, hugeArray[100000 + 5]);
   test.eq(99999, hugeArray.at(-2));
+
+  const typedEntriesA = std.typedEntries({ a: 1, b: "b" } as const).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
+  test.typeAssert<test.Equals<Array<["a", 1] | ["b", "b"]>, typeof typedEntriesA>>();
+  test.typeAssert<test.Equals<["a", 1] | ["b", "b"], std.TypedEntries<{ a: 1; b: "b" }>>>();
+  test.eq([["a", 1], ["b", "b"]], typedEntriesA);
+
+  const typedKeysA = std.typedKeys({ a: 1, b: "b" }).toSorted((a, b) => a.localeCompare(b));
+  test.typeAssert<test.Equals<Array<"a" | "b">, typeof typedKeysA>>();
+  test.eq(["a", "b"] as const, typedKeysA);
+
+  const typedFromEntriesA = std.typedFromEntries(typedEntriesA);
+  test.typeAssert<test.Equals<{ a: 1; b: "b" }, typeof typedFromEntriesA>>();
+  test.eq({ a: 1, b: "b" }, typedFromEntriesA);
+  const typedFromEntriesB = std.typedFromEntries([["a", 1], ["b" as const, 2 as const]]);
+  test.typeAssert<test.Equals<{ [x: string]: number }, typeof typedFromEntriesB>>();
+  test.eq({ a: 1, b: 2 }, typedFromEntriesB);
 }
 
 async function testSortedSetMap() {
