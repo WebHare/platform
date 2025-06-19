@@ -1,7 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::javascript.whlib";
 
@@ -41,6 +41,16 @@ TestEq([
   plaindate := MakeDateFromText("2024-01-01"),
   plaindatetime := MakeDateFromText("2024-01-01T12:13:14Z")
  ], CallJS("./data/calls.ts#getTimes"));
+
+TestEq([
+  b := StringToBlob("aa"),
+  date := MakeDateFromText("2024-01-01T12:13:14Z"),
+  m := 1.1m
+ ], CallJS("./data/calls.ts#echo", [
+  b := StringToBlob("aa"),
+  date := MakeDateFromText("2024-01-01T12:13:14Z"),
+  m := 1.1m
+ ]));
 
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
@@ -133,15 +143,12 @@ IF(IsWasm()) { //Support opaque object marshalling
 IF(NOT IsWasm()) { //Test crash resistance
   STRING startrandom := CallJS("./data/calls.ts#getOnceRandom");
 
-  OBJECT eventmgr := NEW EventManager;
-  eventmgr->RegisterInterest("system:webhareservice.platform:calljs.start");
-
   //We need a low level connection to request a crash - and also because the 'CallJS' cached connection must remain in working order
   OBJECT service := WaitForPromise(OpenWebHareService("platform:calljs"));
   STRING servicerandom := WaitForPromise(service->Invoke(Resolve("./data/calls.ts"), "getOnceRandom", VARIANT[], CELL[auth := DEFAULT RECORD ]));
   TestEq(servicerandom, startrandom, "Verify it's the same connection");
   service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[], CELL[auth := DEFAULT RECORD ]); //DISCARD the result as we expect a crash
-  TestEqMembers([ status := "ok" ], eventmgr->ReceiveEvent(MAX_DATETIME), "*");
 
-  TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");
+  FOR (INTEGER i := 0; i < 20; i := i + 1)
+    TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");
 }

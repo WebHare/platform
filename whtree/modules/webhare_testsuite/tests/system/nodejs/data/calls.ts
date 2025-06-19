@@ -30,6 +30,9 @@ export function getTimes() {
   };
 }
 
+export function echo(a: unknown) {
+  return a;
+}
 
 export function getOnceRandom() {
   return random;
