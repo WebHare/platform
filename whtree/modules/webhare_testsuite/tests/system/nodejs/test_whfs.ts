@@ -84,6 +84,13 @@ async function testWHFS() {
   test.eq("TestPages", testpagesfolder.name);
   test.eq(null, testpagesfolder.indexDoc);
 
+  const testpagesfolderAsFileOrfolder = await whfs.openFileOrFolder(markdownfile.parent);
+  //@ts-expect-error TS is unsure whether it's a file or folder
+  testpagesfolderAsFileOrfolder.list satisfies (...args: any[]) => any;
+  test.assert(testpagesfolderAsFileOrfolder.isFolder);
+  //checking isFolder triggers a type assertion and now we *do* know its folder and that list() exists
+  testpagesfolderAsFileOrfolder.list satisfies (...args: any[]) => any;
+
   const list = await testpagesfolder.list(["parent", "publish"]);
   test.assert(list.length > 5, "should be a lot of files/folders in this list");
   test.eq([
