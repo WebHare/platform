@@ -105,6 +105,13 @@ async function testChecks() {
     test.throws(/^Expected type: undefined actual type: string at .b$/, () => test.eq({ a: 6, b: undefined }, myVar), "b is set and not undefined, so should be treated as mismatch");
     test.eq({ a: 6, b: "2" }, myVar);
   }
+
+  {
+    const readOnlyExpect: { readonly a: ReadonlyArray<{ readonly b: readonly number[] }> } = { a: [{ b: [1] }] };
+
+    test.eq(readOnlyExpect, { a: [{ b: [1] }] });
+    test.eqPartial(readOnlyExpect, { a: [{ b: [1] }] });
+  }
 }
 
 async function ensureWaitAbortable(expectState: string, cb: () => Promise<unknown>) {
