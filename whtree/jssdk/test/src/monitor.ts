@@ -32,8 +32,9 @@ export class TestMonitor implements Disposable {
   }
 
   abort() {
-    this.#abortController.abort();
-    this.#abortDefer.reject(new Error("Test aborted"));
+    const reason = new Error("Test aborted");
+    this.#abortController.abort(reason);
+    this.#abortDefer.reject(reason);
   }
 }
 
