@@ -13,6 +13,8 @@ import { Temporal } from "temporal-polyfill";
 import { whconstant_webserver_indexpages } from "@mod-system/js/internal/webhareconstants";
 import { selectFSFullPath, selectFSHighestParent, selectFSLink, selectFSPublish, selectFSWHFSPath, selectSitesWebRoot } from "@webhare/whdb/src/functions";
 
+export type WHFSObject = WHFSFile | WHFSFolder;
+
 interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
   fullpath: string;
@@ -145,7 +147,7 @@ async function isStripExtension(type: number, name: string): Promise<boolean> {
   return stripextensions.toLowerCase().split(' ').includes(ext.toLowerCase());
 }
 
-export class WHFSObject {
+class WHFSBaseObject {
   protected readonly dbrecord: FsObjectRow;
   private readonly _typens: string;
 
@@ -292,7 +294,10 @@ export class WHFSObject {
   }
 }
 
-export class WHFSFile extends WHFSObject {
+export class WHFSFile extends WHFSBaseObject {
+  get isFile(): true { return true; }
+  get isFolder(): false { return false; }
+
   get publish() {
     return isPublish(this.dbrecord.published);
   }
@@ -340,8 +345,10 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
 
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
 
-export class WHFSFolder extends WHFSObject {
+export class WHFSFolder extends WHFSBaseObject {
   get indexDoc() { return this.dbrecord.indexdoc; }
+  get isFile(): false { return false; }
+  get isFolder(): true { return true; }
 
   async list<K extends keyof ListableFsObjectRow = never>(keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
     const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
@@ -735,10 +742,10 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
 export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder>;
 export async function openWHFSObject(startingpoint: number, path: string | number, findfile: true, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | null>;
 export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder | null>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | WHFSFolder>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | WHFSFolder | null>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null>;
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | WHFSFolder | null> {
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null> {
   let location;
   if (typeof path === "string")
     location = await lookupWHFSObject(startingpoint, path);
