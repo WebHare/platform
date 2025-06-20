@@ -502,7 +502,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (options?.expires)
       return convertWaitPeriodToDate(options.expires, { relativeTo });
 
-    const loginSettings = (await getSchemaSettings(this.wrdschema, ["loginSettings"]))?.loginSettings ?? defaultWRDAuthLoginSettings;
+    const loginSettings = { ...defaultWRDAuthLoginSettings, ...(await getSchemaSettings(this.wrdschema, ["loginSettings"]))?.loginSettings };
     const expiry = options?.thirdParty ? loginSettings?.expire_thirdpartylogin : options?.persistent ? loginSettings?.expire_persistentlogin : loginSettings?.expire_login;
     return calculateWRDSessionExpiry(loginSettings, relativeTo, expiry);
   }
