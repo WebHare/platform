@@ -224,6 +224,11 @@ export function sendPxlEvent(event: string, data?: PxlEventData | null, options?
 
     // Load the pxl file using fetch
     const fetchRes = await fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
+    if (fetchRes.type === "opaque") { //we can't verify cross-server requests
+      if (debugFlags.pxl)
+        console.log(`[pxl] Assuming succesful pxl event '${event}'`);
+      return;
+    }
     if (!fetchRes.ok) {
       console.error(`[pxl] Failed to send pxl event '${event}'`, fetchRes);
       return;
