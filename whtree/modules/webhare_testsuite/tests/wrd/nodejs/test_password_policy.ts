@@ -8,7 +8,8 @@ import { beginWork, rollbackWork } from "@webhare/whdb";
 import { getUserValidationSettings } from "@webhare/auth/src/support";
 
 async function testPasswordBreachCount() {
-  test.assert(await getPasswordBreachCount("secret") > 0);
+  test.assert(await getPasswordBreachCount("a") > 700000);
+  test.assert(await getPasswordBreachCount("secret") > 1000000);
   test.eq(0, await getPasswordBreachCount(generateRandomId()));
 }
 

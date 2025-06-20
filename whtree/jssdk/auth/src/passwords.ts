@@ -201,7 +201,7 @@ async function getCacheablePwnCount(pwd: string) {
 
     const countstart = hashpos + 36; //35 remaining chars plus :
     const countend = data.indexOf('\n', countstart);
-    return { value: parseInt(data.substring(countstart, countend - countstart), 10) };
+    return { value: parseInt(data.substring(countstart, countend), 10) };
   } catch {
     return { value: -1 };
   }
