@@ -1,5 +1,6 @@
 import * as dompack from "@webhare/dompack";
 import * as test from "@webhare/test-frontend";
+import * as legacyTestApi from "@mod-system/js/wh/testframework";
 
 test.runTests(
   [
@@ -22,5 +23,18 @@ test.runTests(
       test.assert(!test.hasFocus(test.qR("#textinput")));
       test.click("#textinput_label");
       test.assert(test.hasFocus(test.qR("#textinput")));
+
+      /* Ensure waiting for a promise returning function works. The legacy version
+         did not properly resolve promises from functions and was happy to return anything */
+      {
+        let counter = 0;
+        test.eq(true, await test.wait(() => Promise.resolve(++counter >= 5)));
+        test.eq(5, counter);
+      }
+      {
+        let counter = 0;
+        test.eq(true, await legacyTestApi.wait(() => Promise.resolve(++counter >= 5)));
+        test.eq(5, counter);
+      }
     }
   ]);

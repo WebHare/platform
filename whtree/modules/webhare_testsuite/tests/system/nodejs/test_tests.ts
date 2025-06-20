@@ -1,4 +1,5 @@
 import * as test from '@webhare/test';
+import { TestMonitor } from '@webhare/test/src/monitor';
 import * as services from '@webhare/services';
 import * as std from '@webhare/std';
 
@@ -106,9 +107,41 @@ async function testChecks() {
   }
 }
 
+async function ensureWaitAbortable(expectState: string, cb: () => Promise<unknown>) {
+  //Allocate new test abort/monitoring infrastructure
+  using testMonitor = new TestMonitor();
+  test.eq("", testMonitor.waitState());
+
+  const startWait = cb();
+  test.eq(expectState, testMonitor.waitState());
+
+  startWait.then(() => { }, () => { });
+  testMonitor.abort();
+
+  //Ensure the wait() itself rejected
+  test.assert(await startWait.then(() => false, () => true));
+
+  await std.sleep(5); //give all nested promises a chance to complete and clear their wait state
+  test.eq("", testMonitor.waitState());
+}
+
+async function testTestMonitoring() {
+  //wait() has various implementations, test them all
+  await ensureWaitAbortable("wait", () => test.wait(() => false));
+  await ensureWaitAbortable("wait", () => test.wait(() => true, { test: result => !result }));
+  await ensureWaitAbortable("wait", () => test.wait(std.sleep(1000)));
+  await ensureWaitAbortable("wait", () => test.wait(() => std.sleep(1000)));
+
+  //this will never resolve:
+  await ensureWaitAbortable("wait", () => test.wait(Promise.withResolvers().promise));
+  await ensureWaitAbortable("wait", () => test.wait(() => Promise.withResolvers().promise));
+
+  //verify nesting
+  await ensureWaitAbortable("wait > wait", () => test.wait(() => test.wait(() => false)));
+}
+
 async function testLoadTypes() {
   {
-
     const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);
     test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_ts.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
     test.throws(/must NOT have additional properties/, () => v_ts.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
@@ -231,6 +264,7 @@ async function checkTestFailures() {
 
 test.runTests([
   testChecks,
+  testTestMonitoring,
   testLoadTypes,
   checkTestFailures
 ]);
