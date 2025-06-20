@@ -86,8 +86,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
   RECORD config := CELL
     [ allowinframe := FALSE
     , dashboard := TRUE
-      ///Use RequireLoggedinWebHareUser - use the user set by access rules
-    , useexternalwebharelogin := FALSE
+
     , personalsettingsapp := "system:personalsettings"
     ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
     , usewrdauthloginpage := FALSE
@@ -109,8 +108,6 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
       config.allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
     IF(setting.node->HasAttribute("dashboard"))
       config.dashboard := ParseXSBoolean(setting.node->GetAttribute("dashboard"));
-    IF(setting.node->HasAttribute("useexternalwebharelogin"))
-      config.useexternalwebharelogin := ParseXSBoolean(setting.node->GetAttribute("useexternalwebharelogin"));
     IF(setting.node->HasAttribute("usewrdauthloginpage"))
       config.usewrdauthloginpage := ParseXSBoolean(setting.node->GetAttribute("usewrdauthloginpage"));
     IF(setting.node->HasAttribute("personalsettingsapp"))
@@ -216,8 +213,7 @@ PUBLIC RECORD FUNCTION GetApplicationPortalConfig(INTEGER fileid)
 }
 
 
-PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
-<
+PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
   PUBLIC STRING title;
   PUBLIC STRING toddroot;
   //Root for assets that should remain as static as possible, even without allow jscache
@@ -247,9 +243,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
   RECORD config;
 
-  MACRO NEW()
-  {
+  MACRO NEW(OBJECT currentuser) {
     this->title := "WebHare Platform";
+    this->currentuser := currentuser;
     this->frontendid := GenerateUFS128BitId();
 
     this->jsversion := GetAssetPackBuildVersion("platform:tollium");
@@ -292,85 +288,55 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
         this->webdesign->InsertHTML(insertion, "dependencies-bottom");
 
     STRING overridetoken := GetWebVariable('overridetoken');
-    IF(overridetoken != "")
-    {
-      this->config.useexternalwebharelogin := FALSE; //an override token doesn't need to follow such redirect flows
-      this->config.usewrdauthloginpage := FALSE; //and may ignore any wrd page
-    }
-
     STRING openas := GetWebVariable("openas");
     STRING language := GetWebVariable("lang") ?? GetWebVariable("language");
 
     DATETIME sessionexpires;
-    IF(this->config.useexternalwebharelogin)
-    {
-      // FIXME: this will return a user from the primary user API!
-      this->currentuser := RequireLoggedinWebHareUser();
-      sessionexpires := GetPrimaryWebhareAuthPlugin()->sessionexpires;
-    }
-    ELSE
-    {
-      this->wrdauthplugin := this->webdesign->GetWRDAuthPlugin();
-      IF(ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->HasFailed())
-        this->wrdauthplugin := DEFAULT OBJECT;
-      IF(ObjectExists(this->wrdauthplugin))
-      {
-        IF(this->config.usewrdauthloginpage)
-          this->currentuser := this->wrdauthplugin->RequireLoggedinUser();
-        ELSE
-          this->currentuser := this->wrdauthplugin->GetCurrentWebhareUser();
-        sessionexpires := this->wrdauthplugin->sessionexpires;
-      }
-    }
+    this->wrdauthplugin := this->webdesign->GetWRDAuthPlugin();
+    IF(ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->HasFailed())
+      this->wrdauthplugin := DEFAULT OBJECT;
+    IF(ObjectExists(this->wrdauthplugin))
+    sessionexpires := this->wrdauthplugin->sessionexpires;
 
-    BOOLEAN forceprimaryuserapi;
     INTEGER loggedin;
     STRING loggedin_name;
-    IF(this->config.useexternalwebharelogin)
+
+    this->isoverriding := overridetoken != "";
+    IF(this->isoverriding AND NOT VerifyOverrideToken(overridetoken))
+      AbortWithHTTPError(403, "The specified overridetoken is not, or no longer, valid", [ htmlbody := "<p>The specified overridetoken is not, or no longer, valid</p>" ]);
+
+    IF(this->isoverriding)
     {
-      loggedin := this->currentuser->entityid;
-      loggedin_name := this->currentuser->login;
-      forceprimaryuserapi := TRUE;
+      loggedin := -1;
+      loggedin_name := "<overrideuser>";
+      this->currentuser := GetMagicSysopObject("<overrideuser>");
     }
-    ELSE
+    ELSE IF(ObjectExists(this->wrdauthplugin))
     {
-      this->isoverriding := overridetoken != "";
-      IF(this->isoverriding AND NOT VerifyOverrideToken(overridetoken))
-        AbortWithHTTPError(403, "The specified overridetoken is not, or no longer, valid", [ htmlbody := "<p>The specified overridetoken is not, or no longer, valid</p>" ]);
+      IF(this->wrdauthplugin->HasFailed())
+        THROW NEW Exception("The authplugin could not load: " || this->wrdauthplugin->GetFailReason());
 
-      IF(this->isoverriding)
+      IF(NOT this->isoverriding)
+        loggedin := this->wrdauthplugin->GetLoggedinEntity();
+    }
+
+    IF(loggedin != 0 AND (loggedin != -1 OR openas != ""))
+    {
+      RECORD res := this->wrdauthplugin->userapi->GetTolliumUserByIdAndImpersonation(loggedin, openas);
+      IF(NOT ObjectExists(res.userobject))
       {
-        loggedin := -1;
-        loggedin_name := "<overrideuser>";
-        this->currentuser := GetMagicSysopObject("<overrideuser>");
-      }
-      ELSE IF(ObjectExists(this->wrdauthplugin))
-      {
-        IF(this->wrdauthplugin->HasFailed())
-          THROW NEW Exception("The authplugin could not load: " || this->wrdauthplugin->GetFailReason());
+        //never force a logout on development... we generally just want the actual failure reason when developing
+        IF(GetDtapStage() = "development")
+          THROW NEW Exception(res.error);
 
-        IF(NOT this->isoverriding)
-          loggedin := this->wrdauthplugin->GetLoggedinEntity();
+        this->wrdauthplugin->Logout();
+        Redirect(GetRequestURL());
       }
 
-      IF(loggedin != 0 AND (loggedin != -1 OR openas != ""))
-      {
-        RECORD res := this->wrdauthplugin->userapi->GetTolliumUserByIdAndImpersonation(loggedin, openas);
-        IF(NOT ObjectExists(res.userobject))
-        {
-          //never force a logout on development... we generally just want the actual failure reason when developing
-          IF(GetDtapStage() = "development")
-            THROW NEW Exception(res.error);
-
-          this->wrdauthplugin->Logout();
-          Redirect(GetRequestURL());
-        }
-
-        this->currentuser := res.userobject;
-        this->impersonatedentity := res.impersonatedentity;
-        this->impersonatedtitle := res.impersonatedtitle ?? "#" || this->impersonatedentity;
-        loggedin_name := this->currentuser->login;
-      }
+      this->currentuser := res.userobject;
+      this->impersonatedentity := res.impersonatedentity;
+      this->impersonatedtitle := res.impersonatedtitle ?? "#" || this->impersonatedentity;
+      loggedin_name := this->currentuser->login;
     }
 
     this->launchuserinfo := CELL
@@ -378,7 +344,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
         , loggedin_name
         , loggedin_expires := sessionexpires
         , openas
-        , forceprimaryuserapi
         ];
 
     STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(this->webdesign->targetobject->id);
@@ -921,32 +886,46 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
       AbortWithHTTPError(403, "The specified overridetoken is not, or no longer, valid", [ htmlbody := "<p>The specified overridetoken is not, or no longer, valid</p>" ]);
   }
 
+  OBJECT authplugin := webdesign->GetWRDAuthPlugin();
+
   IF(GetWebHeader("Content-Type") LIKE "application/json*")
-    RETURN NEW TolliumInterfacePage(); //incoming RPC. TODO get rid of the WCS_/WDS_ calls above and this bypass can go away too
+    RETURN NEW TolliumInterfacePage(ObjectExists(authplugin) ? authplugin->GetCurrentWebhareUser() : DEFAULT OBJECT); //incoming RPC. TODO get rid of the WCS_/WDS_ calls above and this bypass can go away too
 
   RECORD config := GetApplicationPortalConfig(webdesign->targetobject->id);
-  IF(overridetoken = "" AND ObjectExists(webdesign->GetWRDAuthPlugin())) { //we really need to enable auth things
-    RECORD images := RPC_RetrieveImages([ [ data := [ imgnames := (SELECT AS STRING ARRAY icon FROM config.loginmethods), color := "c", height := 24, width := 24 ] ] ], FALSE);
-    OBJECT page := GetWRDAuthPages(webdesign, CELL[
-      //TODO transition away from siteprl loginmethods, but we may need this for compatibility with existing installations
-      //     this should probably be an undocumented method and WRDAuth should look at the schema's configuration
-      loginmethods :=
-          (SELECT TEMPORARY image := #loginmethods < Length(images.images.images) ? images.images.images[#loginmethods] : DEFAULT RECORD
-                , tag := type || ":" || tag
-                , title := GetTid(tid)
-                , icon := RecordExists(image) ? GetDataUrl(StringToBlob(image.data), image.type) : wrdicon
-             FROM config.loginmethods
-            WHERE visibility = "always")
-    ]);
+  OBJECT currentuser;
 
-    IF(ObjectExists(page)) {
-      OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
-      IF (ObjectExists(loginbg))
-        webdesign->pageconfig.mainbackgroundcss := WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]).css;
+  IF(overridetoken = "" AND ObjectExists(authplugin)) { //we really need to enable auth things
+    IF(config.usewrdauthloginpage) {
+      /* TODO: should we still require this siteprofile option or just check if you have a loginpage= ?
+               it's a bit double but also I'm not sure if we want to keep loginpage= and if it shouldn't
+               be wrdauth or somehwere configuration (much easier to disable in case of problems) */
+      currentuser := authplugin->RequireLoggedinUser(); //is expected to redirect if user is not logged in
+    } ELSE { //use our 'embeded' auth page
+      //FIXME convert to callback? as we ONLY need to retrieve images if rendering the login page
+      RECORD images := RPC_RetrieveImages([ [ data := [ imgnames := (SELECT AS STRING ARRAY icon FROM config.loginmethods), color := "c", height := 24, width := 24 ] ] ], FALSE);
+      OBJECT page := GetWRDAuthPages(webdesign, CELL[
+        //TODO transition away from siteprl loginmethods, but we may need this for compatibility with existing installations
+        //     this should probably be an undocumented method and WRDAuth should look at the schema's configuration
+        loginmethods :=
+            (SELECT TEMPORARY image := #loginmethods < Length(images.images.images) ? images.images.images[#loginmethods] : DEFAULT RECORD
+                  , tag := type || ":" || tag
+                  , title := GetTid(tid)
+                  , icon := RecordExists(image) ? GetDataUrl(StringToBlob(image.data), image.type) : wrdicon
+              FROM config.loginmethods
+              WHERE visibility = "always")
+      ]);
 
-      RETURN page;
+      IF(ObjectExists(page)) {
+        OBJECT loginbg := OpenWHFSObjectByPath("/webhare-private/system/backend/loginbackground");
+        IF (ObjectExists(loginbg))
+          webdesign->pageconfig.mainbackgroundcss := WrapCachedImage(loginbg->GetWrapped(), [ method := "none" ]).css;
+
+        RETURN page;
+      }
+
+      currentuser := authplugin->GetCurrentWebhareUser();
     }
   }
 
-  RETURN NEW TolliumInterfacePage();
+  RETURN NEW TolliumInterfacePage(currentuser);
 }

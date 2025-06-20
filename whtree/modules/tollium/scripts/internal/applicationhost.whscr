@@ -64,14 +64,7 @@ DATETIME sessionexpires := appinfo.launchuserinfo.loggedin_expires;
 TRY
 {
   OBJECT currentuser;
-  IF(appinfo.launchuserinfo.forceprimaryuserapi)
-  {
-    wrdauthplugin := GetPrimaryWebhareAuthPlugin();
-  }
-  ELSE
-  {
-    wrdauthplugin := GetWRDAuthPlugin(appinfo.url, [ clientwebserver := appinfo.requestdata.webserver ]);
-  }
+  wrdauthplugin := GetWRDAuthPlugin(appinfo.url, [ clientwebserver := appinfo.requestdata.webserver ]);
 
   IF(wrdauthplugin->HasFailed())
   {
