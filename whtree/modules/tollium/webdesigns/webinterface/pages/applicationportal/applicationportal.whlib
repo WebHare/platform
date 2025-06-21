@@ -898,7 +898,7 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
     IF(config.usewrdauthloginpage) {
       /* TODO: should we still require this siteprofile option or just check if you have a loginpage= ?
                it's a bit double but also I'm not sure if we want to keep loginpage= and if it shouldn't
-               be wrdauth or somehwere configuration (much easier to disable in case of problems) */
+               be wrdauth or somewhere configuration (much easier to disable in case of problems) */
       currentuser := authplugin->RequireLoggedinUser(); //is expected to redirect if user is not logged in
     } ELSE { //use our 'embeded' auth page
       //FIXME convert to callback? as we ONLY need to retrieve images if rendering the login page
