@@ -11,7 +11,7 @@ export type { ToSnakeCase, ToCamelCase, ComparableType } from "./types";
 export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringify, parseTyped, slugify, isValidEmail, isValidUrl, joinURL, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase, levenshteinDistance } from "./strings";
 export { generateRandomId, isLikeRandomId, isValidUUID } from "./platformbased";
 
-export { shuffle, emplace, pick, omit, isTruthy, appendToArray, SortedMultiSet, SortedMultiMap } from "./collections";
+export { shuffle, emplace, pick, omit, isTruthy, appendToArray, typedEntries, typedFromEntries, typedKeys, SortedMultiSet, SortedMultiMap, type TypedEntries, type TypedFromEntries } from "./collections";
 export type { EmplaceHandler, DistributedKeys, DistributedOmit, DistributedPick } from "./collections";
 
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";

@@ -303,9 +303,15 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   FOREVERY(STRING task FROM tasksbytype)
   {
     IF(task = "system:outgoingmail")
-      INSERT [ msg := ":Mailqueue is stuck"
-             , jumpto := [ app := "system:dashboard", panel := "system:mailqueue" ]
-             ] INTO messages AT END;
+    {
+      // Only warn for stuck mail queues in production
+      IF (GetDTAPStage() = "production")
+      {
+        INSERT [ msg := ":Mailqueue is stuck"
+              , jumpto := [ app := "system:dashboard", panel := "system:mailqueue" ]
+              ] INTO messages AT END;
+      }
+    }
     ELSE
       INSERT [ msg := `:Task of type '${task}' is stuck`
              , jumpto := [ app := "system:dashboard", panel := "system:managedtasks", tag := task ]

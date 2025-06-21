@@ -23,7 +23,13 @@ MACRO CleanupTasks()
   INTEGER finishedmailretention := ReadRegistrykey("system.services.smtp.mailretention"); //default: 7
 
   DELETE FROM system.managedtasks WHERE finished != DEFAULT DATETIME AND tasktype != "system:outgoingmail" AND finished <= AddDaysToDate(-finishedtaskretention, GetCurrentDateTime());
-  DELETE FROM system.managedtasks WHERE finished != DEFAULT DATETIME AND tasktype = "system:outgoingmail" AND finished <= AddDaysToDate(-finishedmailretention, GetCurrentDateTime());
+
+  // On non-production system, we delete all outgoing mail tasks that are older than the retention time - even if they are not finished. wh check won't flag them anyway on non-production systems.
+  // On production systems, we keep unfinished outgoing mail tasks
+  IF (GetDTAPStage() = "production")
+    DELETE FROM system.managedtasks WHERE finished != DEFAULT DATETIME AND tasktype = "system:outgoingmail" AND finished <= AddDaysToDate(-finishedmailretention, GetCurrentDateTime());
+  ELSE
+    DELETE FROM system.managedtasks WHERE tasktype = "system:outgoingmail" AND finished <= AddDaysToDate(-finishedmailretention, GetCurrentDateTime());
 
   trans->CommitWork();
 }
