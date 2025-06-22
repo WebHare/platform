@@ -296,8 +296,6 @@ function testDateTime() {
   test.eq(new Date("2022-04-04T12:15:00Z"), std.convertFlexibleInstantToDate(Temporal.ZonedDateTime.from("2022-04-04T14:15:00[Europe/Amsterdam]")));
 
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
-  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
-  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
 
   const later = std.convertWaitPeriodToDate("P1DT5H"), estimate_later = Date.now() + 29 * 60 * 60 * 1000; //29 hours
   test.assert(estimate_later - 1000 <= later.getTime() && later.getTime() <= estimate_later + 1000);

@@ -137,8 +137,6 @@ export function convertWaitPeriodToDate(wait: WaitPeriod, options?: { relativeTo
       return new Date(-864000 * 1000 * 10000000);
     if (wait === Infinity)
       return new Date(864000 * 1000 * 10000000);
-    if (wait > 7 * 86400 * 1000)
-      throw new Error("Invalid wait duration - a wait may not be longer than a week"); //prevents you from passing in Date.now() based values
     if (wait > 0) //note: options?.relativeTo can't be instant, we already eliminated that above
       return new Date(((options?.relativeTo as Date | undefined)?.getTime() ?? Date.now()) + wait);
   } else if (wait && "epochMilliseconds" in wait) { //Instant or ZonedDateTime
