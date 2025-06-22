@@ -6,6 +6,7 @@ import * as fs from "fs";
 import { loadlib } from '@webhare/harescript';
 import type * as esbuild from 'esbuild';
 import type { CaptureLoadPlugin } from "./compiletask";
+import { AsyncLocalStorage } from "async_hooks";
 
 async function generateRPCWrappers(resourcePath: string, rpcdata: string) {
   const rpcfile = JSON.parse(rpcdata);
@@ -63,10 +64,11 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
 }
 
 export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
+  const runInAsyncScope = AsyncLocalStorage.snapshot();
   return {
     name: "jsonrpc",
     setup: function (build: esbuild.PluginBuild) {
-      build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
+      build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, a => runInAsyncScope(async (args) => {
         const source = await fs.promises.readFile(args.path);
         const result = await generateRPCWrappers(args.path, source.toString());
 
@@ -78,7 +80,7 @@ export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
           watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
         };
         // console.log(require.resolve(args.path, ))
-      });
+      }, a));
     }
   };
 }
