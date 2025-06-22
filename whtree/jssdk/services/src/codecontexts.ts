@@ -75,6 +75,8 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   constructor(title: string, metadata: CodeContextMetadata = {}) {
     super();
     this.id = `whcontext-${++contextcounter}: ${title}`;
+    if (debugFlags.cclifecycle)
+      console.trace(`[${this.id}] CodeContext created`);
     this.title = title;
     this.metadata = metadata;
     const data: ActiveContextData = {
@@ -97,14 +99,20 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
 
   //TODO/FIXME? a '(WebHare) Resource' is a file inside module/on disk/in WHFS in WebHare. scopedResource might be overloading the term Resource
   getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
-    if (this.closed)
+    if (this.closed) {
+      if (debugFlags.cclifecycle)
+        console.trace(`[${this.id}] Attempt to get scoped resource '${String(key)}' from closed CodeContext`);
       throw new Error(`Cannot get scoped resources from closed CodeContext '${this.id}'`);
+    }
     return this.storage.get(key)?.resource as ValueType | undefined;
   }
 
   setScopedResource<ValueType>(key: string | symbol, value: ValueType | undefined): void {
-    if (this.closed)
+    if (this.closed) {
+      if (debugFlags.cclifecycle)
+        console.trace(`[${this.id}] Attempt to set scoped resource '${String(key)}' on closed CodeContext`);
       throw new Error(`Cannot set scoped resources on a closed CodeContext`);
+    }
     if (value === undefined)
       this.storage.delete(key);
     else
@@ -144,6 +152,9 @@ export class CodeContext extends EventSource<CodeContextEvents> implements Async
   }
 
   async close() {
+    if (debugFlags.cclifecycle)
+      console.trace(`[${this.id}] CodeContext closing`);
+
     /// Need to run the close event within this CodeContext, so cleanup can access it.
     await this.run(async () => {
       this.emit("close", {});
