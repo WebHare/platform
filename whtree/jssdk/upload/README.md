@@ -33,3 +33,8 @@ export class MyApi {
   }
 }
 ```
+
+Use `closeServerSession` with the original sessionid returned in the upload instruction to free the used space on the server side after processing the uploaded file. If not set
+the session will be closed automatically after 24 hours.
+
+If you need to access uploaded file from HareScript use `GetUploadedFile()` to access uploaded files by token and `CloseWebSession(uploadsession, "platform:uploadsession")` to close the session.
