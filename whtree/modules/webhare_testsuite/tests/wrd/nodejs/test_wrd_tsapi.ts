@@ -277,8 +277,11 @@ async function testNewAPI() {
   //@ts-expect-error -- invalid value
   ({ wrdTag: "TAG", enum1: "a:a" }) satisfies WRDInsertable<TestschemaSchemaType["testType"]>;
 
-
-  const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
+  //Ensure empty string wrdTags are fine:
+  const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "" });
+  await schema.update("whuserUnit", unit_id, { wrdTag: "TAG1" });
+  await schema.update("whuserUnit", unit_id, { wrdTag: "" });
+  await schema.update("whuserUnit", unit_id, { wrdTag: "TAG" });
 
   test.eq({
     schema: testSchemaTag,
