@@ -482,7 +482,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       throw new Error(`Value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} is too long (${value.length} characters, maximum is 256)`);
     if (value && this.attr.isunique)
       checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
-    if (this.attr.tag === "wrdTag" && !isValidWRDTag(value))
+    if (this.attr.tag === "wrdTag" && value && !isValidWRDTag(value))
       throw new Error(`Invalid wrdTag '${value}' - must start with A-Z, may only contain A-Z, 0-9 and _, but must not end with a _. Maximum length is 64 characters`);
   }
 
