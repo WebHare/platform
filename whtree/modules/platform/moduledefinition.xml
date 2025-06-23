@@ -99,6 +99,7 @@
     <debugflag name="assetpacks" description="Log assetpack actions" />
     <debugflag name="vmlifecycle" description="Log the lifecycle of WASM VM's" />
     <debugflag name="runpermission" description="Log the runpermission handling of HareScript code called from JavaScript in WASM mode" />
+    <debugflag name="calljs" description="Log the calljs calls to the debug log" />
   </development>
 
   <moduleregistry>
