@@ -72,7 +72,7 @@ assetPacks:
     entryPoint: js/treeshaketest.tsx
   iframetest:
     entryPoint: js/iframetest.ts
-    supportedLanguages: [en nl]
+    supportedLanguages: [en, nl]
     whPolyfills: false
 
 siteProfiles:
