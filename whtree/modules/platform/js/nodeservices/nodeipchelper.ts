@@ -1,4 +1,4 @@
-import { WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
+import { WebHareDiskBlob, WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 import { Money, stdTypeOf } from "@webhare/std";
 import type { TransferListItem } from "node:worker_threads";
 
@@ -42,13 +42,14 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
             data: newBuffer
           };
           transferList.push(newBuffer);
-        } else if (!(orgValue instanceof Blob)) {
-          value = { "$ipcType": "Blob", type: (orgValue as Blob).type };
-          promises.push((orgValue as Blob).arrayBuffer().then((buffer) => {
-            (orgValue as { "$ipcType": string; data: ArrayBuffer }).data = buffer;
+        } else if (orgValue instanceof WebHareDiskBlob) { //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
+          value = { "$ipcType": "WebHareMemoryBlob", type: (orgValue as Blob).type }; //we'll modify this value when completing the promise
+          const promiseBuffer = (orgValue as Blob).arrayBuffer().then((buffer) => {
+            (value as { "$ipcType": string; data: ArrayBuffer }).data = buffer;
             transferList.push(buffer);
-          }));
-        }
+          });
+          promises.push(promiseBuffer);
+        } else throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
       } break;
       case "object":
         if ("$ipcType" in (orgValue as { "$ipcType": string }))

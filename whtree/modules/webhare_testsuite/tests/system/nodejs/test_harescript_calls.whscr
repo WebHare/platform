@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
@@ -7,6 +8,7 @@ LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
@@ -51,6 +53,10 @@ TestEq([
   date := MakeDateFromText("2024-01-01T12:13:14Z"),
   m := 1.1m
  ]));
+
+TestEq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", EncodeUFS(GetHashForBlob(CallJS("./data/calls.ts#getResourceFromDisk", GetWebhareResourceDiskpath("mod::system/web/tests/goudvis.png")),"SHA-256")));
+//TestEq("I am a blob", BlobToString(CallJS("./data/calls.ts#getBlob","I am a blob"))); // We're blocking Blob()s as the WASM version of CallJS requires synchronous datatypes
+TestThrowsLike("*se WebHareMemoryBlob or WebHareDiskBlob*", PTR CallJS("./data/calls.ts#getBlob","I am a blob"));
 
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
