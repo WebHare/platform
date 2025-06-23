@@ -1,6 +1,6 @@
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { Money, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
+import { Money, isBlob, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "./datetime";
 
 declare global {
@@ -161,6 +161,8 @@ export function determineType(value: unknown): HareScriptType {
     case "object": {
       if (WebHareBlob.isWebHareBlob(value)) //TODO we can only take sync-readable blobs so we can't support 'Blob'
         return HareScriptType.Blob;
+      if (isBlob(value))
+        throw new Error(`Cannot transfer blob of type '${value.constructor.name}' from/to a HSVM - use WebHareMemoryBlob or WebHareDiskBlob instead`);
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
         return HareScriptType.String;
       if (Money.isMoney(value))

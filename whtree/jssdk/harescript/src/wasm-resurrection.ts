@@ -126,7 +126,11 @@ export function setHSPromiseProxy(orgPromise: HSVMVar, jsPromise: Promise<unknow
   promise.getMemberRef("TSPROMISE").setInteger(tsPromiseId);
   (localPromises ??= new Map()).set(tsPromiseId, new WeakRef(jsPromise));
   jsPromise.then(async (value) => {
-    await resolveHSPromise(promise, "resolved", value);
+    try {
+      await resolveHSPromise(promise, "resolved", value);
+    } catch (error) { //decoding the return value failed (eg. it contains a blob)
+      await resolveHSPromise(promise, "rejected", error);
+    }
     promise.dispose();
   }, async (reason) => {
     await resolveHSPromise(promise, "rejected", reason);

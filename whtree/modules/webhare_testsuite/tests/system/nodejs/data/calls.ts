@@ -5,6 +5,7 @@ import * as test from "@webhare/test";
 import { createFirstPartyToken } from "@webhare/auth";
 import { getLastAuthAuditEvent } from "@mod-webhare_testsuite/js/wts-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
+import { WebHareBlob } from "@webhare/services";
 
 const random = generateRandomId();
 
@@ -94,6 +95,14 @@ export async function setThrowingProperty(p: HSVMObjectWrapper) {
 export async function testTokenAudit(user: number) {
   await createFirstPartyToken(wrdTestschemaSchema, "id", user);
   return toSnakeCase(await getLastAuthAuditEvent(wrdTestschemaSchema));
+}
+
+export async function getResourceFromDisk(path: string) {
+  return WebHareBlob.fromDisk(path);
+}
+
+export async function getBlob(text: string) {
+  return new Blob([text]);
 }
 
 export { isWorkOpen };
