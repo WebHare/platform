@@ -5,6 +5,7 @@ import type { HSVMObjectWrapper } from "./wasm-proxies";
 import { parseHSException } from "./wasm-support";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { parseTrace } from "@webhare/js-api-tools";
+import { debugFlags } from "@webhare/env";
 
 export function resurrectBuffer(obj: HSVMVar) {
   /* resurrects
@@ -125,23 +126,28 @@ export function setHSPromiseProxy(orgPromise: HSVMVar, jsPromise: Promise<unknow
   const tsPromiseId = -(++promisesCtr);
   promise.getMemberRef("TSPROMISE").setInteger(tsPromiseId);
   (localPromises ??= new Map()).set(tsPromiseId, new WeakRef(jsPromise));
-  jsPromise.then(async (value) => {
-    try {
-      await resolveHSPromise(promise, "resolved", value);
-    } catch (error) { //decoding the return value failed (eg. it contains a blob)
-      await resolveHSPromise(promise, "rejected", error);
-    }
-    promise.dispose();
-  }, async (reason) => {
-    await resolveHSPromise(promise, "rejected", reason);
-    promise.dispose();
-  });
+
+  // Convert resolution to HS - but on failure (and even the conversion may fail!) transfer the rejection instead
+  jsPromise.then(value => resolveHSPromise(promise, "resolved", value)
+  ).catch(reason => resolveHSPromise(promise, "rejected", reason)
+  ).finally(() => promise.dispose());
 }
 
 export function setHSException(obj: HSVMVar, e: Error) {
+  if (obj.vm.__isShuttingdown())
+    return; //don't bother, looks like the exception was already fatal to the VM
+
   obj.setNewEmptyObject();
-  if (!obj.extendObject("wh::system.whlib#Exception"))
-    throw new Error("Could not extend object with Exception");
+  if (!obj.extendObject("wh::system.whlib#Exception")) {
+    //this happens when wh::system.whlib isn't loaded anymore, and generally happens to exceptions during VM teardown.
+    //we'll just set the abort flag and be done with the vm
+    if (debugFlags.vmlifecycle) {
+      console.log(`[${obj.vm.currentgroup}] Terminating VM because we can't send a proper exception`);
+      console.trace();
+    }
+    obj.vm.shutdown();
+    return;
+  }
 
   obj.getMemberRef("WHAT").setString(e.message);
   const trace = obj.getMemberRef("PVT_TRACE");

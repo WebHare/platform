@@ -137,7 +137,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
   runOutsideCodeContext(() => {
     const listenerid = bridge.on("event", (event: BridgeEvent) => {
       const mod = weakModule.deref();
-      if (!mod || mod.__isShutdown()) {
+      if (!mod || mod.__isShuttingdown()) {
         bridge.off(listenerid);
         if (mod)
           mod.unregisterEventCallback = undefined;
@@ -758,6 +758,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
     }
     this.abortController.abort();
     this.wasmmodule._HSVM_AbortVM(this.hsvm);
+  }
+
+  /** Is the VM already closed or closing? This call has been marked internal because its very hard to use right: the answer may be out of date after the next tick/await */
+  __isShuttingdown() {
+    return this._hsvm === null || this._wasmmodule?._HSVM_TestMustAbort(this.hsvm);
   }
 
   /** Is the VM already closed? This call has been marked internal because its very hard to use right: the answer may be out of date after the next tick/await */
