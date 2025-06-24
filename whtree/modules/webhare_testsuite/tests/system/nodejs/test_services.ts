@@ -5,7 +5,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { importJSFunction, runBackendService } from "@webhare/services";
 import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
-import { sleep } from "@webhare/std";
+import { isTemporalInstant, sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -464,11 +464,11 @@ async function testLogs() {
   const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
   const logline = await logreader.next();
   test.eqPartial({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
-  test.assert(logline.value["@timestamp"] instanceof Date);
+  test.assert(isTemporalInstant(logline.value["@timestamp"]));
   test.assert(logline.value["@id"], "Should have an ID");
 
   const hardlogline = await logreader.next();
-  test.assert(hardlogline.value["@timestamp"] instanceof Date);
+  test.assert(isTemporalInstant(hardlogline.value["@timestamp"]));
   test.eq(/1234567890… \(40000 chars\)/, hardlogline.value.val);
   // console.log(hardlogline);
 
@@ -479,7 +479,7 @@ async function testLogs() {
   test.eq("[Symbol(Prince)]", hardlogline.value.tafkap);
 
   const hsline = await logreader.next();
-  test.assert(hsline.value["@timestamp"] instanceof Date);
+  test.assert(isTemporalInstant(hsline.value["@timestamp"]));
   test.eq("I can speak JSON too!", hsline.value.harescript);
 
   test.assert((await logreader.next()).done);

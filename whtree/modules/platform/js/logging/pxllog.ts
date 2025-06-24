@@ -9,7 +9,7 @@ type PxlModuleFields = { [K in `mod_${string}`]: PxlModuleFieldset };
 
 export type PxlDocType = {
   "_id": string;
-  "@timestamp": Date;
+  "@timestamp": Temporal.Instant;
   event: string;
   userid: string;
   sessionid: string;

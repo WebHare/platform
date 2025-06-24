@@ -11,6 +11,7 @@ import { wait as oldWait, getWin } from "@mod-system/js/wh/testframework";
 import { startTime } from "@mod-platform/js/testing/whtest";
 import { omit } from "@webhare/std";
 import { rpc } from "@webhare/rpc";
+import "@webhare/deps/temporal-polyfill"; //many frontend tests use rpcs (directly/indirectly eg pxl) which require Temporal.Instant
 
 //We're unsplitting test.wait() again. We shouldn't have to wind up with 10 different wait methods like old testfw did with waitForElement
 

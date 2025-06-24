@@ -68,7 +68,7 @@ async function testPxlParser() {
     const parsed = parser.parseLine(sourceLine);
     test.eq({
       _id: sourceLine["@id"],
-      "@timestamp": new Date("2024-12-09T09:52:24.376Z"),
+      "@timestamp": Temporal.Instant.from("2024-12-09T09:52:24.376Z"),
       counter: 27,
       event: "webhare_testsuite:aa",
       location: "https://webhare.moe.sf.webhare.dev/.system/jstests/!/testpage/consilio.test_pxl",
@@ -97,7 +97,7 @@ async function testPxlParser() {
 
     test.eq({
       _id: sourceLine["@id"],
-      '@timestamp': new Date("2024-12-10T11:31:37.583Z"),
+      '@timestamp': Temporal.Instant.from("2024-12-10T11:31:37.583Z"),
       event: 'platform:form_nextpage',
       userid: 'yz9MR2JybuzfsQcCm65K1w',
       sessionid: 'u8mnaiTWz8bBAOBDmjHuFA',

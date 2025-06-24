@@ -60,7 +60,8 @@ run({
         if (opts.fields)
           console.log(JSON.stringify(pickFields(parsed)));
 
-        const suffix = `${parsed['@timestamp'].getUTCFullYear()}-${String(parsed["@timestamp"].getUTCMonth() + 1).padStart(2, '0')}`;
+        const inzone = parsed['@timestamp'].toZonedDateTimeISO('UTC');
+        const suffix = `${inzone.year}-${String(inzone.month).padStart(2, '0')}`;
         if (!suffix.match(/^\d{4}-\d{2}$/))
           throw new Error(`Internal error, calculated invalid suffix ${suffix}`);
         await inserter.index(parsed, { suffix });
