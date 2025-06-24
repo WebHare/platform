@@ -585,8 +585,10 @@ export class HSVMHeapVar extends HSVMVar {
 
   dispose() {
     if (this.id) {
+      if (!this.vm.__isShuttingdown()) //VM may already by shutdown when people try to nicely deallocate vars with using, which may throw
+        this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
+
       this.vm.heapFinalizer.unregister(this);
-      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
       this.id = 0 as HSVM_VariableId;
     }
   }

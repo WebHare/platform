@@ -358,7 +358,7 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
     if (attr.allowedValues?.some(hasWildcard)) //any wildcard?
       allowedValues = allowedValues ? allowedValues + " | string" : "string";
 
-    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${allowedValues} }>`;
+    typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, { allowedValues: ${allowedValues || "never"} }>`;
   } else if (attr.attributeType === "array") {
     typedef = `WRDAttr<WRDAttributeTypeId.${getEnumName(attr.attributeType)}, {\n${indent}  members: {\n`;
     if (attr.childAttributes) {
