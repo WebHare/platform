@@ -215,6 +215,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
     this.implicitLifetime = startupoptions?.implicitLifetime || false;
     if (this.implicitLifetime) {
+      process.setMaxListeners(Infinity); //we can easily have more than 10 VMs when eg. debugging nodeservices
       process.on('beforeExit', this.#beforeExit);
     }
   }
