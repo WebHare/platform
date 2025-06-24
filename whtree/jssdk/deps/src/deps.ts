@@ -92,7 +92,9 @@ export async function connectSharedPuppeteer(options?: Puppeteer.BrowserContextO
 
   //Set up a dispose API
   context[Symbol.asyncDispose] = async () => {
-    await context.close();
+    await context.close(); //Closes the browser context, which closes all pages in it
+    await puppet.disconnect(); //Closes the TCP/IP connection to the browser (do NOT close() - you'll kill the browser!)
+    headlessRunner.close();
   };
 
   return context;
