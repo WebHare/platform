@@ -915,7 +915,8 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
             (SELECT TEMPORARY image := #loginmethods < Length(images.images.images) ? images.images.images[#loginmethods] : DEFAULT RECORD
                   , tag := type || ":" || tag
                   , title := GetTid(tid)
-                  , icon := RecordExists(image) ? GetDataUrl(StringToBlob(image.data), image.type) : wrdicon
+                    // Images from RPC_RetrieveImages are already base64-encoded
+                  , icon := RecordExists(image) ? `data:${image.type};base64,${image.data}` : wrdicon
               FROM config.loginmethods
               WHERE visibility = "always")
       ]);

@@ -52,9 +52,10 @@ body:has(.wh-wrdauth-form) {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    margin-top: 14px;
-    padding: 0 14px;
+    margin: 14px calc(var(--form-padding) / 2) 0;
+    padding: 0 12px;
     transition: background-color 0.2s;
+    width: calc(100% - var(--form-padding));
 
     &:hover, &:focus {
       background: var(--tollium-background-shaded);
@@ -65,7 +66,7 @@ body:has(.wh-wrdauth-form) {
   {
     width: 24px;
     height: auto;
-    margin-right: 14px;
+    margin-right: 12px;
   }
 
   .wh-wrdauth-backlinkholder {
