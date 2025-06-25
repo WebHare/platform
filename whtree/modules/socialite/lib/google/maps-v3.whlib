@@ -316,6 +316,8 @@ STATIC OBJECTTYPE GGeocoderBase
                   IF (this->debuginfo)
                     Print("GoogleMapsLookup: Failed - status code " || result.reply.status || "\n");
                 }
+                IF(CelLExists(result.reply, "error_message"))
+                  result.error := result.reply.error_message;
                 RETURN result;
               }
             }
@@ -474,7 +476,7 @@ PUBLIC STATIC OBJECTTYPE GGeocoder EXTEND GGeocoderBase
     RECORD gres := this->GetGeocodingLocations(address, this->pvt_basecountrycode, this->pvt_langcountrycode, viewport);
 
     // If we didn't receive a valid reply, something went wrong and the error contains the error
-    IF (NOT RecordExists(gres.reply))
+    IF (NOT RecordExists(gres.reply) OR gres.error != "")
       RETURN [ results := DEFAULT RECORD ARRAY
              , status := "REQUEST_FAILED"
              , error := gres.error
