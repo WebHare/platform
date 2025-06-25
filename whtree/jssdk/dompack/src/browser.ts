@@ -3,8 +3,8 @@
    Originally based on Mootools.Browser
 */
 
-type Platform = "windows" | "ios" | "webos" | "android" | "linux" | "mac" | "other";
-type Device = "desktop" | "mobile" | "tablet" | "";
+export type Platform = "windows" | "ios" | "webos" | "android" | "linux" | "mac" | "other";
+export type Device = "desktop" | "mobile" | "tablet" | "";
 
 /** Valid KeyboardEvent.key values (next to 'plain' keys)
     This list was built from https://www.w3.org/TR/uievents-key/

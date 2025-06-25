@@ -2,6 +2,7 @@ import { getCityLookupCall, type CityLookupCall } from "@webhare/geoip";
 import type { LogFormats } from "@webhare/services";
 import { getAllModuleYAMLs, type ModDefYML } from "@webhare/services/src/moduledefparser";
 import { anonymizeIPAddress } from "./parsersupport";
+import type { Device, Platform } from "@webhare/dompack";
 
 type PxlModuleFieldset = Record<string, string | number | boolean>;
 
@@ -19,10 +20,10 @@ export type PxlDocType = {
   location: string;
   referrer: string;
   user_agent: {
-    os: string;
+    os: Platform | "";
     name: string;
     major: number;
-    device: string;
+    device: Device | "";
   };
   screen: {
     width: number;
@@ -136,7 +137,7 @@ class PxlParser {
       counter: Number(params.get("pc")) || 0,
       location: params.get("bl") || "",
       referrer: params.get("br") || "",
-      user_agent: parseUserAgent(params.get("bt"), params.get("bd")),
+      user_agent: parseUserAgent(params.get("bt") as Platform | null, params.get("bd") as Device | null),
       screen: parseScreen(params.get("bs"), params.get("bp")),
       remoteip: anonymizeIPAddress(logline.ip),
     };
@@ -167,13 +168,13 @@ function parseScreen(bs: string | null, bp: string | null): PxlDocType["screen"]
     return { width: parseInt(match[1]), height: parseInt(match[2]), pixelratio: parseInt(bp || '') || 0 };
 }
 
-function parseUserAgent(bt: string | null, bd: string | null): PxlDocType["user_agent"] {
+function parseUserAgent(bt: string | null, bd: Device | null): PxlDocType["user_agent"] {
   const { 1: os, 2: name, 3: major } = bt?.match(/([^-]+)-([^-]+)-(\d+)/) || [];
   return {
-    os: os || "",
+    os: os as Platform || "",
     name: name || "",
     major: parseInt(major) || 0,
-    device: bd || ""
+    device: bd as Device || ""
   };
 }
 
