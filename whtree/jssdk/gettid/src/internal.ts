@@ -1,7 +1,7 @@
 import { decodeString, encodeString } from '@webhare/std';
 import type { CompiledLanguageFile, GetTidHooks, LanguagePart, LanguageText, RecursiveLanguageTexts, TidParam } from './types';
 import { getGetTidHooks } from './hooks';
-import { debugFlags, dtapStage, isLive } from '@webhare/env';
+import { debugFlags, dtapStage } from '@webhare/env';
 
 
 
@@ -49,7 +49,7 @@ function getLanguageFile(module: string, langCode: string): CompiledLanguageFile
       langFileCache[langkey] = compiled;
     }
   }
-  if (!compiled && (isLive || debugFlags.gtd)) {
+  if (!compiled && (dtapStage !== "production" || debugFlags.gtd)) {
     console.warn(`No language texts found for module '${module}' and language '${langCode}'`);
   }
   return compiled;
@@ -144,7 +144,7 @@ export function getTIDListForLanguage(langcode: string, gid: string) {
 
   const modsep = gid.indexOf(':');
   if (modsep === -1) {
-    if (isLive || debugFlags.gtd)
+    if (dtapStage !== "production" || debugFlags.gtd)
       console.warn(`Missing module name in call for gid '${gid}'`);
     return `(cannot find textnode: ${gid})`;
   }
@@ -197,7 +197,7 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[]
 
   const modsep = tid.indexOf(':');
   if (modsep === -1) {
-    if (isLive || debugFlags.gtd)
+    if (dtapStage !== "production" || debugFlags.gtd)
       console.warn(`Missing module name in call for tid '${tid}'`);
     return [`(missing module name in tid: ${tid})`];
   }
@@ -216,13 +216,13 @@ function calcTIDForLanguage(langcode: string, tid: string, rawParams: TidParam[]
   if (!match && compiled?.fallbackLanguage) {
     const fallback = getLanguageFile(module, compiled.fallbackLanguage);
     const fallbackMatch = fallback?.texts.get(lookup);
-    if (!fallbackMatch && (!isLive || debugFlags.gtd)) {
+    if (!fallbackMatch && (dtapStage !== "production" || debugFlags.gtd)) {
       console.warn(`Cannot find text ${tid} for language ${langcode}, also tried fallback language '${compiled.fallbackLanguage}'`);
     }
     return fallbackMatch ? executeCompiledTidText(fallbackMatch, params, rich, render) : cannotFind(tid);
   }
 
-  if (!match && (!isLive || debugFlags.gtd)) {
+  if (!match && (dtapStage !== "production" || debugFlags.gtd)) {
     console.warn(`Cannot find text ${tid} for language ${langcode}, no fallback language`);
   }
   return match ? executeCompiledTidText(match, params, rich, render) : cannotFind(tid);

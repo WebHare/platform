@@ -271,10 +271,10 @@ $defs:
             description: "Languages to compile into the asset pack"
             type: array
             items:
-              # We don't suport the full range of language codes yet - this is what we tested with
+              # We don't support the full range of language codes yet - this is what we tested with
               type: string
               description: "ISO-639 language codes, eg 'en-US' or 'nl'"
-              pattern: "[a-z]{2}(-[A-Z]{2})?"
+              pattern: "^[a-z]{2}(-[A-Z]{2})?$"
           compatibility:
             description: "The compatibility settings for generated code. es2016-es2021 or esnext. See also https://esbuild.github.io/content-types/#javascript"
             type: string

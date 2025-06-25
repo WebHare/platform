@@ -3,11 +3,6 @@
          gid="commondialogs"
          library="/lib/screens/commondialogs.whlib">
 
-  <messageboxes gid=".messageboxes">
-    <messagebox name="confirmclear" icon="question" buttons="yes no" />
-    <messagebox name="noresults" icon="information" buttons="ok" />
-  </messageboxes>
-
   <screen name="location"
           minwidth="500px"
           minheight="500px"
@@ -31,17 +26,19 @@
         <line>
           <select name="results" type="pulldown" emptytid=".noresults" onchange="onresultselect" title="" />
         </line>
-        <hr />
         <heading height="1pr" tid=".mapbox" />
       </panel>
-      <socialite:map name="map"
-                     width="1pr"
-                     height="1pr"
-                     minwidth="200px"
-                     minheight="150px"
-                     onclick="onclick"
-                     onmoveoverlay="onmoveoverlay"
-                     zoom="1" />
+      <panel width="1pr" height="1pr" borders="top bottom">
+        <socialite:map name="map"
+                       width="1pr"
+                       height="1pr"
+                       minwidth="200px"
+                       minheight="150px"
+                       center="40,0"
+                       onclick="onclick"
+                       onmoveoverlay="onmoveoverlay"
+                       zoom="1" />
+      </panel>
     </body>
   </screen>
 

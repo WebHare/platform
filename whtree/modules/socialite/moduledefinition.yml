@@ -1,0 +1,4 @@
+assetPacks:
+  map:
+    entryPoint: tolliumcomponents/map/map.ts
+    supportedLanguages: [en, nl]

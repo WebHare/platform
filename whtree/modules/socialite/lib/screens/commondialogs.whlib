@@ -34,6 +34,11 @@ PUBLIC OBJECTTYPE Location EXTEND TolliumScreenBase
   // Constructor & tollium admin stuff
   //
 
+  MACRO NEW()
+  {
+    this->autozoom := TRUE;
+  }
+
   MACRO Init(RECORD data)
   {
     this->geocoder := NEW GGeocoder([ requesturl := this->tolliumcontroller->baseurl ]);

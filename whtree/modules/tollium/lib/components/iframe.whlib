@@ -596,7 +596,15 @@ PUBLIC OBJECTTYPE TolliumIframe EXTEND TolliumComponentBase
 
   /** Initialize the value with an assetpack */
   PUBLIC MACRO InitializeWithAssetpack(STRING assetpack, RECORD initdata DEFAULTSTO DEFAULT RECORD) {
-    this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("dev") ]);
+    // webdesign's finaljsconfig without site-specific properties
+    RECORD finaljsconfig :=
+        [ dtapstage := GetDTAPStage()
+        , islive := IsDTAPLive()
+        , locale := this->contexts->user->language = "en" ? "en-US" : this->contexts->user->language || "-" || ToUppercase(this->contexts->user->language)
+        , server := GetWebhareVersionNumber()
+        ];
+
+    this->QueueOutboundMessage("InitializeWithAssetpack", CELL[ assetpack, initdata, devmode := IsModuleInstalled("dev"), finaljsconfig ]);
   }
 
   /** Update the initial data without reloading the assetpack */

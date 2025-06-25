@@ -1,0 +1,907 @@
+<?wh
+
+LOADLIB "mod::socialite/lib/internal/googlesupport.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/keystore.whlib";
+
+LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+//FIXME intrusive loadlibs
+LOADLIB "mod::tollium/lib/internal/listtreehelper.whlib"; // for storing overlays
+LOADLIB "mod::tollium/lib/internal/support.whlib"; // for CheckEnabledFlags
+LOADLIB "mod::tollium/lib/internal/components.whlib"; // for StoredAttrsJSON
+
+
+// Minimum zoom level, showing the whole world
+CONSTANT INTEGER minzoomlevel := 0;
+// Theoretically maximum zoom level, not available for all regions/map types
+CONSTANT INTEGER maxzoomlevel := 20;
+// Supported map providers
+CONSTANT STRING ARRAY mapproviders := [ "leaflet", "googlemap" ];
+// Supported map types
+CONSTANT STRING ARRAY maptypes := [ "map", "satellite", "hybrid", "physical" ];
+// Default zoom level
+CONSTANT INTEGER defaultzoomlevel := 10;
+// Default cluster radius
+CONSTANT INTEGER defaultclusterradius := 100;
+
+// Used if no or invalid icon was specified
+CONSTANT RECORD defaultoverlayicon :=
+    [ name := ""
+    , icon := "tollium:maps/markers/marker_blue"
+    , anchor_x := 24
+    , anchor_y := 38
+    , label_x := 24
+    , label_y := 18
+    , popup_x := 24
+    , popup_y := 5
+    , width := ""
+    , height := ""
+    ];
+// The default cluster icon
+CONSTANT RECORD defaultclustericon :=
+    [ name := "--cluster--"
+    , icon := "tollium:maps/markers/marker_blue_filled"
+    , anchor_x := 24
+    , anchor_y := 38
+    , label_x := 24
+    , label_y := 18
+    , popup_x := 24
+    , popup_y := 5
+    , width := ""
+    , height := ""
+    ];
+
+
+/////////////////////////////////////////////////////////////////////
+// The map component
+
+PUBLIC STATIC OBJECTTYPE MapComponent EXTEND TolliumFragmentBase
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  // Which map provider to use ("leaflet", "googlemap")
+  STRING pvt_provider;
+
+  // Current map type (urlarg)
+  STRING pvt_maptype;
+
+  // Current map center (GLatLong object)
+  OBJECT pvt_center;
+
+  // Current map bounds (GLatLngBounds object)
+  OBJECT pvt_bounds;
+
+  // Current zoomlevel
+  INTEGER pvt_zoom;
+
+  // Restrict map to these bounds (GLatLngBounds object)
+  OBJECT pvt_restrictto;
+
+  // Currently moveable/zoomable?
+  BOOLEAN pvt_moveable;
+
+  // Show controls?
+  BOOLEAN pvt_showcontrols;
+
+  // If overlays should be clustered
+  BOOLEAN pvt_clusteroverlays;
+
+  // The icon to use for clustered overlays
+  STRING pvt_clustericon;
+
+  INTEGER pvt_clusterradius;
+
+  // Listtreehelper storing overlay records
+  OBJECT storage;
+
+  // List of icon definitions (translated to GIcon objects in JavaScript)
+  RECORD ARRAY pvt_icons;
+
+  // Overlay flags
+  STRING ARRAY pvt_flags;
+
+  // Type of rowkey in overlay
+  INTEGER pvt_overlay_rowkey_type;
+
+  // Last autonumber for overlay rowkeys
+  INTEGER pvt_overlay_rowkey_autonumber;
+
+  // To check if overlays have changed
+  STRING overlaycachekey;
+
+  // The location where the user last clicked (can be used to determine where a context menu was opened when handling a
+  // context menu action)
+  RECORD pvt_lastclick;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Properties
+  //
+
+  UPDATE PUBLIC PROPERTY width(^mapframe->width, ^mapframe->width);
+  UPDATE PUBLIC PROPERTY height(^mapframe->height, ^mapframe->height);
+  UPDATE PUBLIC PROPERTY minwidth(^mapframe->minwidth, ^mapframe->minwidth);
+  UPDATE PUBLIC PROPERTY minheight(^mapframe->minheight, ^mapframe->minheight);
+
+  /** The map provider to use (read-only). Possible providers are "leaflet" (the Leaflet rendering of OpenStreepMap) and
+      "googlemap" (Google Map).
+  */
+  PUBLIC PROPERTY provider(pvt_provider, -);
+
+  /** The map type to show. Possible map types are "map" (show street map), "satellite" (show satellite imagery), "hybrid"
+      (show imagery with street names), and "physical" (show street map with terrain). Only supported for the "googlemap"
+      provider.
+  */
+  PUBLIC PROPERTY maptype(pvt_maptype, SetMapType);
+
+  /** The current map center. The center property is a [ FLOAT lat, FLOAT lng ] record.
+  */
+  PUBLIC PROPERTY center(GetCenter, SetCenter);
+
+  /** The current map bounds. The bounds property is a [ RECORD sw, RECORD ne ] record. This property is set by JavaScript,
+      it can only be used after the map has rendered and has been moved or zoomed at least once.
+  */
+  PUBLIC PROPERTY bounds(GetBounds, -);
+
+  /** The map's zoom level. This is an integer ranging from 0 (world level) to 20 (building level). In practice, the zoom
+      range of the zoom level is limited, depending on map type and location.
+  */
+  PUBLIC PROPERTY zoom(pvt_zoom, SetZoom);
+
+  /** Restrict movement of the map to the given bounds (if the map is moveable). The restrictto property is a [ RECORD sw,
+      RECORD ne ] record.
+  */
+  PUBLIC PROPERTY restrictto(GetRestrictTo, SetRestrictTo);
+
+  /** If the map is moveable and zoomable by the user.
+  */
+  PUBLIC PROPERTY moveable(pvt_moveable, SetMoveable);
+
+  /** Should the move and zoom controls be shown on the map? These controls are only shown if this property is set to TRUE
+      and the map is moveable.
+  */
+  PUBLIC PROPERTY showcontrols(pvt_showcontrols, SetShowControls);
+
+  /** If overlays which are close to each other on the map should be clustered. This will create a single overlay with a
+      numbered label on it, which cannot be dragged or clicked.
+  */
+  PUBLIC PROPERTY clusteroverlays(pvt_clusteroverlays, SetClusterOverlays);
+
+  /** The icon which will be shown for clustered overlay. This is the name of the icon in the icons list. If not specified,
+      the default blue marker will be used.
+  */
+  PUBLIC PROPERTY clustericon(pvt_clustericon, SetClusterIcon);
+
+  PUBLIC PROPERTY clusterradius(pvt_clusterradius, SetClusterRadius);
+
+  /** The list of overlays shown on the map. An overlay is an object placed on the map, such as a marker or polygon. The
+      (required) 'type' cell identifies the overlay type. The following overlay types are supported: "marker", "polygon" and
+      "polyline".
+
+      A "marker" overlay contains the following cells:
+      FLOAT lat           The latitude of the marker's coordinate.
+      FLOAT lng           The longitude of the marker's coordinate.
+      STRING icon         The icon to show, one of the icons defined for this map. If not specified, the default blue marker
+                          icon is shown.
+      STRING hint         An optional hint to show when hovering over the marker.
+      BOOLEAN moveable    If the user can move this marker.
+      BOOLEAN selectable  If the user can select this marker.
+
+      A "polygon" overlay contains the following cells:
+      RECORD ARRAY latlngs    The array of [ FLOAT lat, FLOAT lng ] records containing the polygon vertices.
+      FLOAT reflat            If the optional reflat and reflng are specified, the vertices specified in latlngs are
+      FLOAT reflng            considered as being relative to the reference coordinate specified by reflat and reflng.
+      INTEGER outlinewidth    An optional outline pixel width, or 0 if no outline should be drawn. If not specified, this is
+                              set to 1.
+      STRING outlinecolor     An optional HTML color for the polygon's outline, or "transparent" for no outline. If not
+                              specified, a default skin color is used.
+      INTEGER outlineopacity  An optional outline opacity percentage. If not specified, this is set to 100.
+      STRING fillcolor        An optional HTML color to fill the polygon with, or "transparent" for no fill. If not specified,
+                              the polygon is not filled.
+      INTEGER fillopacity     An optional fill opacity percentage. If not specified, this is set to 100.
+      BOOLEAN selectable      If the user can select this polygon.
+
+      A "polyline" overlay contains the following cells:
+      RECORD ARRAY latlngs    The array of [ FLOAT lat, FLOAT lng ] records containing the polygon vertices.
+      FLOAT reflat            If the optional reflat and reflng are specified, the vertices specified in latlngs are
+      FLOAT reflng            considered as being relative to the reference coordinate specified by reflat and reflng.
+      INTEGER outlinewidth    An optional outline pixel width, or 0 if no outline should be drawn. If not specified, this is
+                              set to 1.
+      STRING outlinecolor     An optional HTML color for the polygon's outline, or "transparent" for no outline. If not
+                              specified, a default skin color is used.
+      INTEGER outlineopacity  An optional outline opacity percentage. If not specified, this is set to 100.
+      BOOLEAN selectable      If the user can select this polygon.
+
+      If marker overlays are too close to each other on the map, the map will combine them into a single marker overlay with
+      a numbered label if clusteroverlays is set to TRUE. Combined marker overlays are only presentational, they are not
+      accessible by HareScript applications, nor will they fire onselect or onmoveoverlay events.
+  */
+  PUBLIC PROPERTY overlays(GetOverlays, SetOverlays);
+
+  /** The currently selected overlay. Overlays are not visually selected, this property only stores the last overlay the user
+      has clicked on.
+  */
+  PUBLIC PROPERTY selection(GetSelection, SetSelection);
+
+  /** The location which the user last clicked on the map component. This can be used for example to determine the mouse
+      position after the user has clicked on an item in the map's context menu.
+  */
+  PUBLIC PROPERTY clickcoordinates(pvt_lastclick, -);
+
+  /** The list of overlay icons. Each icon is a record, containing the following cells:
+      STRING name, the icon's name, used in the icon field of the overlay
+      STRING icon, the icon to show, e.g. "tollium:maps/markers/marker_blue". This must be an 48x48 pixel image.
+      INTEGER anchor_x, optional x coordinate of the pixel which is the icon's anchor
+      INTEGER anchor_y, optional y coordinate of the pixel which is the icon's anchor
+      INTEGER label_x, optional x coordinate of the icon's label
+      INTEGER label_y, optional y coordinate of the icon's label
+      INTEGER popup_x, optional x coordinate of a marker's info window
+      INTEGER popup_y, optional y coordinate of a marker's info window
+      STRING width, optional width of the icon (defaults to 48px)
+      STRING height, optional height of the icon (defaults to 48px)
+
+      The icon's anchor is the pixel of the icon which is placed at the overlay's coordinate. The label coordinates determine
+      the top center of the icon's label (the overlay count for combined overlays). x and y coordinates are calculated from
+      the top left corner of the icon, which is (0,0).
+  */
+  PUBLIC PROPERTY icons(pvt_icons, SetIcons);
+
+  /** List of overlay flags.
+  */
+  PUBLIC PROPERTY flags(pvt_flags, SetFlags);
+
+  /** The context menu to show when right clicking on the map
+  */
+  PUBLIC OBJECT newcontextmenu;
+
+  /** The context menu to show when right clicking an overlay
+  */
+  PUBLIC OBJECT selectcontextmenu;
+
+  /** This event is fired when the user clicks on the map. The callback receives one parameter, the latitude/longitude where
+      the user clicked as a [ FLOAT lat, FLOAT lng ] record.
+  */
+  PUBLIC FUNCTION PTR onclick;
+
+  // The ondoubleclick event is active, but we don't actively support it at the moment (at least not on the XML level),
+  // because a double click on the map results in two single click events followed by the double click event. You may set
+  // this callback dynamically in HareScript if you really want, but you have been warned...
+  PUBLIC FUNCTION PTR ondoubleclick;
+
+  /** This event is fired when the user moved the map. The callback receives no parameters, but the map's center property
+      is updated before this callback is called.
+  */
+  PUBLIC FUNCTION PTR onmove;
+
+  /** This event is fired when the user zoomed the map. The callback receives no parameters, but the map's zoom property
+      is updated before this callback is called.
+  */
+  PUBLIC FUNCTION PTR onzoom;
+
+  /** This event is fired when the user clicked an overlay. The callback receives no parameters, but the map's selection
+      property can be used to determine which overlay was clicked.
+  */
+  PUBLIC FUNCTION PTR onselect;
+
+  /** This event is fired when the user dragged an overlay. The callback receives two parameters, the overlay which was
+      dragged (an overlay record) and the new position of the overlay (a [ FLOAT lat, FLOAT lng ] record).
+  */
+  PUBLIC FUNCTION PTR onmoveoverlay;
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Constructor & tollium admin stuff
+  //
+
+  MACRO NEW()
+  {
+    this->invisibletitle := TRUE;
+    this->pvt_zoom := defaultzoomlevel;
+    this->pvt_clusterradius := defaultclusterradius;
+  }
+
+  UPDATE PUBLIC MACRO StaticInit(RECORD def)
+  {
+    TolliumFragmentBase::StaticInit(def);
+
+    IF (def.provider != "")
+      this->pvt_provider := def.provider;
+    IF (ToLowercase(def.maptype) IN maptypes)
+      this->pvt_maptype := ToLowercase(def.maptype);
+    ELSE
+      this->pvt_maptype := maptypes[0];
+    this->pvt_center := StringToLatLngObject(def.center);
+    IF (def.zoom != -1) // -1 is the default, so we can distinguish between 'no zoom level given' and 'zoom level 0 given'
+    {
+      this->pvt_zoom := def.zoom;
+      IF (this->pvt_zoom < minzoomlevel)
+        this->pvt_zoom := minzoomlevel;
+      ELSE IF (this->pvt_zoom > maxzoomlevel)
+        this->pvt_zoom := maxzoomlevel;
+    }
+    this->pvt_restrictto := StringToBounds(def.restrictto);
+    this->pvt_moveable := def.moveable;
+    this->pvt_showcontrols := def.showcontrols;
+
+    FOREVERY(RECORD icon FROM def.icons)
+    {
+      IF (RecordExists(SELECT FROM this->pvt_icons WHERE ToUppercase(COLUMN name) = ToUppercase(icon.name)))
+        THROW NEW TolliumException(this, "An icon with name '" || icon.name || "' already specified in socialite:map");
+      INSERT icon INTO this->pvt_icons AT END;
+    }
+    this->pvt_flags := def.flags;
+    this->pvt_clusteroverlays := def.clusteroverlays;
+    this->pvt_clustericon := def.clustericon;
+    this->pvt_clusterradius := def.clusterradius ?? defaultclusterradius;
+
+    this->newcontextmenu := def.newcontextmenu;
+    this->selectcontextmenu := def.selectcontextmenu;
+
+    this->onclick := def.onclick;
+    this->onmove := def.onmove;
+    this->onzoom := def.onzoom;
+    this->onselect := def.onselect;
+    this->onmoveoverlay := def.onmoveoverlay;
+  }
+
+  UPDATE PUBLIC MACRO PreInitComponent()
+  {
+    IF (this->pvt_provider = "")
+      this->pvt_provider := ReadRegistryKey("socialite.maps.defaultprovider");
+    this->InitOverlayStorage();
+  }
+
+  UPDATE PUBLIC MACRO EnsurePostInit()
+  {
+    this->InitializeMapFrame();
+    ^mapframe->onenabledon := PTR this->EnabledOn;
+  }
+
+  UPDATE PUBLIC OBJECT ARRAY FUNCTION GetChildComponents()
+  {
+    OBJECT ARRAY comps;
+    IF(ObjectExists(this->newcontextmenu) AND this->newcontextmenu->visible)
+      INSERT this->newcontextmenu INTO comps AT END;
+    IF(ObjectExists(this->selectcontextmenu) AND this->selectcontextmenu->visible)
+      INSERT this->selectcontextmenu INTO comps AT END;
+
+    RETURN comps;
+  }
+
+  UPDATE PUBLIC OBJECT FUNCTION GetEnableOnComponent()
+  {
+    RETURN ^mapframe;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  // Initialize the listtreehelper which stores our overlays
+  MACRO InitOverlayStorage()
+  {
+    IF (NOT ObjectExists(this->storage))
+    {
+      this->storage := NEW ListTreeHelper();
+      this->storage->callback := PRIVATE this;
+
+      this->storage->selectmode := "multiple";
+    }
+
+    this->storage->required_cells :=
+        [ [ name := "type"
+          , type := TypeID(STRING)
+          ]
+        ];
+    FOREVERY(STRING flag FROM this->pvt_flags)
+    {
+      INSERT
+          [ name := flag
+          , type := TypeID(BOOLEAN)
+          ] INTO this->storage->required_cells AT END;
+
+    }
+  }
+
+  MACRO InitializeMapFrame()
+  {
+    RECORD ARRAY icons :=
+        SELECT name
+             , anchor_x
+             , anchor_y
+             , label_x
+             , label_y
+             , popup_x
+             , popup_y
+             , icon
+             //convert width and height to pixels, only if they have the format 'nnpx'
+             , width := width LIKE "*px" ? ToInteger(Left(width, Length(width)-2), 48) : 48
+             , height := height LIKE "*px" ? ToInteger(Left(height, Length(height)-2), 48) : 48
+          FROM [ defaultoverlayicon ] CONCAT (this->clustericon = "" ? [ defaultclustericon ] : RECORD[]) CONCAT this->icons;
+
+    RECORD settings := CELL
+        [ this->provider
+        , "key" := this->provider = "googlemap" ? LookupAPIKey("google", this->owner->tolliumcontroller->baseurl, [ scope := "client" ]).apikey : ""
+        , this->contexts->user->language
+        , moveable := this->pvt_moveable
+        , show_controls := this->pvt_showcontrols
+        , icons
+        , cluster_overlays := this->pvt_clusteroverlays
+        , cluster_icon := this->pvt_clustericon ?? defaultclustericon.name
+        , cluster_radius := this->pvt_clusterradius
+        ];
+    IF (ObjectExists(this->newcontextmenu))
+      INSERT CELL new_context_menu := GetComponentName(this->newcontextmenu) INTO settings;
+    IF (ObjectExists(this->selectcontextmenu))
+      INSERT CELL select_context_menu := GetComponentName(this->selectcontextmenu) INTO settings;
+    IF (ObjectExists(this->pvt_restrictto))
+      INSERT CELL restrict_to := BoundsToRecord(this->pvt_restrictto) INTO settings;
+    IF (ObjectExists(this->pvt_center))
+      INSERT CELL center := CELL[ this->pvt_center->lat, this->pvt_center->lng ] INTO settings;
+    INSERT CELL zoom := this->pvt_zoom >= minzoomlevel ? this->pvt_zoom : defaultzoomlevel INTO settings;
+    ^mapframe->InitializeWithAssetpack("socialite:map", settings);
+  }
+
+  MACRO OnClientMessage(STRING type, RECORD message)
+  {
+    SWITCH (type)
+    {
+      CASE "map_click"
+      {
+        this->pvt_lastclick := message.pos;
+        OBJECT latlng := RecordToLatLng(message.pos);
+        IF (this->onclick != DEFAULT FUNCTION PTR)
+          this->onclick(LatLngToRecord(latlng));
+      }
+      CASE "map_dblclick"
+      {
+        this->pvt_lastclick := message.pos;
+        OBJECT latlng := RecordToLatLng(message.pos);
+        IF (this->ondoubleclick != DEFAULT FUNCTION PTR)
+          this->ondoubleclick(LatLngToRecord(latlng));
+      }
+      CASE "map_rightclick"
+      {
+        this->pvt_lastclick := message.pos;
+      }
+      CASE "map_moveend"
+      {
+        OBJECT latlng := RecordToLatLng(message.center);
+        IF (ObjectExists(latlng))
+          this->pvt_center := latlng;
+        OBJECT bounds := RecordToBounds(message.bounds);
+        IF (ObjectExists(bounds))
+          this->pvt_bounds := bounds;
+        IF (this->onmove != DEFAULT FUNCTION PTR)
+          this->onmove();
+        this->UpdateAllOverlays();
+      }
+      CASE "map_zoomend"
+      {
+        this->pvt_zoom := message.zoom;
+        OBJECT bounds := RecordToBounds(message.bounds);
+        IF (ObjectExists(bounds))
+          this->pvt_bounds := bounds;
+        IF (this->onzoom != DEFAULT FUNCTION PTR)
+          this->onzoom();
+        this->UpdateAllOverlays();
+      }
+      CASE "overlay_click"
+      {
+        this->storage->value := message.rowkeys;
+        IF (this->onselect != DEFAULT FUNCTION PTR)
+          this->onselect();
+      }
+      CASE "overlay_rightclick"
+      {
+        this->storage->value := VARIANT[ message.rowkey ];
+      }
+      CASE "overlay_dragend"
+      {
+        RECORD overlay := SELECT * FROM this->overlays WHERE rowkey IN message.rowkeys;
+        OBJECT latlng := RecordToLatLng(message.pos);
+        IF (this->onmoveoverlay != DEFAULT FUNCTION PTR)
+          this->onmoveoverlay(overlay, LatLngToRecord(latlng));
+      }
+    }
+  }
+
+  // Prepare an overlay record before sending it to JavaScript
+  RECORD FUNCTION MakeMapsOverlay(RECORD overlay)
+  {
+    SWITCH (overlay.type)
+    {
+      CASE "marker"
+      {
+        // Make sure the referenced icon exists
+        overlay.icon := SELECT AS STRING name FROM this->icons WHERE ToUppercase(name) = ToUppercase(overlay.icon);
+      }
+    }
+    IF (NOT CellExists(overlay, "flags"))
+      INSERT CELL flags := DEFAULT RECORD INTO overlay;
+    overlay.flags := StoredAttrsJSON(overlay, this->flags); //FIXME shouldn't rely on this function from todd..
+    RETURN overlay;
+  }
+
+  MACRO UpdateAllOverlays()
+  {
+    RECORD ARRAY overlays := SELECT AS RECORD ARRAY this->MakeMapsOverlay(overlays) FROM this->overlays;
+    STRING overlaycachekey := EncodeJSON(overlays);
+    IF (overlaycachekey = this->overlaycachekey)
+      RETURN;
+    this->overlaycachekey := overlaycachekey;
+    ^mapframe->Post("update", CELL[ overlays ]);
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION EnabledOn(INTEGER min, INTEGER max, STRING ARRAY flags, STRING selectionmatch)
+  {
+    IF (CheckEnabledFlags(this->selection, this->pvt_flags, flags, min, max, selectionmatch))
+      RETURN TRUE;
+
+    RETURN FALSE;
+  }
+
+  RECORD ARRAY FUNCTION SetRowkeysInOverlayRows(RECORD ARRAY rows)
+  {
+    FOREVERY(RECORD row FROM rows)
+    {
+      // Validate the rowkey
+      IF (NOT CellExists(row, "ROWKEY"))
+      {
+        // No rowkey present. See if we may insert
+        IF (this->pvt_overlay_rowkey_autonumber = 0) // No missing rowkey seen yet. The first rowkey may be missing
+        {
+          // If the first row ever seen had a rowkey, ALL rows must have a rowkey.
+          IF (this->pvt_overlay_rowkey_type != 0)
+            THROW NEW TolliumException(this, "Detected an item with missing rowkey in overlay list. Please add a cell named 'rowkey', containing an unique value.");
+
+          this->pvt_overlay_rowkey_type := TYPEID(INTEGER);
+        }
+
+        this->pvt_overlay_rowkey_autonumber := this->pvt_overlay_rowkey_autonumber + 1;
+        INSERT CELL rowkey := this->pvt_overlay_rowkey_autonumber INTO rows[#row];
+      }
+      ELSE
+      {
+        IF (this->pvt_overlay_rowkey_type = 0)
+          this->pvt_overlay_rowkey_type := TYPEID(row.rowkey);
+        ELSE
+          IF (this->pvt_overlay_rowkey_type != TYPEID(row.rowkey))
+            THROW NEW TolliumException(this, "Detected mixing of rowkey types in overlay list! The rows contain rowkeys of type " || GetTypeName(this->pvt_overlay_rowkey_type) || ", while trying to insert a rowkey of type " || GetTypeName(TypeId(row.rowkey)) || ".");
+      }
+    }
+    RETURN rows;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks from the storage
+  //
+
+  // Called when all rows have been invalidated
+  MACRO LTH_UpdatedAllRows()
+  {
+    this->UpdateAllOverlays();
+  }
+
+  // Called when a single row has been updated
+  MACRO LTH_UpdatedRow(RECORD row)
+  {
+    this->UpdateAllOverlays();
+  }
+
+  // Called when the selection changes
+  MACRO LTH_UpdatedSelection(BOOLEAN frontend_change, BOOLEAN auto_change)
+  {
+    // Don't do anything, we don't have a 'selection' server-side, the map selection is the overlay last clicked on
+  }
+
+  // Called when the list of child nodes of a row has been replaced.
+  MACRO LTH_UpdatedChildnodes(RECORD parentrow, RECORD ARRAY children)
+  {
+    // Won't be called, it's not a tree
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Property getters/setters
+  //
+
+  MACRO SetMapType(STRING maptype)
+  {
+    maptype := ToLowercase(maptype);
+    IF (maptype IN maptypes AND maptype != this->pvt_maptype)
+    {
+      this->pvt_maptype := maptype;
+      ^mapframe->Post("update", CELL[ map_type := maptype ]);
+    }
+  }
+
+  RECORD FUNCTION GetCenter()
+  {
+    RETURN LatLngToRecord(this->pvt_center);
+  }
+  MACRO SetCenter(RECORD coordinates)
+  {
+    this->pvt_center := RecordToLatLng(coordinates);
+    IF (ObjectExists(this->pvt_center))
+    {
+      ^mapframe->Post("update", [ center := CELL[ this->pvt_center->lat, this->pvt_center->lng ] ]);
+      this->UpdateAllOverlays();
+    }
+  }
+
+  RECORD FUNCTION GetBounds()
+  {
+    RETURN BoundsToRecord(this->pvt_bounds);
+  }
+
+  MACRO SetZoom(INTEGER zoom)
+  {
+    IF (zoom != this->pvt_zoom)
+    {
+      this->pvt_zoom := zoom;
+      IF (this->pvt_zoom < minzoomlevel)
+        this->pvt_zoom := minzoomlevel;
+      ELSE IF (this->pvt_zoom > maxzoomlevel)
+        this->pvt_zoom := maxzoomlevel;
+      ^mapframe->Post("update", [ zoom := this->pvt_zoom ]);
+      this->UpdateAllOverlays();
+    }
+  }
+
+  RECORD FUNCTION GetRestrictTo()
+  {
+    RETURN BoundsToRecord(this->pvt_restrictto);
+  }
+  MACRO SetRestrictTo(RECORD coordinates)
+  {
+    this->pvt_restrictto := RecordToBounds(coordinates);
+    ^mapframe->Post("update", [ restrict_to := this->restrictto ]);
+  }
+
+  MACRO SetMoveable(BOOLEAN moveable)
+  {
+    IF (moveable != this->pvt_moveable)
+    {
+      this->pvt_moveable := moveable;
+      ^mapframe->Post("update", [ moveable := this->pvt_moveable ]);
+    }
+  }
+
+  MACRO SetShowControls(BOOLEAN showcontrols)
+  {
+    IF (showcontrols != this->pvt_showcontrols)
+    {
+      this->pvt_showcontrols := showcontrols;
+      ^mapframe->Post("update", [ show_controls := this->pvt_showcontrols ]);
+    }
+  }
+
+  RECORD ARRAY FUNCTION GetOverlays()
+  {
+    RETURN this->storage->rows;
+  }
+
+  MACRO SetOverlays(RECORD ARRAY overlays)
+  {
+    overlays := this->SetRowkeysInOverlayRows(overlays);
+
+    // Check overlays
+    FOREVERY (RECORD overlay FROM overlays)
+    {
+      IF (NOT CellExists(overlay, "type"))
+        THROW NEW TolliumException(this, "Got overlay without type");
+      overlay.type := ToLowercase(overlay.type);
+
+      SWITCH (overlay.type)
+      {
+        CASE "marker"
+        {
+          overlay := ValidateOptions(CELL
+              [ rowkey := 0
+              , overlay.type
+              , lat := 0f
+              , lng := 0f
+              , icon := ""
+              , hint := ""
+              , infohtml := ""
+              , moveable := FALSE
+              , selectable := FALSE
+              ], overlay,
+              [ required := [ "lat", "lng" ]
+              , notypecheck := [ "rowkey" ]
+              , passthrough := TRUE
+              , title := overlay.type
+              ]);
+          overlay := CELL
+              [ ...overlay
+              // Reset (clustered) rowkeys
+              , overlays := VARIANT[ overlay.rowkey ]
+              ];
+        }
+        CASE "polygon", "polyline"
+        {
+          overlay := ValidateOptions(CELL
+              [ rowkey := 0
+              , overlay.type
+              , latlngs := RECORD[]
+              , outlinewidth := 1
+              , outlinecolor := ""
+              , outlineopacity := 100
+              , selectable := FALSE
+              ], overlay,
+              [ required := [ "latlngs" ]
+              , notypecheck := [ "rowkey" ]
+              , passthrough := TRUE
+              , title := overlay.type
+              ]);
+          FOREVERY (RECORD latlng FROM overlay.latlngs)
+            latlng := ValidateOptions([ lat := 0f, lng := 0f ], latlng, [ required := [ "lat", "lng" ], title := `latlngs#${#latlng}` ]);
+
+          IF (overlay.type = "polygon")
+          {
+            overlay := ValidateOptions(
+                [ reflat := 0f
+                , reflng := 0f
+                , fillcolor := "transparent"
+                , fillopacity := 100
+                ], overlay,
+                [ optional := [ "reflat", "reflng" ]
+                , passthrough := TRUE
+                , title := overlay.type
+                ]);
+            IF (CellExists(overlay, "reflat") AND NOT CellExists(overlay, "reflng"))
+              THROW NEW TolliumException(this, "Got polygon with reflat but without reflng cell");
+            IF (CellExists(overlay, "reflng") AND NOT CellExists(overlay, "reflat"))
+              THROW NEW TolliumException(this, "Got polygon with reflng but without reflat cell");
+            overlay.fillcolor := GetValidColor(overlay.fillcolor, FALSE);
+            IF (overlay.fillopacity < 0)
+              overlay.fillopacity := 0;
+            ELSE IF (overlay.fillopacity > 100)
+              overlay.fillopacity := 100;
+          }
+
+          overlay.outlinecolor := GetValidColor(overlay.outlinecolor, FALSE);
+          IF (overlay.outlineopacity < 0)
+            overlay.outlineopacity := 0;
+          ELSE IF (overlay.outlineopacity > 100)
+            overlay.outlineopacity := 100;
+
+          // Set rowkeys cell
+          overlay := CELL
+              [ ...overlay
+              // Reset (clustered) rowkeys
+              , overlays := VARIANT[ overlay.rowkey ]
+              ];
+        }
+        DEFAULT
+        {
+          THROW NEW TolliumException(this, "Unsupported overlay type '" || overlay.type || "'");
+        }
+      }
+      overlays[#overlay] := overlay;
+    }
+
+    this->storage->SetStaticRows(overlays);
+  }
+
+  RECORD ARRAY FUNCTION GetSelection()
+  {
+    RETURN this->storage->selection;
+  }
+  MACRO SetSelection(RECORD ARRAY selection)
+  {
+    this->storage->SetSelectionByRecords(selection, TRUE);
+  }
+
+  MACRO SetIcons(RECORD ARRAY icons)
+  {
+    this->pvt_icons := DEFAULT RECORD ARRAY;
+    FOREVERY (RECORD icon FROM icons)
+    {
+      icon := ValidateOptions(
+          [ name := ""
+          , icon := ""
+          , anchor_x := 0
+          , anchor_y := 0
+          , label_x := 0
+          , label_y := 0
+          , popup_x := 0
+          , popup_y := 0
+          ], icon,
+          [ required := [ "name", "icon" ]
+          ]);
+      // Check for name uniqueness
+      IF (RecordExists(SELECT FROM this->pvt_icons WHERE ToUppercase(name) = ToUppercase(icon.name)))
+        CONTINUE;
+
+      // Add icon to the list
+      INSERT icon INTO this->pvt_icons AT END;
+    }
+  }
+
+  MACRO SetFlags(STRING ARRAY flags)
+  {
+    //If it's the same flag list, ignore
+    IF (Length(flags) = Length(this->pvt_flags))
+    {
+      BOOLEAN anychange := FALSE;
+      FOREVERY (STRING flag FROM flags)
+        IF(flag != this->pvt_flags[#flag])
+        {
+          anychange := TRUE;
+          BREAK;
+        }
+      IF (NOT anychange)
+        RETURN;
+    }
+
+    // The flags changed
+    IF (Length(this->storage->rows) != 0)
+      THROW NEW TolliumException(this, "Cannot change the valid set of flags if overlays are still active");
+
+    this->pvt_flags := flags;
+    this->InitOverlayStorage();
+  }
+
+  MACRO SetClusterOverlays(BOOLEAN clusteroverlays)
+  {
+    IF (clusteroverlays != this->pvt_clusteroverlays)
+    {
+      this->pvt_clusteroverlays := clusteroverlays;
+      ^mapframe->Post("update", [ cluster_overlays := this->pvt_clusteroverlays ]);
+    }
+  }
+
+  MACRO SetClusterIcon(STRING clustericon)
+  {
+    IF (clustericon != this->pvt_clustericon)
+    {
+      IF (clustericon != "" AND NOT RecordExists(SELECT FROM this->icons WHERE ToUppercase(name) = ToUppercase(clustericon)))
+        THROW NEW TolliumException(this, `No such icon '${clustericon}`);
+      this->pvt_clustericon := clustericon;
+      ^mapframe->Post("update", [ cluster_icon := this->pvt_clustericon ?? defaultclustericon.name ]);
+    }
+  }
+
+  MACRO SetClusterRadius(INTEGER clusterradius)
+  {
+    IF (clusterradius != this->pvt_clusterradius)
+    {
+      this->pvt_clusterradius := clusterradius;
+      ^mapframe->Post("update", [ cluster_radius := this->pvt_clusterradius ]);
+    }
+  }
+
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public interface
+  //
+
+  /** Fit the given bounds within the map.
+  */
+  PUBLIC MACRO SetViewport(RECORD viewport)
+  {
+    IF (RecordExists(viewport))
+      ^mapframe->Post("set_viewport", viewport);
+  }
+
+  /** Update a single overlay. Use this function if you want to change the properties of one overlay instead of updating the
+      entire overlays list.
+  */
+  PUBLIC BOOLEAN FUNCTION UpdateOverlay(RECORD overlay)
+  {
+    RETURN this->storage->UpdateSingleRow(overlay);
+  }
+>;
