@@ -137,7 +137,7 @@ class PxlParser {
       counter: Number(params.get("pc")) || 0,
       location: params.get("bl") || "",
       referrer: params.get("br") || "",
-      user_agent: parseUserAgent(params.get("bt") as Platform | null, params.get("bd") as Device | null),
+      user_agent: parseUserAgent(params.get("bt"), params.get("bd") as Device | null),
       screen: parseScreen(params.get("bs"), params.get("bp")),
       remoteip: anonymizeIPAddress(logline.ip),
     };

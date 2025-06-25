@@ -126,14 +126,14 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     const logfiledate = new Date(textdate);
 
     //if the 'last' possible entry is before the start, skip this file
-    if (start && (logfiledate.getTime() + (86400 * 1000)) <= convertFlexibleInstantToDate(start).getTime())
+    if (start && (logfiledate.getTime() + (86400 * 1000)) <= start.getTime())
       continue;
 
     if (options?.continueAfter && options?.continueAfter.split(':')[0] > `A${datetok}:`) //An id/continuation point was given and it's not in this file
       continue;
 
     //if the 'first' possible entry is past the limit, skip the file
-    if (limit && (logfiledate.getTime() > limit?.getTime()))
+    if (limit && (logfiledate.getTime() > limit.getTime()))
       continue;
 
     //FIXME Jump straight to the right position, combine with rewriting to input streaming (but I'm not sure the common 'readline.createInterface' solution allow us to accurately record offsets)
