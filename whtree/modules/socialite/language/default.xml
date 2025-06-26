@@ -112,7 +112,7 @@
       <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
       <text tid="domain">Domain</text>
       <text tid="editapikey">API Key</text>
-      <text tid="googleapikeys">Manage Google API Keys</text>
+      <text tid="googleapikeys">Socialite settings</text>
       <text tid="googlemap-info">Make sure you have added a 'Google cloud APIs' key with scope 'Client' for the WebHare backend domain that is accessible by the url 'about:srcdoc'</text>
       <text tid="keytype">Keytype</text>
       <text tid="keytype-google">Google cloud APIs</text>

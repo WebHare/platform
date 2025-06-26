@@ -154,7 +154,7 @@ export class LeafletMap extends MapObject {
 
     // Show the default OpenStreetMap tile layer on the map
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: `<a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>"`,
+      attribution: `<a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>`,
     }).addTo(this.map);
 
     // Do the initial settings update
