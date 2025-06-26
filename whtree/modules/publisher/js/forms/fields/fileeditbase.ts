@@ -8,6 +8,7 @@ import { setFieldError } from '@mod-publisher/js/forms/internal/customvalidation
 import { getFieldDisplayName } from '@webhare/forms/src/domsupport';
 import { JSFormElement } from '@webhare/forms/src/jsformelement';
 import type { FormFileValue } from '@webhare/forms/src/types';
+import "@mod-publisher/js/forms/internal/form.lang.json"; //we need eg publisher:site.forms.selectfile
 
 function isAcceptableType(fileType: string, masks: string[]) {
   if (masks.includes(fileType))
