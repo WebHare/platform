@@ -253,6 +253,7 @@ RECORD FUNCTION ValidateApplyOptions(RECORD inoptions)
     , force := FALSE
     , verbose := FALSE
     , source := ""
+    , __bootstrap := FALSE
     ], inoptions, [ required := [ "subsystems", "source"], optional := [ "modules" ]]);
 }
 

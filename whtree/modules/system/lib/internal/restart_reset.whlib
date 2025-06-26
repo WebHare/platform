@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
@@ -22,9 +23,7 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 LOADLIB "mod::system/lib/internal/modules/moduleregistry.whlib";
 
-LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
 BOOLEAN showinfo;
 BOOLEAN any_messages := FALSE;
@@ -61,7 +60,7 @@ MACRO HandleRunonceOutput(RECORD module, RECORD ro_result)
   }
 }
 
-MACRO WebHareStartup(STRING ARRAY limitmodules, BOOLEAN debug)
+PUBLIC MACRO WebHareStartup(STRING ARRAY limitmodules, BOOLEAN debug)
 {
   RECORD ARRAY modlist := GetWebHareModules();
   modlist := SELECT * FROM modlist WHERE name IN limitmodules;
@@ -188,15 +187,12 @@ PUBLIC RECORD ARRAY FUNCTION ValidateModules()
   RETURN messages;
 }
 
-PUBLIC MACRO UpdateAllModuleSchemasAsync(BOOLEAN issoftreset)
-{
-  OpenPrimary();
-  UpdateAllModuleSchemas([ force := issoftreset ]); //force update, as startup
-}
-PUBLIC MACRO RecompileSiteProfilesAsync()
-{
-  OpenPrimary();
-  RecompileSiteProfiles();
+ASYNC MACRO RequestRecompile(OBJECT service) {
+  INTEGER64 now := GetUnixTimestampMsecs(GetCurrentDateTime());
+  AWAIT service->RequestRecompile();
+  service->CloseService();
+  IF(showinfo)
+    Print("Recompiled site profiles in " || (GetUnixTimestampMsecs(GetCurrentDateTime()) - now) || "ms\n");
 }
 
 /** @param issoftreset We're invoked by wh softreset, so we're supposed to be thorough, not fast as we would be during startup */
@@ -236,39 +232,41 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   GetPrimary()->CommitWork();
   EnsureModuleStorageFolders(FALSE);
 
-  //then the rest
-  STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;
-  IF(Length(modules) > 0)
-  {
-    IF (debug)
-      Print("WebHare startup other modules\n");
-    WebHareStartup(modules, debug);
+  IF(issoftreset) { //then the rest
+    STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;
+    IF(Length(modules) > 0)
+    {
+      IF (debug)
+        Print("WebHare startup other modules\n");
+      WebHareStartup(modules, debug);
+    }
   }
 
   IF (debug)
     Print("WRD schemas, siteprofiles\n");
 
-  //TODO when installing, initdb_phase2 will have taken care of siteprofile compilation through UpdateBackendSite. we might see if we can have initdb_phase2 stop doing that ?
-  OBJECT update_moduleschemas := AsyncCallFunctionFromJob(Resolve("#UpdateAllModuleSchemasAsync"), issoftreset);
-  OBJECT update_siteprofiles := AsyncCallFunctionFromJob(Resolve("#RecompileSiteProfilesAsync"));
+  //Connect and start remote SP compiler
+  OBJECT spcompile := OpenWebHareService("system:spcompiler")->Then(PTR RequestRecompile);
 
-  TRY
-  {
-    WaitForPromise(update_moduleschemas);
-  }
-  CATCH(OBJECT e)
-  {
+  //Apply WRD config
+  TRY {
+    INTEGER64 now := GetUnixTimestampMsecs(GetCurrentDateTime());
+    ApplyWebHareConfiguration([ __bootstrap := NOT issoftreset, subsystems := ["wrd"], modules := issoftreset ? GetInstalledModuleNames() : whconstant_builtinmodules, source := "startup" ]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
+    IF(debug)
+      Print(`WRD schemas took ${GetUnixTimestampMsecs(GetCurrentDateTime()) - now}ms to apply\n`);
+    } CATCH(OBJECT e) {
     LogHarescriptException(e);
-    PrintTo(2, `Fatal error updating WRD schemas: ${e->what}\n`);
+    PrintTo(2, `Fatal exception updating WRD schemas: ${e->what}\n`);
   }
-  TRY
-  {
-    WaitForPromise(update_siteprofiles);
-  }
-  CATCH(OBJECT e)
-  {
+
+  TRY {
+    INTEGER64 now := GetUnixTimestampMsecs(GetCurrentDateTime());
+    WaitForPromise(spcompile);
+    IF(debug)
+      Print(`Site profiler took ${GetUnixTimestampMsecs(GetCurrentDateTime()) - now}ms to catch up with us\n`);
+  } CATCH(OBJECT e) {
     LogHarescriptException(e);
-    PrintTo(2, `Fatal error recompiling site profiles: ${e->what}\n`);
+    PrintTo(2, `Fatal exception during siteprofile compilation: ${e->what}\n`);
   }
 
   IF (debug)

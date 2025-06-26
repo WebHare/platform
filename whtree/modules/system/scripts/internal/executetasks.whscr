@@ -10,6 +10,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
 
 ///Which startup scripts do we still need to run?
 INTEGER default_tasks_timeout;
@@ -754,6 +756,7 @@ RegisterEventCallback("system:internal.scantasks", PTR OnScanTasks);
 ReadConfiguration();
 
 ResetCurrentStarts();
+WaitForPromise(CreateWHServiceStatePromise("poststartdone")); //don't bother runnning scheduled tasks until the system is ready
 RunStartupScripts("");
 
 Debug("Starting main loop");

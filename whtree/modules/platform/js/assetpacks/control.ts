@@ -321,9 +321,6 @@ class AssetPackControlClient extends BackendServiceConnection {
   constructor(private controller: AssetPackController, public source: string) {
     super();
   }
-  // async applyConfiguration(options: Omit<ApplyConfigurationOptions, "verbose">) {
-  //   await applyConfiguration(options);
-  // }
   async reload() {
     return await this.controller.reload();
   }
