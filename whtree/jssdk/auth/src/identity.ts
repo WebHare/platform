@@ -7,7 +7,7 @@ import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, cre
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
 import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
-import { closeServerSession, createServerSession, decryptForThisServer, encryptForThisServer, getServerSession, importJSObject, updateServerSession, type ServerEncryptionScopes } from "@webhare/services";
+import { closeServerSession, decryptForThisServer, encryptForThisServer, importJSObject, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
 import { defaultDateTime } from "@webhare/hscompat";
@@ -16,7 +16,6 @@ import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, type PrepAuthResult } from "./support";
-import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/authservice";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
@@ -25,11 +24,7 @@ import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, ty
 import { returnHeaders, type HSHeaders } from "@mod-platform/js/auth/harescript";
 import { AuthenticationSettings } from "@webhare/wrd";
 
-const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid for 1 hour
-const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
-
-type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
 /** Token creation options. DO NOT EXPOSE FROM \@webhare/auth . */
 export interface AuthTokenOptions {
@@ -130,31 +125,10 @@ export interface LoginOptions extends LoginUsernameLookupOptions, LoginTweaks {
   returnTo?: string;
 }
 
-type TokenResponse = {
-  access_token: string;
-  token_type: "Bearer";
-  id_token?: string;
-  expires_in?: number;
-};
-
 export type FrontendAuthResult = LoginResult & { setAuth?: SetAuthCookies };
-
-const validCodeChallengeMethods = ["plain", "S256"] as const;
-export type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
 
 declare module "@webhare/services" {
   interface SessionScopes {
-    "wrd:openid.idpstate": {
-      clientid: number;
-      scopes: string[];
-      state: string | null;
-      nonce: string | null;
-      code_challenge: string | null;
-      code_challenge_method: CodeChallengeMethod | null;
-      cbUrl: string;
-      /** User id to set */
-      user?: number;
-    };
     "platform:incomplete-account": {
       /** User id to login */
       user: number;
@@ -167,14 +141,6 @@ declare module "@webhare/services" {
     };
   }
   interface ServerEncryptionScopes {
-    "wrd:authplugin.logincontroltoken": {
-      afterlogin: string;
-      /** Expected logintypes, eg 'wrdauth' or 'external' */
-      logintypes: string[];
-      ruleid: number;
-      returnto: string;
-      validuntil: Date;
-    };
     "platform:settoken": SetAuthCookies & {
       target: string;
     };
@@ -224,24 +190,6 @@ export function createCodeVerifier(len = 56) {
   while (result.length < len)
     result += generateRandomId();
   return result.substring(0, len);
-}
-
-export function createCodeChallenge(verifier: string, method: CodeChallengeMethod) {
-  switch (method) {
-    case "plain":
-      return verifier;
-    case "S256": {
-      const hash = crypto.createHash("sha256");
-      hash.update(verifier);
-      return hash.digest("base64url");
-    }
-    default:
-      throw new Error(`Invalid code challenge method '${method}', allowed are 'plain' or 'S256`);
-  }
-}
-
-function verifyCodeChallenge(verifier: string, challenge: string, method: CodeChallengeMethod) {
-  return createCodeChallenge(verifier, method) === challenge;
 }
 
 export async function createSigningKey(type: "ec" | "rsa"): Promise<JsonWebKey> {
@@ -742,163 +690,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       scopes: matchToken.scopes.length ? matchToken.scopes.split(' ') : [],
       client: matchToken.client,
       expires: matchToken.expirationdate?.toTemporalInstant() ?? null
-    };
-  }
-
-  private getOpenIdBase() {
-    const schemaparts = this.wrdschema.tag.split(":");
-    return "/.wh/openid/" + encodeURIComponent(schemaparts[0]) + "/" + encodeURIComponent(schemaparts[1]) + "/";
-  }
-
-  /** Start an oauth2/openid authorization flow */
-  async startAuthorizeFlow(url: string, loginPage: string, customizer?: AuthCustomizer): Promise<NavigateOrError> {
-    const searchParams = new URL(url).searchParams;
-    const clientid = searchParams.get("client_id") || '';
-    const scopes = searchParams.get("scope")?.split(" ") || [];
-    const redirect_uri = searchParams.get("redirect_uri") || '';
-    const state = searchParams.get("state") || null;
-    const nonce = searchParams.get("nonce") || null;
-    const code_challenge = searchParams.get("code_challenge") || null;
-    const code_challenge_method = searchParams.get("code_challenge_method") || null;
-
-    //If a code challenge was supplied, check the challenge method
-    if (code_challenge) {
-      if (!code_challenge_method)
-        return { error: "Missing code_challenge_method for code_challenge" };
-      if (!validCodeChallengeMethods.includes(code_challenge_method as CodeChallengeMethod))
-        return { error: `Invalid code challenge method '${code_challenge_method}', allowed are 'plain' or 'S256` };
-    }
-
-    const client = await this.wrdschema.query("wrdauthServiceProvider").where("wrdGuid", "=", decompressUUID(clientid)).select(["callbackUrls", "wrdId"]).execute();
-    if (client.length !== 1)
-      return { error: "No such client" };
-
-    if (!client[0].callbackUrls.find((cb) => cb.url === redirect_uri))
-      return { error: "Unauthorized callback URL " + redirect_uri };
-
-    const returnInfo = await runInWork(() => createServerSession("wrd:openid.idpstate",
-      { clientid: client[0].wrdId, scopes: scopes || [], state, nonce, code_challenge, code_challenge_method: code_challenge_method as CodeChallengeMethod, cbUrl: redirect_uri }));
-
-    const currentRedirectURI = `${this.getOpenIdBase()}return?tok=${returnInfo}`;
-
-    const loginControl = { //see __GenerateAccessRuleLoginControlToken
-      afterlogin: "siteredirect",
-      logintypes: ["wrdauth"],
-      ruleid: 0,
-      returnto: currentRedirectURI,
-      validuntil: new Date(Date.now() + logincontrolValidMsecs)
-    };
-
-    const loginToken = encryptForThisServer("wrd:authplugin.logincontroltoken", loginControl); //TODO merge into the idpstate session? but HS won't understand it without further changes
-    const target = new URL(loginPage);
-    target.searchParams.set("wrdauth_logincontrol", loginToken);
-
-    return { type: "redirect", url: target.toString(), error: null };
-  }
-
-  async returnAuthorizeFlow(url: string, user: number, customizer?: AuthCustomizer): Promise<NavigateOrError> {
-    const searchParams = new URL(url).searchParams;
-    const sessionid = searchParams.get("tok") || '';
-    const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
-    if (!returnInfo)
-      return { error: "Session has expired" }; //TODO redirect the user to an explanatory page
-
-    //TODO verify this schema actually owns the entity (but not sure what the risks are if you mess up endpoints?)
-    if (customizer?.onOpenIdReturn) {
-      const redirect = await customizer.onOpenIdReturn({
-        wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
-        client: returnInfo.clientid,
-        scopes: returnInfo.scopes,
-        user
-      });
-
-      if (redirect) {
-        await runInWork(() => closeServerSession(sessionid));
-        return { ...redirect, error: null };
-      }
-    }
-
-    //Update session with user info
-    await runInWork(() => updateServerSession("wrd:openid.idpstate", sessionid, { ...returnInfo, user }));
-
-    const finalRedirectURI = new URL(returnInfo.cbUrl);
-    if (returnInfo.state !== null)
-      finalRedirectURI.searchParams.set("state", returnInfo.state);
-    finalRedirectURI.searchParams.set("code", sessionid);
-
-    return { type: "redirect", url: finalRedirectURI.toString(), error: null };
-  }
-
-  ///Implements the oauth2/openid endpoint
-  async retrieveTokens(form: URLSearchParams, headers: Headers, options?: AuthTokenOptions): Promise<{ error: string } | { error: null; body: TokenResponse }> {
-    let headerClientId = '', headerClientSecret = '';
-    const authorization = headers.get("Authorization")?.match(/^Basic +(.+)$/i);
-    if (authorization) {
-      const decoded = atob(authorization[1]).split(/^([^:]+):(.*)$/);
-      if (decoded)
-        [, headerClientId, headerClientSecret] = decoded;
-
-      /* TODO? if specified, we should probably validate the id/secret right away to provide a nicer UX rather than waiting for the token endpoint to be hit ?
-          Or aren't we allowed to validate  .. RFC6749 4.1.2 doesn't mention checking confidential clients, 4.1.4 does
-          */
-    }
-
-    const clientid = headerClientId || form.get("client_id") || '';
-    const client = await this.wrdschema.
-      query("wrdauthServiceProvider").
-      where("wrdGuid", "=", decompressUUID(clientid)).
-      select(["clientSecrets", "wrdId"]).
-      execute();
-    if (client.length !== 1)
-      return { error: "No such client" };
-
-    const granttype = form.get("grant_type");
-    if (granttype !== "authorization_code")
-      return { error: `Unexpected grant_type '${granttype}'` };
-
-    const urlsecret = headerClientSecret || form.get("client_secret");
-    if (!urlsecret)
-      return { error: "Missing parameter client_secret" };
-
-    const hashedsecret = hashClientSecret(urlsecret);
-    const matchsecret = client[0].clientSecrets.find((secret) => secret.secretHash === hashedsecret);
-    if (!matchsecret)
-      return { error: "Invalid secret" };
-
-    const sessionid = form.get("code");
-    if (!sessionid)
-      return { error: "Missing code" };
-
-    //The code is the session id
-    const returnInfo = await getServerSession("wrd:openid.idpstate", sessionid);
-    if (!returnInfo || !returnInfo?.user || returnInfo.clientid !== client[0].wrdId)
-      return { error: "Invalid or expired code" };
-
-    if (returnInfo.code_challenge && returnInfo.code_challenge_method) {
-      //The original request had a code challenge, so this request should have a verifier
-      const code_verifier = form.get("code_verifier");
-      if (!code_verifier)
-        return { error: "Missing code_verifier" };
-      if (!code_verifier.match(/^[A-Za-z0-9-._~]{43,128}$/))
-        return { error: "Invalid code_verifier" };
-      if (!verifyCodeChallenge(code_verifier, returnInfo.code_challenge, returnInfo.code_challenge_method))
-        return { error: "Wrong code_verifier" };
-    }
-
-    const tokens = await this.createTokens("oidc", returnInfo.user, returnInfo.clientid, sessionid, returnInfo.nonce, {
-      scopes: returnInfo.scopes,
-      customizer: options?.customizer,
-      expires: options?.expires || openIdTokenExpiry
-    });
-
-    return {
-      error: null,
-      body: {
-        id_token: tokens.id_token,
-        access_token: tokens.access_token,
-        token_type: "Bearer",
-        ...(tokens.expires ? { expires_in: Math.floor(tokens.expires - (Date.now() / 1000)) } : {})
-      }
     };
   }
 
@@ -1437,27 +1228,4 @@ export async function preparePublicAuthDataCookie(targetUrl: string, idToken: st
   const newData = await buildPublicAuthData(prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
 
   return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
-}
-
-/** HS Callback into the customizer infrastructure that expects validation to already be done */
-export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, loginfield: string): Promise<number> {
-  const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
-  const applytester = await getApplyTesterForURL(targetUrl);
-  if (!applytester)
-    throw new Error("Unable to find WRDAuth settings for URL " + targetUrl);
-
-  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
-  const settings = await applytester?.getWRDAuth();
-  if (!settings.wrdSchema)
-    return 0;
-
-  const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
-  const wrdSchema = new WRDSchema(settings.wrdSchema);
-  const idp = new IdentityProvider(wrdSchema);
-  const authsettings = await getAuthSettings(wrdSchema);
-  if (!authsettings)
-    return 0;
-
-  const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
-  return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
 }

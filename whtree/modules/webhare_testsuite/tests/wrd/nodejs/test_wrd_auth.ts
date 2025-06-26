@@ -2,7 +2,8 @@ import * as whdb from "@webhare/whdb";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { createFirstPartyToken, type LookupUsernameParameters, type OpenIdRequestParameters, type AuthCustomizer, type JWTPayload, type ReportedUserInfo, type ClientConfig, registerRelyingParty, initializeIssuer, prepareFrontendLogin, writeAuthAuditEvent } from "@webhare/auth";
 import { AuthenticationSettings, createSchema, describeEntity, extendSchema, getSchemaSettings, updateSchemaSettings, WRDSchema } from "@webhare/wrd";
-import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, createCodeChallenge, type CodeChallengeMethod, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
+import { createSigningKey, createJWT, verifyJWT, IdentityProvider, compressUUID, decompressUUID, decodeJWT, createCodeVerifier, type FrontendAuthResult, type FrontendLoginRequest } from "@webhare/auth/src/identity";
+import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthorizeFlow, type CodeChallengeMethod } from "@mod-platform/js/auth/openid.ts";
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
@@ -173,12 +174,12 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
   const challenge = code_verifier && challenge_method ? createCodeChallenge(code_verifier, challenge_method as CodeChallengeMethod) : "";
   const robotClientAuthURL = `http://example.net/?client_id=${clientId}&scope=openid+invalidscope&redirect_uri=${encodeURIComponent(cbUrl)}&state=${state}${challenge ? `&code_challenge=${challenge}&code_challenge_method=${challenge_method}` : ""}`;
 
-  const startflow = await provider.startAuthorizeFlow(robotClientAuthURL, loginUrl, customizer);
+  const startflow = await startAuthorizeFlow(provider, robotClientAuthURL, loginUrl, customizer);
   test.assert(startflow.error === null && startflow.type === "redirect");
 
   //We now have an url with wrdauth_logincontrol, decrypt it:
   const decryptLoginControl = decryptForThisServer("wrd:authplugin.logincontroltoken", new URL(startflow.url, loginUrl).searchParams.get("wrdauth_logincontrol")!);
-  const endFlow = await provider.returnAuthorizeFlow(new URL(decryptLoginControl.returnto, loginUrl).toString(), user, customizer);
+  const endFlow = await returnAuthorizeFlow(provider, new URL(decryptLoginControl.returnto, loginUrl).toString(), user, customizer);
 
   test.assert(endFlow.error === null && endFlow.type === "redirect");
   if (!endFlow.url.startsWith(cbUrl))
@@ -197,29 +198,29 @@ async function mockAuthorizeFlow<T extends SchemaTypeDefinition>(provider: Ident
 
   //our evil client should not be able to get the token
   const evilparams = { ...formparams, client_id: evilClient!.clientId, client_secret: evilClient!.clientSecret };
-  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(evilparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(evilparams), new Headers, { customizer }));
 
   const badcodeparams = { ...formparams, code: formparams.code.substring(1) };
-  test.eq({ error: /Invalid or expired/ }, await provider.retrieveTokens(new URLSearchParams(badcodeparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/ }, await retrieveTokens(provider, new URLSearchParams(badcodeparams), new Headers, { customizer }));
 
   if (challenge) {
     //not supplying code_verifier when code_challenge was present is an error
-    test.eq({ error: /Missing code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
+    test.eq({ error: /Missing code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer }));
 
     //invalid code_verifier (should be 43-128 characters long)
     const invalidverifierparams = { ...formparams, code_verifier: "tooshort" };
-    test.eq({ error: /Invalid code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(invalidverifierparams), new Headers, { customizer }));
+    test.eq({ error: /Invalid code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(invalidverifierparams), new Headers, { customizer }));
 
     //non-matching code_verifier
     const wrongverifierparams = { ...formparams, code_verifier: "1234567890123456789012345678901234567890123" };
-    test.eq({ error: /Wrong code_verifier/ }, await provider.retrieveTokens(new URLSearchParams(wrongverifierparams), new Headers, { customizer }));
+    test.eq({ error: /Wrong code_verifier/ }, await retrieveTokens(provider, new URLSearchParams(wrongverifierparams), new Headers, { customizer }));
 
     formparams.code_verifier = code_verifier;
   }
-  const tokens = await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer });
+  const tokens = await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer });
   test.assert(tokens.error === null);
   test.eqPartial({ id_token: /^eyJ/, access_token: /^secret-token:eyJ/ }, tokens.body);
-  test.eq({ error: /Invalid or expired/, }, await provider.retrieveTokens(new URLSearchParams(formparams), new Headers, { customizer }));
+  test.eq({ error: /Invalid or expired/, }, await retrieveTokens(provider, new URLSearchParams(formparams), new Headers, { customizer }));
   test.eqPartial({ error: "Token is invalid" }, await provider.verifyAccessToken("id", tokens.body.id_token!));
   test.eqPartial({ entity: user, scopes: ["openid"], client: clientWrdId, accountStatus: { status: "active" } }, await provider.verifyAccessToken("oidc", tokens.body.access_token));
   // Wrong schema
