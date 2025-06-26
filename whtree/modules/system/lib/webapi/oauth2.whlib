@@ -522,11 +522,10 @@ PUBLIC STRING FUNCTION GetDefaultOauth2RedirectURL()
   RETURN ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), "/.wh/common/oauth2/");
 }
 
-/** @short Run the oauth2 landing page (normally hosted as /.system/endpoints/oauth2.shtml
+/** @short Run the oauth2 landing page (normally hosted as /.wh/common/oauth2/ - use `wh auth get-callback-url` to get the preferred location)
     @param options No options available yet
 */
-PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
-{
+PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD) {
   options := ValidateOptions(CELL[], options);
 
   STRING sessid := GetWebVariable("state");
@@ -535,19 +534,20 @@ PUBLIC MACRO RunOAuth2LandingPage(RECORD options DEFAULTSTO DEFAULT RECORD)
 
   RECORD sessdata;
   OBJECT connection;
-  IF(sessid LIKE "ipc:*")
-  {
+  IF(sessid LIKE "ipc:*") {
     connection := ConnectToIPCPort(DecryptForThisServer("system:oauth2.portname", Substring(sessid,4)));
-    IF(ObjectExists(connection))
-    {
+    IF(ObjectExists(connection)) {
       RECORD msg := connection->ReceiveMessage(MAX_DATETIME); //get state
       sessdata := msg.msg.__oauth2_authflow.state;
     }
-  }
-  ELSE
-  {
+  } ELSE {
     sessdata := GetWebSessionData(sessid, "system:oauth2");
   }
+
+  STRING error := GetWebVariable("error");
+  STRING error_description := GetWebVariable("error_description");
+  IF(error != "") //Ensure we have at least 'something'
+    LogDebug("system:oauth2-error", CELL[ error, error_description, state := sessid]);
 
   IF(NOT RecordExists(sessdata)) //We've seen mostly bots do this though, following really old URLs
     AbortWithHTTPError(400, "Session expired", [ htmlbody := `<html><head><title>Session expired</title><body>Your login attempt has expired, please try again.</body></html>` ]);
