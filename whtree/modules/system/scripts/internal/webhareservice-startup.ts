@@ -76,13 +76,21 @@ async function runStep(name: string, fn: () => Promise<void>) {
 }
 
 async function startupHS() {
+  if (verbose) {
+    console.log(`Starting webhareservice-startup.whscr`);
+    console.time("webhareservice-startup.whscr");
+  }
+
   const vm = await runScript("mod::system/scripts/internal/webhareservice-startup.whscr");
   setScopedResource(HSVMSymbol, vm); //ensure any loadlib stays in the srcipt's context
   await vm.done;
 
   const returncode = vm.vm?.deref()?.exitCode ?? 254;
-  if (returncode) {
+  if (returncode)
     throw new Error(`Startup script exited with code ${returncode}`);
+
+  if (verbose) {
+    console.timeEnd("webhareservice-startup.whscr");
   }
 }
 

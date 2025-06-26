@@ -110,7 +110,7 @@ MACRO StartupModules(RECORD ARRAY modlist, BOOLEAN init_all_modules)
   FOREVERY(RECORD module FROM modlist)
   {
     IF(showinfo)
-      Print(">> " || module.name || " >> inittables \n");
+      Print(">> " || module.name || " >> inittables\n");
     RECORD output := InitModuleTables(module);
     ReportOnInit(output);
   }
