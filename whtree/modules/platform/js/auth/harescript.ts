@@ -1,9 +1,9 @@
 /* HareScript auth entry points */
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import type { AuthCustomizer, AuthAuditContext, LoginDeniedInfo } from "@webhare/auth";
+import type { AuthCustomizer, AuthAuditContext, LoginDeniedInfo, JWTPayload } from "@webhare/auth";
 import { IdentityProvider, prepareFrontendLogin, verifyAllowedToLogin } from "@webhare/auth/src/identity";
-import { prepAuth } from "@webhare/auth/src/support";
+import { getAuthSettings, prepAuth } from "@webhare/auth/src/support";
 import { defaultDateTime } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
 import { WRDSchema, type AnyWRDSchema, type AuthenticationSettings } from "@webhare/wrd";
@@ -12,6 +12,8 @@ import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { verifyPasswordCompliance } from "@webhare/auth/src/passwords";
 import { getCompleteAccountNavigation } from "@webhare/auth/src/shared";
 import type { NavigateInstruction } from "@webhare/env";
+import jwt from "jsonwebtoken";
+import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -182,4 +184,27 @@ export async function verifyPasswordComplianceForHS(targetUrl: string, userId: n
 
   //successful login
   return { navigateTo: await prepareFrontendLogin(returnto, userId) };
+}
+
+/** HS Callback into the customizer infrastructure that expects validation to already be done */
+export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, loginfield: string): Promise<number> {
+  const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
+  const applytester = await getApplyTesterForURL(targetUrl);
+  if (!applytester)
+    throw new Error("Unable to find WRDAuth settings for URL " + targetUrl);
+
+  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
+  const settings = await applytester?.getWRDAuth();
+  if (!settings.wrdSchema)
+    return 0;
+
+  const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
+  const wrdSchema = new WRDSchema(settings.wrdSchema);
+  const idp = new IdentityProvider(wrdSchema);
+  const authsettings = await getAuthSettings(wrdSchema);
+  if (!authsettings)
+    return 0;
+
+  const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
+  return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
 }

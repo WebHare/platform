@@ -35,8 +35,8 @@ MACRO RunOpenIDAuth()
   OBJECT oauth2 := GetOIDCOauth2Connection(spinfo);
 
   RECORD authres := oauth2->AuthorizeClient();
-  IF(NOT authres.success)
-    ABORT(authres);
+  IF(NOT authres.success) //eg a 'none' prompt that failed to find a session
+    Redirect(whyreason.redirect);
 
   RECORD loginconfig := GetOIDCMetadata(spinfo.metadataurl);
   OBJECT tok := VerifyJSONWebToken(oauth2->token.id_token,
@@ -50,7 +50,7 @@ MACRO RunOpenIDAuth()
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
-  INTEGER userid := CallJS("@webhare/auth/src/identity.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
+  INTEGER userid := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
   IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
     RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
     IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))

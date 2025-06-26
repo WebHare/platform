@@ -1699,12 +1699,13 @@ PUBLIC OBJECTTYPE TestRequireSysopPage EXTEND DynamicPageBase
     OBJECT authplugin := webdesign->GetPlugin("http://www.webhare.net/xmlns/wrd", "wrdauth");
     IF(NOT ObjectExists(authplugin))
       THROW NEW Exception("FAIL: no authplugin");
+
     IF(GetClientRemoteIP() != fetcher_trusted_ip)
     {
       IF(NOT ObjectExists(authplugin->GetCurrentWebhareUser()))
         THROW NEW Exception("FAIL: no webhare user");
       IF(NOT authplugin->GetCurrentWebhareUser()->HasRight("system:sysop"))
-        THROW NEW Exception("FAIL: webhare user is not system:sysop");
+        THROW NEW Exception("FAIL: webhare user is not system:sysop (userid = " || authplugin->GetLoggedinEntity() || ")");
     }
     Print('<div id="success">You have reached the sysop page</div>');
     Print(`<div id="ip>${GetClientRemoteIP()}</div>`);

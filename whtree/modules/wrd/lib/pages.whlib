@@ -3,6 +3,8 @@
     @topic wrdauth/frontendpages
 */
 
+LOADLIB "wh::internet/urls.whlib";
+
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 
@@ -35,8 +37,8 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
   IF(NOT ObjectExists(authplugin))
     THROW NEW Exception("No wrdauth plugin available");
-  //IF(authplugin->IsLoggedIn())
-  //  THROW NEW Exception("WRDAuthLoginResetFlow is only available for not-loggedin users");
+
+
 
   STRING action := GetWebVariable("wrd_pwdaction");
   IF(action IN ["forgotpassword"])
@@ -81,12 +83,19 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
     IF(options.isglobalpage AND "login" NOT IN authplugin->routerfeatures)
       AbortWithHTTPError(403, "login not allowed by routerfeatures");
 
-    IF(options.fallbacktologin AND NOT authplugin->IsLoggedIn())
-      RETURN GetLoginPage(webdesign, options);
-
     STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
-    IF (logincontrol != "")
+    IF(options.fallbacktologin) {
+      RECORD descr := authplugin->__DecryptLoginControlToken(logincontrol);
+      IF(NOT authplugin->IsLoggedIn() OR (RecordExists(descr) AND descr.prompt = "login"))
+        RETURN GetLoginPage(webdesign, options);
+    }
+
+    // STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
+    IF (logincontrol != "") {
       authplugin->ProcessReturnTo(logincontrol);
+      //If we get here, ProcessReturnTo didn't handle the control. remove it
+      Redirect(UpdateURLVariables(GetRequestURL(), [ "wrdauth_logincontrol" := ""]));
+    }
 
     RETURN DEFAULT OBJECT; //you'll need to route this yourself
   }

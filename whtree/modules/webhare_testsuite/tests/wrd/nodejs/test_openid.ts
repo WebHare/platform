@@ -23,11 +23,26 @@ let clientWrdId = 0, clientId = '', clientSecret = '';
 let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
-async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
-  if (!puppeteer)
-    puppeteer = await launchPuppeteer({ headless });
+async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: string; changePasswordTo?: string }) {
+  const password = options?.password || test.getUser("sysop").password;
+  console.log("Login with sysop", test.getUser("sysop").login, "and password", password);
+  await page.waitForSelector('[name=login]');
+  await page.type('[name=login]', test.getUser("sysop").login);
+  await page.type('[name=password]', password);
+  await page.click('button[type=submit]');
 
-  const context = await puppeteer.createBrowserContext(); //separate cookie storage
+  if (options?.changePasswordTo) {
+    await page.waitForSelector('#completeaccountpassword-passwordnew');
+    await page.type('#completeaccountpassword-passwordnew', options.changePasswordTo);
+    await page.type('#completeaccountpassword-passwordrepeat', options.changePasswordTo);
+    await page.click('button[type=submit]');
+
+    await page.waitForSelector('[data-wh-form-action="exit"]');
+    await page.click('[data-wh-form-action="exit"]');
+  }
+}
+
+async function runAuthorizeFlowInContext(context: Puppeteer.BrowserContext, authorizeURL: string): Promise<string> {
   const page = await context.newPage();
 
   console.log("Oauth starting on", authorizeURL);
@@ -54,25 +69,15 @@ async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
   const finalurl = await waitForLocalhost;
   console.log("Oauth done, landed on", finalurl);
 
-  await page.close();
   return finalurl;
 }
 
-async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: string; changePasswordTo?: string }) {
-  console.error("Login with sysop", test.getUser("sysop").login, "and password", test.getUser("sysop").password);
-  await page.waitForSelector('[name=login]');
-  await page.type('[name=login]', test.getUser("sysop").login);
-  await page.type('[name=password]', options?.password || test.getUser("sysop").password);
-  await page.click('button[type=submit]');
-
-  if (options?.changePasswordTo) {
-    await page.waitForSelector('#completeaccountpassword-passwordnew');
-    await page.type('#completeaccountpassword-passwordnew', options.changePasswordTo);
-    await page.type('#completeaccountpassword-passwordrepeat', options.changePasswordTo);
-    await page.click('button[type=submit]');
-
-    await page.waitForSelector('[data-wh-form-action="exit"]');
-    await page.click('[data-wh-form-action="exit"]');
+async function runAuthorizeFlow(authorizeURL: string): Promise<string> {
+  const context = await puppeteer!.createBrowserContext(); //separate cookie storage
+  try {
+    return await runAuthorizeFlowInContext(context, authorizeURL);
+  } finally {
+    await context.close();
   }
 }
 
@@ -120,6 +125,8 @@ async function setupOIDC() {
   });
 
   broadcast("system:internal.clearopenidcaches");
+
+  puppeteer = await launchPuppeteer({ headless });
 }
 
 async function verifyRoutes() {
@@ -231,6 +238,19 @@ async function verifyOpenIDClient() {
   test.eq("Sysop", tokenSet2.claims().sub);
 }
 
+//delete the cookeies associated with /portal1-oidc/ but not our parent portal
+async function logoutRelyingParty(context: Puppeteer.BrowserContext) {
+  for (const cookie of await context.cookies())
+    if (cookie.name.endsWith("webharelogin-portal1-oidc"))
+      await context.deleteCookie(cookie);
+}
+
+async function logoutAtIDP(context: Puppeteer.BrowserContext) {
+  for (const cookie of await context.cookies())
+    if (cookie.name.endsWith("webharelogin-wrdauthjs"))
+      await context.deleteCookie(cookie);
+}
+
 async function verifyAsOpenIDSP() {
   const starttest = new Date();
   const testsite = await test.getTestSiteJS();
@@ -241,54 +261,85 @@ async function verifyAsOpenIDSP() {
   await oidcAuthSchema.update("wrdPerson", test.getUser("sysop").wrdId, { whuserPassword: pwd });
   await commitWork();
 
-  if (!puppeteer)
-    puppeteer = await launchPuppeteer({ headless });
+  const context = await puppeteer!.createBrowserContext(); //separate cookie storage
+  try {
+    const page = await context.newPage();
+    console.log("\nVisiting OIDC SP portal at", testsite.webRoot + "portal1-oidc/");
+    await page.goto(testsite.webRoot + "portal1-oidc/");
+    //wait for the OIDC button
+    await page.waitForFunction('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp"))');
+    //click the OIDC button
+    await page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()');
+    //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
+    await page.waitForNavigation();
+    const changePasswordTo = "pass$" + Math.random().toString(36).substring(2, 16);
+    await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo });
+    console.log("Password changed to: " + changePasswordTo);
 
-  const context = await puppeteer.createBrowserContext(); //separate cookie storage
-  const page = await context.newPage();
-  await page.goto(testsite.webRoot + "portal1-oidc/");
-  //wait for the OIDC button
-  await page.waitForFunction('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp"))');
-  //click the OIDC button
-  await page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()');
-  //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
-  await page.waitForNavigation();
-  await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo: "pass$" + Math.random().toString(36).substring(2, 8) });
+    { //wait for WebHare username
+      const usernameNode = await page.waitForSelector("#dashboard-user-name");
+      test.eq(/portal1-oidc\/$/, page.url(), "We should be on the OIDC protected portal (and especially NOT on /portal1/ or it forgot to redirect us back");
+      test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode), "If (OIDC) is missing we're on the wrong portal!");
+    }
 
-  //wait for WebHare username
-  const usernameNode = await page.waitForSelector("#dashboard-user-name");
-  test.eq(/portal1-oidc\/$/, page.url(), "We should be on the OIDC protected portal (and especially NOT on /portal1/ or it forgot to redirect us back");
-  test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode), "If (OIDC) is missing we're on the wrong portal!");
+    //verify user's lastlogin was updated
+    const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
+    const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
+    test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
 
-  //verify user's lastlogin was updated
-  const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
-  const { wrdId, whuserLastlogin } = await schemaSP.query("wrdPerson").where("wrdContactEmail", "=", test.getUser("sysop").login).select(["wrdId", "whuserLastlogin"]).executeRequireExactlyOne();
-  test.assert(whuserLastlogin && whuserLastlogin > starttest, "Last login not set by OIDC login flow");
+    //and verify audit event
+    test.eqPartial({
+      entity: wrdId,
+      type: "wrd:loginbyid:ok",
+      clientIp: /^.+$/,
+      entityLogin: "sysop@beta.webhare.net",
+      impersonatedBy: wrdId,
+      actionBy: wrdId,
+      actionByLogin: "sysop@beta.webhare.net"
+    }, await test.getLastAuthAuditEvent(schemaSP));
 
-  //and verify audit event
-  test.eqPartial({
-    entity: wrdId,
-    type: "wrd:loginbyid:ok",
-    clientIp: /^.+$/,
-    entityLogin: "sysop@beta.webhare.net",
-    impersonatedBy: wrdId,
-    actionBy: wrdId,
-    actionByLogin: "sysop@beta.webhare.net"
-  }, await test.getLastAuthAuditEvent(schemaSP));
+    //analyze the login cookies so we can verify the expiration.
+    const loginCookie = (await context.cookies()).find(c => c.name.endsWith("webharelogin-portal1-oidc"));
+    test.assert(loginCookie, "No login cookie found");
+    test.eq(-1, loginCookie?.expires, "Should be a session cookie");
+    const accessToken = decodeURIComponent(loginCookie.value).match(/ accessToken:(.+)$/)?.[1];
+    test.assert(accessToken, "No access token found in login cookie");
+    const cookieInfo = await (new IdentityProvider(schemaSP)).verifyAccessToken("id", accessToken);
+    if ("error" in cookieInfo)
+      console.error("Error verifying access token", cookieInfo);
+    test.assert(!("error" in cookieInfo));
+    test.assert(cookieInfo.expires, "Cookie should have an expiration date");
+    console.log(cookieInfo.expires.toString());
+    test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
 
-  //analyze the login cookies so we can verify the expiration. FIXME can't do this until we've merged the login providers
-  const loginCookie = (await context.cookies()).find(c => c.name.endsWith("webharelogin-wrdauthjs"));
-  test.assert(loginCookie, "No login cookie found");
-  test.eq(-1, loginCookie?.expires, "Should be a session cookie");
-  const accessToken = decodeURIComponent(loginCookie.value).match(/ accessToken:(.+)$/)?.[1];
-  test.assert(accessToken, "No access token found in login cookie");
-  const cookieInfo = await (new IdentityProvider(schemaSP)).verifyAccessToken("id", accessToken);
-  test.assert(!("error" in cookieInfo));
-  test.assert(cookieInfo.expires, "Cookie should have an expiration date");
-  console.log(cookieInfo.expires.toString());
-  test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
+    await logoutRelyingParty(context);  //log out of portal1-oidc, just delete cookies
 
-  await page.close();
+    //Test GnerateLoginRequest to go straight towards TESTFW_OIDC_SP. we're stil loggedin at the IDP so we shouldn't see a login
+    const portal1LoginRequest = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
+    console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
+    await page.goto(portal1LoginRequest);
+    test.eq(String(wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+    await logoutRelyingParty(context);
+
+    //Test GnerateLoginRequest again, but now we require a prompt
+    const portal1LoginRequestWithPrompt = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=login";
+    console.log(`portal1LoginRequestWithPrompt: ${portal1LoginRequestWithPrompt}`);
+    await page.goto(portal1LoginRequestWithPrompt);
+    await runWebHareLoginFlow(page, { password: changePasswordTo });
+    test.eq(String(wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+    await logoutRelyingParty(context);
+    await logoutAtIDP(context);
+
+    //Test with prompt=none - we should NOT be logged in and not see a page
+    const portal1LoginRequestSilent = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=none";
+    console.log(`portal1LoginRequestSilent: ${portal1LoginRequestSilent}`);
+    await page.goto(portal1LoginRequestSilent);
+    test.eq('0', await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+  } finally {
+    await context.close();
+  }
 }
 
 test.runTests([

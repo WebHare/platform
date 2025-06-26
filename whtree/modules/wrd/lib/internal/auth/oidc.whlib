@@ -87,7 +87,7 @@ PUBLIC RECORD FUNCTION GenerateOIDCLoginRequest(OBJECT wrdauthplugin, STRING tag
   RETURN GetOIDCOauth2Connection(spdata[0])->StartAuthorizeClient(finalurl,
     [ scopes := STRING["openid", ...ParseXSList(spdata[0].additionalscopes) ]
     , redirect_uri := spdata[0].redirect_uri
-    , extraparameters := [ prompt := GetWebVariable("prompt")
+    , extraparameters := [ prompt := CellExists(options, 'prompt') ? options.prompt : GetWebVariable("prompt") //FIXME accepting a webvariable is a hack and will be removed in the future
                           //FIXME , domain_hint := loginconfig.domain_hint - needs to come from oidc config
                           ]
     ]);
