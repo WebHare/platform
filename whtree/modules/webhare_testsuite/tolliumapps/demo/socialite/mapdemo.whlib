@@ -26,7 +26,7 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase <
   //
 
   OBJECT geocoder;
-  STRING lastaddedmarker;
+  RECORD lastaddedmarker;
   INTEGER counter;
 
 
@@ -164,7 +164,7 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase <
           lat := latlng.lat,
           lng := latlng.lng,
           icon := "added",
-          hint := dlg->value,
+          hint := EncodeJSON(dlg->value),
           moveable := true,//FALSE,
           selectable := TRUE,
           ismarker := TRUE,
