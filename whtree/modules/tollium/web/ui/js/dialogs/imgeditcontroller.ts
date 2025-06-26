@@ -368,7 +368,11 @@ class ImgeditDialogController {
   _onEditorOpenTool(event) {
     this.activetool = event.detail;
     this.dialog.getComponent("okbutton").setTitle(getTid("~ok"));
-    this.dialog.getComponent("frame").setTitle(getTid("tollium:components.imgedit.editor." + this.activetool.panel._imgedittool));
+
+    const title = this.activetool.panel.imageEditTool === "refpoint" ? getTid("tollium:components.imgedit.editor.refpoint")
+      : this.activetool.panel.imageEditTool === "crop" ? getTid("tollium:components.imgedit.editor.crop")
+        : "";
+    this.dialog.getComponent("frame").setTitle(title);
     this._relayoutDialog();
   }
 
