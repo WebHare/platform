@@ -2,6 +2,7 @@ import { sendPxl, type PxlData, getPxlUserId, getPxlSessionId } from "@webhare/f
 import * as test from "@webhare/test-frontend";
 import * as pxl from "@mod-consilio/js/pxl";
 import { isLikeRandomId } from "@webhare/std";
+import "@webhare/deps/temporal-polyfill";
 
 declare module "@webhare/frontend" {
   interface PxlDataTypes {

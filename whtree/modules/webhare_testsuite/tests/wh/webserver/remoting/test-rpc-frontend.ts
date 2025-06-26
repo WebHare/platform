@@ -3,8 +3,6 @@ import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
 import { rpc } from "@webhare/rpc";
 import { getTypedStringifyableData } from "@mod-webhare_testsuite/js/ci/testdata";
 
-import "@webhare/deps/temporal-polyfill";
-
 test.runTests(
   [
     "Basic rpc",

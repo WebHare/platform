@@ -4,7 +4,7 @@ import { backendConfig } from "./config.ts";
 import type { LogFormats } from "./services.ts";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
-import { escapeRegExp } from "@webhare/std";
+import { convertFlexibleInstantToDate, escapeRegExp, type FlexibleInstant } from "@webhare/std";
 import { readFileSync } from "fs";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 import { listDirectory } from "@webhare/system-tools";
@@ -12,7 +12,7 @@ import { listDirectory } from "@webhare/system-tools";
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = {
   /** Log line's timestap */
-  "@timestamp": Date;
+  "@timestamp": Temporal.Instant;
   /** ID of this logline (unique inside a logtype but not a logfile) which allows us to resume reading.
    *
    * This is currently formatted as `A<date>:<offset>` but you shouldn't rely on that format always staying the same.
@@ -81,8 +81,8 @@ function flushLog(logname: string | "*"): Promise<void> {
 }
 
 export interface ReadLogOptions {
-  start?: Date | null;
-  limit?: Date | null;
+  start?: FlexibleInstant | null;
+  limit?: FlexibleInstant | null;
   content?: string;
   /** Continu reading loglines after the line with this id */
   continueAfter?: string;
@@ -117,6 +117,8 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
   const basedir = backendConfig.dataRoot + "log";
   const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
   const logfiles = (await listDirectory(basedir, { allowMissing: true })).filter(_ => _.name.match(filter)).sort();
+  const start = options?.start ? convertFlexibleInstantToDate(options.start) : null;
+  const limit = options?.limit ? convertFlexibleInstantToDate(options.limit) : null;
 
   for (const file of logfiles) {
     const datetok = file.name.split('.').at(-2)!; //... as we've already ensured the file ends in .YYYYMMDD.log
@@ -124,14 +126,14 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     const logfiledate = new Date(textdate);
 
     //if the 'last' possible entry is before the start, skip this file
-    if (options?.start && (logfiledate.getTime() + (86400 * 1000)) <= options.start.getTime())
+    if (start && (logfiledate.getTime() + (86400 * 1000)) <= start.getTime())
       continue;
 
     if (options?.continueAfter && options?.continueAfter.split(':')[0] > `A${datetok}:`) //An id/continuation point was given and it's not in this file
       continue;
 
     //if the 'first' possible entry is past the limit, skip the file
-    if (options?.limit && (logfiledate.getTime() > options.limit.getTime()))
+    if (limit && (logfiledate.getTime() > limit.getTime()))
       continue;
 
     //FIXME Jump straight to the right position, combine with rewriting to input streaming (but I'm not sure the common 'readline.createInterface' solution allow us to accurately record offsets)
@@ -156,8 +158,8 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
         if (typeof parsedline["@timestamp"] !== 'string')
           continue;
 
-        const timestamp = new Date(parsedline["@timestamp"]);
-        if (!timestamp || (options?.start && timestamp < options.start) || (options?.limit && timestamp >= options.limit))
+        const timestamp = Temporal.Instant.from(parsedline["@timestamp"]);
+        if (!timestamp || (start && timestamp.epochMilliseconds < start.getTime()) || (limit && timestamp.epochMilliseconds >= limit.getTime()))
           continue;
 
         /* The ID needs to be usable as a unique identifier inside this log type but also be ascii sortable so we can easily find the most recently

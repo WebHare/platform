@@ -4,7 +4,6 @@ import { prepareWRDAuthTest } from "@mod-webhare_testsuite/js/wrd/frontendhelper
 import { rpc } from "@webhare/rpc";
 import * as testwrd from "@mod-wrd/js/testframework";
 import * as test from "@webhare/test-frontend";
-import "@webhare/deps/temporal-polyfill"; //needed for getAuditEvents
 
 let setupdata: Awaited<ReturnType<typeof prepareWRDAuthTest>>;
 

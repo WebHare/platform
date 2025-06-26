@@ -15,7 +15,8 @@ export { focus, register, registerMissed } from '../../../modules/system/js/domp
 export type { TakeFocusEvent } from '../../../modules/system/js/dompack/src/components';
 export { getLocal, setLocal, getSession, setSession, listCookies, getCookie, setCookie, deleteCookie } from './storage';
 export { loadImage, loadScript, loadCSS } from "./preload";
-export { browser, getBrowser, isMultiSelectKey, isCopyKey, type KeyAttributeValue } from './browser';
+export { browser, getBrowser, isMultiSelectKey, isCopyKey } from './browser';
+export type { KeyAttributeValue, UserAgentInfo, Platform, Device } from './browser';
 
 /** @deprecated As 'Lock' conflicts, in WH5.4+ you can safely switch to UIBusyLock */
 import type { UIBusyLock } from './busy';
