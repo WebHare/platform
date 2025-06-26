@@ -452,24 +452,34 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
       AddHTTPHeader("X-WebharePreview-Frame-Options", "DENY", FALSE);
     }
 
-    /* frame-src * as tollium needs to be able to frame anything (eg publisher preview)
-       img-src blob: is required by the image editor to process uploaded images client side
-       img-src https: is required for eg the video browser to load thumbnails from youtube
-       connect-src 'self' to allow websockets to connect to us
-       connect-src maps.googleapis.com is needed for the Google Map API loader (Chrome, Firefox)
-       style-src unsafe-inline is required for the RTD which sets element styles through innerHTML
-       style-src and font-src * so RTDs can load fonts.google.com and similar sites
-       script-src maps.googleapis.com is needed for the Google Map API loader (Safari)
+    /* Google Maps: Content Security Policy Guide
+       https://developers.google.com/maps/documentation/javascript/content-security-policy
     */
-    STRING connectsrc;
+    RECORD csp :=
+        [ "default-src" := "'self'"
+        // blob: is needed for the image editor to process uploaded images client side
+        // data: is needed to show inline images like tollium icons
+        // https: is needed for eg the video browser to load thumbnails from youtube
+        , "img-src" := "'self' data: blob: https:"
+        // * is needed for the RTDs to load fonts.google.com and similar sites
+        // 'unsafe-inline' is needed for the RTD which sets element styles through innerHTML
+        , "style-src" := "* 'unsafe-inline'"
+        // 'self' is required to allow websockets to connect to us
+        // *.googleapis.com and *.gstatic.com are needed for Google Maps
+        , "connect-src" := "'self' https://*.googleapis.com"
+        // * is needed for tollium to be able to frame anything (eg publisher preview)
+        , "frame-src" := "*"
+        // * is needed for the RTDs to load fonts.google.com and similar sites
+        , "font-src" := "*"
+        // *.googleapis.com and *.gstatic.com are needed for Google Maps
+        , "script-src" := "'self' https://*.googleapis.com"
+        ];
     // This was a bug in Safari before 16 (https://bugs.webkit.org/show_bug.cgi?id=235873), but Firefox (which should support
     // this: https://bugzilla.mozilla.org/show_bug.cgi?id=1345615) now gives an error connecting to wss when it's not
     // explicitly added to connect-src
-    IF(GetWebHeader("User-Agent") LIKE "*Firefox/*") //quick-n-dirty browser sniffing
-      connectsrc := "'self' ws: wss:"; //workaround, should be implicit
-    ELSE
-      connectsrc := "'self'";
-    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src ${connectsrc} https://maps.googleapis.com; frame-src *; font-src *; script-src 'self' https://maps.googleapis.com`, FALSE);
+    IF (GetWebHeader("User-Agent") LIKE "*Firefox/*") //quick-n-dirty browser sniffing
+      csp."connect-src" := csp."connect-src" || " ws: wss:"; //workaround, should be implicit
+    AddHTTPHeader("Content-Security-Policy", Detokenize((SELECT AS STRING ARRAY `${ToLowercase(name)} ${value}` FROM UnpackRecord(csp)), "; "), FALSE);
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
 

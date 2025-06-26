@@ -251,6 +251,8 @@ export abstract class NavControlObject {
       if (!button.classList.contains("disabled"))
         await callback(event);
     });
+    // Prevent the map from zooming in when double clicking a navigation button
+    button.addEventListener("doubleclick", event => event.stopPropagation());
     node.appendChild(button);
     return button;
   }

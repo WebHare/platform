@@ -112,7 +112,7 @@
       <text tid="defaultprovider-leaflet">Leaflet (OpenStreetMap)</text>
       <text tid="domain">Domein</text>
       <text tid="editapikey">API sleutel</text>
-      <text tid="googleapikeys">Google API-sleutelbeheer</text>
+      <text tid="googleapikeys">Socialite-instellingen</text>
       <text tid="googlemap-info">Zorg ervoor dat er een 'Google cloud APIs'-sleutel met scope 'Client' is toegevoegd voor het WebHare backend-domein die toegang heeft tot the url 'about:srcdoc'</text>
       <text tid="keytype">Sleuteltype</text>
       <text tid="keytype-google">Google cloud APIs</text>
