@@ -134,6 +134,7 @@
              loginpage="currentsite::/portal1-oidc/"
              supportobjectname="compatibility.whlib#WRDAutOIDCSupport"
              customizer="pages/wrdauthtest.backend.ts#OIDCTestCustomizer"
+             cookiename="webharelogin-portal1-oidc"
              lastloginfield="whuser_lastlogin" />
   </apply>
 
