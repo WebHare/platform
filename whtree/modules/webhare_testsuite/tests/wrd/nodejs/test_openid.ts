@@ -24,10 +24,11 @@ let puppeteer: Puppeteer.Browser | undefined;
 const oidcAuthSchema = new WRDSchema<OidcschemaSchemaType>("webhare_testsuite:testschema");
 
 async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: string; changePasswordTo?: string }) {
-  console.log("Login with sysop", test.getUser("sysop").login, "and password", test.getUser("sysop").password);
+  const password = options?.password || test.getUser("sysop").password;
+  console.log("Login with sysop", test.getUser("sysop").login, "and password", password);
   await page.waitForSelector('[name=login]');
   await page.type('[name=login]', test.getUser("sysop").login);
-  await page.type('[name=password]', options?.password || test.getUser("sysop").password);
+  await page.type('[name=password]', password);
   await page.click('button[type=submit]');
 
   if (options?.changePasswordTo) {
@@ -237,6 +238,19 @@ async function verifyOpenIDClient() {
   test.eq("Sysop", tokenSet2.claims().sub);
 }
 
+//delete the cookeies associated with /portal1-oidc/ but not our parent portal
+async function logoutRelyingParty(context: Puppeteer.BrowserContext) {
+  for (const cookie of await context.cookies())
+    if (cookie.name.endsWith("webharelogin-portal1-oidc"))
+      await context.deleteCookie(cookie);
+}
+
+async function logoutAtIDP(context: Puppeteer.BrowserContext) {
+  for (const cookie of await context.cookies())
+    if (cookie.name.endsWith("webharelogin-wrdauthjs"))
+      await context.deleteCookie(cookie);
+}
+
 async function verifyAsOpenIDSP() {
   const starttest = new Date();
   const testsite = await test.getTestSiteJS();
@@ -262,10 +276,11 @@ async function verifyAsOpenIDSP() {
     await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo });
     console.log("Password changed to: " + changePasswordTo);
 
-    //wait for WebHare username
-    const usernameNode = await page.waitForSelector("#dashboard-user-name");
-    test.eq(/portal1-oidc\/$/, page.url(), "We should be on the OIDC protected portal (and especially NOT on /portal1/ or it forgot to redirect us back");
-    test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode), "If (OIDC) is missing we're on the wrong portal!");
+    { //wait for WebHare username
+      const usernameNode = await page.waitForSelector("#dashboard-user-name");
+      test.eq(/portal1-oidc\/$/, page.url(), "We should be on the OIDC protected portal (and especially NOT on /portal1/ or it forgot to redirect us back");
+      test.eq("Sysop McTestsuite (OIDC)", await page.evaluate(el => el?.textContent, usernameNode), "If (OIDC) is missing we're on the wrong portal!");
+    }
 
     //verify user's lastlogin was updated
     const schemaSP = new WRDSchema("webhare_testsuite:oidc-sp");
@@ -297,7 +312,31 @@ async function verifyAsOpenIDSP() {
     console.log(cookieInfo.expires.toString());
     test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
 
-    await page.close();
+    await logoutRelyingParty(context);  //log out of portal1-oidc, just delete cookies
+
+    //Test GnerateLoginRequest to go straight towards TESTFW_OIDC_SP. we're stil loggedin at the IDP so we shouldn't see a login
+    const portal1LoginRequest = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP";
+    console.log(`portal1LoginRequest: ${portal1LoginRequest}`);
+    await page.goto(portal1LoginRequest);
+    test.eq(String(wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+    await logoutRelyingParty(context);
+
+    //Test GnerateLoginRequest again, but now we require a prompt
+    const portal1LoginRequestWithPrompt = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=login";
+    console.log(`portal1LoginRequestWithPrompt: ${portal1LoginRequestWithPrompt}`);
+    await page.goto(portal1LoginRequestWithPrompt);
+    await runWebHareLoginFlow(page, { password: changePasswordTo });
+    test.eq(String(wrdId), await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
+
+    await logoutRelyingParty(context);
+    await logoutAtIDP(context);
+
+    //Test with prompt=none - we should NOT be logged in and not see a page
+    const portal1LoginRequestSilent = testsite.webRoot + "portal1-oidc/wrdauthtest/?tryoidc=TESTFW_OIDC_SP&withprompt=none";
+    console.log(`portal1LoginRequestSilent: ${portal1LoginRequestSilent}`);
+    await page.goto(portal1LoginRequestSilent);
+    test.eq('0', await (await (await page.waitForSelector("#userid"))?.getProperty("textContent"))?.jsonValue());
   } finally {
     await context.close();
   }

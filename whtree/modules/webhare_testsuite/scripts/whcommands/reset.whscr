@@ -84,6 +84,7 @@ MACRO SetupTestSite(OBJECT testsite)
   {
     OBJECT portal1folder  := testsite->rootobject->CreateFolder( [ name := basename ] );
     portal1folder->CreateFile([name := "portal", typens := "http://www.webhare.net/xmlns/tollium/applicationportal", publish := TRUE ], [setindex := TRUE]);
+    portal1folder->CreateFile([name := "wrdauthtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/wrdauthtest", publish := TRUE ] );
 
     OBJECT testrequiresysopfolder := portal1folder->CreateFolder([name := "requiresysop"]);
     OBJECT testrequiresysopfile := testrequiresysopfolder->CreateFile( [ typens := "http://www.webhare.net/xmlns/webhare_testsuite/requiresysoptest", name := "index.shtml", publish := TRUE ], [setindex := TRUE]);

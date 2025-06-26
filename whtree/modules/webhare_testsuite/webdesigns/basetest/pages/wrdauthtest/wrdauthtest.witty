@@ -21,7 +21,10 @@
   <div class="wrdauthtest">
     <fieldset>
       <legend>WRD Auth witty status</legend>
-      isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauth.isloggedin]checked[/if] autocomplete="off"><br>
+      isloggedin: <input disabled id="isloggedin" type="checkbox" [if wrdauth.isloggedin]checked[/if]>
+        userid: <span id="userid">[userid]</span>
+        loginname: <span id="loginname">[loginname]</span>
+      <br>
       logoutlink: <input readonly id="logoutlink" value="[wrdauth.logoutlink]" style="width:300px" autocomplete="off"><button id="logout" type="button">Logout</button><br/>
       allclaims: <input readonly id="allclaims" value="[allclaims]"><br>
       numsessions: <input readonly id="numsessions" value="[numsessions]">

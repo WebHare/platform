@@ -122,8 +122,9 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
           ];
 
     this->logincontrol := GetFormWebVariable("wrdauth_logincontrol");
-    IF (this->logincontrol != "")
-      this->formcontext->GetWRDAuthPlugin()->ProcessReturnTo(this->logincontrol);
+    // FIXME should this even be here, shouldn't a router handle it before invoking LoginPage ?
+    // IF (this->logincontrol != "")
+    //   this->formcontext->GetWRDAuthPlugin()->ProcessReturnTo(this->logincontrol);
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata) {
@@ -139,18 +140,14 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
   }
 >;
 
-PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options)
-{
+PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options) {
   IF(IsRequestPost()) {
     STRING loginmethod := GetWebVariable("wrdauth_loginmethod");
     RECORD method := SELECT * FROM options.loginmethods WHERE tag = loginmethod;
-    STRINg landing := UpdateURLVariables(GetRequestURL(), CELL[wrdauth_loginmethod := ""]);
+    STRING landing := UpdateURLVariables(GetRequestURL(), CELL[wrdauth_loginmethod := ""]);
     IF(NOT RecordExists(method))
       Redirect(landing);
 
-    // RECORD loginoptions := CELL[ ...PickCells(options, [ "action", "passive", "forcelogin" ])
-    //                           , allowlogout := method.allowlogout
-    //                           ];
     STRING ARRAY toks := Tokenize(loginmethod,':');
     ExecuteSubmitInstruction(webdesign->GetWRDAuthPlugin()->GenerateLoginRequest(toks[0], toks[1], landing));
   }

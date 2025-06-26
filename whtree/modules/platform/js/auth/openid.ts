@@ -36,6 +36,7 @@ declare module "@webhare/services" {
       ruleid: number;
       returnto: string;
       validuntil: Date;
+      prompt: PromptFlag;
     };
   }
 }
@@ -45,6 +46,9 @@ const logincontrolValidMsecs = 60 * 60 * 1000; // login control token is valid f
 const openIdTokenExpiry = 60 * 60 * 1000; // openid id_token is valid for 1 hour
 
 export type CodeChallengeMethod = typeof validCodeChallengeMethods[number];
+
+type PromptFlag = "" | "login" | "none";
+
 type NavigateOrError = (NavigateInstruction & { error: null }) | { error: string };
 
 type TokenResponse = {
@@ -116,7 +120,7 @@ function verifyCodeChallenge(verifier: string, challenge: string, method: CodeCh
 }
 
 /** Start an oauth2/openid authorization flow */
-export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, customizer?: AuthCustomizer): Promise<NavigateOrError> {
+export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provider: IdentityProvider<T>, url: string, loginPage: string, prompt: PromptFlag, customizer?: AuthCustomizer): Promise<NavigateOrError> {
   const searchParams = new URL(url).searchParams;
   const clientid = searchParams.get("client_id") || '';
   const scopes = searchParams.get("scope")?.split(" ") || [];
@@ -146,11 +150,12 @@ export async function startAuthorizeFlow<T extends SchemaTypeDefinition>(provide
 
   const currentRedirectURI = `${getOpenIdBase(provider.wrdschema)}return?tok=${returnInfo}`;
 
-  const loginControl = { //see __GenerateAccessRuleLoginControlToken
+  const loginControl = { //see __GenerateAccessRuleLoginControlToken. TODO merge into idpstate ?
     afterlogin: "siteredirect",
     logintypes: ["wrdauth"],
     ruleid: 0,
     returnto: currentRedirectURI,
+    prompt,
     validuntil: new Date(Date.now() + logincontrolValidMsecs)
   };
 
@@ -277,6 +282,21 @@ export async function getOpenIDMetadataURL(schema: string) {
   return null;
 }
 
+function handleAuthorizationFlowError(url: URL, error: string, error_description?: string) {
+  const redirect_uri = url.searchParams.get("redirect_uri");
+  if (!redirect_uri) //FIXME any error where we don't trust redirect_uri or clientid should redirect to an error page on our side explaining the issue
+    throw new Error("Invalid redirect_uri parameter: " + redirect_uri);
+
+  const gotoURL = new URL(redirect_uri);
+  const state = url.searchParams.get("state") || null;
+  if (state)
+    gotoURL.searchParams.set("state", state);
+
+  gotoURL.searchParams.set("error", error);
+  gotoURL.searchParams.set("error_description", error_description || "An error occurred during the authorization flow");
+  return createRedirectResponse(gotoURL.toString());
+}
+
 export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
   const pathname = new URL(req.url).pathname;
 
@@ -314,8 +334,16 @@ export async function openIdRouter(req: WebRequest): Promise<WebResponse> {
 
   const provider = new IdentityProvider(wrdschema);
   if (endpoint[3] === 'authorize') {
+    const url = new URL(req.url); //TODO merge back into startAuthorizeFlow ? but then it needs to know about login/logout states too
+    const prompt: PromptFlag = url.searchParams.get("prompt") as PromptFlag || ''; //TODO trigger 400 if prompt value misunderstood?
 
-    const redirect = await startAuthorizeFlow(provider, req.url, login.loginPage, customizer);
+    if (prompt) {
+      const curuser = await getCookieBasedUser(req, wrdschema, login.wrdauth);
+      if (prompt === 'none' && !curuser) { //we're not logged in and not supposed to start an authorization flow
+        return handleAuthorizationFlowError(url, "login_required");
+      }
+    }
+    const redirect = await startAuthorizeFlow(provider, req.url, login.loginPage, prompt, customizer);
     if (redirect.error !== null)
       return createJSONResponse(400, { error: redirect.error });
 

@@ -331,7 +331,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     // External login requires a login box, so no redirects
     // Only prompt modes "" and "none" allow immediate backredirection
-    IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none" ])
+    IF ("wrdauth" NOT IN logincontrol.logintypes OR logincontrol.prompt NOT IN [ "", "none", "login" ])
       RETURN DEFAULT RECORD;
 
     RETURN this->__HandleAfterLogin(logincontrol, "wrdauth");
@@ -754,6 +754,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
           RETURN [ success := TRUE, submitinstruction := instr ];
       }
     }
+
     IF(CellExists(result,'navigateto'))
       RETURN [ success := result.loggedin, submitinstruction := result.navigateto ];
 
@@ -1308,7 +1309,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     options := ValidateOptions(CELL[ forcelogin := FALSE
                                    , passive := FALSE
                                    , action := "redirect"
-                                   ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]]]);
+                                   , prompt := ""
+                                   ], options, [ enums := [ action := ["redirect","postmessage","proofredirect" ]], optional := ["prompt"] ]);
     IF(type = "saml")
     {
       RETURN GenerateSAMLLoginRequest(this, serviceprovidertag, redirectto, options);

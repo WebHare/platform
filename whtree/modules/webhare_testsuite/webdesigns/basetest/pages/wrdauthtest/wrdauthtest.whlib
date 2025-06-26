@@ -2,6 +2,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::witty.whlib";
+LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -24,7 +25,15 @@ PUBLIC OBJECTTYPE WRDAuthTestPage EXTEND DynamicPageBase
                    , multisite := webdesign->targetobject->name LIKE "*multisite*"
                    , allclaims := ""
                    , numsessions := 0
+                   , userid := wrdauthplugin->GetLoggedinEntity()
+                   , loginname := wrdauthplugin->GetLoggedinEntity() != 0 ? wrdauthplugin->wrdschema->accounttype->GetEntityField(wrdauthplugin->GetLoggedinEntity(), wrdauthplugin->wrdschema->accountlogintag) : ""
                    ];
+
+    IF(GetWebVariable("tryoidc") != "") {
+      STRING returnurl := UpdateURLVariables(GetRequestURL(), [ tryoidc := "", withprompt := "" ]);
+      RECORD func := webdesign->GetWRDAuthPlugin()->GenerateLoginRequest("oidc", GetWebVariable("tryoidc"), returnurl, [ prompt := GetWebVariable("withprompt") ]);
+      ExecuteSubmitInstruction(func);
+    }
 
     IF(wrdauthplugin->IsLoggedIn()) {
       data.allclaims := EncodeJSON(wrdauthplugin->GetClaims());
