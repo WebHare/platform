@@ -73,6 +73,8 @@ export interface ApplyConfigurationOptions {
   force?: boolean;
   nodb?: boolean;
   source: string;
+  /** Assume we're still in the bootstrap phase */
+  __bootstrap?: boolean;
   /** If set, do not block the apply backend service (dangerous if WebHare is running!) */
   offline?: boolean;
 }
@@ -144,9 +146,11 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
       //FIXME if some schemas fail, report this. but we're still missing a 'warning' channel back to the 'wh apply wrd' caller
       await applyupdates.UpdateAllModuleSchemas({ schemamasks, reportupdates: true, reportskips: verbose, force: options.force });
 
-      await beginWork();
-      await scheduleTimedTask("wrd:scanforissues");
-      await commitWork();
+      if (!options.__bootstrap) { //during webhareservice startup the task may not be created yet
+        await beginWork();
+        await scheduleTimedTask("wrd:scanforissues", {});
+        await commitWork();
+      }
 
       if (options.verbose)
         console.timeEnd("Updating WRD schemas based on their schema definitions");

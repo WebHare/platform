@@ -215,7 +215,7 @@ class ProcessManager {
     if (signal)
       this.log(`Exited with signal ${signal}`, { exitSignal: signal });
     else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging
-      this.log(`Exited with error code ${exitCode} `, { exitCode: exitCode });
+      this.log(`Exited with error code ${exitCode}`, { exitCode: exitCode });
 
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Active) {
@@ -474,7 +474,7 @@ class ServiceManager {
   /// Move to a new stage
   async startStage(stage: Stage): Promise<void> {
     if (verbose)
-      smLog(`Entering stage: ${stagetitles[stage]} `, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
+      smLog(`Entering stage: ${stagetitles[stage]}`, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
     currentstage = stage;
     return await this.updateForCurrentStage();
   }

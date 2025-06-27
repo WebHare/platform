@@ -507,7 +507,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     IF (CellExists(toset, "name"))
     {
       GetWRDCommitHandler()->SchemaNameChanged(this->id);
-      ScheduleTimedTask("wrd:scanforissues"); //clear out any associated errors (eg if you rename .bak back to normal name)
+      ScheduleTimedTask("wrd:scanforissues", [ allowmissing := TRUE ]); //clear out any associated errors (eg if you rename .bak back to normal name)
     }
 
     //ADDME schedule a fixusers

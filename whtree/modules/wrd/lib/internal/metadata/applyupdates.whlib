@@ -69,13 +69,16 @@ PUBLIC BOOLEAN FUNCTION UpdateAllModuleSchemas(RECORD options DEFAULTSTO DEFAULT
                              , reportupdates := FALSE
                              , reportskips := FALSE
                              , force := FALSE
-                             ], options);
+                             , modules := STRING[]
+                             ], options, [ optional := ["modules"]]);
 
   RECORD ARRAY alldefs := GetAllDefinedWRDSchemas();
 
   BOOLEAN allsuccess := TRUE, anymatch;
   RECORD ARRAY schemas := SELECT DISTINCT tag := ToLowercase(tag)
-                              FROM ToRecordArray(GetWRDSchemaDefCandidates(alldefs), 'tag') CONCAT ListWRDSchemas();
+                            FROM ToRecordArray(GetWRDSchemaDefCandidates(alldefs), 'tag') CONCAT ListWRDSchemas()
+                           WHERE CellExists(options, "modules") ? Tokenize(tag,':')[0] IN options.modules : TRUE;
+
   STRING ARRAY candidates := SELECT AS STRING ARRAY tag
                                FROM schemas
                            ORDER BY Tokenize(tag,':')[0] IN VAR whconstant_builtinmodules ? SearchElement(VAR whconstant_builtinmodules, Tokenize(tag,':')[0]) : 999;
