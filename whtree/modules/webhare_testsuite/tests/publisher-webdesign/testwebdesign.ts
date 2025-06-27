@@ -14,9 +14,10 @@ test.runTests(
       test.eq(test.getTestSiteRoot(), test.getDoc().documentElement.dataset.siteRoot);
 
       const tids = baseTestApi.getTidTest();
-      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
+      //we now translate \u2028 and \u2029 to \n as we switched from the HS to TS parse. either should be fine as long as nothing crashes.
+      test.eq('\nunicode line separator,\nanother separator', tids.unicode2028);
       test.eq("(cannot find text: webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
-      test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
+      test.eq('\nunicode line separator,\nanother separator', tids.unicode2028);
       test.eq('Dit is <b>bold</b><br>volgende<br>regel', tids.richtext);
       test.eq('Please note: max 1 person', tids.maxextras_1);
       test.eq('Please note: max 2 persons', tids.maxextras_2);

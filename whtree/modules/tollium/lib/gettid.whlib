@@ -524,8 +524,3 @@ PUBLIC STRING FUNCTION GetCanonicalTid(STRING tid)
 
   RETURN tid;
 }
-
-PUBLIC RECORD FUNCTION __GetLanguageFile(STRING module, STRING langcode)
-{
-  RETURN GetLanguageFile(module, langcode);
-}
