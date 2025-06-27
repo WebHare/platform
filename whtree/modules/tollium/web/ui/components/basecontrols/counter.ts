@@ -1,5 +1,5 @@
 import * as dompack from "@webhare/dompack";
-import { getUTF8Length, limitUTF8Length } from "@mod-system/js/internal/utf8";
+import { getUTF8Length, limitUTF8Length } from "@webhare/std";
 import "./counter.css";
 import { pick, throwError } from "@webhare/std";
 
