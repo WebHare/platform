@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from "dompack";
-import * as pollrpc from "@mod-publisher/js/webtools/internal/poll.rpc.json";
+import pollrpc from "@mod-publisher/js/webtools/internal/poll.rpc.json?proxy";
 
 /*
 

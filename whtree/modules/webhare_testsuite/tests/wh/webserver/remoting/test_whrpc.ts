@@ -2,7 +2,7 @@
 
 import * as test from "@mod-system/js/wh/testframework";
 import RPCClient from '@mod-system/js/wh/rpc';
-import * as testnoauthservice from "./testnoauthservice.rpc.json";
+import * as testnoauthservice from "./testnoauthservice.rpc.json"; //explicitly test old non-?proxy syntax
 import { createClient } from "@webhare/jsonrpc-client";
 
 test.runTests(

@@ -3,7 +3,7 @@
 import './internal/baseforumstyle.css';
 import * as dompack from "dompack";
 // @ts-ignore -- .rpc.json imports cannot be checked by TypeScript
-import * as forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json";
+import forumrpc from "@mod-publisher/js/webtools/internal/forum.rpc.json?proxy";
 import { getCaptchaResponse } from "@mod-publisher/js/captcha/api";
 import FormBase from '@mod-publisher/js/forms/formbase';
 
