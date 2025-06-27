@@ -111,7 +111,7 @@ IF (IsDatabaseWritable())
 
     LogDebug("system:poststart", "Apply non core module WRD schemas");
     //update WRD schemas for non-core modules
-    UpdateAllModuleSchemas([schemamasks := modules]);
+    UpdateAllModuleSchemas(CELL[modules]);
   }
 
   //TODO when installing, initdb_phase2 will have taken care of siteprofile compilation through UpdateBackendSite. we might see if we can have initdb_phase2 stop doing that ?
