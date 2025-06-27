@@ -315,7 +315,7 @@ Options:
 --containername <name>  - Force this name for the CI container
 --nopull                - Do not pull the image (implicit with --webhareimage localbuild)
 --webhareimage <image>  - Use this image. Image tags 'main/beta/stable' correspond to their release channels.
-                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh builddocker'
+                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh builddocker'. This is the default
 --nocheckmodule         - Do not run checkmodule before the actual tests
 --sh                    - Open a shell inside the container after running the tests
 --podman                - Use podman instead of docker
@@ -508,7 +508,11 @@ if [ -n "$TESTSECRET_SECRETSURL" ]; then
 fi
 
 if [ -z "$ISPLATFORMTEST" ] && [ -z "$WEBHAREIMAGE" ]; then
-  WEBHAREIMAGE=main
+  WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
+  NOPULL=1
+  if ! RunDocker inspect "$WEBHAREIMAGE" >/dev/null 2>&1 ; then
+    exit_failure_sh "Cannot find localbuild image $WEBHAREIMAGE, please run 'wh builddocker' first or use --webhareimage [main/stable/beta/...]"
+  fi
 fi
 
 # We're renaming 'head' to 'main' as 'head' is confusing
@@ -519,9 +523,6 @@ if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHA
   if [ -z "$WEBHAREIMAGE" ]; then
     exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi
-elif [ "$WEBHAREIMAGE" == "localbuild" ]; then
-  WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
-  NOPULL=1
 fi
 
 if [ -z "$WEBHAREIMAGE" ]; then
