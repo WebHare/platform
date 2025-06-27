@@ -29,6 +29,9 @@ function testCheckParser() {
     parsePasswordChecks("invalid  minlength:1 maxage:15 invalid "));
 
   test.throws(/syntax/, () => parsePasswordChecks("invalid", { strict: true }));
+
+  test.eq([{ check: "externallogin", value: 0, duration: "" }],
+    parsePasswordChecks("externallogin"));
 }
 
 function testGetPasswordMinValueFrom() {
