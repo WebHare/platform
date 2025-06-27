@@ -101,6 +101,7 @@ PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord()
 PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
 {
   RETURN [ objectname := objectname
+         , parser := ""
          , name := ""
          , namespace := ""
          , hooksplugins := DEFAULT RECORD ARRAY

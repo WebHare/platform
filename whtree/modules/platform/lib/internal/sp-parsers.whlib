@@ -1,0 +1,55 @@
+<?wh
+LOADLIB "wh::xml/xsd.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+/** for efficiency, combine all loaded parser hooks into one whlib.
+    keep LOADLIBS to a minimum, but there's no harm in loading librarys the SPParser would have loaded anyway */
+
+PUBLIC RECORD FUNCTION ParseWRDAuthConfigurationNode(OBJECT siteprofile, OBJECT node)
+{
+  RECORD config :=
+          [ wrdschema := node->GetAttribute("wrdschema")
+          , supportobjectname := node->GetAttribute("supportobjectname")
+          , passwordresetlifetime := ToInteger(node->GetAttribute("passwordresetlifetime"), 3 * 24 * 60) //in minutes
+          , cachefields := ParseXSList(node->GetAttribute("cachefields"))
+          , servicemailtemplate := siteprofile->ParseFSPath(node, "servicemailtemplate")
+          , loginpage := node->GetAttribute("loginpage")
+          , spautocreate := node->GetAttribute("spautocreate") IN [ "1", "true" ]
+          , cookiename := node->GetAttribute("cookiename")
+          , customizer := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, node->GetAttribute("customizer"))
+          , securecookie := ParseXSBoolean(node->GetAttribute("securecookie"))
+          , nohttponlycookies := ParseXSBoolean(node->GetAttribute("nohttponlycookies"))
+          , firstloginfield := node->GetAttribute("firstloginfield")
+          , lastloginfield := node->GetAttribute("lastloginfield")
+          , samesitecookie := node->HasAttribute("samesitecookie") ? node->GetAttribute("samesitecookie") : "lax"
+          , routerfeatures := ParseXSList(node->GetAttribute("routerfeatures"))
+          , authpageswitty := siteprofile->ParseFSPath(node, "authpageswitty")
+          , cookiedomain := node->GetAttribute("cookiedomain")
+          ];
+
+  IF(config.supportobjectname != "" AND config.supportobjectname NOT LIKE "*#*")
+  {
+    STRING supportlib := siteprofile->ParseFSPath(node, "supportlibrary");
+    config.supportobjectname := supportlib || "#" || config.supportobjectname;
+  }
+  ELSE
+  {
+    config.supportobjectname := MakeAbsoluteResourcePath(siteprofile->siteprofile->name, config.supportobjectname);
+  }
+
+  IF (config.cookiename != "" AND config.cookiename NOT LIKE "*webharelogin*")
+    THROW NEW Exception(`Invalid wrdauth cookie name '${config.cookiename}', must contain 'webharelogin'`);
+
+  RETURN config;
+}
+
+PUBLIC RECORD FUNCTION ParseWRDPaymentsConfigurationNode(OBJECT siteprofile, OBJECT node)
+{
+  RECORD config :=
+          [ wrdschema := node->GetAttribute("wrdschema")
+          , providerfield := node->GetAttribute("providerfield")
+          , paymentfield := node->GetAttribute("paymentfield")
+          ];
+
+  RETURN config;
+}

@@ -33,6 +33,14 @@ PUBLIC RECORD __webdesign_config; //used to initialize webdesign configuration
 CONSTANT STRING ARRAY site_referrals_mask := [ "publisher:internal.siteprofiles.recompiled", "system:whfs.sitemeta.*", "system:sites" ];
 OBJECT current_apply_rule_tester_cache;
 
+PUBLIC STRING ARRAY FUNCTION DefaultListConfigurationNodeAttributes(OBJECT node) {
+  STRING ARRAY names;
+  FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
+    IF(attr->namespaceuri = "")
+      INSERT ToUppercase(attr->nodename) INTO names AT END;
+  RETURN names;
+}
+
 PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
 {
   RETURN [ ordering := "orderable"

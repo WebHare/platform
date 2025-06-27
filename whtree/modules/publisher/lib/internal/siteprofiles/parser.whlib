@@ -1237,20 +1237,33 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         //Verify it against the list of plugins
         BOOLEAN matched;
         FOREVERY(RECORD plugin FROM this->parameters->webdesignplugins)
-          IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname)
-          {
-            //Instantiate the plugin to let it parse its own settings
-            errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
-            OBJECT pluginobj := MakeObject(plugin.objectname);
+          IF(plugin.namespace = node->namespaceuri AND plugin.name = node->localname) {
             plugin := InstantiatePlugin(plugin);
-            errorsarenowfatal := FALSE;
 
-            plugin.data := pluginobj->ParseConfigurationNode(this, node);
-            IF(RecordExists(plugin.data))
-            {
-              INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
-                        , __location := this->filename || ":" || node->linenum
-                     INTO plugin.data;
+            IF(plugin.parser != "") { //A seperate parser entrypoint. Should be used to cut back on LOADLIBs/compilations triggered by SP parsing
+              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
+              FUNCTION PTR parser := MakeFunctionPtr(plugin.parser);
+              errorsarenowfatal := FALSE;
+
+              plugin.data := parser(this, node);
+              IF(RecordExists(plugin.data)) {
+                IF(NOT CellExists(plugin.data, "__attributes"))
+                  INSERT CELL __attributes := DefaultListConfigurationNodeAttributes(node) INTO plugin.data;
+                plugin.data := CELL [...plugin.data, __location := this->filename || ":" || node->linenum ];
+              }
+            } ELSE { //Pre 5.8 approach: instantiate the plugin to get to its parser APIs
+              //Instantiate the plugin to let it parse its own settings
+              errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
+              OBJECT pluginobj := MakeObject(plugin.objectname);
+              errorsarenowfatal := FALSE;
+
+              plugin.data := pluginobj->ParseConfigurationNode(this, node);
+              IF(RecordExists(plugin.data))
+              {
+                INSERT CELL __attributes := pluginobj->ListConfigurationNodeAttributes(node)
+                          , __location := this->filename || ":" || node->linenum
+                      INTO plugin.data;
+              }
             }
 
             INSERT plugin INTO apply.plugins AT END;
