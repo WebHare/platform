@@ -61,6 +61,7 @@ RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
   RETURN langrec;
 }
 
+
 PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 < // ---------------------------------------------------------------------------
   //
@@ -1539,13 +1540,8 @@ PUBLIC STATIC OBJECTTYPE WebDesignPluginBase
 
   /** Explain which attributes are set for the configuration node (ie, which attributes a later webdesignplugin node overrides.
       By default, returns the names of all attributes */
-  PUBLIC STRING ARRAY FUNCTION ListConfigurationNodeAttributes(OBJECT node)
-  {
-    STRING ARRAY names;
-    FOREVERY(OBJECT attr FROM node->attributes->GetCurrentNodes())
-      IF(attr->namespaceuri = "")
-        INSERT ToUppercase(attr->nodename) INTO names AT END;
-    RETURN names;
+  PUBLIC STRING ARRAY FUNCTION ListConfigurationNodeAttributes(OBJECT node) {
+    RETURN DefaultListConfigurationNodeAttributes(node);
   }
 
   /** Override with a function that parses node. Unless you override ListConfigurationNodeAttributes too, the cellnames used in the returned
