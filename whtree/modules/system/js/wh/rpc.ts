@@ -1,4 +1,3 @@
-/* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
@@ -15,14 +14,18 @@ function getDebugAppend() {
    and move net/eventserver to wh/eventserver.es then */
 
 class ControlledCall {
-  constructor(client, method, stack, id, options, callurl, fetchoptions) {
-    this.client = client;
-    this.options = options;
+  abortcontroller = new AbortController;
+  timeout;
+  _callurl;
+  _fetchoptions;
+  promise: Promise<unknown>;
+  timedout = false;
+  aborted = false;
+  legacyresolve;
 
-
+  constructor(public client, method, stack, id, public options, callurl, fetchoptions) {
     // if(options.timeout || options.signal) //as long as rpcResolve exists, we'll ALWAYS need to setup a controller
     {
-      this.abortcontroller = new AbortController;
       fetchoptions.signal = this.abortcontroller.signal;
 
       if (options.timeout > 0) {
@@ -56,8 +59,7 @@ class ControlledCall {
   async _completeCall(method, stack, id, fetchpromise) {
     let response;
     try {
-      while (true) //loop for 429
-      {
+      while (true) { //loop for 429
         response = await fetchpromise;
         if (response.status === 429 && !("retry429" in this.options && !this.options.retry429) && response.headers.get("Retry-After")) {
           const retryafter = parseInt(response.headers.get("Retry-After"));
@@ -119,12 +121,16 @@ class ControlledCall {
 }
 
 /** Invokes (WebHare) JSON/RPC
-    @param url URL to invoke (leave empty or pass no parameters at all to callback to the current page)
-    @cell options.timeout Default timeout for all calls
-    @cell options.debug Debug (Follows 'rpc' debugflag if not explicity specified)
-    @deprecated Switch to @webhare/jsonrpc */
+    @param url - URL to invoke (leave empty or pass no parameters at all to callback to the current page)
+    options.timeout Default timeout for all calls
+    options.debug Debug (Follows 'rpc' debugflag if not explicity specified)
+    @deprecated Switch to \@webhare/jsonrpc */
 export default class RPCClient {
-  constructor(url, options?) {
+  options;
+  url: string;
+  addfunctionname;
+  urlappend;
+  constructor(url: string, options?) {
     this.options = {
       timeout: 0,
       debug: dompack.debugflags.rpc,
@@ -175,7 +181,7 @@ export default class RPCClient {
     console.groupEnd();
   }
 
-  invoke(...params) {
+  invoke(...params: unknown[]) {
     let options;
     if (typeof params[0] === "object")
       options = { ...this.options, ...params.shift() };
@@ -216,4 +222,41 @@ export default class RPCClient {
 
     return new ControlledCall(this, method, stack, id, options, callurl, fetchoptions).promise;
   }
+}
+
+class JSONRPCService { //originally generated inline by the rpcloader.ts
+  rpcclient;
+
+  static get HTTP_ERROR() { return -1; } // Error connecting to the RPC server
+  static get JSON_ERROR() { return -2; } // The returned value could not be decoded into a JSON object
+  static get PROTOCOL_ERROR() { return -3; } // The return object did not contain an id, or the id did not match the request id
+  static get RPC_ERROR() { return -4; } // The RPC returned an error
+  static get OFFLINE_ERROR() { return -5; } // The application is not online (only returned if the onlineonly option was set)
+  static get TIMEOUT_ERROR() { return -6; } // The request could not be sent or was not answered before within the timeout set in the options
+  static get SERVER_ERROR() { return -7; } // The server encountered an internal error
+
+  constructor(service: string) {
+    this.rpcclient = new RPCClient(service);
+  }
+
+  rpcResolve(promise: Promise<unknown>, result: unknown) {
+    this.rpcclient._handleLegacyRPCResolve(promise, result);
+  }
+  invoke(...args: unknown[]) {
+    return this.rpcclient.invoke(...args);
+  }
+}
+
+class JSONRPCServiceProxy {
+  get(target: JSONRPCService, prop: string, receiver: unknown) {
+    if (prop in target)
+      return Reflect.get(target, prop, receiver);
+    //it's a call, turn into an invoke
+    return (...args: unknown[]) => target.invoke(prop, ...args);
+  }
+}
+
+export function createService(name: string) {
+  const service = new JSONRPCService(name);
+  return new Proxy(service, new JSONRPCServiceProxy);
 }
