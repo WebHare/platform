@@ -1245,12 +1245,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               FUNCTION PTR parser := MakeFunctionPtr(plugin.parser);
               errorsarenowfatal := FALSE;
 
-              plugin.data := plugin.parser(this, node);
+              plugin.data := parser(this, node);
               IF(RecordExists(plugin.data)) {
                 IF(NOT CellExists(plugin.data, "__attributes"))
                   INSERT CELL __attributes := DefaultListConfigurationNodeAttributes(node) INTO plugin.data;
                 plugin.data := CELL [...plugin.data, __location := this->filename || ":" || node->linenum ];
-            } ELSE {
+              }
+            } ELSE { //Pre 5.8 approach: instantiate the plugin to get to its parser APIs
               //Instantiate the plugin to let it parse its own settings
               errorsarenowfatal := TRUE; //any error here should abort siteprofile compilation to avoid plugins silently disappearing due to out-of-date errors
               OBJECT pluginobj := MakeObject(plugin.objectname);

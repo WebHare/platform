@@ -15,14 +15,4 @@ PUBLIC OBJECTTYPE FormPaymentsPlugin EXTEND WebDesignPluginBase
   {
     this->config := mergedconfiguration;
   }
-  UPDATE PUBLIC RECORD FUNCTION ParseConfigurationNode(OBJECT siteprofile, OBJECT node)
-  {
-    RECORD config :=
-           [ wrdschema := node->GetAttribute("wrdschema")
-           , providerfield := node->GetAttribute("providerfield")
-           , paymentfield := node->GetAttribute("paymentfield")
-           ];
-
-    RETURN config;
-  }
 >;

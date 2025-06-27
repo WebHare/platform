@@ -14,10 +14,12 @@
     <webdesignplugin name="wrdauth"
                      composerhook="js/internal/wrdauthplugin.ts#hookComposer"
                      namespace="http://www.webhare.net/xmlns/wrd"
-                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin" />
+                     objectname="lib/internal/auth/webdesignplugin.whlib#wrdauthplugin"
+                     parser="mod::platform/lib/internal/sp-parsers.whlib#ParseWRDAuthConfigurationNode" />
     <webdesignplugin name="formpayments"
                      namespace="http://www.webhare.net/xmlns/wrd"
-                     objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin" />
+                     objectname="lib/internal/psp/paymentsplugin.whlib#formpaymentsplugin"
+                     parser="mod::platform/lib/internal/sp-parsers.whlib#ParseWRDPaymentsConfigurationNode" />
 
     <formcomponents namespace="http://www.webhare.net/xmlns/wrd/forms" xmlschema="data/formcomponents.xsd" />
   </publisher>
