@@ -1,6 +1,6 @@
 /** Provides an autocomplete handler compatible with jQuery */
 
-var searchrpc = require('@mod-consilio/js/internal/search.rpc.json');
+var searchrpc = require('@mod-consilio/js/internal/search.rpc.json?proxy');
 
 /* ADDMEs:
    - enrich missing options from WHBase consilio settings

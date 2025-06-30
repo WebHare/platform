@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import backendrpc from "@mod-consilio/js/internal/backend.rpc.json";
+import backendrpc from "@mod-consilio/js/internal/backend.rpc.json?proxy";
 import * as dompack from 'dompack';
 
 export default class ConsilioBackend {

@@ -62,6 +62,7 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
     warnings
   };
 }
+import { toFSPath } from "@webhare/services";
 
 export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
   const runInAsyncScope = AsyncLocalStorage.snapshot();
@@ -69,6 +70,20 @@ export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
     name: "jsonrpc",
     setup: function (build: esbuild.PluginBuild) {
       build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, a => runInAsyncScope(async (args) => {
+        const url = new URL(`file:///${args.path}${args.suffix}`);
+        if (url.searchParams.has("proxy")) { //Opting in to the loadlib-less Proxy implementation
+          const source = await fs.promises.readFile(args.path, 'utf8');
+          const rpcfile = JSON.parse(source);
+          const service = rpcfile.services[0];
+          const contents = `const { createService } = require("@mod-system/js/wh/rpc.ts"); export default createService("${service}");`;
+          const dependencies = [args.path, toFSPath("mod::system/js/wh/rpc.ts")];
+
+          dependencies.forEach(dep => captureplugin.loadcache.add(dep));
+
+          return { contents, warnings: [], watchFiles: dependencies };
+        }
+
+        // Original Harescript-dependent implementation
         const source = await fs.promises.readFile(args.path);
         const result = await generateRPCWrappers(args.path, source.toString());
 
@@ -79,7 +94,6 @@ export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
           warnings: result.warnings.map(_ => ({ text: _ })),
           watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
         };
-        // console.log(require.resolve(args.path, ))
       }, a));
     }
   };

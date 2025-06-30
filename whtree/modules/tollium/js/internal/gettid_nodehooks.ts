@@ -145,7 +145,7 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
     if (fallbackdata.length === 0) {
       throw new Error(`Cannot find '${resname}' or the fallback file '${fallbackresname}'`);
     }
-    retval = { resource: resname, ...compileLanguageFile(fallbackdata, texts), registered };
+    retval = { resource: fallbackresname, ...compileLanguageFile(fallbackdata, texts), registered };
   } else {
     const resdata = readFileSync(resname, 'utf-8');
     retval = { resource: resname, ...compileLanguageFile(resdata, texts), registered };

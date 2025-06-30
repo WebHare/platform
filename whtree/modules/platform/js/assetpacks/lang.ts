@@ -5,8 +5,9 @@ import type * as esbuild from 'esbuild';
 import type { CaptureLoadPlugin } from "@mod-platform/js/assetpacks/compiletask";
 import * as fs from "node:fs";
 import { emplace } from '@webhare/std';
-import { loadlib } from '@webhare/harescript';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { getCompiledLanguageFile } from '@mod-tollium/js/internal/gettid_nodehooks';
+import type { LanguageText } from '@webhare/gettid/src/types';
 
 type ModuleTids = { [tid: string]: string | ModuleTids };
 type ModuleTexts = { [language: string]: ModuleTids };
@@ -117,12 +118,21 @@ export async function readLanguageFile(module: string, language: string, filelis
 }
 
 async function getLanguageXML(modulename: string, language: string) {
-  const response = await loadlib("mod::publisher/lib/internal/webdesign/rpcloader.whlib").GetLanguageFile(modulename, language) as {
-    diskpath: string;
-    fallbacklanguage: string;
-    texts: Array<{ tid: string; text: string }>;
+  const texts = new Map<string, LanguageText>;
+  const output = getCompiledLanguageFile(modulename, language, texts);
+  const outputTexts = new Array<{ tid: string; text: string }>();
+
+  for (const [tid, text] of output.texts.entries())
+    outputTexts.push({ tid, text: text as string });
+
+  return {
+    filepath: modulename + "|" + language,
+    filedata: {
+      diskpath: output.resource,
+      fallbacklanguage: output.fallbackLanguage,
+      texts: outputTexts
+    }
   };
-  return { filepath: modulename + "|" + language, filedata: response };
 }
 
 

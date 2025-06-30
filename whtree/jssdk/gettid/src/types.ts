@@ -28,6 +28,7 @@ export type LanguageText = string | LanguagePart[];
 export type LanguagePart = string | number | Tag | Link | IfParam;
 
 export type CompiledLanguageFile = {
+  /** Disk path to language file */
   resource: string;
   langCode: string;
   fallbackLanguage: string;
