@@ -34,6 +34,8 @@ export function sendPxl<DataType extends (Event extends keyof PxlDataTypes ? Nee
   const [data, options] = params;
   const pxldata: PxlEventData = {};
   for (const [k, v] of Object.entries(data ?? {})) {
+    if (v === undefined)
+      continue;
     if (typeof v === "string")
       pxldata[`ds_${k}`] = v;
     else if (typeof v === "number")

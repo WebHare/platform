@@ -1095,6 +1095,7 @@
         <text tid="visibility-always">Altijd tonen</text>
         <text tid="visibility-hidden">Nooit tonen</text>
         <text tid="visibility-ifused">Alleen indien gebruikt</text>
+        <text tid="wrd_tag">Tag</text>
       </textgroup>
     </textgroup>
     <textgroup gid="payments">   <!-- tolliumapps.payments -->

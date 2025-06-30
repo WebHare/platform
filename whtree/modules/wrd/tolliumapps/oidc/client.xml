@@ -8,11 +8,11 @@
       <wrd:entitiesedit name="providers"
                         minwidth="60x"
                         minheight="12gr"
-                        onentityedit="oneditprovider"
-                        requestcolumns="wrd_title clientid metadataurl"
-                        wrdtype="wrdauth_oidc_client"
                         deletemode="delete"
-                        onmaprows="mapproviders">
+                        onentityedit="oneditprovider"
+                        onmaprows="mapproviders"
+                        requestcolumns="wrd_title clientid metadataurl"
+                        wrdtype="wrdauth_oidc_client">
         <column name="wrd_title" type="text" tid=".buttontitle" />
         <column name="metadataurl" type="text" />
         <column name="clientid" type="text" />
@@ -55,8 +55,9 @@
       <heading doclink="platform:wrdauth/oidc/configuration" tid=".configuration" />
       <textedit composition="entity" cellname="additionalscopes" width="1pr" />
       <textedit composition="entity" cellname="loginfield" width="1pr" placeholder="sub" value="sub" />
-      <imgedit composition="entity" cellname="icon" recommendedsize="48x48" width="1pr" height="100px" publisher="false" />
-      <textarea composition="entity" cellname="comments"  width="1pr" minheight="3gr" tid="~comments" />
+      <imgedit composition="entity" cellname="icon" width="1pr" height="100px" publisher="false" recommendedsize="48x48" />
+      <textarea composition="entity" cellname="comments" width="1pr" minheight="3gr" tid="~comments" />
+      <textedit composition="entity" cellname="wrd_tag" width="1pr" minheight="3gr" />
     </body>
   </screen>
 

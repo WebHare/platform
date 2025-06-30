@@ -193,6 +193,8 @@ test.runTests([
     sendPxl("webhare_testsuite:aa", { invalid: "a" });// aa: 2
     //@ts-expect-error -- superfluous data for known event
     sendPxl("webhare_testsuite:aa", { s: "string", superfluous: 123 });// aa: 3
+    //nicer api if wer're able to block a field by setting it to undefined (instead of fully ommitting)
+    sendPxl("webhare_testsuite:aa", { s: "string2", n: undefined, b: false }); // aa: 4
 
     //@ts-expect-error -- incorrect types used in known event declaration
     test.throws(/'bigint'.*'b'/, () => sendPxl("webhare_testsuite:nobiggy", { b: 12n }));
@@ -237,6 +239,7 @@ test.runTests([
     test.eq("string", aaEvents[0].mod_webhare_testsuite.s);
     test.eq(1, aaEvents[0].mod_webhare_testsuite.n);
     test.eq(true, aaEvents[0].mod_webhare_testsuite.b);
+    test.eq({ s: "string2", b: false }, aaEvents[4].mod_webhare_testsuite, "should be no 'n' as it was set to undefined");
   }
   /* TODO restore these tests when we have a way to overwrite islive/dtapstage. might be worth the trouble to add that to SiteResponse (overwriting the #wh-config)
    ,   "Test live mode never throwing",
