@@ -14,12 +14,12 @@ import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/h
 import { getBestMatch, getStackTrace } from "@webhare/js-api-tools";
 import { type Changes, type ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";
 import { wrdFinishHandler } from "./finishhandler";
-import { wrdSettingsGuid } from "@webhare/wrd/src/settings";
+import { wrdSettingsGuid } from "./settings";
 import { ValueQueryChecker } from "./checker";
 import { runSimpleWRDQuery } from "./queries";
 import { prepareAnyForDatabase } from "@webhare/whdb/src/formats";
 import { hashStream } from "@webhare/services/src/descriptor";
-import { SettingsStorer } from "./settings";
+import { SettingsStorer } from "./entitysettings";
 import { isDate } from "node:util/types";
 
 type __InternalUpdEntityOptions = {

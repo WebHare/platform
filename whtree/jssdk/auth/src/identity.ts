@@ -1,6 +1,6 @@
 import * as crypto from "node:crypto";
 import jwt, { type JwtPayload, type SignOptions, type VerifyOptions } from "jsonwebtoken";
-import { type AnyWRDSchema, type SchemaTypeDefinition, WRDSchema } from "@mod-wrd/js/internal/schema";
+import { type AnyWRDSchema, type SchemaTypeDefinition, WRDSchema } from "@webhare/wrd/src/schema";
 import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generated/wrd/webhare";
 import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
@@ -9,7 +9,7 @@ import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateabl
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, decryptForThisServer, encryptForThisServer, importJSObject, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { AnySchemaTypeDefinition, AttrRef } from "@mod-wrd/js/internal/types";
+import type { AnySchemaTypeDefinition, AttrRef } from "@webhare/wrd/src/types";
 import { defaultDateTime } from "@webhare/hscompat";
 import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOptions, ReportedUserInfo } from "./customizer";
 import type { WRDAuthAccountStatus } from "@webhare/auth";

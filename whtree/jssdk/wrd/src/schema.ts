@@ -4,7 +4,7 @@ import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type Record
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
 import { ensureScopedResource, setScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration } from "@webhare/wrd/src/wrdsupport";
+import { tagToHS, tagToJS, checkValidWRDTag, type WRDAttributeConfiguration } from "./wrdsupport";
 import { getSchemaData, schemaExists, type SchemaData } from "./db";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";

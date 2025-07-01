@@ -7,7 +7,7 @@ import { createCodeChallenge, retrieveTokens, returnAuthorizeFlow, startAuthoriz
 import { addDuration, convertWaitPeriodToDate, generateRandomId, isLikeRandomId, parseTyped, throwError } from "@webhare/std";
 import { decryptForThisServer, toResourcePath } from "@webhare/services";
 import type { NavigateInstruction } from "@webhare/env/src/navigation";
-import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";

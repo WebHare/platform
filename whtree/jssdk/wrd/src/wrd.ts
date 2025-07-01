@@ -2,15 +2,15 @@
 declare module "@webhare/wrd" {
 }
 
-import { WRDSchema, type WRDSchemaTypeOf, type AnyWRDSchema } from "@mod-wrd/js/internal/schema";
+import { WRDSchema, type WRDSchemaTypeOf, type AnyWRDSchema } from "./schema";
 export { AuthenticationSettings } from "./authsettings";
 export { isValidWRDTag } from "./wrdsupport";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { broadcastOnCommit, db } from "@webhare/whdb";
-import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "@mod-wrd/js/internal/types";
-import { encodeWRDGuid } from "@mod-wrd/js/internal/accessors";
+import type { WRDAttributeType, WRDMetaType, WRDInsertable as WRDInsertable, WRDUpdatable as WRDUpdatable } from "./types";
+import { encodeWRDGuid } from "./accessors";
 import { tagToJS } from "./wrdsupport";
-import { wrdFinishHandler } from "@mod-wrd/js/internal/finishhandler";
+import { wrdFinishHandler } from "./finishhandler";
 import { scheduleTask, scheduleTimedTask } from "@webhare/services";
 
 export { getSchemaSettings, updateSchemaSettings } from "./settings";
@@ -21,7 +21,7 @@ export type { WRDInsertable, WRDUpdatable, WRDSchemaTypeOf };
 import type * as customizer from "@webhare/auth/src/customizer";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
-import { parseSchema, wrd_baseschemaresource } from "@mod-wrd/js/internal/schemaparser";
+import { parseSchema, wrd_baseschemaresource } from "./schemaparser";
 import { loadlib } from "@webhare/harescript";
 import { generateRandomId, regExpFromWildcards } from "@webhare/std";
 import { updateSchemaSettings } from "./settings";

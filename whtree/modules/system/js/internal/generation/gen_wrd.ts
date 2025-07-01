@@ -1,12 +1,12 @@
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
-import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@mod-wrd/js/internal/types";
+import { WRDAttributeTypeId, WRDGender, type WRDAttributeType, WRDAttributeTypes } from "@webhare/wrd/src/types";
 import { type GenerateContext, type FileToUpdate, generatorBanner, isNodeApplicableToThisWebHare } from "./shared";
 import { type WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { Document } from "@xmldom/xmldom";
 import { emplace } from "@webhare/std";
 import { elements, getAttr } from "./xmlhelpers";
-import { parseSchema, wrd_baseschemaresource, type ParsedAttr } from "@mod-wrd/js/internal/schemaparser";
+import { parseSchema, wrd_baseschemaresource, type ParsedAttr } from "@webhare/wrd/src/schemaparser";
 import type { WRDSchemas } from "@mod-platform/generated/schema/moduledefinition";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
@@ -328,8 +328,8 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     ).join("");
 
     fullfile = `${generatorBanner}
-import type { WRDTypeBaseSettings, WRDBaseAttributeTypeId, WRDAttributeTypeId, IsGenerated, IsRequired, WRDAttr } from "@mod-wrd/js/internal/types";
-import { WRDSchema } from "@mod-wrd/js/internal/schema";
+import type { WRDTypeBaseSettings, WRDBaseAttributeTypeId, WRDAttributeTypeId, IsGenerated, IsRequired, WRDAttr } from "@webhare/wrd/src/types";
+import { WRDSchema } from "@webhare/wrd/src/schema";
 
 ${typedecls}
 ${fullfile}

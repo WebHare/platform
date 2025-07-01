@@ -3,7 +3,7 @@ import { parseDuration, subtractDuration } from "@webhare/std";
 import { AuthenticationSettings, type WRDSchema } from "@webhare/wrd";
 import { getTid } from "@webhare/gettid";
 import { getUserValidationSettings } from "./support";
-import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { runInWork } from "@webhare/whdb";
 import { createServerSession } from "@webhare/services";
 import { writeAuthAuditEvent, type AuthAuditContext } from "@webhare/auth";

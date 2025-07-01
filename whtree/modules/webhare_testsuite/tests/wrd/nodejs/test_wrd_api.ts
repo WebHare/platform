@@ -3,7 +3,7 @@ import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
-import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
+import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
 
 async function testWRDUntypedApi() { //  tests
   const nosuchschema = new WRDSchema("wrd:nosuchschema");

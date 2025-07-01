@@ -12,7 +12,7 @@ import type { AuthCustomizer } from "@webhare/auth";
 import { getCookieBasedUser } from "@webhare/auth/src/authfrontend";
 import type { NavigateInstruction } from "@webhare/env";
 import { runInWork } from "@webhare/whdb";
-import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 
 declare module "@webhare/services" {
   interface SessionScopes {

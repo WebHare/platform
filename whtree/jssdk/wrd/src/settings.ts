@@ -1,4 +1,4 @@
-import type { MapRecordOutputMap, OutputMap, RecordizeOutputMap, SchemaTypeDefinition, WRDUpdatable } from "@mod-wrd/js/internal/types";
+import type { MapRecordOutputMap, OutputMap, RecordizeOutputMap, SchemaTypeDefinition, WRDUpdatable } from "./types";
 import type { WRDSchema } from "./wrd";
 
 export const wrdSettingsGuid = "07004000-0000-4000-a000-00bea61ef00d";
