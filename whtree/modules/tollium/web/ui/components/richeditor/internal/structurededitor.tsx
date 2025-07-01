@@ -2773,7 +2773,7 @@ export default class StructuredEditor extends EditorBase {
     });
 
     node.appendChild(tbody);
-    rtesupport.fixupScopeTRs(node);
+    tableeditor.fixupScopeTRs(node);
     return node;
   }
 

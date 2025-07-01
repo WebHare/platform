@@ -370,6 +370,8 @@ export function buildStrictConfig(options) {
         // Make the recommended errors of the import plugin errors again
         "import/default": "error",
         "import/export": "error",
+        // Fail on circular dependencies
+        "import/no-cycle": "error",
       }
     }
   ];

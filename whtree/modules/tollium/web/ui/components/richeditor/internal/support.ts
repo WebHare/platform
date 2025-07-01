@@ -3,16 +3,6 @@ import * as dompack from 'dompack';
 import type { RTESettings, RTEWidget, TargetInfo } from "./types";
 import { queryEmbeddedObjects } from "./domlevel";
 
-export function fixupScopeTRs(node: HTMLElement) {
-  for (const tr of dompack.qSA(node, 'tr')) {
-    const scoperow = Boolean(tr.querySelector('th[scope=row]'));
-    tr.classList.toggle('wh-rtd--hasrowheader', scoperow);
-
-    const scopecol = Boolean(tr.querySelector('th[scope=col]'));
-    tr.classList.toggle('wh-rtd--hascolheader', scopecol);
-  }
-}
-
 export function getTargetInfo(actiontarget: { __node: HTMLElement }): TargetInfo | null { //provide JSON-safe information about the action target
   const node = actiontarget.__node;
   if (node.matches('a')) {

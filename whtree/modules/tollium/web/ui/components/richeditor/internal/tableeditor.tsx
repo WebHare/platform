@@ -5,9 +5,19 @@ import * as dompack from "dompack";
 import { qSA } from "dompack";
 import * as movable from 'dompack/browserfix/movable';
 import * as domlevel from "./domlevel";
-import * as rtesupport from "./support";
 
 const activetables = [];
+
+export function fixupScopeTRs(node: HTMLElement) {
+  for (const tr of dompack.qSA(node, 'tr')) {
+    const scoperow = Boolean(tr.querySelector('th[scope=row]'));
+    tr.classList.toggle('wh-rtd--hasrowheader', scoperow);
+
+    const scopecol = Boolean(tr.querySelector('th[scope=col]'));
+    tr.classList.toggle('wh-rtd--hascolheader', scopecol);
+  }
+}
+
 
 function getSize(node) {
   return { x: node.offsetWidth, y: node.offsetHeight };
@@ -617,7 +627,7 @@ export class TableEditor {
       td.setAttribute("scope", wanttag === "td" ? "" : want_topheader ? "col" : "row");
     });
 
-    rtesupport.fixupScopeTRs(this.node);
+    fixupScopeTRs(this.node);
 
     if (havechange)
       this._gotStateChange();

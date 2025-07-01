@@ -2,7 +2,6 @@ import * as dompack from 'dompack';
 import "./docpanel.scss";
 import { getTid } from "@webhare/gettid";
 import type { ApplicationBase } from '../application';
-import { getIndyShell } from '../shell';
 
 export default class DocPanel {
   edittoken: string | undefined;
@@ -34,7 +33,7 @@ export default class DocPanel {
     if (!this.edittoken) //race?
       return;
 
-    getIndyShell().sendApplicationMessage("tollium:editdocumentation", { edittoken: this.edittoken }, null, "always");
+    this.app.shell.sendApplicationMessage("tollium:editdocumentation", { edittoken: this.edittoken }, null, "always");
   }
 
   close() {
