@@ -5,6 +5,13 @@ LOADLIB "wh::filetypes/richdocument.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
+PUBLIC MACRO SetTestInstanceField(STRING wrdschemaname, INTEGER person, RECORD testinstance) {
+  OpenWRDSchema(wrdschemaname)->^wrd_person->UpdateEntity(person, CELL[ testinstance ]);
+}
+
+PUBLIC RECORD FUNCTION GetTestInstanceField(STRING wrdschemaname, INTEGER person) {
+  RETURN OpenWRDSchema(wrdschemaname)->^wrd_person->GetEntityField(person, "testinstance");
+}
 
 PUBLIC MACRO SetTestRichDocumentField(STRING wrdschemaname, INTEGER person, STRING html)
 {

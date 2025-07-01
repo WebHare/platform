@@ -4,7 +4,7 @@ import { type WRDInsertable, type SchemaTypeDefinition, type WRDTypeBaseSettings
 import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
 import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec } from "./db";
+import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { type EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { appendToArray, compare, generateRandomId, omit } from "@webhare/std";
@@ -186,8 +186,10 @@ function reuseFreeSettings(encodedSettings: EncodedSetting[], current: Array<Ent
   }
 }
 
-function isSameSetting(cur: EntitySettingsRec, item: Partial<EntitySettingsRec>): boolean | Promise<boolean> {
-  for (const directCompare of ["rawdata", "setting", "ordering", "attribute", "parentsetting"] as const) { //TODO link & linktype?
+type CurrentSettingRec = EntitySettingsRec & { linktype?: number; link?: number };
+
+function isSameSetting(cur: CurrentSettingRec, item: Partial<CurrentSettingRec>): boolean | Promise<boolean> {
+  for (const directCompare of ["rawdata", "setting", "ordering", "attribute", "parentsetting", "linktype", "link"] as const) { //TODO link & linktype?
     if (!cur[directCompare]) {
       if (item[directCompare])
         return false; //this setting can't be eliminated, an unset value is now being set
@@ -789,7 +791,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       result.entityId = entityId;
     }
 
-    let cursettings = new Array<EntitySettingsRec & { used: false }>;
+    let cursettings = new Array<CurrentSettingRec & { used: false }>;
 
     if (isNew) {
       if (!splitData.entity.guid) {
@@ -819,8 +821,8 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
       //    FOREVERY(RECORD setting FROM splitData.settings)
       //    relevant_attrids:= relevant_attrids CONCAT setting.attr.__selectattributeids;
 
-      //ADDME: Might have settings cached? safely with an invalidate-on-rollback bit ?
-      cursettings = (await db<PlatformDB>()
+      // TODO: Might have settings cached? safely with an invalidate-on-rollback bit ?
+      const dbsettings = (await db<PlatformDB>()
         .selectFrom("wrd.entity_settings")
         .select(selectEntitySettingColumns)
         .where("entity", "=", result.entityId)
@@ -828,7 +830,26 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         .orderBy("attribute")
         .orderBy("parentsetting")
         .orderBy("ordering")
-        .execute()).map(row => ({ ...row, used: false }));
+        .execute());
+
+      // TODO: get only link settings for attributes that have them, reduces size of the where array
+      const dblinks: EntitySettingsWHFSLinkRec[] = dbsettings.length ?
+        await db<PlatformDB>()
+          .selectFrom("wrd.entity_settings_whfslink")
+          .select(selectEntitySettingWHFSLinkColumns)
+          .where("id", "in", dbsettings.map(setting => setting.id))
+          .orderBy("id")
+          .execute() :
+        [];
+
+      cursettings = dbsettings.map(setting => {
+        const link = dblinks.find(_ => _.id === setting.id);
+        return {
+          ...setting,
+          ...(link ? { link: link.fsobject, linktype: link.linktype } : {}),
+          used: false
+        };
+      });
 
       // If changing the GUID, also update the corresponding authobject - FIXME this might be unexpected if a user is renumbering an entity in eg a backup schema or related schema sharing guids!
       if (splitData.entity.guid && entityBaseInfo) {

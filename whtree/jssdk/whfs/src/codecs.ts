@@ -8,7 +8,7 @@ import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } 
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 import type { RichTextDocument } from "@webhare/services";
-import type { WHFSTypeMember } from "./contenttypes";
+import type { WHFSInstance, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 
@@ -385,7 +385,7 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "instance": {
-    encoder: (value: Record<string, unknown> & { whfsType: string }) => {
+    encoder: (value: WHFSInstance) => {
       if (!value)
         return null;
       if (!value.whfsType)
