@@ -76,6 +76,11 @@ class WRDFinishHandler implements FinishHandler {
     changes.name = true;
   }
 
+  schemaMetadataChanged(wrdSchemaId: number) {
+    const changes = emplace(this.schemaChanges, wrdSchemaId, { insert: () => ({}) });
+    changes.metadata = true;
+  }
+
   entityCreated(wrdSchemaId: number, wrdTypeId: number, entityId: number): void {
     this.entityChange(wrdSchemaId, wrdTypeId, entityId, "created");
   }

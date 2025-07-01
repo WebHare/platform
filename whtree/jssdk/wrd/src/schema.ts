@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, nextVal } from "@webhare/whdb";
+import { db, nextVal, type Updateable } from "@webhare/whdb";
 import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -24,6 +24,10 @@ type WRDCloseMode = typeof WRDCloseModes[number];
 interface SyncOptions {
   /** What to dot with unmatched entities during a sync? Defaults to 'keep' */
   unmatched?: WRDCloseMode | "keep";
+}
+
+interface SchemaUpdates {
+  accountType?: string | null;
 }
 
 interface GetFieldsOptions {
@@ -551,6 +555,27 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
         retval.add(`wrd:type.${childId}.change`);
     }
     return Array.from(retval).sort();
+  }
+
+  async updateSchema(updates: SchemaUpdates) {
+    let dbUpdate: Updateable<PlatformDB["wrd.schemas"]> | undefined;
+    if (updates.accountType) {
+      const typeid = (await this.describeType(updates.accountType))?.id;
+      dbUpdate = { ...dbUpdate, accounttype: typeid };
+    } else if (updates.accountType === null) {
+      dbUpdate = { ...dbUpdate, accounttype: null };
+    }
+
+    if (dbUpdate) {
+      const updated = await db<PlatformDB>().
+        updateTable("wrd.schemas").
+        set(dbUpdate).
+        where("name", "=", this.tag).
+        returning("id").
+        executeTakeFirstOrThrow();
+
+      wrdFinishHandler().schemaMetadataChanged(updated.id);
+    }
   }
 }
 
