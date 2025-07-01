@@ -151,7 +151,6 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
     retval = { resource: resname, ...compileLanguageFile(resdata, texts), registered };
   }
   addResourceChangeListener(module, resname, () => {
-    console.log(`Unloading ${resname}`);
     retval.resource = "";
     retval.texts.clear();
   });
