@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
-import { db, nextVal, sql } from "@webhare/whdb";
+import { db, nextVal } from "@webhare/whdb";
 import { type AnySchemaTypeDefinition, type AllowedFilterConditions, type RecordOutputMap, type SchemaTypeDefinition, recordizeOutputMap, type WRDInsertable, type WRDUpdatable, type CombineSchemas, type OutputMap, type RecordizeOutputMap, type RecordizeEnrichOutputMap, type MapRecordOutputMap, type AttrRef, type EnrichOutputMap, type CombineRecordOutputMaps, combineRecordOutputMaps, WRDAttributeTypes, type MapEnrichRecordOutputMap, type MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap, type MatchObjectQueryable, type EnsureExactForm, type UpsertMatchQueryable, type WhereFields, type WhereConditions, type WhereValueOptions, type WRDMetaType, WRDMetaTypes, WRDBaseAttributeTypes } from "./types";
 export type { SchemaTypeDefinition } from "./types";
 import { loadlib, type HSVMObject } from "@webhare/harescript";
@@ -15,7 +15,6 @@ import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/types";
 import { wrdFinishHandler } from "./finishhandler";
-import { getTid } from "@webhare/gettid";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -600,20 +599,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       typeRec?.parentAttrMap.get(parent) ?? [] :
       typeRec?.rootAttrMap.values().toArray() ?? [];
 
-    const dbAttributeIds = attrRecs.map(attr => attr.id).filter(attrId => attrId !== 0);
-    const extraFields = dbAttributeIds.length ?
-      new Map((await db<PlatformDB>()
-        .selectFrom("wrd.attrs")
-        .select(["id", "title"])
-        .where("id", "=", sql<number>`any(${dbAttributeIds})`)
-        .execute()).map(attr => [attr.id, attr])) :
-      new Map;
-
     return attrRecs.map((attrRec): WRDAttributeConfiguration => ({
       id: attrRec.id || null,
       tag: attrRec.fullTag,
       attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
-      title: attrRec.id ? extraFields.get(attrRec.id)?.title ?? "" : getTid(`wrd:common.baseattributes.${tagToHS(attrRec.tag)}`),
       checkLinks: attrRec.checklinks,
       domain: attrRec.domain ? schemadata.typeIdMap.get(attrRec.domain)?.tag ?? null : null,
       isUnsafeToCopy: attrRec.isunsafetocopy,
@@ -845,22 +834,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (!attrRec)
       return null;
 
-    let title: string;
-    if (attrRec.id === 0) //  base attribute
-      title = getTid(`wrd:common.baseattributes.${tagToHS(attrRec.tag)}`);
-    else {
-      title = (await db<PlatformDB>()
-        .selectFrom("wrd.attrs")
-        .select("title")
-        .where("id", "=", attrRec.id)
-        .executeTakeFirst())?.title || "";
-    }
-
     return {
       id: attrRec.id || null,
       tag: attrRec.fullTag,
       attributeType: attrRec.attributetype > 0 ? WRDAttributeTypes[attrRec.attributetype - 1] : WRDBaseAttributeTypes[-attrRec.attributetype - 1],
-      title,
       checkLinks: attrRec.checklinks,
       domain: attrRec.domain ? schemaData.typeIdMap.get(attrRec.domain)?.tag ?? null : null,
       isUnsafeToCopy: attrRec.isunsafetocopy,

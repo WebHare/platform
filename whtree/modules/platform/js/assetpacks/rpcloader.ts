@@ -63,6 +63,7 @@ return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slic
   };
 }
 import { toFSPath } from "@webhare/services";
+import { basename } from "path";
 
 export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
   const runInAsyncScope = AsyncLocalStorage.snapshot();
@@ -91,7 +92,10 @@ export function buildRPCLoaderPlugin(captureplugin: CaptureLoadPlugin) {
 
         return {
           contents: result.output,
-          warnings: result.warnings.map(_ => ({ text: _ })),
+          warnings: [
+            { text: `Load of '${basename(args.path)}' is slow, add ?proxy but don't import with "import * as"` },
+            ...result.warnings.map(_ => ({ text: _ }))
+          ],
           watchFiles: result.dependencies //NOTE doesn't get used until we get rid of captureplugin
         };
       }, a));

@@ -111,9 +111,9 @@ export function allocateTaskIds(count: number): Promise<number[]> {
     @param taskdatas - Task data records (as specified by the task). The data must fit in 4K of HSON data
     @param options - Task options
     @returns ID of the scheduled tasks in the taskdatas order */
-export async function scheduledTasks(tasktype: string, taskdatas: IPCMarshallableData[], options?: ScheduleTaskOptions): Promise<number[]> {
+export async function scheduleTasks(tasktype: string, taskdatas: IPCMarshallableData[], options?: ScheduleTaskOptions): Promise<number[]> {
   if (!isWorkOpen())
-    throw new Error("scheduledTasks must be invoked with open work");
+    throw new Error("scheduleTasks must be invoked with open work");
 
   const taskinfo = getExtractedConfig("tasks").tasktypes[tasktype] ?? throwError(`No such task type '${tasktype}' registered`);
 
@@ -204,7 +204,7 @@ export async function listTasks(type: string, searchparameters?: ListTasksOption
     @returns id of this task. This id is a database id and can be used by later scripts
 */
 export async function scheduleTask(tasktype: string, taskdata?: IPCMarshallableData, options?: ScheduleTaskOptions): Promise<number> {
-  return (await scheduledTasks(tasktype, [taskdata ?? {}], options))[0];
+  return (await scheduleTasks(tasktype, [taskdata ?? {}], options))[0];
 }
 
 /** Wait for timed tasks to finish
