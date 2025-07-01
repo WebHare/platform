@@ -1,7 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::ipc.whlib";
-
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 

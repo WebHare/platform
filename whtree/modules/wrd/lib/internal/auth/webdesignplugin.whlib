@@ -8,9 +8,7 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::publisher/lib/forms/base.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
@@ -20,13 +18,11 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
-LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -41,7 +37,6 @@ LOADLIB "mod::wrd/lib/internal/auth/legacy-api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
-LOADLIB "mod::wrd/lib/internal/pages/authpages.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 RECORD FUNCTION GetCacheableExternalUserAccounts(INTEGER uselist)

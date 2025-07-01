@@ -6,7 +6,6 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
-LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 LOADLIB "mod::wrd/lib/internal/userapi.whlib" EXPORT GetWRDAuthUserAPI;
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib" EXPORT CreateAuthenticationSettingsFromPasswordHash, GetDefaultAuthenticationSettings, IsDefaultAuthenticationSettings;
 LOADLIB "mod::wrd/lib/internal/auth/saml.whlib";

@@ -2,7 +2,6 @@
 (*ISSYSTEMLIBRARY*)
 
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::ipc.whlib";

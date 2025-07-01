@@ -9,9 +9,7 @@ LOADLIB "wh::dbase/postgresql.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
-LOADLIB "mod::system/lib/internal/dbase/base.whlib";
 LOADLIB "mod::system/lib/internal/dbase/postgresql.whlib";
 
 
