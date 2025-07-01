@@ -372,6 +372,8 @@ export function buildStrictConfig(options) {
         "import/export": "error",
         // Fail on circular dependencies
         "import/no-cycle": "error",
+        // Cleaner imports:
+        "import/no-named-as-default": "error"
       }
     }
   ];

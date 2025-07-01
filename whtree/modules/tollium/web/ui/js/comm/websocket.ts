@@ -1,6 +1,6 @@
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase, { type TransportBaseOptions } from "./transportbase";
-import type LinkEndpoint from "./linkendpoint";
+import type { LinkEndpoint } from "./linkendpoint";
 
 /// WebSocket support
 export default class WebSocketTransport extends TransportBase {
