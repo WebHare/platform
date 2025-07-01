@@ -5,7 +5,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/debug.whlib";
 LOADLIB "wh::internal/interface.whlib";
 

@@ -1,6 +1,5 @@
 ﻿<?wh
 
-LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/otp.whlib";
@@ -13,7 +12,6 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 

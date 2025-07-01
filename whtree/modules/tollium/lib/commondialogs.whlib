@@ -1,8 +1,6 @@
 ﻿<?wh
 /** @private Interesting dialogs should be moved to dialogs.whlib AND use a Run... instead of Make... workflow */
 
-LOADLIB "wh::promise.whlib";
-
 /** @short Show QR code
     @param parent The parent window to use when opening the QR code window
     @param options
