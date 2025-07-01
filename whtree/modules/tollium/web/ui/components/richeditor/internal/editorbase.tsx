@@ -2849,7 +2849,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
   }
   executeDefaultPropertiesAction(event) {
     if (event.target.nodeName === 'A') {
-      // eslint-disable-next-line no-alert
       const url = prompt(this.GetLanguageText('prompt_hyperlink'), event.target.href);
       if (url)
         event.target.href = url;
@@ -2961,7 +2960,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         break;
       case 'a-href':
         {
-          // eslint-disable-next-line no-alert
           const url = prompt(this.GetLanguageText('prompt_hyperlink'), "http://");
           this.takeFocus();
           if (url)
@@ -3000,7 +2998,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         this._redo();
         break;
       case 'action-clearformatting':
-        // eslint-disable-next-line no-alert
         if (confirm(this.GetLanguageText("messages_confirmclearformatting")))
           this._clearFormatting();
         break;

@@ -1,4 +1,4 @@
-import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { compressUUID, hashClientSecret, IdentityProvider } from "./identity";
 import type { WRDSchema } from "@webhare/wrd";
 import { updateSchemaSettings } from "@webhare/wrd/src/settings";

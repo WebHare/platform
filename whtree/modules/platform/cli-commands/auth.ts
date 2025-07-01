@@ -1,6 +1,6 @@
 // @webhare/cli: Control WebHare users and rights
 
-import { WRDSchema } from '@mod-wrd/js/internal/schema';
+import { WRDSchema } from '@webhare/wrd/src/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig } from '@webhare/services';

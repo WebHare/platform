@@ -1,5 +1,4 @@
-import type LinkEndpoint from "./linkendpoint";
-import type { LinkWireMessage } from "./linkendpoint";
+import type { LinkEndpoint, LinkWireMessage } from "./linkendpoint";
 
 import { reportException } from "@mod-system/js/wh/errorreporting";
 

@@ -1,4 +1,4 @@
-import type { WRDAttributeType } from "@mod-wrd/js/internal/types";
+import type { WRDAttributeType } from "./types";
 import { nameToSnakeCase, nameToCamelCase } from "@webhare/std/types";
 
 export interface WRDAttributeConfiguration_HS {

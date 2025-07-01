@@ -4,7 +4,7 @@ import { throwError } from '@webhare/std';
 import { decodeHSON } from '@webhare/hscompat';
 import { runInWork } from '@webhare/whdb';
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { parseSchema } from '@mod-wrd/js/internal/schemaparser';
+import { parseSchema } from '@webhare/wrd/src/schemaparser';
 
 run({
   description: "Manage WRD",

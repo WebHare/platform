@@ -14,5 +14,5 @@ PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath, RECORD options 
   ELSE
     overridedata := DEFAULT RECORD; //null
 
-  RETURN CallJS("@mod-wrd/js/internal/schemaparser.ts#parseSchema", resourcepath, options.addbaseschema, overridedata);
+  RETURN CallJS("@webhare/wrd/src/schemaparser.ts#parseSchema", resourcepath, options.addbaseschema, overridedata);
 }

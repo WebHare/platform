@@ -1,5 +1,5 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { lookupCountryInfo } from "@webhare/geoip";
 import { broadcastOnCommit, db, type Insertable, type Selectable } from "@webhare/whdb/src/impl";
 import { describeEntity, WRDSchema } from "@webhare/wrd";

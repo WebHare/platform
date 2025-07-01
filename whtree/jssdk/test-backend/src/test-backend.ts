@@ -11,7 +11,7 @@ import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
 import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
-import type { SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";

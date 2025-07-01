@@ -1,5 +1,5 @@
 import JSONRPCTransport from "./jsonrpctransport";
-import type LinkEndpoint from "./linkendpoint";
+import type { LinkEndpoint } from "./linkendpoint";
 import type TransportBase from "./transportbase";
 import WebSocketTransport from "./websocket";
 

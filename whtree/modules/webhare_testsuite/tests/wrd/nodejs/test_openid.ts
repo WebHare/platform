@@ -2,7 +2,7 @@
    WEBHARE_DEBUG=show-browser wh run mod::webhare_testsuite/tests/wrd/nodejs/test_openid.ts
 */
 
-import { WRDSchema } from "@mod-wrd/js/internal/schema";
+import { WRDSchema } from "@webhare/wrd/src/schema";
 import { loadlib, makeObject } from "@webhare/harescript";
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 

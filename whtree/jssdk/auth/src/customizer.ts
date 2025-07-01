@@ -1,4 +1,4 @@
-import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@mod-wrd/js/internal/types";
+import type { AnySchemaTypeDefinition, SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { NavigateInstruction } from "@webhare/env";
 import type { WRDSchema } from "@webhare/wrd";
 import type { LoginErrorCode } from "./shared";

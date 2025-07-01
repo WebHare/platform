@@ -1,7 +1,7 @@
 import * as test from "@webhare/test-backend";
 import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
-import { parseSchema } from "@mod-wrd/js/internal/schemaparser";
+import { parseSchema } from "@webhare/wrd/src/schemaparser";
 import { createSchema, openSchemaById } from "@webhare/wrd";
 import { testschemaSchema } from "wh:wrd/webhare_testsuite";
 import { beginWork, commitWork } from "@webhare/whdb";

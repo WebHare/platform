@@ -9,13 +9,13 @@ import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { isValidWRDTag } from "@webhare/wrd/src/wrdsupport";
+import { isValidWRDTag } from "./wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { AuthenticationSettings } from "@webhare/wrd/src/authsettings";
+import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
-import { getRTDFromWHFS, storeRTDinWHFS } from "@webhare/wrd/src/wrd-whfs";
+import { getRTDFromWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
 
 /** Response type for addToQuery. Null to signal the added condition is always false

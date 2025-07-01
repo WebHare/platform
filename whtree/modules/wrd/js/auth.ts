@@ -268,7 +268,6 @@ export class WRDAuthenticationProvider {
     return newauth.isLoggedIn();
   }
   /** @deprecated Switch to frontend getUserInfo() */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- for backwards compatibility getUserInfo() should return an 'any'
   getUserInfo(): any {
     return newauth.getUserInfo();
   }

@@ -6,7 +6,7 @@ import { isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
 import { getUnifiedCC } from "@webhare/services/src/descriptor";
 import { appendToArray, omit } from "@webhare/std";
-import { SettingsStorer } from "@mod-wrd/js/internal/settings";
+import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";

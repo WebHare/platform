@@ -1,6 +1,6 @@
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { tagToHS, tagToJS } from "./wrdsupport";
 import { WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDGender, WRDMetaTypeId } from "./types";
 
 const selectSchemaColumns = ["id"] as const;
