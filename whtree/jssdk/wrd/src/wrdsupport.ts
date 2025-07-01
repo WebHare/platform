@@ -32,7 +32,6 @@ export interface WRDAttributeConfiguration extends WRDAttributeConfigurationBase
   /// Attribute ID, null if a base attribute
   id: number | null;
   tag: string;
-  title: string;
   checkLinks: boolean;
   domain: string | null;
   isUnsafeToCopy: boolean;
