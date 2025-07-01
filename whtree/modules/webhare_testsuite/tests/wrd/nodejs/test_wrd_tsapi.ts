@@ -731,6 +731,43 @@ async function testNewAPI() {
   test.eq("https://webhare.dev/", tsLink!.externalLink);
   test.eq(null, tsLink!.append);
 
+  // Set instance data through HS
+  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestInstanceField(testSchemaTag, newperson, {
+    whfstype: "http://www.webhare.net/xmlns/beta/embedblock1",
+    id: "TestInstance-1",
+    fsref: 16
+  });
+
+  test.eq({
+    whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
+    id: "TestInstance-1",
+    fsref: 16,
+    styletitle: ""
+  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"]))?.testinstance);
+
+  await schema.update("wrdPerson", newperson, {
+    testinstance: {
+      whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
+      fsref: 1,
+      styletitle: "Test style",
+      id: "TestInstance-2"
+    }
+  });
+
+  test.eq({
+    whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
+    id: "TestInstance-2",
+    fsref: 1,
+    styletitle: "Test style",
+  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"]))?.testinstance);
+
+  test.eqPartial({ //need partial due to whfssettingid
+    whfstype: "http://www.webhare.net/xmlns/beta/embedblock1",
+    id: "TestInstance-2",
+    fsref: 1,
+    styletitle: "Test style"
+  }, (await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").GetTestInstanceField(testSchemaTag, newperson)));
+
   // test array & nested record selectors
   {
     await schema.update("wrdPerson", newperson, {

@@ -15,8 +15,9 @@ import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/service
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
-import { getRTDFromWHFS, storeRTDinWHFS } from "./wrd-whfs";
+import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
+import type { WHFSInstance } from "@webhare/whfs/src/contenttypes";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -2024,6 +2025,41 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
+class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | null, WHFSInstance | null, WHFSInstance | null> {
+  getDefaultValue(): WHFSInstance | null {
+    return null;
+  }
+
+  isSet(value: WHFSInstance | null) { return Boolean(value); }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): Promise<WHFSInstance | null> | null {
+    //based on RetrieveInstanceInWHFS(INTEGER64 wrd_settingid, OBJECT whfsmapper)
+    const matchobj = links.find(_ => _.id === entity_settings[settings_start].id);
+    if (!matchobj?.fsobject)
+      throw new Error(`Unable to find WHFS instance for setting ${entity_settings[settings_start].id}`);
+
+    return getInstanceFromWHFS(matchobj?.fsobject);
+  }
+
+  validateInput(value: WHFSInstance | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (value && !("whfsType" in value))
+      throw new Error(`Invalid WHFS instance value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} - missing whfsType`);
+  }
+
+  encodeValue(value: WHFSInstance | null): AwaitableEncodedValue {
+    if (!value)
+      return {};
+
+    //INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val/*StoreInstanceInWHFS(this->wrdschema->id, val, whfsmapper)*/, linktype := 1 ] INTO newsets AT END;
+    //FIXME reuse existing object ids, but it looks like the HS implemtentation and storeRTDinWHFS can't do that either ?x
+    return {
+      settings: storeInstanceInWHFS(this.attr.schemaId, value).then(whfsId => {
+        return [{ rawdata: "WHFS", linktype: 1, link: whfsId, attribute: this.attr.id }];
+      })
+    };
+  }
+}
+
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null> {
   getDefaultValue(): IntExtLink | null {
     return null;
@@ -2334,7 +2370,6 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 type GetEnumArrayAllowedValues<Options extends { allowedValues: string }> = Options extends { allowedValues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet
-class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }

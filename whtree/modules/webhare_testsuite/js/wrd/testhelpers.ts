@@ -56,6 +56,7 @@ export type CustomExtensions = {
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeTypeId.RichDocument;//", { title: "Rich document" });
     linkie: WRDAttributeTypeId.WHFSIntExtLink;//", { title: "Internal/external link" });
+    testinstance: WRDAttributeTypeId.WHFSInstance;//", { title: "Testinstance" });
   } & WRDTypeBaseSettings;
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
