@@ -5,6 +5,7 @@
   <test script="test_wrd_events.ts" />
   <test script="test_wrd_metadata.ts" />
   <test script="test_wrd_history.ts" />
+  <test script="test_wrd_eximport.ts" />
   <test script="test_password_policy.ts" />
   <test script="test_wrd_auth.ts" />
   <test script="test_openid.ts" />

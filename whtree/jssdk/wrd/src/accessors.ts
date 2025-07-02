@@ -10,7 +10,7 @@ import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "./wrdsupport";
-import { uploadBlob } from "@webhare/whdb";
+import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
@@ -823,7 +823,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   (true extends Required ? number : number | null),
   (number | null),
   (true extends Required ? number : number | null),
-  (true extends Required ? number : number | null),
+  (true extends Required ? string : string | null),
   WRDDBDomainConditions
 > {
   getDefaultValue(): number | null { return null; }
@@ -903,6 +903,17 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
       return {};
 
     return { settings: { setting: value, attribute: this.attr.id } };
+  }
+
+  async exportValue(value: true extends Required ? number : number | null): Promise<true extends Required ? string : string | null> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "=", value).executeTakeFirst();
+    if (!lookupres)
+      throw new Error(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
+
+    return encodeWRDGuid(lookupres.guid);
   }
 }
 
@@ -1011,7 +1022,7 @@ type WRDDBDomainArrayConditions = {
   condition: "=" | "!="; value: readonly number[];
 };
 
-class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], number[], number[], WRDDBDomainArrayConditions> {
+class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], number[], string[], WRDDBDomainArrayConditions> {
   getDefaultValue(): number[] { return []; }
   isSet(value: number[]) { return Boolean(value?.length); }
   checkFilter({ condition, value }: WRDDBDomainArrayConditions) {
@@ -1103,6 +1114,14 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     return {
       settings: [...new Set(value)].toSorted((a, b) => a - b).map((setting, idx) => ({ setting, attribute: this.attr.id, ordering: idx + 1 }))
     };
+  }
+
+  async exportValue(value: number[]): Promise<string[]> {
+    if (!value.length)
+      return [];
+
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "in", value).execute();
+    return lookupres.map(_ => encodeWRDGuid(_.guid)).toSorted();
   }
 }
 

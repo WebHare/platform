@@ -291,7 +291,12 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     for (const acc of accessors) {
       const lb = recordLowerBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
       const ub = recordUpperBound(entityattrs, { attribute: acc.accessor.attr.id }, ["attribute"]);
-      const value = acc.accessor.getValue(entityattrs, lb.position, ub, entity, links, cc);
+
+      let value = acc.accessor.getValue(entityattrs, lb.position, ub, entity, links, cc);
+      if (options?.export) //exporter needs to rewrite the value. and possibly await it
+        value = isPromise(value) ? value.then(_ => acc.accessor.exportValue(_, options))
+          : acc.accessor.exportValue(value, options);
+
       accvalues.push(isPromise(value) ? await value : value);
     }
 

@@ -70,6 +70,18 @@ function testTypes() {
   }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, false>>>();
 
 
+  test.typeAssert<test.Equals<{
+    wrd_id: number;
+    wrdTitle: string;
+    whuser_disabled: boolean;
+    whuser_comment: string;
+    invented_domain: string | null;
+    whuser_unit: string;
+    whuser_hiddenannouncements: string[];
+    requiredFile: ResourceDescriptor;
+    requiredImage: ResourceDescriptor;
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
+
   const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] } as const;
   void recordselect;
 
@@ -88,6 +100,22 @@ function testTypes() {
       requiredImage: ResourceDescriptor;
     };
   }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect, false>>>();
+
+  test.typeAssert<test.Equals<{
+    wrd_id: number;
+    rec: {
+      wrdTitle: string;
+    };
+    arr: {
+      whuser_disabled: boolean;
+      whuser_comment: string;
+      whuser_unit: string;
+      invented_domain: string | null;
+      whuser_hiddenannouncements: string[];
+      requiredFile: ResourceDescriptor;
+      requiredImage: ResourceDescriptor;
+    };
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect, true>>>();
 
   type GenericWRDTypeDef = Record<string, WRDAttributeTypeId.Integer>;
 
