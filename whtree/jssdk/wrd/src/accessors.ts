@@ -678,8 +678,9 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   }
 }
 
-type WRDDBIntegerConditions = {
-  condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: number;
+type WRDDBIntegerConditions<Required extends boolean> = {
+  condition: "<" | "<=" | "=" | "!=" | ">=" | ">";
+  value: true extends Required ? number : number | null;
 } | {
   condition: "in"; value: readonly number[];
 } | {
@@ -688,13 +689,19 @@ type WRDDBIntegerConditions = {
   condition: "mentionsany"; value: readonly number[];
 };
 
-class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, number, WRDDBIntegerConditions> {
+// Required flags whether or not |null is denied. Real integers don't use null, wrdId supports null in some query scenarios
+class WRDDBIntegerValue<Required extends boolean = true> extends WRDAttributeValueBase<
+  (true extends Required ? number : number | null),
+  number | null,
+  number,
+  number,
+  WRDDBIntegerConditions<Required>> {
   getDefaultValue() { return 0; }
   isSet(value: number) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBIntegerConditions) {
+  checkFilter({ condition, value }: WRDDBIntegerConditions<Required>) {
     // type-check is enough (for now)
   }
-  matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+  matchesValue(value: number, cv: WRDDBIntegerConditions<Required>): boolean {
     if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
     if (cv.condition === "mentions")
@@ -702,7 +709,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, nu
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions<Required>): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     if (cv.condition === "mentions")
@@ -737,13 +744,13 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, nu
 }
 
 
-class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, number, WRDDBIntegerConditions> {
+class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, number, WRDDBIntegerConditions<true>> {
   getDefaultValue() { return 0; }
   isSet(value: number) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBIntegerConditions) {
+  checkFilter({ condition, value }: WRDDBIntegerConditions<true>) {
     // type-check is enough (for now)
   }
-  matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+  matchesValue(value: number, cv: WRDDBIntegerConditions<true>): boolean {
     if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
     if (cv.condition === "mentions")
@@ -751,7 +758,7 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions<true>): AddToQueryResponse<O> {
     if (cv.condition === "mentions")
       cv = { condition: "=", value: cv.value };
     else if (cv.condition === "mentionsany")
@@ -2423,7 +2430,7 @@ class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
-  [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue;
+  [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue<true>;
   [WRDBaseAttributeTypeId.Base_Guid]: WRDDBBaseGuidValue;
   [WRDBaseAttributeTypeId.Base_Tag]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
@@ -2433,7 +2440,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
+  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBIntegerValue<false>;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
