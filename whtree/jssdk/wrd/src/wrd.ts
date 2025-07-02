@@ -84,7 +84,7 @@ export async function listSchemas() {
 /** Open a schema by id
  * @returns WRDSchema object or null if the schema does not exist
  */
-export async function openSchemaById(id: number) {
+export async function openSchemaById(id: number): Promise<WRDSchema | null> {
   const dbschema = await db<PlatformDB>().selectFrom("wrd.schemas").select(["name"]).where("id", "=", id).executeTakeFirst();
   if (!dbschema || dbschema.name.startsWith("$wrd$deleted"))
     return null; //because this is a rarely used API we won't bother with throws/allowMissing etc

@@ -15,8 +15,14 @@ import { createFirstPartyToken } from '@webhare/auth';
 import { WRDSchema } from '@webhare/wrd';
 import type { Platform_BasewrdschemaSchemaType } from '@mod-platform/generated/wrd/webhare';
 import { runInWork } from '@webhare/whdb';
+import { testschemaSchema } from 'wh:wrd/webhare_testsuite';
 
 const jsAuthSchema = new WRDSchema<Platform_BasewrdschemaSchemaType>("webhare_testsuite:testschema");
+
+async function prep() {
+  await test.reset({ wrdSchema: "webhare_testsuite:testschema" });
+  await runInWork(() => testschemaSchema.updateSchema({ accountType: "wrdPerson" }));
+}
 
 async function testRPCCaller() {
   const servicebaseurl = "http://127.0.0.1/.wh/rpc/webhare_testsuite/testapi/";
@@ -163,9 +169,7 @@ async function testFilter() {
 }
 
 test.runTests([
-  () => test.reset({
-    wrdSchema: "webhare_testsuite:testschema",
-  }),
+  prep,
   testRPCCaller,
   testTypedClient,
   testFilter

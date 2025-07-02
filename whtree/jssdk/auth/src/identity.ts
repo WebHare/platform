@@ -483,8 +483,12 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (isOIDC && type !== "oidc")
       throw new Error("OpenID scopes can only be set for 'oidc' tokens");
 
+    const authsettings = await this.getAuthSettings(false);
+    if (!authsettings?.accountType)
+      throw new Error(`Schema '${this.wrdschema.tag}' is not configured for WRD Authentication - accountType not set`);
+
     const subfield = clientInfo?.subjectField || "wrdGuid";
-    const subjectValue = (await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, [subfield]))?.[subfield] as string;
+    const subjectValue = (await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, subject, [subfield]))?.[subfield] as string;
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
@@ -505,7 +509,6 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
 
       const payload = preparePayload(subjectValue, relativeTo, validUntil, { audiences: [compressUUID(clientInfo?.wrdGuid)], nonce });
       if (options?.scopes?.includes("email")) { //TODO authorize somewhere whether 'email' is allowed for this client
-        const authsettings = await this.getAuthSettings(true);
         if (authsettings.emailAttribute) {
           const { email } = await (this.wrdschema as AnyWRDSchema).getFields("wrdPerson", subject, { email: authsettings.emailAttribute });
           if (email)
@@ -705,7 +708,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         ...pick(options || {}, ["site"])
       });
 
-    const user = await this.wrdschema.search("wrdPerson", authsettings.loginAttribute as AttrRef<WRD_Idp_WRDPerson>, loginname);
+    const user = await (this.wrdschema as AnyWRDSchema).search(authsettings.accountType, authsettings.loginAttribute as AttrRef<WRD_Idp_WRDPerson>, loginname);
     return user || null;
   }
 
@@ -1068,7 +1071,7 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }
 
-async function buildPublicAuthData(prepped: PrepAuthResult, userId: number, expiresMs: number, persistent: boolean, customizer?: AuthCustomizer): Promise<PublicAuthData> {
+async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped: PrepAuthResult, userId: number, expiresMs: number, persistent: boolean, customizer?: AuthCustomizer): Promise<PublicAuthData> {
   if ("error" in prepped)
     throw new Error(prepped.error);
 
@@ -1078,7 +1081,7 @@ async function buildPublicAuthData(prepped: PrepAuthResult, userId: number, expi
 
   if (prepped.settings.cacheFields?.length) { //HS field getter, contains fieldnames such as WRD_FULLNAME
     const getfields = prepped.settings.cacheFields.map(tagToJS);
-    const addUserInfo = await wrdSchema.getFields("wrdPerson", userId, getfields);
+    const addUserInfo = await wrdSchema.getFields(authsettings.accountType, userId, getfields);
     userInfo = Object.fromEntries(
       Object.entries(addUserInfo).map(([key, value]) => [tagToHS(key).toLowerCase(), value])
     );
@@ -1130,7 +1133,7 @@ export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAu
     persistent: options?.persistent || false,
     value: generateRandomId() + " accessToken:" + idToken.accessToken,
     expires: idToken.expires,
-    publicAuthData: await buildPublicAuthData(prepped, userId, idToken.expires.epochMilliseconds, options?.persistent || false, customizer),
+    publicAuthData: await buildPublicAuthData(authsettings, prepped, userId, idToken.expires.epochMilliseconds, options?.persistent || false, customizer),
     userId,
     customizer,
     wrdSchema
@@ -1220,12 +1223,13 @@ export async function preparePublicAuthDataCookie(targetUrl: string, idToken: st
   if ("error" in prepped)
     throw new Error(prepped.error);
 
-  const token = await new IdentityProvider(new WRDSchema(prepped.settings.wrdSchema)).verifyAccessToken("id", idToken);
+  const idp = new IdentityProvider(new WRDSchema(prepped.settings.wrdSchema));
+  const token = await idp.verifyAccessToken("id", idToken);
   if ("error" in token)
     throw new Error(token.error);
 
   const decoded = parseTyped(currentPublicAuthdata) as PublicAuthData;
-  const newData = await buildPublicAuthData(prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
+  const newData = await buildPublicAuthData(await idp.getAuthSettings(true), prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
 
   return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
 }
