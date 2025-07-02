@@ -164,22 +164,8 @@ MACRO LaunchTask(RECORD task)
   }
 
   Debug("Starting task " || task.tag);
-
-  BOOLEAN isjavascript := GetExtensionFromPath(task.script) IN whconstant_javascript_extensions;
-  STRING runscriptname := isjavascript
-      ? GetInstallationRoot() || "bin/wh"
-      : GetInstallationRoot() || "bin/runscript";
-
-  STRING ARRAY cmdlineargs;
-  IF (isjavascript)
-    cmdlineargs := [ "run" ];
-  ELSE
-  {
-    IF(task.workerthreads > 1)
-      cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
-  }
-  INSERT task.script INTO cmdlineargs AT END;
-
+  STRING runscriptname := GetInstallationRoot() || "bin/wh";
+  STRING ARRAY cmdlineargs := ["run", task.script];
   //HACK for quick parameter parsing (use because older task had different formats)
   IF(task.parameters LIKE " |params| *")
     cmdlineargs := cmdlineargs CONCAT DecodeHSON(Substring(task.parameters,10));
@@ -237,7 +223,6 @@ MACRO RunStartupScripts(STRING modulename)
                , tag := mod.name || " " || script
                , parameters := "" //we used to pass the module which we're reloading, but none of the current <runatstartup> tasks understand those anyway
                , started := FALSE
-               , workerthreads := 1
                , timeout := 0 //ADDME allow them to specify a timeout too
                , iteration := resetcount
             FROM mod.startupscripts WHERE when="afterlaunch");
@@ -320,8 +305,6 @@ MACRO UpdateScheduler()
       INSERT CELL script := task.script INTO upd;
     IF(match.description != task.description)
       INSERT CELL description := task.description INTO upd;
-    IF(match.workerthreads != task.workerthreads)
-      INSERT CELL workerthreads := task.workerthreads INTO upd;
     IF(match.timeout != task.timeout)
       INSERT CELL timeout := task.timeout INTO upd;
     IF(match.inapplicable != task.inapplicable)
