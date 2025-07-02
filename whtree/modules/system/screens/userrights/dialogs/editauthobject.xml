@@ -51,6 +51,7 @@
     <body>
       <panel height="1pr">
         <textedit composition="entity" cellname="wrd_title" maxlength="256" required="true" tid="~name" />
+        <textedit composition="entity" cellname="wrd_contact_email" maxlength="256" tid="~email" validationchecks="email" />
         <textarea composition="entity" cellname="whuser_comment" height="1pr" tid="~comments" />
       </panel>
     </body>

@@ -12,7 +12,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 // TODO restore searchablefields configuration somehow? as the functionality is there, but noone was hooking it anymore
 PUBLIC CONSTANT RECORD searchablefields :=
     [ unit   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
-    , role   := [ "WRD_TITLE", "WHUSER_COMMENT" ]
+    , role   := [ "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
     , person := [ "WRD_FIRSTNAME", "WRD_FIRSTNAMES", "WRD_FULLNAME", "WRD_LASTNAME", "WHUSER_LOGIN", "WRD_TITLE", "WHUSER_COMMENT", "WRD_CONTACT_EMAIL" ]
     ];
 
@@ -315,6 +315,7 @@ PUBLIC RECORD ARRAY FUNCTION GetRolesByFilter(OBJECT controller, RECORD ARRAY fi
                             , wrd_guid :=   "WRD_GUID"
                             , unit :=       "WRD_LEFTENTITY"
                             , comment :=    "WHUSER_COMMENT"
+                            , email :=      "WRD_CONTACT_EMAIL"
                             ]
         , filters :=        filters
         ]));
@@ -336,7 +337,7 @@ PUBLIC RECORD ARRAY FUNCTION GetRolesByFilter(OBJECT controller, RECORD ARRAY fi
            , fullname :=        ""
            , comment :=         comment
            , name :=            wrd_title
-           , email :=           ""
+           , email
            , type :=            3 // role
            , icon :=            "tollium:users/mask"
            , isrole :=          TRUE
