@@ -213,6 +213,7 @@ MACRO TestPrimitiveValues()
   DELETE FROM testtable;
   INSERT [ id := 1, binaryvarchar := DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ] INTO testtable;
   TestEQ(1, SELECT AS INTEGER id FROM testtable WHERE ToUppercase(binaryvarchar) = ToUppercase(DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104")));
+  TestEQ(0, SELECT AS INTEGER id FROM testtable WHERE ToUppercase(binaryvarchar) IN STRING[]);
   trans->RollbackWork();
 
    //Test touppercase on string column
@@ -224,6 +225,7 @@ MACRO TestPrimitiveValues()
   TestEQ(2, SELECT AS INTEGER id FROM testtable WHERE ToUppercase(normalvarchar) = ToUppercase("TWEE"));
   //test regression: this was sent as select … where ("T0"."nullint" IS NULL) OR ("T0"."nullint" = $1) and upper("T0"."normalvarchar") = upper($2) //missing parenthesis around the OR
   TestEQ(2, SELECT AS INTEGER id FROM testtable WHERE nullint = 0 AND ToUppercase(normalvarchar) = ToUppercase("TWEE"));
+  TestEQ(0, SELECT AS INTEGER id FROM testtable WHERE nullint = 0 AND normalvarchar IN STRING[]);
   trans->RollbackWork();
 
   // Test limit handling when harescript does afterfiltering. Bit racy for detecting errors, depends on id=1 being found first by PostgreSQL

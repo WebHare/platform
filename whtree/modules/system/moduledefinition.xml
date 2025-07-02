@@ -688,7 +688,9 @@ false = authentication is only necessary for users not matching the IP access ru
       <d:integer name="repeatcount" />
       <d:integer name="repeatinterval" />
       <d:integer name="repeatintervaltype" />
-      <d:integer name="workerthreads" />
+      <d:integer name="workerthreads">
+        <d:documentation>No longer used</d:documentation>
+      </d:integer>
       <d:boolean name="runatstartup" />
       <d:varchar name="script" maxlength="1024" nullable="false" />
       <d:varchar name="tag" maxlength="64" />
