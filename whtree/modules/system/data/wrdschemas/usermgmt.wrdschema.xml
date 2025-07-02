@@ -17,6 +17,7 @@
     <attributes>
       <free tag="wrd_title" title="Role title" />
       <free tag="whuser_comment" title="Usermanagement app comment" />
+      <email tag="wrd_contact_email" />
     </attributes>
   </attachment>
 
