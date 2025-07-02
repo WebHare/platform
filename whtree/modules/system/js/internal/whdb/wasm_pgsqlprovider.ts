@@ -185,6 +185,12 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   const query = queryparam.getJSValue() as Query;
   const whdb = db();
 
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, id_set.id, VariableType.Record as HSVM_VariableType);
+  const recarray_tabledata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("tabledata"));
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_tabledata, VariableType.RecordArray as HSVM_VariableType);
+  const recarray_rowsdata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("rowsdata"));
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_rowsdata, VariableType.RecordArray as HSVM_VariableType);
+
   for (const cond of query.singleconditions) {
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
     cond.handled = column.type !== VariableType.Blob;
@@ -380,8 +386,11 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
       colexpr = sql`upper(${colexpr})`;
 
     let valueexpr = sql.val(cond.condition === "LIKE" ? encodePattern(value as string) : value);
-    if (cond.condition === "IN")
+    if (cond.condition === "IN") {
       valueexpr = sql`Any(${valueexpr})`;
+      if ((cond.value as unknown[]).length === 0)
+        return; //an IN with empty value will never match
+    }
     if (!cond.casesensitive)
       valueexpr = sql`upper(${valueexpr})`;
 
@@ -441,12 +450,6 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     dbquery = dbquery.modifyEnd(modifyend);
 
   const res = await dbquery.execute();
-
-  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, id_set.id, VariableType.Record as HSVM_VariableType);
-  const recarray_tabledata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("tabledata"));
-  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_tabledata, VariableType.RecordArray as HSVM_VariableType);
-  const recarray_rowsdata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("rowsdata"));
-  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_rowsdata, VariableType.RecordArray as HSVM_VariableType);
 
   const prepped_resultcolumns = resultcolumns.map(col => ({ ...col, exportId: vm.getColumnId(col.exportName) }));
 
