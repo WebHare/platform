@@ -1,6 +1,6 @@
 import type { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
 export { type SchemaTypeDefinition } from "./types";
-import type { HistoryModeData, WRDType } from "./schema";
+import type { ExportOptions, HistoryModeData, WRDType } from "./schema";
 import { type AnyWRDAccessor, getAccessor } from "./accessors";
 import { type AttrRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db } from "@webhare/whdb";
@@ -100,7 +100,7 @@ function applyMap<S>(map: ReturnMap<S>, values: unknown[]): unknown {
 export async function getDefaultJoinRecord<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>>(
   type: WRDType<S, T>,
   selects: O
-): Promise<MapRecordOutputMapWithDefaults<S[T], O>> {
+): Promise<MapRecordOutputMapWithDefaults<S[T], O, false>> {
   // Get the data for the whole schema
   const schemadata = await type.schema.__ensureSchemaData();
 
@@ -119,15 +119,16 @@ export async function getDefaultJoinRecord<S extends SchemaTypeDefinition, T ext
   }
 
   // Apply the output mapping, push the value to the results
-  return applyMap(map, accvalues) as MapRecordOutputMapWithDefaults<S[T], O>;
+  return applyMap(map, accvalues) as MapRecordOutputMapWithDefaults<S[T], O, false>;
 }
 
-export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>>(
+export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>, Export extends boolean>(
   type: WRDType<S, T>,
   selects: O,
   wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>,
   historyMode: HistoryModeData,
   limit: number | null,
+  options?: ExportOptions
 ) {
   if (limit !== null && limit <= 0)
     return [];
@@ -267,7 +268,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       .execute() :
     [];
 
-  const retval = new Array<MapRecordOutputMap<S[T], O>>;
+  const retval = new Array<MapRecordOutputMap<S[T], O, Export>>();
 
   entityloop:
   for (const entity of entities) {
@@ -295,7 +296,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     }
 
     // Apply the output mapping, push the value to the results
-    retval.push(applyMap(map, accvalues) as MapRecordOutputMap<S[T], O>);
+    retval.push(applyMap(map, accvalues) as MapRecordOutputMap<S[T], O, Export>);
 
     if (limit && retval.length >= limit)
       break;

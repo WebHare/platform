@@ -1401,7 +1401,7 @@ async function testComparisons() {
 function testGeneratedWebHareWRDAPI() {
   // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
   test.typeAssert<test.Assignable<{ organizationName: unknown }, System_Usermgmt_WRDAuthdomainSamlIdp>>();
-  test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
+  test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName", false>>>();
 }
 
 async function testSettingReuse() {

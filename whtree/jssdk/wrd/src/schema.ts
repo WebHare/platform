@@ -21,6 +21,10 @@ const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible 
 const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyreferred", "close-denyreferred"] as const;
 type WRDCloseMode = typeof WRDCloseModes[number];
 
+export interface ExportOptions {
+  export?: boolean;
+}
+
 interface SyncOptions {
   /** What to dot with unmatched entities during a sync? Defaults to 'keep' */
   unmatched?: WRDCloseMode | "keep";
@@ -30,7 +34,7 @@ interface SchemaUpdates {
   accountType?: string | null;
 }
 
-interface GetFieldsOptions {
+interface GetFieldsOptions extends ExportOptions {
   historyMode?: SimpleHistoryMode | HistoryModeData;
   allowMissing?: boolean;
 }
@@ -89,9 +93,9 @@ type WRDEnrichResult<
 > = EnrichmentResult<
   DataRow,
   EnrichKey,
-  MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
+  MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false>,
   never,
-  true extends RightOuterJoin ? MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> : never,
+  true extends RightOuterJoin ? MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false> : never,
   never>;
 
 function validateCloseMode(closeMode: string) {
@@ -493,15 +497,22 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getType(type).find(query, options);
   }
 
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+  // Overloads: allowMisisng controls null or not, export controls export flag setting
 
-  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
-    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.query(type)
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true; export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true; export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false> | null>;
+  // async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { allowMissing: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { export: true }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, true>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M, options: GetFieldsOptions & { export?: false | undefined }): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, false>>;
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null>;
+
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string, Export extends boolean>(type: T, id: number, mapping: M, options?: GetFieldsOptions): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export> | null> {
+    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>, Export>> = await this.query(type)
       .select(mapping)
       .where("wrdId" as any, "=" as any, id as any)
       .historyMode(options?.historyMode || "active")
-      .execute();
+      .execute({ export: options?.export || false });
 
     if (rows.length)
       return rows[0];
@@ -708,13 +719,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     ids: Id[],
     isLeftOuterJoin: boolean,
     matchCase: boolean, //FIXME unused and thus untested...
-    historyMode: HistoryModeData): Promise<Map<Id, MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>>> {
+    historyMode: HistoryModeData): Promise<Map<Id, MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false>>> {
     const vals = await runSimpleWRDQuery(
       this,
       { __joinId: "wrdId", data: recordizeEnrichOutputMap(enrichMapping) },
       isLeftOuterJoin ? [] : [{ field: "wrdId", condition: "in", value: ids.filter(isTruthy) }],
       historyMode,
-      null) as Array<{ __joinId: Id; data: MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> }>;
+      null) as Array<{ __joinId: Id; data: MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false> }>;
 
     return new Map(vals.map(row => [row.__joinId, row.data]));
   }
@@ -744,7 +755,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
     type RightOuterJoinType = true extends RightOuterJoin ?
       never :
-      MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>;
+      MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false>;
 
     const historyMode = toHistoryData(options.historyMode ?? "now");
 
@@ -757,7 +768,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     const result = executeEnrichment<
       DataRow,
       EnrichKey,
-      MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
+      MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>, false>,
       never,
       RightOuterJoinType,
       never>(
@@ -928,8 +939,8 @@ export type SimpleHistoryMode = "now" | "all" | "active" | "unfiltered"; //'acti
 export type HistoryModeData = { mode: SimpleHistoryMode } | { mode: "at"; when: Date } | { mode: "range"; start: Date; limit: Date } | null;
 type GetOptionsIfExists<T, Fallback> = T extends { options?: any } ? T["options"] : Fallback;
 
-type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
-type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
+type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null, Export extends boolean> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O, Export>> : never;
+type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null, Export extends boolean> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O, Export> : never;
 
 function toHistoryData(mode: SimpleHistoryMode | HistoryModeData): HistoryModeData {
   return typeof mode === "string" ? { mode } : mode;
@@ -1214,11 +1225,11 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, this._historyMode, limit);
   }
 
-  private async executeInternal(): Promise<QueryReturnArrayType<S, T, O>> {
+  private async executeInternal<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>> {
     if (!this.selects)
       throw new Error(`A select is required`);
 
-    return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this._historyMode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
+    return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this._historyMode, this._limit, options) as unknown as Promise<QueryReturnArrayType<S, T, O, Export>>;
   }
 
   enrich<
@@ -1226,7 +1237,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
     Mapping extends EnrichOutputMap<S[EnrichTypeTag]>,
     RightOuterJoin extends boolean = false,
-    DataRow extends QueryReturnRowType<S, T, O> & Record<EnrichKey, number | null> = QueryReturnRowType<S, T, O> & Record<EnrichKey, number | null>,
+    DataRow extends QueryReturnRowType<S, T, O, false> & Record<EnrichKey, number | null> = QueryReturnRowType<S, T, O, false> & Record<EnrichKey, number | null>,
   >(type: EnrichTypeTag,
     field: EnrichKey,
     mapping: Mapping,
@@ -1242,23 +1253,35 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilderWithEnrich(this.type.schema, this, [{ type, field, mapping, options }]);
   }
 
-  execute(): Promise<QueryReturnArrayType<S, T, O>> {
-    return this.executeInternal();
+  execute(options: ExportOptions & { export: true }): Promise<QueryReturnArrayType<S, T, O, true>>;
+  execute(options?: ExportOptions & { export?: false | undefined }): Promise<QueryReturnArrayType<S, T, O, false>>;
+  execute<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>>;
+
+  execute<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>> {
+    return this.executeInternal(options);
   }
 
-  executeRequireExactlyOne(): Promise<QueryReturnArrayType<S, T, O>[number]> {
+  executeRequireExactlyOne(options: ExportOptions & { export: true }): Promise<QueryReturnArrayType<S, T, O, true>[number]>;
+  executeRequireExactlyOne(options?: ExportOptions & { export?: false | undefined }): Promise<QueryReturnArrayType<S, T, O, false>[number]>;
+  executeRequireExactlyOne<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>[number]>;
+
+  async executeRequireExactlyOne<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>[number]> {
     if (this._limit === null)
-      return this.limit(2).executeRequireExactlyOne();
-    return this.executeInternal().then(res => {
+      return this.limit(2).executeRequireExactlyOne(options);
+    return this.executeInternal(options).then(res => {
       if (res.length !== 1)
         throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
     });
   }
 
-  executeRequireAtMostOne(): Promise<QueryReturnArrayType<S, T, O>[number] | null> {
+  async executeRequireAtMostOne(options: ExportOptions & { export: true }): Promise<QueryReturnArrayType<S, T, O, true>[number] | null>;
+  async executeRequireAtMostOne(options?: ExportOptions & { export?: false | undefined }): Promise<QueryReturnArrayType<S, T, O, false>[number] | null>;
+  async executeRequireAtMostOne<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>[number] | null>;
+
+  async executeRequireAtMostOne<Export extends boolean>(options?: ExportOptions): Promise<QueryReturnArrayType<S, T, O, Export>[number] | null> {
     if (this._limit === null)
-      return this.limit(2).executeRequireAtMostOne();
+      return this.limit(2).executeRequireAtMostOne() as Promise<QueryReturnArrayType<S, T, O, Export>[number] | null>;
     return this.executeInternal().then(res => {
       if (res.length > 1)
         throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
@@ -1296,8 +1319,8 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     return `${this.baseQuery["describeQuery"]()}${this.enriches.map(enrich => `.enrich(${JSON.stringify(enrich.type)}, ${JSON.stringify(enrich.field)}, ${JSON.stringify(enrich.mapping)}${enrich.options ? `, ${JSON.stringify(enrich.options)}` : ""})`).join("")}`;
   }
 
-  private async executeInternal(): Promise<O[]> {
-    let retval = await this.baseQuery.execute() as any;
+  private async executeInternal(options?: ExportOptions): Promise<O[]> {
+    let retval = await this.baseQuery.execute(options) as any;
     for (const enrich of this.enriches)
       retval = await this.schema.enrich(enrich.type, retval, enrich.field as never, enrich.mapping, enrich.options);
     return retval as O[];
@@ -1323,20 +1346,20 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
     return new WRDSingleQueryBuilderWithEnrich(this.schema, this.baseQuery, [...this.enriches, { type, field, mapping, options }]);
   }
 
-  execute(): Promise<O[]> {
-    return this.executeInternal();
+  execute(options?: ExportOptions): Promise<O[]> {
+    return this.executeInternal(options);
   }
 
-  executeRequireExactlyOne(): Promise<O> {
-    return this.executeInternal().then(res => {
+  executeRequireExactlyOne(options?: ExportOptions): Promise<O> {
+    return this.executeInternal(options).then(res => {
       if (res.length !== 1)
         throw new Error(`Expected exactly one result, got ${res.length} when running ${this.describeQuery()}.executeRequireExactlyOne()`);
       return res[0];
     });
   }
 
-  executeRequireAtMostOne(): Promise<O | null> {
-    return this.executeInternal().then(res => {
+  executeRequireAtMostOne(options?: ExportOptions): Promise<O | null> {
+    return this.executeInternal(options).then(res => {
       if (res.length > 1)
         throw new Error(`Expected at most one result, got ${res.length} when running ${this.describeQuery()}.executeRequireAtMostOne()`);
       return res[0] ?? null;
