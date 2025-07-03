@@ -15,8 +15,6 @@ import { isMoney } from "./quacks";
 export type MoneyRoundingMode = "none" | "toward-zero" | "down" | "up" | "half-toward-zero" | "half-down" | "half-up" | "toward-infinity" | "half-toward-infinity";
 export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";
 
-// const moneySymbol = Symbol.for("@webhare/std:Money");
-
 type MoneyParameter = Money | string;
 
 interface SplitNumber {
@@ -127,7 +125,7 @@ function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number, 
 export class Money {
   /** finmath-compatible value */
   readonly value: string;
-  ["__ moneySymbol"] = true; //Symbol breaks tree shaking, so this is our workaround. Reported as https://github.com/evanw/esbuild/issues/3940
+  private static "__ $whTypeSymbol" = "Money";
 
   constructor(value: MoneyParameter = "0") {
     this.value = Money.parseParameter(value);

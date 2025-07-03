@@ -3,6 +3,12 @@
 import type { Temporal } from "temporal-polyfill";
 import type { Money } from "./money";
 
+export function getWHType(obj: unknown): string | null { //not exporting this directly as we hope JS comes up with better solutions for instanceOf not being compatible with realms/reloading
+  // Ideally we'd use symbol but it breaks tree shaking in esbuild, so this is our workaround. Reported as https://github.com/evanw/esbuild/issues/3940
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Can't cleanly type this it seems and it's low level anyway
+  return (obj as any)?.constructor?.["__ $whTypeSymbol"] ?? null;
+}
+
 function isCrossRealm(value: unknown): value is object {
   return Boolean(value // it's not null
     && typeof value === "object" //and it's an object
@@ -11,7 +17,7 @@ function isCrossRealm(value: unknown): value is object {
 
 /** Test whether a value looks like an instance of Money */
 export function isMoney(value: unknown): value is Money {
-  return Boolean((value as Money)?.["__ moneySymbol"]);
+  return getWHType(value) === "Money";
 }
 
 /** Test whether a value looks like an instance of Temporal.Instant */
