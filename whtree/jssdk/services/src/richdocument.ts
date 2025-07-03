@@ -69,6 +69,8 @@ function validateTagName(tag: string): asserts tag is RTDBlockType {
 
 
 class Widget {
+  private static "__ $whTypeSymbol" = "Widget";
+
   #typeInfo: WHFSTypeInfo;
   #data: Record<string, unknown>;
 
@@ -90,6 +92,8 @@ class Widget {
 type WidgetInterface = Pick<Widget, "whfsType" | "data">;
 
 export class RichTextDocument {
+  private static "__ $whTypeSymbol" = "RichTextDocument";
+
   #blocks = new Array<RTDBlock>;
   //need to expose this for hscompat APIs
   private __instanceIds = new WeakMap<Readonly<Widget>, string>;

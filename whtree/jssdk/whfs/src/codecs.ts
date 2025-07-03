@@ -11,6 +11,7 @@ import type { RichTextDocument } from "@webhare/services";
 import type { WHFSInstance, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
+import { getWHType } from "@webhare/std/quacks";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -325,8 +326,8 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "richDocument": {
     encoder: (value: RichTextDocument | null) => {
-      if (typeof value !== "object") //TODO test for an actual RichTextDocument
-        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${typeof value}'`);
+      if (value && getWHType(value) !== "RichTextDocument")
+        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
       if (!value || value.isEmpty())
         return null;
 
