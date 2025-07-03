@@ -497,8 +497,8 @@ export class WHFSFolder extends WHFSBaseObject {
     if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
       throw new Error(`ensureFile requires open work`);
 
-    //TODO better scoping would be having a lockmanager inside work ? most of our risk is limited to our work. ideally replace createFile/Folder with a version returning existin ID on conflict
-    using lock = await ensureObjectLock.lock(); //prevent race before createFile. WRD is good at triggering this when creating its schema folder, TODO: although ideally WRD asynchronously inserts that foldder or ensures it on schema creation
+    //TODO better scoping would be having a lockmanager inside work ? most of our risk is limited to our work. ideally replace createFile/Folder with a version returning existing ID on conflict
+    using lock = await ensureObjectLock.lock(); //prevent race before createFile. WRD is good at triggering this when creating its schema folder, TODO: although ideally WRD asynchronously inserts that folder or ensures it on schema creation
     let existingfile = await this.openFile(name, { allowMissing: true });
     if (!existingfile)
       existingfile = await this.createFile(name, { ...requiredmetadata, ...options?.ifNew });
