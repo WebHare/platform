@@ -333,7 +333,8 @@ export const codecs: { [key: string]: TypeCodec } = {
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const toSerialize = await exportAsHareScriptRTD(value);
+        //Don't recurse, we're encoding embedded instances ourselves
+        const toSerialize = await exportAsHareScriptRTD(value, { recurse: false });
         const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
         const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
 
@@ -344,7 +345,7 @@ export const codecs: { [key: string]: TypeCodec } = {
           blobdata: await uploadBlob(storetext),
         });
 
-        for (const instance of toSerialize.instances) {
+        for (const instance of toSerialize.instances) { //encode embedded instanes
           /* Generate settings for the instance:
             - It needs a toplevel setting with:
                 - ordering = 3

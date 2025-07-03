@@ -70,7 +70,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
   const outdata: Record<string, unknown> = {};
   for (const member of members) {
     if (member.name in data) {
-      if (member.type === "richDocument" && data[member.name]) {
+      //We hope to receive RichDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
+      if (member.type === "richDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
         outdata[member.name] = await buildRTDFromHareScriptRTD(data[member.name] as HareScriptRTD);
       } else {
         outdata[member.name] = data[member.name];
@@ -178,7 +179,10 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
   return importer.outdoc;
 }
 
-export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<HareScriptRTD> {
+/** Build a HareScript record structure RTD. Necessary to communicatee with HareScript (directly and through database storage)
+ *  @param recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
+*/
+export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<HareScriptRTD> {
   const instances: HareScriptRTD["instances"] = [];
   const embedded: HareScriptRTD["embedded"] = [];
   const links: HareScriptRTD["links"] = [];
@@ -191,11 +195,11 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
       ...widget.data
     };
 
-    //Encode embedded RTDs
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof RichTextDocument)
-        data[key] = await exportAsHareScriptRTD(value);
-    }
+    if (recurse) //Encode embedded RTDs. Needed when serializing to HareScript the language, but not by TS instance codev
+      for (const [key, value] of Object.entries(data)) {
+        if (value instanceof RichTextDocument)
+          data[key] = await exportAsHareScriptRTD(value, { recurse });
+      }
 
     // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
     const instanceid = instancemapping.get(widget) || generateRandomId();

@@ -41,7 +41,6 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
   await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
   const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
-  // console.dir(doc3.blocks, { depth: 10 });
   test.eq(doc.blocks, doc3.blocks);
 
   //Test roundtrip through HareScript WHFS SetInstanceData
@@ -53,7 +52,6 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
-  // console.dir(hsInstance, { depth: 4 });
   const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
   test.eq(doc.blocks, doc5.blocks);
 
@@ -281,6 +279,7 @@ async function testBuilder() {
     ], await doc.export());
 
     verifyWidget(doc);
+    await verifyRoundTrip(doc);
 
     const toHS = await exportAsHareScriptRTD(doc);
     test.eqPartial([
