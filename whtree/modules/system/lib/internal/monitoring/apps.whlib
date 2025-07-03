@@ -48,12 +48,14 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
 
   MACRO GotApplicationStarter(STRING event, RECORD data)
   {
+    DumpValue(data, [ name := "GotApplicationStarter" ]);
+
     RECORD pos := RecordLowerBound(this->applicationstarters, data, [ "ID" ]);
     IF (pos.found)
       RETURN;
 
     // Should be running inside the webserver
-    OBJECT link := ConnectToIPCPort("tollium:link." || data.id);
+    OBJECT link := ConnectToGlobalIPCPort("tollium:link." || data.id);
     IF (NOT ObjectExists(link))
       RETURN;
 
@@ -100,14 +102,6 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
   RECORD ARRAY FUNCTION GetCurrentApps()
   {
     RECORD ARRAY running_jobs;
-
-    RECORD jobmgr_status := __HS_GETJOBMANAGERSTATUS(TRUE);
-
-    RECORD ARRAY jobs :=
-        SELECT *
-          FROM jobmgr_status.jobs CONCAT jobmgr_status.finished
-      ORDER BY groupid;
-
     FOREVERY (RECORD starter FROM this->applicationstarters)
     {
       RECORD rec := starter.link->DoRequest([ task := "getapps" ]);
@@ -126,9 +120,7 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
         ];
 
     RECORD ARRAY apps :=
-        SELECT TEMPORARY pos := RecordLowerBound(jobs, [ groupid := appid ], [ "GROUPID" ])
-             , *
-             , jobdata :=   pos.found ? jobs[pos.position] : default_job
+        SELECT *
              , title := (SELECT AS STRING title FROM this->moduleappslookup WHERE fullname = running_jobs.app) // RecordLowerBound!
           FROM running_jobs
          WHERE stopped = VAR MAX_DATETIME; //VAR to prevent datetime.whlib from being compiled away
@@ -136,13 +128,13 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
     apps :=
         SELECT *
              , use :=
-                    [ authobjectid :=     jobdata.authenticationrecord.tollium.user.authobjectid
-                    , wrdentityid :=      jobdata.authenticationrecord.tollium.user.wrdentityid
+                    [ authobjectid :=     authenticationrecord.tollium.user.authobjectid
+                    , wrdentityid :=      authenticationrecord.tollium.user.wrdentityid
                     , sessionid :=        appid
-                    , username :=         jobdata.authenticationrecord.tollium.user.login
-                    , realname :=         jobdata.authenticationrecord.tollium.user.realname
-                    , stats :=            CellExists(jobdata, "STATISTICS") ? jobdata.statistics : DEFAULT RECORD
-                    , started :=          jobdata.creationdate
+                    , username :=         authenticationrecord.tollium.user.login
+                    , realname :=         authenticationrecord.tollium.user.realname
+                    , stats :=            statistics
+                    , started :=          creationdate
                     , lastactive :=       lastactivity
                     , lastpoll :=         DEFAULT DATETIME
                     , active :=           TRUE
@@ -160,6 +152,3 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
     RETURN LENGTH(this->applicationstarters) != 0;
   }
 >;
-
-
-

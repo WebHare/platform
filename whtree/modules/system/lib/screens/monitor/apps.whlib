@@ -55,13 +55,13 @@ PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
     apps :=
         SELECT *
              , use :=
-                    [ authobjectid :=     jobdata.authenticationrecord.tollium.user.authobjectid
-                    , wrdentityid :=      jobdata.authenticationrecord.tollium.user.wrdentityid
+                    [ authobjectid :=     authenticationrecord.tollium.user.authobjectid
+                    , wrdentityid :=      authenticationrecord.tollium.user.wrdentityid
                     , sessionid :=        appid
-                    , username :=         jobdata.authenticationrecord.tollium.user.login
-                    , realname :=         jobdata.authenticationrecord.tollium.user.realname
-                    , stats :=            CellExists(jobdata, "STATISTICS") ? jobdata.statistics : DEFAULT RECORD
-                    , started :=          jobdata.creationdate
+                    , username :=         authenticationrecord.tollium.user.login
+                    , realname :=         authenticationrecord.tollium.user.realname
+                    , stats :=            statistics
+                    , started :=          creationdate
                     , lastactive :=       lastactivity
                     , lastpoll :=         DEFAULT DATETIME
                     , active :=           TRUE
