@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes, type WHFSInstance, buildWHFSInstance } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -9,7 +9,7 @@ import type { RecursiveReadonly } from "@webhare/js-api-tools";
 
 type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
-type ReadonlyWidget = Omit<Readonly<Widget>, "export">;
+type ReadonlyWidget = Omit<Readonly<WHFSInstance>, "export">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -88,7 +88,7 @@ class HSRTDImporter {
 
   }
 
-  async reconstructWidget(node: Element): Promise<Widget | null> {
+  async reconstructWidget(node: Element): Promise<WHFSInstance | null> {
     const matchinginstance = this.inrtd.instances.find(i => i.instanceid === node.getAttribute("data-instanceid"));
     if (!matchinginstance)
       return null;
@@ -98,7 +98,7 @@ class HSRTDImporter {
       return null; //it must have existed, how can we otherwise have imported it ?
 
     const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, matchinginstance.data);
-    const widget = await buildWidget(matchinginstance.data.whfstype, setdata);
+    const widget = await buildWHFSInstance({ ...setdata, whfsType: matchinginstance.data.whfstype });
     this.outdoc.__hintInstanceId(widget, matchinginstance.instanceid);
     return widget;
   }

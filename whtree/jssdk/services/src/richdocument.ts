@@ -1,4 +1,4 @@
-import { omit, throwError } from "@webhare/std";
+import { throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
@@ -77,8 +77,8 @@ function validateTagName(tag: string): asserts tag is RTDBlockType {
 }
 
 
-class Widget {
-  private static "__ $whTypeSymbol" = "Widget";
+class WHFSInstance {
+  private static "__ $whTypeSymbol" = "WHFSInstance";
 
   #typeInfo: WHFSTypeInfo;
   #data: Record<string, unknown>;
@@ -112,15 +112,15 @@ class Widget {
   }
 }
 
-///build separate type as Widget isn't currently constructable. The 'export type' trick won't work with private members
-type WidgetInterface = Pick<Widget, "whfsType" | "data" | "export">;
+/** @deprecated use WHFSInstance instead */
+type WidgetInterface = Pick<WHFSInstance, "whfsType" | "data" | "export">;
 
 export class RichTextDocument {
   private static "__ $whTypeSymbol" = "RichTextDocument";
 
   #blocks = new Array<RTDBlock>;
   //need to expose this for hscompat APIs
-  private __instanceIds = new WeakMap<Readonly<Widget>, string>;
+  private __instanceIds = new WeakMap<Readonly<WHFSInstance>, string>;
 
   get blocks(): RecursiveReadonly<RTDBlock[]> {
     return this.#blocks;
@@ -168,11 +168,11 @@ export class RichTextDocument {
   }
 
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
-    if (getWHType(widget) === "Widget") //we just keep the widget as is
+    if (getWHType(widget) === "WHFSInstance") //we just keep the widget as is
       return widget as WidgetInterface;
 
     if ("whfsType" in widget)
-      return await buildWidget(widget.whfsType, omit(widget, ["whfsType"]));
+      return await buildWHFSInstance(widget);
 
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
@@ -254,24 +254,27 @@ export async function buildRTD(source: RTDBuildSource): Promise<RichTextDocument
   return outdoc;
 }
 
-export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
-  const typeinfo = await describeWHFSType(ns);
-  if (typeinfo.metaType !== "widgetType") //TODO have describeWHFSType learn about widgetType - it can already enforce fileType/folderType selection
-    throw new Error(`Type ${ns} is not a widget type`); //without this check we'd just be buildWHFSInstance - and maybe we should be?
-
+export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSInstance> {
+  const typeinfo = await describeWHFSType(data.whfsType);
   const widgetValue: Record<string, unknown> = {};
   if (data)
-    for (const [key, value] of Object.entries(data)) {
-      const matchMember = typeinfo.members.find((m) => m.name === key);
-      if (!matchMember)
-        throw new Error(`Member '${key}' not found in ${ns}`);
+    for (const [key, value] of Object.entries(data))
+      if (key !== "whfsType") {
+        const matchMember = typeinfo.members.find((m) => m.name === key);
+        if (!matchMember)
+          throw new Error(`Member '${key}' not found in ${data.whfsType}`);
 
-      //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-      widgetValue[key] = value;
-    }
+        //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
+        widgetValue[key] = value;
+      }
 
 
-  return new Widget(typeinfo, widgetValue);
+  return new WHFSInstance(typeinfo, widgetValue);
 }
 
-export type { WidgetInterface as Widget };
+/** @deprecated use buildWHFSInstance */
+export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
+  return buildWHFSInstance({ ...data, whfsType: ns });
+}
+
+export type { WidgetInterface as Widget, WHFSInstance };
