@@ -1,5 +1,5 @@
 import { whconstant_whfsid_wrdstore } from "@mod-system/js/internal/webhareconstants";
-import type { RichTextDocument } from "@webhare/services";
+import type { RichTextDocument, WHFSInstance } from "@webhare/services";
 import { nextWHFSObjectId, openFolder, openType, type WHFSFolder } from "@webhare/whfs";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 
@@ -37,11 +37,11 @@ export async function getRTDFromWHFS(whfsId: number): Promise<RichTextDocument |
   return result.data as RichTextDocument | null;
 }
 
-export async function getInstanceFromWHFS(whfsId: number): Promise<WHFSInstanceData> {
-  return openType("http://www.webhare.net/xmlns/wrd/instancefile").get(whfsId).then(_ => _.instance as WHFSInstanceData);
+export async function getInstanceFromWHFS(whfsId: number): Promise<WHFSInstance> {
+  return openType("http://www.webhare.net/xmlns/wrd/instancefile").get(whfsId).then(_ => _.instance as WHFSInstance);
 }
 
-export async function storeInstanceInWHFS(schemaId: number, instance: WHFSInstanceData): Promise<number> {
+export async function storeInstanceInWHFS(schemaId: number, instance: WHFSInstance | WHFSInstanceData): Promise<number> {
   //folder, to avoid duplicate insertion/creation
   const schemafolder = await ensureWHFSFolderForWRDSchema(schemaId);
   const fileid = await nextWHFSObjectId();

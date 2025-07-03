@@ -11,7 +11,7 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
@@ -2025,14 +2025,14 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
-class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstanceData | null, WHFSInstanceData | null, WHFSInstanceData | null> {
-  getDefaultValue(): WHFSInstanceData | null {
+class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null> {
+  getDefaultValue(): WHFSInstance | null {
     return null;
   }
 
-  isSet(value: WHFSInstanceData | null) { return Boolean(value); }
+  isSet(value: WHFSInstance | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): Promise<WHFSInstanceData | null> | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): Promise<WHFSInstance | null> | null {
     //based on RetrieveInstanceInWHFS(INTEGER64 wrd_settingid, OBJECT whfsmapper)
     const matchobj = links.find(_ => _.id === entity_settings[settings_start].id);
     if (!matchobj?.fsobject)
@@ -2041,12 +2041,12 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
     return getInstanceFromWHFS(matchobj?.fsobject);
   }
 
-  validateInput(value: WHFSInstanceData | null, checker: ValueQueryChecker, attrPath: string): void {
-    if (value && !("whfsType" in value))
+  validateInput(value: WHFSInstance | WHFSInstanceData | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (value && !value?.whfsType)
       throw new Error(`Invalid WHFS instance value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} - missing whfsType`);
   }
 
-  encodeValue(value: WHFSInstanceData | null): AwaitableEncodedValue {
+  encodeValue(value: WHFSInstance | WHFSInstanceData | null): AwaitableEncodedValue {
     if (!value)
       return {};
 

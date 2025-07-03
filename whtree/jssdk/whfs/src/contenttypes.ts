@@ -57,36 +57,6 @@ export interface FolderTypeInfo extends WHFSTypeBaseInfo {
 /** A type representing all possible WHFS Type interfaces */
 export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
 
-/* It would have been nice to get these from the CSP... but the CSP currently has no IDs (and no orphan info)
-function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
-  const members: ContentTypeMember[] = [];
-  for (const member of inmembers) {
-    const typename = membertypenames[member.type];
-    if (!typename)
-      continue;
-
-    const toadd: ContentTypeMember = {
-      name: member.name,
-      type: typename
-    };
-    if (member.type === CSPMemberType.Array)
-      toadd.children = mapMembers(member.children);
-    members.push(toadd);
-  }
-  return members;
-}
-*/
-
-//Given a flat array of members and the toplevel members we want, only return those members and their children
-function getMemberIds(members: WHFSTypeMember[], topLevelMembers: readonly string[]): number[] {
-  function getIds(member: WHFSTypeMember): number[] {
-    return [member.id, ...(member.children?.length ? member.children.map(getIds) : []).flat()];
-  }
-
-  return members.filter(_ => topLevelMembers.includes(_.name)).map(getIds).flat();
-}
-
-
 /** An API offering access to data stored in an instance type.
  */
 export interface InstanceDataAccessor<ContentTypeStructure extends object = Record<string, unknown>> {
@@ -167,15 +137,38 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
   private async getCurrentSettings(instanceIds: readonly number[], descr: WHFSTypeBaseInfo, keysToSet?: readonly string[]) {
+    const dbsettings: FSSettingsRow[] = [];
     let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
       .where("fs_instance", "in", instanceIds);
 
-    if (keysToSet)
-      query = query.where(qb => qb("fs_member", "in", getMemberIds(descr.members, keysToSet)));
+    if (keysToSet) {
+      const memberIds = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
+      query = query.where(qb => qb("fs_member", "in", memberIds));
+    } else
+      query = query.where(qb => qb("parent", "is", null));
 
-    const dbsettings = await query.execute();
+    let worklist = await query.execute();
+
+    appendToArray(dbsettings, worklist);
+    const seenids = new Set(worklist.map(_ => _.id));
+
+    while (worklist.length) { //recurse to get more settings by parent. just filtering by all toplevel memberids recursively isn't enough to catch instances as they can be any member id
+      const childQuery = await db<PlatformDB>()
+        .selectFrom("system.fs_settings")
+        .selectAll()
+        .where("fs_instance", "in", instanceIds)
+        .where("parent", "in", worklist.map(_ => _.id))
+        .execute();
+
+      appendToArray(dbsettings, childQuery);
+      worklist = childQuery.filter(_ => !seenids.has(_.id)); //prevent loops
+      for (const row of worklist)
+        seenids.add(row.id);
+    }
+
+    //Get the toplevel member ids we will be replacing (we always fully replace a toplevel member))
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 

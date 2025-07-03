@@ -7,11 +7,12 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import type { RichTextDocument } from "@webhare/services";
+import type { RichTextDocument, WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
+import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -387,7 +388,7 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "instance": {
-    encoder: (value: WHFSInstanceData) => {
+    encoder: (value: WHFSInstance | WHFSInstanceData) => {
       if (!value)
         return null;
       if (!value.whfsType)
@@ -396,9 +397,10 @@ export const codecs: { [key: string]: TypeCodec } = {
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
       return (async (): EncoderAsyncReturnValue => {
         const typeinfo = await describeWHFSType(value.whfsType);
+        const data = getWHType(value) === "WHFSInstance" ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
         return {
           instancetype: typeinfo.id,
-          sub: await recurseSetData(typeinfo.members, omit(value, ["whfsType"]))
+          sub: await recurseSetData(typeinfo.members, data)
         };
       })();
     },
@@ -410,7 +412,7 @@ export const codecs: { [key: string]: TypeCodec } = {
         const typeinfo = await describeWHFSType(settings[0].instancetype!);
         const widgetdata = await recurseGetData(allsettings, typeinfo.members, settings[0].id, cc);
 
-        return { whfsType: typeinfo.namespace, ...widgetdata };
+        return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
       })();
     }
   },

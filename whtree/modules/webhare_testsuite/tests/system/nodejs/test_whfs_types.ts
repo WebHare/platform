@@ -5,9 +5,11 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import { codecs } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
+import { getWHType } from "@webhare/std/quacks";
+import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -157,10 +159,7 @@ async function testInstanceData() {
     aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids,
-    anInstance: {
-      whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1",
-      str1: "str1"
-    },
+    anInstance: (instance: WHFSInstance) => instance.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance.data.str1 === "str1" && getWHType(instance) === "WHFSInstance"
   }, await testtype.get(testfile.id));
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
@@ -195,6 +194,16 @@ async function testInstanceData() {
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
+
+  // Further instance tests
+  await testtype.set(testfile.id, {
+    anInstance: await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })
+  });
+
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  test.eqPartial({
+    anInstance: (instance: WHFSInstance) => instance.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance.data.str1 === "str1b" && getWHType(instance) === "WHFSInstance"
+  }, await testtype.get(testfile.id));
 
   // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
 
