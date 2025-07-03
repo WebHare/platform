@@ -1,6 +1,6 @@
 import { omit, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { WHFSInstance, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
 import { getWHType } from "@webhare/std/quacks";
@@ -25,7 +25,7 @@ export const rtdTextStyles = { //Note that a-href is higher than all these style
 export type RTDBlockType = typeof rtdBlockTypes[number];
 type RTDBuildBlockType = `${typeof rtdBlockTypes[number]}.${string}`;
 
-type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstance : Mode extends "inMemory" ? Readonly<WidgetInterface> : Readonly<WidgetInterface> | WHFSInstance;
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstanceData : Mode extends "inMemory" ? Readonly<WidgetInterface> : Readonly<WidgetInterface> | WHFSInstanceData;
 
 /* The 'Build' flag indicates whether its a RTDBlock we will still parse and validate (building) or use as is (returned by RichTextDocument.blocks).
    The non-build version is generally stricter */
@@ -96,8 +96,8 @@ class Widget {
     return this.#data;
   }
 
-  async export(): Promise<WHFSInstance> {
-    const retval: WHFSInstance = {
+  async export(): Promise<WHFSInstanceData> {
+    const retval: WHFSInstanceData = {
       whfsType: this.whfsType,
     };
 
@@ -213,7 +213,7 @@ export class RichTextDocument {
     const out: ExportableRTD = [];
     for (const block of this.#blocks) {
       if ("widget" in block) {
-        out.push({ widget: await block.widget.export() satisfies WHFSInstance });
+        out.push({ widget: await block.widget.export() satisfies WHFSInstanceData });
         continue;
       }
 
@@ -224,7 +224,7 @@ export class RichTextDocument {
         };
         for (const item of block.items) {
           if ("widget" in item)
-            outBlock.items.push({ ...item, widget: await item.widget.export() satisfies WHFSInstance });
+            outBlock.items.push({ ...item, widget: await item.widget.export() satisfies WHFSInstanceData });
           else
             outBlock.items.push(item);
         }

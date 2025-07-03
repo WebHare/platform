@@ -8,7 +8,7 @@ import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
 import { RichTextDocument } from '@webhare/services';
 import { omit, stdTypeOf, stringify } from '@webhare/std';
-import type { WHFSInstance } from '@webhare/whfs/src/contenttypes';
+import type { WHFSInstanceData } from '@webhare/whfs/src/contenttypes';
 
 interface ExportWHFSTreeOptions {
   space?: string | number;
@@ -18,7 +18,7 @@ type ExportedProperties = {
   whfsType: string; //File/folder type namespace
   title?: string;
   /** Other instances (ie *not* the primary content) */
-  instances?: WHFSInstance[];
+  instances?: WHFSInstanceData[];
 };
 
 async function prepareInstanceForExport(indata: Record<string, unknown>, path: Array<string | number>) {
@@ -71,7 +71,7 @@ async function exportWHFSTree(source: WHFSObject, basePath: string, target: Crea
       //FIXME this needs further generalization, allow 'any' type to be the content.json?
       const richdata = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(obj.id);
       if (richdata.data) {
-        const metadata: WHFSInstance = {
+        const metadata: WHFSInstanceData = {
           whfsType: "http://www.webhare.net/xmlns/publisher/richdocumentfile",
           ...omit(richdata, ["original"]) //don't export the original word docs that still linger everywhere
         };

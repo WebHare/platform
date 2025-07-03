@@ -11,7 +11,7 @@ import { describeWHFSType, type FSSettingsRow } from "./describe";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
-export type WHFSInstance = Record<string, unknown> & { whfsType: string };
+export type WHFSInstanceData = Record<string, unknown> & { whfsType: string };
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
