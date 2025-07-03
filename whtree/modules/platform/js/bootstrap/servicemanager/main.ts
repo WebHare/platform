@@ -212,10 +212,15 @@ class ProcessManager {
     this.running = false;
     if (error)
       this.log(`Failed to start: ${error.message}`, { error: error.message, stack: error.stack });
-    if (signal)
-      this.log(`Exited with signal ${signal}`, { exitSignal: signal });
-    else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging
-      this.log(`Exited with error code ${exitCode}`, { exitCode: exitCode });
+    if (signal) {
+      // Ignore SIGTERM when shutting down
+      if (!this.toldToStop || signal !== "SIGTERM")
+        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+    } else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) { //report on error, if it's an always-running service, or if debugging
+      // Ignore exit code 207 (used when handling a SIGTERM within the WH signal handler) when shutting down
+      if (!this.toldToStop || exitCode !== 207)
+        this.log(`Exited with error code ${exitCode}`, { exitCode: exitCode });
+    }
 
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.criticalForStartup && currentstage < Stage.Active) {
