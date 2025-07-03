@@ -4,9 +4,10 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { ResourceDescriptor } from "@webhare/services";
+import { buildRTD, ResourceDescriptor } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
+import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
 
 async function testExport() { //  tests
@@ -46,7 +47,17 @@ async function testExport() { //  tests
     testFile: testFileDoc,
     testImage: goldfishImg,
     testEnumarray: ["enumarray1" as const, "enumarray2" as const],
-    wrdauthAccountStatus: { status: "active" } as const
+    wrdauthAccountStatus: { status: "active" } as const,
+    richie: await buildRTD([
+      { "h2": ["The Heading"] },
+      {
+        "widget": await buildWHFSInstance({
+          whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+          rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+          rtdright: null
+        })
+      }
+    ]),
   };
 
   const testPersonId = await wrdschema.insert("wrdPerson", { ...initialPersonData, wrdId: nextWrdId });
@@ -83,6 +94,19 @@ async function testExport() { //  tests
       dominantColor: /^#.*/
     }
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "testImage"], { export: true }));
+
+  test.eq({
+    richie: [
+      { tag: 'h2', items: [{ text: 'The Heading' }] },
+      {
+        widget: {
+          whfsType: 'http://www.webhare.net/xmlns/publisher/widgets/twocolumns',
+          rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
+          rtdright: null
+        }
+      }
+    ],
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["richie"], { export: true }));
 }
 
 test.runTests([

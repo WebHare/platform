@@ -19,6 +19,7 @@ import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHF
 import { isPromise } from "node:util/types";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 import type { ExportOptions } from "./schema";
+import type { ExportableRTD } from "@webhare/services/src/richdocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -2049,7 +2050,7 @@ class WRDDBFileValue<Required extends boolean> extends WHDBResourceAttributeBase
 
 class WRDDBImageValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
-class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null, RichTextDocument | null> {
+class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null, ExportableRTD | null> {
   getDefaultValue(): RichTextDocument | null {
     return null;
   }
@@ -2096,6 +2097,10 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
         return [setting];
       })()
     };
+  }
+
+  exportValue(value: RichTextDocument | null): Promise<ExportableRTD> | null {
+    return value?.blocks.length ? value.export() : null;
   }
 }
 
