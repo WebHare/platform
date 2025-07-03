@@ -1,8 +1,11 @@
-import { throwError } from "@webhare/std";
+import { omit, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { WHFSInstance, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
+import { getWHType } from "@webhare/std/quacks";
+
+type RTDItemMode = "inMemory" | "export" | "build";
 
 /** Paragraph types supported by us */
 export const rtdBlockTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
@@ -22,41 +25,47 @@ export const rtdTextStyles = { //Note that a-href is higher than all these style
 export type RTDBlockType = typeof rtdBlockTypes[number];
 type RTDBuildBlockType = `${typeof rtdBlockTypes[number]}.${string}`;
 
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstance : Mode extends "inMemory" ? Readonly<WidgetInterface> : Readonly<WidgetInterface> | WHFSInstance;
+
 /* The 'Build' flag indicates whether its a RTDBlock we will still parse and validate (building) or use as is (returned by RichTextDocument.blocks).
    The non-build version is generally stricter */
 
-type RTDBaseBlock<Build extends boolean> = {
+type RTDBaseBlock<Mode extends RTDItemMode> = {
   /** Element type */
   tag: RTDBlockType;
   className?: string;
-  items: RTDBaseBlockItems<Build>;
+  items: RTDBaseBlockItems<Mode>;
 }
   |
 {
-  widget: Readonly<WidgetInterface>;
-} | (Build extends true ? //When building also allow a simpler h1: [items] or "h1.heading1": [items] syntax
+  widget: RTDBaseWidget<Mode>;
+} | (Mode extends "build" ? //When building also allow a simpler h1: [items] or "h1.heading1": [items] syntax
   {
-    [key in RTDBlockType | RTDBuildBlockType]?: RTDBaseBlockItems<Build>;
+    [key in RTDBlockType | RTDBuildBlockType]?: RTDBaseBlockItems<Mode>;
   } : never);
 
 /** The contents of text blocks */
-type RTDBaseBlockItems<Build extends boolean> = Array<RTDBaseBlockItem | (Build extends true ? string : never)> | (Build extends true ? string : never);
+type RTDBaseBlockItems<Mode extends RTDItemMode> = Array<RTDBaseBlockItem<Mode> | (Mode extends "build" ? string : never)> | (Mode extends "build" ? string : never);
 
-type RTDBaseBlockItem = ({ text: string } | { widget: Readonly<WidgetInterface> }) & {
+type RTDBaseBlockItem<Mode extends RTDItemMode> = ({ text: string } | { widget: RTDBaseWidget<Mode> }) & {
   [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
 } & { link?: string; target?: "_blank" };
 
-export type RTDBlock = RTDBaseBlock<false>;
-export type RTDBlockItem = RTDBaseBlockItem;
-export type RTDBlockItems = RTDBaseBlockItems<false>;
+export type RTDBlock = RTDBaseBlock<"inMemory">;
+export type RTDBlockItem = RTDBaseBlockItem<"inMemory">;
+export type RTDBlockItems = RTDBaseBlockItems<"inMemory">;
+
+export type RTDExportBlock = RTDBaseBlock<"export">;
 
 export type RTDBuildParagraphType = "h1.heading1" | "h2.heading2" | "h3.heading3" | "h4.heading4" | "h5.heading5" | "h6.heading6" | "p.normal" | typeof rtdBlockTypes[number] | RTDBlockType;
-export type RTDBuildBlock = RTDBaseBlock<true>;
-export type RTDBuildBlockItem = RTDBaseBlockItem;
-export type RTDBuildBlockItems = RTDBaseBlockItems<true>;
+export type RTDBuildBlock = RTDBaseBlock<"build">;
+export type RTDBuildBlockItem = RTDBaseBlockItem<"build">;
+export type RTDBuildBlockItems = RTDBaseBlockItems<"build">;
 
 /** The base RTD type accepted by buildRTD */
 export type RTDBuildSource = RTDBuildBlock[];
+
+export type ExportableRTD = RTDExportBlock[];
 
 export function isValidRTDClassName(className: string): boolean {
   return className === "" || /^[a-z0-9]+$/.test(className);
@@ -86,10 +95,25 @@ class Widget {
   get data() {
     return this.#data;
   }
+
+  async export(): Promise<WHFSInstance> {
+    const retval: WHFSInstance = {
+      whfsType: this.whfsType,
+    };
+
+    for (const member of this.#typeInfo.members) {
+      //TODO Array recursion, ResourceDescriptors,...
+      if (member.type === "richDocument")
+        retval[member.name] = (await (this.#data[member.name] as RichTextDocument | null)?.export()) || null;
+      else
+        retval[member.name] = this.#data[member.name];
+    }
+    return retval;
+  }
 }
 
 ///build separate type as Widget isn't currently constructable. The 'export type' trick won't work with private members
-type WidgetInterface = Pick<Widget, "whfsType" | "data">;
+type WidgetInterface = Pick<Widget, "whfsType" | "data" | "export">;
 
 export class RichTextDocument {
   private static "__ $whTypeSymbol" = "RichTextDocument";
@@ -119,6 +143,9 @@ export class RichTextDocument {
       if (typeof item === 'string') {
         outitems.push({ text: item });
         continue;
+      } else if ("widget" in item) {
+        outitems.push({ ...item, widget: await this.addWidget(item.widget) });
+        continue;
       }
 
       outitems.push(item);
@@ -140,6 +167,16 @@ export class RichTextDocument {
     this.#blocks.push(newblock);
   }
 
+  private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
+    if (getWHType(widget) === "Widget") //we just keep the widget as is
+      return widget as WidgetInterface;
+
+    if ("whfsType" in widget)
+      return await buildWidget(widget.whfsType, omit(widget, ["whfsType"]));
+
+    throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
+  }
+
   async addBlocks(blocks: RTDBuildBlock[]): Promise<void> {
     //TODO validate, import disk objects etc
     for (const block of blocks) {
@@ -158,7 +195,7 @@ export class RichTextDocument {
       const key: string = entries[0][0];
       const data = entries[0][1];
       if (key === 'widget') {
-        this.#blocks.push({ widget: data });
+        this.#blocks.push({ widget: await this.addWidget(data) });
         continue;
       }
 
@@ -169,6 +206,34 @@ export class RichTextDocument {
 
       await this.addBlock(tag, className, data);
     }
+  }
+
+  /** Export as buildable RTD */
+  async export(): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
+    const out: ExportableRTD = [];
+    for (const block of this.#blocks) {
+      if ("widget" in block) {
+        out.push({ widget: await block.widget.export() satisfies WHFSInstance });
+        continue;
+      }
+
+      if ("items" in block && block.items?.length) {
+        const outBlock: RTDExportBlock = {
+          ...block,
+          items: []
+        };
+        for (const item of block.items) {
+          if ("widget" in item)
+            outBlock.items.push({ ...item, widget: await item.widget.export() satisfies WHFSInstance });
+          else
+            outBlock.items.push(item);
+        }
+        out.push(outBlock);
+        continue;
+      }
+      throw new Error(`Block ${JSON.stringify(block)} has no export definition`);
+    }
+    return out;
   }
 
   /** @deprecated Use exportRTDToRawHTML in hscompat */

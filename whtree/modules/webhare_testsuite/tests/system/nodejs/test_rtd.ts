@@ -8,6 +8,10 @@ import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd
 import type { RTDBlockItem } from "@webhare/services/src/richdocument";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
+  const exported = await doc.export();
+  const docFromExported = await buildRTD(exported);
+  test.eq(doc.blocks, docFromExported.blocks);
+
   const hs = await exportAsHareScriptRTD(doc);
   const doc2 = await buildRTDFromHareScriptRTD(hs);
   test.eq(doc.blocks, doc2.blocks);
@@ -205,6 +209,34 @@ async function testBuilder() {
       }
     ], doc.blocks);
 
+    test.eq([
+      {
+        tag: "p",
+        items: [
+          { text: "Bold", bold: true },
+          { text: ", " },
+          { text: "Italic", italic: true },
+          { text: ", " },
+          { text: "Underline", underline: true },
+          { text: ", " },
+          {
+            widget: {
+              whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
+              fieldname: "bu_field"
+            },
+            bold: true,
+            underline: true
+          }
+        ]
+      }, {
+        widget: {
+          whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
+          html: "<b>BOLD</b> HTML"
+        }
+      }
+    ], await doc.export());
+
+
     test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
@@ -237,6 +269,16 @@ async function testBuilder() {
         })
       }
     ]);
+
+    test.eq([
+      {
+        widget: {
+          whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+          rtdleft: [{ tag: "p", items: [{ text: "Left column" }] }],
+          rtdright: null,
+        }
+      }
+    ], await doc.export());
 
     verifyWidget(doc);
 

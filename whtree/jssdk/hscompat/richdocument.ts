@@ -5,8 +5,11 @@ import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 
 type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
+
+type ReadonlyWidget = Omit<Readonly<Widget>, "export">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -40,10 +43,10 @@ function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
-function groupByLink(items: Readonly<RTDBlockItems>): ReadonlyArray<{
+function groupByLink(items: RecursiveReadonly<RTDBlockItems>): ReadonlyArray<{
   link?: string;
   target?: "_blank";
-  items: readonly RTDBlockItem[];
+  items: Array<RecursiveReadonly<RTDBlockItem>>;
 }> {
   const blocks = [];
   for (const item of items) {
@@ -179,9 +182,9 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
   const instances: HareScriptRTD["instances"] = [];
   const embedded: HareScriptRTD["embedded"] = [];
   const links: HareScriptRTD["links"] = [];
-  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<Readonly<Widget>, string> }).__instanceIds;
+  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<ReadonlyWidget, string> }).__instanceIds;
 
-  async function exportWidgetForHS(widget: Readonly<Widget>, block: boolean) {
+  async function exportWidgetForHS(widget: ReadonlyWidget, block: boolean) {
     const tag = block ? 'div' : 'span';
     const data: Record<string, unknown> & { whfstype: string } = {
       whfstype: widget.whfsType,
@@ -204,7 +207,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
   }
 
-  async function buildBlockItems(items: Readonly<RTDBlockItems>) {
+  async function buildBlockItems(items: RecursiveReadonly<RTDBlockItems>) {
     let output = '';
     for (const linkitem of groupByLink(items)) {
       let linkpart = '';
