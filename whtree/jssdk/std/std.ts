@@ -21,6 +21,8 @@ export { type AddressValue } from "./address";
 
 export { combineAbortSignals, whenAborted } from "./utils";
 
+export { LocalMutex, type LocalLock } from "./localmutex";
+
 /** Throw an error with the specified message. This function allows you to throw inside expressions
  * @param err - The error message
  * @returns This function never returns
