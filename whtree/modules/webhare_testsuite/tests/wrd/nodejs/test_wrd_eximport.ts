@@ -2,14 +2,16 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import type { Combine } from "@webhare/wrd/src/types";
+import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
 import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { ResourceDescriptor } from "@webhare/services";
 import { throwError } from "@webhare/std";
+import type { ExportedResource } from "@webhare/services/src/descriptor";
 
 
 async function testExport() { //  tests
-  const wrdschema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions]>>(testSchemaTag);
+  type TestSchemaType = Combine<[WRD_TestschemaSchemaType, CustomExtensions]>;
+  const wrdschema = new WRDSchema<TestSchemaType>(testSchemaTag);
   await createWRDTestSchema();
 
   await whdb.beginWork(); //change 0 - initial insert
@@ -27,9 +29,10 @@ async function testExport() { //  tests
 
   // Create a person with some testdata
   const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
+  const testFileDoc = await ResourceDescriptor.from("EenDoc", { mediaType: "application/msword", fileName: "testfile.doc" });
   const nextWrdId = await wrdschema.getNextId("wrdPerson");
   const nextWrdGuid = wrdschema.getNextGuid("wrdPerson");
-  const initialPersonData = {
+  const initialPersonData: WRDInsertable<TestSchemaType["wrdPerson"]> = {
     wrdGuid: nextWrdGuid,
     wrdFirstName: "John",
     wrdLastName: "Doe",
@@ -40,7 +43,7 @@ async function testExport() { //  tests
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
-    testFile: await ResourceDescriptor.from("", { mediaType: "application/msword", fileName: "testfile.doc" }),
+    testFile: testFileDoc,
     testImage: goldfishImg,
     testEnumarray: ["enumarray1" as const, "enumarray2" as const],
     wrdauthAccountStatus: { status: "active" } as const
@@ -56,6 +59,30 @@ async function testExport() { //  tests
     testSingleDomain: domain1value1guid,
     testMultipleDomain: [domain1value3guid, domain1value2guid].toSorted(),
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain"], { export: true }));
+
+  test.eq({
+    testFile: {
+      data: {
+        base64: "RWVuRG9j" //base64 of EenDoc
+      },
+      fileName: "testfile.doc",
+      mediaType: "application/msword",
+      extension: '.doc',
+      hash: "BhcncANlYsAInWd-DRO8_w94hPCpUzmgfKCwqOSBoAY"
+    } satisfies ExportedResource,
+    testImage: {
+      data: {
+        base64: /^iVBO/ //base64 of goudvis
+      },
+      fileName: "goudvis.png",
+      mediaType: "image/png",
+      extension: '.png',
+      hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+      width: 385,
+      height: 236,
+      dominantColor: /^#.*/
+    }
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "testImage"], { export: true }));
 }
 
 test.runTests([

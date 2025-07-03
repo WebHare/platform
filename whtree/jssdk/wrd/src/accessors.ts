@@ -4,8 +4,8 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType } from "@webhare/std";
-import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, typedFromEntries, typedEntries } from "@webhare/std";
+import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
@@ -1977,7 +1977,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
   ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>,
   ResourceDescriptor | null,
   ResourceDescriptor | NullIfNotRequired<Required>,
-  ResourceDescriptor | NullIfNotRequired<Required>
+  ExportedResource | NullIfNotRequired<Required>
 > {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
@@ -2027,6 +2027,20 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
         }
         return [setting];
       })()
+    };
+  }
+
+  /** Convert the returned value to its exportable version
+   */
+  async exportValue(value: ResourceDescriptor | NullIfNotRequired<Required>, exportOptions?: ExportOptions): Promise<ExportedResource | NullIfNotRequired<Required>> {
+    //TODO Serialization methods other than data: will be requestable through ExportOptions
+    if (!value)
+      return null as unknown as ExportedResource; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    return {
+      data: { base64: Buffer.from(await value.resource.arrayBuffer()).toString("base64") },
+      ...typedFromEntries(typedEntries(value.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
+      //FIXME add sourceFile
     };
   }
 }
