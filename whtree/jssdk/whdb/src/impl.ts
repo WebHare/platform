@@ -377,6 +377,10 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     let lock;
     let mutexes: Mutex[] | undefined = [];
     let newwork;
+    let lastopen: Error | undefined;
+
+    if (debugFlags.async)
+      lastopen = new Error(`Work was last opened here`); //We must grab the stack before the first await
 
     try {
       if (options?.mutex)
@@ -394,7 +398,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
       mutexes = undefined;
 
       if (debugFlags.async)
-        this.lastopen = new Error(`Work was last opened here`);
+        this.lastopen = lastopen;
 
       const isolationLevel = options?.isolationLevel ?? "read committed";
       await this.connectpromise;
