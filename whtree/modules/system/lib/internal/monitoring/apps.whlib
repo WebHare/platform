@@ -48,13 +48,11 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
 
   MACRO GotApplicationStarter(STRING event, RECORD data)
   {
-    DumpValue(data, [ name := "GotApplicationStarter" ]);
-
     RECORD pos := RecordLowerBound(this->applicationstarters, data, [ "ID" ]);
     IF (pos.found)
       RETURN;
 
-    // Should be running inside the webserver
+    // HS native apps currently run inside the webserver, but HS wasm and TS apps never do
     OBJECT link := ConnectToGlobalIPCPort("tollium:link." || data.id);
     IF (NOT ObjectExists(link))
       RETURN;
