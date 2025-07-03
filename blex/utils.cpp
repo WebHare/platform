@@ -388,10 +388,16 @@ void BlexSignalHandler(int sig)
 
         RestoreConsoleEcho();
 
-        /* Ideally we would do this, but a signal is ignored when the handler is still running
-        signal(sig, SIG_DFL); // restore the signal handler so we 'look' like we were properly killed by the signal
-        kill(getpid(), sig); // resend it
-        */
+        // revert to default signal handler
+        signal(sig,SIG_DFL);
+
+        // unmask the signal so we reemit the signal and be killed by it
+        sigset_t set;
+        sigemptyset(&set);
+        sigaddset(&set, sig);
+        // unmask it in the thread and proc mask, just to be sure
+        if (pthread_sigmask(SIG_UNBLOCK, &set, NULL) == 0 && sigprocmask(SIG_UNBLOCK, &set, NULL) == 0)
+            kill(getpid(), sig); // resend it
 
         // if the signal didn't kill us, do it ourselves.
         // for users searching what exit codes mean: 193 will be SIGHUP, 194 will be SIGINT, 207 will be SIGTERM
