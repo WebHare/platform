@@ -509,6 +509,8 @@ async function testNewAPI() {
     test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", firstperson).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
     await test.throws(/exactly one/, schema.query("wrdPerson").select(["wrdId"]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
     test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "=", null).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
+    test.eq(null, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireAtMostOne());
+    test.eq({ wrdId: firstperson, wrdTitle: "first lastname" }, await schema.query("wrdPerson").select(["wrdId"]).where("wrdId", "in", [null, firstperson]).enrich("wrdPerson", "wrdId", ["wrdTitle"]).executeRequireExactlyOne());
   }
 
   await whdb.beginWork();
