@@ -5,9 +5,13 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import type { RTDBlockItem } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, type RTDBlockItem } from "@webhare/services/src/richdocument";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
+  const exported = await doc.export();
+  const docFromExported = await buildRTD(exported);
+  test.eq(doc.blocks, docFromExported.blocks);
+
   const hs = await exportAsHareScriptRTD(doc);
   const doc2 = await buildRTDFromHareScriptRTD(hs);
   test.eq(doc.blocks, doc2.blocks);
@@ -37,7 +41,6 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
   await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
   const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
-  // console.dir(doc3.blocks, { depth: 10 });
   test.eq(doc.blocks, doc3.blocks);
 
   //Test roundtrip through HareScript WHFS SetInstanceData
@@ -49,7 +52,6 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
-  // console.dir(hsInstance, { depth: 4 });
   const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
   test.eq(doc.blocks, doc5.blocks);
 
@@ -180,11 +182,11 @@ async function testBuilder() {
           { text: "Italic", italic: true },
           ", ",
           { text: "Underline", underline: true },
-          ", ",
+          ", ", //keeping *one* buildWidget until all module users have removed it
           { widget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        "widget": await buildWidget("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
+        "widget": await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" })
       }
     ]);
 
@@ -205,13 +207,41 @@ async function testBuilder() {
       }
     ], doc.blocks);
 
+    test.eq([
+      {
+        tag: "p",
+        items: [
+          { text: "Bold", bold: true },
+          { text: ", " },
+          { text: "Italic", italic: true },
+          { text: ", " },
+          { text: "Underline", underline: true },
+          { text: ", " },
+          {
+            widget: {
+              whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
+              fieldname: "bu_field"
+            },
+            bold: true,
+            underline: true
+          }
+        ]
+      }, {
+        widget: {
+          whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
+          html: "<b>BOLD</b> HTML"
+        }
+      }
+    ], await doc.export());
+
+
     test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
 
   //Verify that we catch broken whfs types
-  await test.throws(/No such type/, () => buildWidget("http://www.webhare.net/nosuchtype"));
-  await test.throws(/Member 'blah' not found/, () => buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { blah: "bu_field" }));
+  await test.throws(/No such type/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
+  await test.throws(/Member 'blah' not found/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", blah: "bu_field" }));
 
 
   {  //Build a RTD containing a RTD
@@ -231,14 +261,26 @@ async function testBuilder() {
 
     const doc = await buildRTD([
       {
-        "widget": await buildWidget("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {
+        "widget": await buildWHFSInstance({
+          whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
           rtdleft: await buildRTD([{ "p": ["Left column"] }]),
           rtdright: null
         })
       }
     ]);
 
+    test.eq([
+      {
+        widget: {
+          whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+          rtdleft: [{ tag: "p", items: [{ text: "Left column" }] }],
+          rtdright: null,
+        }
+      }
+    ], await doc.export());
+
     verifyWidget(doc);
+    await verifyRoundTrip(doc);
 
     const toHS = await exportAsHareScriptRTD(doc);
     test.eqPartial([

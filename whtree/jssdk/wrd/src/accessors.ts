@@ -11,13 +11,13 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument, IntExtLink } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
-import type { WHFSInstance } from "@webhare/whfs/src/contenttypes";
+import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -2025,7 +2025,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
-class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | null, WHFSInstance | null, WHFSInstance | null> {
+class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null> {
   getDefaultValue(): WHFSInstance | null {
     return null;
   }
@@ -2041,12 +2041,12 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
     return getInstanceFromWHFS(matchobj?.fsobject);
   }
 
-  validateInput(value: WHFSInstance | null, checker: ValueQueryChecker, attrPath: string): void {
-    if (value && !("whfsType" in value))
+  validateInput(value: WHFSInstance | WHFSInstanceData | null, checker: ValueQueryChecker, attrPath: string): void {
+    if (value && !value?.whfsType)
       throw new Error(`Invalid WHFS instance value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} - missing whfsType`);
   }
 
-  encodeValue(value: WHFSInstance | null): AwaitableEncodedValue {
+  encodeValue(value: WHFSInstance | WHFSInstanceData | null): AwaitableEncodedValue {
     if (!value)
       return {};
 

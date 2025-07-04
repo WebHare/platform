@@ -877,6 +877,22 @@ async function testPromises() {
   test.eq(2, tester.coalesceCalls);
 }
 
+async function testMutex() {
+  const m = new std.LocalMutex();
+  const l1 = await m.lock();
+  const l2 = m.lock();
+  const l3 = m.lock();
+
+  {
+    test.eq("Timeout", await Promise.race([l2, std.sleep(20).then(_ => "Timeout")]));
+    l1.release();
+    test.throws(/Lock already released/, () => l1.release());
+    using l2lock = await l2;
+    void (l2lock);
+  }
+  test.assert(await l3);
+}
+
 function testBigInt() {
   //This test requires compatibility=es2020. WebHare defaults to "es2016", "safari14" which triggers: 'Big integer literals are not available in the configured target environment'
   test.throws(/BigInt/, () => std.stringify({ a: { b: 42n } }, { stable: true }));
@@ -1085,6 +1101,8 @@ test.runTests([
   testSortedSetMap,
   "Promises",
   testPromises,
+  "Mutex",
+  testMutex,
   "BigInt",
   testBigInt,
   "testCaseChanging",

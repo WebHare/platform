@@ -7,10 +7,12 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import type { RichTextDocument } from "@webhare/services";
-import type { WHFSInstance, WHFSTypeMember } from "./contenttypes";
+import type { RichTextDocument, WHFSInstance } from "@webhare/services";
+import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
+import { getWHType } from "@webhare/std/quacks";
+import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -325,14 +327,15 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "richDocument": {
     encoder: (value: RichTextDocument | null) => {
-      if (typeof value !== "object") //TODO test for an actual RichTextDocument
-        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${typeof value}'`);
+      if (value && getWHType(value) !== "RichTextDocument")
+        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
       if (!value || value.isEmpty())
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
-        const toSerialize = await exportAsHareScriptRTD(value);
+        //Don't recurse, we're encoding embedded instances ourselves
+        const toSerialize = await exportAsHareScriptRTD(value, { recurse: false });
         const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
         const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
 
@@ -343,7 +346,7 @@ export const codecs: { [key: string]: TypeCodec } = {
           blobdata: await uploadBlob(storetext),
         });
 
-        for (const instance of toSerialize.instances) {
+        for (const instance of toSerialize.instances) { //encode embedded instanes
           /* Generate settings for the instance:
             - It needs a toplevel setting with:
                 - ordering = 3
@@ -385,7 +388,7 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "instance": {
-    encoder: (value: WHFSInstance) => {
+    encoder: (value: WHFSInstance | WHFSInstanceData) => {
       if (!value)
         return null;
       if (!value.whfsType)
@@ -394,9 +397,10 @@ export const codecs: { [key: string]: TypeCodec } = {
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
       return (async (): EncoderAsyncReturnValue => {
         const typeinfo = await describeWHFSType(value.whfsType);
+        const data = getWHType(value) === "WHFSInstance" ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
         return {
           instancetype: typeinfo.id,
-          sub: await recurseSetData(typeinfo.members, omit(value, ["whfsType"]))
+          sub: await recurseSetData(typeinfo.members, data)
         };
       })();
     },
@@ -408,7 +412,7 @@ export const codecs: { [key: string]: TypeCodec } = {
         const typeinfo = await describeWHFSType(settings[0].instancetype!);
         const widgetdata = await recurseGetData(allsettings, typeinfo.members, settings[0].id, cc);
 
-        return { whfsType: typeinfo.namespace, ...widgetdata };
+        return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
       })();
     }
   },

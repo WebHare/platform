@@ -123,6 +123,8 @@ export interface UpdateFolderMetadata extends CreateFolderMetadata {
   name?: string;
 }
 
+const ensureObjectLock = new std.LocalMutex;
+
 export function isHistoricWHFSSpace(path: string) {
   path = path.toUpperCase();
   if (path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/")
@@ -495,11 +497,15 @@ export class WHFSFolder extends WHFSBaseObject {
     if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
       throw new Error(`ensureFile requires open work`);
 
+    //TODO better scoping would be having a lockmanager inside work ? most of our risk is limited to our work. ideally replace createFile/Folder with a version returning existing ID on conflict
+    using lock = await ensureObjectLock.lock(); //prevent race before createFile. WRD is good at triggering this when creating its schema folder, TODO: although ideally WRD asynchronously inserts that folder or ensures it on schema creation
     let existingfile = await this.openFile(name, { allowMissing: true });
     if (!existingfile)
       existingfile = await this.createFile(name, { ...requiredmetadata, ...options?.ifNew });
-    else
+    else if (requiredmetadata) {
+      lock.release();
       await existingfile.update({ ...requiredmetadata });
+    }
 
     return existingfile;
   }
@@ -516,12 +522,15 @@ export class WHFSFolder extends WHFSBaseObject {
     if (!isWorkOpen()) //ensure work is open (or users might not realize it's needed if no actual update happens)
       throw new Error(`ensureFolder requires open work`);
 
+    //TODO See ensureFile
+    using lock = await ensureObjectLock.lock();
     let existingfolder = await this.openFolder(name, { allowMissing: true });
     if (!existingfolder)
       existingfolder = await this.createFolder(name, { ...requiredmetadata, ...options?.ifNew });
-
-    if (requiredmetadata)
+    else if (requiredmetadata) {
+      lock.release();
       await existingfolder.update(requiredmetadata);
+    }
     return existingfolder;
   }
 

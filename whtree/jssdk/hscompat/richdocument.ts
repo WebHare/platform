@@ -1,12 +1,15 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type Widget, buildWidget, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDBlockItem, type RTDBuildBlock, type RTDBuildBlockItem, rtdTextStyles, type RTDBlockItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDBlockType, rtdBlockTypes, type WHFSInstance, buildWHFSInstance } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 
 type BlockItemStack = Pick<RTDBuildBlockItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
+
+type ReadonlyWidget = Omit<Readonly<WHFSInstance>, "export">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -40,10 +43,10 @@ function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
-function groupByLink(items: Readonly<RTDBlockItems>): ReadonlyArray<{
+function groupByLink(items: RecursiveReadonly<RTDBlockItems>): ReadonlyArray<{
   link?: string;
   target?: "_blank";
-  items: readonly RTDBlockItem[];
+  items: Array<RecursiveReadonly<RTDBlockItem>>;
 }> {
   const blocks = [];
   for (const item of items) {
@@ -67,7 +70,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
   const outdata: Record<string, unknown> = {};
   for (const member of members) {
     if (member.name in data) {
-      if (member.type === "richDocument" && data[member.name]) {
+      //We hope to receive RichDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
+      if (member.type === "richDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
         outdata[member.name] = await buildRTDFromHareScriptRTD(data[member.name] as HareScriptRTD);
       } else {
         outdata[member.name] = data[member.name];
@@ -84,7 +88,7 @@ class HSRTDImporter {
 
   }
 
-  async reconstructWidget(node: Element): Promise<Widget | null> {
+  async reconstructWidget(node: Element): Promise<WHFSInstance | null> {
     const matchinginstance = this.inrtd.instances.find(i => i.instanceid === node.getAttribute("data-instanceid"));
     if (!matchinginstance)
       return null;
@@ -94,7 +98,7 @@ class HSRTDImporter {
       return null; //it must have existed, how can we otherwise have imported it ?
 
     const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, matchinginstance.data);
-    const widget = await buildWidget(matchinginstance.data.whfstype, setdata);
+    const widget = await buildWHFSInstance({ ...setdata, whfsType: matchinginstance.data.whfstype });
     this.outdoc.__hintInstanceId(widget, matchinginstance.instanceid);
     return widget;
   }
@@ -175,24 +179,27 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
   return importer.outdoc;
 }
 
-export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<HareScriptRTD> {
+/** Build a HareScript record structure RTD. Necessary to communicatee with HareScript (directly and through database storage)
+ *  @param recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
+*/
+export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<HareScriptRTD> {
   const instances: HareScriptRTD["instances"] = [];
   const embedded: HareScriptRTD["embedded"] = [];
   const links: HareScriptRTD["links"] = [];
-  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<Readonly<Widget>, string> }).__instanceIds;
+  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<ReadonlyWidget, string> }).__instanceIds;
 
-  async function exportWidgetForHS(widget: Readonly<Widget>, block: boolean) {
+  async function exportWidgetForHS(widget: ReadonlyWidget, block: boolean) {
     const tag = block ? 'div' : 'span';
     const data: Record<string, unknown> & { whfstype: string } = {
       whfstype: widget.whfsType,
       ...widget.data
     };
 
-    //Encode embedded RTDs
-    for (const [key, value] of Object.entries(data)) {
-      if (value instanceof RichTextDocument)
-        data[key] = await exportAsHareScriptRTD(value);
-    }
+    if (recurse) //Encode embedded RTDs. Needed when serializing to HareScript the language, but not by TS instance codev
+      for (const [key, value] of Object.entries(data)) {
+        if (value instanceof RichTextDocument)
+          data[key] = await exportAsHareScriptRTD(value, { recurse });
+      }
 
     // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
     const instanceid = instancemapping.get(widget) || generateRandomId();
@@ -204,7 +211,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
   }
 
-  async function buildBlockItems(items: Readonly<RTDBlockItems>) {
+  async function buildBlockItems(items: RecursiveReadonly<RTDBlockItems>) {
     let output = '';
     for (const linkitem of groupByLink(items)) {
       let linkpart = '';

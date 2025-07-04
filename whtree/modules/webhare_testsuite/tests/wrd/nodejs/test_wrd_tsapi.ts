@@ -6,7 +6,7 @@ import { WRDSchema, describeEntity, listSchemas, openSchemaById, getSchemaSettin
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 import type { JsonWebKey } from "node:crypto";
 import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlIdp, wrdTestschemaSchema, type Platform_BasewrdschemaSchemaType } from "@mod-platform/generated/wrd/webhare";
-import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink } from "@webhare/services";
+import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
 import { generateRandomId, isValidUUID } from "@webhare/std/platformbased";
@@ -18,6 +18,7 @@ import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
 import type { TestschemaSchemaType } from "wh:wrd/webhare_testsuite";
+import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
 
 function cmp(a: unknown, condition: string, b: unknown) {
@@ -739,27 +740,21 @@ async function testNewAPI() {
   });
 
   test.eq({
-    whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
-    id: "TestInstance-1",
-    fsref: 16,
-    styletitle: ""
-  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"]))?.testinstance);
+    testinstance: (instance: WHFSInstance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/beta/embedblock1" && instance?.data.id === "TestInstance-1" && instance?.data.fsref === 16 && instance?.data.styletitle === "",
+  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"])));
 
   await schema.update("wrdPerson", newperson, {
-    testinstance: {
+    testinstance: await buildWHFSInstance({
       whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
       fsref: 1,
       styletitle: "Test style",
       id: "TestInstance-2"
-    }
+    })
   });
 
   test.eq({
-    whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
-    id: "TestInstance-2",
-    fsref: 1,
-    styletitle: "Test style",
-  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"]))?.testinstance);
+    testinstance: (instance: WHFSInstance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/beta/embedblock1" && instance?.data.id === "TestInstance-2" && instance?.data.fsref === 1 && instance?.data.styletitle === "Test style",
+  }, (await schema.getFields("wrdPerson", newperson, ["testinstance"])));
 
   test.eqPartial({ //need partial due to whfssettingid
     whfstype: "http://www.webhare.net/xmlns/beta/embedblock1",
