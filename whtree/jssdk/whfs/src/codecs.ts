@@ -13,6 +13,7 @@ import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
 import { buildWHFSInstance, isRichTextDocument, isWHFSInstance } from "@webhare/services/src/richdocument";
+import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -41,9 +42,16 @@ export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | nul
 export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
 export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 
+export type DecoderContext = ExportOptions & {
+  allsettings: readonly FSSettingsRow[];
+  /* Creationdate code used for link generation */
+  cc: number;
+};
+
 interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
-  decoder(settings: readonly FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]): unknown;
+  decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
+  exportValue?(value: unknown, options?: ExportOptions): unknown;
 }
 
 function assertValidString(value: unknown) {
@@ -286,15 +294,18 @@ export const codecs: { [key: string]: TypeCodec } = {
         };
       })();
     },
-    decoder: (settings: FSSettingsRow[], cc: number) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): ResourceDescriptor | null => {
       if (!settings.length)
         return null;
 
       const meta = {
         ...decodeScanData(settings[0].setting),
-        dbLoc: { source: 2, id: settings[0].id, cc }
+        dbLoc: { source: 2, id: settings[0].id, cc: context.cc }
       };
       return new ResourceDescriptor(settings[0].blobdata, meta);
+    },
+    exportValue: (value: ResourceDescriptor, options: ExportOptions): Promise<ExportedResource> | null => {
+      return value?.export(options) ?? null as unknown as ExportedResource;
     }
   },
   "record": {
@@ -305,8 +316,8 @@ export const codecs: { [key: string]: TypeCodec } = {
         return toInsert;
       })();
     },
-    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
-      return settings.length ? recurseGetData(allsettings, member.children || [], settings[0].id, cc) : null;
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+      return settings.length ? recurseGetData(member.children || [], settings[0].id, context) : null;
     }
   },
   "array": {
@@ -321,8 +332,8 @@ export const codecs: { [key: string]: TypeCodec } = {
         return toInsert;
       })();
     },
-    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
-      return Promise.all(settings.map(s => recurseGetData(allsettings, member.children || [], s.id, cc)));
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+      return Promise.all(settings.map(s => recurseGetData(member.children || [], s.id, context)));
     }
   },
   "richDocument": {
@@ -367,7 +378,7 @@ export const codecs: { [key: string]: TypeCodec } = {
         return settings;
       })();
     },
-    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
@@ -375,7 +386,7 @@ export const codecs: { [key: string]: TypeCodec } = {
         const instances: HareScriptRTD["instances"] = [];
         for (const settingInstance of settings.filter(s => s.ordering === 3)) {
           const typeinfo = await describeWHFSType(settingInstance.instancetype!);
-          const widgetdata = await recurseGetData(allsettings, typeinfo.members, settingInstance.id, cc);
+          const widgetdata = await recurseGetData(typeinfo.members, settingInstance.id, context);
 
           instances.push({
             instanceid: settingInstance.setting,
@@ -404,13 +415,13 @@ export const codecs: { [key: string]: TypeCodec } = {
         };
       })();
     },
-    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       if (!settings.length)
         return null;
 
       return (async () => {
         const typeinfo = await describeWHFSType(settings[0].instancetype!);
-        const widgetdata = await recurseGetData(allsettings, typeinfo.members, settings[0].id, cc);
+        const widgetdata = await recurseGetData(typeinfo.members, settings[0].id, context);
 
         return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
       })();
@@ -420,7 +431,7 @@ export const codecs: { [key: string]: TypeCodec } = {
     encoder: (value: object) => {
       throw new Error(`intExtLink type not yet implemented`);
     },
-    decoder: (settings: FSSettingsRow[], cc: number, member: WHFSTypeMember, allsettings: readonly FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       return null;
     }
   }
@@ -470,20 +481,25 @@ export async function recurseSetData(members: WHFSTypeMember[], data: object): P
   return toInsert;
 }
 
-export async function recurseGetData(cursettings: readonly FSSettingsRow[], members: WHFSTypeMember[], elementSettingId: number | null, cc: number) {
+export async function recurseGetData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext) {
   const retval: { [key: string]: unknown } = {};
 
   for (const member of members) {
-    const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
+    const settings = context.allsettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
     let setval;
 
     try {
       if (!codecs[member.type])
         throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
 
-      setval = codecs[member.type].decoder(settings, cc, member, cursettings);
+      setval = codecs[member.type].decoder(settings, member, context);
       if (isPromise(setval))
         setval = await setval;
+      if (context?.export && codecs[member.type].exportValue) {
+        setval = codecs[member.type].exportValue!(setval, context);
+        if (isPromise(setval))
+          setval = await setval;
+      }
     } catch (e) {
       if (e instanceof Error)
         e.message += ` (while getting '${member.name}')`;

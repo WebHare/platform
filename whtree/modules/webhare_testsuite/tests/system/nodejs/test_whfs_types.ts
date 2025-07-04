@@ -6,7 +6,7 @@ import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
-import { codecs } from "@webhare/whfs/src/codecs";
+import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/quacks";
 import { buildWHFSInstance } from "@webhare/services/src/richdocument";
@@ -36,8 +36,13 @@ async function testCodecs() {
 
   test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
 
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], 0, {} as WHFSTypeMember, []));
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], 0, {} as WHFSTypeMember, [])); //sanity check: ensure time part is dropped
+  const testDecodeContext: DecoderContext = {
+    allsettings: [],
+    cc: 0,
+  };
+
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], {} as WHFSTypeMember, testDecodeContext));
+  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], {} as WHFSTypeMember, testDecodeContext)); //sanity check: ensure time part is dropped
 
   test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
   test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
@@ -84,8 +89,6 @@ async function testMockedTypes() {
   //verify scopedtypenames
   const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.genericTestType");
   test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
-
-  //and widgets
 
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
 }
@@ -181,6 +184,20 @@ async function testInstanceData() {
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
   const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
+
+  //Test export of the goldfish
+  test.eq({
+    data: {
+      base64: /^iVBO/ //base64 of goudvis
+    },
+    fileName: "goudvis.png",
+    mediaType: "image/png",
+    extension: '.png',
+    hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+    width: 385,
+    height: 236,
+    dominantColor: /^#.*/
+  }, (await testtype.get(testfile.id, { export: true })).blub);
 
   //Test rich documents
   const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);

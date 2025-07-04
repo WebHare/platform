@@ -4,7 +4,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { openWHFSObject } from "./objects";
 import { isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
-import { getUnifiedCC } from "@webhare/services/src/descriptor";
+import { getUnifiedCC, type ExportOptions } from "@webhare/services/src/descriptor";
 import { appendToArray, omit } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
@@ -56,18 +56,6 @@ export interface FolderTypeInfo extends WHFSTypeBaseInfo {
 
 /** A type representing all possible WHFS Type interfaces */
 export type WHFSTypeInfo = FieldsTypeInfo | FileTypeInfo | FolderTypeInfo | WidgetTypeInfo;
-
-/** An API offering access to data stored in an instance type.
- */
-export interface InstanceDataAccessor<ContentTypeStructure extends object = Record<string, unknown>> {
-  //TODO Add a 'pick: ' option
-  get(id: number): Promise<ContentTypeStructure>;
-  set(id: number, data: ContentTypeStructure): Promise<void>;
-  enrich<
-    DataRow extends { [K in EnrichKey]: number | null },
-    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
-    AddKey extends keyof ContentTypeStructure = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<ContentTypeStructure, AddKey>>>;
-}
 
 interface InstanceSetOptions {
   ///How to handle readonly fsobjects. fail (the default), skip or actually update
@@ -124,8 +112,9 @@ class RecursiveSetter {
   }
 }
 
-
-class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements InstanceDataAccessor<ContentTypeStructure> {
+/** An API offering access to data stored in an instance type.
+ */
+class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
   private readonly ns: string;
 
   constructor(ns: string) {
@@ -172,7 +161,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
-  private async getBulk(fsObjIds: number[], properties?: string[]): Promise<Map<number, unknown>> {
+  private async getBulk(fsObjIds: number[], properties: string[] | null, options?: ExportOptions): Promise<Map<number, unknown>> {
     const descr = await describeWHFSType(this.ns);
     const instanceIdMapping = await db<PlatformDB>()
       .selectFrom("system.fs_instances")
@@ -183,7 +172,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .execute();
     const instanceIds = instanceIdMapping.map(_ => _.id);
     const instanceInfo = new Map(instanceIdMapping.map(_ => [_.fs_object, _]));
-    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, descr, properties) : [];
+    const cursettings = instanceIds.length ? await this.getCurrentSettings(instanceIds, descr, properties || undefined) : [];
     const groupedSettings = Map.groupBy(cursettings, _ => _.fs_instance);
     const getMembers = properties ? descr.members.filter(_ => properties.includes(_.name as string)) : descr.members;
 
@@ -192,8 +181,13 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       const mapping = instanceInfo.get(id);
       const cc = mapping ? getUnifiedCC(mapping.creationdate) : 0;
       const settings = groupedSettings.get(mapping?.id || 0) || [];
+      const decoderContext = {
+        allsettings: settings,
+        cc,
+        ...options
+      };
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance
-      const result = await recurseGetData(settings, getMembers, null, cc);
+      const result = await recurseGetData(getMembers, null, decoderContext);
       retval.set(id, result);
     }
 
@@ -201,8 +195,8 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 
 
-  async get(id: number): Promise<ContentTypeStructure> {
-    const bulkdata = await this.getBulk([id]);
+  async get(id: number, options?: ExportOptions): Promise<ContentTypeStructure> {
+    const bulkdata = await this.getBulk([id], null, options);
     return bulkdata.get(id) as ContentTypeStructure;
   }
 
@@ -269,7 +263,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 }
 
-export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
+export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<ContentTypeStructure> {
   //note that as we're sync, we can't actually promise to validate whether the type xists
   return new WHFSTypeAccessor<ContentTypeStructure>(ns);
 }
