@@ -300,7 +300,8 @@ export const codecs: { [key: string]: TypeCodec } = {
 
       const meta = {
         ...decodeScanData(settings[0].setting),
-        dbLoc: { source: 2, id: settings[0].id, cc: context.cc }
+        dbLoc: { source: 2, id: settings[0].id, cc: context.cc },
+        sourceFile: settings[0].fs_object ?? null,
       };
       return new ResourceDescriptor(settings[0].blobdata, meta);
     },

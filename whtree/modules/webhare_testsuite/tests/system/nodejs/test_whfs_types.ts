@@ -10,6 +10,7 @@ import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/quacks";
 import { buildWHFSInstance } from "@webhare/services/src/richdocument";
+import type { ExportedResource } from "@webhare/services/src/descriptor";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -172,10 +173,15 @@ async function testInstanceData() {
   test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));
 
   //Test files
+  const testsitejs = await test.getTestSiteJS();
+  const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
+  const goldfish2 = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id });
+  test.eq(imgEditFile.id, goldfish2.sourceFile);
   await testtype.set(testfile.id, {
     blub: goldfish,
-    blubImg: goldfish
+    blubImg: goldfish2
   });
   expectNumSettings += 2; //adding blub and blubImg
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
@@ -184,6 +190,7 @@ async function testInstanceData() {
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
   const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
+  test.eq(imgEditFile.id, returnedGoldfish2.sourceFile);
 
   //Test export of the goldfish
   test.eq({
@@ -196,8 +203,11 @@ async function testInstanceData() {
     hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
     width: 385,
     height: 236,
-    dominantColor: /^#.*/
+    dominantColor: /^#.*/,
+    sourceFile: null
   }, (await testtype.get(testfile.id, { export: true })).blub);
+
+  test.eq(`site::${testsitejs.name}/TestPages/imgeditfile.jpeg`, ((await testtype.get(testfile.id, { export: true })).blubImg as ExportedResource).sourceFile);
 
   //Test rich documents
   const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);

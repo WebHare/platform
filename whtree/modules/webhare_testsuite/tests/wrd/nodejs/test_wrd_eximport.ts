@@ -1,5 +1,5 @@
 import { WRDSchema } from "@webhare/wrd";
-import * as test from "@webhare/test-backend";
+import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
@@ -29,7 +29,9 @@ async function testExport() { //  tests
   const domain1value3guid = await wrdschema.getFields("testDomain_1", domain1value3, "wrdGuid");
 
   // Create a person with some testdata
-  const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
+  const testsitejs = await test.getTestSiteJS();
+  const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+  const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, sourceFile: imgEditFile.id }); //TODO WRD API should not require us to getImageMetadata ourselves
   const testFileDoc = await ResourceDescriptor.from("EenDoc", { mediaType: "application/msword", fileName: "testfile.doc" });
   const nextWrdId = await wrdschema.getNextId("wrdPerson");
   const nextWrdGuid = wrdschema.getNextGuid("wrdPerson");
@@ -93,7 +95,8 @@ async function testExport() { //  tests
       fileName: "testfile.doc",
       mediaType: "application/msword",
       extension: '.doc',
-      hash: "BhcncANlYsAInWd-DRO8_w94hPCpUzmgfKCwqOSBoAY"
+      hash: "BhcncANlYsAInWd-DRO8_w94hPCpUzmgfKCwqOSBoAY",
+      sourceFile: null
     } satisfies ExportedResource,
     testImage: {
       data: {
@@ -105,7 +108,8 @@ async function testExport() { //  tests
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
       width: 385,
       height: 236,
-      dominantColor: /^#.*/
+      dominantColor: /^#.*/,
+      sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`
     }
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["testFile", "testImage"], { export: true }));
 
