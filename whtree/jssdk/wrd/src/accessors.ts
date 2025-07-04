@@ -2104,7 +2104,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
-class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null, WHFSInstance | null> {
+class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null, WHFSInstanceData | null> {
   getDefaultValue(): WHFSInstance | null {
     return null;
   }
@@ -2136,6 +2136,10 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
         return [{ rawdata: "WHFS", linktype: 1, link: whfsId, attribute: this.attr.id }];
       })
     };
+  }
+
+  async exportValue(value: WHFSInstance | null, exportOptions?: ExportOptions): Promise<WHFSInstanceData | null> {
+    return await value?.export() ?? null;
   }
 }
 
