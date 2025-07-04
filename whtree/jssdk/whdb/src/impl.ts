@@ -371,33 +371,48 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   }
 
   async beginWork(options?: WorkOptions): Promise<WorkObject> {
-    this.checkState(false);
-    if (debugFlags.async)
-      this.lastopen = new Error(`Work was last opened here`);
+    if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
+      throw new Error(`Invalid isolation level ${options.isolationLevel}`);
 
-    const lock = this.reftracker.getLock("work lock");
-    this.openwork = new Work(this);
+    let lock;
+    let mutexes: Mutex[] | undefined = [];
+    let newwork;
+    let lastopen: Error | undefined;
+
+    if (debugFlags.async)
+      lastopen = new Error(`Work was last opened here`); //We must grab the stack before the first await
 
     try {
       if (options?.mutex)
         for (const name of Array.isArray(options.mutex) ? options.mutex : [options.mutex])
-          this.openwork.addMutex(await lockMutex(name));
-      if (options?.isolationLevel && !PGIsolationLevels.includes(options.isolationLevel))
-        throw new Error(`Invalid isolation level ${options.isolationLevel}`);
+          mutexes.push(await lockMutex(name));
       if (debugFlags["db-readonly"])
         throw new DBReadonlyError();
+
+      this.checkState(false); //we must have the mutexes before checking work state otherwise code can't protect itself using the lock
+
+      lock = this.reftracker.getLock("work lock");
+      newwork = new Work(this);
+      for (const mutex of mutexes)
+        newwork.addMutex(mutex);
+      mutexes = undefined;
+
+      if (debugFlags.async)
+        this.lastopen = lastopen;
 
       const isolationLevel = options?.isolationLevel ?? "read committed";
       await this.connectpromise;
       await this.execute(`START TRANSACTION ISOLATION LEVEL ${isolationLevel} READ WRITE`);
     } catch (e) {
-      this.openwork.__releaseMutexes();
-      this.openwork = undefined;
+      newwork?.__releaseMutexes();
+      if (mutexes)
+        mutexes.forEach(m => m.release());
       throw e;
     } finally {
-      lock.release();
+      lock?.release();
     }
 
+    this.openwork = newwork;
     return this.openwork;
   }
 
