@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/webserver/management.whlib";
@@ -272,6 +273,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     DATETIME loggedin_expires := launchuserinfo.loggedin_expires;
 
     // Create an application host
+    DATETIME creationdate := GetCurrentDateTime();
     RECORD jobrec := CreateJob("mod::tollium/scripts/internal/applicationhost.whscr");
 
     // Errors creating the job?
@@ -399,6 +401,8 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         , lastactivity := GetCurrentDateTime()
         , requestdata :=  message.invoke.requestdata
         , browsertriplet :=   message.invoke.browsertriplet
+        , creationdate := creationdate
+        , initialauthrec := authrec
         ] INTO this->apps AT RecordUpperBound(this->apps, [ appid := appid ], [ "APPID" ]);
 
     IF (log_appstarter)
@@ -446,11 +450,22 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         }
       CASE "getapps"
         {
+          RECORD ARRAY jobs;
+          IF (NOT IsWasm())
+          {
+            RECORD jobmgr_status := __HS_GETJOBMANAGERSTATUS(TRUE);
+            jobs :=
+                SELECT *
+                  FROM jobmgr_status.jobs CONCAT jobmgr_status.finished
+              ORDER BY groupid;
+          }
+
           RETURN
               [ result := "message"
               , msg :=
                     [ apps :=
-                        SELECT appid
+                        SELECT TEMPORARY pos := RecordLowerBound(jobs, [ groupid := appid ], [ "GROUPID" ])
+                             , appid
                              , frontendid
                              , app :=           job->userdata.app
                              , stopped
@@ -459,6 +474,9 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
                              , requestdata
                              , browsertriplet
                              , expires :=       job->userdata.expires
+                             , authenticationrecord := pos.found ? jobs[pos.position].authenticationrecord : initialauthrec
+                             , creationdate
+                             , statistics :=    pos.found ? jobs[pos.position].statistics : DEFAULT RECORD
                           FROM this->apps
                     ]
               ];

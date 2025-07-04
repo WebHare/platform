@@ -286,3 +286,35 @@ BLEX_TEST_FUNCTION(TestThreadContext)
         BLEX_TEST_CHECKEQUAL(5, context4->data);
 }
 
+BLEX_TEST_FUNCTION(TestSignalHandling)
+{
+        // test that the process signal handler returns 'killed by signal' even when intercepting the signal
+        Blex::PipeSet input;
+        Blex::PipeSet output;
+
+        input.GetReadEnd().SetBlocking(true);
+        input.GetWriteEnd().SetBlocking(true);
+        output.GetReadEnd().SetBlocking(true);
+        output.GetWriteEnd().SetBlocking(true);
+
+        Blex::Process testloopback;
+        testloopback.RedirectInput(input.GetReadEnd());
+        testloopback.RedirectOutput(output.GetWriteEnd(),false);
+
+        std::vector <std::string> args;
+        args.push_back("loopback");
+        BLEX_TEST_CHECK(testloopback.Start(self_app,args,"",false));
+
+        // Roundtrip a byte to make sure the signal handlers are installed
+        char byte = 0;
+        BLEX_TEST_CHECKEQUAL(1u, input.GetWriteEnd().Write(&byte,1));
+        BLEX_TEST_CHECKEQUAL(1u, output.GetReadEnd().Read(&byte,1));
+
+        // send a terminate signal
+        testloopback.SendTerminate();
+
+        testloopback.WaitFinish();
+
+        // should be 256 + 15(SIGTERM)
+        BLEX_TEST_CHECKEQUAL(271, testloopback.GetReturnValue());
+}
