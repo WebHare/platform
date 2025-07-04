@@ -497,7 +497,7 @@ async function testNewAPI() {
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
     test.typeAssert<test.Equals<Array<
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
-      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrichWithOuterJoin>>();
   }
 
   // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
@@ -1401,7 +1401,7 @@ async function testComparisons() {
 function testGeneratedWebHareWRDAPI() {
   // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
   test.typeAssert<test.Assignable<{ organizationName: unknown }, System_Usermgmt_WRDAuthdomainSamlIdp>>();
-  test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
+  test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName", false>>>();
 }
 
 async function testSettingReuse() {

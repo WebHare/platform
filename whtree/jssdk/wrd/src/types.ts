@@ -247,7 +247,7 @@ export type WRDTypeBaseSettings = {
 };
 
 /** Extracts the select result type for an attribute type */
-export type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = Awaited<ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>>;
+export type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase, Export extends boolean> = Awaited<ReturnType<AccessorType<ToWRDAttr<T>>[Export extends true ? "exportValue" : "getValue"]>>;
 
 /** Extracts the default value type for an attribute type */
 type GetDefaultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getDefaultValue"]>;
@@ -300,33 +300,33 @@ export type RecordizeEnrichOutputMap<T extends TypeDefinition, O extends EnrichO
 export type AttrOfAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = T[R];
 
 /** Convert an attribute reference to the selection result type */
-export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = GetResultType<AttrOfAttrRef<T, R>>;
+export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>, Export extends boolean> = GetResultType<AttrOfAttrRef<T, R>, Export>;
 
 /** Convert an attribute reference to the selection result type */
 export type MapAttrRefWithDefault<T extends TypeDefinition, R extends AttrRef<T>> = GetDefaultType<AttrOfAttrRef<T, R>>;
 
 /** Calculate the selection result of a record output map */
-export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
-  ? MapAttrRef<T, O>
+export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputMap<T>, Export extends boolean> = O extends AttrRef<T>
+  ? MapAttrRef<T, O, Export>
   : (O extends { [K: string]: RecordOutputMap<T> }
-    ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
+    ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K], Export> }
     : never);
 
 /** Calculate the selection result of a enrichment record output map */
-export type MapEnrichRecordOutputMap<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>> = O extends { [K: string]: RecordOutputMap<T> }
-  ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
+export type MapEnrichRecordOutputMap<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>, Export extends boolean> = O extends { [K: string]: RecordOutputMap<T> }
+  ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K], Export> }
   : never;
 
 /** Calculate the selection result of a record output map */
-export type MapRecordOutputMapWithDefaults<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
+export type MapRecordOutputMapWithDefaults<T extends TypeDefinition, O extends RecordOutputMap<T>, Export extends boolean> = O extends AttrRef<T>
   ? MapAttrRefWithDefault<T, O>
   : (O extends { [K: string]: RecordOutputMap<T> }
-    ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
+    ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K], Export> }
     : never);
 
 /** Calculate the selection result of a enrichment record output map */
-export type MapEnrichRecordOutputMapWithDefaults<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>> = O extends { [K: string]: RecordOutputMap<T> }
-  ? { -readonly [K in keyof O]: MapRecordOutputMapWithDefaults<T, O[K]> }
+export type MapEnrichRecordOutputMapWithDefaults<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>, Export extends boolean> = O extends { [K: string]: RecordOutputMap<T> }
+  ? { -readonly [K in keyof O]: MapRecordOutputMapWithDefaults<T, O[K], Export> }
   : never;
 
 /** Returns whether a value is a reference to a WRD attribute
@@ -489,7 +489,7 @@ export type WRDUpdatable<T extends TypeDefinition> = {
 };
 
 /** Single row selection result */
-export type SelectionResultRow<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
+export type SelectionResultRow<T extends TypeDefinition, O extends OutputMap<T>, Export extends boolean> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>, Export>;
 
 /** Combines two attributes of a type definition. Two incompatible attributes resolve to never. FIXME: recurse into arrays
 */

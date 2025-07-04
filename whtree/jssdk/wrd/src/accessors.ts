@@ -4,13 +4,13 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType } from "@webhare/std";
-import { addMissingScanData, decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, typedFromEntries, typedEntries } from "@webhare/std";
+import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "./wrdsupport";
-import { uploadBlob } from "@webhare/whdb";
+import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
@@ -18,6 +18,8 @@ import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
+import type { ExportOptions } from "./schema";
+import type { ExportableRTD } from "@webhare/services/src/richdocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -81,7 +83,7 @@ export function decodeWRDGuid(wrdGuid: string) {
  * @typeParam Out - Type returned by queries
  * @typeParam Default - Output type plus default type (output may not include the default value for eg required domains, where `null` is the default)
  */
-export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown }> {
+export abstract class WRDAttributeValueBase<In, Default, Out extends Default, ExportOut, C extends { condition: AllowedFilterConditions; value: unknown }> {
   attr: AttrRec;
   constructor(attr: AttrRec) {
     this.attr = attr;
@@ -165,6 +167,12 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
       return this.getFromRecord(entity_settings, settings_start, settings_limit, links, cc);
   }
 
+  /** Convert the returned value to its exportable version
+   */
+  exportValue(value: Out, exportOptions?: ExportOptions): ExportOut | Promise<ExportOut> {
+    return value as unknown as ExportOut;
+  }
+
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
@@ -205,7 +213,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type AnyWRDAccessor = WRDAttributeValueBase<any, any, any, any>;
+export type AnyWRDAccessor = WRDAttributeValueBase<any, any, any, any, any>;
 
 /** Compare values */
 function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" | "<" | "<=", b: T) {
@@ -284,7 +292,7 @@ type WRDDBStringConditions = {
   condition: "mentionsany"; value: readonly string[]; options?: { matchCase?: boolean };
 };
 
-class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRDDBStringConditions> {
+class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, string, WRDDBStringConditions> {
   getDefaultValue() { return ""; }
   isSet(value: string) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBStringConditions) {
@@ -389,7 +397,7 @@ class WRDDBUrlValue extends WRDDBStringValue {
   }
 }
 
-class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string, WRDDBStringConditions> {
+class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string, string, WRDDBStringConditions> {
   getDefaultValue() { return ""; }
   isSet(value: string) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBStringConditions) {
@@ -512,7 +520,7 @@ type WRDDBGuidConditions = {
   condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
 };
 
-class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, WRDDBGuidConditions> {
+class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, string, WRDDBGuidConditions> {
   checkGuid(guid: string) {
     decodeWRDGuid(guid);
   }
@@ -572,7 +580,7 @@ type WRDDBaseGeneratedStringConditions = {
   condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
 };
 
-class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string, string, WRDDBaseGeneratedStringConditions> {
+class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string, string, string, WRDDBaseGeneratedStringConditions> {
   getDefaultValue() { return ""; }
 
   isSet(value: string) { return Boolean(value); }
@@ -636,7 +644,7 @@ type WRDDBBooleanConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: boolean;
 };
 
-class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean, WRDDBBooleanConditions> {
+class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean, boolean, WRDDBBooleanConditions> {
   getDefaultValue() { return false; }
   isSet(value: boolean) { return value; }
   checkFilter({ condition, value }: WRDDBBooleanConditions) {
@@ -671,8 +679,9 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   }
 }
 
-type WRDDBIntegerConditions = {
-  condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: number;
+type WRDDBIntegerConditions<Required extends boolean> = {
+  condition: "<" | "<=" | "=" | "!=" | ">=" | ">";
+  value: true extends Required ? number : number | null;
 } | {
   condition: "in"; value: readonly number[];
 } | {
@@ -681,13 +690,19 @@ type WRDDBIntegerConditions = {
   condition: "mentionsany"; value: readonly number[];
 };
 
-class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
+// Required flags whether or not |null is denied. Real integers don't use null, wrdId supports null in some query scenarios
+class WRDDBIntegerValue<Required extends boolean = true> extends WRDAttributeValueBase<
+  (true extends Required ? number : number | null),
+  number | null,
+  number,
+  number,
+  WRDDBIntegerConditions<Required>> {
   getDefaultValue() { return 0; }
   isSet(value: number) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBIntegerConditions) {
+  checkFilter({ condition, value }: WRDDBIntegerConditions<Required>) {
     // type-check is enough (for now)
   }
-  matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+  matchesValue(value: number, cv: WRDDBIntegerConditions<Required>): boolean {
     if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
     if (cv.condition === "mentions")
@@ -695,7 +710,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions<Required>): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     if (cv.condition === "mentions")
@@ -730,13 +745,13 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
 }
 
 
-class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
+class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, number, WRDDBIntegerConditions<true>> {
   getDefaultValue() { return 0; }
   isSet(value: number) { return Boolean(value); }
-  checkFilter({ condition, value }: WRDDBIntegerConditions) {
+  checkFilter({ condition, value }: WRDDBIntegerConditions<true>) {
     // type-check is enough (for now)
   }
-  matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+  matchesValue(value: number, cv: WRDDBIntegerConditions<true>): boolean {
     if (cv.condition === "in" || cv.condition === "mentionsany")
       return cv.value.includes(value);
     if (cv.condition === "mentions")
@@ -744,7 +759,7 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions<true>): AddToQueryResponse<O> {
     if (cv.condition === "mentions")
       cv = { condition: "=", value: cv.value };
     else if (cv.condition === "mentionsany")
@@ -809,6 +824,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   (true extends Required ? number : number | null),
   (number | null),
   (true extends Required ? number : number | null),
+  (true extends Required ? string : string | null),
   WRDDBDomainConditions
 > {
   getDefaultValue(): number | null { return null; }
@@ -889,11 +905,23 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 
     return { settings: { setting: value, attribute: this.attr.id } };
   }
+
+  async exportValue(value: true extends Required ? number : number | null): Promise<true extends Required ? string : string | null> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "=", value).executeTakeFirst();
+    if (!lookupres)
+      throw new Error(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
+
+    return encodeWRDGuid(lookupres.guid);
+  }
 }
 
 class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   (true extends Required ? number : number | null),
   (number | null),
+  (true extends Required ? number : number | null),
   (true extends Required ? number : number | null),
   WRDDBDomainConditions
 > {
@@ -995,7 +1023,7 @@ type WRDDBDomainArrayConditions = {
   condition: "=" | "!="; value: readonly number[];
 };
 
-class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], number[], WRDDBDomainArrayConditions> {
+class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], number[], string[], WRDDBDomainArrayConditions> {
   getDefaultValue(): number[] { return []; }
   isSet(value: number[]) { return Boolean(value?.length); }
   checkFilter({ condition, value }: WRDDBDomainArrayConditions) {
@@ -1088,6 +1116,14 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
       settings: [...new Set(value)].toSorted((a, b) => a - b).map((setting, idx) => ({ setting, attribute: this.attr.id, ordering: idx + 1 }))
     };
   }
+
+  async exportValue(value: number[]): Promise<string[]> {
+    if (!value.length)
+      return [];
+
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "in", value).execute();
+    return lookupres.map(_ => encodeWRDGuid(_.guid)).toSorted();
+  }
 }
 
 type WRDDBEnumConditions<Options extends { allowedValues: string }, Required extends boolean> = {
@@ -1121,6 +1157,7 @@ abstract class WRDDBEnumValueBase<
   Required extends boolean> extends WRDAttributeValueBase<
     GetEnumAllowedValues<Options, Required>,
     GetEnumAllowedValues<Options, Required> | null,
+    GetEnumAllowedValues<Options, Required>,
     GetEnumAllowedValues<Options, Required>,
     WRDDBEnumConditions<Options, Required>
   > {
@@ -1255,7 +1292,12 @@ type WRDDBEnumArrayConditions<Options extends { allowedValues: string }> = {
   condition: "contains"; value: GetEnumAllowedValues<Options, true>;
 };
 
-class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRDAttributeValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, WRDDBEnumArrayConditions<Options>> {
+class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRDAttributeValueBase<
+  Array<GetEnumArrayAllowedValues<Options>>,
+  Array<GetEnumArrayAllowedValues<Options>>,
+  Array<GetEnumArrayAllowedValues<Options>>,
+  Array<GetEnumArrayAllowedValues<Options>>,
+  WRDDBEnumArrayConditions<Options>> {
   getDefaultValue(): Array<GetEnumArrayAllowedValues<Options>> { return []; }
   isSet(value: string[]) { return Boolean(value?.length); }
   checkFilter(cv: WRDDBEnumArrayConditions<Options>) {
@@ -1305,7 +1347,12 @@ class WRDDBEnumArrayValue<Options extends { allowedValues: string }> extends WRD
    fields for some compatibility with newsletter-using modules. No need to validate them any further */
 type GetStatusRecordValues<Options extends { allowedValues: string; type: object }, Required extends boolean> = (Options extends { allowedValues: infer V; type: infer T extends object } ? { status: V } & T : never) | (Required extends true ? never : null);
 
-class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<never, GetStatusRecordValues<Options, Required> | null, GetStatusRecordValues<Options, Required>, WRDDBEnumConditions<Options, Required>> {
+class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: object }, Required extends boolean> extends WRDAttributeValueBase<
+  never,
+  GetStatusRecordValues<Options, Required> | null,
+  GetStatusRecordValues<Options, Required>,
+  GetStatusRecordValues<Options, Required>,
+  WRDDBEnumConditions<Options, Required>> {
   getDefaultValue(): GetStatusRecordValues<Options, Required> | null { return null; }
   isSet(value: object | null) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBEnumConditions<Options, Required>) {
@@ -1364,7 +1411,12 @@ type WRDDBDateTimeConditions = {
   condition: "in"; value: ReadonlyArray<Date | null>;
 };
 
-class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<
+  (true extends Required ? Date : Date | null),
+  Date | null,
+  (true extends Required ? Date : Date | null),
+  (true extends Required ? Date : Date | null),
+  WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
   isSet(value: Date | null) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBDateTimeConditions) {
@@ -1405,7 +1457,7 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
   }
 }
 
-class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
+class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
   isSet(value: Date | null) { return Boolean(value); }
   validateFilterInput(value: Date | null) {
@@ -1483,7 +1535,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
   }
 }
 
-class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
   isSet(value: Date | null) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBDateTimeConditions) {
@@ -1522,11 +1574,11 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
   }
 }
 
-type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> = {
-  [K in keyof Members]: GetResultType<Members[K]>;
+type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>, Export extends boolean> = {
+  [K in keyof Members]: GetResultType<Members[K], Export>;
 };
 
-class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
+class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
 
   isSet(value: Date | null) { return Boolean(value); }
@@ -1620,7 +1672,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
   }
 }
 
-class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | null, Date, WRDDBDateTimeConditions> {
+class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | null, Date, Date, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
 
   isSet(value: Date | null) { return Boolean(value); }
@@ -1692,12 +1744,11 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
 
 class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
   Array<WRDInsertable<Members>>,
-  Array<ArraySelectable<Members>>,
-  Array<ArraySelectable<Members>>,
+  Array<ArraySelectable<Members, false>>,
+  Array<ArraySelectable<Members, false>>,
+  Array<ArraySelectable<Members, true>>,
   never> {
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fields = new Array<{ name: keyof Members; accessor: WRDAttributeValueBase<any, any, any, any> }>;
+  fields = new Array<{ name: keyof Members; accessor: AnyWRDAccessor }>;
 
   constructor(attr: AttrRec, parentAttrMap: Map<number | null, AttrRec[]>) {
     super(attr);
@@ -1713,7 +1764,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     }
   }
 
-  getDefaultValue(): Array<ArraySelectable<Members>> { return []; }
+  getDefaultValue(): Array<ArraySelectable<Members, false>> { return []; }
 
   isSet(value: unknown[]) { return Boolean(value?.length); }
 
@@ -1721,7 +1772,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     throw new Error(`Filters not allowed on arrays`);
   }
 
-  matchesValue(value: Array<ArraySelectable<Members>>, cv: never): boolean {
+  matchesValue(value: Array<ArraySelectable<Members, false>>, cv: never): boolean {
     throw new Error(`Filters not allowed on arrays`);
   }
 
@@ -1748,7 +1799,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_start - Position where settings for this attribute start
    * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
    */
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members>> {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members, false>> {
     throw new Error(`Not implemented yet`);
   }
 
@@ -1758,8 +1809,8 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Array<ArraySelectable<Members>> | Promise<Array<ArraySelectable<Members>>> {
-    type RowType = ArraySelectable<Members>;
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[], cc: number): Array<ArraySelectable<Members, false>> | Promise<Array<ArraySelectable<Members, false>>> {
+    type RowType = ArraySelectable<Members, false>;
 
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as RowType[]; // Cast is needed because for required fields, Out may not extend Default.
@@ -1772,7 +1823,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
 
     for (let idx = settings_start; idx < settings_limit; ++idx) {
       const settingid = entity_settings[idx].id;
-      const rec = {} as ArraySelectable<Members> & { [wrdSettingId]: number };
+      const rec = {} as ArraySelectable<Members, false> & { [wrdSettingId]: number };
       for (const field of this.fields) {
         const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
         const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
@@ -1848,7 +1899,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   }
 }
 
-export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends Default> extends WRDAttributeValueBase<In, Default, Out, never> {
+export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends Default, Export> extends WRDAttributeValueBase<In, Default, Out, Export, never> {
   checkFilter(cv: never): void {
     throw new Error(`Cannot compare values of type ${WRDAttributeTypeId[this.attr.attributetype]}`);
   }
@@ -1866,7 +1917,12 @@ export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends
   }
 }
 
-class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends WRDAttributeUncomparableValueBase<JSONType | NullIfNotRequired<Required>, JSONType | null, JSONType | NullIfNotRequired<Required>> {
+class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends WRDAttributeUncomparableValueBase<
+  JSONType | NullIfNotRequired<Required>,
+  JSONType | null,
+  JSONType | NullIfNotRequired<Required>,
+  JSONType | NullIfNotRequired<Required>
+> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
@@ -1891,7 +1947,7 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
   }
 }
 
-class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null> {
+class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
@@ -1918,7 +1974,12 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
 }
 
 //TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
-class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUncomparableValueBase<ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>, ResourceDescriptor | null, ResourceDescriptor | NullIfNotRequired<Required>> {
+class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUncomparableValueBase<
+  ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>,
+  ResourceDescriptor | null,
+  ResourceDescriptor | NullIfNotRequired<Required>,
+  ExportedResource | NullIfNotRequired<Required>
+> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
@@ -1969,13 +2030,27 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
       })()
     };
   }
+
+  /** Convert the returned value to its exportable version
+   */
+  async exportValue(value: ResourceDescriptor | NullIfNotRequired<Required>, exportOptions?: ExportOptions): Promise<ExportedResource | NullIfNotRequired<Required>> {
+    //TODO Serialization methods other than data: will be requestable through ExportOptions
+    if (!value)
+      return null as unknown as ExportedResource; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    return {
+      data: { base64: Buffer.from(await value.resource.arrayBuffer()).toString("base64") },
+      ...typedFromEntries(typedEntries(value.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
+      //FIXME add sourceFile
+    };
+  }
 }
 
 class WRDDBFileValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
 class WRDDBImageValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
-class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null> {
+class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null, ExportableRTD | null> {
   getDefaultValue(): RichTextDocument | null {
     return null;
   }
@@ -2023,9 +2098,13 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
       })()
     };
   }
+
+  exportValue(value: RichTextDocument | null): Promise<ExportableRTD> | null {
+    return value?.blocks.length ? value.export() : null;
+  }
 }
 
-class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null> {
+class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null, WHFSInstance | null> {
   getDefaultValue(): WHFSInstance | null {
     return null;
   }
@@ -2060,7 +2139,7 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
   }
 }
 
-class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null> {
+class WRDDBWHFSIntextlinkValue extends WRDAttributeUncomparableValueBase<IntExtLink | null, IntExtLink | null, IntExtLink | null, IntExtLink | null> {
   getDefaultValue(): IntExtLink | null {
     return null;
   }
@@ -2111,7 +2190,7 @@ type WRDDBInteger64Conditions = {
 } | {
   condition: "mentionsany"; value: readonly bigint[];
 };
-class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint, bigint, WRDDBInteger64Conditions> {
+class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint, bigint, bigint, WRDDBInteger64Conditions> {
   getDefaultValue() { return 0n; }
   isSet(value: bigint) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBInteger64Conditions) {
@@ -2180,7 +2259,7 @@ type WRDDBMoneyConditions = {
   condition: "mentionsany"; value: readonly Money[];
 };
 
-class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMoneyConditions> {
+class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, Money, WRDDBMoneyConditions> {
   getDefaultValue() { return new Money("0"); }
   isSet(value: Money) { return Money.cmp(value, "0") !== 0; }
   checkFilter({ condition, value }: WRDDBMoneyConditions) {
@@ -2236,7 +2315,11 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, WRDDBMo
   }
 }
 
-class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
+class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<
+  AuthenticationSettings | null,
+  AuthenticationSettings | null,
+  AuthenticationSettings | null,
+  AuthenticationSettings | null> {
   getDefaultValue(): null {
     return null;
   }
@@ -2259,7 +2342,11 @@ class WRDDBPasswordValue extends WRDAttributeUncomparableValueBase<Authenticatio
   }
 }
 
-class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparableValueBase<AddressValue | NullIfNotRequired<Required>, AddressValue | null, AddressValue | NullIfNotRequired<Required>> {
+class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparableValueBase<
+  AddressValue | NullIfNotRequired<Required>,
+  AddressValue | null,
+  AddressValue | NullIfNotRequired<Required>,
+  AddressValue | NullIfNotRequired<Required>> {
   getDefaultValue(): AddressValue | null {
     return null;
   }
@@ -2295,7 +2382,12 @@ class WRDDBAddressValue<Required extends boolean> extends WRDAttributeUncomparab
   }
 }
 
-class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase<AuthenticationSettings | null, AuthenticationSettings | null, AuthenticationSettings | null> {
+class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase<
+  AuthenticationSettings | null,
+  AuthenticationSettings | null,
+  AuthenticationSettings | null,
+  AuthenticationSettings | null
+> {
   getDefaultValue(): null {
     return null;
   }
@@ -2318,7 +2410,7 @@ class WRDDBAuthenticationSettingsValue extends WRDAttributeUncomparableValueBase
   }
 }
 
-export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
+export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, Out, C> {
   throwError(): never {
     throw new Error(`Unimplemented accessor for type ${WRDAttributeTypeId[this.attr.attributetype] ?? WRDBaseAttributeTypeId[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
   }
@@ -2376,7 +2468,7 @@ class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
-  [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue;
+  [WRDBaseAttributeTypeId.Base_Integer]: WRDDBIntegerValue<true>;
   [WRDBaseAttributeTypeId.Base_Guid]: WRDDBBaseGuidValue;
   [WRDBaseAttributeTypeId.Base_Tag]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
@@ -2386,7 +2478,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
+  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBIntegerValue<false>;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;

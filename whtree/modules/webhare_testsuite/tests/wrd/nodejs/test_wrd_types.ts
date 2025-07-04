@@ -1,8 +1,9 @@
 import * as test from "@webhare/test";
 import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition } from "@webhare/wrd/src/types";
 import type { ResourceDescriptor } from "@webhare/services";
+import type { ExportedResource } from "@webhare/services/src/descriptor";
 
-type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
+type MapOutput<T extends TypeDefinition, O extends OutputMap<T>, Export extends boolean> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>, Export>;
 
 function testTypes() {
 
@@ -67,8 +68,20 @@ function testTypes() {
     whuser_hiddenannouncements: number[];
     requiredFile: ResourceDescriptor;
     requiredImage: ResourceDescriptor;
-  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect>>>();
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, false>>>();
 
+
+  test.typeAssert<test.Equals<{
+    wrd_id: number;
+    wrdTitle: string;
+    whuser_disabled: boolean;
+    whuser_comment: string;
+    invented_domain: string | null;
+    whuser_unit: string;
+    whuser_hiddenannouncements: string[];
+    requiredFile: ExportedResource;
+    requiredImage: ExportedResource;
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
 
   const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] } as const;
   void recordselect;
@@ -87,7 +100,23 @@ function testTypes() {
       requiredFile: ResourceDescriptor;
       requiredImage: ResourceDescriptor;
     };
-  }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect>>>();
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect, false>>>();
+
+  test.typeAssert<test.Equals<{
+    wrd_id: number;
+    rec: {
+      wrdTitle: string;
+    };
+    arr: {
+      whuser_disabled: boolean;
+      whuser_comment: string;
+      whuser_unit: string;
+      invented_domain: string | null;
+      whuser_hiddenannouncements: string[];
+      requiredFile: ExportedResource;
+      requiredImage: ExportedResource;
+    };
+  }, MapOutput<System_Usermgmt_WRDPerson, typeof recordselect, true>>>();
 
   type GenericWRDTypeDef = Record<string, WRDAttributeTypeId.Integer>;
 
@@ -105,7 +134,7 @@ function testTypes() {
     d: {
       e: number;
     };
-  }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }>>>();
+  }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }, false | true>>>();
 
   test.typeAssert<test.Equals<{
     invented_domain?: number | null | undefined;

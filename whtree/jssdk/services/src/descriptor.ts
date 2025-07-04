@@ -88,7 +88,7 @@ export interface ResourceScanOptions {
 
 export type Rotation = 0 | 90 | 180 | 270;
 
-export interface ResourceMetaData {
+interface ResourceBaseMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
   extension: string | null;
   ///Media type (http://www.iana.org/assignments/media-types/)
@@ -109,6 +109,20 @@ export interface ResourceMetaData {
   hash: string | null;
   ///filename
   fileName: string | null;
+}
+
+export interface ExportedResourceMetaData extends ResourceBaseMetaData {
+  ///Path to original in image library
+  sourceFile: string | null;
+}
+
+export type ExportedBlobReference = {
+  base64: string; // base64 encoded data
+};
+
+export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
+
+export interface ResourceMetaData extends ResourceBaseMetaData {
   ///Original in image library
   sourceFile: number | null;
   /**Database location support cached URL generation */
