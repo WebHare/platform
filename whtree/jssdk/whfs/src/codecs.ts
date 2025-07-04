@@ -12,7 +12,7 @@ import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
-import { buildWHFSInstance } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, isRichTextDocument, isWHFSInstance } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -327,7 +327,7 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "richDocument": {
     encoder: (value: RichTextDocument | null) => {
-      if (value && getWHType(value) !== "RichTextDocument")
+      if (value && !isRichTextDocument(value))
         throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
       if (!value || value.isEmpty())
         return null;
@@ -397,7 +397,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
       return (async (): EncoderAsyncReturnValue => {
         const typeinfo = await describeWHFSType(value.whfsType);
-        const data = getWHType(value) === "WHFSInstance" ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
+        const data = isWHFSInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
         return {
           instancetype: typeinfo.id,
           sub: await recurseSetData(typeinfo.members, data)

@@ -1,5 +1,5 @@
 import { WRDSchema } from "@webhare/wrd";
-import * as test from "@webhare/test";
+import * as test from "@webhare/test-backend";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag, type CustomExtensions } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import type { Combine, WRDInsertable } from "@webhare/wrd/src/types";
@@ -58,6 +58,20 @@ async function testExport() { //  tests
         })
       }
     ]),
+    testinstance: await buildWHFSInstance({
+      whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+      rtdleft: [
+        {
+          widget: {
+            whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
+            fsref: 10,
+            styletitle: "Test style",
+            id: "TestInstance-2"
+          }
+        }
+      ],
+      rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
+    })
   };
 
   const testPersonId = await wrdschema.insert("wrdPerson", { ...initialPersonData, wrdId: nextWrdId });
@@ -107,6 +121,21 @@ async function testExport() { //  tests
       }
     ],
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["richie"], { export: true }));
+
+  test.eq({
+    testinstance: test.expectWHFSInstanceData("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {
+      rtdleft: [
+        {
+          widget: test.expectWHFSInstanceData("http://www.webhare.net/xmlns/beta/embedblock1", {
+            fsref: 10,
+            styletitle: "Test style",
+            id: "TestInstance-2"
+          })
+        }
+      ],
+      rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
+    })
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["testinstance"], { export: true }));
 }
 
 test.runTests([

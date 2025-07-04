@@ -1,11 +1,11 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { buildRTD, buildWidget, RichTextDocument, WebHareBlob, type Widget } from "@webhare/services";
+import { buildRTD, buildWidget, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildWHFSInstance, type RTDBlockItem } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, type RTDBlock, type RTDBlockItem } from "@webhare/services/src/richdocument";
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const exported = await doc.export();
@@ -22,15 +22,6 @@ const roundTripTests = new Array<{
   hs: HareScriptRTD;
   doc: RichTextDocument;
 }>;
-
-//buid a Widget tester
-function expectWidget(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}): (widget: Pick<Widget, "whfsType" | "data">) => boolean {
-  return ((widget: Widget) => {
-    test.eq(expectType, widget.whfsType);
-    test[partial ? 'eqPartial' : 'eq'](expectData || {}, widget.data);
-    return true;
-  }) as ReturnType<typeof expectWidget>;
-}
 
 async function verifyRoundTrip(doc: RichTextDocument) {
   const hs = await verifySimpleRoundTrip(doc);
@@ -172,7 +163,26 @@ async function testBuilder() {
       + `</body></html>`, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
+}
 
+async function testBuildWHFSInstance() {
+  const htmlwidget = await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" });
+  test.eq("http://www.webhare.net/xmlns/publisher/embedhtml", htmlwidget.whfsType);
+  test.eq({ html: "<b>BOLD</b> HTML" }, htmlwidget.data);
+
+  const twocolwidget = await buildWHFSInstance({
+    whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+    rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+    rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+  });
+
+  test.eq("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", twocolwidget.whfsType);
+  test.eq([{ items: [{ text: "Left column" }], tag: "p" }], (twocolwidget.data.rtdleft as RichTextDocument).blocks);
+  test.eq([{ items: [{ text: "Right column" }], tag: "p" }], (twocolwidget.data.rtdright as RichTextDocument).blocks);
+
+}
+
+async function testBuildingRTDsWithInstances() {
   {
     const doc = await buildRTD([
       {
@@ -200,10 +210,10 @@ async function testBuilder() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { widget: expectWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        widget: expectWidget("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
+        widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
       }
     ], doc.blocks);
 
@@ -249,7 +259,7 @@ async function testBuilder() {
     function verifyWidget(d: RichTextDocument) {
       test.eqPartial([
         {
-          "widget": expectWidget("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {}, { partial: true })
+          "widget": test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {}, { partial: true })
         }
       ], d.blocks);
 
@@ -368,6 +378,8 @@ async function testRegressions() {
 test.runTests(
   [
     testBuilder,
+    testBuildWHFSInstance,
+    testBuildingRTDsWithInstances,
     testRTDCreation,
     testWRDRoundTrips,
     testRegressions

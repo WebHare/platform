@@ -76,6 +76,14 @@ function validateTagName(tag: string): asserts tag is RTDBlockType {
     throw new Error(`Invalid tag name '${tag}'`);
 }
 
+export function isRichTextDocument(value: unknown): value is RichTextDocument {
+  return Boolean(value && getWHType(value) === "RichTextDocument");
+}
+
+export function isWHFSInstance(value: unknown): value is WHFSInstance {
+  return Boolean(value && getWHType(value) === "WHFSInstance");
+}
+
 
 class WHFSInstance {
   private static "__ $whTypeSymbol" = "WHFSInstance";
@@ -168,8 +176,8 @@ export class RichTextDocument {
   }
 
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
-    if (getWHType(widget) === "WHFSInstance") //we just keep the widget as is
-      return widget as WidgetInterface;
+    if (isWHFSInstance(widget)) //we just keep the widget as is
+      return widget;
 
     if ("whfsType" in widget)
       return await buildWHFSInstance(widget);
@@ -265,9 +273,12 @@ export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSIns
           throw new Error(`Member '${key}' not found in ${data.whfsType}`);
 
         //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-        widgetValue[key] = value;
+        if (matchMember.type === "richDocument") {
+          widgetValue[key] = isRichTextDocument(value) ? value : value ? await buildRTD(value as RTDBuildSource) : null;
+        } else {
+          widgetValue[key] = value;
+        }
       }
-
 
   return new WHFSInstance(typeinfo, widgetValue);
 }
