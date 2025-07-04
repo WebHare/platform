@@ -5,16 +5,20 @@
 declare module "@webhare/test-backend" {
 }
 
+import * as test from "@webhare/test";
 import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
-import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
+import type { WHFSInstance } from "@webhare/services";
+import { isWHFSInstance } from "@webhare/services/src/richdocument";
+import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -165,6 +169,27 @@ export async function setGeoIPDatabaseTestMode(testmode: boolean) {
   //TODO global refresh.
   //Flush geoip as they may have already been cached/loaded
   await __closeDatabase();
+}
+
+/** Build a test callback whether a field is an expected WHFSInstance */
+export function expectWHFSInstance(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}) {
+  return ((instance: Pick<WHFSInstance, "whfsType" | "data"> | null) => {
+    test.assert(instance);
+    test.assert(isWHFSInstance(instance));
+    test.eq(expectType, instance.whfsType);
+    test[partial ? 'eqPartial' : 'eq'](expectData || {}, instance.data);
+    return true;
+  });
+}
+
+/** Build a test callback whether a field is an expected WHFSInstanceData (the exported version) */
+export function expectWHFSInstanceData(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}) {
+  return ((instance: WHFSInstanceData | null) => {
+    test.assert(instance);
+    test.eq(expectType, instance.whfsType);
+    test[partial ? 'eqPartial' : 'eq'](expectData || {}, omit(instance, ["whfsType"]));
+    return true;
+  });
 }
 
 //By definition we re-export all of whtest and @webhare/test

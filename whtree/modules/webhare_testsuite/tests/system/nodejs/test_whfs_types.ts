@@ -159,7 +159,7 @@ async function testInstanceData() {
     aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids,
-    anInstance: (instance: WHFSInstance) => instance.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance.data.str1 === "str1" && getWHType(instance) === "WHFSInstance"
+    anInstance: test.expectWHFSInstance("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", { str1: "str1" })
   }, await testtype.get(testfile.id));
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
@@ -195,7 +195,9 @@ async function testInstanceData() {
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
 
-  // Further instance tests
+  ////////////////////////////////////
+  // STORY: Further instance update tests
+  // Test: Simple overwrite
   await testtype.set(testfile.id, {
     anInstance: await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })
   });
@@ -204,6 +206,24 @@ async function testInstanceData() {
   test.eqPartial({
     anInstance: (instance: WHFSInstance) => instance.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance.data.str1 === "str1b" && getWHType(instance) === "WHFSInstance"
   }, await testtype.get(testfile.id));
+
+  // Test: Can we put a RTD Object inside an instance?
+  await testtype.set(testfile.id, {
+    anInstance: await buildWHFSInstance({
+      whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+      rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+      rtdright: null
+    })
+  });
+
+  expectNumSettings -= 2; // the original instance took op 2 settings - the parent member (anInstance itself) and 'str1'
+  expectNumSettings += 2; // anInstance: 1, rtdLeft: 1
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+
+  {
+    const { anInstance } = await testtype.get(testfile.id);
+    test.eq([{ items: [{ text: "Left column" }], tag: "p" }], ((anInstance as WHFSInstance).data.rtdleft as RichTextDocument).blocks);
+  }
 
   // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
 
