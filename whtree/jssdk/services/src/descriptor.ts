@@ -1,7 +1,7 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
-import { pick, slugify } from "@webhare/std";
+import { pick, slugify, typedEntries, typedFromEntries } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -30,6 +30,10 @@ const MapBitmapImageTypes: Record<string, string> = {
 
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
+
+export type ExportOptions = {
+  export?: boolean;
+};
 
 export type LinkMethod = {
   allowAnyExtension?: boolean;
@@ -906,6 +910,15 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   toResized(method: ResizeMethod) {
     return { link: getUnifiedCacheURL(1, this, method) };
+  }
+
+  async export(options?: ExportOptions): Promise<ExportedResource> {
+    //TODO Serialization methods other than data: will be requestable through ExportOptions
+    return {
+      data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
+      ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
+      //FIXME add sourceFile
+    };
   }
 }
 

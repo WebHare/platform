@@ -4,8 +4,8 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, typedFromEntries, typedEntries } from "@webhare/std";
-import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType } from "@webhare/std";
+import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
@@ -18,7 +18,6 @@ import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
-import type { ExportOptions } from "./schema";
 import type { ExportableRTD } from "@webhare/services/src/richdocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -2034,15 +2033,7 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
   /** Convert the returned value to its exportable version
    */
   async exportValue(value: ResourceDescriptor | NullIfNotRequired<Required>, exportOptions?: ExportOptions): Promise<ExportedResource | NullIfNotRequired<Required>> {
-    //TODO Serialization methods other than data: will be requestable through ExportOptions
-    if (!value)
-      return null as unknown as ExportedResource; //pretend it's all right, we shouldn't receive a null anyway if Required was set
-
-    return {
-      data: { base64: Buffer.from(await value.resource.arrayBuffer()).toString("base64") },
-      ...typedFromEntries(typedEntries(value.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
-      //FIXME add sourceFile
-    };
+    return value?.export(exportOptions) ?? null as unknown as ExportedResource;
   }
 }
 
