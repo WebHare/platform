@@ -397,6 +397,9 @@ export const codecs: { [key: string]: TypeCodec } = {
 
         return buildRTDFromHareScriptRTD({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
       })();
+    },
+    exportValue: (value: RichTextDocument | null, options: ExportOptions) => {
+      return value?.export() || null;
     }
   },
   "instance": {
