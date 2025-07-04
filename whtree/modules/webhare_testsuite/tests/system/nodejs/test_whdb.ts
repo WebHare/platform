@@ -125,6 +125,22 @@ async function testQueries() {
   await commitWork();
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
+
+  //Test rolling back and reuploading blob
+  const myblob = WebHareBlob.from("My Test Blob"); //NOTE If we ever learn to inline small blobs ... this test will need a bigger blob
+
+  await beginWork();
+  await uploadBlob(myblob);
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ text: "myblob - rollback", datablob: myblob }).execute();
+  await rollbackWork();
+
+  await beginWork();
+  await uploadBlob(myblob);
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ text: "myblob - commit", datablob: myblob }).execute();
+  await commitWork();
+
+  const committedblob = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").where("text", "=", "myblob - commit").select("datablob").executeTakeFirstOrThrow();
+  test.eq("My Test Blob", await committedblob.datablob?.text());
 }
 
 async function testPlugins() {

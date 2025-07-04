@@ -32,36 +32,45 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
 const uploadedblobs = new WeakMap<WebHareBlob, string>();
 
 export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob | ReadableStream<Uint8Array>): Promise<WebHareBlob> {
-  if ("size" in blob && (blob.size === 0 || uploadedblobs.get(blob)))
-    return blob;
+  if ("size" in blob && blob.size === 0)
+    return blob; //never need to upload a 0-byter
 
-  const blobpartid = generateRandomId('hex', 16);
-  //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
-  const databaseid = "AAAB" + blobpartid;
+  const uploaded = "size" in blob ? uploadedblobs.get(blob) : undefined;
+  let databaseid: string;
+  let finallength: number;
+  if (uploaded) { //implies blob is of type WebHareBlob
+    databaseid = uploaded;
+    finallength = (blob as WebHareBlob).size;
+  } else {
+    const blobpartid = generateRandomId('hex', 16);
+    //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
+    databaseid = "AAAB" + blobpartid;
 
-  const paths = await getFilePaths(blobpartid, true);
-  await storeDiskFile(paths.temppath, "stream" in blob ? blob.stream() : blob, { overwrite: true });
-  let finallength;
-  try {
-    finallength = (await stat(paths.temppath)).size;
-    if (!finallength) {
-      // Stream with 0 bytes, remove the file
+    const paths = await getFilePaths(blobpartid, true);
+    await storeDiskFile(paths.temppath, "stream" in blob ? blob.stream() : blob, { overwrite: true });
+    try {
+      finallength = (await stat(paths.temppath)).size;
+      if (!finallength) {
+        // Stream with 0 bytes, remove the file
+        await unlink(paths.temppath);
+        return WebHareBlob.from("");
+      }
+      await rename(paths.temppath, paths.fullpath);
+    } catch (e) {
       await unlink(paths.temppath);
-      return WebHareBlob.from("");
+      throw e;
     }
-    await rename(paths.temppath, paths.fullpath);
-  } catch (e) {
-    await unlink(paths.temppath);
-    throw e;
+
+    if (!("stream" in blob))
+      blob = await WebHareBlob.fromDisk(paths.fullpath);
+
+    uploadedblobs.set(blob, databaseid);
+    blob.__registerPGUpload(databaseid);
   }
 
-  await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
-  if (!("stream" in blob))
-    blob = await WebHareBlob.fromDisk(paths.fullpath);
-
-  uploadedblobs.set(blob, databaseid);
-  blob.__registerPGUpload(databaseid);
-  return blob;
+  //We ignore dupe inserts, that's just blob reuploading - but we can't skip this step in case we commit earlier than the original uploader
+  await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2)) ON CONFLICT (id) DO NOTHING", { params: [databaseid, finallength] });
+  return blob as WebHareBlob; //both branches will have either ensured or converted it to a WebHareBlob
 }
 
 function createPGBlob(pgdata: string): WebHareBlob {
