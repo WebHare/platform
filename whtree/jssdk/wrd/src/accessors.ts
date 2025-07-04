@@ -683,7 +683,7 @@ type WRDDBIntegerConditions<Required extends boolean> = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">";
   value: true extends Required ? number : number | null;
 } | {
-  condition: "in"; value: readonly number[];
+  condition: "in"; value: true extends Required ? readonly number[] : ReadonlyArray<number | null>;
 } | {
   condition: "mentions"; value: number;
 } | {
