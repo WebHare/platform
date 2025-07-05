@@ -145,6 +145,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   /*domain2value1:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1", wrdTitle: "Domain value 2.1", wrdGuid: "00000000-0020-1000-0002-010000002010" });
   /*domain2value2:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2", wrdTitle: "Domain value 2.2", wrdGuid: "00000000-0020-2000-0002-020000002020" });
   /*domain2value3:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_3", wrdTitle: "Domain value 2.3", wrdGuid: "00000000-0020-3000-0002-030000002030" });
+  /*domain2value3:= */await schemaobj.insert("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_4", wrdTitle: "Domain value 2.4", wrdGuid: "00000000-0020-3000-0002-030000002040" });
 
   // Add attributes of every type to the Person type
   await persontype.createAttribute("testSingleDomain", { attributeType: "domain", title: "Single attribute", domain: "testDomain_1" });

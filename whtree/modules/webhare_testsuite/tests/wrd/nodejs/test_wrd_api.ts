@@ -4,6 +4,7 @@ import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import type { IsRequired, WRDAttributeTypeId, WRDBaseAttributeTypeId, WRDTypeBaseSettings } from "@webhare/wrd/src/types";
+import { throwError } from "@webhare/std";
 
 async function testWRDUntypedApi() { //  tests
   const nosuchschema = new WRDSchema("wrd:nosuchschema");
@@ -421,7 +422,19 @@ async function testUnique() {
   await whdb.commitWork();
 }
 
-async function testReferences() {
+async function testReferences1() {
+  const wrdschema = await getWRDSchema();
+  const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value TEST_DOMAINVALUE_1_! not found");
+  const domain2value1 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_1" }) ?? throwError("Domain value TEST_DOMAINVALUE_2_1 not found");
+
+  await whdb.beginWork();
+  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "testReferences1", wrdContactEmail: "test-references1@beta.webhare.net", wrdauthAccountStatus: { status: "active" } }));
+  await test.throws(/Referential integrity violated/, wrdschema.update("wrdPerson", personid, { testSingleDomain: domain2value1 }));
+  await test.throws(/Referential integrity violated/, wrdschema.update("wrdPerson", personid, { testMultipleDomain: [domain2value1, domain1value1] }));
+  await whdb.rollbackWork();
+}
+
+async function testReferences2() {
   await whdb.beginWork();
 
   type MySchema = {
@@ -457,9 +470,6 @@ async function testReferences() {
   await test.throws(/Referential integrity violated/, wrdschema.update("testReferencesLink", link, { wrdLeftEntity: root2Node, wrdRightEntity: root2Node }));
   await test.throws(/Referential integrity violated/, wrdschema.update("testReferencesLink", link, { wrdLeftEntity: rootNode, wrdRightEntity: rootNode }));
 
-
-
-
 }
 
 test.runTests([
@@ -467,5 +477,6 @@ test.runTests([
   testWRDUntypedApi,
   testRequired,
   testUnique,
-  testReferences,
+  testReferences1,
+  testReferences2,
 ]);

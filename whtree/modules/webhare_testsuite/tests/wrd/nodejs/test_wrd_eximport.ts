@@ -22,11 +22,11 @@ async function testExport() { //  tests
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG", wrdGuid: testunitGuid });
 
   const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value not found");
-  const domain1value2 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }) ?? throwError("Domain value not found");
-  const domain1value3 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3" }) ?? throwError("Domain value not found");
+  const domain2value2 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2" }) ?? throwError("Domain value not found");
+  const domain3value3 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_3" }) ?? throwError("Domain value not found");
   const domain1value1guid = await wrdschema.getFields("testDomain_1", domain1value1, "wrdGuid");
-  const domain1value2guid = await wrdschema.getFields("testDomain_1", domain1value2, "wrdGuid");
-  const domain1value3guid = await wrdschema.getFields("testDomain_1", domain1value3, "wrdGuid");
+  const domain2value2guid = await wrdschema.getFields("testDomain_2", domain2value2, "wrdGuid");
+  const domain3value3guid = await wrdschema.getFields("testDomain_2", domain3value3, "wrdGuid");
 
   // Create a person with some testdata
   const testsitejs = await test.getTestSiteJS();
@@ -42,7 +42,7 @@ async function testExport() { //  tests
     wrdContactEmail: "other@example.com",
     whuserUnit: testunit,
     testSingleDomain: domain1value1,
-    testMultipleDomain: [domain1value3, domain1value2],
+    testMultipleDomain: [domain3value3, domain2value2],
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
@@ -84,7 +84,7 @@ async function testExport() { //  tests
     wrdGuid: nextWrdGuid,
     whuserUnit: testunitGuid,
     testSingleDomain: domain1value1guid,
-    testMultipleDomain: [domain1value3guid, domain1value2guid].toSorted(),
+    testMultipleDomain: [domain3value3guid, domain2value2guid].toSorted(),
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain"], { export: true }));
 
   test.eq({

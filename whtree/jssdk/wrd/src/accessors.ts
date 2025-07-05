@@ -1120,6 +1120,10 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value.includes(0))
       throw new Error(`Value may not include the number 0 for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+
+    if (value && this.attr.domain) {
+      checker.addRefCheck(this.attr.domain, value, attrPath + this.attr.tag);
+    }
   }
 
   encodeValue(value: number[]): EncodedValue {
