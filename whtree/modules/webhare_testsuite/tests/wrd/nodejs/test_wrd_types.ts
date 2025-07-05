@@ -160,8 +160,8 @@ function testTypes() {
     wrdTitlesSuffix?: string | undefined;
     wrd_titles?: string | undefined;
     whuser_unit: number;
-    requiredFile: ResourceDescriptor | { data: Buffer };
-    requiredImage: ResourceDescriptor | { data: Buffer };
+    requiredFile: ResourceDescriptor;
+    requiredImage: ResourceDescriptor;
   }, WRDInsertable<System_Usermgmt_WRDPerson>>>();
 }
 

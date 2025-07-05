@@ -1984,9 +1984,8 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
 
 }
 
-//TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
 class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUncomparableValueBase<
-  ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>,
+  ResourceDescriptor | NullIfNotRequired<Required>,
   ResourceDescriptor | null,
   ResourceDescriptor | NullIfNotRequired<Required>,
   ExportedResource | NullIfNotRequired<Required>
@@ -2016,19 +2015,19 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
     return new ResourceDescriptor(blob, meta);
   }
 
-  validateInput(value: ResourceDescriptor | { data: Buffer } | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
+  validateInput(value: ResourceDescriptor | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string): void {
+    if (value && "data" in value && value.data instanceof Buffer)
+      throw new Error(`Invalid value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}, use ResourceDescriptor instead of Buffer`);
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
-  encodeValue(value: ResourceDescriptor | null | { data: Buffer }): AwaitableEncodedValue {
+  encodeValue(value: ResourceDescriptor | null): AwaitableEncodedValue {
     if (!value)
       return {};
 
     return {
       settings: (async (): Promise<EncodedSetting[]> => {
-        if ("data" in value)
-          value = await ResourceDescriptor.from(value.data);
         const rawdata = (value.sourceFile ? "WHFS:" : "") + await addMissingScanData(value);
         if (value.resource.size)
           await uploadBlob(value.resource);
@@ -2070,7 +2069,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     return buildRTDFromHareScriptRTD({ htmltext: val.blobdata, instances: [], embedded: [], links: [] });
   }
 
-  validateInput(value: RichTextDocument | null | { data: Buffer }, checker: ValueQueryChecker, attrPath: string): void {
+  validateInput(value: RichTextDocument | null, checker: ValueQueryChecker, attrPath: string): void {
     if (!value && this.attr.required && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
