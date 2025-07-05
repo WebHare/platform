@@ -137,11 +137,11 @@ function testTypes() {
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }, false | true>>>();
 
   test.typeAssert<test.Equals<{
-    invented_domain?: number | null | undefined;
+    invented_domain?: string | number | null | undefined;
     whuser_comment?: string | undefined;
     whuser_disabled?: boolean | undefined;
     whuser_disablereason?: string | undefined;
-    whuser_hiddenannouncements?: number[] | undefined;
+    whuser_hiddenannouncements?: Array<number | string> | number[] | undefined;
     whuser_lastlogin?: Date | null | undefined;
     wrdCreationDate?: Date | null | undefined;
     wrdDateOfBirth?: Date | null | undefined;
@@ -159,9 +159,9 @@ function testTypes() {
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;
     wrd_titles?: string | undefined;
-    whuser_unit: number;
-    requiredFile: ResourceDescriptor;
-    requiredImage: ResourceDescriptor;
+    whuser_unit: string | number;
+    requiredFile: ResourceDescriptor | ExportedResource;
+    requiredImage: ResourceDescriptor | ExportedResource;
   }, WRDInsertable<System_Usermgmt_WRDPerson>>>();
 }
 

@@ -148,6 +148,21 @@ async function testExport() { //  tests
   test.eq({
     wrdLeftEntity: nextWrdGuid
   }, await wrdschema.getFields("personattachment", attached, ["wrdLeftEntity"], { export: true }));
+
+  const clonableAttributes = (await wrdschema.getType("wrdPerson").listAttributes()).
+    filter(attr => !["wrdId", "wrdGuid", "wrdType", "wrdTitle", "wrdFullName", "wrdSaluteFormal", "wrdAddressFormal"].includes(attr.tag)). //these are never clonable (TODO more metadata in listattributes to determine this)
+    filter(attr => !["testlink"].includes(attr.tag)). //FIXME implement these
+    map(_ => _.tag);
+
+  // const x:WRDInsertable<TestSchemaType["wrdPerson"]>;
+  // x.whuserHiddenannouncements
+  type ExportPersonType = Omit<WRDInsertable<TestSchemaType["wrdPerson"]>, "wrdId">;
+  const exported: ExportPersonType = await wrdschema.getFields("wrdPerson", testPersonId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
+  // console.dir(exported, { depth: s10, colors: true });
+  exported.wrdContactEmail = "eximport@beta.webhare.net"; //change to satisfy unique constraint
+  const importedId = await wrdschema.insert("wrdPerson", exported);
+  const imported: ExportPersonType = await wrdschema.getFields("wrdPerson", importedId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
+  test.eq(exported, imported);
 }
 
 test.runTests([

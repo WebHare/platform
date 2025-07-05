@@ -11,14 +11,14 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance, buildRTD } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
-import type { ExportableRTD } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, isWHFSInstance, type ExportableRTD, type RTDBuildSource } from "@webhare/services/src/richdocument";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -30,6 +30,9 @@ type AddToQueryResponse<O> = {
 
 /// Returns `null` if Required might be false
 type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
+
+/// Returns T or a promise resolving to T
+type MaybePromise<T> = Promise<T> | T;
 
 /** Allowed values for wrd.entity_settings_whfslink.linktype */
 export const LinkTypes = { RTD: 0, Instance: 1, FSObject: 2 } as const;
@@ -76,6 +79,30 @@ export function decodeWRDGuid(wrdGuid: string) {
 
   return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
 }
+
+async function lookupDomainValues(attr: AttrRec, vals: Array<string | number>): Promise<number[]> {
+  //TODO bulk lookups
+  //TODO have an import context to cache earlier lookups during the same import session
+  const output: number[] = [];
+  for (const val of vals) {
+    if (typeof val === "number") {
+      output.push(val);
+      continue;
+    }
+    if (isValidUUID(val)) {
+      const binaryGuid = decodeWRDGuid(val);
+      //FIXME support parent/child types. but accessors don't have the schema info?
+      const res = await db<PlatformDB>().selectFrom("wrd.entities").where("type", "=", attr.domain).where("guid", "=", binaryGuid).select(["id"]).executeTakeFirst();
+      if (!res) //TODO clearer error using JS metadata/names
+        throw new Error(`Unable to locate ${val} for domain ${attr.tag} in type #${attr.domain}`);
+      output.push(res.id);
+      continue;
+    }
+    throw new Error(`Unrecognized domain value '${val}' for domain ${attr.tag} in type #${attr.domain}`);
+  }
+  return output;
+}
+
 
 /** Base for an attribute accessor
  * @typeParam In - Type for allowed values for insert and update
@@ -164,6 +191,12 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, Ex
       return this.getDefaultValue() as Out; // Cast is needed because for required fields, Out may not extend Default.
     else
       return this.getFromRecord(entity_settings, settings_start, settings_limit, links, cc);
+  }
+
+  /** Preprocess (load) exportable values to be importable
+   */
+  importValue(value: ExportOut | In): MaybePromise<In> {
+    return value as unknown as In;
   }
 
   /** Convert the returned value to its exportable version
@@ -680,7 +713,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
 
 type WRDDBIntegerConditions<Required extends boolean> = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">";
-  value: true extends Required ? number : number | null;
+  value: number | NullIfNotRequired<Required>;
 } | {
   condition: "in"; value: true extends Required ? readonly number[] : ReadonlyArray<number | null>;
 } | {
@@ -691,8 +724,8 @@ type WRDDBIntegerConditions<Required extends boolean> = {
 
 // Required flags whether or not |null is denied. Real integers don't use null, wrdId supports null in some query scenarios
 class WRDDBIntegerValue<Required extends boolean = true> extends WRDAttributeValueBase<
-  (true extends Required ? number : number | null),
-  number | null,
+  number,
+  number,
   number,
   number,
   WRDDBIntegerConditions<Required>> {
@@ -818,9 +851,9 @@ type WRDDBDomainConditions = {
 };
 
 class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
-  (true extends Required ? number : number | null),
+  (number | NullIfNotRequired<Required>),
   (number | null),
-  (true extends Required ? number : number | null),
+  number | NullIfNotRequired<Required>,
   (true extends Required ? string : string | null),
   WRDDBDomainConditions
 > {
@@ -880,11 +913,11 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     };
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): number | NullIfNotRequired<Required> {
     return entity_settings[settings_start].setting as number; // for domains, always filled with valid reference
   }
 
-  validateInput(value: true extends Required ? number : number | null, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: number | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (value && this.attr.domain) {
@@ -903,7 +936,14 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     return { settings: { setting: value, attribute: this.attr.id } };
   }
 
-  async exportValue(value: true extends Required ? number : number | null): Promise<true extends Required ? string : string | null> {
+  importValue(value: string | number | NullIfNotRequired<Required>): Promise<number | NullIfNotRequired<Required>> | number | NullIfNotRequired<Required> {
+    if (typeof value === "string")
+      return lookupDomainValues(this.attr, [value]).then(val => val[0]);
+
+    return value;
+  }
+
+  async exportValue(value: number | NullIfNotRequired<Required>): Promise<true extends Required ? string : string | null> {
     if (value === null)
       return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
 
@@ -1012,6 +1052,13 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
 
   encodeValue(value: number): EncodedValue {
     return { entity: { [this.getAttrBaseCells()]: value } };
+  }
+
+  importValue(value: ExportOut | number | NullIfNotRequired<Required>): MaybePromise<number | NullIfNotRequired<Required>> {
+    if (typeof value === "string")
+      return lookupDomainValues(this.attr, [value]).then(val => val[0]);
+
+    return value as number | NullIfNotRequired<Required>;
   }
 
   async exportValue(value: number | NullIfNotRequired<Required>): Promise<ExportOut | NullIfNotRequired<Required>> {
@@ -1132,11 +1179,18 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     };
   }
 
+  importValue(value: Array<number | string>): Promise<number[]> | number[] {
+    if (value.some(_ => typeof _ !== "number"))
+      return lookupDomainValues(this.attr, value);
+
+    return value as number[];
+  }
+
   async exportValue(value: number[]): Promise<string[]> {
     if (!value.length)
       return [];
 
-    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "in", value).execute();
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid", "type"]).where("id", "in", value).execute();
     return lookupres.map(_ => encodeWRDGuid(_.guid)).toSorted();
   }
 }
@@ -2045,6 +2099,17 @@ class WHDBResourceAttributeBase<Required extends boolean> extends WRDAttributeUn
     };
   }
 
+  importValue(value: ResourceDescriptor | NullIfNotRequired<Required> | ExportedResource): Promise<ResourceDescriptor | NullIfNotRequired<Required>> | ResourceDescriptor | NullIfNotRequired<Required> {
+    if (value && "data" in value && value.data instanceof Buffer)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- we're letting validateInput complain about this as it has more metadata. somewhere after WH5.8 if noone has hit it that check and this can perhaps go away
+      return value as any;
+
+    if (value && "data" in value) { //looks like an ExportedResource?
+      return ResourceDescriptor.import(value);
+    }
+    return value;
+  }
+
   /** Convert the returned value to its exportable version
    */
   async exportValue(value: ResourceDescriptor | NullIfNotRequired<Required>, exportOptions?: ExportOptions): Promise<ExportedResource | NullIfNotRequired<Required>> {
@@ -2105,6 +2170,13 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     };
   }
 
+  importValue(value: RTDBuildSource | RichTextDocument | null): Promise<RichTextDocument | null> | RichTextDocument | null {
+    if (Array.isArray(value)) { //TODO can we do a more reliable 'is an Buildable RTD' check ?
+      return buildRTD(value);
+    }
+    return value;
+  }
+
   exportValue(value: RichTextDocument | null): Promise<ExportableRTD> | null {
     return value?.blocks.length ? value.export() : null;
   }
@@ -2142,6 +2214,14 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
         return [{ rawdata: "WHFS", linktype: 1, link: whfsId, attribute: this.attr.id }];
       })
     };
+  }
+
+  importValue(value: WHFSInstance | WHFSInstanceData | null): MaybePromise<WHFSInstance | null> {
+    if (value && !isWHFSInstance(value)) { //looks like an ExportedWHFSInstance?
+      return buildWHFSInstance(value);
+    }
+
+    return value;
   }
 
   async exportValue(value: WHFSInstance | null, exportOptions?: ExportOptions): Promise<WHFSInstanceData | null> {

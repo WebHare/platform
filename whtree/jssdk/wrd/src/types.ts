@@ -256,7 +256,12 @@ type GetDefaultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType
 export type GetCVPairs<T extends SimpleWRDAttributeType | WRDAttrBase> = Parameters<AccessorType<ToWRDAttr<T>>["checkFilter"]>[0];
 
 /** Gives back the allowed input value type for an attribute type */
-export type GetInputType<T extends SimpleWRDAttributeType | WRDAttrBase> = Parameters<AccessorType<ToWRDAttr<T>>["validateInput"]>[0];
+export type GetInputType<T extends SimpleWRDAttributeType | WRDAttrBase> =
+  //Check ValidateInput's type to retrieve supported directly settable typtes
+  Parameters<AccessorType<ToWRDAttr<T>>["validateInput"]>[0]
+  //Is there an importValue?
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- val:unknown is too strict to capture callbacks
+  | (AccessorType<ToWRDAttr<T>> extends { importValue: (val: any) => unknown } ? Parameters<AccessorType<ToWRDAttr<T>>["importValue"]>[0] : never);
 
 /** Type of output columns, extend this when dynamic selects become possible
  * @typeParam Type - WRD type definition record

@@ -1588,7 +1588,6 @@ async function testImportMode() {
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       image: null,
       richDocument: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       integer64: 0,
       money: new Money("0"),
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
