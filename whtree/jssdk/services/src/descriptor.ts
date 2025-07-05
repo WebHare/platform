@@ -13,7 +13,7 @@ import { decodeBMP } from "./bmp-to-raw";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
-import { isHistoricWHFSSpace } from "@webhare/whfs/src/objects";
+import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -260,6 +260,15 @@ export async function mapExternalWHFSRef(inId: number): Promise<string | null> {
       return `site::${site.name}${objinfo.fullpath}`;
   }
   return isHistoricWHFSSpace(objinfo.whfspath) ? null : `whfs::${objinfo.whfspath}`;
+}
+
+/** Import a site:: or whfs:: path*/
+export async function unmapExternalWHFSRef(inId: string): Promise<number | null> {
+  if (inId.startsWith("site::") || inId.startsWith("whfs::")) {
+    const target = await lookupWHFSObject(0, inId);
+    return target > 0 ? target : null;
+  }
+  return null;
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
@@ -880,6 +889,22 @@ export class ResourceDescriptor implements ResourceMetaData {
       throw new Error(`Cannot yet open resources other than mod::`);
 
     return ResourceDescriptor.fromDisk(toFSPath(resource), options);
+  }
+
+  static async import(resource: ExportedResource): Promise<ResourceDescriptor> {
+    let blob;
+    if (resource.data.base64) {
+      blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
+    } else {
+      throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
+    }
+
+    const importData = {
+      ...resource,
+      sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile) : null,
+      mediaType: resource.mediaType || "application/octet-stream"
+    };
+    return new ResourceDescriptor(blob, importData);
   }
 
   get resource() {

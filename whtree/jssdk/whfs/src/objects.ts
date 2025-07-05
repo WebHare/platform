@@ -702,7 +702,7 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
            component can't move beyond the initial path. May also contain a site:: or whfs:: absolute path
     @returns The destination folder id, 0 if we wound up at the WHFS root, or -1 if the object was not found
 */
-async function lookupWHFSObject(startingpoint: number, fullpath: string): Promise<number> {
+export async function lookupWHFSObject(startingpoint: number, fullpath: string): Promise<number> {
   const res = await resolveWHFSObjectByPath(startingpoint, fullpath);
   return res.leftover ? -1 : res.id;
 }
