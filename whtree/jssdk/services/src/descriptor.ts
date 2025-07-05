@@ -1,7 +1,7 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
-import { pick, slugify } from "@webhare/std";
+import { pick, slugify, typedEntries, typedFromEntries } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -10,6 +10,10 @@ import { createSharpImage } from "@webhare/deps";
 import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeBMP } from "./bmp-to-raw";
+import { db } from "@webhare/whdb";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
+import { isHistoricWHFSSpace } from "@webhare/whfs/src/objects";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -30,6 +34,10 @@ const MapBitmapImageTypes: Record<string, string> = {
 
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
+
+export type ExportOptions = {
+  export?: boolean;
+};
 
 export type LinkMethod = {
   allowAnyExtension?: boolean;
@@ -229,6 +237,29 @@ type SerializedScanData = {
 
 function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
   return "#" + (("0" + r.toString(16)).slice(-2) + ("0" + g.toString(16)).slice(-2) + ("0" + b.toString(16)).slice(-2)).toUpperCase();
+}
+
+/** Convert an ID to a site:: or whfs:: path for export */
+export async function mapExternalWHFSRef(inId: number): Promise<string | null> {
+  if (!inId)
+    return null;
+
+  //should this be in WHFS or some shared 'simple low level WHFS library' shared between the various export/importers ?
+  //TODO return 'null' for objects in hidden /webhare-private/ folders?
+  const objinfo = await db<PlatformDB>().selectFrom("system.fs_objects").where("id", "=", inId).
+    select(selectFSHighestParent().as("parentsite")).
+    select(selectFSWHFSPath().as("whfspath")).
+    select(selectFSFullPath().as("fullpath")).
+    executeTakeFirst();
+
+  if (!objinfo)
+    return null;
+  if (objinfo.parentsite) {
+    const site = await db<PlatformDB>().selectFrom("system.sites").select(["name"]).where("id", "=", objinfo.parentsite).executeTakeFirst();
+    if (site)
+      return `site::${site.name}${objinfo.fullpath}`;
+  }
+  return isHistoricWHFSSpace(objinfo.whfspath) ? null : `whfs::${objinfo.whfspath}`;
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
@@ -906,6 +937,15 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   toResized(method: ResizeMethod) {
     return { link: getUnifiedCacheURL(1, this, method) };
+  }
+
+  async export(options?: ExportOptions): Promise<ExportedResource> {
+    //TODO Serialization methods other than data: will be requestable through ExportOptions
+    return {
+      data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
+      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile) : null,
+      ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
+    };
   }
 }
 

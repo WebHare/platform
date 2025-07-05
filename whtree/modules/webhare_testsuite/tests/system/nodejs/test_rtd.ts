@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { buildRTD, buildWidget, RichTextDocument, WebHareBlob } from "@webhare/services";
+import { buildRTD, buildWidget, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
@@ -180,9 +180,39 @@ async function testBuildWHFSInstance() {
   test.eq([{ items: [{ text: "Left column" }], tag: "p" }], (twocolwidget.data.rtdleft as RichTextDocument).blocks);
   test.eq([{ items: [{ text: "Right column" }], tag: "p" }], (twocolwidget.data.rtdright as RichTextDocument).blocks);
 
+  test.eqPartial({
+    whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+    rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
+    rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+  }, await twocolwidget.export());
+
+  const testsitejs = await test.getTestSiteJS();
+  const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true });
+
+  const videowidget = await buildWHFSInstance({
+    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    thumbnail: goldfish
+  });
+
+  test.eqPartial({
+    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    thumbnail: {
+      data: {
+        base64: /^iVBO/ //base64 of goudvis
+      },
+      sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+      hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+      width: 385
+    }
+  }, await videowidget.export());
 }
 
 async function testBuildingRTDsWithInstances() {
+  const testsitejs = await test.getTestSiteJS();
+  const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true });
+
   {
     const doc = await buildRTD([
       {
@@ -197,6 +227,11 @@ async function testBuildingRTDsWithInstances() {
         ]
       }, {
         "widget": await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" })
+      }, {
+        "widget": await buildWHFSInstance({
+          whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+          thumbnail: goldfish
+        })
       }
     ]);
 
@@ -214,6 +249,10 @@ async function testBuildingRTDsWithInstances() {
         ]
       }, {
         widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
+      }, {
+        widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedvideo", {
+          thumbnail: (eGR: ResourceDescriptor) => eGR.sourceFile === imgEditFile.id && eGR.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY" && eGR.width === 385
+        }, { partial: true })
       }
     ], doc.blocks);
 
@@ -241,6 +280,18 @@ async function testBuildingRTDsWithInstances() {
           whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
           html: "<b>BOLD</b> HTML"
         }
+      }, {
+        widget: w => Boolean(test.eqPartial({
+          whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+          thumbnail: {
+            data: {
+              base64: /^iVBO/ //base64 of goudvis
+            },
+            sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+            hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+            width: 385
+          }
+        }, w))
       }
     ], await doc.export());
 

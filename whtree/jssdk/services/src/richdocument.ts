@@ -4,6 +4,7 @@ import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contentty
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
 import { getWHType } from "@webhare/std/quacks";
+import { codecs } from "@webhare/whfs/src/codecs";
 
 type RTDItemMode = "inMemory" | "export" | "build";
 
@@ -110,9 +111,9 @@ class WHFSInstance {
     };
 
     for (const member of this.#typeInfo.members) {
-      //TODO Array recursion, ResourceDescriptors,...
-      if (member.type === "richDocument")
-        retval[member.name] = (await (this.#data[member.name] as RichTextDocument | null)?.export()) || null;
+      const decoder = codecs[member.type];
+      if (decoder?.exportValue)
+        retval[member.name] = await decoder.exportValue(this.#data[member.name]);
       else
         retval[member.name] = this.#data[member.name];
     }

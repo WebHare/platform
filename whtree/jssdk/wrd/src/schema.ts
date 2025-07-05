@@ -15,15 +15,12 @@ import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/types";
 import { wrdFinishHandler } from "./finishhandler";
+import type { ExportOptions } from "@webhare/services/src/descriptor";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
 const WRDCloseModes = ["close", "delete", "delete-closereferred", "delete-denyreferred", "close-denyreferred"] as const;
 type WRDCloseMode = typeof WRDCloseModes[number];
-
-export interface ExportOptions {
-  export?: boolean;
-}
 
 interface SyncOptions {
   /** What to dot with unmatched entities during a sync? Defaults to 'keep' */

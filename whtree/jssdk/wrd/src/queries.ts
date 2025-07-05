@@ -1,13 +1,13 @@
 import type { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
 export { type SchemaTypeDefinition } from "./types";
-import type { ExportOptions, HistoryModeData, WRDType } from "./schema";
+import type { HistoryModeData, WRDType } from "./schema";
 import { type AnyWRDAccessor, getAccessor } from "./accessors";
 import { type AttrRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
-import { getUnifiedCC } from "@webhare/services/src/descriptor";
+import { getUnifiedCC, type ExportOptions } from "@webhare/services/src/descriptor";
 import { isPromise } from "@webhare/std";
 
 
