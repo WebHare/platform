@@ -768,8 +768,6 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
       return null;
 
     switch (this.attr.tag) {
-      case "wrdId": query = query.where("id", cv.condition, cv.value); break;
-      case "wrdType": query = query.where("type", cv.condition, cv.value); break;
       case "wrdOrdering": query = query.where("ordering", cv.condition, cv.value); break;
       default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
     }
@@ -917,13 +915,16 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   }
 }
 
-class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBase<
-  (true extends Required ? number : number | null),
-  (number | null),
-  (true extends Required ? number : number | null),
-  (true extends Required ? number : number | null),
+class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | number> extends WRDAttributeValueBase<
+  number | NullIfNotRequired<Required>,
+  number | null,
+  number | NullIfNotRequired<Required>,
+  ExportOut | NullIfNotRequired<Required>,
   WRDDBDomainConditions
 > {
+  constructor(attr: AttrRec, private exportString: boolean) {
+    super(attr);
+  }
   getDefaultValue(): number | null { return null; }
   isSet(value: number | null) { return Boolean(value); }
   checkFilter(cv: WRDDBDomainConditions) {
@@ -983,16 +984,16 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
     };
   }
 
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): (true extends Required ? number : number | null) {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): number | NullIfNotRequired<Required> {
     const retval = entityrec[this.getAttrBaseCells()] || null;
-    return retval as (true extends Required ? number : number | null);
+    return retval as number | NullIfNotRequired<Required>;
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): number | NullIfNotRequired<Required> {
     throw new Error(`Should not be called for base attributes`);
   }
 
-  validateInput(value: true extends Required ? number : number | null, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: number | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
 
@@ -1011,6 +1012,17 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 
   encodeValue(value: number): EncodedValue {
     return { entity: { [this.getAttrBaseCells()]: value } };
+  }
+
+  async exportValue(value: number | NullIfNotRequired<Required>): Promise<ExportOut | NullIfNotRequired<Required>> {
+    if (value === null || !this.exportString) //wrdId/wrdType are not converted
+      return value as unknown as ExportOut; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "=", value).executeTakeFirst();
+    if (!lookupres)
+      throw new Error(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
+
+    return encodeWRDGuid(lookupres.guid) as ExportOut;
   }
 }
 
@@ -2471,9 +2483,9 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeTypeId.Base_Date]: WRDDBDateValue<false>;
   [WRDBaseAttributeTypeId.Base_GeneratedString]: WRDDBStringValue;
   [WRDBaseAttributeTypeId.Base_NameString]: WRDDBBaseStringValue;
-  [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required>;
+  [WRDBaseAttributeTypeId.Base_Domain]: WRDDBBaseDomainValue<Required, string>;
   [WRDBaseAttributeTypeId.Base_Gender]: WRDDBBaseGenderValue;
-  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBIntegerValue<false>;
+  [WRDBaseAttributeTypeId.Base_FixedDomain]: WRDDBBaseDomainValue<true, number>;
 
   [WRDAttributeTypeId.String]: WRDDBStringValue;
   [WRDAttributeTypeId.Email]: WRDDBEmailValue;
@@ -2534,9 +2546,9 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(attrinfo, true) as AccessorType<T>;
     case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
-    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true, number>(attrinfo, false) as AccessorType<T>;
 
     case WRDAttributeTypeId.String: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;

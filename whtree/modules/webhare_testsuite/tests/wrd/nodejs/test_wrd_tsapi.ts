@@ -497,7 +497,7 @@ async function testNewAPI() {
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
     test.typeAssert<test.Equals<Array<
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
-      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrichWithOuterJoin>>();
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
   }
 
   // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment

@@ -140,6 +140,14 @@ async function testExport() { //  tests
       rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
     })
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["testinstance"], { export: true }));
+
+  const attached = await wrdschema.insert("personattachment", {
+    wrdLeftEntity: nextWrdId, attachfree: "text"
+  });
+
+  test.eq({
+    wrdLeftEntity: nextWrdGuid
+  }, await wrdschema.getFields("personattachment", attached, ["wrdLeftEntity"], { export: true }));
 }
 
 test.runTests([
