@@ -3,7 +3,6 @@ import * as services from "@webhare/services";
 import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
 import type { Rotation } from "@webhare/services/src/descriptor";
-import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
@@ -110,6 +109,7 @@ async function testWebHareBlobs() {
   const emptyblob = WebHareBlob.from("");
   test.eq(0, emptyblob.size);
   test.eq("", await readAllFromStream(await emptyblob.getStream()));
+  emptyblob satisfies Blob;
 
   const helloblob = WebHareBlob.from("Hello, World");
   test.eq(12, helloblob.size);
@@ -137,10 +137,6 @@ async function testWebHareBlobs() {
   //test temporary? compatibility
   test.eq("Hello, World", Buffer.from(await helloblob.arrayBuffer()).toString('utf8'));
   test.eq("This is a testfile\n", Buffer.from(await diskblob.arrayBuffer()).toString('utf8'));
-
-  //test TSC Blob compatibility issues
-  const msgs = await checkUsingTSC("webhare_testsuite", { files: [__dirname + "/data/blob-types.ts"] });
-  test.eq([], msgs);
 
   // Is type handled/copied correctly?
   test.eq("", WebHareBlob.from("Hello, World").type);
