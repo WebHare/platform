@@ -88,7 +88,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 
   RECORD ARRAY datesmembers := SELECT id
                                    FROM wrd.attrs
-                                  WHERE attributetype IN [ wrd_attributetype_datetime ];
+                                  WHERE attributetype IN [ wrd_attributetype_datetime, wrd_attributetype_date ];
 
   RECORD ARRAY wrd_brokendates := SELECT attribute, num := COUNT(*)
                                     FROM wrd.entity_settings
