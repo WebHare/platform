@@ -239,7 +239,7 @@ function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
   return "#" + (("0" + r.toString(16)).slice(-2) + ("0" + g.toString(16)).slice(-2) + ("0" + b.toString(16)).slice(-2)).toUpperCase();
 }
 
-/** Convert an ID to a site:: or whfs:: path fort export */
+/** Convert an ID to a site:: or whfs:: path for export */
 export async function mapExternalWHFSRef(inId: number): Promise<string | null> {
   if (!inId)
     return null;
