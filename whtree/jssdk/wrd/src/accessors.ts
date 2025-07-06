@@ -1480,14 +1480,34 @@ type WRDDBDateTimeConditions = {
   condition: "in"; value: ReadonlyArray<Date | null>;
 };
 
-class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<
-  (true extends Required ? Date : Date | null),
+abstract class WRDDBDateValueBase<Required extends boolean> extends WRDAttributeValueBase<
+  Date | string | NullIfNotRequired<Required>,
   Date | null,
-  (true extends Required ? Date : Date | null),
-  (true extends Required ? Date : Date | null),
+  Date | NullIfNotRequired<Required>,
+  string | NullIfNotRequired<Required>,
   WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
   isSet(value: Date | null) { return Boolean(value); }
+
+  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    return value.toISOString();
+  }
+
+  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
+    if (typeof value === "string") {
+      const d = new Date(value);
+      if (isNaN(d.getTime()))
+        throw new Error(`Invalid date value '${value}' for attribute ${this.attr.tag}`);
+      return d;
+    }
+    return value;
+  }
+}
+
+class WRDDBDateValue<Required extends boolean> extends WRDDBDateValueBase<Required> {
   checkFilter({ condition, value }: WRDDBDateTimeConditions) {
     /* always ok */
   }
@@ -1501,14 +1521,14 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<
     return cmp(value, cv.condition, cv.value);
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | NullIfNotRequired<Required> {
     const parts = entity_settings[settings_start].rawdata.split(",");
     if (Number(parts[0]) >= 2147483647)
-      return null as (true extends Required ? Date : Date | null);
+      return null as Date | NullIfNotRequired<Required>; // invalid date, return null
     return makeDateFromParts(Number(parts[0]), 0);
   }
 
-  validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: Date | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
     if (value !== null && (!isDate(value) || isNaN(value.getTime())))
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
@@ -1517,7 +1537,7 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<
       throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
-  encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
+  encodeValue(value: Date | NullIfNotRequired<Required>): EncodedValue {
     if (!value)
       return {};
 
@@ -1526,9 +1546,7 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<
   }
 }
 
-class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
-  getDefaultValue(): Date | null { return null; }
-  isSet(value: Date | null) { return Boolean(value); }
+class WRDDBBaseDateValue extends WRDDBDateValueBase<false> {
   validateFilterInput(value: Date | null) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null`);
@@ -1604,9 +1622,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
   }
 }
 
-class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
-  getDefaultValue(): Date | null { return null; }
-  isSet(value: Date | null) { return Boolean(value); }
+class WRDDBDateTimeValue<Required extends boolean> extends WRDDBDateValueBase<Required> {
   checkFilter({ condition, value }: WRDDBDateTimeConditions) {
     /* always ok */
   }
@@ -1620,21 +1636,21 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
     return cmp(value, cv.condition, cv.value);
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | NullIfNotRequired<Required> {
     const parts = entity_settings[settings_start].rawdata.split(",");
     if (Number(parts[0]) >= 2147483647)
-      return null as (true extends Required ? Date : Date | null);
+      return null as Date | NullIfNotRequired<Required>;
     return makeDateFromParts(Number(parts[0]), Number(parts[1]));
   }
 
-  validateInput(value: (true extends Required ? Date : Date | null), checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: Date | NullIfNotRequired<Required>, checker: ValueQueryChecker, attrPath: string) {
     if (value !== null && (!isDate(value) || isNaN(value.getTime())))
       throw new Error(`Invalid date value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
   }
 
-  encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
+  encodeValue(value: Date | NullIfNotRequired<Required>): EncodedValue {
     if (!value)
       return {};
 
@@ -1647,11 +1663,7 @@ type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRD
   [K in keyof Members]: GetResultType<Members[K], Export>;
 };
 
-class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
-  getDefaultValue(): Date | null { return null; }
-
-  isSet(value: Date | null) { return Boolean(value); }
-
+class WRDDBBaseCreationLimitDateValue extends WRDDBDateValueBase<false> {
   validateFilterInput(value: Date | null) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
@@ -1741,11 +1753,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
   }
 }
 
-class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | null, Date, Date, WRDDBDateTimeConditions> {
-  getDefaultValue(): Date | null { return null; }
-
-  isSet(value: Date | null) { return Boolean(value); }
-
+class WRDDBBaseModificationDateValue extends WRDDBDateValueBase<true> {
   validateFilterInput(value: Date) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
@@ -2280,7 +2288,7 @@ type WRDDBInteger64Conditions = {
 } | {
   condition: "mentionsany"; value: readonly bigint[];
 };
-class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint, bigint, bigint, WRDDBInteger64Conditions> {
+class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number | string, bigint, bigint, string, WRDDBInteger64Conditions> {
   getDefaultValue() { return 0n; }
   isSet(value: bigint) { return Boolean(value); }
   checkFilter({ condition, value }: WRDDBInteger64Conditions) {
@@ -2321,7 +2329,7 @@ class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint,
     return BigInt(entity_settings[settings_start].rawdata);
   }
 
-  validateInput(value: bigint, checker: ValueQueryChecker, attrPath: string) {
+  validateInput(value: bigint | number, checker: ValueQueryChecker, attrPath: string) {
     if (typeof value === "number")
       value = BigInt(value);
     if (this.attr.required && !value && !checker.importMode)
@@ -2337,6 +2345,15 @@ class WRDDBInteger64Value extends WRDAttributeValueBase<bigint | number, bigint,
   encodeValue(value: bigint): EncodedValue {
     return value ? { settings: { rawdata: String(value), attribute: this.attr.id } } : {};
   }
+
+  exportValue(value: bigint): string {
+    return String(value);
+  }
+  importValue(value: string | bigint): bigint {
+    if (typeof value === "string")
+      value = BigInt(value);
+    return value;
+  }
 }
 
 type WRDDBMoneyConditions = {
@@ -2349,7 +2366,7 @@ type WRDDBMoneyConditions = {
   condition: "mentionsany"; value: readonly Money[];
 };
 
-class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, Money, WRDDBMoneyConditions> {
+class WRDDBMoneyValue extends WRDAttributeValueBase<Money | string, Money, Money, string, WRDDBMoneyConditions> {
   getDefaultValue() { return new Money("0"); }
   isSet(value: Money) { return Money.cmp(value, "0") !== 0; }
   checkFilter({ condition, value }: WRDDBMoneyConditions) {
@@ -2402,6 +2419,15 @@ class WRDDBMoneyValue extends WRDAttributeValueBase<Money, Money, Money, Money, 
 
   encodeValue(value: Money): EncodedValue {
     return value ? { settings: { rawdata: String(value), attribute: this.attr.id } } : {};
+  }
+
+  exportValue(value: Money): string {
+    return value.toString();
+  }
+  importValue(value: string | Money): Money {
+    if (typeof value === "string")
+      value = new Money(value);
+    return value;
   }
 }
 

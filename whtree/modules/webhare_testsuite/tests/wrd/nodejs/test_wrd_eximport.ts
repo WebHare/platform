@@ -160,7 +160,12 @@ async function testExport() { //  tests
   const exported: ExportPersonType = await wrdschema.getFields("wrdPerson", testPersonId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
   // console.dir(exported, { depth: s10, colors: true });
   exported.wrdContactEmail = "eximport@beta.webhare.net"; //change to satisfy unique constraint
-  const importedId = await wrdschema.insert("wrdPerson", exported);
+
+  // ensure the export structure survives a JSON roundtrip, which ensures easier use in specified APIs. We shouldn't need Typed as we have sufficient attribute metadata
+  const exportCleaned = JSON.parse(JSON.stringify(exported));
+  test.eq(exportCleaned, exported);
+
+  const importedId = await wrdschema.insert("wrdPerson", exportCleaned);
   const imported: ExportPersonType = await wrdschema.getFields("wrdPerson", importedId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
   test.eq(exported, imported);
 }
