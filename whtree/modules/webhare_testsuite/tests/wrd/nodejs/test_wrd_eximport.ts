@@ -43,6 +43,7 @@ async function testExport() { //  tests
     whuserUnit: testunit,
     testSingleDomain: domain1value1,
     testMultipleDomain: [domain3value3, domain2value2],
+    testArray: [{ testSingle: domain1value1 }],
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
@@ -85,7 +86,12 @@ async function testExport() { //  tests
     whuserUnit: testunitGuid,
     testSingleDomain: domain1value1guid,
     testMultipleDomain: [domain3value3guid, domain2value2guid].toSorted(),
-  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain"], { export: true }));
+    testArray: [
+      {
+        testSingle: domain1value1guid, testArray2: [], testEmail: "", testImage: null, testInt: 0, testMultiple: [], testRTD: null, testFree: "", testSingleOther: null
+      },
+    ],
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray"], { export: true }));
 
   test.eq({
     testFile: {

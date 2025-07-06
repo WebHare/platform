@@ -481,6 +481,7 @@ type Simplify<T> = T extends any ? { [K in keyof T]: T[K] } : never;
 /** Returns the type for date for WRD entity creation */
 export type WRDInsertable<T extends TypeDefinition> = Simplify<{
   // Exclude all non-insertable & optional keys by remapping the key value to 'never'. Need to do the tests inline to preserve {[x: string]:any} when T is anyType.
+  // TODO want to Simplify< GetInputType for better intelisense but it breaks schema.ts createEntity with stack limit exceeded
   [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
 } & {
   // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge

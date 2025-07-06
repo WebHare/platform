@@ -1823,7 +1823,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   Array<WRDInsertable<Members>>,
   Array<ArraySelectable<Members, false>>,
   Array<ArraySelectable<Members, false>>,
-  Array<ArraySelectable<Members, true>>,
+  Array<WRDInsertable<Members>>,
   never> {
   fields = new Array<{ name: keyof Members; accessor: AnyWRDAccessor }>;
 
@@ -1973,6 +1973,37 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
         return { ...retval, sub: subs };
       })
     };
+  }
+
+  //adding wrdSettingId to the signatures has annoying ripple effects in the typings required to set/get so removed that, but we still preserve them
+  async exportValue(value: Array<ArraySelectable<Members, false>>, exportOptions?: ExportOptions): Promise<Array<WRDInsertable<Members>>> {
+    return Promise.all((value as Array<WRDInsertable<Members> & { [wrdSettingId]?: number }>).map(async (row) => {
+      const outrow: WRDInsertable<Members> = { [wrdSettingId]: row[wrdSettingId] } as unknown as WRDInsertable<Members>;
+      for (const field of this.fields) {
+        if (field.name in row) {
+          let val = row[field.name as keyof typeof row];
+          val = await field.accessor.exportValue(val, exportOptions);
+          outrow[field.name as keyof typeof outrow] = val as typeof outrow[keyof typeof outrow];
+        }
+      }
+      return outrow;
+    })) as unknown as Array<WRDInsertable<Members>>;
+  }
+
+  async importValue(value: Array<WRDInsertable<Members>>): Promise<Array<WRDInsertable<Members>>> {
+    const out: Array<WRDInsertable<Members>> = [];
+    for (const row of value as Array<WRDInsertable<Members> & { [wrdSettingId]?: number }>) {
+      const outrow: WRDInsertable<Members> = { [wrdSettingId]: row[wrdSettingId] } as unknown as WRDInsertable<Members>;
+      for (const field of this.fields) {
+        if (field.name in row) {
+          let val = row[field.name as keyof typeof row];
+          val = await field.accessor.importValue(val);
+          outrow[field.name as keyof typeof outrow] = val as typeof outrow[keyof typeof outrow];
+        }
+      }
+      out.push(outrow);
+    }
+    return out;
   }
 }
 

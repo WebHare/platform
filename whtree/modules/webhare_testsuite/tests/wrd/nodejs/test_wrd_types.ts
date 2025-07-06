@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition } from "@webhare/wrd/src/types";
+import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition, type WRDAttr } from "@webhare/wrd/src/types";
 import type { ResourceDescriptor } from "@webhare/services";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 
@@ -38,6 +38,11 @@ function testTypes() {
     invented_domain: WRDAttributeTypeId.Domain;
     requiredFile: IsRequired<WRDAttributeTypeId.File>;
     requiredImage: IsRequired<WRDAttributeTypeId.File>;
+    transitions: WRDAttr<WRDAttributeTypeId.Array, {
+      members: {
+        condition: WRDAttributeTypeId.Domain;
+      };
+    }>;
   };
 
 
@@ -55,7 +60,7 @@ function testTypes() {
   test.throws(/Cannot combine selects, trying to combine a single field with a map/, () => combineRecordOutputMaps("a", { a: "a" }));
   test.throws(/Cannot combine selects, trying to combine a map with another single field/, () => combineRecordOutputMaps({ a: "a" }, "a"));
 
-  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] as const;
+  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage", "transitions"] as const;
   void stringselect;
 
   test.typeAssert<test.Equals<{
@@ -68,10 +73,10 @@ function testTypes() {
     whuser_hiddenannouncements: number[];
     requiredFile: ResourceDescriptor;
     requiredImage: ResourceDescriptor;
+    transitions: Array<{ condition: number | null }>;
   }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, false>>>();
 
-
-  test.typeAssert<test.Equals<{
+  type Expect_Export_1 = {
     wrd_id: number;
     wrdTitle: string;
     whuser_disabled: boolean;
@@ -81,7 +86,21 @@ function testTypes() {
     whuser_hiddenannouncements: string[];
     requiredFile: ExportedResource;
     requiredImage: ExportedResource;
-  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
+    transitions: Array<{ condition?: string | number | null }>;
+  };
+
+  test.typeAssert<test.Equals<Expect_Export_1["wrd_id"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["wrd_id"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["wrdTitle"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["wrdTitle"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_disabled"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_disabled"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_comment"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_comment"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["invented_domain"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["invented_domain"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_unit"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_unit"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_hiddenannouncements"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_hiddenannouncements"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["requiredFile"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["requiredFile"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["requiredImage"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["requiredImage"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["transitions"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["transitions"]>>();
+
+  test.typeAssert<test.Equals<Expect_Export_1, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
 
   const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] } as const;
   void recordselect;
@@ -136,6 +155,10 @@ function testTypes() {
     };
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }, false | true>>>();
 
+  const transitions: WRDInsertable<System_Usermgmt_WRDPerson>["transitions"] = [];
+  //verify we're allowed to push a number inside the array in the domani
+  transitions.push({ condition: "wrd-uuid" }, { condition: 5 }, { condition: null });
+
   type ExpectInsertable = {
     invented_domain?: string | number | null | undefined;
     whuser_comment?: string | undefined;
@@ -162,6 +185,7 @@ function testTypes() {
     whuser_unit: string | number;
     requiredFile: ResourceDescriptor | ExportedResource;
     requiredImage: ResourceDescriptor | ExportedResource;
+    transitions?: Array<{ condition?: string | number | null }>;
   };
 
   //Test all the individual props first because a failing toplevel compare (expectinsert vs wrdinsertable) won't point out the broken property
@@ -190,6 +214,7 @@ function testTypes() {
   test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_unit"], ExpectInsertable["whuser_unit"]>>();
   test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["requiredFile"], ExpectInsertable["requiredFile"]>>();
   test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["requiredImage"], ExpectInsertable["requiredImage"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["transitions"], ExpectInsertable["transitions"]>>();
 
   test.typeAssert<test.Equals<ExpectInsertable, WRDInsertable<System_Usermgmt_WRDPerson>>>();
 }
