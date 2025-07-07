@@ -119,10 +119,15 @@ PUBLIC STRING FUNCTION GetHarescriptSchemaDefinition(OBJECT trans, STRING schema
   IF(NOT ispublicschema)
     hs_schemadef := 'PUBLIC SCHEMA\n  < ';
 
+  STRING tabledefs;
   FOREVERY(RECORD tablerec FROM SELECT * FROM trans->GetTableListing(schemaname) ORDER BY table_name)
   {
-    IF(#tablerec>0)
-      hs_schemadef := `${hs_schemadef}\n  ${ispublicschema ? ";" : ","} `;
+    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
+    IF(RecordExists(SELECT FROM columns GROUP BY ToUppercase(column_name) HAVING COUNT(*)>1))
+      CONTINUE; //Dupe column name will break harescript, so just ignore the entire table
+
+    IF(tabledefs != "")
+      tabledefs := `${tabledefs}\n  ${ispublicschema ? ";" : ","} `;
 
     STRING code_tablename;
     IF(ispublicschema)
@@ -130,10 +135,9 @@ PUBLIC STRING FUNCTION GetHarescriptSchemaDefinition(OBJECT trans, STRING schema
     ELSE
       code_tablename := '"' || EncodeJava(ToLowercase(tablerec.table_name)) || '"';
 
-    RECORD ARRAY columns := trans->GetColumnListing(schemaname, tablerec.table_name);
-    hs_schemadef := hs_schemadef || "TABLE\n    < " || GetDefStmt(trans, schemaname, tablerec, columns,"    ") || `\n    > ${code_tablename}`;
+    tabledefs := tabledefs || "TABLE\n    < " || GetDefStmt(trans, schemaname, tablerec, columns,"    ") || `\n    > ${code_tablename}`;
   }
-  hs_schemadef := hs_schemadef || "\n";
+  hs_schemadef := hs_schemadef || tabledefs || "\n";
   IF(ispublicschema)
     hs_schemadef := hs_schemadef || ";\n";
   ELSE
