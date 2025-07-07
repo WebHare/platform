@@ -156,7 +156,7 @@ function testTypes() {
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }, false | true>>>();
 
   const transitions: WRDInsertable<System_Usermgmt_WRDPerson>["transitions"] = [];
-  //verify we're allowed to push a number inside the array in the domani
+  //verify we're allowed to push a number inside the array in the domain
   transitions.push({ condition: "wrd-uuid" }, { condition: 5 }, { condition: null });
 
   type ExpectInsertable = {

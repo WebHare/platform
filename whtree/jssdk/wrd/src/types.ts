@@ -257,7 +257,7 @@ export type GetCVPairs<T extends SimpleWRDAttributeType | WRDAttrBase> = Paramet
 
 /** Gives back the allowed input value type for an attribute type */
 export type GetInputType<T extends SimpleWRDAttributeType | WRDAttrBase> =
-  //Check ValidateInput's type to retrieve supported directly settable typtes
+  //Check ValidateInput's type to retrieve supported directly settable types
   Parameters<AccessorType<ToWRDAttr<T>>["validateInput"]>[0]
   //Is there an importValue?
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- val:unknown is too strict to capture callbacks
