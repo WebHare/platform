@@ -609,6 +609,8 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     ^results_frees->rows := results;
     this->result_type := type;
+    ^frame->flags.account_type_selected := ToUppercase(type->tag) = "WRD_PERSON" OR
+      (ObjectExists(this->contexts->wrdschema->accounttype) AND type->tag = this->contexts->wrdschema->accounttype->tag);
 
     INTEGER nr_results:= LENGTH(results);
     this->resultcount->visible:= TRUE;
@@ -897,6 +899,10 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO doshowhistory_results()
   {
     RunWRDHistoryDialog(this, this->current_type->GetEntity(^results_frees->value[0]));
+  }
+
+  MACRO DoEditRegistry() {
+    this->RunScreen("mod::system/tolliumapps/dashboard/registry.xml#userregistry", [ entity := this->current_type->GetEntity(^results_frees->value[0]) ]);
   }
 >;
 

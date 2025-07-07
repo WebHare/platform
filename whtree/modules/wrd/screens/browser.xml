@@ -18,7 +18,7 @@
 
   <screen name="main"
           allowresize="true"
-          flags="can_back can_forward can_edit_entity can_search_free right_metadata right_readwrite has_accounts has_usermgmt has_saml"
+          flags="can_back can_forward can_edit_entity can_search_free right_metadata right_readwrite has_accounts has_usermgmt has_saml account_type_selected"
           gid=".main"
           icon="tollium:database/database"
           menubar="menubar"
@@ -69,6 +69,9 @@
       <action name="showhistory">
         <enableon source="results_frees" min="1" max="1" onexecute="doshowhistory_results" />
       </action>
+      <action name="editregistry" onexecute="DoEditRegistry">
+        <enableon source="results_frees" min="1" max="1" checkflags="can_edit_entity" frameflags="account_type_selected" />
+      </action>
       <action name="togglelinks" onexecute="dotogglelinks" />
       <action name="toggledataviewer" onexecute="dotoggledataviewer" />
       <action name="querybuilder" onexecute="doquerybuilder" />
@@ -87,6 +90,7 @@
         <item action="editentity" />
         <item action="mergeentity" />
         <item action="deleteentity" />
+        <item action="editregistry" />
         <divider />
         <item tid=".schema">
           <item action="schemaprops" />
