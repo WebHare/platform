@@ -22,11 +22,11 @@ async function testExport() { //  tests
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG", wrdGuid: testunitGuid });
 
   const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value not found");
-  const domain1value2 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }) ?? throwError("Domain value not found");
-  const domain1value3 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3" }) ?? throwError("Domain value not found");
+  const domain2value2 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2" }) ?? throwError("Domain value not found");
+  const domain3value3 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_3" }) ?? throwError("Domain value not found");
   const domain1value1guid = await wrdschema.getFields("testDomain_1", domain1value1, "wrdGuid");
-  const domain1value2guid = await wrdschema.getFields("testDomain_1", domain1value2, "wrdGuid");
-  const domain1value3guid = await wrdschema.getFields("testDomain_1", domain1value3, "wrdGuid");
+  const domain2value2guid = await wrdschema.getFields("testDomain_2", domain2value2, "wrdGuid");
+  const domain3value3guid = await wrdschema.getFields("testDomain_2", domain3value3, "wrdGuid");
 
   // Create a person with some testdata
   const testsitejs = await test.getTestSiteJS();
@@ -42,7 +42,8 @@ async function testExport() { //  tests
     wrdContactEmail: "other@example.com",
     whuserUnit: testunit,
     testSingleDomain: domain1value1,
-    testMultipleDomain: [domain1value3, domain1value2],
+    testMultipleDomain: [domain3value3, domain2value2],
+    testArray: [{ testSingle: domain1value1 }],
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
@@ -84,8 +85,13 @@ async function testExport() { //  tests
     wrdGuid: nextWrdGuid,
     whuserUnit: testunitGuid,
     testSingleDomain: domain1value1guid,
-    testMultipleDomain: [domain1value3guid, domain1value2guid].toSorted(),
-  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain"], { export: true }));
+    testMultipleDomain: [domain3value3guid, domain2value2guid].toSorted(),
+    testArray: [
+      {
+        testSingle: domain1value1guid, testArray2: [], testEmail: "", testImage: null, testInt: 0, testMultiple: [], testRTD: null, testFree: "", testSingleOther: null
+      },
+    ],
+  }, await wrdschema.getFields("wrdPerson", testPersonId, ["wrdId", "wrdGuid", "whuserUnit", "testSingleDomain", "testMultipleDomain", "testArray"], { export: true }));
 
   test.eq({
     testFile: {
@@ -140,6 +146,34 @@ async function testExport() { //  tests
       rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
     })
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["testinstance"], { export: true }));
+
+  const attached = await wrdschema.insert("personattachment", {
+    wrdLeftEntity: nextWrdId, attachfree: "text"
+  });
+
+  test.eq({
+    wrdLeftEntity: nextWrdGuid
+  }, await wrdschema.getFields("personattachment", attached, ["wrdLeftEntity"], { export: true }));
+
+  const clonableAttributes = (await wrdschema.getType("wrdPerson").listAttributes()).
+    filter(attr => !["wrdId", "wrdGuid", "wrdType", "wrdTitle", "wrdFullName", "wrdSaluteFormal", "wrdAddressFormal"].includes(attr.tag)). //these are never clonable (TODO more metadata in listattributes to determine this)
+    filter(attr => !["testlink"].includes(attr.tag)). //FIXME implement these
+    map(_ => _.tag);
+
+  // const x:WRDInsertable<TestSchemaType["wrdPerson"]>;
+  // x.whuserHiddenannouncements
+  type ExportPersonType = Omit<WRDInsertable<TestSchemaType["wrdPerson"]>, "wrdId">;
+  const exported: ExportPersonType = await wrdschema.getFields("wrdPerson", testPersonId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
+  // console.dir(exported, { depth: s10, colors: true });
+  exported.wrdContactEmail = "eximport@beta.webhare.net"; //change to satisfy unique constraint
+
+  // ensure the export structure survives a JSON roundtrip, which ensures easier use in specified APIs. We shouldn't need Typed as we have sufficient attribute metadata
+  const exportCleaned = JSON.parse(JSON.stringify(exported));
+  test.eq(exportCleaned, exported);
+
+  const importedId = await wrdschema.insert("wrdPerson", exportCleaned);
+  const imported: ExportPersonType = await wrdschema.getFields("wrdPerson", importedId, clonableAttributes as Array<keyof WRDInsertable<TestSchemaType["wrdPerson"]>>, { export: true });
+  test.eq(exported, imported);
 }
 
 test.runTests([

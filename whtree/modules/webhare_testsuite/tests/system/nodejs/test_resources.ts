@@ -3,7 +3,6 @@ import * as services from "@webhare/services";
 import type { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
 import type { Rotation } from "@webhare/services/src/descriptor";
-import { checkUsingTSC } from "@mod-platform/js/devsupport/typescript";
 import { getFetchResourceCacheCleanups, getCachePaths, readCacheMetadata } from "@webhare/services/src/fetchresource";
 import { storeDiskFile } from "@webhare/system-tools";
 import { rm } from "node:fs/promises";
@@ -110,6 +109,7 @@ async function testWebHareBlobs() {
   const emptyblob = WebHareBlob.from("");
   test.eq(0, emptyblob.size);
   test.eq("", await readAllFromStream(await emptyblob.getStream()));
+  emptyblob satisfies Blob;
 
   const helloblob = WebHareBlob.from("Hello, World");
   test.eq(12, helloblob.size);
@@ -138,10 +138,6 @@ async function testWebHareBlobs() {
   test.eq("Hello, World", Buffer.from(await helloblob.arrayBuffer()).toString('utf8'));
   test.eq("This is a testfile\n", Buffer.from(await diskblob.arrayBuffer()).toString('utf8'));
 
-  //test TSC Blob compatibility issues
-  const msgs = await checkUsingTSC("webhare_testsuite", { files: [__dirname + "/data/blob-types.ts"] });
-  test.eq([], msgs);
-
   // Is type handled/copied correctly?
   test.eq("", WebHareBlob.from("Hello, World").type);
   test.eq("text/plain", WebHareBlob.from("Hello, World", { type: "text/plain" }).type);
@@ -155,13 +151,16 @@ async function testWebHareBlobs() {
 async function testResourceDescriptors() {
   //Test various resource scan options
   {
-    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
+    const testsitejs = await test.getTestSiteJS();
+    const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id });
     test.eq(75125, fish.resource.size);
     test.eqPartial({
       mediaType: "application/octet-stream",
       hash: null,
       width: null,
-      height: null
+      height: null,
+      sourceFile: imgEditFile.id,
     }, fish.getMetaData());
 
     const clone1 = await fish.clone();
@@ -169,7 +168,8 @@ async function testResourceDescriptors() {
       mediaType: "application/octet-stream",
       hash: null,
       width: null,
-      height: null
+      height: null,
+      sourceFile: imgEditFile.id,
     }, clone1.getMetaData());
 
     const clone2 = await clone1.clone({ getImageMetadata: true });
@@ -195,9 +195,15 @@ async function testResourceDescriptors() {
       width: null,
       height: null,
       fileName: "x.png",
+      sourceFile: imgEditFile.id,
     }, clone4.getMetaData());
 
     await test.throws(/Cannot update the mediaType/, () => fish.clone({ mediaType: "image/png", getDominantColor: true }));
+
+    const exp = await clone3.export();
+    test.eq(`site::${testsitejs.name}${imgEditFile.sitePath}`, exp.sourceFile);
+    const expImported = await services.ResourceDescriptor.import(exp);
+    test.eq(exp, await expImported.export());
   }
 
   {

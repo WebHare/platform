@@ -497,7 +497,7 @@ async function testNewAPI() {
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
     test.typeAssert<test.Equals<Array<
       { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
-      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrichWithOuterJoin>>();
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
   }
 
   // test executeRequireExactlyOne and executeRequireAtMostOne in queries with enrichment
@@ -594,8 +594,10 @@ async function testNewAPI() {
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", domain1value1));
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
 
-  // verify File/Image fields (blob). TODO this might go away in the future, but for 5.3 compatibility support `{data:Buffer}` fields
-  await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } });
+  // verify File/Image fields (blob)
+  //@ts-expect-error data:Buffer is no longer valid to avoid confusion between the 5.3 compat option and the 5.8 ExportedResource
+  await test.throws(/use ResourceDescriptor instead of Buffer/, () => schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } }));
+  await schema.update("wrdPerson", newperson, { testFile: await ResourceDescriptor.from("Hey everybody") });
   let file: ResourceDescriptor = (await schema.query("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
   test.eq("Hey everybody", await file.resource.text());
 
@@ -620,7 +622,7 @@ async function testNewAPI() {
   file = (await schema.query("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
   test.eq("", await file.resource.text());
 
-  await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody 2") } });
+  await schema.update("wrdPerson", newperson, { testFile: await ResourceDescriptor.from("Hey everybody 2") });
   const filerec: ResourceDescriptor = (await schema.query("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
   test.eq('Hey everybody 2', await filerec.resource.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
@@ -1586,7 +1588,6 @@ async function testImportMode() {
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       image: null,
       richDocument: null,
-      // @ts-expect-error -- null not allowed for required status records, but allowed in importMode
       integer64: 0,
       money: new Money("0"),
       // @ts-expect-error -- null not allowed for required status records, but allowed in importMode

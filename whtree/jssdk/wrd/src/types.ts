@@ -256,7 +256,12 @@ type GetDefaultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType
 export type GetCVPairs<T extends SimpleWRDAttributeType | WRDAttrBase> = Parameters<AccessorType<ToWRDAttr<T>>["checkFilter"]>[0];
 
 /** Gives back the allowed input value type for an attribute type */
-export type GetInputType<T extends SimpleWRDAttributeType | WRDAttrBase> = Parameters<AccessorType<ToWRDAttr<T>>["validateInput"]>[0];
+export type GetInputType<T extends SimpleWRDAttributeType | WRDAttrBase> =
+  //Check ValidateInput's type to retrieve supported directly settable types
+  Parameters<AccessorType<ToWRDAttr<T>>["validateInput"]>[0]
+  //Is there an importValue?
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- val:unknown is too strict to capture callbacks
+  | (AccessorType<ToWRDAttr<T>> extends { importValue: (val: any) => unknown } ? Parameters<AccessorType<ToWRDAttr<T>>["importValue"]>[0] : never);
 
 /** Type of output columns, extend this when dynamic selects become possible
  * @typeParam Type - WRD type definition record
@@ -476,6 +481,7 @@ type Simplify<T> = T extends any ? { [K in keyof T]: T[K] } : never;
 /** Returns the type for date for WRD entity creation */
 export type WRDInsertable<T extends TypeDefinition> = Simplify<{
   // Exclude all non-insertable & optional keys by remapping the key value to 'never'. Need to do the tests inline to preserve {[x: string]:any} when T is anyType.
+  // TODO want to Simplify< GetInputType for better intelisense but it breaks schema.ts createEntity with stack limit exceeded
   [K in keyof T as ToWRDAttr<T[K]>["__insertable"] extends true ? false extends ToWRDAttr<T[K]>["__required"] ? K : never : never]?: GetInputType<T[K]>
 } & {
   // Make sure all members that are insertable and required are added non-optionally. No need to repeat the value type here, that will just merge

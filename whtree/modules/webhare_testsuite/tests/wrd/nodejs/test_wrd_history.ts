@@ -29,8 +29,8 @@ async function testChanges() { //  tests
   const testunit = await wrdschema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 
   const domain1value1 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1" }) ?? throwError("Domain value not found");
-  const domain1value2 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" }) ?? throwError("Domain value not found");
-  const domain1value3 = await wrdschema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3" }) ?? throwError("Domain value not found");
+  const domain2value2 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_2" }) ?? throwError("Domain value not found");
+  const domain2value3 = await wrdschema.find("testDomain_2", { wrdTag: "TEST_DOMAINVALUE_2_3" }) ?? throwError("Domain value not found");
 
   // Create a person with some testdata
   const goldfishImg = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true }); //TODO WRD API should not require us to getImageMetadata ourselves
@@ -43,7 +43,7 @@ async function testChanges() { //  tests
     wrdContactEmail: "other@example.com",
     whuserUnit: testunit,
     testSingleDomain: domain1value1,
-    testMultipleDomain: [domain1value3, domain1value2],
+    testMultipleDomain: [domain2value3, domain2value2],
     testFree: "Free field",
     testAddress: { country: "NL", street: "Teststreet", houseNumber: "15", zip: "1234 AB", city: "Testcity" },
     testEmail: "email@example.com",
@@ -294,13 +294,13 @@ async function testChanges() { //  tests
     // STORY: detect changes with setting reuse
     {
       const domain2value1 = await wrdschema.search("testDomain_2", "wrdTag", "TEST_DOMAINVALUE_2_1");
-      const domain2value2 = await wrdschema.search("testDomain_2", "wrdTag", "TEST_DOMAINVALUE_2_2");
-      if (!domain2value1 || !domain2value2) {
+      const domain2value4 = await wrdschema.search("testDomain_2", "wrdTag", "TEST_DOMAINVALUE_2_4");
+      if (!domain2value1 || !domain2value4) {
         throw new Error("Domain values not found");
       }
 
       await whdb.beginWork();
-      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1, domain2value2], testMultipleDomain2: [domain2value1] });
+      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1, domain2value4], testMultipleDomain2: [domain2value1] });
       await whdb.commitWork();
       test.eqPartial([
         {
@@ -309,7 +309,7 @@ async function testChanges() { //  tests
       ], (await hsPersontype.ListChangesets(testPersonId)).slice(5));
 
       await whdb.beginWork();
-      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1], testMultipleDomain2: [domain2value1, domain2value2] });
+      await wrdschema.update("wrdPerson", testPersonId, { testMultipleDomain: [domain2value1], testMultipleDomain2: [domain2value1, domain2value4] });
       await whdb.commitWork();
       test.eqPartial([
         {

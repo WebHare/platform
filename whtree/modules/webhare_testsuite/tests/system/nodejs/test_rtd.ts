@@ -5,7 +5,10 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildWHFSInstance, type RTDBlock, type RTDBlockItem } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, type RTDBlock, type RTDBlockItem, type RTDBuildSource, type ExportableRTD } from "@webhare/services/src/richdocument";
+
+// An exportable RTD should always be a valid input source
+({} as ExportableRTD) satisfies RTDBuildSource;
 
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
   const exported = await doc.export();

@@ -1,5 +1,5 @@
 import * as test from "@webhare/test";
-import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition } from "@webhare/wrd/src/types";
+import { type IsGenerated, type IsNonUpdatable, type IsRequired, type WRDBaseAttributeTypeId, type WRDAttributeTypeId, recordizeOutputMap, combineRecordOutputMaps, type OutputMap, type RecordizeOutputMap, type MapRecordOutputMap, type WRDInsertable, type WRDGender, type TypeDefinition, type WRDAttr } from "@webhare/wrd/src/types";
 import type { ResourceDescriptor } from "@webhare/services";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 
@@ -38,6 +38,11 @@ function testTypes() {
     invented_domain: WRDAttributeTypeId.Domain;
     requiredFile: IsRequired<WRDAttributeTypeId.File>;
     requiredImage: IsRequired<WRDAttributeTypeId.File>;
+    transitions: WRDAttr<WRDAttributeTypeId.Array, {
+      members: {
+        condition: WRDAttributeTypeId.Domain;
+      };
+    }>;
   };
 
 
@@ -55,7 +60,7 @@ function testTypes() {
   test.throws(/Cannot combine selects, trying to combine a single field with a map/, () => combineRecordOutputMaps("a", { a: "a" }));
   test.throws(/Cannot combine selects, trying to combine a map with another single field/, () => combineRecordOutputMaps({ a: "a" }, "a"));
 
-  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] as const;
+  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage", "transitions"] as const;
   void stringselect;
 
   test.typeAssert<test.Equals<{
@@ -68,10 +73,10 @@ function testTypes() {
     whuser_hiddenannouncements: number[];
     requiredFile: ResourceDescriptor;
     requiredImage: ResourceDescriptor;
+    transitions: Array<{ condition: number | null }>;
   }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, false>>>();
 
-
-  test.typeAssert<test.Equals<{
+  type Expect_Export_1 = {
     wrd_id: number;
     wrdTitle: string;
     whuser_disabled: boolean;
@@ -81,7 +86,21 @@ function testTypes() {
     whuser_hiddenannouncements: string[];
     requiredFile: ExportedResource;
     requiredImage: ExportedResource;
-  }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
+    transitions: Array<{ condition?: string | number | null }>;
+  };
+
+  test.typeAssert<test.Equals<Expect_Export_1["wrd_id"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["wrd_id"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["wrdTitle"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["wrdTitle"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_disabled"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_disabled"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_comment"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_comment"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["invented_domain"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["invented_domain"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_unit"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_unit"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["whuser_hiddenannouncements"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["whuser_hiddenannouncements"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["requiredFile"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["requiredFile"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["requiredImage"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["requiredImage"]>>();
+  test.typeAssert<test.Equals<Expect_Export_1["transitions"], MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>["transitions"]>>();
+
+  test.typeAssert<test.Equals<Expect_Export_1, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect, true>>>();
 
   const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements", "requiredFile", "requiredImage"] } as const;
   void recordselect;
@@ -136,16 +155,20 @@ function testTypes() {
     };
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }, false | true>>>();
 
-  test.typeAssert<test.Equals<{
-    invented_domain?: number | null | undefined;
+  const transitions: WRDInsertable<System_Usermgmt_WRDPerson>["transitions"] = [];
+  //verify we're allowed to push a number inside the array in the domain
+  transitions.push({ condition: "wrd-uuid" }, { condition: 5 }, { condition: null });
+
+  type ExpectInsertable = {
+    invented_domain?: string | number | null | undefined;
     whuser_comment?: string | undefined;
     whuser_disabled?: boolean | undefined;
     whuser_disablereason?: string | undefined;
-    whuser_hiddenannouncements?: number[] | undefined;
-    whuser_lastlogin?: Date | null | undefined;
-    wrdCreationDate?: Date | null | undefined;
-    wrdDateOfBirth?: Date | null | undefined;
-    wrdDateOfDeath?: Date | null | undefined;
+    whuser_hiddenannouncements?: Array<number | string> | number[] | undefined;
+    whuser_lastlogin?: Date | string | null | undefined;
+    wrdCreationDate?: Date | string | null | undefined;
+    wrdDateOfBirth?: Date | string | null | undefined;
+    wrdDateOfDeath?: Date | string | null | undefined;
     wrdFirstName?: string | undefined;
     wrdFirstNames?: string | undefined;
     wrd_gender?: WRDGender | null | undefined;
@@ -154,15 +177,45 @@ function testTypes() {
     wrd_infix?: string | undefined;
     wrd_initials?: string | undefined;
     wrdLastName?: string | undefined;
-    wrdLimitDate?: Date | null | undefined;
-    wrdModificationDate?: Date | undefined;
+    wrdLimitDate?: Date | string | null | undefined;
+    wrdModificationDate?: Date | string | undefined;
     wrdTag?: string | undefined;
     wrdTitlesSuffix?: string | undefined;
     wrd_titles?: string | undefined;
-    whuser_unit: number;
-    requiredFile: ResourceDescriptor | { data: Buffer };
-    requiredImage: ResourceDescriptor | { data: Buffer };
-  }, WRDInsertable<System_Usermgmt_WRDPerson>>>();
-}
+    whuser_unit: string | number;
+    requiredFile: ResourceDescriptor | ExportedResource;
+    requiredImage: ResourceDescriptor | ExportedResource;
+    transitions?: Array<{ condition?: string | number | null }>;
+  };
 
+  //Test all the individual props first because a failing toplevel compare (expectinsert vs wrdinsertable) won't point out the broken property
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["invented_domain"], ExpectInsertable["invented_domain"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_comment"], ExpectInsertable["whuser_comment"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_disabled"], ExpectInsertable["whuser_disabled"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_disablereason"], ExpectInsertable["whuser_disablereason"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_hiddenannouncements"], ExpectInsertable["whuser_hiddenannouncements"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_lastlogin"], ExpectInsertable["whuser_lastlogin"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdCreationDate"], ExpectInsertable["wrdCreationDate"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdDateOfBirth"], ExpectInsertable["wrdDateOfBirth"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdDateOfDeath"], ExpectInsertable["wrdDateOfDeath"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdFirstName"], ExpectInsertable["wrdFirstName"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdFirstNames"], ExpectInsertable["wrdFirstNames"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_gender"], ExpectInsertable["wrd_gender"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_guid"], ExpectInsertable["wrd_guid"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_id"], ExpectInsertable["wrd_id"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_infix"], ExpectInsertable["wrd_infix"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_initials"], ExpectInsertable["wrd_initials"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdLastName"], ExpectInsertable["wrdLastName"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdLimitDate"], ExpectInsertable["wrdLimitDate"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdModificationDate"], ExpectInsertable["wrdModificationDate"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdTag"], ExpectInsertable["wrdTag"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrdTitlesSuffix"], ExpectInsertable["wrdTitlesSuffix"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["wrd_titles"], ExpectInsertable["wrd_titles"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["whuser_unit"], ExpectInsertable["whuser_unit"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["requiredFile"], ExpectInsertable["requiredFile"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["requiredImage"], ExpectInsertable["requiredImage"]>>();
+  test.typeAssert<test.Equals<WRDInsertable<System_Usermgmt_WRDPerson>["transitions"], ExpectInsertable["transitions"]>>();
+
+  test.typeAssert<test.Equals<ExpectInsertable, WRDInsertable<System_Usermgmt_WRDPerson>>>();
+}
 test.runTests([testTypes]);

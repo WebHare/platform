@@ -7,7 +7,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { type EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
-import { appendToArray, compare, generateRandomId, omit } from "@webhare/std";
+import { appendToArray, compare, generateRandomId, isPromise, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -98,7 +98,7 @@ async function doSplitEntityData<
     // FIXME: implement & handle attr.ishiddenbyparent
     if (tag in fieldsData) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const toSet = (fieldsData as any)[tag];
+      let toSet = (fieldsData as any)[tag];
       if (toSet === undefined) //we don't want to absorb errors. point out odd values!
         throw new Error(`Invalid value 'undefined' for attribute ${JSON.stringify(attr.tag)}`);
       if (typeof toSet === 'symbol')
@@ -107,6 +107,10 @@ async function doSplitEntityData<
         throw new Error(`Trying to set attribute ${JSON.stringify(attr.tag)}, which is readonly`);
 
       const accessor = getAccessor(attr, typeRec.parentAttrMap);
+      toSet = accessor.importValue(toSet);
+      if (isPromise(toSet))
+        toSet = await toSet;
+
       accessor.validateInput(toSet, checker, "");
       //TODO TS is confused here and doesn't recognize encodeValue's proper returnvalue. without the explicit type it won't expect a promise
       const encoded: AwaitableEncodedValue = accessor.encodeValue(toSet);
