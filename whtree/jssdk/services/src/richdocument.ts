@@ -273,12 +273,9 @@ export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSIns
         if (!matchMember)
           throw new Error(`Member '${key}' not found in ${data.whfsType}`);
 
-        //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-        if (matchMember.type === "richDocument") {
-          widgetValue[key] = isRichTextDocument(value) ? value : value ? await buildRTD(value as RTDBuildSource) : null;
-        } else {
-          widgetValue[key] = value;
-        }
+        const encoder = codecs[matchMember.type];
+        const inval = encoder?.importValue ? await encoder.importValue(value) : value;
+        widgetValue[key] = inval;
       }
 
   return new WHFSInstance(typeinfo, widgetValue);

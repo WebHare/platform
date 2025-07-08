@@ -14,6 +14,7 @@ import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
+import { getWHType } from "@webhare/std/quacks";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -201,6 +202,10 @@ const mimeToExt: Record<string, string> = {
   "video/x-flv": ".flv",
   "text/calendar": ".ics"
 };
+
+export function isResourceDescriptor(value: unknown): value is ResourceDescriptor {
+  return Boolean(value && getWHType(value) === "ResourceDescriptor");
+}
 
 /** Get the proper or usual extension for the file's mimetype
     @param mediaType - Mimetype
@@ -794,6 +799,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
+
   [Marshaller] = {
     type: HareScriptType.Record,
     setValue: function (this: ResourceDescriptor, value: HSVMVar) {
@@ -818,6 +824,8 @@ export class ResourceDescriptor implements ResourceMetaData {
       });
     }
   };
+
+  private static "__ $whTypeSymbol" = "ResourceDescriptor"; //Used to identify this as a ResourceDescriptor in the WebHare API
 
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
@@ -895,6 +903,9 @@ export class ResourceDescriptor implements ResourceMetaData {
     let blob;
     if (resource.data.base64) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
+    } else if (WebHareBlob.isWebHareBlob(resource.data)) {
+      //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
+      blob = resource.data;
     } else {
       throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
     }

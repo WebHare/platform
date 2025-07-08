@@ -54,6 +54,7 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
 async function verifyWidgetRoundTrip(widget: WHFSInstance) {
   const testtype = openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  test.eq(await widget.export(), await (await buildWHFSInstance(await widget.export())).export());
 
   await beginWork();
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
