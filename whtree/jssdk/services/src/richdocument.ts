@@ -162,14 +162,14 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async addBlock(tag: string, className: string | undefined, items: RTDBuildBlockItems) {
+  async addBlock(tag: string, className: string | undefined, items?: RTDBuildBlockItems) {
     validateTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
     if (!isValidRTDClassName(useclass))
       throw new Error(`Invalid class name '${className}'`);
 
-    const newblock: RTDBlock = { tag, items: await this.#buildBlockItems(items) };
+    const newblock: RTDBlock = { tag, items: items?.length ? await this.#buildBlockItems(items) : [] };
     if (useclass !== rtdBlockDefaultClass[tag]) {
       newblock.className = useclass;
     }
@@ -226,7 +226,7 @@ export class RichTextDocument {
         continue;
       }
 
-      if ("items" in block && block.items?.length) {
+      if ("items" in block) {
         const outBlock: RTDExportBlock = {
           ...block,
           items: []
@@ -240,6 +240,7 @@ export class RichTextDocument {
         out.push(outBlock);
         continue;
       }
+
       throw new Error(`Block ${JSON.stringify(block)} has no export definition`);
     }
     return out;

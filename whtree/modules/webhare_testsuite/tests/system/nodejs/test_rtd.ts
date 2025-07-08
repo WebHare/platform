@@ -74,6 +74,7 @@ async function testBuilder() {
   {
     const doc = await buildRTD([
       { h1: ["Heading 1"] },
+      { tag: "p" }, //empty line without items
       { "p.superpara": [{ text: "Hi <> everybody!" }] },
       { "p.normal": [{ text: "default p" }] }
     ]);
@@ -81,10 +82,11 @@ async function testBuilder() {
 
     test.eq([
       { tag: "h1", items: [{ text: "Heading 1" }] },
+      { tag: "p", items: [] }, //empty line
       { tag: "p", className: "superpara", items: [{ text: "Hi <> everybody!" }] },
       { tag: "p", items: [{ text: "default p" }] }
     ], doc.blocks);
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
 
     await verifyRoundTrip(doc);
   }
