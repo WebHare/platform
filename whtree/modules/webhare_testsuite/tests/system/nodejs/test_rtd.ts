@@ -102,7 +102,8 @@ async function testBuilder() {
       { tag: "p", className: "superpara", items: [{ text: "Hi <> everybody!" }] },
       { tag: "p", items: [{ text: "default p" }] }
     ], doc.blocks);
-    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
+    //<br data-wh-rte="bogus"/> is required by the current RTD in fully empty paragraphs
+    test.eq('<html><body><h1 class="heading1">Heading 1</h1><p class="normal"><br data-wh-rte="bogus"/></p><p class="superpara">Hi &lt;&gt; everybody!</p><p class="normal">default p</p></body></html>', await doc.__getRawHTML());
 
     await verifyRoundTrip(doc);
   }
