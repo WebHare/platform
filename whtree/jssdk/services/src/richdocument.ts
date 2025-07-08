@@ -112,10 +112,9 @@ class WHFSInstance {
 
     for (const member of this.#typeInfo.members) {
       const decoder = codecs[member.type];
-      if (decoder?.exportValue)
-        retval[member.name] = await decoder.exportValue(this.#data[member.name]);
-      else
-        retval[member.name] = this.#data[member.name];
+      const outval = decoder?.exportValue ? await decoder.exportValue(this.#data[member.name]) : this.#data[member.name];
+      if (outval && !decoder.isDefaultValue?.(outval))
+        retval[member.name] = outval;
     }
     return retval;
   }

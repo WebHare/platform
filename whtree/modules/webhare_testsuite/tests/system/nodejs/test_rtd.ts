@@ -5,7 +5,7 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildWHFSInstance, type RTDBlock, type RTDBlockItem, type RTDBuildSource, type ExportableRTD } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, type RTDBlock, type RTDBlockItem, type RTDBuildSource, type ExportableRTD, type WHFSInstance } from "@webhare/services/src/richdocument";
 
 // An exportable RTD should always be a valid input source
 ({} as ExportableRTD) satisfies RTDBuildSource;
@@ -51,6 +51,21 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
   await rollbackWork();
 }
+
+async function verifyWidgetRoundTrip(widget: WHFSInstance) {
+  const testtype = openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+
+  await beginWork();
+  const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await testtype.set(tempfile.id, { anInstance: widget });
+  await commitWork();
+  // console.log(await widget.export());
+
+  const returnedWidget = (await testtype.get(tempfile.id)).anInstance as WHFSInstance;
+  // console.log(await returnedWidget.export());
+  test.eqPartial(await returnedWidget.export(), await widget.export());
+}
+
 
 async function testBuilder() {
   // eslint-disable-next-line no-constant-condition -- TS API type tests
@@ -191,15 +206,40 @@ async function testBuildWHFSInstance() {
     rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
   }, await twocolwidget.export());
 
+  await verifyWidgetRoundTrip(twocolwidget);
+
   const testsitejs = await test.getTestSiteJS();
   const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
-  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true });
+  const tinyPng = await ResourceDescriptor.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==", "base64"), { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
 
   const videowidget = await buildWHFSInstance({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-    thumbnail: goldfish
+    thumbnail: tinyPng
   });
 
+  test.eq({
+    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    thumbnail: {
+      data: {
+        base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=="
+      },
+      sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+      hash: "g2xejJS3S-eEVhIlKLsqRLTPYbOSLyEeK65b8yf5Xwk",
+      extension: ".png",
+      mediaType: "image/png",
+      width: 1,
+      height: 1,
+      dominantColor: /^#.*$/
+    }
+  }, await videowidget.export());
+
+  await verifyWidgetRoundTrip(videowidget);
+
+  const realVideowidget = await buildWHFSInstance({
+    whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
+    thumbnail: goldfish
+  });
   test.eqPartial({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
     thumbnail: {
@@ -208,15 +248,17 @@ async function testBuildWHFSInstance() {
       },
       sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
-      width: 385
+      width: 385,
     }
-  }, await videowidget.export());
+  }, await realVideowidget.export());
+
+  await verifyWidgetRoundTrip(realVideowidget);
 }
 
 async function testBuildingRTDsWithInstances() {
   const testsitejs = await test.getTestSiteJS();
   const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
-  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true });
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
 
   {
     const doc = await buildRTD([
@@ -300,9 +342,17 @@ async function testBuildingRTDsWithInstances() {
       }
     ], await doc.export());
 
-
     test.eq(/^<html><body><p class="normal"><b>Bold<\/b>, <i>Italic<\/i>, <u>Underline<\/u>, <b><u><span class="wh-rtd-embeddedobject" data-instanceid=".*"><\/span><\/u><\/b><\/p><div class="wh-rtd-embeddedobject" data-instanceid=".*"><\/div><\/body><\/html>$/, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
+
+    //Now put that doc into a widget so we can build an Instance containing a Doc containing a Widget containing a Resource
+    const twocolwidget = await buildWHFSInstance({
+      whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
+      rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+      rtdright: doc
+    });
+
+    await verifyWidgetRoundTrip(twocolwidget);
   }
 
   //Verify that we catch broken whfs types
@@ -340,7 +390,6 @@ async function testBuildingRTDsWithInstances() {
         widget: {
           whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
           rtdleft: [{ tag: "p", items: [{ text: "Left column" }] }],
-          rtdright: null,
         }
       }
     ], await doc.export());

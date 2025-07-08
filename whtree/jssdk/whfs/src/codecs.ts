@@ -52,6 +52,7 @@ interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
   decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
   exportValue?(value: unknown, options?: ExportOptions): unknown;
+  isDefaultValue?(value: unknown): boolean;
 }
 
 function assertValidString(value: unknown) {
@@ -140,6 +141,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.fs_object).filter(s => s !== null);
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "date": {
@@ -260,6 +264,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.setting);
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "money": {
@@ -335,6 +342,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       return Promise.all(settings.map(s => recurseGetData(member.children || [], s.id, context)));
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "richDocument": {
