@@ -5,7 +5,7 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/quacks";
@@ -138,10 +138,11 @@ async function testInstanceData() {
     aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
     aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
+    myLink: new IntExtLink(testfile.id),
     myWhfsRefArray: fileids
   });
 
-  let expectNumSettings = 15;
+  let expectNumSettings = 16;
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
   await testtype.set(testfile.id, {
@@ -163,6 +164,7 @@ async function testInstanceData() {
     aTypedRecord: { intMember: 497 },
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids,
+    myLink: test.expectIntExtLink(testfile.id),
     anInstance: test.expectWHFSInstance("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", { str1: "str1" })
   }, await testtype.get(testfile.id));
 
@@ -272,7 +274,8 @@ async function testInstanceData() {
     url: "http://www.webhare.com",
     a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
     my_whfs_ref: testfile.id,
-    my_whfs_ref_array: fileids
+    my_whfs_ref_array: fileids,
+    my_link: { internallink: testfile.id }
   }, val);
 
   test.eq(returnedGoldfish.mediaType, val.blub.mimetype);

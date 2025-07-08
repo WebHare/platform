@@ -7,7 +7,7 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import type { RichTextDocument, WHFSInstance } from "@webhare/services";
+import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
@@ -442,10 +442,18 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "intExtLink": {
-    encoder: (value: object) => {
-      throw new Error(`intExtLink type not yet implemented`);
+    encoder: (value: IntExtLink | null) => {
+      if (!value)
+        return null;
+
+      const data = value.internalLink ? value.append : value.externalLink;
+      return { fs_object: value.internalLink || null, setting: data || "" };
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+      if (settings[0]?.fs_object)
+        return new IntExtLink(settings[0]?.fs_object, { append: settings[0]?.setting || "" });
+      if (settings[0]?.setting)
+        return new IntExtLink(settings[0]?.setting);
       return null;
     }
   }
