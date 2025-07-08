@@ -245,7 +245,7 @@ function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
 }
 
 /** Convert an ID to a site:: or whfs:: path for export */
-export async function mapExternalWHFSRef(inId: number): Promise<string | null> {
+export async function mapExternalWHFSRef(inId: number, options?: ExportOptions): Promise<string | null> {
   if (!inId)
     return null;
 
@@ -979,7 +979,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     //TODO Serialization methods other than data: will be requestable through ExportOptions
     return {
       data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
-      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile) : null,
+      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile, options) : null,
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };
   }

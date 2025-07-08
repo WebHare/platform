@@ -1,5 +1,5 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
-import { buildRTD, buildWidget, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
+import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
@@ -191,6 +191,8 @@ async function testBuildWHFSInstance() {
   test.eq("http://www.webhare.net/xmlns/publisher/embedhtml", htmlwidget.whfsType);
   test.eq({ html: "<b>BOLD</b> HTML" }, htmlwidget.data);
 
+  await verifyWidgetRoundTrip(htmlwidget);
+
   const twocolwidget = await buildWHFSInstance({
     whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
     rtdleft: await buildRTD([{ "p": ["Left column"] }]),
@@ -211,6 +213,19 @@ async function testBuildWHFSInstance() {
 
   const testsitejs = await test.getTestSiteJS();
   const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+
+  const genericWidget = await buildWHFSInstance({
+    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+    myLink: new IntExtLink(imgEditFile.id, { append: "#test" }),
+  });
+
+  test.eq({
+    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+    myLink: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
+  }, await genericWidget.export());
+
+  await verifyWidgetRoundTrip(genericWidget);
+
   const tinyPng = await ResourceDescriptor.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==", "base64"), { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
 
