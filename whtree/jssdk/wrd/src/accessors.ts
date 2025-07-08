@@ -1472,6 +1472,11 @@ class WRDDBStatusRecordValue<Options extends { allowedValues: string; type: obje
   }
 }
 
+//////////////////////////////////////
+//
+// DATE and DATETIME support
+
+// DATE and DATETIME shared
 type WRDDBDateTimeConditions = {
   condition: "=" | "!="; value: Date | null;
 } | {
@@ -1488,29 +1493,11 @@ abstract class WRDDBDateValueBase<Required extends boolean> extends WRDAttribute
   WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
   isSet(value: Date | null) { return Boolean(value); }
-
-  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
-    if (value === null)
-      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
-
-    return value.toISOString();
-  }
-
-  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
-    if (typeof value === "string") {
-      const d = new Date(value);
-      if (isNaN(d.getTime()))
-        throw new Error(`Invalid date value '${value}' for attribute ${this.attr.tag}`);
-      return d;
-    }
-    return value;
-  }
 }
 
-class WRDDBDateValue<Required extends boolean> extends WRDDBDateValueBase<Required> {
-  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
-    /* always ok */
-  }
+// Plain DATEs: type Date, field wrdDateOfBirth, wrdDateOfDeath
+
+abstract class WRDDBPlainDateValueBase<Required extends boolean> extends WRDDBDateValueBase<Required> {
   matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
       for (const v of cv.value)
@@ -1521,6 +1508,29 @@ class WRDDBDateValue<Required extends boolean> extends WRDDBDateValueBase<Requir
     return cmp(value, cv.condition, cv.value);
   }
 
+  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    return value.toISOString().substring(0, 10); //only return the Date part "2004-01-01"
+  }
+
+  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
+    if (typeof value === "string") {
+      try {
+        return new Date(Temporal.PlainDate.from(value).toZonedDateTime("UTC").epochMilliseconds); //Temporal parser actually limits itselfs to dates
+      } catch (e) {
+        throw new Error(`Invalid value ${JSON.stringify(value)} for date attribute ${this.attr.fullTag}`);
+      }
+    }
+    return value;
+  }
+}
+
+class WRDDBDateValue<Required extends boolean> extends WRDDBPlainDateValueBase<Required> {
+  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
+    /* always ok */
+  }
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | NullIfNotRequired<Required> {
     const parts = entity_settings[settings_start].rawdata.split(",");
     if (Number(parts[0]) >= 2147483647)
@@ -1546,7 +1556,7 @@ class WRDDBDateValue<Required extends boolean> extends WRDDBDateValueBase<Requir
   }
 }
 
-class WRDDBBaseDateValue extends WRDDBDateValueBase<false> {
+class WRDDBBaseDateValue extends WRDDBPlainDateValueBase<false> {
   validateFilterInput(value: Date | null) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime, use null`);
@@ -1557,13 +1567,6 @@ class WRDDBBaseDateValue extends WRDDBDateValueBase<false> {
     else
       this.validateFilterInput(cv.value);
   }
-  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
-    if (cv.condition === "in") {
-      return cv.value.includes(value);
-    }
-    return cmp(value, cv.condition, cv.value);
-  }
-
   addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     let fieldname: "dateofbirth" | "dateofdeath";
     if (this.attr.tag === "wrdDateOfBirth")
@@ -1622,7 +1625,34 @@ class WRDDBBaseDateValue extends WRDDBDateValueBase<false> {
   }
 }
 
-class WRDDBDateTimeValue<Required extends boolean> extends WRDDBDateValueBase<Required> {
+// DATETIMEs: type DateTime, field wrdCreationDate, wrdLimitDate, wrdModificationDate
+
+abstract class WRDDBDateTimeValueBase<Required extends boolean> extends WRDDBDateValueBase<Required> {
+  exportValue(value: Date | NullIfNotRequired<Required>): string | NullIfNotRequired<Required> {
+    if (value === null)
+      return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
+
+    let retval = value.toISOString();
+    if (value.getMilliseconds() === 0)  // remove milliseconds if they are 0
+      retval = retval.substring(0, 19) + "Z";
+
+    return retval;
+  }
+
+  importValue(value: string | Date | NullIfNotRequired<Required>): Date | NullIfNotRequired<Required> {
+    if (typeof value === "string") {
+      try {
+        return new Date(Temporal.Instant.from(value).epochMilliseconds); //Temporal parser is much stricter (and thus safer) than new Date
+      } catch (e) {
+        throw new Error(`Invalid value ${JSON.stringify(value)} for datetime attribute ${this.attr.fullTag}`);
+      }
+    }
+    return value;
+  }
+}
+
+
+class WRDDBDateTimeValue<Required extends boolean> extends WRDDBDateTimeValueBase<Required> {
   checkFilter({ condition, value }: WRDDBDateTimeConditions) {
     /* always ok */
   }
@@ -1663,7 +1693,7 @@ type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRD
   [K in keyof Members]: GetResultType<Members[K], Export>;
 };
 
-class WRDDBBaseCreationLimitDateValue extends WRDDBDateValueBase<false> {
+class WRDDBBaseCreationLimitDateValue extends WRDDBDateTimeValueBase<false> {
   validateFilterInput(value: Date | null) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
@@ -1753,7 +1783,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDDBDateValueBase<false> {
   }
 }
 
-class WRDDBBaseModificationDateValue extends WRDDBDateValueBase<true> {
+class WRDDBBaseModificationDateValue extends WRDDBDateTimeValueBase<true> {
   validateFilterInput(value: Date) {
     if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() >= maxDateTimeTotalMsecs))
       throw new Error(`Not allowed to use defaultDateTime or maxDateTime`);
