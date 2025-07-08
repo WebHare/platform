@@ -13,7 +13,7 @@ import { generateRandomId, isValidUUID } from "@webhare/std/platformbased";
 import { isChange, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { compare, Money, type AddressValue, type ComparableType } from "@webhare/std";
+import { compare, Money, throwError, type AddressValue, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";
@@ -962,6 +962,26 @@ async function testBaseTypes() {
   test.eq({ domainSecret: settings.domainSecret, issuer: "https://example.net" }, await getSchemaSettings(schema, ["domainSecret", "issuer"]));
 }
 
+async function testDates() {
+  const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
+
+  //Verify Date/DateTime support
+  await whdb.beginWork();
+  const newperson = await schema.find("wrdPerson", { wrdContactEmail: "testWrdTsapi@beta.webhare.net" }) ?? throwError("Lost newperson");
+  await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDatetime: "2024" }));
+  await test.throws(/Invalid value/, schema.update("wrdPerson", newperson, { testDate: "2024" }));
+  await schema.update("wrdPerson", newperson, { testDate: new Date("2024-02-01"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06") });
+  test.eq({ testDate: new Date("2024-02-01T00:00:00Z"), testDatetime: new Date("2024-02-01T12:12:12Z"), wrdDateOfBirth: new Date("2024-02-06T00:00:00Z") }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"]));
+  test.eq({ testDate: "2024-02-01", testDatetime: "2024-02-01T12:12:12Z", wrdDateOfBirth: "2024-02-06" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime", "wrdDateOfBirth"], { export: true }));
+
+  await schema.update("wrdPerson", newperson, { testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z", wrdDateOfBirth: "2024-03-06" });
+  test.eq({ testDate: "2024-03-01", testDatetime: "2024-03-01T12:12:12.001Z" }, await schema.getFields("wrdPerson", newperson, ["testDate", "testDatetime"], { export: true }));
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("testDate", "in", [new Date("2024-01-01"), new Date("2024-03-01")]).select(["wrdId"]).execute());
+  test.eq([{ wrdId: newperson }], await schema.query("wrdPerson").where("wrdDateOfBirth", "in", [new Date("2024-03-04"), new Date("2024-03-06")]).select(["wrdId"]).execute());
+
+  await whdb.commitWork();
+}
+
 async function testBadValues() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
@@ -1608,6 +1628,7 @@ test.runTests([
   testTSTypes,
   testNewAPI,
   testBaseTypes,
+  testDates,
   testBadValues,
   testOrgs,
   testUpsert,
