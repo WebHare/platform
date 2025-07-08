@@ -233,7 +233,7 @@ class ParsedSchemaDef {
         tag: typetag,
         type: which.toUpperCase() as ParsedMetaType,
         title: getAttr(typenode, "title", ""),
-        parenttype_tag: getAttr(typenode, "parent", ""),
+        parenttype_tag: getAttr(typenode, "parent", "").toUpperCase(),
         description: getAttr(typenode, "description", ""),
         deleteclosedafter: getAttr(typenode, "deleteclosedafter", 0),
         keephistorydays: getAttr(typenode, "keephistorydays", 0),
@@ -276,21 +276,21 @@ class ParsedSchemaDef {
     }
 
     const attributes = typenode.getElementsByTagNameNS(ns_schemadef, "attributes")[0];
-    if (attributes) {
+    if (attributes)
       type.attrs.push(...getXMLAttributes(attributes, currentfile));
-      type.allattrs = structuredClone(type.attrs);
-      //FIXME scan for dupes
-      if (type.parenttype_tag) {
-        const parentpos = this.types.findIndex(t => t.tag.toUpperCase() === type.parenttype_tag.toUpperCase());
-        if (parentpos !== -1) //FIXME this seems correct if a type is extended, we would re-encounter it and re-add our attributes to the parent
-          type.allattrs.push(...this.types[parentpos].allattrs);
-        /* ignore referring to nonexisting parents for backwards compatibility with schemaparser.whlib
-            externally synched WRD Schemas may come in this way (with parent not (yet?) defined?)
-            good reason to remove schema syncing in the future WRDSync and only trust local metadata
-        else if (type.parenttype_tag !== "WRD_RELATION") {//you're allowed to refer to WRD_RELATION without defining it
-          throw new Error(`Parent type '${type.parenttype_tag}' not found for type '${typetag}'`);
-          */
-      }
+
+    type.allattrs = structuredClone(type.attrs);
+    //FIXME scan for dupes
+    if (type.parenttype_tag) {
+      const parentpos = this.types.findIndex(t => t.tag === type.parenttype_tag);
+      if (parentpos !== -1) //FIXME this seems correct if a type is extended, we would re-encounter it and re-add our attributes to the parent
+        type.allattrs.push(...this.types[parentpos].allattrs);
+      /* ignore referring to nonexisting parents for backwards compatibility with schemaparser.whlib
+          externally synched WRD Schemas may come in this way (with parent not (yet?) defined?)
+          good reason to remove schema syncing in the future WRDSync and only trust local metadata
+      else if (type.parenttype_tag !== "WRD_RELATION") {//you're allowed to refer to WRD_RELATION without defining it
+        throw new Error(`Parent type '${type.parenttype_tag}' not found for type '${typetag}'`);
+        */
     }
 
     const valuesnode = typenode.getElementsByTagNameNS(ns_schemadef, "values")[0];
