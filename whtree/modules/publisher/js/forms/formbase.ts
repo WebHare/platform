@@ -13,6 +13,7 @@ import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNo
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue, RPCFormMessage } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
+import { submitselector, type SubmitSelectorType } from '@webhare/dompack/src/browser';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -129,11 +130,6 @@ interface PageState {
   pages: HTMLElement[];
   curpage: number;
 }
-
-//Query used to find valid submittors
-const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
-//Must match possible types returned by the submitselector
-type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 let didGlobalHandlers: true | undefined;
