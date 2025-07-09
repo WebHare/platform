@@ -269,9 +269,11 @@ async function verifyAsOpenIDSP() {
     //wait for the OIDC button
     await page.waitForFunction('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp"))');
     //click the OIDC button
-    await page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()');
-    //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
-    await page.waitForNavigation();
+    await Promise.all([
+      page.waitForNavigation(),  //wait for navigation so runWebHareLoginFlow doesn't attempt to fill the username on page
+      page.evaluate('[...document.querySelectorAll("a,button")].find(_ => _.textContent.includes("OIDC self sp")).click()')
+    ]);
+
     const changePasswordTo = "pass$" + Math.random().toString(36).substring(2, 16);
     await runWebHareLoginFlow(page, { password: "pass$", changePasswordTo });
     console.log("Password changed to: " + changePasswordTo);
