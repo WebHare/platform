@@ -32,8 +32,6 @@ IF (IsWasm())
 INTEGER keephistory := 20; // in seconds
 INTEGER checkinterval := 10; // in seconds
 
-BOOLEAN log_appstarter := FALSE;
-
 /* Interaction
 
   Every frontend app has an ID which they speicify when starting a backendapplication. If none
@@ -95,7 +93,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     IF (ObjectExists(this->parentlink))
       this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->GotParentMessage);
 
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("Started, my port: " || myportname);
 
     // Wait for queries for existance, and broadcast our own existance
@@ -184,7 +182,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
   MACRO GotParentMessage()
   {
     RECORD res := this->parentlink->ReceiveMessage(DEFAULT DATETIME);
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("Got mgmt message", res);
 
     IF (res.status = "gone")
@@ -201,7 +199,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     {
       IF (IsScriptOutOfDate())
       {
-        IF (log_appstarter)
+        IF (IsDebugTagEnabled("tollium:logappstarter"))
           this->LogDebug("Out of date, releasing");
         IF (ObjectExists(this->pvt_port))
           this->pvt_port->Close();
@@ -215,7 +213,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
       }
       ELSE
       {
-        IF (log_appstarter)
+        IF (IsDebugTagEnabled("tollium:logappstarter"))
           this->LogDebug("Not out of date, staying alive");
         this->parentlink->SendMessage([ type := "tryrelease-cancel" ]);
       }
@@ -238,7 +236,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         this->frontends[pos.position].apps := this->frontends[pos.position].apps - 1;
         IF (this->frontends[pos.position].apps = 0)
         {
-          IF (log_appstarter)
+          IF (IsDebugTagEnabled("tollium:logappstarter"))
             this->LogDebug("No more apps for frontend " || this->apps[i].frontendid || ", destroying");
 
           this->frontends[pos.position].msgqueue->Close();
@@ -279,7 +277,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     // Errors creating the job?
     IF (NOT ObjectExists(jobrec.job))
     {
-      IF (log_appstarter)
+      IF (IsDebugTagEnabled("tollium:logappstarter"))
         this->LogDebug("Error starting app");
 
       this->LogApplicationErrors(app, "", "", jobrec.errors);
@@ -313,7 +311,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         ] INTO authrec;
     jobrec.job->SetAuthenticationRecord(authrec);
 
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("Created app " || jobrec.job->groupid || ", frontendid " || frontendid);
 
     // Send configuration to job & start it
@@ -355,14 +353,14 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     RECORD pos := RecordLowerBound(this->frontends, [ frontendid := frontendid ], [ "FRONTENDID" ]);
     IF (pos.found)
     {
-      IF (log_appstarter)
+      IF (IsDebugTagEnabled("tollium:logappstarter"))
         this->LogDebug("Attach to existing message queue for frontendid " || frontendid || " (" || pos.position || ")");
       msgqueue := this->frontends[pos.position].msgqueue;
       linkid := this->frontends[pos.position].linkid;
     }
     ELSE
     {
-      IF (log_appstarter)
+      IF (IsDebugTagEnabled("tollium:logappstarter"))
         this->LogDebug("Constructing new message queue for frontendid " || frontendid || " (" || pos.position || ")");
 
       // Create unique link id (otherwise we might recreate a link with the same name)
@@ -405,7 +403,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
         , initialauthrec := authrec
         ] INTO this->apps AT RecordUpperBound(this->apps, [ appid := appid ], [ "APPID" ]);
 
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("job " || job->groupid || " started");
 
     this->SendPorthandlerReply(link,
@@ -481,6 +479,26 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
                     ]
               ];
         }
+      CASE "abortapp"
+        {
+          RECORD app := SELECT * FROM this->apps WHERE appid = message.appid;
+          IF (RecordExists(app)) {
+            IF (IsDebugTagEnabled("tollium:logappstarter"))
+              this->LogDebug(`Terminating job ${message.appid} by request`);
+            __HS_ABORTJOBBYGROUPID(message.appid);
+          } ELSE {
+            IF (IsDebugTagEnabled("tollium:logappstarter"))
+              this->LogDebug(`Could not terminating job ${message.appid} by request, no such app`);
+          }
+
+          RETURN
+              [ result := "message"
+              , msg :=
+                    [ type :=     "aborted"
+                    , appid :=    message.appid
+                    ]
+              ];
+        }
       DEFAULT
         {
           THROW NEW Exception("Unknown message type '" || message.task || "'");
@@ -490,7 +508,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
   MACRO GotJobSignalled(OBJECT job)
   {
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("job " || job->groupid || " signalled");
     UnregisterCallback(job->userdata.cbid);
     IF (job->userdata.lcbid != 0)
@@ -504,12 +522,12 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     STRING appname := job->userdata.invoke.app;
     IF (LENGTH(errors) != 0)
     {
-      IF (log_appstarter)
+      IF (IsDebugTagEnabled("tollium:logappstarter"))
         this->LogDebug("Forwarding errors: " || anytostring(errors,'tree'));
 
       this->LogApplicationErrors(appname, job->userdata.appid, job->GetExternalSessionData(), errors);
     }
-    ELSE IF (log_appstarter)
+    ELSE IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("Application " || appname || " with id " || job->userdata.appid || " has terminated without errors");
 
     // Send error/expired message
@@ -567,7 +585,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
   UPDATE MACRO OnHandleSignalled(INTEGER handle)
   {
-    IF (log_appstarter)
+    IF (IsDebugTagEnabled("tollium:logappstarter"))
       this->LogDebug("handlesignalled", handle);
     this->dispatcher->ProcessSignalledHandle(handle);
   }

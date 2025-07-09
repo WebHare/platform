@@ -107,9 +107,12 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
       {
         starter.link->Close();
         DELETE FROM this->applicationstarters WHERE id = starter.id;
+      } ELSE {
+        running_jobs := running_jobs CONCAT
+            SELECT *
+                , starter_id := starter.id
+              FROM rec.msg.apps;
       }
-
-      running_jobs := running_jobs CONCAT rec.msg.apps;
     }
 
     RECORD default_job :=
@@ -143,6 +146,13 @@ PUBLIC OBJECTTYPE TolliumAppListBase EXTEND DashboardPanelBase
     //IF (LENGTH(apps) != 0)
      // ABORT(apps);
     RETURN apps;
+  }
+
+  MACRO AbortApp(STRING starter_id, STRING appid)
+  {
+    FOREVERY (RECORD starter FROM this->applicationstarters)
+      IF (starter.id = starter_id)
+        starter.link->DoRequest(CELL[ task := "abortapp", appid ]);
   }
 
   BOOLEAN FUNCTION HaveContact()

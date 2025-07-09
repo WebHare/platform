@@ -247,10 +247,10 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     await this.jobobj.setEnvironment(newdata);
   }
-  async terminate() {
+  async terminate(silent: boolean) {
     if (this.closed)
       throw new Error(`The job has already been closed`);
-    await this.jobobj.terminate();
+    await this.jobobj.terminate(silent);
   }
   async captureOutput(endpoint: IPCEndPoint) {
     if (this.closed)
@@ -1048,6 +1048,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
     id_set.setJSValue(await job.getLoadedLibrariesInfo());
   });
+  wasmmodule.registerAsyncExternalFunction("__HS_ABORTJOBBYGROUPID::B:S", async (vm, id_set, var_groupid) => {
+    const job = ipcContext(vm).jobs.values().find(j => j.groupId === var_groupid.getString());
+    if (job)
+      await job.terminate(false);
+    id_set.setBoolean(Boolean(job));
+  });
   wasmmodule.registerAsyncExternalFunction("__SYSTEM_FLUSHREMOTELOG::B:S", async (vm, id_set, var_logname) => {
     await bridge.flushLog(var_logname.getString());
     id_set.setBoolean(true);
@@ -1413,9 +1419,9 @@ export class HareScriptJob {
     //vm.run will throw any script errors, but we'll already have recorded them in scriptDone and there's nothing in this worker thread to handle the exception
     this.vm.run(this.script).catch(e => void (0));
   }
-  terminate(): void {
+  terminate(silent = true): void {
     if (this.active)
-      this.vm.wasmmodule._HSVM_AbortVM(this.vm.hsvm);
+      this.vm.wasmmodule._HSVM_AbortVM(this.vm.hsvm, silent ? 1 : 0);
   }
   async getAuthenticationRecord() {
     const scratchvar = this.vm.allocateVariable();

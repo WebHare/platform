@@ -97,6 +97,7 @@
     <debugflag name="logcontroller" description="Log tollium/todd controller" />
     <debugflag name="logtransport" description="Log tollium/todd controller" />
     <debugflag name="usewasm" description="Use wasm as default application engine" />
+    <debugflag name="logappstarter" description="Enable debug messages from the appstarter" />
   </development>
 
   <hooking>

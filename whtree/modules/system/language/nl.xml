@@ -71,12 +71,15 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="applicationsheading">Applicaties</text>
       <text tid="box_appusers">Gebruikers van applicatie <param p="1"/></text>
       <text tid="box_runningapps">Applicaties die in gebruik zijn</text>
+      <text tid="killsession">Applicatie beëindigen</text>
       <text tid="sendmessagetoappusers">Stuur een bericht naar gebruikers van deze applicatie</text>
       <text tid="sendmessagetomoduleusers">Stuur een bericht naar gebruikers van deze module</text>
       <text tid="sendmessagetoselectedusers">Stuur een bericht naar de selecteerde gebruikers</text>
       <text tid="title">Applicaties</text>
+      <text tid="usersheading">Gebruikers in applicatie</text>
       <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
         <text tid="appusers">Gebruikersnaam</text>
         <text tid="browser">Browser/platform</text>

@@ -87,6 +87,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
                                   , app :=              app
                                   , title :=            title
                                   , browser :=          use.browser
+                                  , starter_id :=       starter_id
                                   ]
           FROM this->GetCurrentApps();
 
@@ -149,6 +150,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
              , starturl
              , stats
              , browser
+             , starter_id
           FROM sel.tolliumapps;
   }
 
@@ -192,7 +194,7 @@ PUBLIC OBJECTTYPE Users EXTEND TolliumAppListBase
     IF (this->RunSimpleScreen("confirm", GetTid("system:monitor.users.surekillsession"), [ dontshowkey := "tollium.surekillsession"]) != "yes")
       RETURN;
 
-    __HS_ABORTJOBBYGROUPID(this->apps->value);
+    this->AbortApp(^apps->selection.starter_id, ^apps->selection.sessionid);
     this->RefreshDashboardPanel();
   }
 

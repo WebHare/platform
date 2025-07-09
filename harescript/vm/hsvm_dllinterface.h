@@ -1255,7 +1255,7 @@ HSVM_PUBLIC unsigned  HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned ro
 /** Aborts a vm
     @param vm VM to abort
 */
- HSVM_PUBLIC void HSVM_AbortVM(struct HSVM *vm) ;
+ HSVM_PUBLIC void HSVM_AbortVM(struct HSVM *vm, bool silent) ;
 
 /** Try to lock a VM for exclusive access
     @param vm VM to try and lock

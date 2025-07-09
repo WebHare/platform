@@ -257,12 +257,15 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="applicationsheading">Applications</text>
       <text tid="box_appusers">Users of application <param p="1"/></text>
       <text tid="box_runningapps">Application in use</text>
+      <text tid="killsession">Terminate application</text>
       <text tid="sendmessagetoappusers">Send a message to users of this application</text>
       <text tid="sendmessagetomoduleusers">Send a message to users of this module</text>
       <text tid="sendmessagetoselectedusers">Send a message to the selected users</text>
       <text tid="title">Applications</text>
+      <text tid="usersheading">Users in application</text>
       <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
         <text tid="appusers">User name</text>
         <text tid="browser">Browser/platform</text>
