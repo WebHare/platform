@@ -64,3 +64,5 @@ types:
         type: whfsref
       myWhfsRefArray:
         type: whfsrefarray
+      myLink:
+        type: intextlink

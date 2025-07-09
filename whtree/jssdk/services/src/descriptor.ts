@@ -14,6 +14,7 @@ import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
+import { getWHType } from "@webhare/std/quacks";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -202,6 +203,10 @@ const mimeToExt: Record<string, string> = {
   "text/calendar": ".ics"
 };
 
+export function isResourceDescriptor(value: unknown): value is ResourceDescriptor {
+  return Boolean(value && getWHType(value) === "ResourceDescriptor");
+}
+
 /** Get the proper or usual extension for the file's mimetype
     @param mediaType - Mimetype
     @returns Extension (including the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
@@ -240,7 +245,7 @@ function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
 }
 
 /** Convert an ID to a site:: or whfs:: path for export */
-export async function mapExternalWHFSRef(inId: number): Promise<string | null> {
+export async function mapExternalWHFSRef(inId: number, options?: ExportOptions): Promise<string | null> {
   if (!inId)
     return null;
 
@@ -794,6 +799,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
+
   [Marshaller] = {
     type: HareScriptType.Record,
     setValue: function (this: ResourceDescriptor, value: HSVMVar) {
@@ -818,6 +824,8 @@ export class ResourceDescriptor implements ResourceMetaData {
       });
     }
   };
+
+  private static "__ $whTypeSymbol" = "ResourceDescriptor"; //Used to identify this as a ResourceDescriptor in the WebHare API
 
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
@@ -895,6 +903,9 @@ export class ResourceDescriptor implements ResourceMetaData {
     let blob;
     if (resource.data.base64) {
       blob = WebHareBlob.from(Buffer.from(resource.data.base64, 'base64'));
+    } else if (WebHareBlob.isWebHareBlob(resource.data)) {
+      //A resource descriptor with a WebHare blob is usually coming from HareScript. I'm not certain we should support it, but it looks like we can
+      blob = resource.data;
     } else {
       throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
     }
@@ -968,7 +979,7 @@ export class ResourceDescriptor implements ResourceMetaData {
     //TODO Serialization methods other than data: will be requestable through ExportOptions
     return {
       data: { base64: Buffer.from(await this.resource.arrayBuffer()).toString("base64") },
-      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile) : null,
+      sourceFile: this.sourceFile ? await mapExternalWHFSRef(this.sourceFile, options) : null,
       ...typedFromEntries(typedEntries(this.getMetaData()).filter(entry => entry[0] !== "dbLoc" && entry[0] !== "sourceFile").filter(([key, val]) => val))
     };
   }

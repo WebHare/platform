@@ -242,7 +242,8 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
     }
 
     const className = block.className || rtdBlockDefaultClass[block.tag];
-    htmltext += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block.items)}</${block.tag}>`;
+    //HareScript RTD requires us to insert <br data-wh-rte="bogus"/> into otherwise empty blocks
+    htmltext += `<${block.tag}${className ? ` class="${encodeString(className, "attribute")}"` : ""}>${await buildBlockItems(block.items) || '<br data-wh-rte="bogus"/>'}</${block.tag}>`;
   }
 
   return {

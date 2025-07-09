@@ -1,9 +1,18 @@
+import { getWHType } from "@webhare/std/quacks";
 import { openFileOrFolder } from "@webhare/whfs";
+
+export function isIntExtLink(value: unknown): value is IntExtLink {
+  return Boolean(value && getWHType(value) === "IntExtLink");
+}
+
+export type ExportedIntExtLink = { internalLink: string; append?: string } | { externalLink: string };
 
 export class IntExtLink {
   private _internal: number | null = null;
   private _external: string | null = null;
   private _append: string | null = null;
+
+  private static "__ $whTypeSymbol" = "IntExtLink";
 
   get internalLink() {
     return this._internal;

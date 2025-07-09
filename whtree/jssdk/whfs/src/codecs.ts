@@ -6,14 +6,18 @@ import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import type { RichTextDocument, WHFSInstance } from "@webhare/services";
+import { ResourceDescriptor, addMissingScanData, decodeScanData, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
-import { buildWHFSInstance, isRichTextDocument, isWHFSInstance } from "@webhare/services/src/richdocument";
+import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
+import { isIntExtLink, type ExportedIntExtLink } from "@webhare/services/src/intextlink";
+
+/// Returns T or a promise resolving to T
+type MaybePromise<T> = Promise<T> | T;
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -51,7 +55,9 @@ export type DecoderContext = ExportOptions & {
 interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
   decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
+  importValue?(value: unknown): unknown;
   exportValue?(value: unknown, options?: ExportOptions): unknown;
+  isDefaultValue?(value: unknown): boolean;
 }
 
 function assertValidString(value: unknown) {
@@ -140,6 +146,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.fs_object).filter(s => s !== null);
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "date": {
@@ -260,6 +269,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.setting);
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "money": {
@@ -272,6 +284,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return new Money(settings[0]?.setting || "0");
+    },
+    isDefaultValue: (value: Money) => {
+      return Money.cmp(value, "0") === 0;
     }
   },
   "file": {
@@ -307,6 +322,11 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     exportValue: (value: ResourceDescriptor, options: ExportOptions): Promise<ExportedResource> | null => {
       return value?.export(options) ?? null as unknown as ExportedResource;
+    },
+    importValue: (value: ResourceDescriptor | ExportedResource | null): MaybePromise<ResourceDescriptor | null> => {
+      if (!value || isResourceDescriptor(value))
+        return value;
+      return ResourceDescriptor.import(value);
     }
   },
   "record": {
@@ -335,6 +355,9 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       return Promise.all(settings.map(s => recurseGetData(member.children || [], s.id, context)));
+    },
+    isDefaultValue: (value: unknown) => {
+      return Array.isArray(value) && value.length === 0;
     }
   },
   "richDocument": {
@@ -398,6 +421,12 @@ export const codecs: { [key: string]: TypeCodec } = {
         return buildRTDFromHareScriptRTD({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
       })();
     },
+    importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
+      if (!value || isRichTextDocument(value))
+        return value;
+      else
+        return buildRTD(value as RTDBuildSource);
+    },
     exportValue: (value: RichTextDocument | null, options: ExportOptions) => {
       return value?.export() || null;
     }
@@ -432,11 +461,35 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "intExtLink": {
-    encoder: (value: object) => {
-      throw new Error(`intExtLink type not yet implemented`);
+    encoder: (value: IntExtLink | null) => {
+      if (!value)
+        return null;
+
+      const data = value.internalLink ? value.append : value.externalLink;
+      return { fs_object: value.internalLink || null, setting: data || "" };
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+      if (settings[0]?.fs_object)
+        return new IntExtLink(settings[0]?.fs_object, { append: settings[0]?.setting || "" });
+      if (settings[0]?.setting)
+        return new IntExtLink(settings[0]?.setting);
       return null;
+    },
+    exportValue: (value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
+      if (value?.internalLink)
+        return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
+      if (value?.externalLink)
+        return { externalLink: value.externalLink };
+      return null;
+    },
+    importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
+      if (!value || isIntExtLink(value))
+        return value;
+
+      if ("externalLink" in value)
+        return new IntExtLink(value.externalLink);
+
+      return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
     }
   }
 };

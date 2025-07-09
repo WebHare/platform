@@ -112,10 +112,9 @@ class WHFSInstance {
 
     for (const member of this.#typeInfo.members) {
       const decoder = codecs[member.type];
-      if (decoder?.exportValue)
-        retval[member.name] = await decoder.exportValue(this.#data[member.name]);
-      else
-        retval[member.name] = this.#data[member.name];
+      const outval = decoder?.exportValue ? await decoder.exportValue(this.#data[member.name]) : this.#data[member.name];
+      if (outval && !decoder.isDefaultValue?.(outval))
+        retval[member.name] = outval;
     }
     return retval;
   }
@@ -274,12 +273,9 @@ export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSIns
         if (!matchMember)
           throw new Error(`Member '${key}' not found in ${data.whfsType}`);
 
-        //FIXME validate types immediately - now we're just hoping setInstanceData will catch mismapping
-        if (matchMember.type === "richDocument") {
-          widgetValue[key] = isRichTextDocument(value) ? value : value ? await buildRTD(value as RTDBuildSource) : null;
-        } else {
-          widgetValue[key] = value;
-        }
+        const encoder = codecs[matchMember.type];
+        const inval = encoder?.importValue ? await encoder.importValue(value) : value;
+        widgetValue[key] = inval;
       }
 
   return new WHFSInstance(typeinfo, widgetValue);

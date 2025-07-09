@@ -16,7 +16,7 @@ import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
-import type { WHFSInstance } from "@webhare/services";
+import type { IntExtLink, WHFSInstance } from "@webhare/services";
 import { isWHFSInstance } from "@webhare/services/src/richdocument";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 
@@ -188,6 +188,20 @@ export function expectWHFSInstanceData(expectType: string, expectData?: Record<s
     test.assert(instance);
     test.eq(expectType, instance.whfsType);
     test[partial ? 'eqPartial' : 'eq'](expectData || {}, omit(instance, ["whfsType"]));
+    return true;
+  });
+}
+
+/** Build a test callback whether a field is an expected IntExtLink */
+export function expectIntExtLink(target: number | string, options?: { append?: string }) {
+  return ((link: IntExtLink | null) => {
+    test.assert(link);
+    if (typeof target === "string")
+      test.eq(target, link.externalLink);
+    else
+      test.eq(target, link.internalLink);
+
+    test.eq(options?.append ?? "", link.append);
     return true;
   });
 }

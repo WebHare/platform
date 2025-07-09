@@ -126,7 +126,6 @@ async function testExport() { //  tests
         widget: {
           whfsType: 'http://www.webhare.net/xmlns/publisher/widgets/twocolumns',
           rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
-          rtdright: null
         }
       }
     ],
