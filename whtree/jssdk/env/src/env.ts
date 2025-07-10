@@ -9,6 +9,13 @@ export { type NavigateInstruction, navigateTo } from "./navigation";
 export { enableFetchDebugging } from "./fetchdebug";
 export { type DTAPStage, dtapStage, debugFlags, isLive, backendBase };
 
+//user locale *which Tollium and sites should start to use to define localization, and perhaps gettid too?)
+export type UserLocale = {
+  /** The language code, eg 'en' including optional country, eg en-US */
+  lang: string;
+  //TODO regional settings
+};
+
 //export deprecated variants
 export { dtapstage, islive } from "./envbackend";
 
