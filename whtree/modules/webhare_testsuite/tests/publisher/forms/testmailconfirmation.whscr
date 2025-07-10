@@ -5,6 +5,7 @@ LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 
@@ -110,16 +111,13 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   TTFillByTitle(":Send to", "Email");
   TT(":Sender name")->value := "testformfile-mailconfirmation";
   TT(":Sender address")->value := "testformfile-mailconfirmation@beta.webhare.net";
-  TT(":Email contents")->value := [ htmltext := StringToBlob('<html><body>'
-                                                || '<p class="normal"><span class="wh-rtd-embeddedobject" data-instanceid="embedobj_confirm"></span> to confirm</p>'
-                                                || '</body></html>')
-                                  , instances := [[ instanceid := "embedobj_confirm"
-                                                  , data := [ whfstype := "http://www.webhare.net/xmlns/publisher/formconfirmfield"
-                                                            , linktext := "click here"
-                                                            ]
-                                                  ]
-                                                 ]
-                                 ];
+  TT(":Email contents")->value := BuildRTDFromYAML(`
+- p:
+  - widget:
+      whfsType: http://www.webhare.net/xmlns/publisher/formconfirmfield
+      linktext: click here
+  - "to confirm"
+`);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish

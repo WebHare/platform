@@ -1,5 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::files.whlib";
+
+LOADLIB "mod::publisher/lib/rtd.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/editable.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "wh::float.whlib";
@@ -93,6 +95,16 @@ MACRO RichdocumentStrongEmphasis()
   Testeq(`<p class="normal">I am <strong>bold</strong> and <em>cursive</em></p>`, doc->GetElementById("content")->innerhtml);
 }
 
+MACRO BuildRTDTest() {
+  RECORD data := BuildRTDFromYAML(`
+  - p:
+    - "Try this "
+    - text: link
+      link: http://example.net/
+`);
+  TestEq(`<html><body><p class="normal">Try this <a href="http://example.net/">link</a></p></body></html>`, BlobToString(data.htmltext));
+}
+
 MACRO ParserApiTest()
 {
   testfw->BeginWork();
@@ -126,6 +138,7 @@ MACRO ParserApiTest()
                  ]);;
 
   richdoctype->SetInstanceData(parserapitestfile->id, [data := myrichdoc->ExportAsRecord()]);
+
 
   RECORD storeddata := richdoctype->GetInstanceData(parserapitestfile->id).data;
   TestEq(1, Length(storeddata.embedded));
@@ -649,6 +662,7 @@ MACRO IntLinktest()
 }
 
 RunTestframework([ PTR RichdocumentTest
+                 , PTR BuildRTDTest
                  , PTR ParserApiTest
                  , PTR RichDocInstanceTest
                  , PTR PublishRichDocTest
