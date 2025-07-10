@@ -92,3 +92,8 @@ export function getBrowser(): Readonly<UserAgentInfo> {
   //Offer this as a function to improve treeshakability
   return browser;
 }
+
+//CSS Query used to find valid submittors
+export const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
+//Must match possible types returned by the submitselector
+export type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;

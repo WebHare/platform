@@ -13,6 +13,7 @@ import { getFieldDisplayName, isFieldNativeErrored, isRadioOrCheckbox, isRadioNo
 import { rfSymbol } from '@webhare/forms/src/registeredfield';
 import type { FormAnalyticsEventData, FormAnalyticsSubEvents, FormCondition, FormFileValue, RPCFormMessage } from '@webhare/forms/src/types';
 import { FieldMapDataProxy, FormFieldMap } from '@webhare/forms/src/fieldmap';
+import { submitselector, type SubmitSelectorType } from '@webhare/dompack/src/browser';
 
 //Suggestion or error messages
 export type FormFrontendMessage = HTMLElement | string;
@@ -129,11 +130,6 @@ interface PageState {
   pages: HTMLElement[];
   curpage: number;
 }
-
-//Query used to find valid submittors
-const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
-//Must match possible types returned by the submitselector
-type SubmitSelectorType = HTMLInputElement | HTMLButtonElement;
 
 let delayvalidation = false, validationpendingfor: EventTarget | null = null;
 let didGlobalHandlers: true | undefined;
@@ -688,7 +684,14 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     const actionnode = evt.target?.closest<HTMLElement>("*[data-wh-form-action]");
     if (!actionnode) {
       const submitter = evt.target.closest<SubmitSelectorType>(submitselector);
-      if (submitter) {
+      if (submitter?.form === this.node) { //if we found the submit buton AND it's for *this* form. don't intercept otherwise
+        if (!this.node.classList.contains('wh-form--allowsubmit')) { //we're not allowed to submit yet (not on a final page)
+          dompack.stop(evt);
+          if (this.node.classList.contains('wh-form--allownext'))  //but we can convert your action to a NextPage! which is likely what you intended
+            this.executeFormAction('next');
+          return;
+        }
+
         this._submitter = submitter; //store as submitter in case a submit event actually occurs
         setTimeout(() => this._submitter = null); //but clear it as soon as event processing ends
       }

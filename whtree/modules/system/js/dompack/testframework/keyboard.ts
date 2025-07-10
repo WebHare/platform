@@ -2,7 +2,8 @@ import { checkedDispatchEvent } from "./pointer";
 import { getName as browserName } from "../extra/browser";
 import * as domfocus from "../browserfix/focus";
 import { debugFlags } from "@webhare/env";
-import { dispatchDomEvent } from "@webhare/dompack";
+import { dispatchDomEvent, isFormControl } from "@webhare/dompack";
+import { submitselector } from "@webhare/dompack/src/browser";
 
 export type KeyboardModifierOptions = {
   ctrlKey?: boolean;
@@ -373,6 +374,10 @@ export async function pressKey(keylist: string | string[], modifierprops?: Keybo
       retval = _fireKeyboardEvent(focused, 'keypress', props);
 
     if (retval) {
+      if (eventprops.key === 'Enter') {
+        if (await doEnterKey(focused)) //handled
+          continue;
+      }
       if (eventprops.key === 'Tab') {
         doTabKey(eventprops.shiftKey ? -1 : +1);
       } else if (focused?.nodeName === 'TEXTAREA' || (focused?.nodeName === 'INPUT' && !['radio', 'textarea'].includes((focused as HTMLInputElement).type))) {
@@ -431,6 +436,19 @@ export async function pressKey(keylist: string | string[], modifierprops?: Keybo
     }
     _fireKeyboardEvent(focused, 'keyup', props);
   }
+}
+
+async function doEnterKey(focused: HTMLElement): Promise<boolean> {
+  // We need to check for implicit submission - https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#implicit-submission
+  if (isFormControl(focused) && focused.tagName !== "TEXTAREA" && !focused.matches(submitselector) && focused.form) {
+    //A form element's default button is the first submit button in tree order whose form owner is that form element.
+    const submitbutton = focused.form.querySelector<HTMLButtonElement | HTMLInputElement>('button[type="submit"], input[type="submit"], input[type="image"]');
+    if (submitbutton) {
+      submitbutton.click();
+      return true; //handled
+    }
+  }
+  return false;
 }
 
 function doTabKey(direction: 1 | -1): void {
