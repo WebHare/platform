@@ -66,6 +66,7 @@ PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
                     , lastpoll :=         DEFAULT DATETIME
                     , active :=           TRUE
                     , browser :=          use.browser
+                    , starter_id :=       starter_id
                     ]
           FROM apps;
 
@@ -121,6 +122,7 @@ PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
                                  , lastpoll :=      lastpoll != DEFAULT DATETIME ? this->tolliumuser->FormatTime(lastpoll, 'seconds', TRUE) : ""
                                  , memusage :=      active ? "" : GetMemUsage(stats) || " KB"
                                  , browser
+                                 , starter_id
                               FROM appuses;
   }
 
@@ -188,6 +190,13 @@ PUBLIC OBJECTTYPE Apps EXTEND TolliumAppListBase
     RECORD ARRAY sel := this->appusers->selection;
     STRING title := GetTid("system:monitor.sendmessage.title_tousers");
     this->SendMessage(sel, title);
+  }
+
+  MACRO DoKillSession() {
+    IF (this->RunSimpleScreen("question", GetTid("system:monitor.users.surekillsession")) = "yes") {
+      this->AbortApp(^appusers->selection.starter_id, ^appusers->selection.rowkey);
+      this->RefreshDashboardPanel();
+    }
   }
 >;
 

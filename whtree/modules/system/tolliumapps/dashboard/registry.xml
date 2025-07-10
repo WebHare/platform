@@ -6,7 +6,7 @@
         <enableon source="registry" min="1" max="1" />
       </action>
       <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
-        <enableon source="registry" min="1" max="1" />
+        <enableon source="registry" min="1" />
       </action>
       <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
     </actions>
@@ -33,7 +33,51 @@
                 ongetrows="OnRegistryLoadItems"
                 openaction="editkey"
                 selectcontextmenu="selection_registry"
-                selectmode="single">
+                selectmode="multiple">
+            <column name="name" type="text" width="2pr" />
+            <column name="value" type="text" />
+            <column name="modificationdate" type="datetime" width="20x" storeutc="true" tid="common.modificationdate" />
+          </list>
+        </cell>
+        <cell spacers="left right">
+          <button width="1pr" action="editkey" />
+          <button width="1pr" action="delete" />
+        </cell>
+      </grid>
+    </body>
+  </screen>
+
+  <screen name="userregistry" width="120x" height="40x" allowresize="true" footerbuttons="close" title="">
+    <actions>
+      <action name="editkey" onexecute="doeditkey">
+        <enableon source="registry" min="1" max="1" />
+      </action>
+      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+        <enableon source="registry" min="1" />
+      </action>
+      <action name="close" onexecute="cancel" shortcut="ctrl+q" tid="~close" />
+    </actions>
+
+    <menus>
+      <menu name="selection_registry">
+        <item action="editkey" disablemode="hidden" />
+        <item action="delete" disablemode="hidden" />
+      </menu>
+    </menus>
+
+    <compositions>
+      <eventlistener masks="system:registry.*" onevents="onevents" />
+    </compositions>
+
+    <body height="1pr">
+      <textedit name="filter" width="1pr" onchange="RefreshDashboardPanel" tid="common.filter" trimwhitespace="false" />
+      <grid width="1pr" height="1pr">
+        <cell width="1pr">
+          <list name="registry"
+                ongetrows="OnRegistryLoadItems"
+                openaction="editkey"
+                selectcontextmenu="selection_registry"
+                selectmode="multiple">
             <column name="name" type="text" width="2pr" />
             <column name="value" type="text" />
             <column name="modificationdate" type="datetime" width="20x" storeutc="true" tid="common.modificationdate" />

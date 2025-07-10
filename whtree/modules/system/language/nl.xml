@@ -71,12 +71,15 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="applicationsheading">Applicaties</text>
       <text tid="box_appusers">Gebruikers van applicatie <param p="1"/></text>
       <text tid="box_runningapps">Applicaties die in gebruik zijn</text>
+      <text tid="killsession">Applicatie beëindigen</text>
       <text tid="sendmessagetoappusers">Stuur een bericht naar gebruikers van deze applicatie</text>
       <text tid="sendmessagetomoduleusers">Stuur een bericht naar gebruikers van deze module</text>
       <text tid="sendmessagetoselectedusers">Stuur een bericht naar de selecteerde gebruikers</text>
       <text tid="title">Applicaties</text>
+      <text tid="usersheading">Gebruikers in applicatie</text>
       <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
         <text tid="appusers">Gebruikersnaam</text>
         <text tid="browser">Browser/platform</text>
@@ -1381,17 +1384,20 @@
       </textgroup>
       <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
         <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
+        <text tid="deletemultiplekeys">Weet je zeker dat je meerdere registersleutels wilt verwijderen?</text>
         <text tid="description">Omschrijving</text>
         <text tid="editkey">Wijzig registerwaarde</text>
         <text tid="editregkey">Wijzig registersleutel</text>
         <text tid="false">Onwaar</text>
         <text tid="initialvalue">Initiële waarde</text>
         <text tid="invalidrecordvalue">Ongeldige HSON-gecodeerde record-waarde</text>
+        <text tid="invalidvalue">Ongeldige HSON-gecodeerde waarde</text>
         <text tid="name">Naam sleutel</text>
         <text tid="registrypanel">Register</text>
         <text tid="toobigtodisplay">(te groot om te tonen)</text>
         <text tid="true">Waar</text>
         <text tid="type">Type</text>
+        <text tid="userregistrytitle">Entity registry van entity <ifparam p="2" value="">&lt;<param p="1"/>&gt;<else/><param p="2"/> (guid: &lt;<param p="1"/>&gt;)</ifparam></text>
         <text tid="value">Waarde</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->

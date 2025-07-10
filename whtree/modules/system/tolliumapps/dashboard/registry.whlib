@@ -40,16 +40,17 @@ PUBLIC STATIC OBJECTTYPE RegistryPanel EXTEND DashboardPanelBase
 
   MACRO DoEditKey()
   {
-    this->RunScreen("#editregkey", [ regkey := ^registry->value ]);
+    this->RunScreen("#editregkey", [ regkey := ^registry->value[0] ]);
   }
 
   MACRO DoDelete()
   {
-    IF (this->RunSimpleScreen("confirm", this->GetTid(".deletekey", ^registry->value)) != "yes")
+    IF (this->RunSimpleScreen("confirm", LENGTH(^registry->value) = 1 ? this->GetTid(".deletekey", ^registry->value[0]) : this->GetTid(".deletemultiplekeys")) != "yes")
       RETURN;
 
     OBJECT work := this->BeginWork();
-    DeleteRegistryKey(^registry->value);
+    FOREVERY (STRING todelete FROM ^registry->value)
+      DeleteRegistryKey(todelete);
     work->Finish();
   }
 
@@ -75,6 +76,65 @@ PUBLIC STATIC OBJECTTYPE RegistryPanel EXTEND DashboardPanelBase
   }
 >;
 
+PUBLIC STATIC OBJECTTYPE UserRegistry EXTEND TolliumScreenBase
+<
+  OBJECT entity;
+
+  MACRO Init(RECORD data)
+  {
+    this->entity := data.entity;
+    STRING emailtag;
+    IF (ObjectExists(this->entity->wrdschema->accounttype) AND this->entity->wrdtype->tag = this->entity->wrdschema->accounttype->tag)
+      emailtag := this->entity->wrdschema->accountemailtag;
+    ELSE IF (ObjectExists(this->entity->wrdtype->HasAttribute("WRD_CONTACT_EMAIL")))
+      emailtag := "WRD_CONTACT_EMAIL";
+
+    ^frame->title := this->GetTid(".userregistrytitle", this->entity->guid, emailtag != "" ? this->entity->GetField(emailtag) : "");
+  }
+
+  MACRO OnEvents(RECORD ARRAY events)
+  {
+    ^registry->ReloadList();
+  }
+
+  MACRO DoEditKey()
+  {
+    this->RunScreen("#editregkey", [ regkey := ^registry->value[0] ]);
+  }
+
+  MACRO DoDelete()
+  {
+    IF (this->RunSimpleScreen("confirm", LENGTH(^registry->value) = 1 ? this->GetTid(".deletekey", ^registry->value[0]) : this->GetTid(".deletemultiplekeys")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    FOREVERY (STRING todelete FROM ^registry->value)
+      DeleteRegistryKey(todelete);
+    work->Finish();
+  }
+
+  UPDATE PUBLIC MACRO RefreshDashboardPanel()
+  {
+    ^registry->ReloadList();
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION OnRegistryLoadItems()
+  {
+    STRING filter := ToLowerCase(^filter->value);
+
+    IF (SearchSubstring(filter, "*") = -1)
+      filter := "*" || filter || "*";
+
+    RETURN SELECT rowkey := name
+                , name := SubString(name, SearchSubstring(name, ".") + 1) // hide `<guid>.` prefix
+                , value := data ?? this->GetTid(".toobigtodisplay")
+                , modificationdate
+             FROM system.flatregistry
+            WHERE (filter != "" ? name LIKE filter : TRUE)
+                  AND name LIKE ToLowercase("<" || this->entity->guid || ">*");
+  }
+>;
+
 PUBLIC STATIC OBJECTTYPE EditRegKey EXTEND TolliumScreenBase
 <
   STRING regkey;
@@ -84,7 +144,13 @@ PUBLIC STATIC OBJECTTYPE EditRegKey EXTEND TolliumScreenBase
   {
     this->regkey := data.regkey;
 
-    VARIANT val := ReadRegistryKey(this->regkey);
+    // ReadRegistryKey requires a fallback value
+    RECORD rec :=
+        SELECT *
+          FROM ReadRegistryKeysByMask(this->regkey)
+         WHERE name = this->regkey;
+
+    VARIANT val := (rec ?? [ value := FALSE ]).value;
     ^name->value := this->regkey;
     this->valtype := TypeID(val);
     ^type->value := GetTypeName(this->valtype);
@@ -179,7 +245,14 @@ PUBLIC STATIC OBJECTTYPE EditRegKey EXTEND TolliumScreenBase
       }
       DEFAULT
       {
-        WriteRegistryKey(this->regkey, DecodeHSON(^stringvalue->value));
+        VARIANT value := FALSE;
+        TRY
+          value := DecodeHSON(^stringvalue->value);
+        CATCH (OBJECT e)
+          work->AddError(this->GetTid(".invalidvalue"));
+
+        IF (NOT work->HasFailed())
+          WriteRegistryKey(this->regkey, value);
       }
     }
     RETURN work->Finish();

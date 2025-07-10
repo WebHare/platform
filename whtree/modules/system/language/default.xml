@@ -257,12 +257,15 @@
   </textgroup>
   <textgroup gid="monitor">   <!-- monitor -->
     <textgroup gid="apps">   <!-- monitor.apps -->
+      <text tid="applicationsheading">Applications</text>
       <text tid="box_appusers">Users of application <param p="1"/></text>
       <text tid="box_runningapps">Application in use</text>
+      <text tid="killsession">Terminate application</text>
       <text tid="sendmessagetoappusers">Send a message to users of this application</text>
       <text tid="sendmessagetomoduleusers">Send a message to users of this module</text>
       <text tid="sendmessagetoselectedusers">Send a message to the selected users</text>
       <text tid="title">Applications</text>
+      <text tid="usersheading">Users in application</text>
       <textgroup gid="appusers">   <!-- monitor.apps.appusers -->
         <text tid="appusers">User name</text>
         <text tid="browser">Browser/platform</text>
@@ -1567,17 +1570,20 @@
       </textgroup>
       <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
         <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
+        <text tid="deletemultiplekeys">Are you sure you want to delete multiple keys?</text>
         <text tid="description">Description</text>
         <text tid="editkey">Edit</text>
         <text tid="editregkey">Edit registry key</text>
         <text tid="false">False</text>
         <text tid="initialvalue">Initial value</text>
         <text tid="invalidrecordvalue">Invalid HSON-encoded record value</text>
+        <text tid="invalidvalue">Invalid HSON-encoded value</text>
         <text tid="name">Key name</text>
         <text tid="registrypanel">Registry</text>
         <text tid="toobigtodisplay">(too big to display)</text>
         <text tid="true">True</text>
         <text tid="type">Type</text>
+        <text tid="userregistrytitle">Entity registry of entity <ifparam p="2" value="">&lt;<param p="1"/>&gt;<else/><param p="2"/> (guid: &lt;<param p="1"/>&gt;)</ifparam></text>
         <text tid="value">Value</text>
       </textgroup>
       <textgroup gid="servicemanager">   <!-- tolliumapps.dashboard.servicemanager -->

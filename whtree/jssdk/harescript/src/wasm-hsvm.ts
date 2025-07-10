@@ -758,7 +758,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
       console.trace();
     }
     this.abortController.abort();
-    this.wasmmodule._HSVM_AbortVM(this.hsvm);
+    this.wasmmodule._HSVM_AbortVM(this.hsvm, 1);
   }
 
   /** Is the VM already closed or closing? This call has been marked internal because its very hard to use right: the answer may be out of date after the next tick/await */

@@ -2737,14 +2737,15 @@ void HSVM_UnlockVM(struct HSVM *vm)
         END_CATCH_VMEXCEPTIONS
 }
 
-void HSVM_AbortVM(struct HSVM *vm)
+void HSVM_AbortVM(struct HSVM *vm, bool silent)
 {
         START_CATCH_VMEXCEPTIONS
+        int reason = silent ? HSVM_ABORT_SILENTTERMINATE : HSVM_ABORT_MANUALLY;
 #ifdef __EMSCRIPTEN__
-        *GetVirtualMachine(vm)->GetVMGroup()->GetAbortFlag() = true;
+        *GetVirtualMachine(vm)->GetVMGroup()->GetAbortFlag() = reason;
 #else
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
-        group->GetJobManager()->AbortVMGroup(group);
+        group->GetJobManager()->AbortVMGroup(group, reason);
 #endif
         END_CATCH_VMEXCEPTIONS
 }
