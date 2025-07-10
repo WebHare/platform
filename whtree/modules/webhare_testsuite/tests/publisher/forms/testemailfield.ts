@@ -22,7 +22,7 @@ test.runTests(
       test.fill('#emailform-email', "PIETJE@BLOCKED.BETA.WEBHARE.NET");
       test.fill('#emailform-email_sendfrom', "a@a");
 
-      await test.pressKey("Enter"); //enter should be a subtitute for the submit button
+      await test.pressKey("Enter"); //enter should be a substitute for the submit button
       await test.wait('ui');
       test.eq(1, getFormRPCRequests().length, "Only one RPC, for the validation");
 

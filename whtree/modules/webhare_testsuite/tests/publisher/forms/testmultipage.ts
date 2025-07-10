@@ -25,7 +25,7 @@ test.runTests(
       test.eq('<--', test.qS('.wh-form__button--previous').textContent);
       test.eq('volgende', test.qS('.wh-form__button--next').textContent);
 
-      await test.pressKey("Enter"); //enter should be a subtitute for the next button
+      await test.pressKey("Enter"); //enter should be a substitute for the next button
       await test.wait('ui');
       test.assert(test.canClick(test.qS('input[name="email"]')), 'should still be on page 1');
       test.eq('', test.qS('#currentpage').textContent, "No change event on blocked page nav");

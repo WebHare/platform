@@ -684,7 +684,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     const actionnode = evt.target?.closest<HTMLElement>("*[data-wh-form-action]");
     if (!actionnode) {
       const submitter = evt.target.closest<SubmitSelectorType>(submitselector);
-      if (submitter?.form === this.node) { //if we found the submit buton AND its for *this* form. don't intercept otherwise
+      if (submitter?.form === this.node) { //if we found the submit buton AND it's for *this* form. don't intercept otherwise
         if (!this.node.classList.contains('wh-form--allowsubmit')) { //we're not allowed to submit yet (not on a final page)
           dompack.stop(evt);
           if (this.node.classList.contains('wh-form--allownext'))  //but we can convert your action to a NextPage! which is likely what you intended
