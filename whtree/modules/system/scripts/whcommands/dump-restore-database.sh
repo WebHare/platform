@@ -84,10 +84,19 @@ function cleanup()
 trap cleanup EXIT SIGINT
 
 echo "Will dump/restore using $WHBUILD_NUMPROC threads"
+
 $RUNAS "$WEBHARE_PGBIN/pg_dump" -j "$WHBUILD_NUMPROC" -f "${DUMP_DIR}" --format=d -v webhare
 ERRORCODE="$?"
 if [ "$ERRORCODE" != "0" ]; then
   echo "pg_dump failed with errorcode $ERRORCODE"
+  exit $ERRORCODE
+fi
+
+# Dump global settings (roles and tablespaces though we don't use the latter yet?)
+$RUNAS "$WEBHARE_PGBIN/pg_dumpall" -f "${DUMP_DIR}/pg-globals.sql" --globals-only
+ERRORCODE="$?"
+if [ "$ERRORCODE" != "0" ]; then
+  echo "pg_dumpall failed with errorcode $ERRORCODE"
   exit $ERRORCODE
 fi
 
@@ -98,7 +107,9 @@ $RUNAS "$NEWBINDIR/postgres" -c "listen_addresses=" -c "unix_socket_directories=
 POSTMASTER_PID=$!
 popd
 
-until "$NEWBINDIR/psql" -d "$WEBHARE_DBASENAME" -p "$RECREATE_PORT" -c '\q' 2>/dev/null ; do
+NEWDBOPTIONS=(-d "$WEBHARE_DBASENAME" -p "$RECREATE_PORT")
+
+until "$NEWBINDIR/psql" "${NEWDBOPTIONS[@]}" -c '\q' 2>/dev/null ; do
   >&2 echo "Postgres is unavailable - sleeping"
   sleep .2
 done
@@ -107,8 +118,17 @@ RESTOREOPTIONS=""
 if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
   RESTOREOPTIONS="--no-owner"
 fi
+
 ERRORCODE=0
-$RUNAS "$NEWBINDIR/pg_restore" $RESTOREOPTIONS -p "$RECREATE_PORT" -j "$WHBUILD_NUMPROC" --format=d -v -d "$WEBHARE_DBASENAME" "${DUMP_DIR}" || ERRORCODE="$?"
+
+# Replay global settings
+$RUNAS "$NEWBINDIR/psql" "${NEWDBOPTIONS[@]}" -X -f "${DUMP_DIR}/pg-globals.sql" || ERRORCODE="$?"
+if [ "$ERRORCODE" != "0" ]; then
+  echo "psql globals failed with errorcode $ERRORCODE"
+  exit $ERRORCODE
+fi
+
+$RUNAS "$NEWBINDIR/pg_restore" "${NEWDBOPTIONS[@]}" $RESTOREOPTIONS -j "$WHBUILD_NUMPROC" --format=d -v "${DUMP_DIR}" || ERRORCODE="$?"
 if [ "$ERRORCODE" != "0" ]; then
   echo "restore failed with errorcode $ERRORCODE"
   exit $ERRORCODE
