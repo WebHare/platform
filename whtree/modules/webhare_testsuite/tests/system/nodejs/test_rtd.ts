@@ -5,7 +5,7 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildWHFSInstance, type RTDBlock, type RTDBlockItem, type RTDBuildSource, type ExportableRTD, type WHFSInstance } from "@webhare/services/src/richdocument";
+import { buildWHFSInstance, type RTDBlock, type RTDInlineItem, type RTDBuildSource, type ExportableRTD, type WHFSInstance } from "@webhare/services/src/richdocument";
 
 // An exportable RTD should always be a valid input source
 ({} as ExportableRTD) satisfies RTDBuildSource;
@@ -71,12 +71,12 @@ async function verifyWidgetRoundTrip(widget: WHFSInstance) {
 async function testBuilder() {
   // eslint-disable-next-line no-constant-condition -- TS API type tests
   if (false) {
-    ({ text: "A text", bold: true }) satisfies RTDBlockItem;
+    ({ text: "A text", bold: true }) satisfies RTDInlineItem;
     ///@ts-expect-error kabooya is not valid
-    ({ text: "A text", bold: true, kabooya: true }) satisfies RTDBlockItem;
-    ({ text: "text-me", link: "https://webhare.dev/" }) satisfies RTDBlockItem;
-    ({ text: "text-me", link: "https://webhare.dev/", target: "_blank" }) satisfies RTDBlockItem;
-    ({ text: "text-me", target: "_blank" }) satisfies RTDBlockItem;
+    ({ text: "A text", bold: true, kabooya: true }) satisfies RTDInlineItem;
+    ({ text: "text-me", link: "https://webhare.dev/" }) satisfies RTDInlineItem;
+    ({ text: "text-me", link: "https://webhare.dev/", target: "_blank" }) satisfies RTDInlineItem;
+    ({ text: "text-me", target: "_blank" }) satisfies RTDInlineItem;
   }
 
   {
@@ -90,7 +90,7 @@ async function testBuilder() {
   {
     const doc = await buildRTD([
       { h1: ["Heading 1"] },
-      { tag: "p" }, //empty line without items
+      { tag: "p", items: [] }, //empty line without items
       { "p.superpara": [{ text: "Hi <> everybody!" }] },
       { "p.normal": [{ text: "default p" }] }
     ]);
@@ -182,6 +182,49 @@ async function testBuilder() {
     test.eq(`<html><body>`
       + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink</a><a href="https://webhare.dev/2">y<b>thing</b>y<i>doo</i></a><i>dle</i></p>`
       + `<p class="normal">This is a <a href="https://webhare.dev/" target="_blank">new window</a><a href="https://webhare.dev/">-link</a></p>`
+      + `</body></html>`, await doc.__getRawHTML());
+    await verifyRoundTrip(doc);
+  }
+
+  // test list
+  {
+    const doc = await buildRTD([
+      {
+        tag: "ul",
+        listItems: [
+          {
+            li: [
+              {
+                items: [{ text: "Item 1" }]
+              }
+            ]
+          }, {
+            li: [
+              {
+                items: [{ text: "Item 2" }]
+              }, {
+                tag: "ol",
+                listItems: [
+                  {
+                    li: [{ items: [{ text: "Item 3" }] }]
+                  }, {
+                    li: [{ items: [{ text: "Item 4" }] }]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }, {
+        tag: "ol",
+        className: "mylist",
+        listItems: [{ li: [{ items: ["Ordered Item 1"] }] }]
+      }
+    ]);
+
+    test.eq(`<html><body>`
+      + `<ul class="unordered"><li>Item 1</li><li>Item 2<ol class="ordered"><li>Item 3</li><li>Item 4</li></ol></li></ul>`
+      + `<ol class="mylist"><li>Ordered Item 1</li></ol>`
       + `</body></html>`, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
@@ -287,7 +330,7 @@ async function testBuildingRTDsWithInstances() {
           ", ",
           { text: "Underline", underline: true },
           ", ", //keeping *one* buildWidget until all module users have removed it
-          { widget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { inlineWidget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
         "widget": await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" })
@@ -309,7 +352,7 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { inlineWidget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
         widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
@@ -331,7 +374,7 @@ async function testBuildingRTDsWithInstances() {
           { text: "Underline", underline: true },
           { text: ", " },
           {
-            widget: {
+            inlineWidget: {
               whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
               fieldname: "bu_field"
             },
