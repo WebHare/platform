@@ -31,10 +31,12 @@ PUBLIC STATIC OBJECTTYPE AnchorWidget EXTEND TolliumTabsExtensionBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE AnchorWidgetBase EXTEND WidgetBase
-<
-  UPDATE PUBLIC MACRO RenderSearchPreview()
-  {
+PUBLIC STATIC OBJECTTYPE AnchorWidgetBase EXTEND WidgetBase <
+  UPDATE PUBLIC MACRO RenderEmail(OBJECT mailcomposer) {
+    this->RenderLive(); //we should render in emails!
+  }
+
+  UPDATE PUBLIC MACRO RenderSearchPreview() {
     // Don't render the anchor in search results
   }
 >;

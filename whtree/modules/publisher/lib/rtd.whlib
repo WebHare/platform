@@ -4,6 +4,7 @@
 */
 
 LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -366,4 +367,8 @@ PUBLIC OBJECT FUNCTION OpenRTDType(STRING namespace)
 PUBLIC RECORD FUNCTION ValidateRichDocument(RECORD inrichdoc)
 {
   RETURN __ValidateRichDocumentLike(inrichdoc, TRUE, FALSE);
+}
+
+PUBLIC RECORD FUNCTION BuildRTDFromYAML(STRING yaml) {
+  RETURN CallJS("mod::publisher/js/internal/rtd.ts#buildRTDFromYAML", yaml);
 }
