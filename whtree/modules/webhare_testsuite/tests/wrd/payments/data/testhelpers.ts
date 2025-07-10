@@ -20,10 +20,12 @@ export async function puppeteerMollie(payurl: string) {
   await radiopaid?.click();
 
   const submitbutton = await page.waitForSelector('button[name=submit]');
-  await submitbutton?.click();
+  const [navresult] = await Promise.all([
+    page.waitForNavigation(),
+    submitbutton!.click()
+  ]);
 
-  const navresult = await page.waitForNavigation();
-  const jsonresponse = await navresult?.json();
+  const jsonresponse = await navresult!.json();
 
   await puppeteer.close();
   return jsonresponse;

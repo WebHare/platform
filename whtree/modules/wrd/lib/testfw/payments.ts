@@ -40,7 +40,10 @@ export async function pushWRDTestPaymentButton(payurl: string, approvetype: stri
     page.on('request', (interceptedRequest: Puppeteer.HTTPRequest) => void handleRequest(interceptedRequest));
   });
 
-  await button.click();
-  await page.waitForNavigation({ waitUntil: "domcontentloaded" });
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+    button.click()
+  ]);
+
   return await getPaymentInfo;
 }
