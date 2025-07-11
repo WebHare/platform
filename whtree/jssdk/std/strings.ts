@@ -515,3 +515,20 @@ export function levenshteinDistance(a: string, b: string): number {
 
   return dd;
 }
+
+/** Return the length of the string in bytes when UTF-8 encoded */
+export function getUTF8Length(str: string) {
+  return new TextEncoder().encode(str).length;
+}
+
+/** Truncate the string so it's at most len UTF-8 bytes long */
+export function limitUTF8Length(str: string, len: number) {
+  // TextEncoder.encodeInto writes into the given array until there's no more room to add more valid UTF-8 sequences from the
+  // source. We can use this property to limit the number of bytes by creating an array that has room for at most the given
+  // number of bytes.
+  const utf8array = new Uint8Array(len);
+  // This function returns the actual number of bytes written to the array
+  const { written } = new TextEncoder().encodeInto(str, utf8array);
+  // Decode only the actually written bytes
+  return new TextDecoder().decode(utf8array.subarray(0, written));
+}

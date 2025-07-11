@@ -2,7 +2,7 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 import { Counter } from "@mod-tollium/web/ui/components/basecontrols/counter";
-import { getUTF8Length } from "@mod-system/js/internal/utf8";
+import { getUTF8Length } from "@webhare/std";
 
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';

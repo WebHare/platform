@@ -19,6 +19,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/analysis.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -1013,8 +1014,26 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     INTEGER ARRAY updated;
     BOOLEAN anychanges;
+    STRING ARRAY stopwords := CellExists(stopwordlists, this->lang) ? GetCell(stopwordlists, this->lang) : STRING[];
     FOREVERY (RECORD row FROM words)
     {
+      // Check the words for stopwords
+      IF (Length(stopwords) > 0)
+      {
+        FOREVERY (STRING word FROM row.words)
+        {
+          // Just split words on space, interpunction is allowed in synonyms
+          FOREVERY (STRING tocheck FROM Tokenize(word, " "))
+          {
+            IF (tocheck = "")
+              CONTINUE;
+            //FIXME: ToLowercase doesn't properly lowercase accented letters!
+            IF (ToLowercase(tocheck) IN stopwords)
+              THROW NEW Exception(`Stopwords are not allowed in synonyms (found '${tocheck}'${ tocheck != word ? ` in '${word}'` : ""})`);
+          }
+        }
+      }
+
       INTEGER wordgroupid := CellExists(row, "wordgroupid")
           ? row.wordgroupid
           : (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;

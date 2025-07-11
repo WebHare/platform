@@ -481,6 +481,24 @@ async function testStrings() {
   test.eq("i", std.regExpFromWildcards(["mask.*", "optie?"], { caseInsensitive: true }).flags);
 
   test.throws(/Empty mask list/, () => std.regExpFromWildcards([]), "We still need to determine what an empty mask list should return, so throw for now and let the caller deal with it");
+
+  test.eq(4, std.getUTF8Length("Euro"));
+  test.eq(5, std.getUTF8Length("Ëuro"));
+  test.eq(6, std.getUTF8Length("€uro"));
+  test.eq(4, std.getUTF8Length("🎉"));
+  test.eq("E", std.limitUTF8Length("Euro", 1));
+  test.eq("Eu", std.limitUTF8Length("Euro", 2));
+  test.eq("Eur", std.limitUTF8Length("Euro", 3));
+  test.eq("", std.limitUTF8Length("Ëuro", 1));
+  test.eq("Ë", std.limitUTF8Length("Ëuro", 2));
+  test.eq("Ëu", std.limitUTF8Length("Ëuro", 3));
+  test.eq("", std.limitUTF8Length("€uro", 1));
+  test.eq("", std.limitUTF8Length("€uro", 2));
+  test.eq("€", std.limitUTF8Length("€uro", 3));
+  test.eq("", std.limitUTF8Length("🎉", 1));
+  test.eq("", std.limitUTF8Length("🎉", 2));
+  test.eq("", std.limitUTF8Length("🎉", 3));
+  test.eq("🎉", std.limitUTF8Length("🎉", 4));
 }
 
 async function testTypes() {

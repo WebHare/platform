@@ -149,6 +149,7 @@
       <text tid="primarycatalogindexrequired">Eén van de indexmanagers moet als primair worden aangeduid</text>
       <text tid="searcherror">Er is een fout opgetreden bij het zoeken:<br/><br/><param p="1"/></text>
       <text tid="sendingcommandfailed">Het commando kon niet naar de queuemanager verstuurd worden.</text>
+      <text tid="stopwordsnotallowed">Stopwoorden zijn niet toegstaan: '<param p="1"/>'</text>
       <text tid="updatingsrcfieldsfailed">Er is een fout opgetreden bij het bijwerken van de velden van de contentbron: <param p="1"/></text>
       <text tid="wordalreadyonlist">Het woord '<param p="1"/>' is al opgenomen in de woordgroep</text>
       <text tid="wordnotfound">Het woord '<param p="1"/>' kon niet worden gevonden.</text>

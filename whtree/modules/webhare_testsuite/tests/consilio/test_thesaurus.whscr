@@ -4,6 +4,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 
@@ -22,17 +23,16 @@ MACRO TestThesaurus()
   // Clear the current contents
   DELETE FROM webhare_testsuite.consilio_index;
 
-  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus", [ priority := 9 ]);
-
-
+  OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus", [ priority := 9, lang := "nl" ]);
   OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent");
 
   testfw->CommitWork();
   TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   Print(testcatalog->GetStorageInfo() || "\n");
+  RECORD indexinfo := testcatalog->ListAttachedIndices()[0];
 
-  search_obj := OpenSearchObject("en", "consilio:testfw_thesaurus");
+  search_obj := OpenSearchObject("nl", "consilio:testfw_thesaurus");
 
   // Clear the index
   contentsource->ReindexContentSource([rebuild := TRUE]);
@@ -40,7 +40,9 @@ MACRO TestThesaurus()
 
   testfw->BeginWork();
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
-      VALUES(idprefix||"a", idprefix||"a1", "a c");
+      VALUES(idprefix||"a", idprefix||"a1", "lorem dolor");
+  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, text)
+      VALUES(idprefix||"a", idprefix||"a2", "ipsum");
   testfw->CommitWork();
 
   // Rebuild the index
@@ -48,48 +50,131 @@ MACRO TestThesaurus()
   contentsource->WaitForIndexingDone();
 
   // Search
-  RECORD res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
-  TestEq(0, Length(res.results));
-
+  RECORD res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("lorem") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'lorem' should not return the document with 'ipsum'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("ipsum") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'ipsum' should not return the document with 'lorem'`);
 
   // Add some thesaurus words
   testfw->BeginWork();
-  testcatalog->SetSynonyms([ CELL[ words := [ "a", "b" ] ] ]);
+  Print(`SetSynonyms: [ "lorem", "ipsum" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ words := [ "lorem", "ipsum" ] ] ]);
   testfw->CommitWork();
   // Regression: New word groups (without wordgroupid) wouldn't be actually created
   INTEGER wordgroupid := SELECT AS INTEGER COLUMN wordgroupid FROM testcatalog->GetSynonyms(); // There is only one word group
   TestAssert(wordgroupid > 0);
   TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]));
 
+  // Check if the synonyms are actually there
+  RECORD settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "lorem, ipsum" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
   // Search again
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"b\"") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"a c\"") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"b c\"") ]), 0, 1000);
-  TestEq(1, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b", [ synonyms := FALSE ]) ]), 0, 1000);
-  TestEq(0, Length(res.results));
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("lorem") ]), 0, 1000);
+  TestEq(2, Length(res.results), `Searching for 'lorem' should also return the document with 'ipsum'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("ipsum") ]), 0, 1000);
+  TestEq(2, Length(res.results), `Searching for 'ipsum' should also return the document with 'lorem'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"ipsum\"") ]), 0, 1000);
+  TestEq(2, Length(res.results), `Searching for '"ipsum"' should also return the document with 'lorem'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"lorem dolor\"") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for '"lorem dolor"' should not return the document with 'ipsum'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("\"ipsum dolor\"") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for '"ipsum dolor"' should only return the document with 'lorem dolor'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("ipsum", [ synonyms := FALSE ]) ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'ipsum' without synonyms should only return the document with 'ipsum'`);
 
   // Update the thesaurus words
   testfw->BeginWork();
-  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "c" ] ] ]);
+  Print(`SetSynonyms: [ "lorem", "dolor" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "lorem", "dolor" ] ] ]);
   testfw->CommitWork();
   TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
-  TestEq(0, Length(res.results));
-  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("c") ]), 0, 1000);
-  TestEq(1, Length(res.results));
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "lorem, dolor" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
 
-  //Ensure toplevel CQParseUserQuery doesn't crash
-  res := search_obj->SearchQuery(CQParseUserQuery("a"), 0, 1000);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("ipsum") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'ipsum' should only return the document with 'ipsum'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("dolor") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'dolor' should only return the document with 'dolor'`);
+
+  // Ensure toplevel CQParseUserQuery doesn't crash
+  res := search_obj->SearchQuery(CQParseUserQuery("lorem"), 0, 1000);
+
+  // Add a multi-word synonym
+  testfw->BeginWork();
+  Print(`SetSynonyms: [ "amet", "lorem dolor" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "amet", "lorem dolor" ] ] ]);
+  testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "amet, lorem dolor" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("amet") ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for 'amet' should return the document with 'lorem dolor'`);
+
+  // Switch the words
+  testfw->BeginWork();
+  Print(`SetSynonyms: [ "amet", "dolor lorem" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "amet", "dolor lorem" ] ] ]);
+  testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "amet, dolor lorem" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("amet") ]), 0, 1000);
+  TestEq(0, Length(res.results), `Searching for 'amet' should not return the document with 'lorem dolor'`);
+
+  // Search for multiple words
+  testfw->BeginWork();
+  Print(`SetSynonyms: [ "sit amet", "lorem" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "sit amet", "lorem" ] ] ]);
+  testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "sit amet, lorem" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery(`"sit amet"`) ]), 0, 1000);
+  TestEq(1, Length(res.results), `Searching for '"sit amet"' should return the document with 'lorem'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("amet") ]), 0, 1000);
+  TestEq(0, Length(res.results), `Searching for just 'amet' should not return the document with 'lorem'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("sit amet") ]), 0, 1000);
+  TestEq(0, Length(res.results), `Searching for 'sit amet' should not return the document with 'lorem'`);
+  res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("amet sit") ]), 0, 1000);
+  TestEq(0, Length(res.results), `Searching for 'amet sit' should not return the document with 'lorem'`);
+
+  // Single-word synonyms are fine, though we won't let users create single-word word groups in the interface
+  testfw->BeginWork();
+  Print(`SetSynonyms: [ "lorem" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "lorem" ] ] ]);
+  testfw->CommitWork();
+  // We cannot wait for the result of the 'consilio:update' timed task that is scheduled after updating the synonyms to check
+  // for any error, so we just wait for for the catalog to become ready and then directly retrieve the index settings from
+  // the index manager to check for the stored stored synonyms
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ "lorem" ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
+  // Words with accented letters, interpunction, numbers and non-Dutch stop words are allowed
+  testfw->BeginWork();
+  Print(`SetSynonyms: [ "lørém", "îpsüm", \`"dolor's :-)"\`, "1234", "and" ]\n`);
+  testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "lørém", "îpsüm", `"dolor's :-)"`, "1234", "and" ] ] ]);
+  testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+  // Check that the synonyms haven't changed
+  settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  TestEq([ `lørém, îpsüm, "dolor's :-)", 1234, and` ], GetCell(settings, indexinfo.indexname).settings."index".analysis.filter.synonym.synonyms);
+
+  // Stop words are not allowed in the synonyms list
+  Print(`SetSynonyms: [ "lorem", "en", "ipsum" ]\n`);
+  TestThrowsLike("Stopwords are not allowed in synonyms (found 'en')", PTR testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "lorem", "en", "ipsum" ] ] ]));
+
+  // Stop words within synonyms are also not allowed
+  Print(`SetSynonyms: [ "lorem en ipsum", "dolor" ]\n`);
+  TestThrowsLike("Stopwords are not allowed in synonyms (found 'en' in 'lorem en ipsum')", PTR testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "lorem en ipsum", "dolor" ] ] ]));
 
   testfw->BeginWork();
   DELETE FROM webhare_testsuite.consilio_index;
