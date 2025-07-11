@@ -21,6 +21,9 @@ PUBLIC STATIC OBJECTTYPE MergeFieldsContext
 
   PUBLIC RECORD extradata;
 
+  /** Additional link handlers to activate. Must be an array of namespaceuri + localname */
+  PUBLIC RECORD ARRAY linkhandlers;
+
   MACRO NEW(RECORD source, STRING language)
   {
     this->source := source;
