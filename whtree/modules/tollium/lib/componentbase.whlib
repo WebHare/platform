@@ -3195,7 +3195,7 @@ PUBLIC OBJECTTYPE TolliumLinkHandlerBase EXTEND TolliumComponentBase
 
   PUBLIC BOOLEAN FUNCTION TrySetValue(OBJECT rte, STRING inlink) //LEGACY HANDLER code should move away from it since 4.27
   {
-    THROW NEW Exception("TolliumLinkHandlerBase::TrySetLink not implemented"); //you'll need to override this - we'll talk about TrySetLink as that's the proper name now
+    THROW NEW Exception("TolliumLinkHandlerBase::SetLinkIfSupported not implemented"); //you'll need to override this - we'll talk about SetLinkIfSupported as that's the proper name now
   }
 
   /** Test and set if this linkhandler accepts the link (recognized protocol/syntax)

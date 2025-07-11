@@ -1209,6 +1209,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
 
   MACRO SetMergeFields(OBJECT mergefields)
   {
+    //TODO If mergefields are set on the RTD we should also be passing these in the context of subscreens (think: editlink, edit image, widget props) so they have the right merge context/link fields
     IF (ObjectExists(mergefields) AND mergefields NOT EXTENDSFROM MergeFieldsContext)
       THROW NEW TolliumException(this, "mergefields value should extend MergeFieldsContext");
     this->editable->mergefields := mergefields;
