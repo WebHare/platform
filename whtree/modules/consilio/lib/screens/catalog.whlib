@@ -16,6 +16,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/stats.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/analysis.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -1215,6 +1216,8 @@ PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
 < OBJECT catalog;
   RECORD ARRAY wordgroups;
 
+  PUBLIC PROPERTY lang(this->catalog->lang, -);
+
   MACRO Init(RECORD data)
   {
     this->catalog := OpenConsilioCatalogById(data.indexid);
@@ -1255,7 +1258,7 @@ PUBLIC STATIC OBJECTTYPE Thesaurus EXTEND TolliumScreenBase
 
 PUBLIC STATIC OBJECTTYPE ThesaurusWords EXTEND TolliumRowEditScreenBase
 <
-  PUBLIC PROPERTY curwords(this->"^wordgroup"->value, -);
+  PUBLIC PROPERTY curwords(this->^wordgroup->value, -);
 
   UPDATE MACRO Init(RECORD data)
   {
@@ -1285,18 +1288,23 @@ PUBLIC STATIC OBJECTTYPE ThesaurusWords EXTEND TolliumRowEditScreenBase
 PUBLIC STATIC OBJECTTYPE ThesaurusWord EXTEND TolliumRowEditScreenBase
 <
   STRING initialword;
+  STRING ARRAY stopwords;
 
   UPDATE MACRO Init(RECORD data)
   {
     TolliumRowEditScreenBase::Init(data);
     IF (RecordExists(data.row))
       this->initialword := data.row.word;
+    this->stopwords := CellExists(stopwordlists, this->tolliumparent->tolliumparent->lang) ? GetCell(stopwordlists, this->tolliumparent->tolliumparent->lang) : STRING[];
   }
 
   UPDATE BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginFeedback();
     ^word->value := NormalizeText(^word->value, "en");
+    FOREVERY (STRING tocheck FROM Tokenize(^word->value, " "))
+      IF (tocheck != "" AND tocheck IN this->stopwords)
+        work->AddError(GetTid("consilio:catalog.messages.stopwordsnotallowed", tocheck));
     IF (^word->value != this->initialword AND ^word->value IN this->tolliumparent->curwords)
       work->AddError(GetTid("consilio:catalog.messages.wordalreadyonlist", ^word->value));
     RETURN work->Finish();

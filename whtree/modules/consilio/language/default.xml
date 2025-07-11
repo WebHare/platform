@@ -149,6 +149,7 @@
       <text tid="primarycatalogindexrequired">One of the index managers should be set as primary</text>
       <text tid="searcherror">An error occured while searching:<br/><br/><param p="1"/></text>
       <text tid="sendingcommandfailed">The command could not be sent to the queue manager.</text>
+      <text tid="stopwordsnotallowed">Stopwords are not allowed: '<param p="1"/>'</text>
       <text tid="updatingsrcfieldsfailed">Updating the content source fields failed: <param p="1"/></text>
       <text tid="wordalreadyonlist">The word '<param p="1"/>' already appears in the word group</text>
       <text tid="wordnotfound">The word '<param p="1"/>' could not be found.</text>
