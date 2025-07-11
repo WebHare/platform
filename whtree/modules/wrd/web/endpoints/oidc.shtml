@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/jwt.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -11,17 +12,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
-
-
-STRING FUNCTION GetSecretKey(STRING keys, STRING kid)
-{
-  RECORD keyinfo := DecodeJSON(keys);
-  RECORD match := SELECT * FROM keyinfo.keys WHERE keys.kid = VAR kid;
-  IF(NOT RecordExists(match))
-    THROW NEW Exception(`Key '${kid}' not found`);
-
-  RETURN GetPEMPublicKeyFromJWK(match);
-}
 
 MACRO RunOpenIDAuth()
 {
@@ -39,20 +29,18 @@ MACRO RunOpenIDAuth()
     Redirect(whyreason.redirect);
 
   RECORD loginconfig := GetOIDCMetadata(spinfo.metadataurl);
-  OBJECT tok := VerifyJSONWebToken(oauth2->token.id_token,
-      [ alg := [ "RS256" ]
-      , secret_callback := PTR GetSecretKey(loginconfig.keys, #1)
-      , iss := STRING[loginconfig.issuer]
-      ]);
+  RECORD payload := DecodeVerifyJWT(loginconfig.keys, oauth2->token.id_token, GetCurrentDateTime(), [ algorithms := [ "RS256" ], issuer := STRING[loginconfig.issuer] ]);
+  IF(NOT RecordExists(payload))
+    THROW NEW Exception(`Invalid JWT token received from OIDC provider`);
 
-  LogDebug("wrd:auth-oidc", [ reason := "Received JWT for oidc auth", payload := tok->payload, why := whyreason ]);
+  LogDebug("wrd:auth-oidc", [ reason := "Received JWT for oidc auth", payload := payload, why := whyreason ]);
   OBJECT targetplugin := GetWRDAuthPlugin(whyreason.redirect);
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
   INTEGER userid := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
   IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
-    RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(tok->payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
+    RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
     IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
     {
       //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)

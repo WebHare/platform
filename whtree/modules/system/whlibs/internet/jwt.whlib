@@ -5,6 +5,7 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/ber.whlib";
@@ -577,4 +578,24 @@ PUBLIC OBJECT FUNCTION VerifyJSONWebToken(STRING authvalue, RECORD options DEFAU
     THROW NEW Exception(`JWT token issued in the future at ${FormatISO8601DateTime(payload.iat)}, verified at ${FormatISO8601DateTime(options.verify_at)}`);
 
   RETURN token;
+}
+
+PUBLIC RECORD FUNCTION DecodeVerifyJWT(STRING jwks,STRING idtoken, DATETIME clock, RECORD opts) {
+  /* jwt.verify options. careful that we match the name and make proper fixes if we need to deal with case sensitive attributes!
+    algorithms?: Algorithm[] | undefined;
+    audience?: string | RegExp | Array<string | RegExp> | undefined;
+    clockTimestamp?: number | undefined;
+    clockTolerance?: number | undefined;
+    complete?: boolean | undefined;
+    issuer?: string | string[] | undefined;
+    ignoreExpiration?: boolean | undefined;
+    ignoreNotBefore?: boolean | undefined;
+    jwtid?: string | undefined;
+    nonce?: string | undefined;
+    subject?: string | undefined;
+    maxAge?: string | number | undefined;
+    allowInvalidAsymmetricKeyTypes?: boolean | undefined;
+  */
+  opts := ValidateOptions([ algorithms := STRING[], issuer := STRING[] ], opts, [ optional := ["*"]]);
+  RETURN CallJS("mod::platform/js/auth/hs-helper.ts#verifyJWT", jwks, idtoken, clock, opts);
 }
