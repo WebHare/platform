@@ -1198,6 +1198,13 @@ PUBLIC STATIC OBJECTTYPE TolliumRichDocument EXTEND RTEBase
         INSERT obj INTO this->rtdtypelinkhandlers AT END;
       }
     }
+
+    IF(ObjectExists(this->mergefields))
+      FOREVERY(RECORD handler FROM this->mergefields->linkhandlers)
+      {
+        OBJECT obj := this->owner->CreateCustomComponent(handler.namespaceuri, handler.localname);
+        INSERT obj INTO this->rtdtypelinkhandlers AT END;
+      }
   }
 
   MACRO SetMergeFields(OBJECT mergefields)
