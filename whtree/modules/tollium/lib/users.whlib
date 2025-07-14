@@ -417,7 +417,7 @@ PUBLIC STATIC OBJECTTYPE TolliumUser EXTEND WRDAuthUser <
     RETURN GetRegistryKeyEventMasks(keys);
   }
 
-  /** Get \@webhare/env UserLocal compatible locale info */
+  /** Get \@webhare/env UserLocale compatible locale info */
   PUBLIC RECORD FUNCTION GetUserLocale() {
     RETURN [ lang := this->language
            ];
