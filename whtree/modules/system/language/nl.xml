@@ -724,6 +724,7 @@
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
+      <text tid="abortexistinginstall">Er loopt al een installatietaak voor module '<param p="1"/>'. Wacht tot deze voltooid is of verwijder deze handmatig op de server</text>
       <text tid="cannotreplacemodule">Het is niet mogelijk om de bestaande module '<param p="1"/>' te vervangen</text>
       <text tid="cannotrestorebackup">Het is niet mogelijk om de backup versie van module '<param p="1"/>' terug te zetten - de module is nu niet beschikbaar.</text>
       <text tid="containingmodule">Je probeert de module '<param p="1"/>' te vervangen door een bestand dat module '<param p="2"/>' bevat</text>

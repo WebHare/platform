@@ -81,7 +81,7 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
   MACRO DoUploadModule(RECORD upload_result)
   {
     OBJECT work := this->BeginFeedback();
-    RECORD result := ImportModule(upload_result.data);
+    RECORD result := ImportModule(upload_result.data, [ user_locale := this->contexts->user->GetUserLocale() ]);
     FOREVERY(STRING error FROM result.errors)
       work->AddError(error);
     FOREVERY(STRING warning FROM result.warnings)

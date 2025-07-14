@@ -220,9 +220,10 @@ PUBLIC STRING FUNCTION GetModuleFolderTimestamp()
     @cell(record) return.orgmanifest Manifest data of previous installed module (if present and parseable)
 
 */
-PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions([ autoreplace := FALSE ], options); //autoreplace is kept for backwards compatibility with 4.21 and webharebv_policy.
+PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ autoreplace := FALSE //autoreplace is kept for backwards compatibility with 4.21 and webharebv_policy.
+                             , user_locale := DEFAULT RECORD
+                             ], options);
   RECORD retval := [ name :=          ""
                    , path :=          ""
                    , fullversion :=   ""
@@ -238,6 +239,15 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
   STRING importmodulename := RecordExists(mdef) ? mdef.path : "";
   retval.importmodulename  := importmodulename;
   STRING finalmodulename;
+
+  RECORD ARRAY installtasks := SELECT AS RECORD ARRAY DescribeManagedTask(id)
+                                 FROM LookupManagedTasks("system:installmodule", [ unfinished := TRUE ]); //only get unfinished tasks;
+  FOREVERY(RECORD installtask FROM installtasks) {
+    IF(installtask.data.module = importmodulename) {
+      INSERT GetTid("system:sysmgmt.errors.abortexistinginstall", importmodulename) INTO retval.errors AT END;
+      RETURN retval;
+    }
+  }
 
   RECORD moduleinfo := GetWebhareModuleInfo(importmodulename);
   IF (RecordExists(moduleinfo) AND NOT moduleinfo.packagingupgrade)
@@ -373,27 +383,20 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
     }
   }
 
-  IF (Length(retval.errors) = 0) //Still okay
-  {
-    IF(NOT MoveDiskPath(tempmodulepath, finalmodulename))
-      INSERT GetTid("system:sysmgmt.errors.cannotreplacemodule", importmodulename) INTO retval.errors AT END;
+  IF (Length(retval.errors) = 0) { //Still okay
+    GetPrimary()->BeginWork();
+    INTEGER installtask := ScheduleManagedTask("system:installmodule", CELL[
+      module := importmodulename,
+      user_locale := options.user_locale,
+      tempmodulepath,
+      finalmodulename
+    ]);
+    GetPrimary()->CommitWork();
+
+    RECORD result := RetrieveManagedTaskResult(installtask, MAX_DATETIME);
+    retval.errors := retval.errors CONCAT result.errors;
+    retval.warnings := retval.warnings CONCAT result.warnings;
   }
-
-  // Activate new paths first - all apps now know about the new module
-  ReloadWebhareConfig2("MODULES");
-  /* Reset caches, so nothing using the old paths still stores it. Can't get rid
-     of this until the source watcher knows to invalidate mod:: resources when
-     the entire module is moved */
-  BroadcastEvent("system:clearcaches", RECORD[]);
-
-  IF (Length(retval.errors) = 0)
-  {
-    RECORD res := __ActivateInstalledModule(importmodulename, finalmodulename);
-    retval.warnings := retval.warnings CONCAT res.warnings;
-  }
-
-//    IF (Length(retval.errors)!=0) //delete extracted data
-//      DeleteDiskDirectoryRecursive(tempmodulepath);
 
   IF (Length(retval.errors)!=0) //delete extracted data
     importmodulename := "";
@@ -401,13 +404,46 @@ PUBLIC RECORD FUNCTION ImportModule(BLOB modulefile, RECORD options DEFAULTSTO D
   retval.name := importmodulename;
   retval.path := finalmodulename;
 
-  /* Flush all caches. ActivateInstalledModule does a system:softreset which
-     used to imply a cache flush, but we want to get rid of that. But we need
-     to fix all cache-users to not rely on a flush before we can do that */
-  BroadcastEvent("system:clearcaches", RECORD[]);
-
   RETURN retval;
 }
+
+PUBLIC OBJECTTYPE InstallModuleTask EXTEND ManagedTaskBase < //implements task system:installmodule
+  RECORD retval;
+
+  UPDATE PUBLIC MACRO PrepareTask(RECORD taskdata) {
+    SetTidLanguage(RecordExists(taskdata.user_locale) ? taskdata.user_locale.lang : "en");
+    this->retval := [ errors := STRING[], warnings := STRING[] ];
+    IF(NOT MoveDiskPath(taskdata.tempmodulepath, taskdata.finalmodulename) AND NOT RecordExists(GetDiskFileProperties(taskdata.finalmodulename)))
+      INSERT GetTid("system:sysmgmt.errors.cannotreplacemodule", taskdata.module) INTO this->retval.errors AT END;
+
+    // Activate new paths first - all apps now know about the new module
+    ReloadWebhareConfig2("MODULES");
+    /* Reset caches, so nothing using the old paths still stores it. Can't get rid
+      of this until the source watcher knows to invalidate mod:: resources when
+      the entire module is moved */
+    BroadcastEvent("system:clearcaches", RECORD[]);
+
+    IF (Length(this->retval.errors) = 0) {
+      RECORD res := __ActivateInstalledModule(taskdata.module, taskdata.finalmodulename);
+      this->retval.warnings := this->retval.warnings CONCAT res.warnings;
+    }
+
+  //    IF (Length(retval.errors)!=0) //delete extracted data
+  //      DeleteDiskDirectoryRecursive(tempmodulepath);
+
+    /* Flush all caches. ActivateInstalledModule does a system:softreset which
+      used to imply a cache flush, but we want to get rid of that. But we need
+      to fix all cache-users to not rely on a flush before we can do that */
+    BroadcastEvent("system:clearcaches", RECORD[]);
+  }
+
+  UPDATE PUBLIC MACRO RunTask(RECORD taskdata) {
+    IF(Length(this->retval.errors) > 0)
+      this->ResolveByFailure(this->retval, this->retval.errors[0]);
+    ELSE
+      this->ResolveByCompletion(this->retval);
+  }
+>;
 
 PUBLIC RECORD FUNCTION ActivateInstalledModule(STRING modulename, STRING installpath)
 {
