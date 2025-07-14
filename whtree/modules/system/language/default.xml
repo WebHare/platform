@@ -910,6 +910,7 @@
       <text tid="webservercurrent">(Webserver cache: <param p="1"/> / <param p="2"/>)</text>
     </textgroup>
     <textgroup gid="errors">   <!-- sysmgmt.errors -->
+      <text tid="abortexistinginstall">An installation script for module '<param p="1"/>' is already pending. Wait for it to complete or manually delete it on the server.</text>
       <text tid="cannotreplacemodule">Unable to replace the existing module '<param p="1"/>'</text>
       <text tid="cannotrestorebackup">Unable to restore the backup version of module '<param p="1"/>' - module is now unavailable</text>
       <text tid="containingmodule">Trying to replace the module '<param p="1"/>' with a module file containing the module '<param p="2"/>'</text>
