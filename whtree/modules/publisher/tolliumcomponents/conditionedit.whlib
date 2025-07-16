@@ -9,8 +9,21 @@ RECORD __creation_settings;
 
 OBJECTTYPE ConditionEditContext
 <
-  /// The available condition types
-  PUBLIC RECORD ARRAY conditiontypes;
+  RECORD ARRAY _conditiontypes;
+
+  /** The available condition types
+      @cell(string) conditiontypes.name The name, used to refer to the type
+      @cell(string) conditiontypes.title The title, shown in the conditionedit
+      @cell(string) conditiontypes.fragment The fragment which edits this type (leave empty if it has no editable properties)
+  */
+  PUBLIC PROPERTY conditiontypes(_conditiontypes, SetConditionTypes);
+
+  MACRO SetConditionTypes(RECORD ARRAY conditiontypes)
+  {
+    FOREVERY (RECORD type FROM conditiontypes)
+      ValidateOptions([ name := "", title := "", fragment := "" ], conditiontypes, [ required := [ "name", "title" ] ]);
+    this->_conditiontypes := conditiontypes;
+  }
 >;
 
 
@@ -205,6 +218,10 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
   // List of condition fragment components
   OBJECT ARRAY fragmentobjs;
 
+  // Opaque user data for this condition
+  RECORD _data;
+  BOOLEAN has_data;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -349,16 +366,19 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
             this->DeleteCondition(conditionobj);
 
           // Load the condition fragment
-          STRING ARRAY parts := Tokenize(^field->selection.fragment, "#");
-          RECORD oldparent := __creation_settings;
-          __creation_settings := [ parent := this ];
-          RECORD result := ^conditioncontainer->LoadFragment(parts[0], parts[1]);
-          __creation_settings := oldparent;
-          IF (result.components[0] NOT EXTENDSFROM ConditionTypeFragmentBase)
-            THROW NEW TolliumException(result.components[0], `Fragment '${^field->selection.fragment}' for condition type '${^field->selection.type}' does not extend from ConditionTypeFragmentBase`);
+          IF (^field->selection.fragment != "")
+          {
+            STRING ARRAY parts := Tokenize(^field->selection.fragment, "#");
+            RECORD oldparent := __creation_settings;
+            __creation_settings := [ parent := this ];
+            RECORD result := ^conditioncontainer->LoadFragment(parts[0], parts[1]);
+            __creation_settings := oldparent;
+            IF (result.components[0] NOT EXTENDSFROM ConditionTypeFragmentBase)
+              THROW NEW TolliumException(result.components[0], `Fragment '${^field->selection.fragment}' for condition type '${^field->selection.type}' does not extend from ConditionTypeFragmentBase`);
 
-          // Store the fragment's components
-          this->fragmentobjs := result.components;
+            // Store the fragment's components
+            this->fragmentobjs := result.components;
+          }
         }
         ^subconditionspacer->visible := FALSE;
         ^subconditions->visible := FALSE;
@@ -446,6 +466,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
         IF (RecordExists(conditions))
           RETURN CELL
               [ _type := ^field->selection.type
+              , ...(this->has_data ? CELL[ this->_data ] : DEFAULT RECORD)
               , conditions
               ];
       }
@@ -458,6 +479,7 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
           IF (RecordExists(condition))
             RETURN CELL
                 [ _type := ^field->selection.type
+                , ...(this->has_data ? CELL[ this->_data ] : DEFAULT RECORD)
                 , condition
                 ];
         }
@@ -467,7 +489,8 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
         // Get the condition fragment's value
         RETURN CELL
             [ _type := ^field->selection.type
-            , ...this->fragmentobjs[0]->value
+            , ...(this->has_data ? CELL[ this->_data ] : DEFAULT RECORD)
+            , ...(Length(this->fragmentobjs) > 0 ? this->fragmentobjs[0]->value : DEFAULT RECORD)
             ];
       }
     }
@@ -481,9 +504,13 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
       // Reset to 'none'
       ^field->value := "";
       this->OnFieldSelect();
+      this->_data := DEFAULT RECORD;
+      this->has_data := FALSE;
     }
     ELSE
     {
+      this->has_data := CellExists(condition, "_data");
+      this->_data := this->has_data ? condition._data : DEFAULT RECORD;
       this->setting_condition := TRUE;
       IF (condition._type IN [ "and", "or" ])
       {
@@ -521,7 +548,8 @@ PUBLIC STATIC OBJECTTYPE Condition EXTEND TolliumFragmentBase
         // Make sure the condition fragment is loaded
         this->OnFieldSelect();
         // Set the condition fragment's value
-        this->fragmentobjs[0]->value := CELL[ ...condition, DELETE _type ];
+        IF (Length(this->fragmentobjs) > 0)
+          this->fragmentobjs[0]->value := CELL[ ...condition, DELETE _type ];
       }
       ELSE
       {

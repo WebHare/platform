@@ -1317,7 +1317,7 @@
         </xs:appinfo>
       </xs:annotation>
       <xs:sequence>
-        <xs:element minOccurs="1" maxOccurs="unbounded" ref="conditiontype" />
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="conditiontype" />
       </xs:sequence>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:Required" />
