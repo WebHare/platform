@@ -1,8 +1,8 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <object tag="wrd_authdomain" title="Authentication domain"> <!-- TODO cleared in WH5.8, now completely remove authdomain and this file -->
-    <attributes>
-    </attributes>
+  <object tag="wrd_authdomain" title="Authentication domain">
+    <!-- TODO cleared in WH5.8, now completely remove authdomain and this file -->
+    <attributes />
   </object>
 
 </schemadefinition>

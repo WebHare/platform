@@ -22,9 +22,7 @@
               <xs:appinfo>
                 <tai:callbacksignature />
               </xs:appinfo>
-              <xs:documentation>
-                The name of the macro to execute before adding the actual menu item.
-              </xs:documentation>
+              <xs:documentation>The name of the macro to execute before adding the actual menu item.</xs:documentation>
             </xs:annotation>
           </xs:attribute>
         </xs:extension>

@@ -2,7 +2,7 @@
 
   <form name="login" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="LoginForm">
     <page>
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-login__intro" />
+      <richtext name="intro" groupclasses="wh-wrdauth-login__intro" title="" />
       <textedit name="login" autocomplete="username" required="1" tid=".username" />
       <password name="password" autocomplete="current-password" required="1" tid=".password" />
     </page>
@@ -11,77 +11,88 @@
   <form name="totp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="TotpForm">
     <page>
       <hidden name="token" title="" />
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-totp__intro" />
-      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+      <richtext name="intro" groupclasses="wh-wrdauth-totp__intro" title="" />
+      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" />  <!-- FIXME type=tel ? -->
     </page>
   </form>
 
   <form name="forgotpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ForgotPasswordForm">
     <page>
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-forgotpassword__intro" />
+      <richtext name="intro" groupclasses="wh-wrdauth-forgotpassword__intro" title="" />
       <textedit name="email" autocomplete="email" required="1" tid=".email" />
-      <richtext name="done" title="" groupclasses="wh-wrdauth-forgotpassword__done" />
+      <richtext name="done" groupclasses="wh-wrdauth-forgotpassword__done" title="" />
     </page>
   </form>
 
-  <form name="resetpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="ResetPasswordForm" submitlabeltid="site.forms.authpages.resetpassword-button">
+  <form name="resetpassword"
+        library="mod::wrd/lib/internal/pages/authpages.whlib"
+        objectname="ResetPasswordForm"
+        submitlabeltid="site.forms.authpages.resetpassword-button">
     <page>
       <richtext name="intro" title="" />
-      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
+      <textedit name="login" autocomplete="username" enabled="false" tid=".username" />
       <textedit name="verifier" tid=".verifier" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
+
     <page role="thankyou">
       <richtext name="done" title="" />
     </page>
   </form>
 
-  <form name="completeaccountpassword" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountPasswordForm" submitlabeltid="site.forms.authpages.passwordchange-button">
+  <form name="completeaccountpassword"
+        library="mod::wrd/lib/internal/pages/authpages.whlib"
+        objectname="CompleteAccountPasswordForm"
+        submitlabeltid="site.forms.authpages.passwordchange-button">
     <page>
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-completeaccount__intro" />
+      <richtext name="intro" groupclasses="wh-wrdauth-completeaccount__intro" title="" />
       <richtext name="message" title="" visible="false" />
-      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
+      <textedit name="login" autocomplete="username" enabled="false" tid=".username" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
     </page>
+
     <page role="thankyou">
-      <richtext name="done" title="" groupclasses="wh-wrdauth-completeaccount__done" />
+      <richtext name="done" groupclasses="wh-wrdauth-completeaccount__done" title="" />
     </page>
   </form>
 
   <form name="emailchange" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="EmailChangeForm">
     <page>
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-emailchange__intro" />
+      <richtext name="intro" groupclasses="wh-wrdauth-emailchange__intro" title="" />
       <textedit name="email" autocomplete="email" required="1" tid=".email" />
-      <richtext name="done" title="" groupclasses="wh-wrdauth-emailchange__done" />
+      <richtext name="done" groupclasses="wh-wrdauth-emailchange__done" title="" />
     </page>
   </form>
 
   <form name="passwordchange" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="PasswordChangeForm">
     <page>
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-passwordchange__intro" />
-      <textedit name="login" autocomplete="username" tid=".username" enabled="false" />
+      <richtext name="intro" groupclasses="wh-wrdauth-passwordchange__intro" title="" />
+      <textedit name="login" autocomplete="username" enabled="false" tid=".username" />
       <password name="currentpassword" autocomplete="current-password" required="1" tid=".currentpassword" />
       <password name="passwordnew" autocomplete="new-password" required="1" tid=".passwordnew" />
       <password name="passwordrepeat" autocomplete="new-password" required="1" tid=".passwordrepeat" />
-      <richtext name="done" title="" groupclasses="wh-wrdauth-passwordchange__done" />
+      <richtext name="done" groupclasses="wh-wrdauth-passwordchange__done" title="" />
     </page>
   </form>
 
-  <form name="completeaccounttotp" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="CompleteAccountTotpForm" submitlabeltid="site.forms.authpages.completeaccount_totp_button">
+  <form name="completeaccounttotp"
+        library="mod::wrd/lib/internal/pages/authpages.whlib"
+        objectname="CompleteAccountTotpForm"
+        submitlabeltid="site.forms.authpages.completeaccount_totp_button">
     <page>
       <hidden name="setup" title="" />
-      <richtext name="intro" title="" groupclasses="wh-wrdauth-completeaccount__intro" />
-      <checkbox name="showsecretkey" title="" labeltid=".totpsetup-showsecretkey" />
+      <richtext name="intro" groupclasses="wh-wrdauth-completeaccount__intro" title="" />
+      <checkbox name="showsecretkey" labeltid=".totpsetup-showsecretkey" title="" />
       <textedit name="secret" />
-      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" /> <!-- FIXME type=tel ? -->
+      <textedit name="totp" autocomplete="one-time-code" required="1" tid=".totp" />  <!-- FIXME type=tel ? -->
     </page>
+
     <page role="thankyou">
-      <textarea name="backupcodes" enabled="false" tid=".totpsetup-backupcodes"/>
-      <richtext name="done" title="" groupclasses="wh-wrdauth-completeaccount__done" />
+      <textarea name="backupcodes" enabled="false" tid=".totpsetup-backupcodes" />
+      <richtext name="done" groupclasses="wh-wrdauth-completeaccount__done" title="" />
     </page>
   </form>
-
 
 </formdefinitions>

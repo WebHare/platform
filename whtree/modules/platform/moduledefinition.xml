@@ -12,7 +12,6 @@
     <task runat="15  * * * *" runtz="maintenance" script="scripts/tasks/updatepxllog.ts" tag="updatepxllog" />
   </servicemanager>
 
-
   <backend>
     <!--
     All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
@@ -48,14 +47,21 @@
     <webrule path="allroots:/.wh/ea/ap/*/ap.*" match="wildcards" cachecontrol="public, max-age=900" priority="after">
       <addheader header="Service-Worker-Allowed" value="/" />
     </webrule>
+
     <!-- configuration, limited cachability. used to inform sites about active interface webservers (TODO and perhaps public keys for password encryption in the future?) -->
-    <webrule path="allroots:/.wh/ea/config/" match="initial" cachecontrol="public, max-age=15" priority="after" handlebydir="whdata::config/public/" />
+    <webrule path="allroots:/.wh/ea/config/"
+             match="initial"
+             cachecontrol="public, max-age=15"
+             handlebydir="whdata::config/public/"
+             priority="after" />
+
     <!-- shared static assets. always put in a topical subfolder -->
     <webrule path="allroots:/.wh/ea/p/" match="initial" handlebydir="web/wh-assets/" priority="after" />
     <webrule path="allroots:/.wh/ea/uc/" match="initial" cachecontrol="public, max-age=31536000, immutable" priority="after">
       <tryfolder path="whdata::caches/platform/uc/" resolver="sha256b16_directory" tag="platform:unifiedcache" />
       <tryfile path="scripts/routers/unifiedcache.shtml" />
     </webrule>
+
     <!-- Formerly /.px/ - move under /.wh/ as you don't want it access controlled, and under /ea/ because this shouldn't count towards anyrate limits -->
     <webrule path="allroots:/.wh/ea/pxl/" match="initial" handlebyscript="mod::consilio/web/resources/pxl.txt">
       <addheader header="Access-Control-Allow-Origin" value="*" />
@@ -98,7 +104,8 @@
     <debugflag name="retainers" description="Add stacktraces to common retaining JS objects (Timeout, Promise)" />
     <debugflag name="assetpacks" description="Log assetpack actions" />
     <debugflag name="vmlifecycle" description="Log the lifecycle of WASM VM's" />
-    <debugflag name="runpermission" description="Log the runpermission handling of HareScript code called from JavaScript in WASM mode" />
+    <debugflag name="runpermission"
+               description="Log the runpermission handling of HareScript code called from JavaScript in WASM mode" />
     <debugflag name="calljs" description="Log the calljs calls to the debug log" />
   </development>
 
@@ -149,12 +156,10 @@
         <keyword name="region"
                  comment="Client physical location region name, based on the client IP address"
                  ignore_above="256" />
-        <keyword name="city"
-                 comment="Client physical location city name, based on the client IP address"
-                 ignore_above="256" />
+        <keyword name="city" comment="Client physical location city name, based on the client IP address" ignore_above="256" />
       </record>
     </fieldgroup>
-    <catalog tag="pxl" managed="false" suffixed="true" fieldgroups="pxlfields" /> <!-- This catalog is further extended by addPxlFieldMappings. this should become a Generic Feature once the format moves to YML -->
+    <catalog tag="pxl" fieldgroups="pxlfields" managed="false" suffixed="true" />  <!-- This catalog is further extended by addPxlFieldMappings. this should become a Generic Feature once the format moves to YML -->
   </consilio>
 
   <rights>

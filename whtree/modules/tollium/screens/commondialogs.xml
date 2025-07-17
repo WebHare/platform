@@ -121,13 +121,13 @@
     <actions>
       <downloadaction name="download" ondownload="dodownload" tid="~download" />
     </actions>
+
     <compositions>
       <callbacklistener name="callbacklistener" oncallback="onqrcallback" />
     </compositions>
 
     <body layout="left">
       <image name="qrcode" title="" />
-
       <text name="description" width="1pr" public="true" title="" valuetid=".description" wordwrap="true" />
     </body>
 

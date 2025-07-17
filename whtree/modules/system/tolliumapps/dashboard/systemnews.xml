@@ -83,11 +83,11 @@
                         width="1pr"
                         height="1pr"
                         minwidth="85x"
-                        rtdtype="http://www.webhare.net/xmlns/tollium/webinterface"
                         minheight="13x"
                         contentareawidth="300px"
                         errorlabeltid=".message"
-                        required="true" />
+                        required="true"
+                        rtdtype="http://www.webhare.net/xmlns/tollium/webinterface" />
           <textedit composition="newsitem"
                     cellname="announcement_author"
                     name="userid"

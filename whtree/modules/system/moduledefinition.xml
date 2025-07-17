@@ -1371,6 +1371,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
           <!-- system.services.smtp -->
           <string name="mailfrom" description="Default FROM address" />
           <boolean name="usemailfromfornonwhitelisted" description="Use default FROM for non-whitelisted senders" />
+
           <!-- <string name="defaultmailroute" description="SMTP URL for the defailt mail route " /> -->
           <integer name="mailretention"
                    description="How long to keep sent mails (in days), needed to associate bounces"

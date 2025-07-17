@@ -25,7 +25,7 @@
                                     name="authenticationsettings"
                                     tid=".authenticationsettings" />
             <select name="language" type="pulldown" width="1pr" tid="userrights.edituser.prefslang" />
-            <accountstatus composition="userobj" cellname="wrdauth_account_status" allowed="active blocked" required="true"/>
+            <accountstatus composition="userobj" cellname="wrdauth_account_status" allowed="active blocked" required="true" />
             <spacer name="insertpoint_account" visible="false" />
           </tab>
           <tab name="advanced">

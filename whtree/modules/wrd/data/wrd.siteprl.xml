@@ -33,7 +33,7 @@
             isdevelopertype="true"
             requirescontent="true"
             tid="wrd:filetypes.schemaarchive" />
-  
+
   <!-- Authpages intro texts -->
   <rtdtype namespace="http://www.webhare.net/xmlns/wrd/authtexttype">
     <blockstyles defaultstyle="NORMAL">
@@ -41,7 +41,6 @@
       <textstyle tag="NORMAL" containertag="p" textstyles="b i u a-href" />
       <textstyle tag="UNORDERED" containertag="ul" textstyles="b i u a-href" />
       <textstyle tag="ORDERED" containertag="ol" textstyles="b i u a-href" />
-
     </blockstyles>
   </rtdtype>
 
