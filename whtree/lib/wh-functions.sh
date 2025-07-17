@@ -157,26 +157,6 @@ resolveresourcepath ()
   eval $1=\$FINALPATH
 }
 
-get_installable_moduledirs()
-{
-  local XDIRS
-
-  if [ -d "$WEBHARE_DATAROOT"/installedmodules ]; then
-    XDIRS=$WEBHARE_DATAROOT/installedmodules/*\ $WEBHARE_DATAROOT/installedmodules/*/*
-  fi
-
-  if [ -n "$WEBHARE_GITMODULES" -a -d "$WEBHARE_GITMODULES" ]; then
-    XDIRS=$XDIRS\ $WEBHARE_GITMODULES/*\ $WEBHARE_GITMODULES/*/*
-  fi
-
-  if [ -n "$WEBHARE_GITPACKAGES" -a -d "$WEBHARE_GITPACKAGES" ]; then
-    XDIRS=$XDIRS\ $WEBHARE_GITPACKAGES/*\ $WEBHARE_GITPACKAGES/*/*
-  fi
-
-  eval $1=\$XDIRS
-  return 0
-}
-
 calc_dir_relpath()
 {
   local base target result
