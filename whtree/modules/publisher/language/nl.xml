@@ -388,6 +388,7 @@
         <text tid="zoomresethint">Ware grootte</text>
         <textgroup gid="actions">   <!-- filemanager.main.app.actions -->
           <text tid="baseorderingon">Baseren op</text>
+          <text tid="boostwordsoverview">Overzicht aanvullende sleutelwoorden</text>
           <text tid="contentlinkto">Kopiëren als contentlink naar</text>
           <text tid="converttofolder">Terugzetten naar map</text>
           <text tid="converttosite">Naar website converteren</text>
@@ -400,7 +401,7 @@
           <text tid="editsite">Site-instellingen</text>
           <text tid="emptytrash">Prullenbak leegmaken</text>
           <text tid="emptytrash_menuaction">Prullenbak leegmaken</text>
-          <text tid="exportseoreport">SEO instellingen rapportage</text>
+          <text tid="exportseoreport">Rapportage SEO-instellingen</text>
           <text tid="extract">Uitpakken</text>
           <text tid="gotoanything">Ga naar site of URL</text>
           <text tid="gotoid">Object met ID</text>
@@ -417,7 +418,7 @@
           <text tid="linkcheck">Linkcontrole</text>
           <text tid="managefoldersync">Beheer gesynchroniseerde mappen</text>
           <text tid="managerights">Rechten beheren</text>
-          <text tid="managewhfsregister">Beheer WHFS register</text>
+          <text tid="managewhfsregister">Beheer WHFS-register</text>
           <text tid="movedown">Omlaag</text>
           <text tid="movetobottom">Onderaan zetten</text>
           <text tid="movetotop">Bovenaan zetten</text>
@@ -566,6 +567,12 @@
         <textgroup gid="start">   <!-- filemanager.main.app.start -->
           <text tid="path">Path</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="boostwordsoverview">   <!-- filemanager.main.boostwordsoverview -->
+        <text tid="boostwordsoverview">Overzicht aanvullende sleutelwoorden</text>
+        <text tid="noboostwords">Er zijn geen bestanden met aanvullende sleutelwoorden</text>
+        <text tid="path">Pad</text>
+        <text tid="words">Aanvullende sleutelwoorden</text>
       </textgroup>
       <textgroup gid="converttosite">   <!-- filemanager.main.converttosite -->
         <text tid="message">Weet u zeker dat u de map '<param p="1"/>' wilt converteren naar een website?</text>

@@ -2050,9 +2050,14 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     this->tolliumcontroller->SendApplicationMessage("publisher:reportissues", DEFAULT RECORD, DEFAULT RECORD, TRUE);
   }
 
-  MACRO DoExportSEOReport()
+  MACRO DoExportSEOReportTree()
   {
     RunSEOReport(this, ^foldertree->value);
+  }
+
+  MACRO DoExportSEOReportList()
+  {
+    RunSEOReport(this, ^filelist->selection.issite ? ^filelist->value[0] : ^foldertree->value);
   }
 
   MACRO DoManageFoldersync()
@@ -2112,6 +2117,16 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     //wrap in debug link
     desturl := ResolveToAbsoluteUrl(desturl, "/.publisher/common/debug/?back=" || EncodeURL(desturl));
     openhandler->SendURL(desturl);
+  }
+
+  MACRO DoBoostWordsOverviewTree()
+  {
+    this->RunScreen("#boostwordsoverview", [ id := ^foldertree->value ]);
+  }
+
+  MACRO DoBoostWordsOverviewList()
+  {
+    this->RunScreen("#boostwordsoverview", [ ids := ^filelist->value ]);
   }
 >;
 
@@ -2180,3 +2195,63 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
     RunExceptionReportDialog(controller, err);
   }
 }
+
+PUBLIC STATIC OBJECTTYPE BoostWordsOverview EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    // Find all folders (data.ids is a foldertree folder id or a list of filelist file and folder ids)
+    INTEGER ARRAY allfolderids;
+    IF (CellExists(data, "id"))
+      INSERT data.id INTO allfolderids AT END;
+    ELSE
+      allfolderids := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE id IN VAR data.ids AND isfolder;
+    FOREVERY (INTEGER folderid FROM allfolderids)
+    {
+      OBJECT folder := OpenWHFSObject(folderid);
+      allfolderids := allfolderids CONCAT INTEGER[ folderid, ...folder->GetDescendantFolderIds() ];
+    }
+
+    // Find all files in these folders and all explicitly requested files
+    RECORD ARRAY files :=
+        (SELECT id
+              , whfspath
+              , parentsite
+              , fullpath
+           FROM system.fs_objects
+          WHERE parent IN allfolderids AND NOT isfolder)
+        CONCAT
+        (SELECT id
+              , whfspath
+              , parentsite
+              , fullpath
+           FROM system.fs_objects
+          WHERE id IN VAR data.ids AND NOT isfolder);
+    // Enrich with boost words
+    files := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords")->Enrich(files, "id", [ "words" ]);
+    DELETE FROM files WHERE Length(words) = 0 OR parentsite = 0;
+    // Enrich with site names
+    RECORD ARRAY sites :=
+        SELECT parentsite := id
+             , sitename := name
+          FROM system.sites
+         WHERE id IN (SELECT AS INTEGER ARRAY DISTINCT parentsite FROM files);
+    files := JoinArrays(files, "parentsite", sites, CELL[ sitename := "" ], [ rightouterjoin := TRUE ]);
+    ^boostwords->rows :=
+        SELECT *
+             , rowkey := id
+             , path := sitename != "" ? sitename || ":" || fullpath : whfspath
+             , words := Detokenize(GetSortedSet(words), "; ")
+          FROM files;
+  }
+
+  MACRO DoProperties()
+  {
+    RunFSObjectPropertiesDialog(this, ^boostwords->value);
+  }
+
+  MACRO DoOpenInPublisher()
+  {
+    RunPublisherFileManager(this, ^boostwords->value, [ infilelist := TRUE ]);
+  }
+>;

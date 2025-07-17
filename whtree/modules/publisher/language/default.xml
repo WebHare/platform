@@ -388,6 +388,7 @@
         <text tid="zoomresethint">Actual size</text>
         <textgroup gid="actions">   <!-- filemanager.main.app.actions -->
           <text tid="baseorderingon">Base on</text>
+          <text tid="boostwordsoverview">Additional keywords overview</text>
           <text tid="contentlinkto">Copy as content Link to</text>
           <text tid="converttofolder">Revert to folder</text>
           <text tid="converttosite">Convert to website</text>
@@ -566,6 +567,12 @@
         <textgroup gid="start">   <!-- filemanager.main.app.start -->
           <text tid="path">Path</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="boostwordsoverview">   <!-- filemanager.main.boostwordsoverview -->
+        <text tid="boostwordsoverview">Additional keywords overview</text>
+        <text tid="noboostwords">There are no files with additional keywords</text>
+        <text tid="path">Path</text>
+        <text tid="words">Additional keywords</text>
       </textgroup>
       <textgroup gid="converttosite">   <!-- filemanager.main.converttosite -->
         <text tid="message">Are you sure you want to convert the folder '<param p="1"/>' to a site?</text>

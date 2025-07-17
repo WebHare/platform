@@ -1,10 +1,13 @@
 <?wh
 
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 RECORD ARRAY FUNCTION ApplyInheritance(RECORD ARRAY rows, STRING forfield)
 {
@@ -73,6 +76,12 @@ PUBLIC MACRO RunSEOReport(OBJECT parentscreen, INTEGER startingfolderid)
   rows := ApplyInheritance(rows, 'nofollow');
   rows := ApplyInheritance(rows, 'noarchive');
 
+  rows := OpenWHFSType("http://www.webhare.net/xmlns/consilio/boostwords")->Enrich(rows, "id", [ "words" ]);
+  rows :=
+      SELECT *
+           , words := Detokenize(GetSortedSet(words), "; ")
+        FROM rows;
+
   INTEGER ARRAY lookup_canonicals := SELECT AS INTEGER ARRAY DISTINCT canonical FROM rows WHERE canonical != 0;
   RECORD ARRAY canonicalpaths := SELECT id, url FROM system.fs_objects WHERE id IN lookup_canonicals;
 
@@ -92,6 +101,7 @@ PUBLIC MACRO RunSEOReport(OBJECT parentscreen, INTEGER startingfolderid)
                           ,[ name := "canonical", type := "string", title := GetTid("publisher:common.seosettings.canonical") ]
                           ,[ name := "customrobots", type := "string", title := GetTid("publisher:common.seosettings.customrobots") ]
                           ,[ name := "comments", type := "string", title := GetTid("~comments") ]
+                          ,[ name := "words", type := "string", title := GetTid("consilio:objectprops.boostwords.words") ]
                           ];
 
   STRING name := startingfolder->id = startingfolder->parentsite ? startingfolder->name : startingfolder->fullpath;
