@@ -150,7 +150,7 @@ export function getCompiledLanguageFile(moduleName: string, langcode: string, re
     const resdata = readFileSync(resname, 'utf-8');
     retval = { resource: resname, ...compileLanguageFile(resdata, texts), registered };
   }
-  addResourceChangeListener(module, resname, () => {
+  addResourceChangeListener(module, retval.resource, () => {
     retval.resource = "";
     retval.texts.clear();
   });
