@@ -188,7 +188,7 @@ export function appendToArray<T>(array: T[], values: ReadonlyArray<NoInfer<T>>):
 type TypedEntriesInternal<T extends object, K extends keyof T> = K extends keyof T ? [K, T[K]] : never;
 
 /** Returns a union of [ key, value ] types for an object */
-export type TypedEntries<T extends object> = TypedEntriesInternal<T, keyof T & string>;
+export type TypedEntries<T extends object> = T extends object ? TypedEntriesInternal<T, keyof T & string> : never;
 
 /** Returns an array of key/values of the enumerable own properties of an object, with exact types. Use when
  * no extra properties are expected on the object. Exists because Object.entries returns always string as key type.

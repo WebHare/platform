@@ -113,7 +113,7 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
   TT(":Sender address")->value := "testformfile-mailconfirmation@beta.webhare.net";
   TT(":Email contents")->value := BuildRTDFromYAML(`
 - p:
-  - widget:
+  - inlineWidget:
       whfsType: http://www.webhare.net/xmlns/publisher/formconfirmfield
       linktext: click here
   - "to confirm"
