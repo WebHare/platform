@@ -17,7 +17,7 @@
   <fragment name="passwordvalidationchecks" gid=".passwordvalidationchecks" lib="components/passwordvalidationchecks.whlib">
     <contents>
       <line layout="left">
-        <checkbox name="password_externallogin" labeltid=".password_externallogin" title="" onchange="OnExternalLoginChange"/>
+        <checkbox name="password_externallogin" labeltid=".password_externallogin" onchange="OnExternalLoginChange" title="" />
       </line>
       <line layout="left">
         <checkbox name="password_hibp" labeltid=".passwordcheckhibp" title="" />

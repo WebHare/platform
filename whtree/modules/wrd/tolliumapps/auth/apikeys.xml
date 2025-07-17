@@ -19,6 +19,7 @@
     <actions>
       <copyaction name="copykey" source="access_token" title="" />
     </actions>
+
     <body spacers="none">
       <wizard name="wizard">
         <page name="page1" onnext="onnextpage1">
@@ -27,7 +28,7 @@
           <text valuetid=".clicknext" />
         </page>
         <page name="page2" isfinish="true" oninit="oninitpage2">
-          <textedit name="access_token" enabled="false" width="1pr">
+          <textedit name="access_token" width="1pr" enabled="false">
             <button name="copybutton" action="copykey" icon="tollium:actions/copy" title="" />
           </textedit>
           <datetime name="expires_final" type="datetime" readonly="true" storeutc="true" tid=".expires" />

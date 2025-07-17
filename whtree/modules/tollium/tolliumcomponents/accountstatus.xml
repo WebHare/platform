@@ -11,8 +11,9 @@
         <option rowkey="inactive" tid="system:tolliumapps.userrights.common.accountstatus-inactive" />
         <option rowkey="blocked" tid="system:tolliumapps.userrights.common.accountstatus-blocked" />
       </select>
-      <datetime name="since" type="datetime" storeutc="true" enabled="false" />
+      <datetime name="since" type="datetime" enabled="false" storeutc="true" />
       <textarea name="reason" />
     </contents>
   </fragment>
+
 </screens>
