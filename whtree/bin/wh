@@ -209,8 +209,7 @@ list_commands()
   done
 
   if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
-    loadshellconfig
-    for MODULE in $WEBHARE_CFG_MODULES; do
+    for MODULE in $( cd "$WEBHARE_DATAROOT/config/mod" && echo *); do
       if [ "$MODULE" != "system" ]; then
         getmoduledir MODULEDIR $MODULE
         SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
@@ -497,18 +496,11 @@ case $INSTR in
     ;;
 
   "getmoduledir")
-    getmoduledir MODULEDIR "$1"
-    echo $MODULEDIR
+    readlink "$WEBHARE_DATAROOT"/config/mod/"$1"
     ;;
 
   "getmodulelist")
-    loadshellconfig
-    echo $WEBHARE_CFG_MODULES
-    ;;
-
-  "getinstalledmodulelist")
-    loadshellconfig
-    echo $WEBHARE_CFG_INSTALLEDMODULES
+    ( cd "$WEBHARE_DATAROOT/config/mod" && echo *)
     ;;
 
   "compile")
