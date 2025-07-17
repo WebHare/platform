@@ -17,7 +17,7 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
     const responseHeaders = new Headers;
     const browserTriplet = parseUserAgent(req.headers.get("user-agent") || "")?.triplet || "";
     await doLogout(origurl, null, req.headers.get("cookie"), responseHeaders, { clientIp: req.clientIp, browserTriplet });
-    return createRedirectResponse(origurl, HTTPSuccessCode.TemporaryRedirect, { headers: responseHeaders });
+    return createRedirectResponse(origurl, HTTPSuccessCode.Found, { headers: responseHeaders });
   }
 
   if (url.pathname === "/.wh/auth/settoken") {
@@ -36,7 +36,7 @@ export async function authRouter(req: WebRequest): Promise<WebResponse> {
 
     const responseHeaders = new Headers;
     doLoginHeaders(settoken, responseHeaders);
-    return createRedirectResponse(settoken.target, HTTPSuccessCode.TemporaryRedirect, { headers: responseHeaders });
+    return createRedirectResponse(settoken.target, HTTPSuccessCode.Found, { headers: responseHeaders });
   }
 
   return createWebResponse("unknown route", { status: 404 });
