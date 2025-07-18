@@ -65,14 +65,13 @@ fi
 
 
 if [ -z "$FORMODULE" ] || [ "$FORMODULE" == "system" ]; then
-  for SCRIPTDIR in $WEBHARE_DIR/modules/system/scripts/whcommands/; do
-    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
-      if [ -f "$SCRIPTPATH" ]; then
-        FILENAME="${SCRIPTPATH##*/}"
-        INSTR="${FILENAME%.*}"
-        show_commandfile_help "$INSTR" "$SCRIPTPATH"
-      fi
-    done
+  SCRIPTDIR="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+  for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
+    if [ -f "$SCRIPTPATH" ]; then
+      FILENAME="${SCRIPTPATH##*/}"
+      INSTR="${FILENAME%.*}"
+      show_commandfile_help "$INSTR" "$SCRIPTPATH"
+    fi
   done
 fi
 
