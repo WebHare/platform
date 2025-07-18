@@ -31,8 +31,6 @@ while [[ $1 =~ -.* ]]; do
   fi
 done
 
-loadshellconfig
-
 FAILED=0
 # --silent also kills error logging, so just try to prevent as much as possible
 NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore-scripts --no-progress --omit=peer"
@@ -41,11 +39,13 @@ NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore
 wh apply --offline --nodb config.base
 
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
-  MODULESLIST=($(wh getinstalledmodulelist))
+  # this list changes too rarely to bother with the only 'wh getinstalledmodules' call
+  # once we port fixmodules to TS we can read webhareconstant_builtinmodules
+  MODULESLIST="consilio platform publisher socialite system tollium wrd"
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
-  MODULESLIST=($(time wh_runwhscr mod::system/scripts/internal/listbrokenmodules.whscr))
+  MODULESLIST=($(wh_runwhscr mod::system/scripts/internal/listbrokenmodules.whscr))
 fi
 
 for MODULENAME in "${MODULESLIST[@]}"; do

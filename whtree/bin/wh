@@ -70,6 +70,12 @@ export WEBHARE_TSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.typescript/"
 
 mkdir -p "$WEBHARE_HSBUILDCACHE" "$WEBHARE_TSBUILDCACHE"
 
+# Allow hooks, eg. to launch podman for container builds
+if [ -n "$WEBHARE_WH_HOOK" ] && [ -f "$WEBHARE_WH_HOOK" ]; then
+  # shellcheck source=/dev/null
+  source "$WEBHARE_WH_HOOK"
+fi
+
 # Deal with commands that don't require a set up WebHare
 case $INSTR in
   "builddocker")
@@ -209,8 +215,7 @@ list_commands()
   done
 
   if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
-    loadshellconfig
-    for MODULE in $WEBHARE_CFG_MODULES; do
+    for MODULE in $( cd "$WEBHARE_DATAROOT/config/mod" && echo *); do
       if [ "$MODULE" != "system" ]; then
         getmoduledir MODULEDIR $MODULE
         SCRIPTDIR="${MODULEDIR}scripts/whcommands/"
@@ -282,16 +287,12 @@ if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|usebuiltwasm|shell|make|fi
   fi
 fi
 
-# Find the 'dev' module, and if present, load its hooks. Not sure if we should trust random modules to install hooks.. especially as we may run under different UIDs ?
-# WEBHARE_WH_HOOK is an external hook which may replace implementations in wh.
-for EXT in "$WEBHARE_WH_HOOK" \
-           "$WEBHARE_DATAROOT/installedmodules/dev/scripts/wh-hook.sh" \
-           "$WEBHARE_DATAROOT/installedmodules/webhare/dev/scripts/wh-hook.sh" ; do
-  if [ -n "$EXT" ] && [ -f "$EXT" ]; then
-    # shellcheck source=/dev/null
-    source "$EXT"
-  fi
-done
+# If devkit module is active load its hooks. this should happen after whdata/ setup
+DEVKIT_WH_HOOK="$WEBHARE_DATAROOT/config/mod/devkit/scripts/libexec/wh-hook.sh"
+if [ -n "$DEVKIT_WH_HOOK" ] && [ -f "$DEVKIT_WH_HOOK" ]; then
+  # shellcheck source=/dev/null
+  source "$DEVKIT_WH_HOOK"
+fi
 
 case $INSTR in
   "exec")
@@ -497,18 +498,11 @@ case $INSTR in
     ;;
 
   "getmoduledir")
-    getmoduledir MODULEDIR "$1"
-    echo $MODULEDIR
+    readlink "$WEBHARE_DATAROOT"/config/mod/"$1"
     ;;
 
   "getmodulelist")
-    loadshellconfig
-    echo $WEBHARE_CFG_MODULES
-    ;;
-
-  "getinstalledmodulelist")
-    loadshellconfig
-    echo $WEBHARE_CFG_INSTALLEDMODULES
+    ( cd "$WEBHARE_DATAROOT/config/mod" && echo *)
     ;;
 
   "compile")

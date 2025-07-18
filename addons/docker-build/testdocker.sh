@@ -498,12 +498,7 @@ BUILDDIR="$PWD"
 cd "$(dirname "$0")" || die "Cannot change to script directory"
 
 if [ -n "$TESTSECRET_SECRETSURL" ]; then
-  DOWNLOADPATH=`mktemp`
-  if ! curl --fail -o $DOWNLOADPATH "$TESTSECRET_SECRETSURL"; then
-    exit_failure_sh "Cannot retrieve secrets"
-  fi
-  source "$DOWNLOADPATH"
-  rm "$DOWNLOADPATH"
+  eval "$(curl --fail --silent "$TESTSECRET_SECRETSURL")"
   unset TESTSECRET_SECRETSURL
 fi
 
@@ -519,7 +514,7 @@ fi
 [ "$WEBHAREIMAGE" == "head" ] && WEBHAREIMAGE=main
 
 if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
-  WEBHAREIMAGE="$(curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#')"
+  WEBHAREIMAGE="$(curl --silent --fail https://www.webhare.dev/meta/buildimage/$WEBHAREIMAGE)"
   if [ -z "$WEBHAREIMAGE" ]; then
     exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi

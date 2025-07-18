@@ -65,20 +65,18 @@ fi
 
 
 if [ -z "$FORMODULE" ] || [ "$FORMODULE" == "system" ]; then
-  for SCRIPTDIR in "$WEBHARE_DIR/modules/system/scripts/whcommands/"; do
-    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
-      if [ -f "$SCRIPTPATH" ]; then
-        FILENAME="${SCRIPTPATH##*/}"
-        INSTR="${FILENAME%.*}"
-        show_commandfile_help "$INSTR" "$SCRIPTPATH"
-      fi
-    done
+  SCRIPTDIR="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+  for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
+    if [ -f "$SCRIPTPATH" ]; then
+      FILENAME="${SCRIPTPATH##*/}"
+      INSTR="${FILENAME%.*}"
+      show_commandfile_help "$INSTR" "$SCRIPTPATH"
+    fi
   done
 fi
 
 if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
-  loadshellconfig # Loads WEBHARE_CFG_MODULES and enabled getmoduledir
-  for MODULE in $WEBHARE_CFG_MODULES; do
+  for MODULE in $( cd "$WEBHARE_DATAROOT/config/mod" && echo *); do
     if [ "$MODULE" = "system" ]; then
       continue
     fi

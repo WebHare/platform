@@ -17,6 +17,16 @@ type DataRootItem = {
   type: "directory";
 };
 
+function getConfigModulePaths(): DataRootItem[] {
+  return Object.entries(backendConfig.module).
+    map(([name, settings]) => (
+      {
+        subPath: name,
+        type: "symboliclink",
+        target: settings.root
+      }));
+}
+
 function getDataRootNodeModules(): DataRootItem[] {
   const installationroot = backendConfig.installationRoot;
   const whdataroot = backendConfig.dataRoot;
@@ -136,7 +146,7 @@ export async function generateTSConfigTextForModule(module: string) {
   return formatTSConfig(await buildTSConfig(datarootitems));
 }
 
-async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean) {
+async function syncLinks(basepath: string, want: DataRootItem[], { clean = false, verbose = false } = {}) {
   const contents = (await listDirectory(basepath, { recursive: true })).map(entry => ({ ...entry, matched: false }));
 
   for (const item of want) {
@@ -153,6 +163,9 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
 
     //If we get here, either the item (no longer) exists *or* it's a symlink we can just overwrite
     if (item.type === "symboliclink") {
+      if (verbose)
+        console.log(`Creating symlink ${itemPath} -> ${item.target}`);
+
       const tempPath = `${itemPath}.${generateRandomId()}.tmp`;
       await symlink(item.target, tempPath); //generate with unique name
       await rename(tempPath, itemPath); //and move atomically into place
@@ -162,8 +175,11 @@ async function syncLinks(basepath: string, want: DataRootItem[], clean: boolean)
   }
 
   if (clean) //remove remaining unmatched entries
-    for (const rec of contents.filter(_ => !_.matched).sort((a, b) => b.fullPath.length - a.fullPath.length)) //delete deepest first
+    for (const rec of contents.filter(_ => !_.matched).sort((a, b) => b.fullPath.length - a.fullPath.length)) { //delete deepest first
+      if (verbose)
+        console.log(`Removing ${rec.fullPath}`);
       await rm(rec.fullPath, { recursive: rec.type === "directory", force: true }); //ignore any ENOENT races
+    }
 }
 
 
@@ -186,6 +202,8 @@ export async function updateTypeScriptInfrastructure(options?: { verbose?: boole
 
   const whdatamods = backendConfig.dataRoot + "node_modules/";
   await mkdir(whdatamods, { recursive: true });
+  const configmods = backendConfig.dataRoot + "config/mod/";
+  await mkdir(configmods, { recursive: true });
 
   await updateFile(backendConfig.dataRoot + "eslint.config.mjs",
     `import { relaxedConfig } from "@webhare/eslint-config";
@@ -214,8 +232,11 @@ export default [...relaxedConfig, {
 
   await updateFile(backendConfig.dataRoot + ".npmrc", `engine-strict=true\n`);
 
+  const directmodlinks = getConfigModulePaths();
+  await syncLinks(configmods, directmodlinks, { clean: true, verbose: options?.verbose });
+
   const datarootitems = getDataRootNodeModules();
-  await syncLinks(whdatamods, datarootitems, true); //Add verbose support to syncLinks? but it's a lot of noise
+  await syncLinks(whdatamods, datarootitems, { clean: true, verbose: options?.verbose });
 
   const tsconfig = await buildTSConfig(datarootitems);
   const dataRootConfig = {

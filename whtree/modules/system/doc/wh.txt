@@ -9,7 +9,6 @@ pstree                                  Show WebHare processes
 activity                                Show recent hitcounters grouped by minute from the access.log
 dirs                                    Show paths and environment settings
 check                                   Run selfchecks
-shellconfig                             Get WebHare configuration in shell variables
 getmodulelist                           Get the list of installed modules
 getmoduledir <name>                     Where is module '<name>' ?
 getrootdir                              Get the WebHare installation root directory

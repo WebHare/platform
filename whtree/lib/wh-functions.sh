@@ -77,20 +77,6 @@ exec_wh_runjs()
   exit 255
 }
 
-loadshellconfig()
-{
-  if [ -n "$LOADEDSHELLCONFIG" ]; then
-    return;
-  fi
-
-  # Ignore WEBHARE_NODE_OPTIONS when running getshellconfig.ts (NODE_OPTIONS is still honored) so we're not eg. inspecting the wrong process
-  SHELLCONFIG="$(WEBHARE_NODE_OPTIONS= wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
-  [ "$?" == "0" ] || die "shellconfig failed"
-
-  eval "$SHELLCONFIG"
-  LOADEDSHELLCONFIG=1
-}
-
 getwhparameters()
 {
   if [ "$GOTWHPARAMETERS" = "1" ]; then
@@ -122,19 +108,8 @@ getmoduledir_nofail()
 
   RESTPATH=${2#*/}
   MODULENAME=${2%%/*}
+  XXMODULEDIR="$(readlink "$WEBHARE_DATAROOT"/config/mod/"$MODULENAME")"
 
-  # Check if the name is a valid modulename
-  if ! [[ $MODULENAME =~ ^[a-zA-Z0-9_-]*$ ]]; then
-    return 1
-  fi
-
-  loadshellconfig
-  # this isactually unreliable whenever odd chars appear in $MODULENAME, eg a '-', so we need the name validation check
-
-  # Replace '-' with __dash__
-  MODULENAME=${MODULENAME//-/__dash__}
-
-  eval "XXMODULEDIR=\${WEBHARE_CFG_MODULEDIR_$MODULENAME}"
   if [ -n "$XXMODULEDIR" ]; then
     if [ "$RESTPATH" != "$2" -a -n "$RESTPATH" ]; then
       XXMODULEDIR="$XXMODULEDIR$RESTPATH"
@@ -180,26 +155,6 @@ resolveresourcepath ()
     fi
   fi
   eval $1=\$FINALPATH
-}
-
-get_installable_moduledirs()
-{
-  local XDIRS
-
-  if [ -d "$WEBHARE_DATAROOT"/installedmodules ]; then
-    XDIRS=$WEBHARE_DATAROOT/installedmodules/*\ $WEBHARE_DATAROOT/installedmodules/*/*
-  fi
-
-  if [ -n "$WEBHARE_GITMODULES" -a -d "$WEBHARE_GITMODULES" ]; then
-    XDIRS=$XDIRS\ $WEBHARE_GITMODULES/*\ $WEBHARE_GITMODULES/*/*
-  fi
-
-  if [ -n "$WEBHARE_GITPACKAGES" -a -d "$WEBHARE_GITPACKAGES" ]; then
-    XDIRS=$XDIRS\ $WEBHARE_GITPACKAGES/*\ $WEBHARE_GITPACKAGES/*/*
-  fi
-
-  eval $1=\$XDIRS
-  return 0
 }
 
 calc_dir_relpath()
