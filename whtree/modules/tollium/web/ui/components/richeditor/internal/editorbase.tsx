@@ -29,6 +29,7 @@ import { encodeString } from "@webhare/std";
 import { getFileAsDataURL, requestFile } from '@webhare/upload';
 import type { ActionState, GetPlainTextMethod, GetPlainTextOptions, RTEComponent } from './types';
 import { RTECompBase } from './rtecompbase';
+import { handleCopyEvent } from "./clipboard";
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -382,6 +383,7 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
     this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
+    this.editnode.addEventListener("copy", evt => handleCopyEvent(this, evt));
 
     if (this.options.readonly)
       this.toolbarnode.style.display = "none";
