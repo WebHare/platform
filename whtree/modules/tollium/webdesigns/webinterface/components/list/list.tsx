@@ -1287,7 +1287,7 @@ export default class ObjList extends ComponentBase {
     return this.getFirstSelectedRow() !== -1;
   }
 
-  onContextmenu(event) {
+  onContextmenu(event: CustomEvent<{ originalevent: MouseEvent }>) {
     const menu = this.owner.getComponent(this.anySelected() ? this.selectcontextmenu : this.newcontextmenu);
     if (!menu)
       return;
@@ -2726,7 +2726,7 @@ export default class ObjList extends ComponentBase {
     return row ? this.visiblerows[row.propRow] : null;
   }
 
-  onContextMenuRow(event) {
+  onContextMenuRow(event: MouseEvent) {
     const row = event.target.closest('div.listrow');
 
     if (!row)
@@ -2752,7 +2752,7 @@ export default class ObjList extends ComponentBase {
     if (status === true) // only show the contextmenu if the row on which we trigger the contextmenu was selectable
       dompack.dispatchCustomEvent(this.node, "wh:listview-contextmenu", { bubbles: true, cancelable: false, detail: { originalevent: event } });
   }
-  onContextMenuOther(event) {
+  onContextMenuOther(event: MouseEvent) {
     event.stopPropagation();
     event.preventDefault();
 
