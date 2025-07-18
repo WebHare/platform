@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -36,6 +37,17 @@ STRING FUNCTION DescribeAttribute(INTEGER attributeid)
   RETURN RecordExists(info) ? Tolowercase(`${info.schematag}.${info.typetag}.${info.attributetag}`) : `attr #${attributeid}`;
 }
 
+BOOLEAN FUNCTION IsSomeAlive(INTEGER ARRAY entities, INTEGER ARRAY sorted_live_list) {
+  FOREVERY(INTEGER entityid FROM entities)
+    IF(BinaryFind(sorted_live_list, entityid) >= 0)
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+RECORD ARRAY FUNCTION FilterAliveEntities(RECORD ARRAY inlist, INTEGER ARRAY sorted_live_list) {
+  RETURN SELECT * FROM inlist WHERE IsSomeAlive(entities, sorted_live_list);
+}
+
 PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 {
   DATETIME now := GetCurrentDatetime();
@@ -54,7 +66,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                  FROM wrd.attrs
                                 WHERE attributetype = wrd_attributetype_email;
 
-  RECORD ARRAY wrd_brokenemails := SELECT rawdata, attribute, num := COUNT(*)
+  RECORD ARRAY wrd_brokenemails := SELECT entities := GroupedValues(entity), rawdata, attribute, num := COUNT(*)
                                      FROM wrd.entity_settings
                                     WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM emailmembers)
                                           AND NOT IsValidModernEmailAddress(rawdata)
@@ -66,7 +78,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                     FROM wrd.attrs
                                    WHERE attributetype IN [ wrd_attributetype_password, wrd_attributetype_authenticationsettings ];
 
-  RECORD ARRAY wrd_brokenpasswords := SELECT alg := GetBadPWDAlgorithm(ANY(rawdata)), attribute, num := COUNT(*)
+  RECORD ARRAY wrd_brokenpasswords := SELECT entities := GroupedValues(entity), alg := GetBadPWDAlgorithm(ANY(rawdata)), attribute, num := COUNT(*)
                                         FROM wrd.entity_settings
                                        WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM passwordmembers)
                                              AND GetBadPWDAlgorithm(rawdata) != ""
@@ -78,7 +90,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                    FROM wrd.attrs
                                   WHERE attributetype IN [ wrd_attributetype_address ];
 
-  RECORD ARRAY wrd_brokenaddresses := SELECT attribute, num := COUNT(*)
+  RECORD ARRAY wrd_brokenaddresses := SELECT entities := GroupedValues(entity), attribute, num := COUNT(*)
                                        FROM wrd.entity_settings
                                       WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM addressmembers)
                                              AND rawdata LIKE "*\n*"
@@ -90,13 +102,24 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                    FROM wrd.attrs
                                   WHERE attributetype IN [ wrd_attributetype_datetime, wrd_attributetype_date ];
 
-  RECORD ARRAY wrd_brokendates := SELECT attribute, num := COUNT(*)
+  RECORD ARRAY wrd_brokendates := SELECT entities := GroupedValues(entity), attribute, num := COUNT(*)
                                     FROM wrd.entity_settings
                                    WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM datesmembers)
                                          AND rawdata ="2147483647,86399999"
                                 GROUP BY attribute;
 
   wrd_brokendates := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokendates;
+
+  INTEGER ARRAY broken_entities;
+  FOREVERY(RECORD tocheck FROM wrd_brokenaddresses CONCAT wrd_brokenemails CONCAT wrd_brokenpasswords CONCAT wrd_brokendates)
+    broken_entities := broken_entities CONCAT tocheck.entities;
+  broken_entities := GetSortedSet(broken_entities);
+
+  INTEGER ARRAY alive_entities := GetSortedSet(SELECT AS INTEGER ARRAY id FROM wrd.entities WHERE id IN broken_entities AND limitdate = MAX_DATETIME);
+  wrd_brokenaddresses := FilterAliveEntities(wrd_brokenaddresses, alive_entities);
+  wrd_brokenemails := FilterAliveEntities(wrd_brokenemails, alive_entities);
+  wrd_brokenpasswords := FilterAliveEntities(wrd_brokenpasswords, alive_entities);
+  wrd_Brokendates := FilterAliveEntities(wrd_Brokendates, alive_entities);
 
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
