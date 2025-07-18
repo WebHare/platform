@@ -116,8 +116,8 @@ export function getTid(tid: string, ...p: GetTidArgumentTypes): string | Array<s
   return getTidInternal(tid, p as Array<TidParam | undefined>, {});
 }
 
-export function getTidForLanguage(langCode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null) {
-  return getTidInternal(tid, [p1, p2, p3, p4], { langCode });
+export function getTidForLanguage(langCode: string, tid: string, p1: TidParam = null, p2: TidParam = null, p3: TidParam = null, p4: TidParam = null): string {
+  return getTid(tid, [p1, p2, p3, p4], { langCode });
 }
 
 export function getHTMLTid(tid: string, ...params: TidParam[]): string {
