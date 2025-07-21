@@ -670,6 +670,18 @@ elif [ -n "$ISMODULETEST" ]; then
       exit_failure_sh "Dependency extraction failed"
     fi
   fi
+
+  # Get the current branch name of the module
+  TESTINGMODULEBRANCH="$(git -C "$TESTINGMODULEDIR" rev-parse --abbrev-ref HEAD || true)"
+  # For 'normal' ci builds, use the branch name from the CI environment
+  if [ -n "$CI_COMMIT_BRANCH" ]; then
+    TESTINGMODULEBRANCH="$CI_COMMIT_BRANCH"
+  fi
+  # For merge requests, use the target branch name
+  if [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" ]; then
+    TESTINGMODULEBRANCH="$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  fi
+  echo "Tested module branch: $TESTINGMODULEBRANCH"
 fi
 
 create_container 1 #once a container is created, we have the version number
@@ -792,6 +804,16 @@ do
   echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$TARGETDIR'$CLONEINFO"
   if ! git clone --recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
     exit_failure_sh "Failed to clone $CLONEURL"
+  fi
+
+  # When the current tested branch starts with feature/..., try to check out the same branch in the module when it exists
+  if [ -z "$MODULEBRANCH" ] && [ -n "$TESTINGMODULEBRANCH" ] && [[ $TESTINGMODULEBRANCH == "feature/"* ]]; then
+    if git -C "$TARGETDIR" rev-parse --verify "origin/$TESTINGMODULEBRANCH" 2> /dev/null > /dev/null; then
+      echo "Checking out $MODULENAME branch $TESTINGMODULEBRANCH because it matches the tested module branch"
+      if ! git -C "$TARGETDIR" checkout --recurse-submodules "$TESTINGMODULEBRANCH" || ! git -C "$TARGETDIR" submodule update --init --recursive; then
+        exit_failure_sh "Failed to checkout branch $TESTINGMODULEBRANCH in $MODULENAME"
+      fi
+    fi
   fi
 done
 
