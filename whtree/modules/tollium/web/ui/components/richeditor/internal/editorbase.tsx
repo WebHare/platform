@@ -383,7 +383,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
     this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
     this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
-    this.editnode.addEventListener("copy", evt => handleCopyEvent(this, evt));
 
     if (this.options.readonly)
       this.toolbarnode.style.display = "none";
@@ -2419,13 +2418,10 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
   }
 
-  _gotCopy(event) {
-    // Add the copy-indicator class to the body node, to make sure embedded objects can be copied. Clear when the event is handled.
-    this.getBody().classList.add("wh-rtd-editor-bodynode--copying");
-    Promise.resolve().then(() => this.getBody().classList.remove("wh-rtd-editor-bodynode--copying"));
+  async _gotCopy(event) {
   }
 
-  _gotCut(event) {
+  async _gotCut(event) {
     // Check the dom after a cut
     this.scheduleCallbackOnInputOrDelay(this.checkDomStructure.bind(this), 'checkdom');
   }

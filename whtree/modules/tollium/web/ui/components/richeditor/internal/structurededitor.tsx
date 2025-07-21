@@ -17,6 +17,7 @@ import EditorBase, { type TextFormattingState } from './editorbase';
 import PasteCleanup from './pastecleanup';
 import type { RTEWidget } from "./types";
 import { parseEmbeddedObjectNode } from "./support";
+import { copySelectionToClipboard } from "./clipboard";
 
 //debug flags
 const debugicc = debugFlags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
@@ -132,6 +133,20 @@ export default class StructuredEditor extends EditorBase {
   //
   // Callback handlers
   //
+
+  async _gotCopy(event) {
+    dompack.stop(event);
+    await copySelectionToClipboard(this, event);
+  }
+
+  async _gotCut(event) {
+    dompack.stop(event);
+    const undolock = this.getUndoLock();
+    await copySelectionToClipboard(this, event);
+    this.removeSelection();
+    this.checkDomStructure();
+    undolock.close();
+  }
 
   gotPaste(event) {
     /* Paste event:
