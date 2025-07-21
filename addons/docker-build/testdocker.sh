@@ -592,6 +592,10 @@ if [ "$NOPULL" != "1" ]; then
       exit_failure_sh "Failed to pull image"
     fi
   fi
+else
+  if [[ $WEBHAREIMAGE =~ docker.io/webhare/platform:.* ]] && [ -n "$WH_CI_ALTERNATEREGISTRY" ] ; then
+    WEBHAREIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:27}  # 27 is the length of 'docker.io/webhare/platform:'
+  fi
 fi
 
 # Cleanup
