@@ -1,7 +1,7 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
-import { pick, slugify, typedEntries, typedFromEntries } from "@webhare/std";
+import { pick, slugify, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -15,6 +15,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
 import { getWHType } from "@webhare/std/quacks";
+import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -274,6 +275,24 @@ export async function unmapExternalWHFSRef(inId: string): Promise<number | null>
     return target > 0 ? target : null;
   }
   return null;
+}
+
+export function exportIntExtLink(value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> {
+  if (value?.internalLink)
+    return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
+  if (value?.externalLink)
+    return { externalLink: value.externalLink };
+  return null;
+}
+
+export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> {
+  if (!value || isIntExtLink(value))
+    return value;
+
+  if ("externalLink" in value)
+    return new IntExtLink(value.externalLink);
+
+  return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
 }
 
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {

@@ -6,7 +6,7 @@ import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
@@ -14,7 +14,7 @@ import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
 import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
-import { isIntExtLink, type ExportedIntExtLink } from "@webhare/services/src/intextlink";
+import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -500,20 +500,10 @@ export const codecs: { [key: string]: TypeCodec } = {
       return null;
     },
     exportValue: (value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
-      if (value?.internalLink)
-        return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
-      if (value?.externalLink)
-        return { externalLink: value.externalLink };
-      return null;
+      return exportIntExtLink(value, options);
     },
     importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
-      if (!value || isIntExtLink(value))
-        return value;
-
-      if ("externalLink" in value)
-        return new IntExtLink(value.externalLink);
-
-      return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
+      return importIntExtLink(value);
     }
   }
 };
