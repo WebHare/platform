@@ -2,6 +2,9 @@ import { Money } from "./money";
 import { isBlob, isDate, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime, stdTypeOf } from "./quacks";
 import type { Temporal } from "temporal-polyfill";
 
+/// Returns T or a promise resolving to T
+export type MaybePromise<T> = Promise<T> | T;
+
 export type ComparableType = number | null | bigint | string | Date | Money | boolean | Uint8Array;
 
 type CamelCase<S extends string> = S extends `${infer P1}_${infer P2}${infer P3}`
