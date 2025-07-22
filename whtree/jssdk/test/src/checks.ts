@@ -272,15 +272,6 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, options?: 
   }
 }
 
-function isEqual(a: unknown, b: unknown) {
-  try {
-    testDeepEq(a, b, '', undefined);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
 function testStringify(val: unknown): string {
   switch (typeof val) {
     case "bigint":
@@ -322,25 +313,25 @@ export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, option
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
-  if (isEqual(expected, actual))
-    return;
+  try {
+    testDeepEq(expected, actual, '', options);
+  } catch (e) {
+    const expected_str = testStringify(expected);
+    const actual_str = testStringify(actual);
 
-  const expected_str = testStringify(expected);
-  const actual_str = testStringify(actual);
+    onLog("testEq fails: expected", expected_str);
+    onLog("testEq fails: actual  ", actual_str);
+    if (typeof actual === "object" && actual && "then" in actual)
+      onLog("actual looks like a promise, did you await it?");
 
-  onLog("testEq fails: expected", expected_str);
-  onLog("testEq fails: actual  ", actual_str);
-  if (typeof actual === "object" && actual && "then" in actual)
-    onLog("actual looks like a promise, did you await it?");
+    if (typeof expected === "string" && typeof actual === "string") {
+      onLog("E: " + encodeURIComponent(expected));
+      onLog("A: " + encodeURIComponent(actual));
 
-  if (typeof expected === "string" && typeof actual === "string") {
-    onLog("E: " + encodeURIComponent(expected));
-    onLog("A: " + encodeURIComponent(actual));
-
-    printColoredTextDiff(expected, actual);
+      printColoredTextDiff(expected, actual);
+    }
+    throw e;
   }
-
-  testDeepEq(expected, actual, '', options);
 }
 
 /* TypeScript requires assertions to return void, so we can't just "asserts actual" here if we return the original value.
