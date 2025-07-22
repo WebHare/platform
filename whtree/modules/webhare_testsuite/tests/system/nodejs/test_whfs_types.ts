@@ -3,7 +3,7 @@ import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
-import { Money } from "@webhare/std";
+import { Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
@@ -170,6 +170,19 @@ async function testInstanceData() {
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
     await testtype.enrich([{ getId: testfile.id, passThrough: 42 }], "getId", ["str", "aRecord"]));
+
+  const expWhfsRefs = pick(await testtype.get(testfile.id, { export: true }), ["myWhfsRef", "myWhfsRefArray"]);
+  test.eq("site::webhare_testsuite.testsite/tmp/testfile.txt", expWhfsRefs.myWhfsRef);
+  test.eq(["site::webhare_testsuite.testsite/tmp/", "site::webhare_testsuite.testsite/tmp/testfile.txt"], (expWhfsRefs.myWhfsRefArray as string[]).toSorted());
+
+  //Verify we can import them again
+  await testtype.set(testfile.id, expWhfsRefs);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+
+  test.eqPartial({
+    myWhfsRef: testfile.id,
+    myWhfsRefArray: fileids,
+  }, await testtype.get(testfile.id));
 
   const typeThroughShortName = await whfs.openType("webhare_testsuite:global.genericTestType");
   test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));

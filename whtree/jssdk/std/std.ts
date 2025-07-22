@@ -6,7 +6,7 @@ declare module "@webhare/std" {
 export { sleep, createDeferred, wrapInTimeout, serialize, wrapSerialized, type DeferredPromise, type SerializeOptions } from "./promises";
 
 export { compare, compareProperties, nameToCamelCase, nameToSnakeCase, toSnakeCase, toCamelCase } from "./types";
-export type { ToSnakeCase, ToCamelCase, ComparableType } from "./types";
+export type { ToSnakeCase, ToCamelCase, ComparableType, MaybePromise } from "./types";
 
 export { encodeString, decodeString, escapeRegExp, regExpFromWildcards, stringify, parseTyped, slugify, isValidEmail, isValidUrl, joinURL, type StringEncodings, toCLocaleLowercase, toCLocaleUppercase, levenshteinDistance, getUTF8Length, limitUTF8Length } from "./strings";
 export { generateRandomId, isLikeRandomId, isValidUUID } from "./platformbased";

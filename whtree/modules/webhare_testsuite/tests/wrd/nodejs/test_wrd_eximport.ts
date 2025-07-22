@@ -136,7 +136,7 @@ async function testExport() { //  tests
       rtdleft: [
         {
           widget: test.expectWHFSInstanceData("http://www.webhare.net/xmlns/beta/embedblock1", {
-            fsref: 10,
+            fsref: "whfs::/webhare-private/",
             styletitle: "Test style",
             id: "TestInstance-2"
           })
