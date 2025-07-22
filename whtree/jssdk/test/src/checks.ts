@@ -39,15 +39,32 @@ type RecursiveTestable<T> =
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
-export class TestError extends Error {
+//We want to make clear ('assert') that wait will not return falsy values
+export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
+export type WaitOptions<T> = Annotation | {
+  timeout?: number;
+  test?: (value: T) => boolean;
+  annotation?: Annotation;
+};
+export type TestOptions = {
+  /** Custom comparison function. This function will be fed all values before standard comparisons run
+   * @param expect - The expected value
+   * @param actual - The actual value
+   * @returns True if the values match, false if they dont - undefined if onCompare has no opinion
+   */
+  onCompare?: (expect: unknown, actual: unknown) => boolean | undefined;
+  annotation?: Annotation;
+};
+
+class TestError extends Error {
   readonly annotation: string;
 
-  constructor(message: string, annotation?: Annotation, options?: { cause?: Error }) {
+  constructor(message: string, options?: TestOptions & { cause?: Error }) {
     super(message, options);
 
     //Log test failure info during construction so it's not lost if there's not a testrunner to catch and display this
     console.error("TestError:", message);
-    this.annotation = (typeof annotation === "function" ? annotation() : annotation) || "";
+    this.annotation = (typeof options?.annotation === "function" ? options?.annotation() : options?.annotation) || "";
     if (this.annotation)
       console.error("Annotation:", this.annotation);
   }
@@ -101,52 +118,52 @@ function printColoredTextDiff(expected: string, actual: string) {
   console.log(str, ...colors);
 }
 
-function testMoney(expect: Money, actual: unknown, path: string, annotation: Annotation) {
+function testMoney(expect: Money, actual: unknown, path: string, options?: TestOptions) {
   if (!Money.isMoney(actual)) {
     onLog("Money fails type: expected", expect);
     onLog("Money fails type: actual  ", actual);
-    throw new TestError("Expected type: Money actual type: " + typeof actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected type: Money actual type: " + typeof actual + (path !== "" ? " at " + path : ""), options);
   }
 
   if (Money.cmp(expect, actual) !== 0) {
     onLog("Money fails: expected", expect);
     onLog("Money fails: actual  ", actual);
-    throw new TestError("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""), options);
   }
 }
 
-function testTestFunction(expect: TestFunction<unknown>, actual: unknown, path: string, annotation: Annotation) {
+function testTestFunction(expect: TestFunction<unknown>, actual: unknown, path: string, options?: TestOptions) {
   const result = expect(actual);
   if (typeof result !== "boolean") {
     onLog("test function fails type: want boolean but got ", typeof result);
     onLog("test function fails type: actual  ", actual);
-    throw new TestError("test function did not return a boolean: " + typeof actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("test function did not return a boolean: " + typeof actual + (path !== "" ? " at " + path : ""), options);
   }
 
   if (!result) {
     onLog("test function evaluated to false");
     onLog("test function actual value: ", actual);
-    throw new TestError("test function failed" + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("test function failed" + (path !== "" ? " at " + path : ""), options);
   }
 }
 
-function testRegExp(expect: RegExp, actual: unknown, path: string, annotation: Annotation) {
+function testRegExp(expect: RegExp, actual: unknown, path: string, options?: TestOptions) {
   if (typeof actual !== "string") {
     onLog("regExp fails type: expected", expect);
     onLog("regExp fails type: actual  ", actual);
-    throw new TestError("Expected type: string actual type: " + typeof actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected type: string actual type: " + typeof actual + (path !== "" ? " at " + path : ""), options);
   }
 
   if (!expect.test(actual)) {
     onLog("regExp fails: expected", expect);
     onLog("regExp fails: actual  ", actual);
-    throw new TestError("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected match: " + String(expect) + " actual: " + actual + (path !== "" ? " at " + path : ""), options);
   }
 }
 
-function testSet(expect: Set<unknown>, actual: unknown, path: string, annotation: Annotation) {
+function testSet(expect: Set<unknown>, actual: unknown, path: string, options?: TestOptions) {
   if (!(actual instanceof Set))
-    throw new TestError(`Expected a Set, got ${actual?.constructor.name} at ${path}`, annotation);
+    throw new TestError(`Expected a Set, got ${actual?.constructor.name} at ${path}`, options);
 
   const missing = expect.difference(actual);
   const unexpected = actual.difference(expect);
@@ -159,11 +176,19 @@ function testSet(expect: Set<unknown>, actual: unknown, path: string, annotation
 
     const baseError = (missing.size && unexpected.size) ? `Missing ${missing.size} elements and ${unexpected.size} unexpected elements` :
       missing.size ? `Missing ${missing.size} elements` : `Unexpected ${unexpected.size} elements`;
-    throw new TestError(`${baseError} in Set at ${path}`, annotation);
+    throw new TestError(`${baseError} in Set at ${path}`, options);
   }
 }
 
-function testDeepEq(expected: unknown, actual: unknown, path: string, annotation: Annotation) {
+function testDeepEq(expected: unknown, actual: unknown, path: string, options?: TestOptions) {
+  if (options?.onCompare) {
+    const result = options.onCompare(expected, actual);
+    if (result === true)
+      return;
+    if (result === false)
+      throw new TestError(`Custom comparison failed for expected: ${expected} actual: ${actual}${path !== "" ? " at " + path : ""}`, options);
+  }
+
   if (expected === actual)
     return;
 
@@ -171,29 +196,29 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
     if (actual === null)
       return; //ok!
     else
-      throw new TestError("Expected null, got " + (path !== "" ? " at " + path : ""), annotation);
+      throw new TestError("Expected null, got " + (path !== "" ? " at " + path : ""), options);
 
   if (actual === null)
-    throw new TestError("Got a null, but expected " + expected + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Got a null, but expected " + expected + (path !== "" ? " at " + path : ""), options);
   if (actual === undefined)
-    throw new TestError("Got undefined, but expected " + expected + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Got undefined, but expected " + expected + (path !== "" ? " at " + path : ""), options);
 
   if (expected instanceof RegExp)
-    return testRegExp(expected, actual, path, annotation);
+    return testRegExp(expected, actual, path, options);
   if (typeof expected === "function")
-    return testTestFunction(expected as TestFunction<unknown>, actual, path, annotation);
+    return testTestFunction(expected as TestFunction<unknown>, actual, path, options);
   if (Money.isMoney(expected))
-    return testMoney(expected, actual, path, annotation);
+    return testMoney(expected, actual, path, options);
 
   if (isPromise(expected))
-    throw new TestError(`Passing a Promise to test.eq's expected value - did you mean to await it?`, annotation);
+    throw new TestError(`Passing a Promise to test.eq's expected value - did you mean to await it?`, options);
   if (isPromise(actual))
-    throw new TestError(`Passing a Promise to test.eq's actual value - did you mean to await it?`, annotation);
+    throw new TestError(`Passing a Promise to test.eq's actual value - did you mean to await it?`, options);
 
   const type_expected = myTypeOf(expected);
   const type_actual = myTypeOf(actual);
   if (type_expected !== type_actual)
-    throw new TestError("Expected type: " + type_expected + " actual type: " + type_actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected type: " + type_expected + " actual type: " + type_actual + (path !== "" ? " at " + path : ""), options);
 
   if (["number", "string", "Date", "Instant", "PlainDate", "PlainDateTime"].includes(type_expected)) {
     const str_expected = type_expected === "Date" ? (expected as Date).toISOString() : (expected as object).toString();
@@ -202,27 +227,27 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
       return;
 
     printColoredTextDiff(str_expected, str_actual);
-    throw new TestError(`Expected ${type_expected}: ${str_expected}, actual: ${str_actual}${path !== "" ? " at " + path : ""}`, annotation);
+    throw new TestError(`Expected ${type_expected}: ${str_expected}, actual: ${str_actual}${path !== "" ? " at " + path : ""}`, options);
   }
 
   if (expected instanceof Set)
-    return testSet(expected, actual, path, annotation);
+    return testSet(expected, actual, path, options);
 
   if (typeof expected !== "object") //simple value mismatch
-    throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected: " + expected + " actual: " + actual + (path !== "" ? " at " + path : ""), options);
 
   if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected !== actual) {
     onLog("Expected node: ", expected);
     onLog("Actual node:", actual);
-    throw new TestError("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path !== "" ? " at " + path : ""), annotation);
+    throw new TestError("Expected DOM node: " + presentDomNode(expected as Node) + " actual: " + presentDomNode(actual as Node) + (path !== "" ? " at " + path : ""), options);
   }
 
   if (Array.isArray(expected) && Array.isArray(actual)) {
     if (expected.length !== actual.length)
-      throw new TestError("Expected: " + expected.length + " elements, actual: " + actual.length + " elements" + (path !== "" ? " at " + path : ""), annotation);
+      throw new TestError("Expected: " + expected.length + " elements, actual: " + actual.length + " elements" + (path !== "" ? " at " + path : ""), options);
 
     for (let i = 0; i < expected.length; ++i)
-      testDeepEq(expected[i], actual[i], path + "[" + i + "]", annotation);
+      testDeepEq(expected[i], actual[i], path + "[" + i + "]", options);
   } else {
     //not the same object. same contents?
     const expectedkeys = Object.keys(expected);
@@ -234,15 +259,15 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, annotation
         if ((expected as any)[key] === undefined) // allow undefined to function as missing-property indicator too
           continue;
 
-        throw new TestError("Expected key: " + key + ", didn't actually exist" + (path !== "" ? " at " + path : ""), annotation);
+        throw new TestError("Expected key: " + key + ", didn't actually exist" + (path !== "" ? " at " + path : ""), options);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      testDeepEq((expected as any)[key], (actual as any)[key] as any, path + "." + key, annotation);
+      testDeepEq((expected as any)[key], (actual as any)[key] as any, path + "." + key, options);
     }
     for (const key of actualkeys) {
       if (!expectedkeys.includes(key))
-        throw new TestError("Key unexpectedly exists: " + key + (path !== "" ? " at " + path : ""), annotation);
+        throw new TestError("Key unexpectedly exists: " + key + (path !== "" ? " at " + path : ""), options);
     }
   }
 }
@@ -290,9 +315,12 @@ function testStringify(val: unknown): string {
  * @param actual - The actual value
  * @throws If the values are not equal
  */
-export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, annotation?: Annotation): void {
+export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, options?: Annotation | TestOptions): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
+
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
 
   if (isEqual(expected, actual))
     return;
@@ -312,15 +340,18 @@ export function eq<T>(expected: NoInfer<RecursiveTestable<T>>, actual: T, annota
     printColoredTextDiff(expected, actual);
   }
 
-  testDeepEq(expected, actual, '', annotation);
+  testDeepEq(expected, actual, '', options);
 }
 
 /* TypeScript requires assertions to return void, so we can't just "asserts actual" here if we return the original value.
    assert's returnvalue isn't that useful so it seems worth giving up the return value for cleaner testcode
 */
-export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
+export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, options?: Annotation | TestOptions): asserts actual {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
   if (isPromise(actual))
-    throw new TestError(`You cannot assert on a promise.Did you forget to await it ?`, annotation);
+    throw new TestError(`You cannot assert on a promise.Did you forget to await it ?`, options);
 
   if (actual)
     return; //test passed is actual was 'true'
@@ -329,25 +360,25 @@ export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Pr
   if (stack) {
     testsupport.reportAssertError(stack);
   }
-  throw new TestError("test.assert failed", annotation);
+  throw new TestError("test.assert failed", options);
 }
 
-async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation?: Annotation): Promise<Error> {
+async function throwsAsync(expect: RegExp, promise: Promise<unknown>, options?: TestOptions): Promise<Error> {
   let retval;
   try {
     retval = await promise;
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   } catch (e) {
-    return verifyThrowsException(expect, e, annotation);
+    return verifyThrowsException(expect, e, options);
   }
 
-  failThrows(expect, retval, annotation);
+  failThrows(expect, retval, options);
 }
 
 //handle the failure of throws(Async)
-function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
+function failThrows(expect: RegExp, retval: unknown, options?: TestOptions): never {
   //If we get here, no exception occurred
-  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, annotation);
+  const error = new TestError(`test.throws failed - expected function to throw ${expect.toString()}`, options);
 
   onLog("Expected exception: ", expect.toString());
   if (retval === undefined)
@@ -358,10 +389,10 @@ function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): n
   throw error;
 }
 
-function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: Annotation): Error {
+function verifyThrowsException(expect: RegExp, exception: unknown, options?: TestOptions): Error {
   if (!isError(exception)) {
     console.error("Expected a proper Error but got:", exception);
-    throw new TestError("test.throws failed - didn't get an Error object", annotation);
+    throw new TestError("test.throws failed - didn't get an Error object", options);
   }
 
   const exceptiontext = exception.message;
@@ -370,7 +401,7 @@ function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: 
     onLog("Got exception: ", exceptiontext);
     if (exception.stack)
       onLog("Stack: ", exception.stack);
-    throw new TestError("test.throws failed - exception mismatch", annotation, { cause: exception });
+    throw new TestError("test.throws failed - exception mismatch", { ...options, cause: exception });
   }
 
   return exception; //we got what we wanted - a throw! return the Error
@@ -381,25 +412,28 @@ function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: 
  * @param func_or_promise - A function to call, or a promise to await
  * @param annotation - Optional annotation to log if the test fails
  * @returns The Error object thrown */
-export function throws(expect: RegExp, func_or_promise: () => never, annotation?: Annotation): Error; // only picks up always-throwing functions
-export function throws(expect: RegExp, func_or_promise: Promise<unknown>, annotation?: Annotation): Promise<Error>;
-export function throws(expect: RegExp, func_or_promise: () => Promise<unknown>, annotation?: Annotation): Promise<Error>;
-export function throws(expect: RegExp, func_or_promise: () => unknown, annotation?: Annotation): Error;
+export function throws(expect: RegExp, func_or_promise: () => never, options?: Annotation | TestOptions): Error; // only picks up always-throwing functions
+export function throws(expect: RegExp, func_or_promise: Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
+export function throws(expect: RegExp, func_or_promise: () => Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
+export function throws(expect: RegExp, func_or_promise: () => unknown, options?: Annotation | TestOptions): Error;
 
-export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Error | Promise<Error> {
+export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), options?: Annotation | TestOptions): Error | Promise<Error> {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
   let retval;
   try {
     //If we got a function, execute it
     const potentialpromise = typeof func_or_promise === "function" ? func_or_promise() : func_or_promise;
     if (isPromise(potentialpromise))
-      return throwsAsync(expect, potentialpromise as Promise<unknown>, annotation);
+      return throwsAsync(expect, potentialpromise as Promise<unknown>, options);
 
     retval = potentialpromise;
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   } catch (e) {
-    return verifyThrowsException(expect, e, annotation);
+    return verifyThrowsException(expect, e, options);
   }
-  failThrows(expect, retval, annotation);
+  failThrows(expect, retval, options);
 
 }
 
@@ -409,23 +443,29 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
  *  @param expected - Expected value
  *  @param actual - Actual value
  *  @param annotation - Message to display when the test fails */
-export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, annotation?: Annotation) {
-  eqPropsRecurse(expect, actual, "root", [], annotation);
+export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, options?: Annotation | TestOptions) {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
+  eqPropsRecurse(expect, actual, "root", [], options);
   return actual;
 }
 
 /** @deprecated use test.eqPartial instead */
-export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], annotation?: Annotation) {
-  eqPropsRecurse(expect, actual, "root", ignore, annotation);
+export function eqProps<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, ignore: string[] = [], options?: Annotation | TestOptions) {
+  if (typeof options === "string" || typeof options === "function")
+    options = { annotation: options };
+
+  eqPropsRecurse(expect, actual, "root", ignore, options);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, path: string, ignore: string[], options?: TestOptions) {
   switch (stdTypeOf(expect)) {
     case "Date":
     case "Money":
     case "Instant":
-      testDeepEq(expect, actual, path, annotation);
+      testDeepEq(expect, actual, path, options);
       return;
   }
 
@@ -433,53 +473,53 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
     case "undefined": {
       if (expect !== actual) {
         onLog({ expect, actual });
-        throw new TestError(`Mismatched value at ${path}`, annotation);
+        throw new TestError(`Mismatched value at ${path}`, options);
       }
       return;
     }
     case "function":
-      return testTestFunction(expect as TestFunction<unknown>, actual, path, annotation);
+      return testTestFunction(expect as TestFunction<unknown>, actual, path, options);
     case "object":
       {
         if (expect instanceof RegExp)
-          return testRegExp(expect, actual, path, annotation);
+          return testRegExp(expect, actual, path, options);
 
         if (expect === null) {
           if (expect !== actual) {
             onLog({ expect, actual });
-            throw new TestError(`Mismatched value at ${path}`, annotation);
+            throw new TestError(`Mismatched value at ${path}`, options);
           }
           return;
         }
         const expectarray = Array.isArray(expect);
         if (expectarray !== Array.isArray(actual)) {
           onLog({ expect, actual });
-          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`, annotation);
+          throw new TestError(`Expected ${expectarray ? "array" : "object"}, got ${!expectarray ? "array" : "object"}, at ${path}`, options);
         }
         if (expectarray) {
           if (!Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array, got object, at ${path}`, annotation);
+            throw new TestError(`Expected array, got object, at ${path}`, options);
           }
 
           if (expect.length !== actual.length) {
             onLog({ expect, actual });
-            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`, annotation);
+            throw new TestError(`Expected array of length ${expect.length}, got array of length ${actual.length}, at ${path}`, options);
           }
           for (let i = 0; i < expect.length; ++i)
-            eqPropsRecurse(expect[i], actual[i], `${path}[${i}]`, ignore, annotation);
+            eqPropsRecurse(expect[i], actual[i], `${path}[${i}]`, ignore, options);
           return;
         } else {
           if (Array.isArray(actual)) {
             onLog({ expect, actual });
-            throw new TestError(`Expected object, got array, at ${path}`, annotation);
+            throw new TestError(`Expected object, got array, at ${path}`, options);
           }
 
         }
 
         if (typeof actual !== "object" || !actual) {
           onLog({ expect, actual });
-          throw new TestError(`Mismatched value at ${path}`, annotation);
+          throw new TestError(`Mismatched value at ${path}`, options);
         }
 
         const gotkeys = Object.keys(actual);
@@ -492,7 +532,7 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
             if (value === undefined)
               continue;
             onLog({ expect, actual });
-            throw new TestError(`Expected property '${key}', didn't find it, at ${path}`, annotation);
+            throw new TestError(`Expected property '${key}', didn't find it, at ${path}`, options);
           }
           eqPropsRecurse(value, (actual as { [k: string]: unknown })[key], `${path}.${key}`, ignore);
         }
@@ -501,13 +541,13 @@ function eqPropsRecurse<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual:
     default:
       if (expect !== actual) {
         onLog({ expect, actual });
-        throw new TestError(`Mismatched value at ${path}`, annotation);
+        throw new TestError(`Mismatched value at ${path}`, options);
       }
   }
 }
 
 /** @deprecated use test.eq in WebHare 5.4+, it also accepts RegExp */
-export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
+export function eqMatch(regexp: RegExp, actual: string, options?: TestOptions) {
   if (actual.match(regexp))
     return;
 
@@ -523,7 +563,7 @@ export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation)
   onLog("testEqMatch fails: actual  ", actual_str);
   // testfw.log("testEqMatch fails: actual " + (typeof actual_str === "string" ? "'" + actual_str + "'" : actual_str));
 
-  throw new TestError("testEqMatch failed", annotation);
+  throw new TestError("testEqMatch failed", options);
 }
 
 export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
@@ -532,7 +572,7 @@ export function setupLogging(settings: { onLog?: LoggingCallback } = {}) {
 }
 
 export interface TestTypeValidator {
-  validateStructure(data: unknown, annotation?: string): void;
+  validateStructure(data: unknown, options?: TestOptions): void;
 }
 
 class JSONSchemaValidator implements TestTypeValidator {
@@ -540,7 +580,7 @@ class JSONSchemaValidator implements TestTypeValidator {
   constructor(validatefunction: AjvValidateFunction) {
     this.validate = validatefunction;
   }
-  validateStructure(data: unknown, annotation?: Annotation) {
+  validateStructure(data: unknown, options?: TestOptions) {
     const valid = this.validate(data);
     if (!valid) {
       let message = "";
@@ -550,7 +590,7 @@ class JSONSchemaValidator implements TestTypeValidator {
         console.log("Got structure validation errors: ", this.validate.errors);
       }
 
-      throw new TestError(`validateStructure failed - data does not conform to the structure${message ? `: ${message}` : ""}`, annotation);
+      throw new TestError(`validateStructure failed - data does not conform to the structure${message ? `: ${message}` : ""}`, options);
     }
   }
 }
@@ -569,10 +609,6 @@ export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise
   return new JSONSchemaValidator(await getCompiledJSONSchema(tocompile));
 }
 
-//We want to make clear ('assert') that wait will not return falsy values
-export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
-export type WaitOptions<T> = Annotation | { timeout?: number; test?: (value: T) => boolean; annotation?: Annotation };
-
 /** Wait for a condition to become truthy
  * @param waitfor - A function/promiose that should resolve to true for the wait to finish
  * @param test - An optional test that should return true for the wait to end. By default wait() waits for a truthy value
@@ -584,7 +620,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
 
-  const { timeout = 60000, annotation } = options ?? {};
+  const { timeout = 60000 } = options ?? {};
 
   // TypeScript can't see that the timeout can modify gottimeout, so use a function to read it
   let gottimeout = false;
@@ -605,7 +641,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     } finally {
       clearTimeout(timeout_cb);
     }
-    throw new TestError(`test.wait timed out after ${timeout} ms`, annotation);
+    throw new TestError(`test.wait timed out after ${timeout} ms`, options);
   } else {
     let cb;
     if (options?.test)
@@ -614,7 +650,7 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     const timeoutpromise = new Promise((_, reject) => {
       cb = setTimeout(() => {
         cb = null;
-        reject(new TestError(`test.wait timed out after ${timeout} ms`, annotation));
+        reject(new TestError(`test.wait timed out after ${timeout} ms`, options));
       }, timeout);
     });
     try {
@@ -646,7 +682,7 @@ export async function waitToggled<T>({ test, run }: {
     result = await result;
 
   if (result)
-    throw new TestError("waitToggled: the test condition is already initially true", options?.annotation);
+    throw new TestError("waitToggled: the test condition is already initially true", options);
 
   await sleep(1);
 
@@ -656,7 +692,7 @@ export async function waitToggled<T>({ test, run }: {
     result = await result;
 
   if (result)
-    throw new TestError("waitToggled: the test condition became true before we even got to invoke the action!", options?.annotation);
+    throw new TestError("waitToggled: the test condition became true before we even got to invoke the action!", options);
 
   await run();
   return await wait(test, options);
@@ -720,3 +756,5 @@ export type Extends<X extends Y, Y> = X extends Y ? true : true;
  * @param X - Type assertion
  */
 export function typeAssert<X extends true>(): X extends true ? void : void { return; }
+
+export type { TestError };
