@@ -357,7 +357,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   };
 }
 
-type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
+export type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
 
 export function encodeScanData(meta: EncodableResourceMetaData): string {
   const data: SerializedScanData = {};

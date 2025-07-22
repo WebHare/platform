@@ -1,3 +1,4 @@
+import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { getWHType } from "@webhare/std/quacks";
 import { openFileOrFolder } from "@webhare/whfs";
 
@@ -45,5 +46,9 @@ export class IntExtLink {
       return this._external + (this._append ? this._append : "");
     }
     return null;
+  }
+
+  static isEqual(lhs: RecursiveReadonly<IntExtLink>, rhs: RecursiveReadonly<IntExtLink>): boolean {
+    return lhs.internalLink === rhs.internalLink && lhs.externalLink === rhs.externalLink && lhs.append === rhs.append;
   }
 }

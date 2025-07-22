@@ -6,14 +6,14 @@ import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, addMissingScanData, decodeScanData, encodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
 import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
-import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
+import type { EncodableResourceMetaData, ExportedResource, ExportOptions, ResourceMetaData } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 /// Returns T or a promise resolving to T
@@ -78,6 +78,37 @@ function assertValidDate(value: unknown): asserts value is Date {
   if (t < -30610224000000   // Date.UTC(1000,0,1)   // no dates before 1000-1-1
     || t >= 253402300800000)  // Date.UTC(10000,0,1)   // no dates on or after the year 10_000 UTC
     throw new Error(`Date out of range. The year must be between 1 and 9999, got '${value}'`);
+}
+
+function scanDataFromHS(settinginfo: HareScriptRTD["embedded"][number]): EncodableResourceMetaData {
+  return {
+    mediaType: settinginfo.mimetype,
+    fileName: settinginfo.filename || '',
+    refPoint: settinginfo.refpoint,
+    dominantColor: settinginfo.dominantcolor || '',
+    width: settinginfo.width || 0,
+    height: settinginfo.height || 0,
+    hash: settinginfo.hash || '',
+    // extension: settinginfo.extension || '', //is not actually encoded into scandata
+    rotation: settinginfo.rotation || 0,
+    mirrored: settinginfo.mirrored || false,
+  };
+}
+
+function scanDataToHS(settinginfo: ResourceMetaData): Omit<HareScriptRTD["embedded"][number], "data" | "source_fsobject"> {
+  return {
+    mimetype: settinginfo.mediaType,
+    filename: settinginfo.fileName || '',
+    contentid: settinginfo.fileName || '',
+    refpoint: settinginfo.refPoint,
+    dominantcolor: settinginfo.dominantColor || '',
+    width: settinginfo.width || 0,
+    height: settinginfo.height || 0,
+    hash: settinginfo.hash || '',
+    extension: settinginfo.extension || '',
+    rotation: settinginfo.rotation || 0,
+    mirrored: settinginfo.mirrored || false,
+  };
 }
 
 export const codecs: { [key: string]: TypeCodec } = {
@@ -405,6 +436,23 @@ export const codecs: { [key: string]: TypeCodec } = {
           blobdata: await uploadBlob(storetext),
         });
 
+        for (const image of toSerialize.embedded) { //encode images
+          settings.push({
+            ordering: 1,
+            setting: encodeScanData({ ...scanDataFromHS(image), fileName: image.contentid }),
+            fs_object: image.source_fsobject || null,
+            blobdata: await uploadBlob(image.data),
+          });
+        }
+
+        for (const link of toSerialize.links) { //encode images
+          settings.push({
+            ordering: 2,
+            setting: link.tag || "",
+            fs_object: link.linkref,
+          });
+        }
+
         for (const instance of toSerialize.instances) { //encode embedded instanes
           /* Generate settings for the instance:
             - It needs a toplevel setting with:
@@ -431,18 +479,35 @@ export const codecs: { [key: string]: TypeCodec } = {
         return null;
 
       return (async () => {
-        const instances: HareScriptRTD["instances"] = [];
+        const rtd: HareScriptRTD = { htmltext: settings[0].blobdata!, instances: [], embedded: [], links: [] };
+
+        for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
+          const settinginfo = decodeScanData(img.setting);
+          rtd.embedded.push({
+            ...scanDataToHS(settinginfo),
+            data: img.blobdata!,
+            source_fsobject: img.fs_object || 0,
+          });
+        }
+
+        for (const link of settings.filter(s => s.ordering === 2 && s.fs_object)) {
+          rtd.links.push({
+            linkref: link.fs_object!,
+            tag: link.setting
+          });
+        }
+
         for (const settingInstance of settings.filter(s => s.ordering === 3)) {
           const typeinfo = await describeWHFSType(settingInstance.instancetype!);
           const widgetdata = await recurseGetData(typeinfo.members, settingInstance.id, context);
 
-          instances.push({
+          rtd.instances.push({
             instanceid: settingInstance.setting,
             data: { whfstype: typeinfo.namespace, ...widgetdata }
           });
         }
 
-        return buildRTDFromHareScriptRTD({ htmltext: settings[0].blobdata!, instances, embedded: [], links: [] });
+        return buildRTDFromHareScriptRTD(rtd);
       })();
     },
     importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
