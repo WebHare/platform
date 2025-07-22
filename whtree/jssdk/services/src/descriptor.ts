@@ -34,6 +34,8 @@ const MapBitmapImageTypes: Record<string, string> = {
   "heif": "image/avif"
 };
 
+const metadataFields = ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
+
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
 
@@ -107,9 +109,9 @@ interface ResourceBaseMetaData {
   width: number | null;
   ///Height (in pixels)
   height: number | null;
-  ///Image rotation in degrees (0,90,180 or 270). null for non images
+  ///Image rotation in degrees (0,90,180 or 270). null if not known (image not analyzed yet) or not an image
   rotation: Rotation | null;
-  ///True if this is a mirrored image. null for non images
+  ///True if this is a mirrored image. null if not known (image not analyzed yet) or not an image
   mirrored: boolean | null;
   ///Reference point if set, default record otherwise
   refPoint: { x: number; y: number } | null;
@@ -132,18 +134,20 @@ export type ExportedBlobReference = {
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
 
+type WebHareDBLocation = {
+  /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
+  source: number;
+  /** ID */
+  id: number;
+  /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
+  cc: number;
+};
+
 export interface ResourceMetaData extends ResourceBaseMetaData {
-  ///Original in image library
+  /** Original in image library */
   sourceFile: number | null;
-  /**Database location support cached URL generation */
-  dbLoc?: {
-    /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
-    source: number;
-    /** ID */
-    id: number;
-    /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
-    cc: number;
-  };
+  /** Database location support cached URL generation */
+  dbLoc?: WebHareDBLocation;
 }
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
@@ -337,8 +341,8 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) === 0;
 
-  const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
-  const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
+  const mirrored: boolean = Boolean(metadata.orientation && [2, 4, 5, 7].includes(metadata.orientation));
+  const rotation: Rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? 0 : 0;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
   const mediaType = metadata.format === 'raw' ? 'image/x-bmp' : (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
@@ -818,6 +822,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
+  private readonly _dbLoc?: WebHareDBLocation;
 
   [Marshaller] = {
     type: HareScriptType.Record,
@@ -848,7 +853,8 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
-    this.metadata = metadata;
+    this.metadata = pick(metadata, metadataFields); //ensure no 'data' fields leak through
+    this._dbLoc = metadata.dbLoc;
   }
 
   private async applyScanOptions(options: ResourceScanOptions) {
@@ -929,11 +935,17 @@ export class ResourceDescriptor implements ResourceMetaData {
       throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
     }
 
-    const importData = {
+    const importData: ResourceMetaDataInit = {
       ...resource,
       sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile) : null,
       mediaType: resource.mediaType || "application/octet-stream"
     };
+    if (importData.width && (typeof importData.mirrored !== "boolean" || typeof importData.rotation !== "number")) {
+      //If we have width and height, we can assume we should have known about any rotation even if stripped from the export record due to default-value-elimination
+      importData.rotation = 0;
+      importData.mirrored = false;
+    }
+
     return new ResourceDescriptor(blob, importData);
   }
 
@@ -978,12 +990,12 @@ export class ResourceDescriptor implements ResourceMetaData {
     return this.metadata.sourceFile || null;
   }
   get dbLoc() {
-    return this.metadata.dbLoc;
+    return this._dbLoc;
   }
 
   //Gets a simple object containing *only* the metadata
   getMetaData(): ResourceMetaData {
-    return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
+    return pick(this, metadataFields); //TODO fix fallback value during construction, not during getters, and we can just return this.metadta
   }
 
   toLink(method?: LinkMethod): string {

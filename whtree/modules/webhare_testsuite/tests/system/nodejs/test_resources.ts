@@ -231,14 +231,21 @@ async function testResourceDescriptors() {
   {
     const homersbrain = await services.ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp", { getHash: true, getImageMetadata: true, getDominantColor: true });
     test.eq(921654, homersbrain.resource.size);
+    const origMeta = homersbrain.getMetaData();
     test.eqPartial({
       mediaType: "image/x-bmp",
       hash: "TUgOPetpSJcF9d0UDUYOH6lujDWSSNWu0J7FhvJ1EcA",
       width: 640,
       height: 480,
       extension: ".bmp",
-      dominantColor: "#080808"
+      dominantColor: "#080808",
+      rotation: 0,
+      mirrored: false
     }, homersbrain.getMetaData());
+
+    const exp = await homersbrain.export();
+    const expImported = await services.ResourceDescriptor.import(exp);
+    test.eq(origMeta, expImported.getMetaData());
   }
 
   {
@@ -246,12 +253,12 @@ async function testResourceDescriptors() {
     test.eqPartial({
       mediaType: "image/png",
       hash: null,
-      mirrored: null,
+      mirrored: false,
       width: 385,
       height: 236,
-      rotation: null,
+      rotation: 0,
       dominantColor: null,
-      extension: ".png"
+      extension: ".png",
     }, fish.getMetaData());
   }
 
@@ -353,10 +360,10 @@ async function testGIFs() {
   test.eqPartial({
     mediaType: "image/gif",
     hash: "hy_6nckd_mgbm-gsu0HLzcCYXnerJ-FYPjjYThVDy3Q",
-    mirrored: null,
+    mirrored: false,
     width: 1,
     height: 1,
-    rotation: null,
+    rotation: 0,
     dominantColor: "transparent",
     extension: '.gif'
   }, parsedgif.getMetaData());
