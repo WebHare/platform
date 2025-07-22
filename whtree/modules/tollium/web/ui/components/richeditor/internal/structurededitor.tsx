@@ -136,13 +136,13 @@ export default class StructuredEditor extends EditorBase {
 
   async _gotCopy(event) {
     dompack.stop(event);
-    await copySelectionToClipboard(this, event);
+    await copySelectionToClipboard(this);
   }
 
   async _gotCut(event) {
     dompack.stop(event);
     const undolock = this.getUndoLock();
-    await copySelectionToClipboard(this, event);
+    await copySelectionToClipboard(this);
     this.removeSelection();
     this.checkDomStructure();
     undolock.close();
