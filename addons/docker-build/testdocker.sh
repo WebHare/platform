@@ -142,7 +142,7 @@ create_container()
   fi
 
   echo "$(date) Created container with id: $CONTAINERID"
-  eval TESTENV_CONTAINER$NR=\$CONTAINERID
+  eval "TESTENV_CONTAINER$NR"=\$CONTAINERID
 
   if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
     echo ""
@@ -251,48 +251,48 @@ finalize_tests()
   fi
 
   # Can't use docker cp due to the volume at /opt/whdata/
-  mkdir -p $ARTIFACTS/whdata
+  mkdir -p "$ARTIFACTS/whdata"
   RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/ output log tmp | tar -x -C "$ARTIFACTS/whdata/"
   RunDocker exec "$TESTENV_CONTAINER1" tar -c -C / tmp | tar -x -C "$ARTIFACTS/"
   # For consistency we should probably get everyone inside the container to dump any artifacts in $TESTFW_OUTPUT
   RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /output/ . | tar -x -C "$ARTIFACTS/"
   if is_atleast_version 5.7.0 ; then
-    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo "$ARTIFACTS/buildinfo"
+    RunDocker cp "$TESTENV_CONTAINER1:/opt/wh/whtree/modules/platform/generated/buildinfo" "$ARTIFACTS/buildinfo"
   else
-    RunDocker cp $TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo "$ARTIFACTS/buildinfo"
+    RunDocker cp "$TESTENV_CONTAINER1:/opt/wh/whtree/modules/system/whres/buildinfo" "$ARTIFACTS/buildinfo"
   fi
 
   # Promote jstests failure logs + screenshots to the root dir
   [ -d "$ARTIFACTS/tmp/jstests" ] && mv "$ARTIFACTS/tmp/jstests"/* "$ARTIFACTS/"
 
   if [ -n "$TESTFW_EXPORTMODULE" ]; then
-    RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules $TESTINGMODULENAME | gzip - > $ARTIFACTS/$TESTINGMODULENAME.whmodule
+    RunDocker exec "$TESTENV_CONTAINER1" tar -c -C /opt/whdata/installedmodules "$TESTINGMODULENAME" | gzip - > "$ARTIFACTS/$TESTINGMODULENAME.whmodule"
   fi
 
   if [ -n "$TESTFW_TWOHARES" ]; then
-    mkdir -p $ARTIFACTS/whdata2
-    RunDocker exec $TESTENV_CONTAINER2 tar -c -C /opt/whdata/ output log tmp | tar -x -C $ARTIFACTS/whdata2/
-    RunDocker exec $TESTENV_CONTAINER2 tar -c -C / tmp | tar -x -C $ARTIFACTS/tmp2/
+    mkdir -p "$ARTIFACTS/whdata2"
+    RunDocker exec "$TESTENV_CONTAINER2" tar -c -C /opt/whdata/ output log tmp | tar -x -C "$ARTIFACTS/whdata2/"
+    RunDocker exec "$TESTENV_CONTAINER2" tar -c -C / tmp | tar -x -C "$ARTIFACTS/tmp2/"
   fi
 
   if [ -n "$COVERAGE" ]; then
     RunDocker exec "$TESTENV_CONTAINER1" wh run mod::system/scripts/debug/analyze_coverage.whscr
-    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/coverage.tar.gz
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > "$ARTIFACTS/coverage.tar.gz"
     echo "Copied coverage data to $ARTIFACTS/coverage.tar.gz"
   fi
 
   if [ -n "$WEBHARE_PROFILE" ]; then
-    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > $ARTIFACTS/functionprofile.tar.gz
+    RunDocker exec "$TESTENV_CONTAINER1" tar -zc -C /opt/whdata/ephemeral/profiles default > "$ARTIFACTS/functionprofile.tar.gz"
     echo "Copied functionprofile data to $ARTIFACTS/functionprofile.tar.gz"
   fi
 
-  if [ "$(RunDocker ps -q -f id=$TESTENV_CONTAINER1)" == "" ]; then
+  if [ "$(RunDocker ps -q -f "id=$TESTENV_CONTAINER1")" == "" ]; then
     echo "Container1 exited early!"
-    RunDocker logs $TESTENV_CONTAINER1
+    RunDocker logs "$TESTENV_CONTAINER1"
   fi
-  if [ -n "$TESTFW_TWOHARES" -a "$(RunDocker ps -q -f id=$TESTENV_CONTAINER2)" == "" ]; then
+  if [ -n "$TESTFW_TWOHARES" ] && [ "$(RunDocker ps -q -f "id=$TESTENV_CONTAINER2")" == "" ]; then
     echo "Container2 exited early!"
-    RunDocker logs $TESTENV_CONTAINER2
+    RunDocker logs "$TESTENV_CONTAINER2"
   fi
 
   if [ "$TESTFAIL" = "0" ]; then
@@ -514,7 +514,7 @@ fi
 [ "$WEBHAREIMAGE" == "head" ] && WEBHAREIMAGE=main
 
 if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
-  WEBHAREIMAGE="$(curl --silent --fail https://www.webhare.dev/meta/buildimage/$WEBHAREIMAGE)"
+  WEBHAREIMAGE="$(curl --silent --fail "https://www.webhare.dev/meta/buildimage/$WEBHAREIMAGE")"
   if [ -z "$WEBHAREIMAGE" ]; then
     exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi
@@ -592,6 +592,10 @@ if [ "$NOPULL" != "1" ]; then
       exit_failure_sh "Failed to pull image"
     fi
   fi
+else
+  if [[ $WEBHAREIMAGE =~ docker.io/webhare/platform:.* ]] && [ -n "$WH_CI_ALTERNATEREGISTRY" ] ; then
+    WEBHAREIMAGE=${WH_CI_ALTERNATEREGISTRY}:${WEBHAREIMAGE:27}  # 27 is the length of 'docker.io/webhare/platform:'
+  fi
 fi
 
 # Cleanup
@@ -600,11 +604,6 @@ TESTENV_CONTAINER1=
 
 function cleanup()
 {
-  SUDOCMD=""
-  if [ -n "$SUDO" ]; then # build a version with space for nicer alignment of our output
-    SUDOCMD="$SUDO "
-  fi
-
   if [ -n "$TESTENV_CONTAINER1" ]; then
     if [ -n "$TESTENV_KILLCONTAINER1" ]; then
       RunDocker kill "$TESTENV_CONTAINER1"
@@ -638,7 +637,7 @@ fi
 
 # Independent tempdir
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
-mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
+mkdir -p "${TEMPBUILDROOT}/docker-tests/modules"
 
 if [ -z "$ISPLATFORMTEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
   TESTENV_KILLCONTAINER1=1
@@ -658,7 +657,6 @@ elif [ -n "$ISMODULETEST" ]; then
   if [ ! -d "$TESTINGMODULEDIR" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then #doesn't appear to be CI, so give wh a shot to expand to the full module name
       TESTINGMODULEDIR="$(../../whtree/bin/wh getmoduledir "$TESTINGMODULE")"
-      echo TESTINGMODULEDIR=$TESTINGMODULEDIR
     fi
     if [ ! -d "$TESTINGMODULEDIR" ]; then
       echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
@@ -666,6 +664,18 @@ elif [ -n "$ISMODULETEST" ]; then
       exit_failure_sh "Dependency extraction failed"
     fi
   fi
+
+  # Get the current branch name of the module
+  TESTINGMODULEBRANCH="$(git -C "$TESTINGMODULEDIR" rev-parse --abbrev-ref HEAD || true)"
+  # For 'normal' ci builds, use the branch name from the CI environment
+  if [ -n "$CI_COMMIT_BRANCH" ]; then
+    TESTINGMODULEBRANCH="$CI_COMMIT_BRANCH"
+  fi
+  # For merge requests, use the target branch name
+  if [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" ]; then
+    TESTINGMODULEBRANCH="$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  fi
+  echo "Tested module branch: $TESTINGMODULEBRANCH"
 fi
 
 create_container 1 #once a container is created, we have the version number
@@ -726,7 +736,7 @@ if [ "$ERRORCODE" != "0" ]; then
   exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"
 fi
 
-eval $MODSETTINGS
+eval "$MODSETTINGS"
 
 # Early exit when the module is not meant for this WebHare version
 if [ "$MODULENOTAPPLICABLE" != "" ]; then
@@ -739,7 +749,7 @@ fi
 
 # Fetch dependencies
 NUMMODULES=${#EXPLAIN_DEPMODULE[*]}
-for (( i=0; i<=$(( $NUMMODULES -1 )); i++ ))
+for (( i=0; i<=$(( NUMMODULES -1 )); i++ ))
 do
   MODULENAME=${EXPLAIN_DEPMODULE[$i]}
   MODULE=${EXPLAIN_DEPREPOSITORY[$i]}
@@ -765,7 +775,7 @@ do
     fi
   fi
 
-  TARGETDIR=`echo "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" | tr '[:upper:]' '[:lower:]'`
+  TARGETDIR=$(echo "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" | tr '[:upper:]' '[:lower:]')
   if [ -d "$TARGETDIR" ]; then
     continue #already one this module
   fi
@@ -780,21 +790,31 @@ do
     CLONEINFO=" (branch $MODULEBRANCH)"
   fi
   # If we have the module installed, use its git repository for a faster clone
-  LOCALDIR="$("$BASEDIR/whtree/bin/wh" getmoduledir $MODULENAME 2>/dev/null)"
+  LOCALDIR="$("$BASEDIR/whtree/bin/wh" getmoduledir "$MODULENAME" 2>/dev/null)"
   if [ "$LOCALDIR" != "" ]; then
     GITOPTIONS="$GITOPTIONS --reference-if-able $LOCALDIR"
   fi
 
   echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$TARGETDIR'$CLONEINFO"
-  if ! git clone --recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
+  if ! git clone --recurse-submodules --depth 1 --no-single-branch $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
     exit_failure_sh "Failed to clone $CLONEURL"
+  fi
+
+  # When the current tested branch starts with feature/..., try to check out the same branch in the module when it exists
+  if [ -z "$MODULEBRANCH" ] && [ -n "$TESTINGMODULEBRANCH" ] && [[ $TESTINGMODULEBRANCH == "feature/"* ]]; then
+    if git -C "$TARGETDIR" rev-parse --verify "origin/$TESTINGMODULEBRANCH" 2> /dev/null > /dev/null; then
+      echo "Checking out $MODULENAME branch $TESTINGMODULEBRANCH because it matches the tested module branch"
+      if ! git -C "$TARGETDIR" checkout --recurse-submodules "$TESTINGMODULEBRANCH" || ! git -C "$TARGETDIR" submodule update --init --recursive; then
+        exit_failure_sh "Failed to checkout branch $TESTINGMODULEBRANCH in $MODULENAME"
+      fi
+    fi
   fi
 done
 
 for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
   if [ ! -d "$MODULE" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then
-      MODULEDIR="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
+      MODULEDIR="$("${PWD}/../../whtree/bin/wh" getmoduledir "$MODULE")"
       if [ -z "$MODULEDIR" ]; then
         exit_failure_sh "Unable to get module dir for $MODULE"
       fi
@@ -804,13 +824,13 @@ for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
     fi
   fi
 
-  MODULENAME="$(basename $MODULE)"
+  MODULENAME="$(basename "$MODULE")"
   echo "Copying module $MODULENAME"
 
   # Don't copy files that won't be committed due to default git ignore rules
   mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
   if [ -d "$MODULE/.git" ]; then
-    if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
+    if ! (cd "$MODULE" ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
       exit_failure_sh "Failed to copy $MODULE"
     fi
   else

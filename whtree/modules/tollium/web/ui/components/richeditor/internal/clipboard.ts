@@ -1,21 +1,25 @@
-import * as dompack from "@webhare/dompack";
 import type EditorBase from "./editorbase";
 
-export function handleCopyEvent(editor: EditorBase, evt: ClipboardEvent) {
+/** Copies the current selection to the clipboard. The selection calculated synchronously with the call
+ * to this function.
+ */
+export async function copySelectionToClipboard(editor: EditorBase) {
   const selection = window.getSelection();
-  if (!selection?.rangeCount || !evt.clipboardData)
-    return; //we'll have to let the browser try to handle it
 
-  dompack.stop(evt);
+  const clipboardItemData = {
+    "text/html": "",
+    "text/plain": "",
+  };
 
-  const range = selection.getRangeAt(0);
-  const clonedContent = range.cloneContents();
-  const div = document.createElement('div');
-  div.appendChild(clonedContent);
+  if (selection?.rangeCount) {
+    const range = selection.getRangeAt(0);
+    const clonedContent = range.cloneContents();
+    const div = document.createElement('div');
+    div.appendChild(clonedContent);
 
-  const html = div.innerHTML;
+    clipboardItemData["text/html"] = div.innerHTML;
+    clipboardItemData["text/plain"] = selection.toString();
+  }
 
-  // Optional: override clipboard content
-  evt.clipboardData!.setData('text/html', html);
-  evt.clipboardData!.setData('text/plain', selection.toString());
+  await navigator.clipboard.write([new ClipboardItem(clipboardItemData)]);
 }
