@@ -1,7 +1,7 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
-import { pick, slugify, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
+import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -979,6 +979,9 @@ export class ResourceDescriptor implements ResourceMetaData {
   }
   get dominantColor() {
     return this.metadata.dominantColor ?? null;
+  }
+  set dominantColor(color: string | null) {
+    this.metadata.dominantColor = color ? color.match(/^#[0-9A-F]{6}$/i) ? color.toUpperCase() : throwError("Invalid color format, expected 6-digit hex color") : null;
   }
   get hash() {
     return this.metadata.hash ?? null;

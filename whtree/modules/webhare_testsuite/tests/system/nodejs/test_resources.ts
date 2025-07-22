@@ -246,6 +246,19 @@ async function testResourceDescriptors() {
     const exp = await homersbrain.export();
     const expImported = await services.ResourceDescriptor.import(exp);
     test.eq(origMeta, expImported.getMetaData());
+
+    test.throws(/Invalid color format/, () => expImported.dominantColor = "#AAA");
+    expImported.dominantColor = null;
+    test.eq(null, expImported.dominantColor);
+    expImported.dominantColor = "#aaaaaa";
+    expImported.refPoint = { x: 1, y: 1 };
+    test.eq("#AAAAAA", expImported.dominantColor);
+
+    const exp2 = await expImported.export();
+    const expImported2 = await services.ResourceDescriptor.import(exp2);
+    test.eq(expImported.getMetaData(), expImported2.getMetaData());
+    test.eq("#AAAAAA", expImported2.dominantColor);
+    test.eq({ x: 1, y: 1 }, expImported2.refPoint);
   }
 
   {
