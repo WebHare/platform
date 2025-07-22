@@ -10,7 +10,6 @@ import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { generateRandomId, isTruthy, omit, pick, stringify, throwError } from "@webhare/std";
 import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mod-system/js/internal/util/algorithms";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 import { nameToCamelCase } from "@webhare/std/types";
@@ -233,9 +232,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
   /** Open a WRD schema by tag */
   constructor(tag: string) {
-    /* Because the 'import' variant (which must have the least overhead possible) is always by tag and nevery by id we'll
-       keep that path sync. */
-    if (!isValidModuleScopedName(tag))
+    // We keep the 'open by tag' path sync as that's what's generally used by apps in practice. We'll see if the tag is OK once we eventually start to open schemas
+    if (!tag.match(/^.+:.+$/)) //lightweight check - createSchema does deeper checking and isValidModuleScopedName is too strict to open eg. .bak schemas
       throw new Error(`Invalid schema tag '${tag}'`);
 
     this.tag = tag;

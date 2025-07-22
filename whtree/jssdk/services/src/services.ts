@@ -49,7 +49,9 @@ export { matchesThisServer, type IfWebHare } from "@mod-system/js/internal/gener
 /** Extend this interface to register broadcast event formats */
 export interface BackendEvents {
   "platform:assetpackcontrol.update": { assetpacks: string[] };
+  "platform:appliedconfig": null;
   "system:managedtasks.any.new": { taskids: number[] };
+  "system:modulesupdate": null;
 }
 
 /** Extend this interface to define the format of your own secret scopes */
