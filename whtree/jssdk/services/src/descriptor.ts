@@ -496,7 +496,7 @@ export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName,
 }
 
 export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
-  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
+  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
     throw new Error("Width and height are required for bitmap images");

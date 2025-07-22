@@ -401,7 +401,7 @@ async function testImgCacheTokens() {
 async function fetchUCLink(url: string, expectType: string) {
   const finalurl = new URL(url, backendConfig.backendURL).href;
   const fetchResult = await fetch(finalurl);
-  test.eq(200, fetchResult.status);
+  test.eq(200, fetchResult.status, `Failed to fetch ${finalurl}`);
   test.eq(expectType, fetchResult.headers.get("content-type"));
   const fetchBuffer = await fetchResult.arrayBuffer();
   const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true });
@@ -438,10 +438,14 @@ async function testImgCache() {
 
   const testsitejs = await test.getTestSiteJS();
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
+  const snowbeagleAvifFile = await testsitejs.openFile("photoalbum/snowbeagle.avif");
+  const snowBeagleWebpFile = await testsitejs.openFile("photoalbum/snowbeagle.webp");
   const wrappedBeagle = snowbeagle.data.toResized({ method: "none", format: "keep" });
   test.eq(wrappedBeagle.link, (await loadlib("mod::system/lib/cache.whlib").WrapCachedImage(snowbeagle.data, { method: "none", fixorientation: true, format: "keep" })).link);
   const dlSnowBeagle = await fetchUCLink(wrappedBeagle.link, "image/jpeg");
   const snowBeagleJpeg = await createSharpImage(dlSnowBeagle.fetchBuffer);
+  const snowBeagleAvif = await createSharpImage(await snowbeagleAvifFile.data.resource.arrayBuffer());
+  const snowBeagleWebp = await createSharpImage(await snowBeagleWebpFile.data.resource.arrayBuffer());
 
   const goldfishpng = await testsitejs.openFile("photoalbum/goudvis.png");
   const wrappedGoldfishPng = goldfishpng.data.toResized({ method: "none", format: "keep" });
@@ -471,6 +475,14 @@ async function testImgCache() {
   const snowBeagleAvif90 = await fetchUCLink(snowbeagle.data.toResized({ method: "none", format: "image/avif", quality: 90 }).link, "image/avif");
   await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif10.fetchBuffer), { minMSE: 10, maxMSE: 80 });
   await compareSharpImages(snowBeagleJpeg, await createSharpImage(snowBeagleAvif90.fetchBuffer), { minMSE: 0.1, maxMSE: 3 });
+
+  //cross avif->webp and webp->avif
+  const avifBeagleAsWebP = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "image/webp" }).link, "image/webp");
+  await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsWebP.fetchBuffer), { minMSE: 0, maxMSE: 5 });
+  const webPBeagleAsAvif = await fetchUCLink(snowBeagleWebpFile.data.toResized({ method: "none", format: "image/avif" }).link, "image/avif");
+  await compareSharpImages(snowBeagleAvif, await createSharpImage(webPBeagleAsAvif.fetchBuffer), { minMSE: 0, maxMSE: 5 });
+  const avifBeagleAsJpeg = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "image/jpeg" }).link, "image/jpeg");
+  await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsJpeg.fetchBuffer), { minMSE: 0, maxMSE: 10 });
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true, format: "keep" });
