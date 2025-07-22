@@ -1,13 +1,14 @@
 import * as kysely from "kysely";
-import { db } from "@webhare/whdb";
+import { db, isWorkOpen, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { openWHFSObject } from "./objects";
-import { isReadonlyWHFSSpace } from "./support";
+import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
-import { getUnifiedCC, type ExportOptions } from "@webhare/services/src/descriptor";
-import { appendToArray, omit } from "@webhare/std";
+import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions } from "@webhare/services/src/descriptor";
+import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
+import type { WebHareBlob } from "@webhare/services";
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
@@ -266,4 +267,115 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
 export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<ContentTypeStructure> {
   //note that as we're sync, we can't actually promise to validate whether the type xists
   return new WHFSTypeAccessor<ContentTypeStructure>(ns);
+}
+
+export interface VisitedResourceContext {
+  fsObject: number;
+  fieldType: MemberType & ("file" | "richDocument" | "composedDocument");
+  fieldName: string;
+  fsType: string;
+}
+
+export type VisitCallback = (ctx: VisitedResourceContext, resource: ResourceDescriptor) => Promise<ResourceDescriptor | void> | ResourceDescriptor | void;
+
+/** Update image resources in WHFS Type settings (both files and inside rich documents)
+ * @param callback - Callback to call for each resource optionally returning a ResourceDescriptor to update the resource with
+ * @returns A continuation token which can be passed into 'nextToken' to resume processing. An empty strinrg if we're done
+*/
+export async function visitResources(callback: VisitCallback, scope: {
+  startingPoints: number[];
+  nextToken?: string;
+  batchSize?: number;
+  deadline?: WaitPeriod;
+  isVisibleEdit?: boolean;
+}): Promise<string> {
+  if (isWorkOpen())
+    throw new Error("visitResources should not be called inside a transaction");
+
+  // Expand starting points to all folders, sorted.
+  const allfolderids = [...scope.startingPoints, ...await getWHFSDescendantIds(scope.startingPoints, true, false)];
+  const deadline = scope.deadline ? convertWaitPeriodToDate(scope.deadline) : undefined;
+
+  //We loop once with folder '0' where we take the startinPoints *themselves* (id IN startingPoints) and then we work our way down the parents (parent IN ...)
+  const allQueries: Array<{ condition: "in" | "parent"; value: number }> = [
+    ...scope.startingPoints.map(startingPoint => ({ condition: "in" as const, value: startingPoint })),
+    ...allfolderids.map(folderId => ({ condition: "parent" as const, value: folderId }))
+  ].toSorted(compareProperties(["value", "condition"]));
+
+  // TODO: Sorting by creationdates instead of IDs should be more robust against deletions between iterations, if we also store dates in nexttoken ?
+  let batchSize = scope.batchSize ?? Number.MAX_SAFE_INTEGER;
+  let queryPos = 0, resultPos = 0;
+
+  if (scope.nextToken) {
+    const parsedNextToken = scope.nextToken.match(/^instance:(\d+):(\d+)$/);
+    if (parsedNextToken) {
+      queryPos = parseInt(parsedNextToken[1], 10);
+      resultPos = parseInt(parsedNextToken[2], 10);
+    }
+  }
+
+  for (; queryPos < allQueries.length; ++queryPos) {
+    const query = allQueries[queryPos];
+    const queryBuilder = db<PlatformDB>().
+      selectFrom("system.fs_settings").
+      innerJoin("system.fs_members", "system.fs_members.id", "system.fs_settings.fs_member").
+      where("system.fs_members.type", "in", [5, 15, 20]). //5=file, 15=richdoc, 20=composeddoc - TODO don't hardcode constant, add RTD and 'image' type
+      where("system.fs_settings.blobdata", "is not", null).
+      innerJoin("system.fs_instances", "system.fs_settings.fs_instance", "system.fs_instances.id").
+      select(["system.fs_settings.id", "system.fs_settings.setting", "system.fs_settings.blobdata", "system.fs_instances.fs_object", "system.fs_members.type", "system.fs_members.name", "system.fs_members.fs_type"]).
+      orderBy("system.fs_settings.id");
+
+    let results: Array<{ id: number; setting: string; blobdata: WebHareBlob | null; type: number; fs_object: number; fs_type: number; name: string }> = [];
+    if (query.condition === "in")
+      results = await queryBuilder.where("system.fs_instances.fs_object", "=", query.value).execute();
+    else
+      results = await queryBuilder.innerJoin("system.fs_objects", "system.fs_objects.id", "system.fs_instances.fs_object").
+        where("system.fs_objects.parent", "=", query.value).execute();
+
+    for (; resultPos < results.length; ++resultPos) {
+      const result = results[resultPos];
+
+      if (result.setting === "RD1" || result.setting === "FD1" || result.setting.startsWith("CD1:"))
+        continue; //richdocument blob. ignore
+
+      if (batchSize-- <= 0 || (deadline && new Date() > deadline))
+        return `instance:${queryPos}:${resultPos}`; //there will be something to do, but we reached the batch size, it will be up to the next run
+
+      //As we're not calculating the original 'cc' we can't add a dbLoc. Wouldn't be too difficult to add if really needed
+      const reconstructedDescriptor = new ResourceDescriptor(
+        result.blobdata,
+        decodeScanData(result.setting));
+
+      const typeInfo = await describeWHFSType(result.fs_type, { allowMissing: true });
+      if (!typeInfo)
+        continue; //ignore orphans
+
+      const update = await callback(
+        {
+          fsObject: result.fs_object,
+          fsType: typeInfo?.namespace,
+          fieldType: result.type === 5 ? "file" : result.type === 15 ? "richDocument" : result.type === 20 ? "composedDocument" : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
+          fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
+        }, reconstructedDescriptor);
+
+      if (update) {
+        if (scope?.isVisibleEdit !== false) //for now we'll require setting this flag until we can actually update modificationdates ... and then we should just set it to true
+          throw new Error("Updating resources requires setting isVisibleEdit to false");
+
+        //TODO check against parallel modification, if so retry or skip
+        await runInWork(async () => {
+          // When updating embedded content the filename holds the cid so we shouldn't change it
+          const fileName = (result.type === 15 || result.type === 20 ? reconstructedDescriptor.fileName : update.fileName) ?? undefined;
+          await db<PlatformDB>().updateTable("system.fs_settings").
+            set({ blobdata: await uploadBlob(update.resource), setting: await addMissingScanData(update, { fileName }) }).
+            where("id", "=", result.id).
+            executeTakeFirstOrThrow();
+        });
+      }
+    }
+
+    resultPos = 0; //clear for the next query we will process
+  }
+
+  return ''; //done!
 }

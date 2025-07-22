@@ -95,7 +95,7 @@ export interface ResourceScanOptions {
   getHash?: boolean;
   getImageMetadata?: boolean;
   getDominantColor?: boolean;
-  sourceFile?: number;
+  sourceFile?: number | null;
 }
 
 export type Rotation = 0 | 90 | 180 | 270;
