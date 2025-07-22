@@ -1,5 +1,7 @@
+import { db } from "@webhare/whdb";
 import type { WHFSObject } from "./objects";
 import * as crypto from "node:crypto";
+import type { PlatformDB } from "@mod-platform/generated/db/platform";
 
 function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
   return !excludes.includes(t as unknown as K);
@@ -137,4 +139,33 @@ export function setFlagInPublished(published: number, flag_to_set: number, setfl
     return published - flag_to_set;
   else
     return published + flag_to_set;
+}
+
+/** Get all ids from a specific starting point
+    @param basefolder - Starting folder
+    @param maximumdepth - Maximum depth. Depth=1 only gets the direct subfolders. Suggested
+    @param returnfolders - Return folders too
+    @returns The descendants - does not include the basefolders themselves */
+export async function getWHFSDescendantIds(basefolders: number[], returnfolders: boolean, returnfiles: boolean, maximumdepth = 32) {
+  if (!returnfiles && !returnfolders)
+    return [];
+
+  const allsubs = [];
+  let currentlevel = [...basefolders];
+  if (maximumdepth > 32)
+    maximumdepth = 32; //safety against corrupted databases
+
+  while (maximumdepth >= 1 && currentlevel.length > 0) {
+    //If we're not returning files, don't even get them
+    const currentsubsSQL = db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "isfolder"])
+      .where("parent", "in", currentlevel);
+    if (!returnfiles)
+      currentsubsSQL.where("isfolder", "=", true);
+
+    const currentsubs = await currentsubsSQL.execute();
+    currentlevel = currentsubs.filter(sub => sub.isfolder).map(sub => sub.id);
+    allsubs.push(...currentsubs.filter(sub => returnfolders || !sub.isfolder).map(sub => sub.id));
+    --maximumdepth;
+  }
+  return allsubs;
 }

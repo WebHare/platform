@@ -1,12 +1,12 @@
 import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { uploadBlob } from "@webhare/whdb";
-import { appendToArray, isPromise, Money, omit } from "@webhare/std";
+import { appendToArray, isPromise, isTruthy, Money, omit } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/datetime.ts";
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
@@ -14,7 +14,7 @@ import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/quacks";
 import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
-import { isIntExtLink, type ExportedIntExtLink } from "@webhare/services/src/intextlink";
+import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -125,7 +125,19 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings[0]?.fs_object || null;
-    }
+    },
+    exportValue: (value: number | null, options: ExportOptions): MaybePromise<string | null> => {
+      if (!value)
+        return null;
+      return mapExternalWHFSRef(value, options);
+    },
+    importValue: (value: string | number | null): MaybePromise<number | null> => {
+      if (!value)
+        return null;
+      if (typeof value === "number")
+        return value;
+      return unmapExternalWHFSRef(value);
+    },
   },
   "whfsRefArray": {
     encoder: (value: unknown) => {
@@ -149,7 +161,19 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     isDefaultValue: (value: unknown) => {
       return Array.isArray(value) && value.length === 0;
-    }
+    },
+    exportValue: (value: number[], options: ExportOptions): MaybePromise<string[]> => {
+      return Promise.all(value.map(v => mapExternalWHFSRef(v, options))).then(mapped => mapped.filter(isTruthy));
+    },
+    importValue: async (value: Array<string | number>): Promise<number[]> => {
+      const retval: number[] = [];
+      for (const val of value) {
+        const add = typeof val === "number" ? val : await unmapExternalWHFSRef(val);
+        if (add)
+          retval.push(add);
+      }
+      return retval;
+    },
   },
   "date": {
     encoder: (value: unknown) => {
@@ -476,20 +500,10 @@ export const codecs: { [key: string]: TypeCodec } = {
       return null;
     },
     exportValue: (value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
-      if (value?.internalLink)
-        return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
-      if (value?.externalLink)
-        return { externalLink: value.externalLink };
-      return null;
+      return exportIntExtLink(value, options);
     },
     importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
-      if (!value || isIntExtLink(value))
-        return value;
-
-      if ("externalLink" in value)
-        return new IntExtLink(value.externalLink);
-
-      return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
+      return importIntExtLink(value);
     }
   }
 };
@@ -515,10 +529,13 @@ export async function recurseSetData(members: WHFSTypeMember[], data: object): P
 
     try {
       const mynewsettings = new Array<Partial<FSSettingsRow>>;
+      const encoder = codecs[matchmember.type];
       if (!codecs[matchmember.type])
         throw new Error(`Unsupported type ${matchmember.type}`);
 
-      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value, matchmember);
+      const setValue = encoder?.importValue ? await encoder.importValue(value) : value;
+
+      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(setValue, matchmember);
       const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
 
       if (Array.isArray(finalsettings))

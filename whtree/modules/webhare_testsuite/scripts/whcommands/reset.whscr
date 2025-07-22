@@ -155,7 +155,12 @@ MACRO SetupTestSite(OBJECT testsite)
   OpenPoll(pollfile->id)->SetOptions([ [ title := "Blue" ], [ title := "Red"] ]);
   OBJECT pollfile2  := pollfile->CopyTo(webtools, "polltest2");
 
+  OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
+  OBJECT imgeditfile := testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
+  OBJECT rangetestfile := testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
+
   OBJECT pollholder := webtools->CreateFile([ name:= "pollholder", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
+  RECORD testimage := WrapBlob(GetWebHareResource("mod::system/web/tests/goudvis.png"),"goudvis.png");
   pollholder->SetInstanceData("http://www.webhare.net/xmlns/publisher/richdocumentfile",
           [ data := [ htmltext := StringToBlob(
                                                     `<html><body>
@@ -163,6 +168,8 @@ MACRO SetupTestSite(OBJECT testsite)
                                                       <div class="wh-rtd-embeddedobject" data-instanceid="holder1"></div>
                                                       <p class="normal">polltest:</p>
                                                       <div class="wh-rtd-embeddedobject" data-instanceid="holder2"></div>
+                                                      <p class="normal">Een afbeelding: <img src="cid:imagecid-81400" width="160" height="120" alt="I&amp;G" /></p>
+                                                      <p class="normal">Een <a href="https://beta.webhare.net/">externe</a> en een <a href="x-richdoclink:1234-5678-001#dieper">interne</a> link.</p>
                                                     </body></html>`)
                     , instances := [ [ instanceid := "holder1"
                                     , data := [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock"
@@ -175,7 +182,13 @@ MACRO SetupTestSite(OBJECT testsite)
                                               ]
                                     ]
                                   ]
-                    ]
+                    , embedded := [ CELL[...WrapBlob(GetHarescriptResource("mod::system/web/tests/snowbeagle.jpg"), "bob.jpg", [ extractdominantcolor := TRUE ])
+                                        , contentid := "imagecid-81400"
+                                        , source_fsobject := imgeditfile->Id
+                                    ]
+                                  ]
+                    , links := [[ tag := "1234-5678-001", linkref := rangetestfile->id ]]
+                  ]
           ]);
 
   OBJECT forumcommentsfile := webtools->CreateFile([ name:= "forumcomments", typens := "http://www.webhare.net/xmlns/publisher/richdocumentfile", publish := TRUE ]);
@@ -221,7 +234,6 @@ MACRO SetupTestSite(OBJECT testsite)
   actestsfolder->CreateFile([name := "index", typens := "http://www.webhare.net/xmlns/webhare_testsuite/actestpage", publish := TRUE ], [ setindex := TRUE ]);
 
   //Set up a forms testpage. mixed case to test *that* aspect of WebHare... it should simply lowercase it.
-  OBJECT testpages := testsite->rootobject->CreateFolder( [ name := "TestPages" ] );
   OBJECT formtest := testpages->CreateFile( [ name := "formtest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/formtest", publish := TRUE, title := "Various formdefinition testforms" ] );
 
   OBJECT wittytest := testpages->CreateFile( [ name := "wittytest.witty", typens := "http://www.webhare.net/xmlns/publisher/wittyfile", data := StringToBlob('[wittytest]') ] );
@@ -291,9 +303,6 @@ Test http://example.net/linkify.`
   testpages->CreateFile( [ name := "unpublished-internallink", typens := "http://www.webhare.net/xmlns/publisher/internallink", filelink := unpublishedpage->id, publish := FALSE ]);
 
   OBJECT dynamicpage := testpages->CreateFile( [ name := "dynamicpage", typens := "http://www.webhare.net/xmlns/webhare_testsuite/dynamicpage", publish := TRUE ] );
-
-  testpages->CreateFile([name:="imgeditfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := FALSE, type := 12, ispinned := TRUE ]);
-  testpages->CreateFile([name:="rangetestfile.jpeg", data := GetWebHareResource("mod::webhare_testsuite/web/resources/tests/rangetestfile.jpg"), publish := TRUE, type := 12  ]);
 
   OBJECT authtest_router_protected_folder := testpages->CreateFolder([ name := "wrdauthtest-router-protected" ]);
   authtest_router_protected_folder->CreateFile(
