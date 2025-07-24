@@ -19,13 +19,6 @@
   padding: $widget-vmargin 0;
 }
 
-// firefox won't copy content with user-select: none
-.wh-rtd-editor-bodynode--copying .wh-rtd-embeddedobject
-{
-  -moz-user-select: all;
-  user-select: all;
-}
-
 .wh-rtd-embeddedobject__box
 {
   position: relative; //to lift us above the --selected background
