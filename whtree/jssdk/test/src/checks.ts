@@ -50,7 +50,7 @@ export type TestOptions = {
   /** Custom comparison function. This function will be fed all values before standard comparisons run
    * @param expect - The expected value
    * @param actual - The actual value
-   * @returns True if the values match, false if they dont - undefined if onCompare has no opinion
+   * @returns True if the values match, false if they don't - undefined if onCompare has no opinion
    */
   onCompare?: (expect: unknown, actual: unknown) => boolean | undefined;
   annotation?: Annotation;

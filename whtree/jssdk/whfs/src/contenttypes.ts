@@ -280,7 +280,7 @@ export type VisitCallback = (ctx: VisitedResourceContext, resource: ResourceDesc
 
 /** Update image resources in WHFS Type settings (both files and inside rich documents)
  * @param callback - Callback to call for each resource optionally returning a ResourceDescriptor to update the resource with
- * @returns A continuation token which can be passed into 'nextToken' to resume processing. An empty strinrg if we're done
+ * @returns A continuation token which can be passed into 'nextToken' to resume processing. An empty string if we're done
 */
 export async function visitResources(callback: VisitCallback, scope: {
   startingPoints: number[];
@@ -296,7 +296,7 @@ export async function visitResources(callback: VisitCallback, scope: {
   const allfolderids = [...scope.startingPoints, ...await getWHFSDescendantIds(scope.startingPoints, true, false)];
   const deadline = scope.deadline ? convertWaitPeriodToDate(scope.deadline) : undefined;
 
-  //We loop once with folder '0' where we take the startinPoints *themselves* (id IN startingPoints) and then we work our way down the parents (parent IN ...)
+  //We loop once with folder '0' where we take the startingPoints *themselves* (id IN startingPoints) and then we work our way down the parents (parent IN ...)
   const allQueries: Array<{ condition: "in" | "parent"; value: number }> = [
     ...scope.startingPoints.map(startingPoint => ({ condition: "in" as const, value: startingPoint })),
     ...allfolderids.map(folderId => ({ condition: "parent" as const, value: folderId }))
