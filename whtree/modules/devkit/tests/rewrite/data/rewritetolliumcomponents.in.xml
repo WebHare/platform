@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<xs:schema
+  xmlns:xs="http://www.w3.org/2001/XMLSchema"
+  xmlns:l="http://www.webhare.net/xmlns/publisher/components"
+  xmlns:s="http://www.webhare.net/xmlns/tollium/screens"
+  xmlns:html="http://www.w3.org/1999/xhtml"
+  xmlns:ut="http://www.utwente.nl/xmlns/components"
+  xmlns="http://www.utwente.nl/xmlns/components"
+  targetNamespace="http://www.utwente.nl/xmlns/components"
+  elementFormDefault="qualified"
+  xml:lang="en">
+
+  <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
+  <xs:import namespace="http://www.webhare.net/xmlns/publisher/components" schemaLocation="mod::publisher/data/components.xsd" />
+
+  <xs:element name="test1">
+    <xs:annotation>
+      <xs:appinfo>
+        <!-- test lib="internal/..." ... non aboslute paths get interpreted relative to module::<module>/ .. not this file location! -->
+        <s:tolliumcomponent placement="optionsource" lib="internal/dummy2.whlib" objecttype="AnyObject2" />
+      </xs:appinfo>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:attributeGroup ref="s:ComponentBase" />
+      <xs:attribute name="inputkind" default="wrd_id">
+        <xs:annotation>
+          <xs:documentation>
+              Type of the input field we're use to look up the value, one of "WRD_ID", "WRD_GUID" or "LOC_ID"
+          </xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:enumeration value="wrd_id"/>
+            <xs:enumeration value="wrd_guid"/>
+            <xs:enumeration value="WRD_ID"/>
+            <xs:enumeration value="WRD_GUID"/>
+            <xs:enumeration value="loc_id"/>
+            <xs:enumeration value="LOC_ID"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="test2">
+    <xs:annotation>
+      <xs:appinfo>
+        <s:tolliumcomponent placement="optionsource" lib="mod::devkit/tests/rewrite/data/lib/dummy.whlib" objecttype="AnyObject" />
+        <s:extraparser field="enableon" type="enableons" target="./ut:enableon" />
+        <s:childcomponents field="actions" target="./*" />
+      </xs:appinfo>
+    </xs:annotation>
+ </xs:element>
+
+</xs:schema>

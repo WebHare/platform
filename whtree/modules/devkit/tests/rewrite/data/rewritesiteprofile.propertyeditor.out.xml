@@ -1,0 +1,46 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+             gid="testtids.gid1">
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="educationfolderfolder">
+    <newtab gid=".gid2" tid=".title">
+      <textedit composition="contentdata" cellname="celletje" height="1pr" tid=".subtitle" />
+    </newtab>
+  </tabsextension>
+
+  <!-- propertyeditors having more than one whfsinstances cannot be safely rewritten, as objectprops wont autobind the other whfsinstances -->
+  <propertyeditor name="multiplecompositions">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+      <p:whfsinstance name="other" typedef="http://www.utwente.nl/webhare/ws2013/otherdata" />
+    </compositions>
+    <newtab gid=".gid2" tid=".title">
+      <t:textedit composition="fsinstance" cellname="celletje" height="1pr" tid=".subtitle" />
+    </newtab>
+    <newtab title="Tab2">
+      <t:textedit composition="other" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+    </newtab>
+  </propertyeditor>
+
+  <!-- mixing other compositions is fine -->
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="mixingothercompositions">
+    <compositions>
+      <record composition="fsintance" cellname="other" name="other" />
+    </compositions>
+    <newtab>
+      <textedit composition="contentdata" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+      <textedit composition="other" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+    </newtab>
+  </tabsextension>
+
+  <apply>
+    <to type="folder" foldertype="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+    <extendproperties extension="#educationfolderfolder"
+                      contenttype="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+    <extendproperties name="multiplecompositions" />
+    <extendproperties extension="#mixingothercompositions"
+                      contenttype="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+  </apply>
+
+</siteprofile>

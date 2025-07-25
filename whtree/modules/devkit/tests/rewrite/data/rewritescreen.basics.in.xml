@@ -1,0 +1,95 @@
+<!-- basic test -->
+<screens gid="tolliumapps.mapdemo" xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:unused="urn:unused" lib="internal/dummy2.whlib">
+  <messageboxes gid="messages">
+  </messageboxes>
+  <screen implementation="none" name="demo" tid="tollium:common.labels.title" minheight="4x" width="1x" height="2x" minwidth="3x" >
+     <!--first subgroup. no line above!-->
+    <actions>
+      <action name="testaction" title="" icon="tollium:actions/add" />
+    </actions>
+   <!--    second subgroup. ONE line above    -->
+    <menus>
+      <menu name="mymenu" />
+    </menus>
+    <!--
+      multi
+ line
+            comment
+    -->
+    <compositions>
+      <record name="rec" />
+    </compositions>
+<!--
+      multi line comment straight left aligned
+-->
+    <toolbar>
+      <button action="testaction"/> <!-- test comment with node on next line -->
+      <button action="testaction"/>
+
+    </toolbar>
+    <body>
+      <panel border="true" /><!--my panel-->
+
+    </body>
+    <footer>
+      <defaultformbuttons buttons="ok cancel" />
+    </footer>  </screen>
+  <screen title="Second &lt;'screen'>" name="secondscreen" implementation="none">
+    <toolbar>  </toolbar>
+    <body>
+      <!-- first part of my screen. no line above! -->
+      <text title="mixed quotes: &quot; &apos;"/><panel />
+      <!-- second part of my screen. ONE line above -->
+      <list name="list1" icons="  tollium:actions/publish
+tollium:actions/accept" />
+      <list name="list2" icons="tollium:actions/publish   tollium:actions/accept tollium:actions/publish tollium:actions/accept tollium:actions/publish tollium:actions/accept tollium:actions/publish tollium:actions/accept  " />
+      <select type="pulldown">
+        <option rowkey="" enablecomponents="firstcomponent secondcomponent anothercomponent morecomponents evenmorecomponents forgoodmeasure thisisthelastone" />
+      </select>
+      <textedit name="firstcomponent" title="" />
+      <textedit name="secondcomponent" title="" />
+      <textedit name="anothercomponent" title="" />
+      <textedit name="morecomponents" title="" />
+      <textedit name="evenmorecomponents" title="" />
+      <textedit name="forgoodmeasure" title="" />
+      <textedit name="thisisthelastone" title="" />
+    </body>
+  </screen>
+  <screen name="keeptoolbar" implementation="none" title='"Title"'>
+    <toolbar> <!-- comment prevents deletion --> </toolbar>
+    <body>
+
+      <text title="" tid="tollium:common.buttons.cancel" /><!-- accidental
+      multiline comment -->
+      <panel />
+    </body>
+  </screen>
+
+  <screen name="keepfooter" implementation="none" title='Keep defaultformbuttons'>
+    <body>
+    </body>
+    <footer>
+      <lines>
+        <defaultformbuttons buttons="ok cancel"/>
+      </lines>
+    </footer>
+  </screen>
+
+  <screen name="keepfooter2" implementation="none" title="Keep defaultformbuttons 2">
+    <body>
+    </body>
+
+    <footer>
+       <defaultformbuttons buttons="ok cancel" default="cancel" />
+    </footer>
+  </screen>
+
+  <screen name="keepfooter3" title="Keep footer if any attributes">
+    <body>
+    </body>
+
+    <footer name="named" />
+  </screen>
+
+</screens>
+<!-- EOF -->

@@ -1,0 +1,165 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/css.whlib";
+LOADLIB "wh::util/semver.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/internal/modules/json.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::devkit/lib/rewrite/formatxml.whlib";
+LOADLIB "mod::devkit/lib/rewrite/updatexml.whlib";
+LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
+LOADLIB "relative::rewritesupport.whlib";
+
+PUBLIC STRING FUNCTION GetRewriteMode(STRING respath)
+{
+  STRING module := Getmodulenamefromresourcepath(respath);
+  IF(module IN whconstant_builtinmodules)
+    RETURN "431";
+
+  RECORD modinfo := GetWebhareModuleInfo(module);
+  IF(NOT RecordExists(modinfo) OR NOT RecordExists(modinfo.packagingapplicability))
+    RETURN "";
+
+  STRING reqversion := modinfo.packagingapplicability.webhareversion;
+  //a heuristic to determine what your rewrite targets...
+
+  //431 checks: see if your mdoule require 4.31 or above. Eg if 999.999.999 s in range but 4.30.999 isn't
+  IF(VersionSatisfiesRange("999.999.999", reqversion) AND NOT VersionSatisfiesRange("4.30.999", reqversion))
+    RETURN "431";
+
+  RETURN "";
+}
+
+STRING FUNCTION RewriteXMLFile(STRING infile, BLOB indata, STRING mode, STRING format, BOOLEAN debug)
+{
+  OBJECT xmldoc := MakeXMLDocument(indata);
+  IF(Length(xmldoc->GetParseErrors()) > 0)
+    THROW NEW Exception(FormatValidationError(CELL[...xmldoc->GetParseErrors()[0], resourcename := infile]));
+
+  OBJECT rewriter := NEW XMLUpdater(infile, xmldoc, mode, debug);
+  rewriter->ApplyRewrites(infile, format);
+
+  RETURN ReformatXML(xmldoc, infile, debug);
+}
+
+CONSTANT STRING ARRAY rewrite_formats := [ "http://www.webhare.net/xmlns/tollium/screens#screens"
+                                         , "http://www.webhare.net/xmlns/publisher/siteprofile#siteprofile"
+                                         , "http://www.webhare.net/xmlns/publisher/forms#formdefinitions"
+                                         , "http://www.webhare.net/xmlns/wrd/schemadefinition#schemadefinition"
+                                         , "http://www.webhare.net/xmlns/system/moduledefinition#module"
+                                         , "http://www.webhare.net/xmlns/system/testinfo#group"
+                                         //TODO move to module based registry:
+                                         , "http://www.webhare.net/xmlns/webshop/extensions#webshop"
+                                         ];
+CONSTANT STRING ARRAY potential_formats := [ "http://www.w3.org/2001/XMLSchema#schema" ];
+
+PUBLIC STRING FUNCTION GetXMLFileFormat(OBJECT doc)
+{
+  RETURN ObjectExists(doc->documentelement) ? doc->documentelement->namespaceuri || "#" || doc->documentelement->localname : "";
+}
+
+PUBLIC BOOLEAN FUNCTION IsRewriteableXMLFile(OBJECT doc)
+{
+  STRING format := Objectexists(doc->documentelement) ? doc->documentelement->GetAttributeNS("http://www.webhare.net/xmlns/dev/rewrite","format") : "";
+  IF(format != "" AND format IN potential_formats) //this is just XSD now..
+    RETURN TRUE;
+
+  IF(format = "")
+    format := GetXMLFileFormat(doc);
+
+  FOREVERY(RECORD spec FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/dev/moduledefinition", "rewritexmlfiles"))
+    IF(spec.node->GetAttribute("rootelement") = format)
+      RETURN TRUE;
+
+  IF(format = "http://www.w3.org/2001/XMLSchema#schema") //be careful, we don't want to rewrite random XSDs either
+  {
+    //Tollium screen definition?
+    IF(Length(doc->ListElements(tollium_ns,"tolliumcomponent")) > 0 OR Length(doc->ListElements(tollium_appinfo_ns,"tolliumcomponent")) > 0)
+      RETURN TRUE;
+
+    //Form comp definition?
+    IF(Length(doc->ListElements(publisher_fm_appinfo,"formhandler")) > 0 OR Length(doc->ListElements(publisher_fm_appinfo,"formcomponent")) > 0
+      OR Length(doc->ListElements(publisher_fm,"formhandler")) > 0 OR Length(doc->ListElements(publisher_fm,"formcomponent")) > 0)
+      RETURN TRUE;
+  }
+  RETURN FALSE;
+}
+
+PUBLIC RECORD FUNCTION RewriteFile(STRING filepath, BLOB indata, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ mode := "auto", debug := FALSE ], options);
+  IF(filepath LIKE "*.css")
+  {
+    IF(options.debug)
+      PrintTo(2, `Rewriting as CSS\n`);
+    OBJECT cssom := MakeCSSStyleSheet(indata);
+    RETURN CELL [ success := TRUE
+                , result := cssom->GetDocumentBlob(TRUE)
+                ];
+  }
+
+  STRING data := TrimWhitespace(BlobToString(indata, -1));
+
+  IF (LEFT(data,3) = DecodeBase16("EFBBBF")) // BOM?
+    data := TrimWhitespace(Substring(data, 3));
+
+  IF (LEFT(data,1) IN [ "[", "{" ])
+  {
+    IF(options.debug)
+      PrintTo(2, `Rewriting as JSON\n`);
+
+    RETURN [ success := TRUE
+           , result := StringToBlob(PrettifyJSON(data))
+           ];
+  }
+
+  IF (LEFT(data,5) = "hson:") //TODO this should not really be in a rewriter, but we're inheriting this from the dataformatter
+  {
+    IF(options.debug)
+      PrintTo(2, `Dump HSON data\n`);
+
+    VARIANT hsondata := DecodeHSON(data);
+    RETURN [ success := TRUE
+           , result := StringToBlob("HSON:\n"||AnyToString(hsondata, "tree"))
+           ];
+  }
+
+  IF (LENGTH(indata) = 0)
+    THROW NEW Exception("Could not read " || filepath);
+
+  OBJECT doc := MakeXMLDocument(indata);
+  IF (RecordExists(doc->GetParseErrors()))
+  {
+    RETURN [ success := FALSE
+           , errors := doc->GetParseErrors()
+           ];
+  }
+
+  STRING format := GetXMLFileFormat(doc);
+  IF(IsRewriteableXMLFile(doc)) //A suitable rewrite candidate?
+  {
+    STRING resname := GetResourceNameFromDiskPath(filepath);
+    STRING mode := options.mode = "auto" ? GetRewriteMode(resname) : options.mode;
+
+    IF(options.debug)
+      PrintTo(2, `Rewriting XML file (mode=${mode}, format=${format})\n`);
+
+    RETURN [ success := TRUE
+           , result := StringToBlob(RewriteXMLFile(resname, indata, mode, format, options.debug))
+           ];
+  }
+
+  doc->documentelement->NormalizeNamespaces();
+
+  IF(options.debug)
+    PrintTo(2, `Formatting unrecognized XML format '${format}'\n`);
+
+  BLOB form := doc->GetDocumentBlob(TRUE);
+  RETURN [ success := true
+         , result := form
+         ];
+}

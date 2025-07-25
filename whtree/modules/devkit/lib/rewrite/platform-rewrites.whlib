@@ -1,0 +1,145 @@
+<?wh
+LOADLIB "relative::rewritesupport.whlib";
+
+CONSTANT RECORD ARRAY fixelements :=
+  [ [ namespace := "*",        localnames := ["*"],        attributesorder :=  ["composition","cellname","name" //composition=.. name=.. had 1000+ hits, name=.. composition=.. was close to 500.. so close call
+                                                                               ,"type","width","height","minwidth","minheight"]
+                                                                                //applicability goes at the end
+                                                         , attributestailorder := [ "webhareversion", "ifenvironset", "unlessenvironset", "minservertype", "maxservertype", "restrictservers" ]
+                                                         , tidattributes := ["tid"]
+
+    ]
+
+  , [ namespace := tollium_ns, localnames := ["messageboxes"],  eliminateifempty := TRUE ]
+  , [ namespace := tollium_ns, localnames := ["messagebox"],    attributesorder := ["name","icon","button"] ] //icon .. button was 400+ hits, button .. icon was about 100... and its deprecated anyway so just change as little as possible
+  , [ namespace := tollium_ns, localnames := ["option"],        attributesorder := ["rowkey"], xslistattributes := ["enablecomponents"] ]
+  , [ namespace := tollium_ns, localnames := ["button"],        removeattributes := ["type"] ]
+  , [ namespace := tollium_ns, localnames := ["item"],          removeattributes := ["icon"] ] //cleanup menu item [icon]
+  , [ namespace := tollium_ns, localnames := ["panel","cell","list","part","box"]
+    , removeattributes := ["border"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["list","listedit","arrayedit"]
+    , xslistattributes := ["icons"]
+    , removeattributes := ["rowselect"]
+    ]
+  , [ namespace := wrd_ns, localnames := ["entitiesedit","entitybrowser","entitylist"]
+                          , removeattributes := ["rowselect"]
+                          , xslistattributes := ["icons", "requestcolumns"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["*"]
+    , removeattributes := ["margintop","marginbottom","marginleft","marginright"]
+    ]
+  , [ namespace := tollium_ns, localnames := ["screens"],  subelementspacing := "betweenall", keepopen := TRUE ]
+  , [ namespace := tollium_ns, localnames := ["screen"],   subelementspacing := "internal", fixfspath := ["library"] ]
+  , [ namespace := tollium_ns, localnames := ["tabsextension"], keepopen := TRUE  ]
+  , [ namespace := tollium_ns, localnames := ["actions"],  keepopen := TRUE ]
+  , [ namespace := tollium_ns, localnames := ["body"],     keepopen := TRUE ]
+  , [ namespace := tollium_ns, localnames := ["footer"],   eliminateifempty := TRUE, keepopen := TRUE ]
+  , [ namespace := tollium_ns, localnames := ["toolbar"],  keepopen := TRUE ] //Do NOT eliminateifempty, an empty toolbar can still be used for a menu button
+
+  //, [ namespace := tollium_ns, localnames := ["action"],   attributesorder :=  ["source","min","max","checkflags"] ]
+  , [ namespace := tollium_ns, localnames := ["enableon"], attributesorder :=  ["source","min","max","checkflags"] ]
+  , [ namespace := tollium_ns, localnames := ["textedit"], attributesorder :=  ["minlength","maxlength","minvalue","maxvalue"] ]
+  , [ namespace := tollium_ns, localnames := ["select"],   keeptabattributes := ["detokenizedvalueseparator"]
+                                                         , xslistattributes := ["flags"]
+                                                         ]
+  , [ namespace := tollium_ns, localnames := ["tolliumcomponent"], setnamespace := tollium_appinfo_ns, setprefix := "tai" ]
+  , [ namespace := tollium_ns, localnames := ["extraparser"],      setnamespace := tollium_appinfo_ns, setprefix := "tai", keeptabattributes := ["target"] ]
+  , [ namespace := tollium_ns, localnames := ["childcomponents"],  setnamespace := tollium_appinfo_ns, setprefix := "tai" ]
+  , [ namespace := tollium_appinfo_ns, localnames := ["extraparser"],  keeptabattributes := ["target"] ]
+
+  //tai:
+  , [ namespace := tollium_appinfo_ns, localnames := ["tolliumcomponent"], fixtwopartrefs := [[ lib := "lib", name := "objecttype", attemptmoduleroot := TRUE ]], fixfspath := ["objecttype"]]
+
+  , [ namespace := publisher_sp, localnames := [ "member" , "boolean", "datetime", "integer", "file", "float", "money", "string", "array", "whfsref", "whfsrefarray", "stringarray", "richdocument", "formdefinition", "formcondition", "intextlink", "instance", "url", "record"
+                                               ], tolowercase := ["name"] ]
+
+  , [ namespace := publisher_sp, localnames := ["siteprofile"],  subelementspacing := "betweenall"  ]
+  , [ namespace := publisher_sp, localnames := ["contenttype"],  removeattributevalues := ["cloneoncopy=true","cloneoncopy=1"], attributesorder := ["namespace"] ]
+  , [ namespace := publisher_sp, localnames := ["foldertype"], attributesorder := ["namespace","typedef"] ]
+  , [ namespace := publisher_sp, localnames := ["contentslisthandler"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]] ]
+  , [ namespace := publisher_sp, localnames := ["filetype"], attributesorder := ["namespace","kind","typedef"], removeattributes := ["isviewable"] ]
+  , [ namespace := publisher_sp, localnames := ["rtdtype"], attributesorder := ["namespace"] ]
+  , [ namespace := publisher_sp, localnames := ["widgettype"], fixtwopartrefs := [[ lib := "renderlibrary", name := "renderobjectname" ]], attributesorder := ["namespace"], fixscreenrefs := ["editextension"] ]
+  , [ namespace := publisher_sp, localnames := ["prebuiltpage"], fixtwopartrefs := [[ lib := "library", name := "webpageobjectname" ]
+                                                                                   ,[ lib := "library", name := "startmacro" ]
+                                                                                   ]]
+
+  , [ namespace := publisher_sp, localnames := ["to"], attributesorder := ["type","filetype","foldertype","parenttype"] ]
+  , [ namespace := publisher_sp, localnames := ["extendproperties"], attributesorder := ["extension"] ]
+  , [ namespace := publisher_sp, localnames := ["applysiteprofile"], groupsiblings := [`${publisher_sp}#applysiteprofile`] ]
+  , [ namespace := publisher_sp, localnames := ["textstyle", "tablestyle", "cellstyle"], attributesorder := ["tag","title","containertag"] ]
+  , [ namespace := publisher_sp, localnames := ["customplugin"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]
+                                                                                   ]]
+  , [ namespace := publisher_sp, localnames := ["setwidget"], fixtwopartrefs := [[ lib := "renderlibrary", name := "renderobjectname" ]
+                                                                                ]]
+  , [ namespace := publisher_sp, localnames := ["bodyrenderer"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]
+                                                                                   ]]
+  , [ namespace := publisher_sp, localnames := ["dynamicexecution"], fixtwopartrefs := [[ lib := "library", name := "webpageobjectname" ]
+                                                                                       ,[ lib := "library", name := "startmacro" ]
+                                                                                       ]]
+  , [ namespace := publisher_sp, localnames := ["webdesign"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]] ]
+  , [ namespace := publisher_sp, localnames := ["style"],  wraplineat := 300, attributesorder := ["tag","mswordcustomstyle"] ] //word conversion profiles
+
+  , [ namespace := publisher_ns, localnames := ["browseforobject","browseforobjectarray"],  xslistattributes := ["accepttypes"]  ]
+
+  , [ namespace := publisher_fm, localnames := ["formdefinitions"],  subelementspacing := "betweenall" ]
+  , [ namespace := publisher_fm, localnames := ["form"],   subelementspacing := "internal" ]
+  , [ namespace := publisher_fm, localnames := ["formcomponent", "formhandler"],  setnamespace := publisher_fm_appinfo, setprefix := "fai" ]
+
+  , [ namespace := moduledef_ns, localnames := ["task", "runatstartup"], fixscriptpaths := ["script"], wraplineat := 300, attributesorder := ["runat", "runtz", "script", "tag"]  ]
+  , [ namespace := moduledef_ns, localnames := ["application"], fixscreenrefs := [ "screen" ], fixtwopartrefs := [[ lib := "library", name := "startmacro" ]], fixfspath := ["startmacro","screen"] ]
+  , [ namespace := moduledef_ns, localnames := ["managedtask"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]] ]
+  , [ namespace := moduledef_ns, localnames := ["module" ], subelementspacing := "betweenall"  ]
+  , [ namespace := moduledef_ns, localnames := ["services","servicemanager","portal","publisher","moduleregistry","packaging","rights"],  subelementspacing := "internal", subelementjoinsamename := TRUE ]
+  , [ namespace := moduledef_ns, localnames := ["version", "description", "copyright", "author" ], subelementspacing := "none" ]
+  , [ namespace := moduledef_ns, localnames := ["webrule"], attributesorder := ["path","match"] ]
+  , [ namespace := moduledef_ns, localnames := ["schema"], attributesorder := ["tag"] ]
+  , [ namespace := moduledef_ns, localnames := ["webdesign"], attributesorder := ["title","tid"] ]
+  , [ namespace := moduledef_ns, localnames := ["versioningpolicy"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]] ]
+  , [ namespace := moduledef_ns, localnames := ["apprunnerconfig"], fixtwopartrefs := [[ lib := "library", name := "configfunction" ]] ]
+  , [ namespace := moduledef_ns, localnames := ["check"], fixtwopartrefs := [[ lib := "library", name := "objectname" ]] ]
+  , [ namespace := moduledef_ns, localnames := ["webservice"], fixmodulelibref := ["library"], fixfspath := ["library"] ]
+  , [ namespace := moduledef_ns, localnames := ["schema"], wraplineat := 300  ] //TODO rewrite wrdschemas node to lose its namespace once all are 4.28+, current syntax suggests we might embed the whole schemadefinition (same xmlns)
+  , [ namespace := moduledef_ns, localnames := ["arg"], keepcontentasis := TRUE ]
+  , [ namespace := moduledef_ns, localnames := ["csp"], semicolonlistattributes := ["policy"] ]
+  , [ namespace := moduledef_ns, localnames := ["catalog"], attributesorder := [ "tag" ] ]
+
+  , [ namespace := moduledef_ns, localnames := ["databaseschema"],  subelementspacing := "internal" ]
+  , [ namespace := dbschema_ns,  localnames := ["documentation"],  subelementspacing := "none", eliminateifempty := TRUE ]
+  , [ namespace := system_Sc,    localnames := ["deprecated"],  subelementspacing := "none", eliminateifempty := TRUE ]
+
+
+  , [ namespace := wrdschemadef_ns, localnames := ["schemadefinition"], subelementspacing := "betweenall", tolowercase := ["accountemailfield","accountloginfield","accounttype","accountpasswordfield"]  ]
+  , [ namespace := wrdschemadef_ns, localnames := ["schema"], wraplineat := 300  ]
+  , [ namespace := wrdschemadef_ns, localnames := ["import"], fixfspath := ["definitionfile"], groupsiblings := [`${wrdschemadef_ns}#import` ] ]
+  , [ namespace := wrdschemadef_ns, localnames := ["*"], attributesorder := ["tag"], xslistattributes := ["allowedvalues"], tolowercase := ["tag", "linkfrom", "linkto", "domain", "overwriteattributes", "matchattribute", "parent"]]
+  , [ namespace := wrdschemadef_ns, localnames := ["field"], keepcontentasis := TRUE, keepopen := TRUE ]
+  , [ namespace := wrdschemadef_ns, localnames := ["documentation"], subelementspacing := "none", eliminateifempty := TRUE ]
+  , [ namespace := wrdschemadef_ns, localnames := ["migration"], groupsiblings := [`${wrdschemadef_ns}#migration`] ]
+
+  , [ namespace := "http://www.webhare.net/xmlns/wrd", localnames := ["wrdauth"], attributesorder := ["wrdschema"]
+                                                                                , fixtwopartrefs := [[ lib := "supportlibrary", name := "supportobjectname" ]]
+                                                                                , removeattributes := ["sitetag"]
+                                                                                , removeattributevalues := ["api2017=true","api2017=1","cookiepath=/"]
+                                                                                ]
+
+  , [ namespace := xsd_ns, localnames := ["schema"], subelementspacing := "betweenall" ]// groupsiblings := [`${xsd_ns}#import` ] ]
+  , [ namespace := xsd_ns, localnames := ["import"],  groupsiblings := [`${xsd_ns}#import` ] ]
+  , [ namespace := xsd_ns, localnames := ["documentation"], subelementspacing := "none", eliminateifempty := TRUE ]
+  , [ namespace := xsd_ns, localnames := ["element"], attributesorder := [ "name", "type", "minOccurs", "maxOccurs" ] ]
+
+  , [ namespace := "http://www.webhare.net/xmlns/system/restapi", localnames := [ "restapi" ], fixtwopartrefs := [[ lib := "library", name := "objecttype" ]] ]
+  , [ namespace := "http://www.webhare.net/xmlns/system/restapi", localnames := [ "description" ], subelementspacing := "none" ]
+  , [ namespace := "http://www.webhare.net/xmlns/system/restapi", localnames := [ "types" ], subelementspacing := "internal" ]
+  , [ namespace := "http://www.webhare.net/xmlns/system/restapi", localnames := [ "record" ], attributesorder := ["ref"] ]
+
+  , [ namespace := "http://www.webhare.net/xmlns/system/testinfo", localnames := [ "test" ], attributesorder := ["script"] ]
+
+  , [ namespace := "http://www.w3.org/1999/xhtml", localnames := [ "*" ], keepcontentasis := TRUE ]
+  ];
+
+PUBLIC RECORD ARRAY FUNCTION GetWebharePlatformRewrites()
+{
+  RETURN fixelements;
+}

@@ -1,0 +1,83 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+
+  <widgettype namespace="http://www.pthu.nl/v2/embobj/facebook"
+              ingroup="http://www.pthu.nl/v2/embobjgroups/social"
+              renderobjectname="./embeddedobjects.whlib#FacebookObject">
+    <members>
+      <string name="themecolor" />
+      <array name="items">
+        <string name="description" />
+      </array>
+    </members>
+  </widgettype>
+
+  <widgettype namespace="http://www.arteniveau.nl/embeddedobjects/cta"
+              editextension="#cta"
+              renderobjectname="lib/dummy.whlib#anyobject"
+              title="CTA">
+    <members>
+      <string name="title" />
+      <richdocument name="richtext" />
+      <intextlink name="buttonlink1" />
+      <string name="buttontitle1" />
+      <boolean name="addbutton2" />
+      <intextlink name="buttonlink2" />
+      <string name="buttontitle2" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="cta" allowresize="true">
+    <newtab spacers="none">
+      <tabs height="1pr">
+        <tab title="Instellingen">
+          <panel layout="left">
+            <heading title="Titel" />
+            <textedit composition="contentdata" cellname="title" width="1pr" errorlabel="Titel" required="true" title="" />
+          </panel>
+          <heading title="Knop" />
+          <textedit composition="contentdata" cellname="buttontitle1" width="1pr" required="true" title="Titel" />
+          <p:intextlink composition="contentdata" cellname="buttonlink1" width="1pr" required="true" title="Link" />
+          <heading composition="contentdata"
+                   cellname="addbutton2"
+                   checkbox="true"
+                   enablecomponents="buttontitle2 buttonlink2"
+                   title="Voeg 2e knop toe" />
+          <textedit composition="contentdata"
+                    cellname="buttontitle2"
+                    name="buttontitle2"
+                    width="1pr"
+                    required="true"
+                    title="Titel" />
+          <p:intextlink composition="contentdata"
+                        cellname="buttonlink2"
+                        name="buttonlink2"
+                        width="1pr"
+                        required="true"
+                        title="Link" />
+        </tab>
+        <tab title="Tekst">
+          <panel height="1pr" layout="left">
+            <heading title="Tekst" />
+            <richdocument composition="contentdata"
+                          cellname="richtext"
+                          height="1pr"
+                          errorlabel="Tekst"
+                          required="true"
+                          rtdtype="http://www.arteniveau.nl/rtd/cta" />
+          </panel>
+        </tab>
+      </tabs>
+    </newtab>
+  </tabsextension>
+
+  <widgettype namespace="http://www.webhare.dev/v2/embobj/cleanmeup" editextension="#cleanmeup">
+    <members>
+      <string name="themecolor" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="cleanmeup">
+  </tabsextension>
+
+</siteprofile>

@@ -1,0 +1,42 @@
+<!-- basic test -->
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" gid="site.forms" library="lib/dummy">
+  <form objectname="Form" name="myform" gid=".testform">
+    <page>
+      <textedit required="true" maxlength="10" name="test" title="10 characters"/>
+    </page>
+    <page>
+      <select type="radio" rowkeytype="integer" name="somenumber" title="Some number" orientation="horizontal" required="true">
+        <option rowkey="0" title="0" />
+        <option title="1" rowkey="1" >
+        </option>
+        <option rowkey="-1" title="Other"><textedit name="altnumber" title="" valuetype="integer" required="true" /></option>
+      </select>
+    </page>
+    <page role="thankyou">
+      <richtext name="text_conditions" title="">
+              <body xmlns="http://www.w3.org/1999/xhtml">
+          <p class="normal">
+            Uw verzoek is verwerkt. U ontvangt bericht op het bij ons bekende e-mailadres.
+          </p>
+          <p class="normal">
+            Heeft u geen e-mail ontvangen, dan is het opgegeven e-mailadres onjuist, niet bij ons bekend of wij kunnen u om een andere reden geen mail sturen.
+          </p>
+          <p class="normal">
+            Als u toch wilt kunnen inloggen, is het vanwege de veiligheid nodig dat u zich eerst legitimeert. U kunt via de KopieID app een foto van uw legitimatiebewijs mailen naar <a href="wijziging@dewoonplaats.nl">wijziging@dewoonplaats.nl</a> of langskomen in een van onze woonwinkels.
+          </p>
+        </body></richtext>
+</page>
+  </form>
+  <form name="emptyform">
+
+    <page>
+    </page>
+
+  </form>
+
+  <form name="legacyform">
+    <textedit name="test" maxlength="10" required="true" title="10 characters" />
+    <textedit name="test2" maxlength="20" title="20 characters" />
+  </form>
+</formdefinitions>
+<!-- EOF -->

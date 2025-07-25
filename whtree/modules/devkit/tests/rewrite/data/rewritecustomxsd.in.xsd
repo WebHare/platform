@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<xs:schema xmlns="http://www.utwente.nl/xmlns/utwente_voorlichting/dynamics_export" xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://www.utwente.nl/xmlns/utwente_voorlichting/dynamics_export" xmlns:rewrite="http://www.webhare.net/xmlns/dev/rewrite" rewrite:format="http://www.w3.org/2001/XMLSchema#schema">
+
+  <xs:element name="organisaties" type="Organisaties"/>
+
+  <xs:complexType name="Organisatie">
+    <xs:sequence minOccurs="0">
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="naam" type="xs:string"/>
+      <xs:element name="subs" minOccurs="0" maxOccurs="unbounded">
+        <xs:complexType><xs:sequence>
+         <xs:element name="sub1" minOccurs="0" maxOccurs="1" type="xs:string"/>
+         <xs:element name="sub2" minOccurs="0" maxOccurs="1" type="xs:string"/>
+       </xs:sequence></xs:complexType></xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Organisaties">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" name="organisatie" type="Organisatie">
+       </xs:element>
+     </xs:sequence>
+  </xs:complexType>
+
+  <xs:attribute name="testattr"/> <xs:attribute name="testattr2"/>
+</xs:schema>

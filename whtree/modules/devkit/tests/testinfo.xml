@@ -3,6 +3,7 @@
     <arg value="--ci" />
     <arg value="--json" />
   </test>
+  <test name="rewrite" path="rewrite/" />
   <test script="test_comments.whscr" />
   <test script="test_harescript_declarationparser.whscr" />
   <test script="test_sourcecodedoc.whscr" />

@@ -1,0 +1,14 @@
+<?wh
+PUBLIC OBJECTTYPE DoNotrewrite
+<
+>;
+
+//point to this object for validations that don't actually bother to check EXTENDs
+PUBLIC OBJECTTYPE AnyObject
+<
+>;
+
+PUBLIC MACRO AnyMacro()
+{
+
+}

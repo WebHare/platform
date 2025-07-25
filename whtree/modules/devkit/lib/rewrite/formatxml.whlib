@@ -1,0 +1,611 @@
+<?wh
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/resources.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/internal/support.whlib";
+
+CONSTANT RECORD initialformattingstate :=
+  [ indent := ""
+  , indentstepsize := 2
+  , wraplineat := 125
+  , groupsiblings := STRING[]
+  , subelementspacing := ""
+  , subelementjoinsamename := FALSE
+  , resourcename := ""
+  , debug := FALSE
+  , fixelements := RECORD[]
+  ];
+
+STRING FUNCTION FixModuleLibRef(STRING resourcename, STRING inpath)
+{
+  IF(inpath = "" OR inpath LIKE "*::*" OR inpath LIKE "/*")
+    RETURN inpath;
+
+  IF(RecordExists(RetrieveWebHareResource(MakeAbsoluteResourcePath(resourcename, inpath), [ allowmissing := TRUE ])))
+    RETURN inpath; //file actually exists, so it's ... okay ?
+
+  FOREVERY(STRING attemptsubdir FROM [ "include/", "lib/" ])
+  {
+    STRING tryname := "mod::" || GetModuleNameFromResourcePath(resourcename) || "/" || attemptsubdir || inpath;
+    IF(RecordExists(RetrieveWebHareResource(tryname, [ allowmissing := TRUE ])))
+      RETURN tryname;
+  }
+  RETURN inpath;
+}
+
+STRING FUNCTION FixFSPath(STRING resourcename, STRING inpath, BOOLEAN allow_moduleabsolute)
+{
+  IF(inpath LIKE "moduledata::*" OR inpath LIKE "modulescript::*" OR inpath LIKE "moduleroot::*")
+    inpath := MakeAbsoluteResourcePath(resourcename, inpath);
+
+  IF(allow_moduleabsolute AND inpath LIKE "mod::*" AND GetModuleNameFromResourcePath(inpath) = GetModuleNameFromResourcePath(resourcename))
+    RETURN Substring(inpath, Length(GetModuleNameFromResourcePath(inpath)) + 5); //same module, os strip 'mod::x' part
+
+  RETURN inpath;
+}
+
+STRING FUNCTION FixScreenRef(STRING resourcename, STRING inpath)
+{
+  IF(inpath LIKE ".*")
+    RETURN "#" || Substring(inpath,1);
+
+  IF(IsOldStyleScreenReference(inpath))
+    inpath := MakeAbsoluteScreenReference(resourcename,inpath);
+
+  RETURN FixFSPath(resourcename, inpath, TRUE);
+}
+
+STRING FUNCTION FixScriptPath(STRING resourcename, STRING inpath)
+{
+  STRING directpath := MakeAbsoluteResourcePath(resourcename, inpath);
+  STRING testpath := "scripts/" || inpath;
+  STRING implicitpath := MakeAbsoluteResourcePath(resourcename, testpath);
+
+  IF(NOT RecordExists(RetrieveWebHareResource(directpath, [allowmissing := TRUE]))
+     AND RecordExists(RetrieveWebHareResource(implicitpath, [allowmissing := FALSE])))
+  {
+    RETURN testpath;
+  }
+  RETURN FixFSPath(resourcename, inpath, TRUE);
+}
+
+BOOLEAN FUNCTION IsPrefixUsed(OBJECT el, STRING findprefix)
+{
+  IF(el->prefix = findprefix)
+    RETURN TRUE;
+  IF(RecordExists(SELECT FROM el->ListAttributes() WHERE prefix = VAR findprefix OR nodevalue LIKE VAR findprefix || ":*" OR nodevalue LIKE "*/" || VAR findprefix || ":*")) //assume a "xx:" or "./xx:" value is a qualify named references
+    RETURN TRUE;
+  FOREVERY(OBJECT child FROM el->ListChildren("*","*"))
+    IF(IsPrefixUsed(child, findprefix))
+     RETURN TRUE;
+  RETURN FALSE;
+}
+
+STRING FUNCTION FixTid(STRING intid)
+{
+  IF(intid LIKE "tollium:common.actions.*" AND GetTid(intid) = GetTid("~" || Substring(intid,23)))
+    RETURN "~" || Substring(intid,23);
+  IF(intid LIKE "tollium:common.labels.*" AND GetTid(intid) = GetTid("~" || Substring(intid,22)))
+    RETURN "~" || Substring(intid,22);
+  IF(intid LIKE "tollium:common.buttons.*" AND GetTid(intid) = GetTid("~" || Substring(intid,23)))
+    RETURN "~" || Substring(intid,23);
+  RETURN intid;
+}
+
+STRING FUNCTION EncodeAttrValue(STRING text, BOOLEAN iskeeptab)
+{
+  text := Substitute(Substitute(text,'&','&amp;'),'<','&lt;');
+
+  IF(iskeeptab)  //keep tabs as &#09;
+    text := Substitute(text, "\t", "&#9;");
+
+  IF(text LIKE '*"*' AND text NOT LIKE "*'*") //if it contains a double quote but no single quote, prefer a single quote escape
+    RETURN `'${Substitute(text,"'",'&apos;')}'`;
+  ELSE
+    RETURN `"${Substitute(text,'"','&quot;')}"`;
+}
+
+BOOLEAN FUNCTION HasContents(OBJECT node)
+{
+  FOR(node := node->firstchild; ObjectExists(node); node := node->nextsibling)
+    IF(node->nodetype != 3 OR TrimWhitespace(node->nodevalue) != "")
+      RETURN TRUE;
+  RETURN FALSE;
+}
+
+RECORD ARRAY FUNCTION FixTwoPartRef(RECORD formattingstate, RECORD ARRAY attrs, RECORD tofix, BOOLEAN attemptmoduleroot)
+{
+  STRING libname := SELECT AS STRING nodevalue FROM attrs WHERE namespaceuri = "" AND nodename = tofix.lib;
+  STRING name := SELECT AS STRING nodevalue FROM attrs WHERE namespaceuri = "" AND nodename = tofix.name;
+  IF(libname = "" OR name = "")
+    RETURN attrs;
+
+  STRING finallibname;
+  IF(finallibname = "" AND attemptmoduleroot AND libname NOT LIKE "*::*")
+  {
+    FOREVERY(STRING attemptsubdir FROM [ "include/", "lib/" ])
+    {
+      STRING tryname := "mod::" || GetModuleNameFromResourcePath(formattingstate.resourcename) || "/" || attemptsubdir || libname;
+      IF(RecordExists(RetrieveWebHareResource(tryname, [ allowmissing := TRUE ])))
+      {
+        finallibname := tryname;
+        BREAK;
+      }
+    }
+  }
+
+  IF(finallibname = "")
+    FOREVERY(STRING attemptsubdir FROM [ "", "include/", "lib/" ])
+    {
+      STRING tryname := attemptsubdir || libname;
+      IF(RecordExists(RetrieveWebHareResource(MakeAbsoluteResourcePath(formattingstate.resourcename,tryname), [ allowmissing := TRUE ])))
+      {
+        finallibname := tryname;
+        BREAK;
+      }
+    }
+
+  IF(finallibname = "")
+  {
+    IF(formattingstate.debug)
+      PrintTo(2, `Unable to find library for lib reference '${libname}' (attribute '${tofix.lib}')\n`);
+    RETURN attrs;
+  }
+
+
+  //TODO prefixing?
+  name := finallibname || "#" || name;
+  UPDATE attrs SET nodevalue := name WHERE namespaceuri = "" AND nodename = tofix.name;
+  DELETE FROM attrs WHERE namespaceuri = "" AND nodename = tofix.lib;
+
+  RETURN attrs;
+}
+
+RECORD FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
+{
+  STRING usenodename := el->nodename;
+  BOOLEAN eliminateifempty;
+
+  //some properties we reset at each level
+  formattingstate.subelementspacing := initialformattingstate.subelementspacing;
+  formattingstate.wraplineat := initialformattingstate.wraplineat;
+  formattingstate.groupsiblings := initialformattingstate.groupsiblings;
+
+  RECORD substate := formattingstate;
+
+  RECORD ARRAY attrs := el->ListAttributes();
+  RECORD ARRAY elsettings := SELECT *
+                               FROM formattingstate.fixelements
+                              WHERE (fixelements.namespace = "*" OR fixelements.namespace = el->namespaceuri)
+                                     AND (el->localname IN fixelements.localnames OR "*" IN fixelements.localnames);
+
+  attrs := SELECT * FROM attrs ORDER BY nodename;
+
+  STRING ARRAY attributesorder, attributestailorder, tidattributes, xslistattributes, semicolonlistattributes, keeptabattributes, lowercaseattributes;
+  BOOLEAN keepopen;
+  BOOLEAN keepcontentasis;
+
+  FOREVERY(RECORD elsetting FROM elsettings)
+  {
+    //remove deprecated attributes
+    IF(CellExists(elsetting, "removeattributes"))
+      DELETE FROM attrs WHERE namespaceuri = "" AND attrs.nodename IN elsetting.removeattributes;
+
+    IF(CellExists(elsetting, "removeattributevalues"))
+      FOREVERY(STRING toremove FROM elsetting.removeattributevalues)
+      {
+        STRING attrname := Tokenize(toremove, '=')[0];
+        STRING attrvalue := Substring(toremove, Length(attrname) + 1);
+        DELETE FROM attrs WHERE namespaceuri = "" AND attrs.nodename = attrname AND attrs.nodevalue = attrvalue;
+      }
+
+    //order attributes in preferred order
+    IF(CellExists(elsetting, "attributesorder"))
+      attributesorder := attributesorder CONCAT elsetting.attributesorder;
+    IF(CellExists(elsetting, "keeptabattributes"))
+      keeptabattributes := keeptabattributes CONCAT elsetting.keeptabattributes;
+    IF(CellExists(elsetting, "attributestailorder"))
+      attributestailorder := elsetting.attributestailorder CONCAT attributestailorder;
+    IF(CellExists(elsetting, "tolowercase"))
+      lowercaseattributes := lowercaseattributes CONCAT elsetting.tolowercase;
+
+    IF(CellExists(elsetting, "fixtwopartrefs"))
+      FOREVERY(RECORD tofix FROM elsetting.fixtwopartrefs)
+        attrs := FixTwoPartRef(formattingstate, attrs, tofix, CellExists(tofix,'attemptmoduleroot') AND tofix.attemptmoduleroot);
+
+    IF(CellExists(elsetting, "fixscreenrefs"))
+      UPDATE attrs SET nodevalue := FixScreenRef(formattingstate.resourcename, nodevalue) WHERE nodename IN elsetting.fixscreenrefs;
+
+    IF(CellExists(elsetting, "fixmodulelibref"))
+      UPDATE attrs SET nodevalue := FixModuleLibRef(formattingstate.resourcename, nodevalue) WHERE nodename IN elsetting.fixmodulelibref;
+
+    IF(CellExists(elsetting, "fixfspath"))
+      UPDATE attrs SET nodevalue := FixFSPath(formattingstate.resourcename, nodevalue, TRUE) WHERE nodename IN elsetting.fixfspath;
+
+    IF(CellExists(elsetting, "fixfspath_nomodroot"))
+      UPDATE attrs SET nodevalue := FixFSPath(formattingstate.resourcename, nodevalue, FALSE) WHERE nodename IN elsetting.fixfspath_nomodroot;
+
+    IF(CellExists(elsetting, "tidattributes"))
+      tidattributes := tidattributes CONCAT elsetting.tidattributes;
+
+    IF(CellExists(elsetting, "xslistattributes"))
+      xslistattributes := xslistattributes CONCAT elsetting.xslistattributes;
+
+    IF(CellExists(elsetting, "semicolonlistattributes"))
+      semicolonlistattributes := semicolonlistattributes CONCAT elsetting.semicolonlistattributes;
+
+    IF(CellExists(elsetting, "eliminateifempty"))
+      eliminateifempty := elsetting.eliminateifempty;
+
+    IF(CellExists(elsetting, "subelementspacing"))
+      substate.subelementspacing := elsetting.subelementspacing;
+
+    IF(CellExists(elsetting, "wraplineat"))
+      substate.wraplineat := elsetting.wraplineat;
+
+    IF(CellExists(elsetting, "groupsiblings"))
+      substate.groupsiblings := elsetting.groupsiblings;
+
+    IF(CellExists(elsetting, "fixscriptpaths"))
+      UPDATE attrs SET nodevalue := FixScriptPath(formattingstate.resourcename, nodevalue) WHERE nodename IN elsetting.fixscriptpaths;
+
+    IF(CellExists(elsetting, "subelementjoinsamename"))
+      substate.subelementjoinsamename := elsetting.subelementjoinsamename;
+
+    IF(CellExists(elsetting, "keepopen"))
+      keepopen := elsetting.keepopen;
+
+    IF(CellExists(elsetting, "keepcontentasis"))
+      keepcontentasis := elsetting.keepcontentasis;
+  }
+
+  RECORD retval := [ groupsiblings := substate.groupsiblings, text := "" ];
+
+  IF(eliminateifempty AND NOT HasContents(el) AND Length(SELECT FROM el->ListAttributes() WHERE nodename != "gid") = 0) //<messageboxes gid=> is okay to delete
+    RETURN retval;
+
+  //sort and detect lists
+  attrs := SELECT *
+                , isxslist := nodename IN xslistattributes
+                , issemicolonlist := nodename IN semicolonlistattributes
+                , iskeeptab := nodename IN keeptabattributes
+             FROM attrs
+            ORDER BY nodename IN attributesorder ? SearchElement(attributesorder, nodename)
+                   : nodename IN attributestailorder ? 20000 + SearchElement(attributestailorder, nodename)
+                   : 10000+#attrs;
+
+  UPDATE attrs SET nodevalue := FixTid(nodevalue) WHERE nodename IN tidattributes;
+  UPDATE attrs SET nodevalue := Detokenize(ParseXSList(nodevalue),' ') WHERE isxslist;
+  UPDATE attrs SET nodevalue := ToLowercase(nodevalue) WHERE nodename IN lowercaseattributes;
+
+  DELETE FROM attrs WHERE namespaceuri = "http://www.w3.org/2000/xmlns/" AND prefix != "" AND NOT IsPrefixUsed(el, localname);
+
+  INTEGER numxmlnsattrs := Length(SELECT FROM attrs WHERE namespaceuri = "http://www.w3.org/2000/xmlns/");
+  IF(numxmlnsattrs > 0)
+  {
+    //we always prefer xmlns= first
+    attrs := SELECT * FROM attrs ORDER BY namespaceuri = "http://www.w3.org/2000/xmlns/" DESC;
+  }
+
+  //encode the attributes (in case we want to switch to single quotes)
+  attrs := SELECT *, encoded := EncodeAttrValue(nodevalue, iskeeptab) FROM attrs;
+
+  //here we go!
+  STRING result;
+
+  result := result || formattingstate.indent || '<' || usenodename;
+  STRING trysingleline := result;
+  FOREVERY(RECORD attr FROM attrs)
+    trysingleline := `${trysingleline} ${attr.nodename}=${attr.encoded}`;
+
+  IF(Length(trysingleline) > substate.wraplineat  //too long, wrap it!
+     OR numxmlnsattrs > 1) //we don't like more than one xmlns attribute unwrapped
+  {
+    FOREVERY(RECORD attr FROM attrs)
+    {
+      IF(#attr = 0)
+        result := `${result} ${attr.nodename}=`;
+      ELSE //next line,indent!
+        result := `${result}\n${formattingstate.indent}${RepeatText(" ", Length(usenodename) + 1)} ${attr.nodename}=`;
+
+      INTEGER curpos := Length(Tokenize(result,'\n')[END-1]);
+      STRING toencode := attr.nodevalue;
+
+      IF(attr.issemicolonlist)
+      {
+        STRING spacedattribute;
+        FOREVERY(STRING tok FROM Tokenize(toencode,';')) //FIXME match quotes, probably shouldnt cut a ; out of a quote...
+        {
+          tok := TrimWhitespace(tok);
+          IF(tok = "")
+            CONTINUE;
+
+          IF(spacedattribute != "")
+            spacedattribute := `${spacedattribute};\n${RepeatText(" ", curpos+1)}${tok}`;
+          ELSE
+            spacedattribute := tok;
+        }
+        toencode := spacedattribute;
+      }
+      //rewrite xslist attributes into multiline versions? (eg long icon lists)
+      ELSE IF(attr.isxslist AND curpos + Length(attr.encoded) > substate.wraplineat) //adding the attribute would cause us to exceed maximum line Length
+      {
+        STRING spacedattribute;
+        FOREVERY(STRING tok FROM ParseXSList(toencode))
+        {
+          IF(spacedattribute != "")
+            spacedattribute := `${spacedattribute}\n${RepeatText(" ", curpos+1)}${tok}`;
+          ELSE
+            spacedattribute := tok;
+        }
+        toencode := spacedattribute;
+      }
+      result := `${result}${EncodeAttrValue(toencode, attr.iskeeptab)}`;
+    }
+  }
+  ELSE
+  {
+    result := trysingleline;
+  }
+
+  IF(NOT HasContents(el) AND NOT keepopen)
+  {
+    retval.text := result || ' />';
+    RETURN retval;
+  }
+
+  IF(keepcontentasis)
+  {
+    result := result || '>' || el->innerxml;
+  }
+  ELSE
+  {
+    substate.indent := substate.indent || RepeatText(" ", substate.indentstepsize);
+
+    result := result || '>';
+    IF(substate.subelementspacing != "none")
+      result := result || '\n';
+
+    //Write our children
+    result := result || RewriteChildren(el, substate);
+
+    IF(substate.subelementspacing != "none")
+      result := result ||formattingstate.indent;
+  }
+
+  result := result ||  "</" || usenodename || ">";
+  retval.text := result;
+  RETURN retval;
+}
+
+STRING FUNCTION ReformatComment(STRING comment)
+{
+  WHILE(Left(comment,1) = ' ')
+    comment := Substring(comment,1);
+  IF(comment NOT LIKE "*\n*") //not a multiline comment (prevent reverse indenting the -->)
+    WHILE(Right(comment,1) = ' ')
+      comment := Left(comment,Length(comment)-1);
+  IF(Left(comment,1) != '\n')
+    comment := " " || comment;
+  IF(Right(comment,1) NOT IN [' ',"\n"])
+    comment := comment || " ";
+  RETURN comment;
+}
+
+STRING FUNCTION RewriteChildren(OBJECT parent, RECORD formattingstate)
+{
+  RECORD ARRAY nodes;
+  BOOLEAN onelementline;
+  BOOLEAN atleftpos; //are we at col 1? only a textelemnt ending with \n sets this
+
+  FOR(OBJECT  node := parent->firstchild; ObjectExists(node); node := node->nextsibling)
+  {
+    IF(node->nodetype = 1) //element
+    {
+      RECORD noderesult := RewiteXMLElement(node, formattingstate);
+      IF(noderesult.text = "")
+        CONTINUE;
+
+      INSERT CELL [ nodetype := 1
+                  , noderesult.text
+                  , name := node->namespaceuri || "#" || node->localname
+                  , noderesult.groupsiblings
+                  ] INTO nodes AT END;
+
+      onelementline := TRUE;
+      atleftpos := FALSE;
+    }
+    ELSE IF(node->nodetype = 3) //textcontent
+    {
+      STRING content := node->nodevalue;
+      IF(content LIKE "*\n*")
+        onelementline := FALSE;
+
+      atleftpos := content LIKE "*\n";
+      content := TrimWhitespace(node->nodevalue);
+      IF(content = "")
+        CONTINUE;
+      INSERT CELL [ nodetype := 3, text := EncodeTextNode(content) ] INTO nodes AT END;
+    }
+    ELSE IF(node->nodetype = 8) //comment
+    {
+      STRING comment := ReformatComment(node->nodevalue);
+      IF(TrimWhitespace(comment) = "Disable the legacy site settings")  //precedes <disablelegcaysitesetings>
+        CONTINUE; //ignore
+
+      INSERT CELL [ nodetype := 8
+                  , text := `<!--${comment}-->`
+                  , onelementline
+                  , atleftpos
+                  ] INTO nodes AT END;
+      atleftpos := FALSE;
+    }
+  }
+
+  IF(NOT ObjectExists(parent->ownerdocument)) //working on the document node
+  {
+    //this is a special case as all textcontent nodes are gone. just place everything on its own line
+    RETURN Detokenize((SELECT AS STRING ARRAY text FROM nodes),"\n") || "\n";
+  }
+
+  //indent all comments that are not on the same line as their element
+  FOREVERY(RECORD node FROM nodes)
+    IF(node.nodetype = 8 AND NOT node.onelementline AND NOT node.atleftpos)
+      nodes[#node].text := formattingstate.indent || nodes[#node].text;
+
+  //insert linefeeds between the elements
+  IF(formattingstate.subelementspacing = "betweenall" OR formattingstate.subelementspacing = "internal")
+  {
+    RECORD ARRAY outlist;
+    IF(formattingstate.subelementspacing = "betweenall")
+      outlist := [[ nodetype := -1, text := "\n" ]];
+
+    FOREVERY(RECORD node FROM nodes)
+    {
+      outlist := outlist CONCAT [node];
+
+      IF(node.nodetype = 1
+         AND #node < Length(nodes) - 1
+         AND nodes[#node+1].nodetype = 8
+         AND nodes[#node+1].onelementline)
+      {
+        //next comment wants to be on this line so also. just prepend spaces
+        outlist[END-1].text := outlist[END-1].text || "  ";
+        CONTINUE;
+      }
+
+      //Add a linefeed behind the last node
+      IF(node.nodetype = 1)
+        outlist[END-1].text := outlist[END-1].text || "\n";
+
+      IF(node.nodetype = 1
+         AND formattingstate.subelementjoinsamename
+         AND #node < Length(nodes) - 1
+         AND nodes[#node+1].nodetype = 1
+         AND nodes[#node+1].name = node.name)
+      {
+        CONTINUE; //not adding linefeeds between two identical named nodes with subelementjoinsamename
+      }
+
+      IF(formattingstate.subelementspacing = "internal"
+         AND #node = Length(nodes)-1
+         AND node.nodetype = 1)
+      {
+        //No linefeed after the last element
+        CONTINUE;
+      }
+
+      IF(node.nodetype = 1
+         AND #node < Length(nodes)-1
+         AND nodes[#node+1].nodetype = 1
+         AND nodes[#node+1].name IN node.groupsiblings)
+      {
+        //these and the next node like to stick together in groups (eg <applysiteprofile>)
+        CONTINUE;
+      }
+
+      outlist := outlist CONCAT [[ nodetype := -1, text := "\n" ]];
+    }
+    nodes := outlist;
+  }
+  ELSE
+  {
+    //we still want newlines before and after comments
+    RECORD ARRAY outlist;
+
+    FOREVERY(RECORD node FROM nodes)
+    {
+      IF(node.nodetype = 8 AND #node > 0 AND NOT node.onelementline)//comment after first line
+        INSERT [ nodetype := -1, text := "\n" ] INTO outlist AT END; //break before
+
+      INSERT node INTO outlist AT END;
+
+      IF(node.nodetype = 1
+         AND #node < Length(nodes) - 1
+         AND nodes[#node+1].nodetype = 8
+         AND nodes[#node+1].onelementline)
+      {
+        //next comment wants to be on this line so also. just prepend spaces
+        outlist[END-1].text := outlist[END-1].text || "  ";
+        CONTINUE;
+      }
+
+      //Add a linefeed behind the last node
+      IF(node.nodetype = 1)
+        outlist[END-1].text := outlist[END-1].text || "\n";
+
+      IF(node.nodetype = 8)
+        INSERT [ nodetype := -1, text := "\n" ] INTO outlist AT END; //break after comment
+    }
+    nodes := outlist;
+  }
+
+  RETURN Detokenize((SELECT AS STRING ARRAY text FROM nodes),"");
+}
+
+//First apply 'global' rewrites which we can't do while outputting
+MACRO ApplyGlobalRewrites(OBJECT xmldoc, RECORD ARRAY fixelements)
+{
+  FOREVERY(RECORD elsetting FROM fixelements)
+    IF(CellExists(elsetting,'setnamespace'))
+    {
+      FOREVERY(STRING localname FROM elsetting.localnames)
+      {
+        OBJECT ARRAY targets := xmldoc->ListElements(elsetting.namespace, localname);
+        FOREVERY(OBJECT target FROM targets)
+        {
+          IF(CellExists(elsetting,'setnamespace'))
+          {
+            OBJECT fixedelement;
+            IF(NOT target->ownerdocument->documentelement->HasAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:" || elsetting.setprefix))
+              target->ownerdocument->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns:" || elsetting.setprefix, elsetting.setnamespace);
+
+            //doc->documentelement->SetAttributeNS("http://www.w3.org/2000/xmlns/", "xmlns", "http://www.webhare.net/module-manifest/");
+
+            fixedelement := target->ownerdocument->CreateElementNS(elsetting.setnamespace, elsetting.setprefix || ":" || target->localname);
+            FOREVERY(RECORD attr FROM target->ListAttributes())
+              fixedelement->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+
+            WHILE(ObjectExists(target->firstchild))
+              fixedelement->AppendChild(target->firstchild);
+
+            target->parentnode->ReplaceChild(fixedelement, target);
+          }
+        }
+      }
+    }
+}
+
+PUBLIC STRING FUNCTION ReformatXML(OBJECT xmldoc, STRING resourcename, BOOLEAN debug)
+{
+  RECORD ARRAY xmlrewriter;
+  FOREVERY(RECORD spec FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/dev/moduledefinition", "xmlrewriter"))
+  {
+    INSERT CELL [ priority := ParseXSInt(spec.node->GetAttribute("priority"))
+                , getrulesfunction := MakeAbsoluteScreenReference(spec.resource, spec.node->GetAttribute("getrulesfunction"))
+                , spec.module
+                ] INTO xmlrewriter AT END;
+  }
+  xmlrewriter := SELECT * FROM xmlrewriter ORDER BY priority, module;
+
+  RECORD ARRAY fixelements;
+  FOREVERY(RECORD spec FROM xmlrewriter)
+  {
+    //LSP or something related is very persistent in caching not picking up changes, so (ab)use a job for this
+    fixelements := fixelements CONCAT CallFunctionFromJob(spec.getrulesfunction);
+  }
+
+  ApplyGlobalRewrites(xmldoc, fixelements);
+
+  xmldoc->documentelement->NormalizeNamespaces();
+
+  RECORD formatting := initialformattingstate;
+  formatting.fixelements := fixelements;
+  formatting.resourcename := resourcename;
+  formatting.debug := debug;
+  RETURN RewriteChildren(xmldoc, formatting);
+}

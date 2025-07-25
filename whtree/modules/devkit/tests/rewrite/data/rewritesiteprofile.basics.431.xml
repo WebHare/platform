@@ -1,0 +1,61 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <!-- Place empty line above, not below -->
+  <contenttype namespace="urn::xmlns1">
+    <whfsref name="chatinfolink" />
+  </contenttype>
+
+  <contenttype namespace="urn::xmlns2" cloneoncopy="false">
+    <whfsref name="chatinfolink" />
+    <whfsref name="chatinfolink2" />
+  </contenttype>
+
+  <filetype namespace="urn::xmlns3" kind="virtualfile" capturesubpaths="true" icon="tollium:folders/locked">
+    <members>
+      <whfsref name="chatinfolink" />
+      <whfsref name="chatinfolink2" />
+    </members>
+    <setobjecteditor name="publisher:editdocument" supportsversioning="true" />
+    <bodyrenderer objectname="lib/dummy.whlib#RenderRTD" />
+  </filetype>
+
+  <filetype namespace="urn::xmlns4" kind="virtualfile" isacceptableindex="false">
+    <members>
+      <whfsref name="chatinfolink" />
+    </members>
+    <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
+  </filetype>
+
+  <apply priority="1" minservertype="test">
+    <to type="file" filetype="urn::dummy" />
+    <allowfiletype typemask="urn::dummy2" />
+  </apply>
+
+  <apply>
+    <to type="all" />
+    <webdesign assetpack="publisher:__dummy__"
+               designfolder="."
+               objectname="lib/dummy.whlib#anyobject"
+               wittyencoding="HTML-NI" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
+             wrdschema="dev:nosuchschema"
+             supportobjectname="lib/dummy.whlib#anyobject" />
+  </apply>
+
+  <foldertype namespace="urn::xmlns5">
+    <dynamicexecution startmacro="lib/dummy.whlib#AnyMacro" />
+  </foldertype>
+
+  <applysiteprofile path="rewritesiteprofile.editfragment.in.xml" />
+  <applysiteprofile path="rewritesiteprofile.editfragment.out.xml" />
+
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule path="/testportal" match="initial" allowips="" minservertype="test">
+        <csp policy="script-src 'self' www.example.net 'sha256-x3rcHre5/YnW661p4wgHopS0bVZSfM+VctGwyntHYgs=';
+                     frame-ancestors 'self' [webhare]" />
+      </webrule>
+    </webruleset>
+  </sitesettings>
+
+</siteprofile>

@@ -1,0 +1,16 @@
+<?wh
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC CONSTANT STRING tollium_ns := "http://www.webhare.net/xmlns/tollium/screens";
+PUBLIC CONSTANT STRING tollium_appinfo_ns := "http://www.webhare.net/xmlns/tollium/appinfo";
+PUBLIC CONSTANT STRING system_sc := "http://www.webhare.net/xmlns/system/common";
+PUBLIC CONSTANT STRING publisher_sp := "http://www.webhare.net/xmlns/publisher/siteprofile";
+PUBLIC CONSTANT STRING publisher_ns := "http://www.webhare.net/xmlns/publisher/components";
+PUBLIC CONSTANT STRING publisher_fm := "http://www.webhare.net/xmlns/publisher/forms";
+PUBLIC CONSTANT STRING publisher_fm_appinfo := "http://www.webhare.net/xmlns/publisher/forms/appinfo";
+PUBLIC CONSTANT STRING moduledef_ns := whconstant_xmlns_moduledef;
+PUBLIC CONSTANT STRING dbschema_ns := "http://www.webhare.net/xmlns/whdb/databaseschema";
+PUBLIC CONSTANT STRING wrd_ns := "http://www.webhare.net/xmlns/wrd/components";
+PUBLIC CONSTANT STRING wrdschemadef_ns := "http://www.webhare.net/xmlns/wrd/schemadefinition";
+
+PUBLIC CONSTANT STRING xsd_ns := "http://www.w3.org/2001/XMLSchema";
