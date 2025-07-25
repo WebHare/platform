@@ -6,18 +6,29 @@ import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildWHFSInstance, type RTDBlock, type RTDInlineItem, type RTDBuildSource, type ExportableRTD, type WHFSInstance } from "@webhare/services/src/richdocument";
+import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 
 // An exportable RTD should always be a valid input source
 ({} as ExportableRTD) satisfies RTDBuildSource;
 
+///A resourcedescriptor compare that ignores filenames (because )
+function compareRDIgnoreFilename(expect: unknown, actual: unknown) {
+  if (!isResourceDescriptor(expect) || !isResourceDescriptor(actual))
+    return;
+
+  test.eqPartial({ ...expect.getMetaData(), fileName: actual.fileName }, actual.getMetaData());
+  return true;
+}
+
 async function verifySimpleRoundTrip(doc: RichTextDocument) {
+
   const exported = await doc.export();
   const docFromExported = await buildRTD(exported);
-  test.eq(doc.blocks, docFromExported.blocks);
+  test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDIgnoreFilename });
 
   const hs = await exportAsHareScriptRTD(doc);
   const doc2 = await buildRTDFromHareScriptRTD(hs);
-  test.eq(doc.blocks, doc2.blocks);
+  test.eq(doc.blocks, doc2.blocks, { onCompare: compareRDIgnoreFilename });
   return hs;
 }
 
@@ -35,19 +46,19 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
   await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(tempfile.id, { data: doc });
   const doc3 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
-  test.eq(doc.blocks, doc3.blocks);
+  test.eq(doc.blocks, doc3.blocks, { onCompare: compareRDIgnoreFilename });
 
   //Test roundtrip through HareScript WHFS SetInstanceData
   //FIXME this should also set whfsSettingId and whfsFileId again on instances?
   const hsWHFSType = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   await hsWHFSType.setInstanceData(tempfile.id, { data: hs });
   const doc4 = (await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(tempfile.id)).data as RichTextDocument;
-  test.eq(doc.blocks, doc4.blocks);
+  test.eq(doc.blocks, doc4.blocks, { onCompare: compareRDIgnoreFilename });
 
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
   const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
-  test.eq(doc.blocks, doc5.blocks);
+  test.eq(doc.blocks, doc5.blocks, { onCompare: compareRDIgnoreFilename });
 
   await rollbackWork();
 }
@@ -67,6 +78,59 @@ async function verifyWidgetRoundTrip(widget: WHFSInstance) {
   test.eqPartial(await returnedWidget.export(), await widget.export());
 }
 
+async function testReader() {
+  const pollHolder = await (await test.getTestSiteJS()).openFile("/webtools/pollholder");
+  const aboutAFish = await openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(pollHolder.id, { export: true });
+
+  test.eq([
+    {
+      tag: 'p', items: [{ text: 'polltest:' }]
+    }, {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest"]
+      }
+    }, {
+      tag: 'p',
+      items: [{ text: 'polltest:' }]
+    }, {
+      widget: {
+        whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
+        widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest2"]
+      }
+    }, {
+      tag: 'p',
+      items: [
+        { text: 'Een afbeelding: ' },
+        {
+          image: {
+            data: { base64: /^\/9j/ },
+            sourceFile: "site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg",
+            extension: '.jpg',
+            mediaType: 'image/jpeg',
+            width: 428,
+            height: 284,
+            hash: 'eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw',
+            dominantColor: /^#.*$/,
+            fileName: "imagecid-81400"
+          },
+          alt: 'I&G',
+          width: 160,
+          height: 120
+        }
+      ]
+    }, {
+      tag: "p",
+      items: [
+        { text: "Een " },
+        { text: "externe", link: { externalLink: "https://beta.webhare.net/" }, },
+        { text: " en een " },
+        { text: "interne", link: { internalLink: "site::webhare_testsuite.testsitejs/TestPages/rangetestfile.jpeg", append: "#dieper" } },
+        { text: " link." }
+      ]
+    }
+  ], aboutAFish.data);
+}
 
 async function testBuilder() {
   // eslint-disable-next-line no-constant-condition -- TS API type tests
@@ -74,8 +138,8 @@ async function testBuilder() {
     ({ text: "A text", bold: true }) satisfies RTDInlineItem;
     ///@ts-expect-error kabooya is not valid
     ({ text: "A text", bold: true, kabooya: true }) satisfies RTDInlineItem;
-    ({ text: "text-me", link: "https://webhare.dev/" }) satisfies RTDInlineItem;
-    ({ text: "text-me", link: "https://webhare.dev/", target: "_blank" }) satisfies RTDInlineItem;
+    ({ text: "text-me", link: new IntExtLink("https://webhare.dev/") }) satisfies RTDInlineItem;
+    ({ text: "text-me", link: new IntExtLink(16), target: "_blank" }) satisfies RTDInlineItem;
     ({ text: "text-me", target: "_blank" }) satisfies RTDInlineItem;
   }
 
@@ -183,6 +247,73 @@ async function testBuilder() {
       + `<p class="normal">This is a <a href="https://webhare.dev/">hyperlink</a><a href="https://webhare.dev/2">y<b>thing</b>y<i>doo</i></a><i>dle</i></p>`
       + `<p class="normal">This is a <a href="https://webhare.dev/" target="_blank">new window</a><a href="https://webhare.dev/">-link</a></p>`
       + `</body></html>`, await doc.__getRawHTML());
+    await verifyRoundTrip(doc);
+  }
+
+  { //test images
+    const testsitejs = await test.getTestSiteJS();
+    const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
+    const goldFish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
+    const doc = await buildRTD([
+      {
+        "h2": [
+          "This is an image: ",
+          {
+            image: goldFish,
+            width: 240,
+            height: 120,
+            alt: "Goudvis"
+          }
+        ]
+      }, {
+        "p": [
+          "This is a linked image: ",
+          {
+            image: goldFish,
+            width: 240,
+            height: 120,
+            alt: "Goudvis 2",
+            link: new IntExtLink(imgEditFile.id, { append: "#test" })
+          }
+        ]
+      }
+    ]);
+
+    test.eq([
+      {
+        tag: "h2",
+        items: [
+          { text: "This is an image: " },
+          {
+            alt: "Goudvis",
+            height: 120,
+            image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            width: 240
+          }
+        ],
+      }, {
+        tag: "p",
+        items: [
+          { text: "This is a linked image: " },
+          {
+            alt: "Goudvis 2",
+            height: 120,
+            width: 240,
+            image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
+            link: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
+          }
+        ]
+      }
+    ], await doc.export());
+
+    test.eqPartial({
+      image: (res: ResourceDescriptor): boolean => res.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY',
+      width: 240,
+      height: 120,
+      alt: "Goudvis"
+
+    }, (doc.blocks[0] as any).items[1]);
+
     await verifyRoundTrip(doc);
   }
 
@@ -480,16 +611,6 @@ async function testBuildingRTDsWithInstances() {
   }
 }
 
-async function testRTDCreation() {
-  // const richdoc = await createRichDocument([
-  //   { blockType: "h2", contents: "Intro" },
-  //   { blockType: "p", contents: "Hello, World!" }
-  // ]);
-
-  // //verify class= and general syntax
-  // test.eq(`<html><body><h2 class="heading2">Intro</h2><p class="normal">Hello, World!</p></body></html>`, await richdoc.__getRawHTML());
-}
-
 async function testWRDRoundTrips() {
   console.log("now testing wrd roundtrips.."); //we delayed it so other tests can fail faster as createWRDTestSchema is (still?) slow
   await createWRDTestSchema();
@@ -507,14 +628,14 @@ async function testWRDRoundTrips() {
     await runInWork(async () => {
       await wrdschema.update("wrdPerson", testuser, { richie: doc });
       const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
-      test.eq(doc.blocks, richie.blocks);
+      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDIgnoreFilename });
     });
 
     await runInWork(async () => {
       //Test roundtrip through HareScript WRD UpdateEntity
       await hsWRDPersonType.UpdateEntity(testuser, { richie: hs });
       const { richie } = await wrdschema.getFields("wrdPerson", testuser, ["richie"]);
-      test.eq(doc.blocks, richie.blocks);
+      test.eq(doc.blocks, richie.blocks, { onCompare: compareRDIgnoreFilename });
     });
 
     await runInWork(async () => {
@@ -523,7 +644,7 @@ async function testWRDRoundTrips() {
       await wrdschema.update("wrdPerson", testuser, { richie: doc });
       const { richie } = await hsWRDPersonType.getEntityFields(testuser, ["richie"]);
       const richieDoc = await buildRTDFromHareScriptRTD(richie);
-      test.eq(doc.blocks, richieDoc.blocks);
+      test.eq(doc.blocks, richieDoc.blocks, { onCompare: compareRDIgnoreFilename });
     });
   }
 }
@@ -542,10 +663,10 @@ async function testRegressions() {
 
 test.runTests(
   [
+    testReader,
     testBuilder,
     testBuildWHFSInstance,
     testBuildingRTDsWithInstances,
-    testRTDCreation,
     testWRDRoundTrips,
     testRegressions
   ]);

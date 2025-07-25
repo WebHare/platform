@@ -338,9 +338,63 @@ async function testInstanceData() {
   await commitWork();
 }
 
+async function testVisitor() {
+  await beginWork();
+  const aboutAFish = await (await test.getTestSiteJSTemp()).ensureFile("aboutAFish", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
+  await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").set(aboutAFish.id,
+    {
+      data: [
+        {
+          p: ["An image: ", { image: await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true, getHash: true }) }]
+        }
+      ]
+    });
+
+  const aboutAFishData = await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(aboutAFish.id, { export: true });
+  await commitWork();
+
+  const originalList: Array<whfs.VisitedResourceContext & { fileName: string | null }> = [];
+  const startingPoints = [(await test.getTestSiteHS()).id, (await test.getTestSiteJS()).id];
+
+  await whfs.visitResources(async (ctx, resource) => {
+    await test.sleep(0);
+    originalList.push({ ...ctx, fileName: resource.fileName });
+  }, { startingPoints });
+
+  //Now visit in parts
+  const visitedList: typeof originalList = [];
+  let nextToken = '';
+  do {
+    const visitedPart: typeof originalList = [];
+
+    nextToken = await whfs.visitResources(async (ctx, resource) => {
+      visitedPart.push({ ...ctx, fileName: resource.fileName });
+    }, { startingPoints, batchSize: 3, nextToken });
+
+    test.assert(visitedPart.length <= 3, "Batch size should not be exceeded");
+    visitedList.push(...visitedPart);
+  } while (nextToken);
+
+  test.eq(originalList, visitedList, "All resources should be visited in identical order");
+
+  //Let's actually rewrite
+  await whfs.visitResources(async (ctx, resource) => {
+    if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richDocument") {
+      test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", ctx.fsType);
+      test.eq("data", ctx.fieldName);
+      return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg");
+    }
+  }, { startingPoints, isVisibleEdit: false });
+
+  const finalRTD = await whfs.openType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(aboutAFish.id, { export: true });
+  test.eq((aboutAFishData as any).data[0].items[1].image.fileName, (finalRTD as any).data[0].items[1].image.fileName, "verify contentid was preserved");
+  test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw" }, (finalRTD as any).data[0].items[1].image);
+}
+
 test.runTests([
   test.reset,
   testCodecs,
   testMockedTypes,
-  testInstanceData
+  testInstanceData,
+  testVisitor
 ]);
