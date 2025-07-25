@@ -1,13 +1,20 @@
+import type { WHServerInitializeResult } from '@webhare/lsp-types';
 import { spawn, spawnSync } from 'child_process';
 import * as vscode from 'vscode';
 import {
 	LanguageClient,
 	LanguageClientOptions,
-	ServerOptions
+	ServerOptions,
+	State,
+	type InitializeResult
 } from "vscode-languageclient/node";
 
+export const firstConfig = Promise.withResolvers<InitializeResult & WHServerInitializeResult>();
 
-export let client: LanguageClient | null;
+export let client: (
+	LanguageClient & {
+		get initializeResult(): (InitializeResult & WHServerInitializeResult) | undefined;
+	}) | undefined;
 
 export function startClient(serverOptions: ServerOptions, clientOptions: LanguageClientOptions) {
 	stopClient();
@@ -18,10 +25,15 @@ export function startClient(serverOptions: ServerOptions, clientOptions: Languag
 		"WebHare Language Server",
 		serverOptions,
 		clientOptions
-	);
+	) as typeof client;
 
 	// Start the client. This will also launch the server
 	client.start();
+
+	client.onDidChangeState(event => {
+		if (event.newState === State.Running)
+			firstConfig.resolve(client.initializeResult);
+	});
 
 	// Watch for 'reveal' requests from WebHare. This is the reason we need `activationEvents`: `onStartupFinished`
 	client.onRequest("window/showDocument", async param => {

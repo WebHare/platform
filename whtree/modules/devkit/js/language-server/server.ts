@@ -3,6 +3,7 @@
 import {
   CodeActionKind,
   type InitializeParams,
+  type InitializeResult,
   RequestType,
   type ShowDocumentParams,
   TextDocumentSyncKind
@@ -130,8 +131,11 @@ export async function runWebHareLSP() {
       serverInfo: {
         name: "WebHare",
         version: backendConfig.whVersion
+      },
+      whServerInfo: {
+        dataRoot: backendConfig.dataRoot
       }
-    };
+    } satisfies InitializeResult & lspTypes.WHServerInitializeResult;
   });
 
   const exitcontroller = new AbortController;

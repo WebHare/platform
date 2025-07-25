@@ -32,3 +32,9 @@ export interface StackTraceParams {
   textDocument: TextDocumentIdentifier;
   lastGuid?: string;
 }
+
+export interface WHServerInitializeResult { //sent during LSP connection
+  whServerInfo: {
+    dataRoot: string;
+  };
+}
