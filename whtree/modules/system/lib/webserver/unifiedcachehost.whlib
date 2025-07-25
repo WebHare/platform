@@ -45,8 +45,7 @@ RECORD FUNCTION GetMimeType(STRING extension)
          ];
 }
 
-PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
-<
+PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase <
   BOOLEAN force;
   BOOLEAN trace;
 
@@ -77,8 +76,7 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
     RETURN res.data;
   }
 
-  RECORD FUNCTION GetCacheRawData(RECORD data)
-  {
+  RECORD FUNCTION GetCacheRawData(RECORD data) {
     //Get the path for this image
     STRING path := this->GetDiskPath(data);
     BLOB diskfile;
@@ -110,15 +108,13 @@ PUBLIC STATIC OBJECTTYPE UnifiedCacheHostBase
 
     //TODO we might not need to do temporary files ourselves. StoreDiskFile's overwrite mode does an atomic replace by default
     INTEGER imghandle;
-    TRY
-    {
+    TRY {
       RECORD dbdata := LookupDataForUnifiedURL(data.item);
       IF (this->trace)
         DumpValue(dbdata, "tree");
 
       //If we get here, the url was validated and the item was not rejected
-      IF(data.datatype = 1 AND data.item.resizemethod.format IN ["image/webp","image/avif"])
-      {
+      IF(data.datatype = 1 AND (data.item.resizemethod.format IN ["image/webp","image/avif"] OR dbdata.mimetype IN ["image/webp","image/avif"])) {
         RECORD req := CELL[ ...dbdata
               , DELETE data //don't transfer the raw blob, receiver can cheat and use the PGBLOBID
               , data.item

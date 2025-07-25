@@ -1,7 +1,7 @@
 import type { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
-import { pick, slugify, typedEntries, typedFromEntries } from "@webhare/std";
+import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename, extname } from "node:path";
@@ -15,6 +15,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
 import { getWHType } from "@webhare/std/quacks";
+import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
@@ -32,6 +33,8 @@ const MapBitmapImageTypes: Record<string, string> = {
   "webp": "image/webp",
   "heif": "image/avif"
 };
+
+const metadataFields = ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"] as const;
 
 export type ResizeMethodName = Exclude<typeof packMethods[number], "cropcanvas" | "crop" | "stretch" | "stretch-x" | "stretch-y">;
 export type OutputFormatName = Exclude<typeof outputFormats[number], null>;
@@ -92,7 +95,7 @@ export interface ResourceScanOptions {
   getHash?: boolean;
   getImageMetadata?: boolean;
   getDominantColor?: boolean;
-  sourceFile?: number;
+  sourceFile?: number | null;
 }
 
 export type Rotation = 0 | 90 | 180 | 270;
@@ -106,9 +109,9 @@ interface ResourceBaseMetaData {
   width: number | null;
   ///Height (in pixels)
   height: number | null;
-  ///Image rotation in degrees (0,90,180 or 270). null for non images
+  ///Image rotation in degrees (0,90,180 or 270). null if not known (image not analyzed yet) or not an image
   rotation: Rotation | null;
-  ///True if this is a mirrored image. null for non images
+  ///True if this is a mirrored image. null if not known (image not analyzed yet) or not an image
   mirrored: boolean | null;
   ///Reference point if set, default record otherwise
   refPoint: { x: number; y: number } | null;
@@ -131,18 +134,20 @@ export type ExportedBlobReference = {
 
 export type ExportedResource = Partial<ExportedResourceMetaData> & { data: ExportedBlobReference };
 
+type WebHareDBLocation = {
+  /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
+  source: number;
+  /** ID */
+  id: number;
+  /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
+  cc: number;
+};
+
 export interface ResourceMetaData extends ResourceBaseMetaData {
-  ///Original in image library
+  /** Original in image library */
   sourceFile: number | null;
-  /**Database location support cached URL generation */
-  dbLoc?: {
-    /** Source. 1 = fsobjects, 2 = fssettings, 3 = wrdsetting, 4 = formresult */
-    source: number;
-    /** ID */
-    id: number;
-    /** Creation check. Type-specific identifier to protect against replays if an ID is reused */
-    cc: number;
-  };
+  /** Database location support cached URL generation */
+  dbLoc?: WebHareDBLocation;
 }
 
 export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
@@ -276,6 +281,24 @@ export async function unmapExternalWHFSRef(inId: string): Promise<number | null>
   return null;
 }
 
+export function exportIntExtLink(value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> {
+  if (value?.internalLink)
+    return mapExternalWHFSRef(value.internalLink, options).then(id => id ? { internalLink: id, append: value.append || undefined } : null);
+  if (value?.externalLink)
+    return { externalLink: value.externalLink };
+  return null;
+}
+
+export function importIntExtLink(value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> {
+  if (!value || isIntExtLink(value))
+    return value;
+
+  if ("externalLink" in value)
+    return new IntExtLink(value.externalLink);
+
+  return unmapExternalWHFSRef(value.internalLink).then(id => id ? new IntExtLink(id, { append: value.append }) : null);
+}
+
 export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
   if (image.size >= MaxImageScanSize)
     return {}; //too large to scan
@@ -318,8 +341,8 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
 
   const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) === 0;
 
-  const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
-  const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
+  const mirrored: boolean = Boolean(metadata.orientation && [2, 4, 5, 7].includes(metadata.orientation));
+  const rotation: Rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? 0 : 0;
   const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
   const mediaType = metadata.format === 'raw' ? 'image/x-bmp' : (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType;
 
@@ -334,7 +357,7 @@ export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean
   };
 }
 
-type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
+export type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
 
 export function encodeScanData(meta: EncodableResourceMetaData): string {
   const data: SerializedScanData = {};
@@ -473,7 +496,7 @@ export function suggestImageFormat(mediaType: string): Exclude<OutputFormatName,
 }
 
 export function explainImageProcessing(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, method: PackableResizeMethod): ResizeSpecs {
-  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff"].includes(resource.mediaType))
+  if (!["image/jpeg", "image/png", "image/x-bmp", "image/gif", "image/tiff", "image/webp", "image/avif"].includes(resource.mediaType))
     throw new Error(`Image type '${resource.mediaType}' is not supported for resizing`);
   if (!resource.width || !resource.height)
     throw new Error("Width and height are required for bitmap images");
@@ -799,6 +822,7 @@ function getUnifiedCacheURL(dataType: number, metaData: ResourceMetaData, option
 export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
   private readonly _resource: WebHareBlob; // The resource itself
+  private readonly _dbLoc?: WebHareDBLocation;
 
   [Marshaller] = {
     type: HareScriptType.Record,
@@ -829,7 +853,8 @@ export class ResourceDescriptor implements ResourceMetaData {
 
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
-    this.metadata = metadata;
+    this.metadata = pick(metadata, metadataFields); //ensure no 'data' fields leak through
+    this._dbLoc = metadata.dbLoc;
   }
 
   private async applyScanOptions(options: ResourceScanOptions) {
@@ -910,11 +935,17 @@ export class ResourceDescriptor implements ResourceMetaData {
       throw new Error(`Not sure how to import data from exportedresource, got keys: ${Object.keys(resource.data).slice(0, 5).join(", ")}`);
     }
 
-    const importData = {
+    const importData: ResourceMetaDataInit = {
       ...resource,
       sourceFile: resource.sourceFile ? await unmapExternalWHFSRef(resource.sourceFile) : null,
       mediaType: resource.mediaType || "application/octet-stream"
     };
+    if (importData.width && (typeof importData.mirrored !== "boolean" || typeof importData.rotation !== "number")) {
+      //If we have width and height, we can assume we should have known about any rotation even if stripped from the export record due to default-value-elimination
+      importData.rotation = 0;
+      importData.mirrored = false;
+    }
+
     return new ResourceDescriptor(blob, importData);
   }
 
@@ -949,6 +980,9 @@ export class ResourceDescriptor implements ResourceMetaData {
   get dominantColor() {
     return this.metadata.dominantColor ?? null;
   }
+  set dominantColor(color: string | null) {
+    this.metadata.dominantColor = color ? color.match(/^#[0-9A-F]{6}$/i) ? color.toUpperCase() : throwError("Invalid color format, expected 6-digit hex color") : null;
+  }
   get hash() {
     return this.metadata.hash ?? null;
   }
@@ -959,12 +993,12 @@ export class ResourceDescriptor implements ResourceMetaData {
     return this.metadata.sourceFile || null;
   }
   get dbLoc() {
-    return this.metadata.dbLoc;
+    return this._dbLoc;
   }
 
   //Gets a simple object containing *only* the metadata
   getMetaData(): ResourceMetaData {
-    return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
+    return pick(this, metadataFields); //TODO fix fallback value during construction, not during getters, and we can just return this.metadta
   }
 
   toLink(method?: LinkMethod): string {

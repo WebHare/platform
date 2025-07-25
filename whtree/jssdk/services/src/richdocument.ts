@@ -1,4 +1,4 @@
-import { throwError, typedEntries } from "@webhare/std";
+import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
@@ -6,6 +6,8 @@ import { exportRTDToRawHTML } from "@webhare/hscompat/richdocument";
 import { getWHType, isPromise } from "@webhare/std/quacks";
 import { codecs } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
+import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions } from "./descriptor";
+import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
 
 /* Due to the recursive nature of the RTD types, the recursive parts of exportable and buildable RTD types
     are defined separately, so TypeScript can verify that the export type is assignable to the build type,
@@ -76,10 +78,30 @@ type RTDBaseBlock<Mode extends RTDItemMode> =
   RTDBaseList<Mode> |
   { widget: RTDBaseWidget<Mode> };
 
+
+export type RTDBaseInlineImageItem<Mode extends RTDItemMode> = {
+  image: Mode extends "export" ? ExportedResource : Mode extends "inMemory" ? ResourceDescriptor : ExportedResource | ResourceDescriptor;
+  alt?: string;
+  width?: number;
+  height?: number;
+  float?: "left" | "right";
+};
+
+export type RTDBaseLink<Mode extends RTDItemMode> = {
+  link?: Mode extends "export" ? ExportedIntExtLink : Mode extends "inMemory" ? IntExtLink : ExportedIntExtLink | IntExtLink | string;
+  target?: "_blank";
+};
+
 /** The contents of text blocks */
-type RTDBaseInlineItem<Mode extends RTDItemMode> = ({ text: string } | { inlineWidget: RTDBaseWidget<Mode> }) & {
-  [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
-} & { link?: string; target?: "_blank" } | BuildOnly<Mode, string>;
+type RTDBaseInlineItem<Mode extends RTDItemMode> = (
+  ( //base item that can receive styling - either text, widget or image ()
+    { text: string }
+    | { inlineWidget: RTDBaseWidget<Mode> }
+    | RTDBaseInlineImageItem<Mode>
+  ) & {
+    [key in typeof rtdTextStyles[keyof typeof rtdTextStyles]]?: boolean;
+  } & RTDBaseLink<Mode>
+) | BuildOnly<Mode, string>;
 
 /** The contents of a paragraph */
 type RTDBaseParagraphItems<Mode extends RTDItemMode> = Array<RTDBaseInlineItem<Mode>> | BuildOnly<Mode, string>;
@@ -210,14 +232,18 @@ class WHFSInstance {
     return this.#data;
   }
 
-  async export(): Promise<WHFSInstanceData> {
+  async export(options?: ExportOptions): Promise<WHFSInstanceData> {
     const retval: WHFSInstanceData = {
       whfsType: this.whfsType,
     };
 
     for (const member of this.#typeInfo.members) {
       const decoder = codecs[member.type];
-      const outval = decoder?.exportValue ? await decoder.exportValue(this.#data[member.name]) : this.#data[member.name];
+      const val = this.#data[member.name];
+      if (!val)
+        continue; //we *never* need to export undefined/falsy values
+
+      const outval = decoder?.exportValue ? await decoder.exportValue(this.#data[member.name], options) : this.#data[member.name];
       if (outval && !decoder.isDefaultValue?.(outval))
         retval[member.name] = outval;
     }
@@ -272,6 +298,8 @@ export class RichTextDocument {
   #blocks = new Array<RTDBlock>;
   //need to expose this for hscompat APIs
   private __instanceIds = new WeakMap<Readonly<WHFSInstance>, string>;
+  private __imageIds = new WeakMap<Readonly<RTDBaseInlineImageItem<"inMemory">>, string>;
+  private __linkIds = new WeakMap<Readonly<IntExtLink>, string>;
 
   get blocks(): RecursiveReadonly<RTDBlock[]> {
     return this.#blocks;
@@ -285,6 +313,16 @@ export class RichTextDocument {
     return this.#blocks.length === 0;
   }
 
+  private async fixLink<T>(item: T & RTDBaseLink<"build">): Promise<T & RTDBaseLink<"inMemory">> {
+    if (typeof item.link === "string")  // convert to IntExtLink
+      item.link = new IntExtLink(item.link);
+
+    if (item.link && ("internalLink" in item.link || "externalLink" in item.link))
+      item.link = await importIntExtLink(item.link) || undefined;
+
+    return item as T & { link?: IntExtLink };
+  }
+
   async #buildParagraphItems(blockitems: RTDBuildInlineItems | string): Promise<RTDInlineItems> {
     if (typeof blockitems === 'string')
       blockitems = [{ text: blockitems }];
@@ -293,10 +331,15 @@ export class RichTextDocument {
     for (const item of blockitems) {
       if (typeof item === 'string') {
         outitems.push({ text: item });
-      } else if ("text" in item) {
-        outitems.push(item);
+        continue;
+      }
+
+      if ("text" in item) {
+        outitems.push(await this.fixLink(item));
+      } else if ("image" in item) {
+        outitems.push({ ...await this.fixLink(item), ...await this.addImage(item) });
       } else if ("inlineWidget" in item) {
-        outitems.push({ ...item, inlineWidget: await this.addWidget(item.inlineWidget) });
+        outitems.push({ ...await this.fixLink(item), inlineWidget: await this.addWidget(item.inlineWidget) });
       } else if ("widget" in item) {
         throw new Error(`Toplevel widgets not allowed in paragraphs, use 'inlineWidget' instead`);
       } else
@@ -379,6 +422,12 @@ export class RichTextDocument {
     this.#blocks.push(newblock);
   }
 
+  private async addImage(image: RTDBaseInlineItem<"build"> & RTDBaseInlineImageItem<"build">): Promise<RTDBaseInlineItem<"inMemory">> {
+    if (image && !isResourceDescriptor(image.image))
+      image.image = await ResourceDescriptor.import(image.image);
+    return image as RTDBaseInlineItem<"inMemory">;
+  }
+
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
     if (isWHFSInstance(widget)) //we just keep the widget as is
       return widget;
@@ -439,35 +488,47 @@ export class RichTextDocument {
     }
   }
 
-  #exportInlineItems(block: Array<RTDBaseInlineItem<"inMemory">>): MaybePromise<Array<RTDBaseInlineItem<"export">>> {
-    return getArrayPromise(block.map(async item => "inlineWidget" in item
-      ? { ...item, inlineWidget: await item.inlineWidget.export() satisfies WHFSInstanceData }
-      : item));
+  private async exportLink<T>(item: T & RTDBaseLink<"inMemory">, options: ExportOptions): Promise<T & RTDBaseLink<"export">> {
+    if (!item.link)
+      return item as T & RTDBaseLink<"export">;
+    const expLink = await exportIntExtLink(item.link, options);
+    return expLink ? { ...item, link: expLink } : omit(item, ["link"]) as T & RTDBaseLink<"export">;
   }
 
-  #exportRTDParagraph(block: RTDBaseParagraph<"inMemory">): MaybePromise<RTDBaseParagraph<"export">> {
-    const convertedItems = this.#exportInlineItems(block.items);
+  #exportInlineItems(block: Array<RTDBaseInlineItem<"inMemory">>, options: ExportOptions): MaybePromise<Array<RTDBaseInlineItem<"export">>> {
+    return getArrayPromise(block.map(async item => {
+      item = await this.exportLink(item, options);
+      if ("inlineWidget" in item)
+        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies WHFSInstanceData } as RTDBaseInlineItem<"export">;
+      if ("image" in item)
+        return { ...item, image: await item.image.export() satisfies ExportedResource } as RTDBaseInlineItem<"export">;
+      return item as RTDBaseInlineItem<"export">;
+    }));
+  }
+
+  #exportRTDParagraph(block: RTDBaseParagraph<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseParagraph<"export">> {
+    const convertedItems = this.#exportInlineItems(block.items, options);
     return mapMaybePromise(convertedItems, items => ({ ...block, items }));
   }
 
-  async #exportRTDWidget(widget: { widget: RTDBaseWidget<"inMemory"> }): Promise<{ widget: RTDBaseWidget<"export"> }> {
-    return { widget: await widget.widget.export() };
+  async #exportRTDWidget(widget: { widget: RTDBaseWidget<"inMemory"> }, options: ExportOptions): Promise<{ widget: RTDBaseWidget<"export"> }> {
+    return { widget: await widget.widget.export(options) };
   }
 
-  #exportRTDAnonymousParagraph(block: RTDBaseAnonymousParagraph<"inMemory">): MaybePromise<RTDBaseAnonymousParagraph<"export">> {
-    const convertedItems = this.#exportInlineItems(block.items);
+  #exportRTDAnonymousParagraph(block: RTDBaseAnonymousParagraph<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseAnonymousParagraph<"export">> {
+    const convertedItems = this.#exportInlineItems(block.items, options);
     return mapMaybePromise(convertedItems, items => ({ ...block, items }));
   }
 
-  #exportRTDListItem(block: RTDBaseListItem<"inMemory">): MaybePromise<RTDBaseListItem<"export">> {
+  #exportRTDListItem(block: RTDBaseListItem<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseListItem<"export">> {
     const convertedItems = block.li.map(item => {
       if ("items" in item) {
         if ("tag" in item && item.tag)
-          return this.#exportRTDParagraph(item);
+          return this.#exportRTDParagraph(item, options);
         else
-          return this.#exportRTDAnonymousParagraph(item);
+          return this.#exportRTDAnonymousParagraph(item, options);
       } else if ("listItems" in item) {
-        return this.#exportRTDList(item);
+        return this.#exportRTDList(item, options);
       } else {
         item satisfies never;
         throw new Error(`Invalid list item ${JSON.stringify(item)}`);
@@ -478,19 +539,19 @@ export class RichTextDocument {
     return mapMaybePromise(getArrayPromise(convertedItems), li => ({ li })) as RTDBaseListItem<"export">;
   }
 
-  #exportRTDList(block: RTDBaseList<"inMemory">): MaybePromise<RTDBaseList<"export">> {
-    const convertedItems = block.listItems.map(item => this.#exportRTDListItem(item));
+  #exportRTDList(block: RTDBaseList<"inMemory">, options: ExportOptions): MaybePromise<RTDBaseList<"export">> {
+    const convertedItems = block.listItems.map(item => this.#exportRTDListItem(item, options));
     return mapMaybePromise(getArrayPromise(convertedItems), items => ({ ...block, listItems: items }));
   }
 
-  #exportRTDBlocks(blocks: RTDBlock[]): MaybePromise<ExportableRTD> {
+  #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<ExportableRTD> {
     return getArrayPromise(blocks.map(block => {
       if ("items" in block)
-        return this.#exportRTDParagraph(block) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDParagraph(block, options) satisfies MaybePromise<ExportableRTD[number]>;
       else if ("listItems" in block) {
-        return this.#exportRTDList(block) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDList(block, options) satisfies MaybePromise<ExportableRTD[number]>;
       } else if ("widget" in block)
-        return this.#exportRTDWidget(block) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDWidget(block, options) satisfies MaybePromise<ExportableRTD[number]>;
       else
         block satisfies never;
       throw new Error(`Block ${JSON.stringify(block)} has no export definition`);
@@ -498,8 +559,8 @@ export class RichTextDocument {
   }
 
   /** Export as buildable RTD */
-  async export(): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
-    return await this.#exportRTDBlocks(this.#blocks);
+  async export(options?: ExportOptions): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
+    return await this.#exportRTDBlocks(this.#blocks, options || {});
   }
 
   /** @deprecated Use exportRTDToRawHTML in hscompat */
@@ -507,9 +568,13 @@ export class RichTextDocument {
     return (await exportRTDToRawHTML(this)) || '';
   }
 
-  __hintInstanceId(widget: WidgetInterface, instanceId: string) {
+  __hintInstanceId(widget: WHFSInstance, instanceId: string) {
     if (this.__instanceIds.get(widget))
       this.__instanceIds.set(widget, instanceId);
+  }
+  __hintImageId(image: RTDBaseInlineImageItem<"inMemory">, imageId: string) {
+    if (this.__imageIds.get(image))
+      this.__imageIds.set(image, imageId);
   }
 }
 

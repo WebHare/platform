@@ -66,6 +66,10 @@ async function testChecks() {
   test.throws(/test function failed/, () => test.eq({ x: val => val === "konijntje" }, { x: "aapje" }));
   test.throws(/test function failed/, () => test.eqPartial({ x: val => val === "konijntje" }, { x: "aapje" }));
 
+  //test overriding comparison
+  test.eq({ x: 4, y: 5 }, { x: 3, y: 5 }, { onCompare: (expect, actual) => expect === 4 && actual === 3 ? true : undefined });
+  test.throws(/Custom comparison/, () => test.eq({ x: 4, y: 5 }, { x: 3, y: 5 }, { onCompare: (expect, actual) => expect === 4 && actual === 3 ? false : undefined }));
+
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
 

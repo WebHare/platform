@@ -3,35 +3,7 @@ import { getTid } from "@webhare/gettid";
 import { throwError } from "@webhare/std";
 import { db } from "@webhare/whdb";
 import { selectFSFullPath, selectFSLink } from "@webhare/whdb/src/functions";
-import { PublishedFlag_Warning, getPrioOrErrorFromPublished, testFlagFromPublished } from "@webhare/whfs/src/support";
-
-/** Get all ids from a specific starting point
-    @param basefolder - Starting folder
-    @param maximumdepth - Maximum depth. Depth=1 only gets the direct subfolders. Suggested
-    @param returnfolders - Return folders too */
-async function getWHFSDescendantIds(basefolder: number, returnfolders: boolean, returnfiles: boolean, maximumdepth = 32) {
-  if (!returnfiles && !returnfolders)
-    return [];
-
-  const allsubs = [];
-  let currentlevel = [basefolder];
-  if (maximumdepth > 32)
-    maximumdepth = 32; //safety against corrupted databases
-
-  while (maximumdepth >= 1 && currentlevel.length > 0) {
-    //If we're not returning files, don't even get them
-    const currentsubsSQL = db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "isfolder"])
-      .where("parent", "in", currentlevel);
-    if (!returnfiles)
-      currentsubsSQL.where("isfolder", "=", true);
-
-    const currentsubs = await currentsubsSQL.execute();
-    currentlevel = currentsubs.filter(sub => sub.isfolder).map(sub => sub.id);
-    allsubs.push(...currentsubs.filter(sub => returnfolders || !sub.isfolder).map(sub => sub.id));
-    --maximumdepth;
-  }
-  return allsubs;
-}
+import { PublishedFlag_Warning, getPrioOrErrorFromPublished, getWHFSDescendantIds, testFlagFromPublished } from "@webhare/whfs/src/support";
 
 async function listSiteIssues() {
   const sites = await db<PlatformDB>()
@@ -42,7 +14,7 @@ async function listSiteIssues() {
   const siteids = sites.filter(site => !site.locked && site.outputweb).map(site => site.id);
   const sitefiles = [];
   for (const siteid of siteids) {
-    const allparents: number[] = [siteid, ...await getWHFSDescendantIds(siteid, true, false)];
+    const allparents: number[] = [siteid, ...await getWHFSDescendantIds([siteid], true, false)];
     const brokenfiles: number[] = (await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .select(["id", "published"])
