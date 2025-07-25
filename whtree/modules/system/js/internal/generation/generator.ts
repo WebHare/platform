@@ -21,7 +21,7 @@ import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_
 import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
-import { backendConfig, toFSPath } from "@webhare/services";
+import { backendConfig, importJSFunction, toFSPath } from "@webhare/services";
 import { appliesToModule, getGeneratedFilePath, type FileToUpdate, type GenerateContext, type GeneratorType, type LoadedModuleDefs } from "./shared";
 import { readFile } from "fs/promises";
 import { join } from "node:path";
@@ -62,6 +62,11 @@ async function listAllGeneratedTypeScript(mods: string[]): Promise<FileToUpdate[
   ];
 }
 
+async function listAllDevKitFiles(): Promise<FileToUpdate[]> {
+  if (!backendConfig.module["devkit"])
+    return [];
+  return await (await importJSFunction<typeof listOtherGeneratedFiles>("@mod-devkit/js/integration/config#listAllDevkitFiles"))();
+}
 
 async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
   const allmods = ["platform", ...Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m))];
@@ -71,6 +76,7 @@ async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
     ...await listAllModuleOpenAPIDefs(),
     ...await listAllGeneratedTypeScript(allmods),
     ...await listPublicConfig(),
+    ...await listAllDevKitFiles()
   ]);
 }
 
