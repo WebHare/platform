@@ -1,11 +1,13 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList } from "@webhare/services/src/richdocument";
-import { encodeString, generateRandomId, isTruthy } from "@webhare/std";
+import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink } from "@webhare/services/src/richdocument";
+import { encodeString, generateRandomId, isTruthy, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
+import { IntExtLink, ResourceDescriptor } from "@webhare/services";
+import type { Rotation } from "@webhare/services/src/descriptor";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
@@ -26,7 +28,7 @@ export type HareScriptRTD = {
     hash: string;
     filename: string;
     extension: string;
-    rotation: number;
+    rotation: Rotation;
     mirrored: boolean;
     refpoint: { x: number; y: number } | null;
     source_fsobject: number;
@@ -43,17 +45,21 @@ function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
-function groupByLink(items: RecursiveReadonly<RTDInlineItems>): ReadonlyArray<{
-  link?: string;
-  target?: "_blank";
-  items: Array<RecursiveReadonly<RTDInlineItem>>;
-}> {
-  const blocks = [];
+function isSameLink(lhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>, rhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>): boolean {
+  if (!lhs.link)
+    return rhs.link ? false : true;
+  if (!rhs.link)
+    return false;
+  return lhs.target === rhs.target && IntExtLink.isEqual(lhs.link, rhs.link);
+}
+
+function groupByLink(items: RecursiveReadonly<RTDInlineItems>): ReadonlyArray<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> {
+  const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> = [];
   for (const item of items) {
-    if (blocks.length && blocks.at(-1)!.link === item.link && blocks.at(-1)!.target === item.target) {
+    if (blocks.length && isSameLink(blocks.at(-1)!, item)) {
       blocks.at(-1)!.items.push(item);
     } else {
-      blocks.push({ link: item.link, target: item.target, items: [item] });
+      blocks.push({ link: item.link as IntExtLink | undefined, target: item.target, items: [item] });
     }
   }
   return blocks;
@@ -79,6 +85,40 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
     }
   }
   return outdata;
+}
+
+function importHSEmbeddedResource(resource: HareScriptRTD["embedded"][number]): ResourceDescriptor {
+  return new ResourceDescriptor(resource.data, {
+    dominantColor: resource.dominantcolor,
+    fileName: resource.filename,
+    mediaType: resource.mimetype,
+    extension: resource.extension,
+    hash: resource.hash,
+    rotation: resource.rotation,
+    mirrored: resource.mirrored,
+    refPoint: resource.refpoint,
+    height: resource.height,
+    width: resource.width,
+    sourceFile: resource.source_fsobject,
+  });
+}
+
+function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: string): HareScriptRTD["embedded"][number] {
+  return {
+    dominantcolor: resource.dominantColor || '',
+    data: resource.resource,
+    filename: contentid,
+    mimetype: resource.mediaType,
+    extension: resource.extension ?? throwError("ResourceDescriptor must have an extension set"),
+    hash: resource.hash ?? throwError("ResourceDescriptor must have a hash set"),
+    rotation: resource.rotation ?? 0,
+    mirrored: resource.mirrored ?? false,
+    refpoint: resource.refPoint,
+    width: resource.width || 0,
+    height: resource.height || 0,
+    contentid,
+    source_fsobject: resource.sourceFile || 0
+  };
 }
 
 class HSRTDImporter {
@@ -113,23 +153,59 @@ class HSRTDImporter {
     if (isElement(child)) {
       const tag = child.tagName.toLowerCase();
       if (tag === 'a' && child.getAttribute('href')) {
-        const toSet: Pick<BlockItemStack, "link" | "target"> = {
-          link: child.getAttribute('href') || ''
-        };
-        if (child.getAttribute('target') === '_blank')
-          toSet.target = '_blank';
+        const href = child.getAttribute('href');
+        let link;
+        //Links starting with x-richdoclink: should exist in the HS RTD's link array. Look it up (and also capture the append e.g #...)
+        const richdoclinkmatch = href?.match(/^x-richdoclink:([^?#/]+)(.*)$/);
+        if (richdoclinkmatch) {
+          const linkid = richdoclinkmatch[1];
+          const matchinglink = this.inrtd.links.find(l => l.tag === linkid);
+          if (matchinglink)
+            link = new IntExtLink(matchinglink.linkref, { append: richdoclinkmatch[2] });
+        } else if (href) { //assume an external link
+          link = new IntExtLink(href);
+        }
 
-        await this.processInlineItems(child, { ...state, ...toSet }, outlist);
+        if (link) { //wrap in link object if we found it
+          const toSet: Pick<BlockItemStack, "link" | "target"> = { link };
+          if (child.getAttribute('target') === '_blank')
+            toSet.target = '_blank';
+
+          await this.processInlineItems(child, { ...state, ...toSet }, outlist);
+        } else {
+          await this.processInlineItems(child, state, outlist);
+        }
       } else if (tag in rtdTextStyles) {
         await this.processInlineItems(child, { ...state, [(rtdTextStyles as Record<string, string>)[tag]]: true }, outlist);
       } else if (tag === 'span' && child.hasAttribute("data-instanceid")) {
         await this.processInlineWidget(child, state, outlist);
+      } else if (tag === 'img') {
+        await this.processInlineImage(child, state, outlist);
       } else {
         await this.processInlineItems(child, state, outlist);
       }
     } else if (child.nodeType === Node.TEXT_NODE) {
       outlist.push({ text: child.textContent || '', ...state });
     }
+  }
+
+  async processInlineImage(node: Element, state: BlockItemStack, outlist: RTDInlineItems) {
+    const img = node.getAttribute("src")!;
+    if (!img?.startsWith("cid:"))
+      throw new Error("Inline image without cid found, src: " + img);
+
+    const contentid = img.substring(4);
+    const matchingimage = this.inrtd.embedded.find(i => i.contentid === contentid);
+    if (!matchingimage)
+      throw new Error("Inline image not found, contentid: " + contentid);
+
+    const image: RTDBaseInlineImageItem<"inMemory"> = {
+      image: importHSEmbeddedResource(matchingimage),
+      alt: node.getAttribute("alt") || "",
+      width: parseInt(node.getAttribute("width") || "0", 10) || undefined,
+      height: parseInt(node.getAttribute("height") || "0", 10) || undefined,
+    };
+    outlist.push({ ...image, ...state });
   }
 
   async processInlineItems(node: Node, state: BlockItemStack, outlist: RTDInlineItems) {
@@ -238,6 +314,8 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
   const embedded: HareScriptRTD["embedded"] = [];
   const links: HareScriptRTD["links"] = [];
   const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<ReadonlyWidget, string> }).__instanceIds;
+  const imagemapping = (rtd as unknown as { __imageIds: WeakMap<RTDBaseInlineImageItem<"inMemory">, string> }).__imageIds;
+  const linkmapping = (rtd as unknown as { __linkIds: WeakMap<IntExtLink, string> }).__linkIds;
 
   async function exportWidgetForHS(widget: ReadonlyWidget, block: boolean) {
     const tag = block ? 'div' : 'span';
@@ -260,6 +338,18 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
 
     instances.push({ data, instanceid });
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
+  }
+
+  async function exportImageForHS(image: RTDBaseInlineImageItem<"inMemory">) {
+    const classes = ["wh-rtd__img"];
+    if (image.float === "left")
+      classes.push("wh-rtd__img--floatleft");
+    else if (image.float === "right")
+      classes.push("wh-rtd__img--floatright");
+
+    const contentid = imagemapping.get(image) || generateRandomId();
+    embedded.push(exportHSEmbeddedResource(image.image, contentid));
+    return `<img class="${classes.join(" ")}" src="cid:${contentid}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
   }
 
   async function buildBlocks(blocks: RecursiveReadonly<Array<RTDBlock | RTDAnonymousParagraph>>) {
@@ -303,6 +393,9 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
         if ("inlineWidget" in item) {
           gotNonWhitespace = true;
           part = await exportWidgetForHS(item.inlineWidget, false);
+        } else if ("image" in item) {
+          gotNonWhitespace = true;
+          part = await exportImageForHS(item as RTDBaseInlineImageItem<"inMemory">);
         } else {
           part = encodeString(item.text, 'html');
           if (!gotNonWhitespace && part.trim())
@@ -318,8 +411,20 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
         linkpart += part;
       }
 
-      if (linkitem.link)
-        linkpart = `<a href="${encodeString(linkitem.link, 'attribute')}"${linkitem.target ? ` target="${encodeString(linkitem.target, 'attribute')}"` : ""}>${linkpart}</a>`;
+      if (linkitem.link) {
+        let url: string;
+        if (linkitem.link.internalLink) {
+          //TODO keep hints too?
+          const linkid = linkmapping.get(linkitem.link) || generateRandomId();
+          links.push({ tag: linkid, linkref: linkitem.link.internalLink });
+          url = `x-richdoclink:${linkid}${linkitem.link.append}`;
+        } else {
+          url = linkitem.link.externalLink || '';
+        }
+
+        if (url)
+          linkpart = `<a href="${encodeString(url, 'attribute')}"${linkitem.target ? ` target="${encodeString(linkitem.target, 'attribute')}"` : ""}>${linkpart}</a>`;
+      }
 
       output += linkpart;
     }
