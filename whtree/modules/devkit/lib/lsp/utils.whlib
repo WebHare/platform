@@ -1,0 +1,66 @@
+<?wh
+
+LOADLIB "wh::util/stringparser.whlib";
+
+
+OBJECT linesparser;
+
+/** @short Split a string into lines
+    @long This function splits a string into lines. The lines within the string are separated with either a line feed `\n`,
+        a carriage return `\r` or a CRLF `\r\n`.
+    @param text The string to split
+    @return The separate lines
+*/
+PUBLIC STRING ARRAY FUNCTION SplitLines(STRING text)
+{
+  IF (NOT ObjectExists(linesparser))
+    linesparser := NEW StringParser();
+  linesparser->Reset(text);
+  STRING ARRAY lines;
+  BOOLEAN have_parsed_eol;
+  WHILE (NOT linesparser->eof)
+  {
+    // Parse the current line until an end-of-line character
+    STRING line := linesparser->ParseWhileNotInSet("\r\n");
+    INSERT line INTO lines AT END;
+
+    // Parse the end-of-line character(s)
+    STRING ARRAY eols := Tokenize(linesparser->ParseWhileInSet("\r\n"), "");
+    have_parsed_eol := FALSE;
+    FOREVERY (STRING c FROM eols)
+    {
+      // If the current character is a CR, check if it's followed by a LF and skip it ("\r\n" is a single line ending, but
+      // "\n\r" is two separate line endings)
+      IF (c = "\r" AND #c < Length(eols) - 1 AND eols[#c + 1] = "\n")
+        CONTINUE;
+      // If this is a subsequent end-of-line (e.g. "\n\n"), add an empty line
+      IF (have_parsed_eol)
+        INSERT "" INTO lines AT END;
+      have_parsed_eol := TRUE;
+    }
+  }
+  IF (Length(lines) = 0 OR have_parsed_eol)
+    INSERT "" INTO lines AT END;
+  RETURN lines;
+}
+
+/** @short Convert a byte position to a UTF-16 position
+    @long Given the byte position within a UTF-8 encoded string, this function returns the UTF-16 codepoint position.
+    @param utf8text The UTF-8 encoded text
+    @param byteposition The position within the text as UTF-8 encoded bytes
+    @return The position within the string if it were UTF-16 encoded
+*/
+PUBLIC INTEGER FUNCTION GetUTF16CodePointPosition(STRING utf8text, INTEGER byteposition)
+{
+  // Convert the byte position to a unicode position
+  INTEGER utf16position := UCLength(Left(utf8text, byteposition));
+  INTEGER pos;
+  FOR (; pos < utf16position AND pos < UCLength(utf8text); pos := pos + 1)
+  {
+    INTEGER codepoint := GetUCValue(UCSubstring(utf8text, pos, 1));
+    // If this codepoint is encoded using a surrogate pair, increase the position
+    IF (codepoint > 0x10000)
+      utf16position := utf16position + 1;
+  }
+  RETURN utf16position;
+}

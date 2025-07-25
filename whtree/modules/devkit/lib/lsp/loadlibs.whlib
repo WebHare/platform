@@ -1,0 +1,837 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/harescript.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+LOADLIB "mod::devkit/lib/rewrite/rewrite.whlib";
+LOADLIB "mod::devkit/lib/lsp/editorsupport.whlib";
+
+
+
+CONSTANT INTEGER hs_warningcode_unusedloadlib := 29;
+CONSTANT RECORD ARRAY replacements :=
+    [ [ lib := "mod::tollium/lib/screenbase.whlib",                replacewith := ["mod::tollium/lib/gettid.whlib" ],                                 requiresmode := STRING[]      ]
+    , [ lib := "mod::system/lib/cache.whlib",                      replacewith := ["wh::adhoccache.whlib" ],                                          requiresmode := STRING[]      ]
+    , [ lib := "mod::wrd/lib/objectapi.whlib",                     replacewith := ["mod::wrd/lib/api.whlib" ],                                        requiresmode := STRING[]      ]
+    , [ lib := "wh::filetypes/xml.whlib",                          replacewith := ["wh::xml/xsd.whlib" ],                                             requiresmode := STRING[]      ]
+    , [ lib := "wh::filetypes/xml.whlib",                          replacewith := ["wh::xml/dom.whlib" ],                                             requiresmode := STRING[]      ]
+    , [ lib := "wh::internet/http.whlib",                          replacewith := ["wh::internet/urls.whlib" ],                                       requiresmode := STRING[]      ]
+    , [ lib := "wh::internet/tcpip.whlib",                         replacewith := ["wh::internet/urls.whlib" ],                                       requiresmode := STRING[]      ]
+    , [ lib := "mod::system/lib/internal/modules/defreader.whlib", replacewith := ["mod::system/lib/internal/modules/resourcemanager.whlib" ],        requiresmode := STRING[]      ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib" ],                                 requiresmode := STRING["431"] ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/services.whlib" ],                                requiresmode := STRING["431"] ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib","mod::system/lib/services.whlib"], requiresmode := STRING["431"] ]
+    ];
+
+
+/** Determines which loadlibs are present in the source
+    and where new loadlibs can be placed
+    @param source
+    @return
+    @cell(integer array) return.allowed_lines Line numbers of lines where new loadlibs can be placed at column position 1.
+    @cell(integer array) return.empty_lines Line numbers of lines without content
+    @cell(record array) return.loadlibs
+    @cell(string) return.loadlibs.path Path for loadlib
+    @cell(integer) return.loadlibs.line Line number where this loadlibs is placed
+    @cell(integer) return.minline Minimum line nr where new loadlibs can be placed
+    @cell(integer) return.maxline Maximinum line nr where new loadlibs can be placed
+*/
+PUBLIC RECORD FUNCTION GetLoadlibPositionData(STRING source)
+{
+  IF (source LIKE "\uFEFF*") //Skip BOM
+    source := UCSubstring(source, 1);
+
+  INTEGER str := OpenHareScriptFile(StringToBlob(source));
+  RECORD rec := GetHareScriptFileToken(str);
+
+  // Skip shebang
+  IF (rec.token LIKE "*#!/*")
+    rec := GetHareScriptFileToken(str);
+
+  INTEGER ARRAY allowed_lines, empty_lines;
+  RECORD ARRAY loadlibs;
+
+  INTEGER loadlibstart;
+  STRING curr_loadlib;
+  INTEGER minline;
+  INTEGER maxline := 2;
+
+  BOOLEAN allow_content := FALSE;
+  BOOLEAN firsttoken := TRUE;
+  INTEGER lastline;
+  BOOLEAN nextislinestart := FALSE;
+  WHILE (TRUE)
+  {
+    IF (NOT RecordExists(rec))
+      BREAK;
+
+    BOOLEAN atlinestart := nextislinestart;
+    nextislinestart := FALSE;
+
+    IF (allow_content)
+    {
+      FOR (; lastline <= rec.line; lastline := lastline + 1)
+        INSERT lastline INTO allowed_lines AT END;
+      allow_content := FALSE;
+    }
+
+    //DumpValue(rec, "tree");
+
+    // After an opening tag, increase the minline, need an indication where to place the first loadlib
+    IF (rec.token LIKE "<" || "?wh*")
+      minline := rec.line + 1;
+
+    IF (rec.token LIKE "//*")
+    {
+      allow_content := TRUE; // allow content at the start of the next line
+      nextislinestart := TRUE;
+    }
+    ELSE IF (rec.isexternaldata OR Left(rec.token,2) = "/*")
+    {
+      IF (Left(rec.token,2) = "/**")
+      {
+        // Might be library comment!
+        IF (LENGTH(loadlibs) = 0)
+          minline := rec.line + 1;
+      }
+    }
+    ELSE IF (rec.iswhitespace)
+    {
+      allow_content := TRUE;
+      // detect empty lines
+      STRING ARRAY lines := Tokenize(Substitute(rec.token, "\r", ""), "\n");
+      FOR (INTEGER i := atlinestart ? 0 : 1; i < LENGTH(lines) - 1; i := i + 1)
+        IF (lines[i] = "")
+          INSERT rec.line + i INTO empty_lines AT END;
+      nextislinestart := LENGTH(lines) > 1 AND lines[END - 1] = "";
+    }
+    ELSE IF (rec.token = ";")
+    {
+      // Process the loadlib before this ';' token
+      IF (curr_loadlib != "")
+        INSERT [ path := curr_loadlib, line := rec.line ] INTO loadlibs AT END;
+      allow_content := TRUE;
+      firsttoken := TRUE;
+    }
+    ELSE IF (firsttoken AND ToUppercase(rec.token) != "LOADLIB")
+    {
+      // First non-loadlib, stop parsing
+      maxline := rec.line;
+      BREAK;
+    }
+    ELSE IF (ToUppercase(rec.token) = "LOADLIB")
+    {
+      // Got a loadlib, start parsing it
+      loadlibstart := rec.line;
+      firsttoken := FALSE;
+    }
+    ELSE IF (rec.token LIKE "'*" OR rec.token LIKE '"*')
+    {
+      // Only string in a loadlib statement is the loadlib path itself, record it
+      curr_loadlib := SubString(rec.token, 1, LENGTH(rec.token) - 2);
+    }
+
+    lastline := rec.line + 1;
+    maxline := lastline;
+    rec := GetHareScriptFileToken(str);
+  }
+
+  CloseHarescriptFile(str);
+
+  RETURN
+      [ allowed_lines :=    allowed_lines
+      , empty_lines :=      empty_lines
+      , loadlibs :=         loadlibs
+      , minline :=          minline
+      , maxline :=          maxline
+      ];
+}
+
+/** Get the data for ordering loadlibs
+    @param path
+    @return
+    @cell return.groupprio Group priority (0 is top, 4 is lowest)
+    @cell return.module Module of loadlib (may be empty)
+    @cell return.path Path elements of loadlib
+*/
+RECORD FUNCTION DescribeLoadLib(STRING path)
+{
+  RECORD retval :=
+      [ groupprio :=    0
+      , module :=       ""
+      , path :=         DEFAULT STRING ARRAY
+      ];
+
+  IF (path NOT LIKE "*::*")
+  {
+    retval.groupprio := 5;
+    retval.path := Tokenize(path, "/");
+    RETURN retval;
+  }
+  retval.path := Tokenize(Tokenize(path, "::")[1], "/");
+
+  IF (path LIKE "module::*" OR path LIKE "moduleroot::*" OR path LIKE "mod::*")
+  {
+    retval.module := retval.path[0];
+    retval.groupprio := retval.module IN whconstant_builtinmodules ? 1 : 2;
+    retval.path[0] := Tokenize(path, "::")[0];
+  }
+  ELSE IF (path LIKE "wh::*")
+    retval.groupprio := 0;
+  ELSE IF (path LIKE "site::*" OR path LIKE "currentsite::*")
+    retval.groupprio := 3;
+  ELSE
+    retval.groupprio := 4;
+  RETURN retval;
+}
+
+/** Compares two loadlibs, returns where they should be placed relative to each other
+     -1: pre < post, 1: post < pre
+    @param lib
+    @param compareto
+    @return
+    @cell return.same_group Whether the loadlibs are in the same group (module)
+    @cell return.position <0 if lib should be placed before compareto, >0 if lib should be placed after compareto. 0 if not in
+        the same group, but no intra-group ordering is specified. The absolute value is 1 if same_group is TRUE, 2 if same_group is FALSE.
+*/
+PUBLIC RECORD FUNCTION CompareLoadLibs(STRING lib, STRING compareto)
+{
+  RECORD libdata := DescribeLoadLib(lib);
+  RECORD comparetodata := DescribeLoadLib(compareto);
+
+  // Same group priority?
+  IF (libdata.groupprio != comparetodata.groupprio)
+    RETURN [ same_group := FALSE, position := libdata.groupprio < comparetodata.groupprio ? -1 : 1 ];
+
+  // Same group?
+  IF (libdata.module != comparetodata.module)
+    RETURN [ same_group := FALSE, position := libdata.module < comparetodata.module ? -1 : 1];
+
+  // compare paths - internal libs should go after non-internal at the same level
+  INTEGER l_lib := LENGTH(libdata.path);
+  INTEGER l_compareto := LENGTH(comparetodata.path);
+
+  INTEGER shared_count := Min[]([ l_lib, l_compareto ]);
+  FOR (INTEGER idx := 0; idx < shared_count; idx := idx + 1)
+  {
+    IF ((l_lib - 1 > idx) != (l_compareto - 1 > idx))
+      RETURN [ same_group := TRUE, position := l_compareto - 1 > idx ? -2 : 2 ];
+    IF ((libdata.path[idx] = "internal") != (comparetodata.path[idx] = "internal"))
+      RETURN [ same_group := TRUE, position := comparetodata.path[idx] = "internal" ? -2 : 2 ];
+    IF (libdata.path[idx] != comparetodata.path[idx])
+      RETURN [ same_group := TRUE, position := libdata.path[idx] < comparetodata.path[idx] ? -2 : 2 ];
+  }
+  RETURN [ same_group := TRUE, position := l_lib < l_compareto ? -2 : 2 ];
+}
+
+/** Returns the position to place loadlib instruction
+    @param s Source file
+    @param path Library URI
+    @return
+    @cell success
+    @cell insertpos Byte position to insert (only when success is true)
+    @cell data String to insert (only when success is true)
+    @cell message Message Error/success message
+*/
+PUBLIC RECORD FUNCTION GetLoadlibInsertInstructions(STRING s, STRING path)
+{
+  RECORD posdata := GetLoadlibPositionData(s);
+//  DumpValue(posdata, "tree");
+
+  IF (RecordExists(SELECT FROM posdata.loadlibs WHERE COLUMN path = VAR path))
+    RETURN [ success := FALSE, message := `A LOADLIB for ${path} is already present` ];
+
+  // Compute the line to insert
+  STRING instr := 'LOADLIB "' || path || '";\n';
+
+  // Compare paths with all existing loadlibs
+  RECORD ARRAY positions :=
+      SELECT TEMPORARY comp := CompareLoadlibs(COLUMN path, VAR path)
+           , *
+           , same_group :=  comp.same_group
+           , position :=    comp.position
+        FROM posdata.loadlibs;
+
+  // Set the default insert position and the number of empty lines wanted before and after this loadlib
+  INTEGER wantline := posdata.minline;
+  INTEGER need_space_before := 1;
+  INTEGER need_space_after := 2;
+
+  IF (LENGTH(positions) != 0)
+  {
+    // Find the loadlib that has the closest relation to our loadlib
+    RECORD ARRAY ordered :=
+        SELECT TEMPORARY before := position > 0
+             , beforepos := #positions - (before?1:0)
+             , afterpos :=  #positions + (before?0:1)
+             , wantline :=  line + (before?0:1)
+             , *
+          FROM positions
+      ORDER BY position < 0 ? -position : position DESC // order by absolute position value
+             , position DESC // positive positions first
+             , position <= 0 ? -#positions : #positions; // negative/0 position: last match, positive position: first match
+
+    // Delete funky positions
+    DELETE FROM ordered WHERE COLUMN wantline NOT IN posdata.allowed_lines;
+
+    IF (RecordExists(ordered))
+    {
+      wantline := ordered[0].wantline;
+
+      // The first loadlib wants one empty line before it. Different groups are separated by 1 line
+      need_space_before := ordered[0].beforepos < 0 OR NOT positions[ordered[0].beforepos].same_group ? 1 : 0;
+
+      // The last loadlib wants two empty line after it. Different groups are separated by 1 line
+      need_space_after := ordered[0].afterpos = LENGTH(positions) ? 2 : NOT positions[ordered[0].afterpos].same_group ? 1 : 0;
+    }
+  }
+
+  // Still a funky position?
+  IF (wantline NOT IN posdata.allowed_lines)
+    RETURN [ success := FALSE, message := "Could not find a valid LOADLIB insert position" ];
+
+  // Add newlines to the inserted text for missing empty lines
+  BOOLEAN only_empty_lines_after := TRUE; // If there are only empty lines after wantline, we can move wantline down instead
+                                          // of inserting empty lines before wantline
+  FOR (INTEGER i := 0; i < need_space_after; i := i + 1)
+    IF (wantline + i NOT IN posdata.empty_lines)
+    {
+      instr := instr || "\n";
+      only_empty_lines_after := FALSE;
+    }
+  FOR (INTEGER i := 0; i < need_space_before; i := i + 1)
+    IF (only_empty_lines_after AND wantline + need_space_after + i IN posdata.empty_lines)
+      wantline := wantline + 1;
+    ELSE IF (wantline - 1 - i NOT IN posdata.empty_lines)
+      instr := "\n" || instr;
+
+  // Compute the insert position
+  INTEGER insertpos := LENGTH(Detokenize(ArraySlice(Tokenize(s, "\n"), 0, wantline - 1), "\n")) + 1;
+
+  RETURN
+      [ success :=    TRUE
+      , insertpos :=  insertpos
+      , data :=       instr
+      , message :=    "Added " || TrimWhitespace(instr)
+      ];
+}
+
+/** Tries to insert a loadlib in a file
+    @param s Source file
+    @param path Loadlib path
+    @return
+    @cell return.success
+    @cell return.data Edited source file
+    @cell return.message
+*/
+PUBLIC RECORD FUNCTION InsertLoadLibStatement(STRING s, STRING path)
+{
+  RECORD instr := GetLoadlibInsertInstructions(s, path);
+  IF (NOT instr.success)
+    RETURN [ success := FALSE, message := instr.message ];
+
+  STRING result := Left(s, instr.insertpos) || instr.data || Substring(s, instr.insertpos);
+  RETURN CELL[ ...instr, data := result, addeddata := instr.data ];
+}
+
+
+RECORD ARRAY FUNCTION GetUncommentedTokens(BLOB infile)
+{
+  INTEGER hsfile := OpenHareScriptFile(infile);
+  RECORD ARRAY outtokens;
+
+  WHILE(TRUE)
+  {
+    RECORD tok := GetHareScriptFileToken(hsfile);
+    IF(NOT RecordExists(tok))
+      BREAK;//eof
+
+    IF(Length(outtokens)>0 AND tok.rawtoken NOT LIKE "*\n*" AND (tok.iswhitespace OR Left(tok.rawtoken,2) IN ["/*","//"])) //only eat tokens on the same line
+      outtokens[END-1].trailing := outtokens[END-1].trailing || tok.rawtoken;
+    ELSE
+    {
+      INSERT CELL trailing := "" INTO tok;
+      INSERT tok INTO outtokens AT END;
+    }
+  }
+  CloseHarescriptfile(hsfile);
+  RETURN outtokens;
+}
+STRING FUNCTION GetRecombinedTokens(RECORD ARRAY intokens)
+{
+  RETURN Detokenize( (SELECT AS STRING ARRAY rawtoken || trailing FROM intokens), "");
+}
+
+STRING FUNCTION GetStringToken(STRING tok)
+{
+  IF(Left(tok,1) IN ["'",'"'] AND Right(tok,1)=Left(tok,1)) //it's a string
+    RETURN DecodeJava(Substring(tok,1,Length(tok)-2));
+  RETURN "";
+}
+
+/** Rewrite module:: loadlibs */
+PUBLIC RECORD FUNCTION RewriteModuleLoadlibsToMod(STRING infile)
+{
+  RECORD ARRAY intokens := GetUncommentedTokens(StringToBlob(infile));
+  BOOLEAN anychanges;
+
+  FOREVERY(RECORD intok FROM intokens)
+  {
+    IF(ToUppercase(intok.rawtoken) = "LOADLIB")
+    {
+      STRING lib := GetStringToken(intokens[#intok+1].token);
+      IF(lib LIKE "module::*" OR lib LIKE "moduleroot::*")
+      {
+        STRING newpath := MakeAbsoluteResourcePath("", lib);
+        IF(newpath NOT LIKE "mod::*/include/*") //we -dont- want to write out include, it'll only make future include->lib renames harder
+        {
+          intokens[#intok+1].rawtoken := `"${newpath}"`;
+          anychanges := TRUE;
+        }
+      }
+    }
+  }
+
+  RETURN [ anychanges := anychanges, data := GetRecombinedTokens(intokens) ];
+}
+
+/** Returns the position to remove loadlib instruction
+    @param infile File to manipulate
+    @param tokill Loadlib to remove
+    @cell options.removeexports Remove loadlib even if it's exporting
+    @return
+    @cell success
+    @cell deletepos Byte position to delete (only when success is true)
+    @cell deletelength Number of bytes to remove (only when success is true)
+    @cell message Message Error/success message
+*/
+PUBLIC RECORD FUNCTION GetLoadlibRemoveInstructions(STRING infile, STRING tokill, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ removeexports := FALSE ], options);
+
+  RECORD ARRAY intokens := GetUncommentedTokens(StringToBlob(infile));
+  tokill := MakeAbsoluteResourcePath("", tokill);
+  BOOLEAN prev_emptyline;
+  FOREVERY(RECORD intok FROM intokens)
+  {
+    BOOLEAN mustremove;
+    IF (ToUppercase(intok.rawtoken) = "LOADLIB")
+    {
+      // Invalid loadlib paths may cause exceptions here
+      TRY
+        mustremove := MakeAbsoluteResourcePath("", GetStringToken(intokens[#intok+1].token)) = tokill;
+      CATCH;
+    }
+    IF(mustremove)
+    {
+      INTEGER deletepos := Length(GetRecombinedTokens(ArraySlice(intokens, 0, #intok)));
+      INTEGER checktok := 2;
+      RECORD ARRAY toremove;
+      IF (options.removeexports AND ToUppercase(intokens[#intok+2].rawtoken) = "EXPORT")
+      {
+        toremove := toremove CONCAT ArraySlice(intokens, #intok, 3);
+        DELETE FROM intokens AT #intok+2;
+        DELETE FROM intokens AT #intok+1;
+        DELETE FROM intokens AT #intok;
+        checktok := 0;
+
+        WHILE (LENGTH(intokens) > #intok AND intokens[#intok].rawtoken != ";")
+        {
+          INSERT intokens[#intok] INTO toremove AT END;
+          DELETE FROM intokens AT #intok;
+        }
+      }
+      IF(intokens[#intok+checktok].rawtoken = ";") //safe to kill
+      {
+        toremove := toremove CONCAT ArraySlice(intokens, #intok, checktok+1);
+        FOR (INTEGER tok := checktok; tok >= 0; tok := tok - 1)
+          DELETE FROM intokens AT #intok+tok;
+
+        // Remove whitespace and line comments on the rest of the line
+        WHILE (LENGTH(intokens) > #intok)
+        {
+          IF (intokens[#intok].iswhitespace)
+          {
+            IF (intokens[#intok].rawtoken LIKE "*\n*")
+            {
+              STRING rawtoken := SubString(intokens[#intok].rawtoken, SearchSubstring(intokens[#intok].rawtoken, "\n") + 1);
+
+              // If the previous line and the next line are both empty, remove the next empty line
+              IF (prev_emptyline AND rawtoken LIKE "\n*")
+                rawtoken := SubString(rawtoken, SearchSubstring(rawtoken, "\n") + 1);
+
+              IF (rawtoken = "")
+              {
+                INSERT intokens[#intok] INTO toremove AT END;
+              }
+              ELSE
+              {
+                intokens[#intok].rawtoken := Left(intokens[#intok].rawtoken, Length(intokens[#intok].rawtoken) - Length(rawtoken));
+                IF (intokens[#intok].rawtoken != "")
+                  INSERT intokens[#intok] INTO toremove AT END;
+              }
+              BREAK;
+            }
+            INSERT intokens[#intok] INTO toremove AT END;
+            DELETE FROM intokens AT #intok;
+          }
+          ELSE IF (intokens[#intok].rawtoken LIKE "//*")
+          {
+            INSERT intokens[#intok] INTO toremove AT END;
+            BREAK;
+          }
+          ELSE
+            BREAK;
+        }
+
+        RETURN [ success := TRUE, deletepos := deletepos, deletelength := Length(GetRecombinedTokens(toremove)), message := "LOADLIB was removed" ];
+      }
+      RETURN [ success := FALSE, message := `Could not remove LOADLIB of ${tokill}` ];
+    }
+    prev_emptyline := intok.rawtoken LIKE "*\n\n" OR (intok.rawtoken = "\n" AND intok.col = 1);
+  }
+  RETURN [ success := FALSE, message := `Could not find LOADLIB of ${tokill}` ];
+}
+
+/** Removes/replaces a specific loadlib from a source file
+    @param infile File to manipulate
+    @param tokill Loadlib to remove
+    @return
+    @cell return.success
+    @cell return.data New file
+*/
+PUBLIC RECORD FUNCTION RemoveLoadlibStatement(STRING infile, STRING tokill, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ removeexports := FALSE ], options);
+
+  RECORD instr := GetLoadlibRemoveInstructions(infile, tokill, options);
+  IF (NOT instr.success)
+    RETURN [ success := FALSE, message := instr.message ];
+
+  STRING result := Left(infile, instr.deletepos) || Substring(infile, instr.deletepos + instr.deletelength);
+  RETURN CELL[ ...instr, data := result, deleteddata := Substring(infile, instr.deletepos, instr.deletelength) ];
+}
+
+/** Returns the position to organize loadlibs instruction
+    @param infile File to manipulate
+    @param path Library URI
+    @cell options.verbose Set to TRUE to print debugging information
+    @cell options.reorder Set to TRUE to allow reordering of loadlibs. currently defaults to true but broken, may be removed if ever fixed
+    @return
+    @cell success
+    @cell replacepos Byte position to replace, or -1 if nothing was changed (only when success is true)
+    @cell deletelength Number of bytes to remove (only when success is true)
+    @cell data String to insert (only when success is true)
+    @cell message Message Error/success message
+*/
+PUBLIC RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ verbose := FALSE, reorder := TRUE ], options);
+
+  RECORD ARRAY messages := ValidateHarescriptSource(path, StringToBlob(infile), [ nomissingtids := TRUE ]).messages;
+  IF (RecordExists(SELECT * FROM messages WHERE iserror))
+  {
+    IF (options.verbose)
+      Print(`Errors while compiling:\n${AnyToString(messages, "boxed")}`);
+    RETURN [ success := FALSE, message := "Compilation failed" ];
+  }
+
+  // Make a list of libraries to remove/rewrite
+  STRING ARRAY unneeded :=
+      SELECT AS STRING ARRAY msg1
+        FROM messages
+       WHERE code = hs_warningcode_unusedloadlib;
+  INSERT "module::*" INTO unneeded AT 0; //try cleaning mod:: first
+  unneeded := unneeded CONCAT
+      SELECT AS STRING ARRAY name
+        FROM GetHarescriptSourceLoadlibs(path, StringToBlob(infile)) AS loadlibs
+       WHERE RecordExists(SELECT FROM replacements WHERE replacements.lib = loadlibs.name);
+
+  STRING rewritemode := GetRewriteMode(path);
+
+  STRING source := infile;
+  STRING backup := source;
+  FOREVERY (STRING trykill FROM unneeded)
+  {
+    RECORD removed;
+    IF (trykill = "module::*")
+    {
+      // Rewrite "module::*" to "mod::*"
+      RECORD res := RewriteModuleLoadlibsToMod(source);
+      IF (NOT res.anychanges)
+        CONTINUE;
+      source := res.data;
+    }
+    ELSE
+    {
+      // Remove unused/rewriteable loadlib
+      removed := RemoveLoadlibStatement(source, trykill);
+      IF (NOT removed.success)
+      {
+        IF (options.verbose)
+          Print(`Unable to remove ${trykill} from ${path} - not matched in source file (EXPORT?)\n`);
+        CONTINUE; // Unable to remove, not matched in source file (EXPORT?)
+      }
+      source := removed.data;
+    }
+
+    // Check if it still compiles
+    RECORD res := ValidateHarescriptSource(path, StringToBlob(source), [ nomissingtids := TRUE ]);
+    RECORD error := SELECT * FROM res.messages WHERE iserror;
+    IF (RecordExists(error)) //it failed
+    {
+      BOOLEAN fixedanyway;
+      IF (trykill != "module::*")
+      {
+        //Do we have replacements for this lib?
+        RECORD ARRAY possible_replacements := SELECT * FROM replacements WHERE lib = trykill AND (Length(requiresmode) = 0 OR rewritemode IN requiresmode);
+        FOREVERY (RECORD repl FROM possible_replacements)
+        {
+          RECORD replaced := [ success := TRUE, data := source ];
+          FOREVERY (STRING replwith FROM repl.replacewith)
+          {
+            replaced := InsertLoadlibStatement(replaced.data, replwith);
+            IF (NOT replaced.success)
+              BREAK;
+          }
+
+          IF (replaced.success)
+          {
+            RECORD res2 := ValidateHarescriptSource(path, StringToBlob(replaced.data), [ nomissingtids := TRUE ]);
+            RECORD error2 := SELECT * FROM res2.messages WHERE iserror;
+            IF (NOT RecordExists(error2))
+            {
+              IF (options.verbose)
+                Print(`Successfully replaced ${trykill} with ${Detokenize(repl.replacewith,';')} for library ${path}\n`);
+              source := replaced.data;
+              backup := source;
+
+              // Add trailing data (e.g. comment) after replaced loadlib
+              IF (RecordExists(removed))
+              {
+                STRING trailing := GetRemovedLoadlibTrailingData(removed);
+                IF (trailing != "")
+                {
+                  INTEGER insertpos := SearchSubstring(source, ";", replaced.insertpos);
+                  IF (insertpos >= 0)
+                    source := Left(source, insertpos + 1) || trailing || Substring(source, insertpos + 1);
+                }
+              }
+
+              fixedanyway := TRUE;
+              BREAK;
+            }
+            ELSE IF (options.verbose)
+              Print(`Failed to replace ${trykill} with ${Detokenize(repl.replacewith,';')} for library ${path}: ${error2.message}\n`);
+          }
+          ELSE IF (options.verbose)
+            Print(`Failed to replace ${trykill} with ${Detokenize(repl.replacewith,';')} for library ${path}: ${replaced.message}\n`);
+        }
+      }
+
+      IF (NOT fixedanyway)
+      {
+        source := backup;
+        IF (options.verbose)
+          Print(`Unable to remove ${trykill} from ${path}: ${error.message}\n`);
+      }
+    }
+    ELSE
+    {
+      IF (options.verbose)
+        Print(`Successfully removed ${trykill} from ${path}\n`);
+      backup := source;
+    }
+  }
+
+  IF(options.reorder)
+  {
+
+    // Sort the loadlibs, by first removing all loadlibs, the re-adding them in alphabetical order
+    RECORD ARRAY loadlibs := GetHarescriptSourceLoadlibs(path, StringToBlob(source));
+    loadlibs := SELECT * FROM loadlibs ORDER BY name;
+    FOREVERY (RECORD lib FROM loadlibs)
+    {
+      RECORD removed := RemoveLoadlibStatement(source, lib.name, [ removeexports := TRUE ]);
+      IF (NOT removed.success)
+      {
+        IF (options.verbose)
+          Print(`Unable to remove ${lib.name} from ${path} - not sorting loadlibs\n`);
+        CONTINUE;
+      }
+      INSERT CELL deleteddata := removed.deleteddata
+                , trailing := GetRemovedLoadlibTrailingData(removed)
+        INTO loadlibs[#lib];
+      source := removed.data;
+    }
+    FOREVERY (RECORD lib FROM loadlibs)
+    {
+      IF (NOT CellExists(lib, "deleteddata"))
+        CONTINUE;
+      RECORD inserted := InsertLoadlibStatement(source, lib.name);
+      source := inserted.data;
+      // If the data that's been inserted is unequal to the data that's been deleted, add the deleted data (it's probably
+      // because of EXPORT), otherwise check if there is trailing data to be added (e.g. trailing comment)
+      IF (TrimWhitespace(lib.deleteddata) != TrimWhitespace(inserted.addeddata) || lib.trailing)
+      {
+        // Get the number of trailing empty lines
+        INTEGER del_trailing, ins_trailing;
+        FOR (; del_trailing < Length(lib.deleteddata) AND Substring(lib.deleteddata, Length(lib.deleteddata) - del_trailing - 1, 1) = "\n"; del_trailing := del_trailing + 1);
+        FOR (; ins_trailing < Length(inserted.addeddata) AND Substring(inserted.addeddata, Length(inserted.addeddata) - ins_trailing - 1, 1) = "\n"; ins_trailing := ins_trailing + 1);
+
+        // Replace the added data with the deleted data, adding extra added newlines or deleting removed newlines
+        source := Left(source, inserted.insertpos) || Left(lib.deleteddata, Length(lib.deleteddata) - del_trailing) || (RepeatText("\n", ins_trailing)) || Substring(source, inserted.insertpos + Length(inserted.addeddata));
+      }
+      ELSE IF (lib.trailing != "")
+      {
+        INTEGER insertpos := SearchSubstring(source, ";", inserted.insertpos);
+        IF (insertpos >= 0)
+          source := Left(source, insertpos + 1) || lib.trailing || Substring(source, insertpos + 1);
+      }
+    }
+  }
+
+  // Get the old and new loadlib lines (the block of code to replace)
+  RECORD old_loadlibs := GetLoadlibs(infile);
+  RECORD new_loadlibs := GetLoadlibs(source);
+  IF (NOT RecordExists(old_loadlibs))
+  {
+    RETURN
+        [ success := TRUE
+        , replacepos := -1
+        , deletelength := 0
+        , data := ""
+        , message := "No loadlibs"
+        ];
+  }
+  IF (NOT RecordExists(new_loadlibs))
+  {
+    // All loadlibs were removed
+    new_loadlibs := CELL[ source, old_loadlibs.pos, loadlibs := "" ];
+  }
+  ELSE IF (new_loadlibs.pos = old_loadlibs.pos AND new_loadlibs.loadlibs = old_loadlibs.loadlibs)
+  {
+    RETURN
+        [ success := TRUE
+        , replacepos := -1
+        , deletelength := 0
+        , data := ""
+        , message := "No changes made"
+        ];
+  }
+  IF (old_loadlibs.pos < new_loadlibs.pos)
+  {
+    // Empty lines were added before the loadlibs
+    new_loadlibs.loadlibs := Substring(new_loadlibs.source, old_loadlibs.pos, new_loadlibs.pos - old_loadlibs.pos) || new_loadlibs.loadlibs;
+    new_loadlibs.pos := old_loadlibs.pos;
+  }
+  ELSE IF (old_loadlibs.pos > new_loadlibs.pos)
+  {
+    // Empty lines were removed before the loadlibs
+    old_loadlibs.loadlibs := Substring(old_loadlibs.source, new_loadlibs.pos, old_loadlibs.pos - new_loadlibs.pos) || old_loadlibs.loadlibs;
+    old_loadlibs.pos := new_loadlibs.pos;
+  }
+  IF (old_loadlibs.pos + Length(old_loadlibs.loadlibs) <= Length(old_loadlibs.source)
+      AND new_loadlibs.pos + Length(new_loadlibs.loadlibs) <= Length(new_loadlibs.source))
+  {
+    // Get the number of trailing empty lines
+    INTEGER old_trailing, new_trailing;
+    FOR (; old_loadlibs.pos + Length(old_loadlibs.loadlibs) + old_trailing < Length(old_loadlibs.source) AND Substring(old_loadlibs.source, old_loadlibs.pos + Length(old_loadlibs.loadlibs) + old_trailing, 1) = "\n"; old_trailing := old_trailing + 1);
+    FOR (; new_loadlibs.pos + Length(new_loadlibs.loadlibs) + new_trailing < Length(new_loadlibs.source) AND Substring(new_loadlibs.source, new_loadlibs.pos + Length(new_loadlibs.loadlibs) + new_trailing, 1) = "\n"; new_trailing := new_trailing + 1);
+
+    IF (new_trailing > old_trailing)
+    {
+      // New loadlibs have trailing empty lines, add them as well
+      FOR (INTEGER i := 0; i < new_trailing - old_trailing; i := i + 1)
+        new_loadlibs.loadlibs := new_loadlibs.loadlibs || "\n";
+    }
+    ELSE IF (old_trailing > new_trailing)
+    {
+      // Empty lines were removed, add them to the old loadlibs, the length of which will be returned as the number of bytes to delete
+      FOR (INTEGER i := 0; i < old_trailing - new_trailing; i := i + 1)
+        old_loadlibs.loadlibs := old_loadlibs.loadlibs || "\n";
+    }
+  }
+
+  RETURN
+      [ success := TRUE
+      , replacepos := old_loadlibs.pos
+      , deletelength := Length(old_loadlibs.loadlibs)
+      , data := new_loadlibs.loadlibs
+      , message := "Organized LOADLIBs"
+      ];
+}
+
+/** Organizes loadlibs in a source file
+    @param infile File to manipulate
+    @param path Library URI
+    @cell options.verbose Set to TRUE to print debugging information
+    @cell options.reorder Set to TRUE to allow reordering of loadlibs
+    @return
+    @cell return.success
+    @cell return.data New file
+*/
+PUBLIC RECORD FUNCTION OrganizeLoadlibs(STRING infile, STRING path, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RECORD instr := GetOrganizeLoadlibInstructions(infile, path, options);
+  IF (NOT instr.success)
+    RETURN [ success := FALSE, message := instr.message ];
+
+  STRING result := infile;
+  IF (instr.replacepos >= 0)
+    result := Left(result, instr.replacepos) || instr.data || Substring(result, instr.replacepos + instr.deletelength);
+  RETURN CELL[ ...instr, data := result ];
+}
+
+RECORD FUNCTION GetLoadlibs(STRING source)
+{
+  RECORD ARRAY intokens := GetUncommentedTokens(StringToBlob(source));
+
+  // Find all 'LOADLIB' tokens
+  RECORD ARRAY loadlibtokens := SELECT *, idx := #intokens FROM intokens WHERE ToUppercase(rawtoken) = "LOADLIB";
+  IF (NOT RecordExists(loadlibtokens))
+    RETURN DEFAULT RECORD;
+
+  // The starting position is the length of the combined tokens up until the first loadlib
+  INTEGER pos := Length(GetRecombinedTokens(ArraySlice(intokens, 0, loadlibtokens[0].idx)));
+
+  RECORD ARRAY tokens := ArraySlice(intokens, loadlibtokens[0].idx, loadlibtokens[END-1].idx - loadlibtokens[0].idx + 1);
+  FOREVERY (RECORD token FROM ArraySlice(intokens, loadlibtokens[END-1].idx + 1))
+  {
+    IF (token.iswhitespace)
+    {
+      IF (token.rawtoken LIKE "*\n*")
+      {
+        token.rawtoken := Left(token.rawtoken, SearchSubstring(token.rawtoken, "\n"));
+        INSERT token INTO tokens AT END;
+        BREAK;
+      }
+      INSERT token INTO tokens AT END;
+    }
+    ELSE IF (token.rawtoken LIKE "//*")
+    {
+      INSERT token INTO tokens AT END;
+      BREAK;
+    }
+    ELSE
+      INSERT token INTO tokens AT END;
+  }
+
+  RETURN CELL
+      [ pos
+      , loadlibs := GetRecombinedTokens(tokens)
+      , source
+      ];
+}
+
+STRING FUNCTION GetRemovedLoadlibTrailingData(RECORD removed)
+{
+  STRING removedloadlib := Tokenize(removed.deleteddata, "\n")[0];
+  INTEGER trailingpos := SearchSubstring(removedloadlib, ";");
+  IF (trailingpos >= 0)
+    RETURN Substring(removedloadlib, trailingpos + 1);
+  RETURN "";
+}

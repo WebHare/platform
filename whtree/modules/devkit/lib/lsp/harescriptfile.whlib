@@ -1,0 +1,58 @@
+<?wh
+
+LOADLIB "mod::devkit/lib/lsp/editorservices.whlib";
+LOADLIB "mod::devkit/lib/lsp/utils.whlib";
+LOADLIB "mod::devkit/lib/lsp/webharesourcefile.whlib";
+LOADLIB "mod::devkit/lib/lsp/loadlibs.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE HareScriptFile EXTEND WebHareSourceFile
+<
+  PUBLIC RECORD FUNCTION AddMissingLoadlib(STRING identifier)
+  {
+    RECORD suggest := GetLoadLibSuggestions(identifier, [ filename := this->resource ]);
+    IF(CellExists(suggest,'error'))
+      RETURN  suggest;
+
+    RECORD result := GetLoadlibInsertInstructions(this->text, suggest.results[0].path);
+    IF (result.success)
+    {
+      STRING ARRAY lines := SplitLines(Left(this->text, result.insertpos));
+      INTEGER line := Length(lines) - 1;
+      INTEGER character := GetUTF16CodePointPosition(lines[END - 1], Length(lines[END - 1]));
+      RETURN
+          [ range :=
+              [ start := CELL[ line, character ]
+              , "end" := CELL[ line, character ]
+              ]
+          , newtext := result.data
+          ];
+    }
+    ELSE
+      RETURN [ error := `Unable to add loadlib: ` || suggest.results[0].path ];
+  }
+
+  PUBLIC RECORD FUNCTION RemoveUnusedLoadlib(STRING lib)
+  {
+    RECORD result := GetLoadlibRemoveInstructions(this->text, lib);
+    IF (result.success)
+    {
+      STRING ARRAY lines := SplitLines(Left(this->text, result.deletepos));
+      INTEGER line := Length(lines) - 1;
+      INTEGER character := GetUTF16CodePointPosition(lines[END - 1], Length(lines[END - 1]));
+      lines := SplitLines(Substring(this->text, result.deletepos, result.deletelength));
+      INTEGER extralines := Length(lines) - 1;
+      RETURN
+          [ range :=
+              [ start := CELL[ line, character ]
+              , "end" := CELL[ line := line + extralines, character := GetUTF16CodePointPosition(lines[END - 1], Length(lines[END - 1])) ]
+              ]
+          , newtext := ""
+          ];
+    }
+    ELSE
+      LogDebug("devkit:harscriptfile", CELL["RemoveUnusedLoadlib" := result.message ]);
+
+    RETURN DEFAULT RECORD;
+  }
+>;

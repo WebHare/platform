@@ -1,0 +1,254 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::devkit/lib/lsp/loadlibs.whlib";
+
+
+MACRO TestSingleOrdering(RECORD expected, STRING liba, STRING libb)
+{
+  TestEQ(expected, CompareLoadLibs(liba, libb));
+  expected.position := -expected.position;
+  TestEQ(expected, CompareLoadLibs(libb, liba));
+}
+
+
+MACRO TestLoadLibOrdering()
+{
+  // ordering of groups
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "wh::a.whlib", "module::system/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::system/a.whlib", "module::a/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::a/a.whlib", "site::a/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "module::system/a.whlib", "site::a/a.whlib");
+
+  // intra-group ordering (wh)
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::a.whlib", "wh::b.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::b.whlib", "wh::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::z/z.whlib", "wh::internal/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "wh::a/b.whlib", "wh::a/a/a.whlib");
+
+  // intra-module (mod first)
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/lib/a.whlib", "module::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/scripts/a.whlib", "moduleroot::a/a.whlib");
+  TestSingleOrdering([ same_group := TRUE, position := -2 ], "mod::a/lib/zzz/a.whlib", "mod::a/lib/internal/a.whlib");
+
+  // order modules alphabetically inside their group (builtin vs non-builtin)
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "mod::a/a.whlib", "mod::b/a.whlib");
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "mod::consilio/a.whlib", "mod::system/a.whlib");
+
+  // unknown prefixes
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "mod::ext/a.whlib", "invalid::system/a.whlib");
+
+  // unknown syntax
+  TestSingleOrdering([ same_group := FALSE, position := -1 ], "invalid::system/a.whlib", "totally invalid");
+}
+
+MACRO TestLoadlibPositionData()
+{
+  // normal operation
+  TestEQ(
+      [ allowed_lines :=  [ 2, 3, 4, 5, 6, 7, 8 ]
+      , minline :=        2
+      , maxline :=        8
+      , empty_lines :=    [ 2, 5, 7 ]
+      , loadlibs :=       [ [ line := 3, path := "a" ], [ line := 4, path := "b" ], [ line := 6, path := "c" ] ]
+      ], GetLoadlibPositionData(
+`<?wh
+
+LOADLIB "a";
+LOADLIB "b"; // blabla
+
+LOADLIB "c";
+
+MACRO code() {}`));
+
+  // no valid insert positions
+  TestEQ(
+      [ allowed_lines :=  DEFAULT INTEGER ARRAY
+      , minline :=        2
+      , maxline :=        1
+      , empty_lines :=    DEFAULT INTEGER ARRAY
+      , loadlibs :=       [ [ line := 1, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`<?wh LOADLIB "a"; MACRO code() {}`));
+
+  // lines that don't start in whitespace
+  TestEQ(
+      [ allowed_lines :=  [ 2, 3, 5, 6 ]
+      , minline :=        2
+      , maxline :=        6
+      , empty_lines :=    [ 2, 5 ]
+      , loadlibs :=       [ [ line := 4, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`<?wh
+
+/*
+*/LOADLIB "a";
+
+MACRO code() {}`));
+
+  // shebacg
+  TestEQ(
+      [ allowed_lines :=  [ 3, 4, 5, 6 ]
+      , minline :=        3
+      , maxline :=        6
+      , empty_lines :=    [ 3, 5 ]
+      , loadlibs :=       [ [ line := 4, path := "a" ] ]
+      ], GetLoadlibPositionData(
+`#!/blabla
+<?wh
+
+LOADLIB "a";
+
+MACRO code() {}`));
+}
+
+MACRO SingleTestLoadlibInsert(STRING source, STRING path, STRING expectinsert)
+{
+  STRING subst_source := Substitute(source, "*", "");
+  RECORD res := InsertLoadLibStatement(subst_source, path);
+  TestEq(expectinsert != "", res.success, CellExists(res,'message') ? "Error: " || res.message : "");
+  IF (res.success)
+    TestEq(Substitute(source, "*", expectinsert), res.data);
+}
+
+MACRO TestInsertLoadLib()
+{
+  // place after existing
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+*
+MACRO Test() {}`, "wh::b.whlib", 'LOADLIB "wh::b.whlib";\n\n');
+
+  // other group, with spacing before and after
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+*
+MACRO Test() {}`, "mod::b/c.whlib", '\nLOADLIB "mod::b/c.whlib";\n\n');
+
+  // within second group
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+
+LOADLIB "mod::a/a.whlib";
+*LOADLIB "mod::a/c.whlib";
+
+MACRO Test() {}`, "mod::a/b.whlib", 'LOADLIB "mod::a/b.whlib";\n');
+
+  // existing lib
+  SingleTestLoadLibInsert(
+`<?wh
+
+LOADLIB "wh::a.whlib";
+
+MACRO Test() {}`, "wh::a.whlib", '');
+
+  // add empty lines when necessary
+  SingleTestLoadlibInsert(
+`<?wh
+*MACRO Test() {}`, "wh::a.whlib", '\nLOADLIB "wh::a.whlib";\n\n\n');
+  SingleTestLoadlibInsert(
+`<?wh
+*
+MACRO Test() {}`, "wh::a.whlib", '\nLOADLIB "wh::a.whlib";\n\n');
+  SingleTestLoadlibInsert(
+`<?wh
+*
+
+MACRO Test() {}`, "wh::a.whlib", '\nLOADLIB "wh::a.whlib";\n');
+  SingleTestLoadlibInsert(
+`<?wh
+*
+
+
+MACRO Test() {}`, "wh::a.whlib", '\nLOADLIB "wh::a.whlib";');
+  SingleTestLoadlibInsert(
+`<?wh
+*
+
+
+
+MACRO Test() {}`, "wh::a.whlib", '\nLOADLIB "wh::a.whlib";');
+
+  //Verify not getting confused by a BOM
+  SingleTestLoadlibInsert(
+`\uFEFF<?wh
+*
+STRING primary_itf_url := GetPrimaryWebhareInterfaceURL();\n`, "mod::system/lib/configure.whlib", '\nLOADLIB "mod::system/lib/configure.whlib";\n\n');
+}
+
+MACRO TestRemoveLoadLib()
+{
+  TestEq(`<?wh\n\nLOADLIB "wh::b.whlib";`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib"; // Remove\nLOADLIB "wh::b.whlib";`, "wh::a.whlib").data);
+  TestEq(`<?wh\nLOADLIB "wh::c.whlib";\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\nLOADLIB "wh::c.whlib";\n\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+  TestEq(`<?wh\n//a\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\n//a\n\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+  TestEq(`<?wh\n//a\n\n//b;\n`, RemoveLoadlibStatement(`<?wh\n//a\nLOADLIB "wh::a.whlib";\n\n//b;\n`, "wh::a.whlib").data);
+
+  TestEq(`<?wh\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::x.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, "wh::x.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::a.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::x/y.whlib";\n\n\n//\n`, "mod::x/y.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::x.whlib";\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, "wh::x.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib";\nLOADLIB "wh::x.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, "wh::x.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::x/y.whlib";\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, "mod::x/y.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\n\n\n//\n`, RemoveLoadlibStatement(`<?wh\n\nLOADLIB "wh::a.whlib";\n\nLOADLIB "mod::b/c.whlib";\nLOADLIB "mod::x/y.whlib";\n\n\n//\n`, "mod::x/y.whlib").data);
+}
+
+MACRO TestRewriteLib()
+{
+  TestEq([anychanges := FALSE, data := `<?wh //hi\n\nLOADLIB "wh::b.whlib";` ],
+         RewriteModuleLoadlibsToMod(`<?wh //hi\n\nLOADLIB "wh::b.whlib";`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib" EXPORT x;` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib" EXPORT x;`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib"; //stupid lib\n` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib"; //stupid lib\n`));
+  TestEq([anychanges := TRUE, data := `<?wh\n\nLOADLIB "mod::system/lib/database.whlib";\n` ],
+         RewriteModuleLoadlibsToMod(`<?wh\n\nLOADLIB "module::system/database.whlib";\n`));
+}
+
+MACRO TestOrganizeLoadlibs()
+{
+  // Nothing to be done (replacepos = -1 means nothing has changed)
+  RECORD instr := OrganizeLoadlibs(`<?wh\n\nPrint("test");\n`, "wh::x.whlib");
+  TestEq(`<?wh\n\nPrint("test");\n`, instr.data);
+  TestEq(-1, instr.replacepos);
+  instr := OrganizeLoadlibs(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\n\nGetCurrentDateTime();\n`, "wh::x.whlib");
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\n\nGetCurrentDateTime();\n`, instr.data);
+  TestEq(-1, instr.replacepos);
+
+  // Add extra empty lines
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\n\nGetCurrentDateTime();\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "wh::datetime.whlib";\nGetCurrentDateTime();\n`, "wh::x.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\n\nOpenPrimary();\nGetCurrentDateTime();\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "wh::datetime.whlib";\nLOADLIB "mod::system/lib/database.whlib";\nOpenPrimary();\nGetCurrentDateTime();\n`, "wh::x.whlib").data);
+  // Remove all loadlibs
+  TestEq(`<?wh\n\n\n//\n`, OrganizeLoadlibs(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\n\n//\n`, "wh::x.whlib").data);
+  // Remove the unused database whlib
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\n\nGetCurrentDateTime();\n`, OrganizeLoadlibs(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\n\nGetCurrentDateTime();\n`, "wh::x.whlib").data);
+  // Don't remove database whlib which exports
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib" EXPORT OpenPrimary;\n\n\nGetCurrentDateTime();\n`, OrganizeLoadlibs(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib" EXPORT OpenPrimary;\n\n\nGetCurrentDateTime();\n`, "wh::x.whlib").data);
+  // Remove the unused datetime whlib, rewrite module:: to mod::
+  TestEq(`<?wh\n\nLOADLIB "mod::system/lib/database.whlib";\n\n\nOpenPrimary();\n`, OrganizeLoadlibs(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "module::system/database.whlib";\n\n\nOpenPrimary();\n`, "wh::x.whlib").data);
+  // Rewrite module:: to mod::, reorder the loadlibs and add extra empty lines, keep comments
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib"; // Move to top\n\nLOADLIB "mod::system/lib/database.whlib"; // Rewrite module to mod\n\n\nOpenPrimary();\nGetCurrentDateTime();\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "module::system/database.whlib"; // Rewrite module to mod\nLOADLIB "wh::datetime.whlib"; // Move to top\nOpenPrimary();\nGetCurrentDateTime();\n`, "wh::x.whlib").data);
+  // Rewrite module:: to mod::, reorder the loadlibs, sort relative loadlibs last and add extra empty lines
+//TODO: Two empty lines should be added between the relative loadlib and the first statement
+//  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\nLOADLIB "relative::regex.whlib";\n\n\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "relative::regex.whlib";\nLOADLIB "module::system/database.whlib";\nLOADLIB "wh::datetime.whlib";\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, "wh::x.whlib").data);
+  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\nLOADLIB "relative::regex.whlib";\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "relative::regex.whlib";\nLOADLIB "module::system/database.whlib";\nLOADLIB "wh::datetime.whlib";\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, "wh::x.whlib").data);
+  // Remove unused relative loadlib, rewrite module:: to mod::, reorder the loadlibs, sort relative loadlibs last and add extra empty lines
+//TODO: The relative float.whlib loadlib doesn't get removed, empty lines don't get added
+//  TestEq(`<?wh\n\nLOADLIB "wh::datetime.whlib";\n\nLOADLIB "mod::system/lib/database.whlib";\n\nLOADLIB "relative::regex.whlib";\n\n\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, OrganizeLoadlibs(`<?wh\nLOADLIB "relative::regex.whlib";\nLOADLIB "module::system/database.whlib";\nLOADLIB "relative::float.whlib";\nLOADLIB "wh::datetime.whlib";\nOpenPrimary();\nGetCurrentDateTime();\nNEW RegEx("test");\n`, "wh::x.whlib").data);
+
+  // Don't kill comments - FIXME broken if 'reorder' is TRUE (returns corrupt output)
+  TestEq(`<?wh\n///https://url\n\nLOADLIB \"mod::system/lib/database.whlib\";\n\nOpenPrimary();\ndumpvalue(select * from system.fs_objects limit 1);`
+        , OrganizeLoadlibs(`<?wh\n///https://url\n\nLOADLIB "mod::system/lib/whfs.whlib";LOADLIB "mod::system/lib/database.whlib";\n\nOpenPrimary();\ndumpvalue(select * from system.fs_objects limit 1);`, "wh::x.whlib", [ reorder := FALSE ]).data);
+}
+
+RunTestFramework([ PTR TestLoadLibOrdering
+                 , PTR TestLoadlibPositionData
+                 , PTR TestInsertLoadLib
+                 , PTR TestRemoveLoadLib
+                 , PTR TestRewriteLib
+                 , PTR TestOrganizeLoadlibs
+                 ]);
