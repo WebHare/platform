@@ -15,7 +15,7 @@ NOCOMPILE=
 DRYRUNPREFIX=""
 
 while [[ $1 =~ -.* ]]; do
-  if [ "$1" == "--onlyinstalledmodules" ]; then #ignored. wh finalize-webhare fixes WebHare. kept for compatibility with wh testdocker (which sends this parameter for 5.3 and below)
+  if [ "$1" == "--onlyinstalledmodules" ]; then #ignored. wh finalize-webhare fixes WebHare. kept for compatibility with wh testcontainer (which sends this parameter for 5.3 and below)
     shift
   elif [ "$1" == "--nocompile" ]; then
     NOCOMPILE=1

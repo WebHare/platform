@@ -37,7 +37,7 @@ rm -f /etc/apt/apt.conf.d/docker-clean
 echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
 # Allow using a nightly build of node, eg:
-# WEBHARE_NODE_MAJOR=23 WHBUILD_NODE_URL=https://nodejs.org/download/nightly/v23.0.0-nightly202408194f94397650/node-v23.0.0-nightly202408194f94397650-linux-arm64.tar.xz wh builddocker
+# WEBHARE_NODE_MAJOR=23 WHBUILD_NODE_URL=https://nodejs.org/download/nightly/v23.0.0-nightly202408194f94397650/node-v23.0.0-nightly202408194f94397650-linux-arm64.tar.xz wh buildcontainer
 if [ -n "$WHBUILD_NODE_URL" ]; then
   pushd /opt
   curl --fail "$WHBUILD_NODE_URL" | tar Jx

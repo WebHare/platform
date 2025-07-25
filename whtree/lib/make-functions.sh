@@ -1,7 +1,7 @@
 #!/bin/bash
 # This script is also deployed to https://build.webhare.dev/ci/scripts/make-functions.sh
 
-# Helper functions shared between build ('make'), CI (testdocker) and runtime WebHare.
+# Helper functions shared between build ('make'), CI (testcontainer) and runtime WebHare.
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   WEBHARE_PLATFORM="darwin"

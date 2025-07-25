@@ -69,7 +69,7 @@ If you're getting an error that openjdk isn't notarized, you can go to System Pr
 
 ## Building for docker
 ```bash
-wh builddocker
+wh buildcontainer
 ```
 
 ## Advanced build options
@@ -82,7 +82,7 @@ Environment variables that control the build process:
 - WHBUILD_NUMPROC: Number of processors to use (the `make -j` parameter). Estimated based on CPU cores and/or memory if not set.
 - WHBUILD_DEBUG: Set to build debug versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
 - WHBUILD_PROFILE: Set to build profiling versions of WebHare C++ components. The build will take place in a separate build directory, but any make 'install' target will overwrite the same installation
-- WHBUILD_ASSETROOT: Path to external dependencies. Defaults to https://build.webhare.dev/whbuild/. Set to an invalid URL to test build fallback URLs, eg: `WHBUILD_ASSETROOT="https://123xyz.invalid/" wh builddocker`
+- WHBUILD_ASSETROOT: Path to external dependencies. Defaults to https://build.webhare.dev/whbuild/. Set to an invalid URL to test build fallback URLs, eg: `WHBUILD_ASSETROOT="https://123xyz.invalid/" wh buildcontainer`
 
 ### Tips & tricks
 To quickly run a specific blextest, eg 'string' (you really want this when editing stringmanip.cc):
@@ -207,8 +207,8 @@ This command will output a list of .txt and .dot (GraphViz) files.
 ## Building container images
 ```bash
 # Build using docker
-wh builddocker
+wh buildcontainer
 
 # Build using podman
-wh builddocker --podman
+wh buildcontainer --podman
 ```

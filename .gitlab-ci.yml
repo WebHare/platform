@@ -2,7 +2,7 @@
 # https://docs.gitlab.com/ee/ci/docker/using_docker_build.html
 
 # Note:
-#    GitLab has dind runners, which will be able to run wh builddocker
+#    GitLab has dind runners, which will be able to run wh buildcontainer
 #    WebHarebv has shell executors.. which just ignore the images.. which seems to work just as well
 
 image: docker:19.03.1-dind
@@ -44,23 +44,23 @@ workflow: # Do not build just because a tag was set https://gitlab.com/gitlab-or
     - when: always
 
 
-builddocker:
+buildcontainer:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   stage: build
   except:
     - schedules
   script:
-    - whtree/bin/wh builddocker
+    - whtree/bin/wh buildcontainer
 
-builddocker-scheduled:
+buildcontainer-scheduled:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   stage: build
   only:
     - schedules
   script:
-    - whtree/bin/wh builddocker --no-cache
+    - whtree/bin/wh buildcontainer --no-cache
 
 testbaselibs:
   stage: test

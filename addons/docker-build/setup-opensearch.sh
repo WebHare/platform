@@ -5,7 +5,7 @@
 # DL packages from here - https://opensearch.org/downloads.html
 
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
-# wh builddocker && wh testdocker --sh --tag=-external -w local consilio
+# wh buildcontainer && wh testcontainer --sh --tag=-external -w local consilio
 
 ASSETROOT="$1"
 GETVERSION="$2"
