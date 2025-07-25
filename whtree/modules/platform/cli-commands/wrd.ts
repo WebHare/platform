@@ -19,6 +19,18 @@ run({
         console.log(JSON.stringify(await parseSchema(args.schemaresource, true, null), null, 2));
       }
     },
+    "export": {
+      description: "Export an entity",
+      arguments: [{ name: "<id>", description: "Entity ID" }],
+      main: async ({ opts, args }) => {
+        const entityid = parseInt(args.id);
+        const entityinfo = await describeEntity(entityid) ?? throwError(`Entity #${entityid} not found`);
+        const wrdschema = new WRDSchema(entityinfo.schema);
+        const attrs = await wrdschema.getType(entityinfo.type).listAttributes();
+        const entity = await wrdschema.getFields(entityinfo.type, entityid, attrs.map(_ => _.tag), { export: true, historyMode: "unfiltered" });
+        console.log(JSON.stringify(entity, null, 2));
+      }
+    },
     "update": {
       description: "Update an entity",
       arguments: [
