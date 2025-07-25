@@ -1,7 +1,7 @@
 # The axioms are the base WebHare settings required to bootstrap the generators. It should be read using the readAxioms API
 
 # JSSDK packages we publish to NPM (in their dependency order). See publish_jssdk.ts
-publishPackages: [eslint-config, tsrun, std, env, js-api-tools, jsonrpc-client, rpc, cli, psp-base ]
+publishPackages: [eslint-config, tsrun, std, env, js-api-tools, jsonrpc-client, rpc, cli, psp-base, lsp-types ]
 
 # fields we copy from the toplevel package.json to subpackages
 copyPackageFields: [author, license, homepage, repository, bugs]

@@ -1,0 +1,13 @@
+{
+  "name": "@webhare/lsp-types",
+  "version": "",
+  "types": "lsp-types.ts",
+  "description": "Types shared between the WebHare LSP server and clients",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "vscode-languageserver-types": "^3.17.5"
+  },
+  "private": true
+}
