@@ -448,7 +448,7 @@ class ImgeditDialogController {
   }
 
   static checkTypeAllowed(screen, type) {
-    const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
+    const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"];
     if (!allowed_mimetypes.includes(type)) {
       runSimpleScreen(screen.displayapp,
         {

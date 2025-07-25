@@ -398,7 +398,8 @@ export class ImgTransformElement extends HTMLElement {
     // Apply current modal edits
     this.#editor.applyModalEdits();
 
-    const type = options?.type ?? "image/png";
+    //WebHare Harescript can only efficiently ScanBlob JPEG, so avoid WEBP/AVIF for now
+    const type = options?.type === "image/png" ? "image/png" : "image/jpeg";
     const quality = options?.quality ?? 0.85;
     if (quality < 0 || quality > 1) //"is a number in the range 0.0 to 1.0 inclusive"
       throw new Error("Quality must be between 0 and 1");
