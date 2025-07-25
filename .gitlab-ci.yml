@@ -62,6 +62,11 @@ builddocker-scheduled:
   script:
     - whtree/bin/wh builddocker --no-cache
 
+test-vscode-extension:
+  stage: build # Not really needed for build, but it seems unlikely it'll block progression to test stage
+  script:
+    - addons/vscode-extension/scripts/run-extension-tests.sh
+
 testbaselibs:
   stage: test
   script:

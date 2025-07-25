@@ -1,0 +1,7 @@
+# Test what gets included using: ./node_modules/.bin/vsce ls --no-dependencies
+.vscode
+node_modules
+out/
+src/
+tsconfig.json
+esbuild.js

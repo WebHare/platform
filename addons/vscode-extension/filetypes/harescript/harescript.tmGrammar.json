@@ -1,0 +1,340 @@
+{
+  "scopeName": "source.harescript",
+  "patterns": [
+    {
+      "include": "text.html.basic"
+    }
+  ],
+  "injections": {
+    "source.harescript": {
+      "patterns": [
+        {
+          "name": "source.harescript.text",
+          "begin": "<\\?wh",
+          "end": "\\?>",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.begin.harescript"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.end.harescript"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#harescript"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "repository": {
+    "harescript": {
+      "patterns": [
+        {
+          "match": "(?i)\\b((?:(?:PUBLIC|PRIVATE|UPDATE)[\\s\\n]+){0,2})(?:((?:(?:ARRAY|BLOB|BOOLEAN|DATETIME|FIXEDPOINT|FLOAT|FUNCTION PTR|INTEGER|INTEGER64|MACRO PTR|MONEY|OBJECT|OBJECTTYPE|RECORD|REF|SCHEMA|STRING|TABLE|VARIANT|WEAKOBJECT)[\\s\\n]+)*)(FUNCTION)|(MACRO))[\\s\\n]+(?:(NEW)|(\\w+))(?=[\\s\\n]*\\()",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.harescript"
+            },
+            "2": {
+              "name": "storage.type.harescript"
+            },
+            "3": {
+              "name": "keyword.harescript"
+            },
+            "4": {
+              "name": "keyword.harescript"
+            },
+            "5": {
+              "name": "keyword.harescript"
+            },
+            "6": {
+              "name": "identifier.function.harescript"
+            }
+          }
+        },
+        {
+          "match": "(?i)\\b((?:(?:PUBLIC|PRIVATE)[\\s\\n]+)?(?:STATIC[\\s\\n]+)?)\\b(OBJECTTYPE)[\\s\\n]+(\\w+)",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.harescript"
+            },
+            "2": {
+              "name": "storage.type.harescript"
+            },
+            "3": {
+              "name": "identifier.objecttype.harescript"
+            }
+          }
+        },
+        {
+          "match": "(?i)\\b((?:(?:PUBLIC|PRIVATE|UPDATE)[\\s\\n]+){0,2})\\b(PROPERTY)[\\s\\n]+(\\w+)(?=[\\s\\n]*\\()",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.harescript"
+            },
+            "2": {
+              "name": "keyword.harescript"
+            },
+            "3": {
+              "name": "identifier.property.harescript"
+            }
+          }
+        },
+        {
+          "include": "#types"
+        },
+        {
+          "include": "#keywords"
+        },
+        {
+          "include": "#controls"
+        },
+        {
+          "include": "#operators"
+        },
+        {
+          "include": "#modifiers"
+        },
+        {
+          "include": "#system_functions"
+        },
+        {
+          "include": "#system_objecttypes"
+        },
+        {
+          "include": "#system_variables"
+        },
+        {
+          "include": "#strings"
+        },
+        {
+          "match": "(?i)\\bLOADLIB\\b",
+          "name": "keyword.control.import.harescript"
+        },
+        {
+          "match": "\\b(?:\\d*\\.)?\\d+(?:i(?:64)?|m|f|e[+-]?[0-9]*)?\\b|\\b0x[0-9a-fA-F]+\\b|\\b0b(?:0|1)+\\b",
+          "name": "constant.numeric.harescript"
+        },
+        {
+          "include": "#comments"
+        },
+        {
+          "match": "->|:=|::|!=|<=|>=|\\|\\||\\?\\?|\\(\\*\\)|=|\\+|-|\\*|\\/|<|>|\\?(?!>)|:|\\||\\^",
+          "name": "keyword.operator.harescript"
+        },
+        {
+          "begin": "\\(\\*(?!\\))",
+          "end": "\\*\\)",
+          "name": "meta.preprocessor.harescript"
+        },
+        {
+          "match": "(?<!->)\\^",
+          "name": "variable.language.harescript"
+        }
+      ]
+    },
+    "attributes": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?:BINARY|CONSTANT|DEINITMACRO|DEPRECATED|EXECUTESHARESCRIPT|EXTERNAL|INTERNALPROTECTED|ISCOUNT|NOSTATEMODIFY|READONLY|SKIPTRACE|SPECIAL|TERMINATES|VARARG)\\b",
+          "name": "storage.type.harescript"
+        }
+      ]
+    },
+    "types": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?:ARRAY|BLOB|BOOLEAN|DATETIME|FIXEDPOINT|FLOAT|FUNCTION PTR|INTEGER|INTEGER64|MACRO PTR|MONEY|OBJECT|OBJECTTYPE|RECORD|REF|SCHEMA|STRING|TABLE|VARIANT|WEAKOBJECT)\\b",
+          "name": "storage.type.harescript"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:DELETE|FUNCTION|INSERT|MACRO|SELECT|ALL|AS|ASC|AT|BY|CELL|COLUMN|CLASSTYPE|CROSS|DEFAULTSTO|DESC|DISTINCT|END|EXCEPT|EXPORT|EXTEND|EXTENDSFROM|FALSE|FROM|FULL|GROUP|HAVING|INDEX|INNER|INTERSECT|INTO|JOIN|KEY|LIMIT|LOADLIB|MEMBER|NEW|NULL|NVL|OFFSET|ONLY|ORDER|OUTER|PROPERTY|SET|TEMPORARY|TRUE|UNIQUE|USING|VALUES|VAR|VARTYPE|IN|WHERE)\\b(?!\\$)",
+          "name": "keyword.harescript"
+        }
+      ]
+    },
+    "controls": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:AWAIT|BREAK|CASE|CATCH|CONTINUE|ELSE|FINALLY|FOR|FOREVERY|IF|GOTO|RETURN|SWITCH|THROW|TRY|WHILE|YIELD)\\b(?!\\$)",
+          "name": "keyword.control.harescript"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:AND|BITAND|BITLSHIFT|BITNEG|BITOR|BITRSHIFT|BITXOR|CONCAT|IN|LIKE|NOT|OR|TYPEID|XOR)\\b(?!\\$)",
+          "name": "keyword.operator.harescript"
+        }
+      ]
+    },
+    "modifiers": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:AGGREGATE|ASYNC|CONSTANT|DEFAULT|PRIVATE|PTR|PUBLIC|STATIC|UPDATE|__ATTRIBUTES__|__CONSTREF)\\b(?!\\$)",
+          "name": "keyword.modifier.harescript"
+        }
+      ]
+    },
+    "system_functions": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:Abort|Abs|Any|AnyToString|ArraySlice|AsyncReadFrom|AsyncReadLineFrom|AsyncSendBlobTo|Avg|BindSchemaToTable|BindTransactionToSchema|BindTransactionToTable|ByteToString|CallAnyPtrVA|CallFunctionPtrVA|CallMacroPtrVA|CanCastTypeTo|CastTo|CellDelete|CellExists|CellInsert|CellUpdate|CollectGarbage|Count|Debugger|DebuggerKeepalive|DecodeBase16|DecodeBase32|DecodeBase32Hex|DecodeBase64|DecodeCharSet|DecodeHareScript|DecodeHSON|DecodeHSONBlob|DecodeHTML|DecodeJava|DecodeJSON|DecodeJSONBlob|DecodePacket|DecodeQP|DecodeUFS|DecodeURL|DecodeValue|Detokenize|DumpValue|EncodeAttributeValue|EncodeBase16|EncodeBase32|EncodeBase32Hex|EncodeBase64|EncodeCharSet|EncodeHareScript|EncodeHSON|EncodeHSONBlob|EncodeHTML|EncodeJava|EncodeJSON|EncodeJSONBlob|EncodePacket|EncodeQP|EncodeTextNode|EncodeUFS|EncodeURL|EncodeValue|EnforceStructure|ExplainFunctionPtrSignature|ExplainFunctionSignature|ExtendObject|GeneratorSpawn|GeneratorSpawnTrySync|GetArrayTypeDefaultElement|GetAsyncControl|GetAsyncStackTrace|GetAuthenticationRecord|GetBestCharacterSet|GetBindingFromSchema|GetBindingFromTable|GetByteValue|GetCell|GetExternalSessionData|GetHarescriptTypeIdByName|GetMember|GetMemberType|GetObjectMethodPtr|GetSpotHitCount|GetStackTrace|GetStoredScriptProperty|GetTypeDefaultArray|GetTypeDefaultValue|GetTypeName|GetUCValue|GroupedValues|IsAtEndOfStream|IsDebugTagEnabled|IsDefaultValue|IsObjectReferencePublic|IsPrintableASCII|IsTypeidArray|IsTypeidComparable|IsValidUTF8|IsValueSet|KeepTransactionsAlive|Left|Length|Length64|LimitUTF8Bytes|MakeAutoNumber|MakeEmptyRecord|MakeFunctionPtr|MakeMergedRecord|MakeObject|MakeOverwrittenRecord|MakePublicObjectReference|MakeReplacedRecord|MakeUpdatedRecord|Max|MemberDelete|MemberExists|MemberInsert|MemberUpdate|Min|NormalizeWhitespace|ObjectExists|PickFirst|PickLast|Print|PrintRecordArrayTo|PrintRecordTo|PrintTo|Random|ReadFrom|ReadLineFrom|RecordExists|RedirectOutputTo|Reflect|RepackRecord|RepeatElement|RepeatText|Resolve|ReverseArray|Right|RoundToMultiple|RunGeneratorUntilReturn|SearchElement|SearchLastElement|SearchLastSubstring|SearchSubstring|SeedRandomizer|SendBlobTo|SetAuthenticationRecord|SetErrorContextInfo|SetExternalSessionData|ShuffleArray|Sleep|SortArray|Substitute|Substring|Sum|TerminateScript|ToInteger|ToInteger64|Tokenize|ToLowercase|ToRecordArray|ToString|ToUppercase|TrimWhitespace|UCLeft|UCLength|UCRight|UCSearchLastSubstring|UCSearchSubstring|UCSubstring|UCToString|UCTruncate|UnpackRecord|ValidateFunctionPtr|ValidateOptions|WaitForMultiple|WaitForMultipleUntil|WaitForPromise|WaitUntil|WaitUntilMultiple|WeakObjectExists|WriteTo|__CAST_TO_VARIANT_ARRAY|__HS_CONVERTTOITERATOR|__HS_EnsureTraceItemForFirstError|__HS_GetPrivateMember|__HS_INTERNAL_CancelReceiveLine|__HS_INTERNAL_MakeObjectReferencePrivileged|__HS_INTERNAL_OVERRIDEEXECUTELIBRARY|__HS_INTERNAL_ReceiveFrom|__HS_INTERNAL_THROWEXCEPTION|__HS_INTERNAL_UNMANGLEFUNCTIONNAME|__HS_OBJECTMATCHESOUID|__HS_REBINDFUNCTIONPTR|__HS_REBINDFUNCTIONPTR2|__HS_SetPrivateMember|__HS_SQL_AddRecordArraySource|__HS_SQL_AddTableSource|__HS_SQL_CloseQuery|__HS_SQL_DEBUG_GetVarAsOptimized|__HS_SQL_DeleteRecord|__HS_SQL_DescribeTableTypeInfo|__HS_SQL_GetAction|__HS_SQL_GETARRAYRESULTS|__HS_SQL_GetGroupPosition|__HS_SQL_GetRecAction|__HS_SQL_GetRecordArrayPosition|__HS_SQL_GetRecordFase1|__HS_SQL_GetRecordFase2|__HS_SQL_GetSourcesBaseList|__HS_SQL_Insert|__HS_SQL_InsertMultiple|__HS_SQL_MakeArrayOfValue|__HS_SQL_MakeDistinct|__HS_SQL_MergeRecords|__HS_SQL_OpenCursor2|__HS_SQL_OverwriteRecord|__HS_SQL_RebindSchemaWithTypeInfo|__HS_SQL_RebindTableWithTypeInfo|__HS_SQL_Reorder_Results|__HS_SQL_ReportWhereResult|__HS_SQL_SortArray|__HS_SQL_UpdateRecord|__HS_TYPEID|__INTERNAL_AsyncWaitHandleReadSignalled|__INTERNAL_AsyncWaitHandleWriteSignalled|__INTERNAL_DEBUGGETFUNCTIONPTRRETURNTYPE|__ValidateFunctionPtrSignature)\\b(?=([\\s\\n]*\\[[\\s\\n]*\\])?[\\s\\n]*\\()",
+          "name": "support.function.harescript"
+        }
+      ]
+    },
+    "system_objecttypes": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:Exception|HarescriptErrorException|InvalidOptionException|LibraryVersionConflictException|__HS_INTERNAL_AsyncCallbackWaitHelperBase|__HS_INTERNAL_AsyncFunctionGenerator|__HS_INTERNAL_AsyncGeneratorGenerator|__HS_INTERNAL_FunctionGenerator|__HS_INTERNAL_OutputObject)\\b(?!\\$)",
+          "name": "support.class.harescript"
+        }
+      ]
+    },
+    "system_variables": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(?<!\\$)(?:THIS|__system_reflecthook)\\b(?!\\$)",
+          "name": "variable.language.harescript"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "begin": "(\")",
+          "end": "(\")",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.harescript"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.harescript"
+            }
+          },
+          "name": "string.quoted.harescript",
+          "patterns": [
+            {
+              "include": "#escapes"
+            }
+          ]
+        },
+        {
+          "begin": "(')",
+          "end": "(')",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.harescript"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.harescript"
+            }
+          },
+          "name": "string.quoted.harescript",
+          "patterns": [
+            {
+              "include": "#escapes"
+            }
+          ]
+        },
+        {
+          "begin": "(`)",
+          "end": "(`)",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.begin.harescript"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.string.end.harescript"
+            }
+          },
+          "name": "string.template.harescript",
+          "patterns": [
+            {
+              "include": "#escapes"
+            },
+            {
+              "match": "\\\\[\\`\\$\\{]",
+              "name": "constant.character.escape.harescript"
+            },
+            {
+              "include": "#template-substitution-element"
+            }
+          ]
+        }
+      ]
+    },
+    "template-substitution-element": {
+      "name": "meta.template.expression.harescript",
+      "begin": "\\$\\{",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.begin.harescript"
+        }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.template-expression.end.harescript"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#harescript"
+        }
+      ],
+      "contentName": "meta.embedded.line.harescript"
+    },
+    "escapes": {
+      "patterns": [
+        {
+          "match": "\\\\[abfnrt\\'\\\"\\\\]|\\\\[0-7]{3}|\\\\x[0-9a-fA-F]{2}|\\\\u[0-9a-fA-F]{4}",
+          "name": "constant.character.escape.harescript"
+        },
+        {
+          "match": "<\\?wh",
+          "name": "constant.character.escape.wh"
+        }
+      ]
+    },
+    "comments": {
+      "patterns": [
+        {
+          "match": "///.*$",
+          "name": "comment.line.documentation.harescript"
+        },
+        {
+          "match": "//.*$",
+          "name": "comment.line.harescript"
+        },
+        {
+          "begin": "/\\*\\*",
+          "end": "\\*/",
+          "name": "comment.block.documentation.harescript"
+        },
+        {
+          "begin": "/\\*",
+          "end": "\\*/",
+          "name": "comment.block.harescript"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+	"Screens XML prologue": {
+		"prefix": "<screens",
+		"body": [
+			"<screens xmlns=\"http://www.webhare.net/xmlns/tollium/screens\"",
+			"\tgid=\"${1}\"",
+			"\tlibrary=\"${2}\">",
+			"",
+			"${3}",
+			"",
+			"</screens>"
+		]
+	},
+	"Entity edit screen": {
+		"prefix": "<entityedit",
+		"body": [
+			"<screen name=\"${1:name}\" footerbuttons=\"ok cancel\" implementation=\"wrd:entityedit\">",
+			"\t<compositions>",
+			"\t\t<wrd:entity name=\"entity\" />",
+			"\t</compositions>",
+			"\t<body>",
+			"\t\t${2}",
+			"\t</body>",
+			"</screen>"
+		]
+	},
+	"Row edit screen": {
+		"prefix": "<rowedit",
+		"body": [
+			"<screen name=\"${1:name}\" footerbuttons=\"ok cancel\" implementation=\"rowedit\">",
+			"\t<compositions>",
+			"\t\t<record name=\"row\" />",
+			"\t</compositions>",
+			"\t<body>",
+			"\t\t${2}",
+			"\t</body>",
+			"</screen>"
+		]
+	},
+	"Two-column grid": {
+		"prefix": "<grid",
+		"description": "Sets up an equal spaced 2-column grid",
+		"body": [
+			"<grid height=\"1pr\">",
+			"\t<cell width=\"1pr\">",
+			"\t\t${1}",
+			"\t</cell>",
+			"\t<cell width=\"1pr\">",
+			"\t\t${2}",
+			"\t</cell>",
+			"</grid>"
+		]
+	}
+}

@@ -3,6 +3,9 @@
 .git
 node_modules
 
+# Addons completely unrelated to Docker builds
+addons/vscode-extension
+
 # We need to manage module ignores here (except for webhare_testsuite) so we can easily sync .gitignore & .dockerigonore
 /whtree/modules/devkit/node_modules
 /whtree/modules/*/history

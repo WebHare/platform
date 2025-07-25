@@ -1,0 +1,14 @@
+{
+	"xmlns publisher": {
+		"prefix": "xmlns:p=",
+		"body": [
+			"xmlns:p=\"http://www.webhare.net/xmlns/publisher/components\""
+		]
+	},
+	"xmlns wrd": {
+		"prefix": "xmlns:wrd=",
+		"body": [
+			"xmlns:wrd=\"http://www.webhare.net/xmlns/wrd/components\""
+		]
+	}
+}

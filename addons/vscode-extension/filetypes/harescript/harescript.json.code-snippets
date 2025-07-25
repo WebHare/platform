@@ -1,0 +1,27 @@
+{
+	"Prologue": {
+		"prefix": "<?wh",
+		"body": ["<?wh"]
+	},
+	"RunQuery": {
+		"prefix": "RunQuery",
+		"body": [
+			"RunQuery(",
+			"\t[ outputcolumns := CELL[ \"${1:outputcolumns}\" ]",
+			"\t, filters := [ [ field := \"${2:field}\", value := ${3:value} ] ] ",
+			"\t]",
+			"]);",
+			""
+		]
+	},
+	"Widget": {
+		"prefix": "<widget",
+		"body": [
+			"PUBLIC STATIC OBJECTTYPE ${1} EXTEND WidgetBase",
+			"<",
+			"\t${2}"
+			,">;"
+		]
+	}
+
+}

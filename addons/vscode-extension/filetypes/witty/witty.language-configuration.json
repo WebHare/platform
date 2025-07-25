@@ -1,0 +1,30 @@
+{
+	"comments": {
+		"blockComment": [
+			"[!",
+			"!]"
+		]
+	},
+	"brackets": [
+		[
+			"[",
+			"]"
+		],
+	],
+	"autoClosingPairs": [
+		{
+			"open": "[",
+			"close": "]",
+			"notIn": [
+				"comment",
+				"string"
+			]
+		},
+	],
+	"folding": {
+		"markers": {
+			"start": "\\[(if|component) .*\\]",
+			"end":  "\\[/(if|component)\\]"
+		}
+	}
+}
