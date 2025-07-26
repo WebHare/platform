@@ -45,7 +45,7 @@ async function getHSDiagnostics(respath: string, content: string): Promise<Diagn
     data: msg,
     range: msg.col === 0 ?
       {
-        // libxml gives no columns posiitions. let's highlight the line without the initial whitespace
+        // libxml gives no columns positions. let's highlight the line without the initial whitespace
         start: { line: msg.line - 1, character: doclines[msg.line - 1]?.match(/^ */)?.[0].length ?? 0 },
         end: { line: msg.line - 1, character: doclines[msg.line - 1]?.length ?? 1 }
       } :

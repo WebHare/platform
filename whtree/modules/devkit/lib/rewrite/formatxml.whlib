@@ -43,7 +43,7 @@ STRING FUNCTION FixFSPath(STRING resourcename, STRING inpath, BOOLEAN allow_modu
     inpath := MakeAbsoluteResourcePath(resourcename, inpath);
 
   IF(allow_moduleabsolute AND inpath LIKE "mod::*" AND GetModuleNameFromResourcePath(inpath) = GetModuleNameFromResourcePath(resourcename))
-    RETURN Substring(inpath, Length(GetModuleNameFromResourcePath(inpath)) + 5); //same module, os strip 'mod::x' part
+    RETURN Substring(inpath, Length(GetModuleNameFromResourcePath(inpath)) + 5); //same module, so strip 'mod::x' part
 
   RETURN inpath;
 }
@@ -318,7 +318,7 @@ RECORD FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
       IF(attr.issemicolonlist)
       {
         STRING spacedattribute;
-        FOREVERY(STRING tok FROM Tokenize(toencode,';')) //FIXME match quotes, probably shouldnt cut a ; out of a quote...
+        FOREVERY(STRING tok FROM Tokenize(toencode,';')) //FIXME match quotes, probably shouldn't cut a ; out of a quote...
         {
           tok := TrimWhitespace(tok);
           IF(tok = "")

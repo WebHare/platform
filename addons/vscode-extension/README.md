@@ -32,7 +32,7 @@ See https://www.webhare.dev/manuals/developers/vscode/
 
 * If the ESLint extension reports errors that some rules are not supported, check the path to your WebHare folder or
   module folder for lingering eslint installs in node_modules directories (eg in /Users/yourname/projects/node_modules).
-  Also, make sure your global eslint is up to date (`npm install -g eslint). To determine which eslint is in use, enable
+  Also, make sure your global eslint is up to date (`npm install -g eslint`). To determine which eslint is in use, enable
   debugging in the ESLint extension (open preferences, type 'eslint debug'). Then select 'ESLint' in the output window,
   it will show which eslint library is in use.
 * If TypeScript files aren't validating properly (eg. not recognizing `@webhare` imports) run `wh checkmodule` on your module
