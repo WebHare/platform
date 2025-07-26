@@ -43,6 +43,9 @@ PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER64 fileid)
 PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object, OBJECT whfs_mapper, BOOLEAN jsmode)
 {
   RECORD retval := SplitBlobSetting(setting, blobdata, fs_object);
+  IF (NOT RecordExists(retval))
+    RETURN DEFAULT RECORD;
+
   IF (IsValueSet(whfs_mapper))
     retval := CELL[ ...retval, source_fsobject := whfs_mapper->MapWHFSRef(retval.source_fsobject) ];
 
@@ -83,6 +86,9 @@ PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOL
     RETURN CELL[ "^$wrdtype" := "fileimage", id := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, entitysetting.blobdata), scandata := rawdata, fs_object, size := Length(entitysetting.blobdata) ];
 
   RECORD retval := MappedSplitBlobSetting(rawdata, entitysetting.blobdata, fs_object, whfs_mapper, jsmode);
+  IF (NOT RecordExists(retval))
+    RETURN DEFAULT RECORD;
+
   IF(isfile)
     INSERT CELL fileid := entitysetting.id INTO retval;
   ELSE
