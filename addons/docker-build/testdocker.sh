@@ -671,9 +671,9 @@ elif [ -n "$ISMODULETEST" ]; then
   if [ -n "$CI_COMMIT_BRANCH" ]; then
     TESTINGMODULEBRANCH="$CI_COMMIT_BRANCH"
   fi
-  # For merge requests, use the target branch name
-  if [ -n "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" ]; then
-    TESTINGMODULEBRANCH="$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  # For automerge requests, use the target branch name
+  if [[ "$TESTINGMODULEBRANCH" =~ ^automerge/[^/]+/(.+)$ ]]; then
+    TESTINGMODULEBRANCH="${BASH_REMATCH[1]}"
   fi
   echo "Tested module branch: $TESTINGMODULEBRANCH"
 fi
