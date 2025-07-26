@@ -156,38 +156,6 @@ export class ImageEditor {
       y: Math.round(this.surface.refPoint.y)
     } : null;
   }
-  getImageAsBlob(callback: ExportImageCallback) {
-    if (!this.surface.ctx)
-      throw new Error(`Cannot export image yet`);
-
-    let canvas = this.surface.canvas;
-    let mimeType = this.mimeType;
-
-    const settings = {
-      refPoint: this.getFocalPoint()
-    };
-    if (this.options.imgSize) {
-      // If the image didn't actually change, we can return the original blob directly
-      if (!this.surface.isModified() && !resizeMethodApplied(this.options.imgSize, canvas.width, canvas.height, mimeType)) {
-        // Call callback after a delay; maybe the caller doesn't expect the callback to be called directly
-        const blob = this.orgBlob;
-        setTimeout(() => callback(blob, settings), 1);
-        return;
-      }
-      const res = resizeCanvasWithMethod(canvas, this.options.imgSize, this.surface.refPoint || this.isRefpointAllowed(), true);
-      if (res) {
-        if (res.rect && res.rect.refPoint)
-          settings.refPoint = {
-            x: Math.round(res.rect.refPoint.x),
-            y: Math.round(res.rect.refPoint.y)
-          };
-        canvas = res.canvas;
-      }
-      mimeType = this.options.imgSize.format || mimeType;
-    }
-
-    canvas.toBlob((blob) => callback(blob, settings), mimeType, 0.85);
-  }
   stop() {
     this.surface.stop();
   }
@@ -392,37 +360,4 @@ function resizeCanvasWithMethod(canvas: HTMLCanvasElement, imgSize: LegacyImgSiz
     ctx.drawImage(canvas, imageLeft, imageTop, imageWidth, imageHeight);
     return { canvas: resized, rect: rect };
   }
-}
-
-// Check if the given resize method is applied for an image with given widht, height and MIME type
-function resizeMethodApplied(imgSize: LegacyImgSize, width: number, height: number, mimeType: string) {
-  // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
-  if (!imgSize.noforce && imgSize.method !== "none")
-    return true;
-
-  // If the image doesn't have the expected MIME type, the method is applied
-  if (imgSize.format && mimeType !== imgSize.format)
-    return true;
-
-  switch (imgSize.method) {
-    case "none":
-      // The image would not be resized, skip editor
-      return false;
-    case "fill":
-    case "fitcanvas":
-    case "scalecanvas":
-      // Image method is applied if the image doesn't match both the set width and height exactly
-      //ADDME: If image has transparency, only skip editor if conversionbackground is transparent
-      return width !== imgSize.setwidth || height !== imgSize.setheight;
-    case "fit":
-      // Image method is applied if the image is bigger than to the set width and/or height
-      return (imgSize.setwidth && imgSize.setwidth > 0 && width > imgSize.setwidth)
-        || (imgSize.setheight && imgSize.setheight > 0 && height > imgSize.setheight);
-    case "scale":
-      // Image method is applied if the image size has an incorrect width and/or height
-      return (imgSize.setwidth && imgSize.setwidth > 0 && width !== imgSize.setwidth)
-        || (imgSize.setheight && imgSize.setheight > 0 && height !== imgSize.setheight);
-  }
-  // Don't know, assume it's applied
-  return true;
 }

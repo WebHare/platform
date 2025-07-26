@@ -187,7 +187,8 @@ export class ImageEditor {
       mimeType = this.options.imgSize.format || mimeType;
     }
 
-    canvas.toBlob((blob) => callback(blob, settings), mimeType, 0.85);
+    //WebHare Harescript can only efficiently ScanBlob JPEG, so avoid WEBP/AVIF for now
+    canvas.toBlob((blob) => callback(blob, settings), mimeType === 'image/png' ? mimeType : "image/jpeg", 0.85);
   }
   stop() {
     this.surface.stop();
