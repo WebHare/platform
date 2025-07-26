@@ -82,6 +82,6 @@ FIRST_BRANCH_IMAGE=${BRANCH_IMAGES/%\ */}
 FIRST_PUBLIC_IMAGE=${PUBLIC_IMAGES/%\ */}
 USEIMAGE=${FIRST_PUBLIC_IMAGE:-$FIRST_BRANCH_IMAGE}
 echo "  servermgmt:    SV install -s ${USEIMAGE} <server>"
-echo "  module test:   wh testdocker -w ${USEIMAGE} -m <module>"
+echo "  module test:   wh testcontainer -w ${USEIMAGE} -m <module>"
 echo "  shell managed: wh-upgrade.sh ${USEIMAGE}"
 exit 0

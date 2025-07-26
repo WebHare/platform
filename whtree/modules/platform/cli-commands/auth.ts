@@ -3,14 +3,15 @@
 import { WRDSchema } from '@webhare/wrd/src/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
-import { backendConfig } from '@webhare/services';
+import { backendConfig, importJSObject } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { compressUUID } from "@webhare/auth/src/identity";
 import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL } from '@webhare/auth';
+import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer } from '@webhare/auth';
+import { prepAuth } from '@webhare/auth/src/support';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -90,6 +91,33 @@ run({
         const wrdSchema = await getUserApiSchemaName(opts);
         const url = await getOpenIDMetadataURL(wrdSchema);
         console.log(opts.json ? JSON.stringify({ url }) : url);
+      }
+    },
+    "describe-login": {
+      shortDescription: "Get the frontend user info for a user",
+      arguments: [
+        { name: "<url>", description: "Target URL to get wrduauth and customizer settings" },
+        { name: "<entity>", description: "Entity ID" }, //TODO also support actual login names and log lookupUsername
+      ],
+      main: async ({ opts, args }) => {
+        const auth = await prepAuth(args.url, null);
+        if ("error" in auth)
+          throw new Error(auth.error);
+        if (!auth.settings.customizer)
+          throw new Error("No customizer or getFrontendUserInfo function defined for this schema");
+
+        const customizer = await importJSObject<AuthCustomizer>(auth.settings.customizer);
+        if (!customizer.onFrontendUserInfo)
+          throw new Error("Customizer does not implement onFrontendUserInfo");
+
+        const frontendUserInfo = await customizer.onFrontendUserInfo({
+          entityId: parseInt(args.entity),
+          user: parseInt(args.entity),
+          wrdSchema: new WRDSchema(auth.settings.wrdSchema),
+        });
+
+        //wrap it so we keep some room to export other props from other frontend calls
+        console.log(JSON.stringify({ frontendUserInfo }, null, 2));
       }
     },
     "add-idp": {

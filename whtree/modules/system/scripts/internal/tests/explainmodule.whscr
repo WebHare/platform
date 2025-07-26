@@ -23,7 +23,7 @@ FOREVERY (OBJECT pack FROM moduledef->documentelement->GetElements("meta > packa
   IF (error != "")
   {
     Print(`EXPLAIN_MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`);
-    Print(`MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`); //TODO: Once 5.02 is minimum supported version, testdocker.sh can switch to EXPLAIN_ - it's nicer to always use prefixed vars
+    Print(`MODULENOTAPPLICABLE="${EncodeJava(error)}"\n`); //TODO: Once 5.02 is minimum supported version, testcontainer.sh can switch to EXPLAIN_ - it's nicer to always use prefixed vars
   }
 }
 

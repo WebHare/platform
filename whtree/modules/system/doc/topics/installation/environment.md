@@ -146,7 +146,7 @@ Override the hostname in the PS1 prompt. Usually set by `runkit wh shell` with c
 If set, enables ANSI color within tests (using the test framework) even if no console is available.
 
 ## Testframework
-`wh testdocker` supports some extra variables that are useful in CI environments
+`wh testcontainer` supports some extra variables that are useful in CI environments
 
 ### TESTSECRET_SECRETSURL
 A URL whose contents will be sourced by the tests and from which any environment variables starting

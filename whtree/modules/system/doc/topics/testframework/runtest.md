@@ -40,8 +40,8 @@ Go to http://127.0.0.1:8989/ to access it.
 
 ## Simulating CI
 ```bash
-wh builddocker
-NOCLEANUP=1 wh testdocker
+wh buildcontainer
+NOCLEANUP=1 wh testcontainer
 ```
 
 NOCLEANUP=1 prevents the test container from being stopped and removed at the end of
@@ -52,7 +52,7 @@ When CI tests fail, you may want to reproduce the testenvironment as much
 as possible.
 
 To do this, find the name of the image you want to test. If you've built the image locally
-(eg you've run `wh builddocker`) the image will be named `webhare/webhare-extern:localbuild-withts`.
+(eg you've run `wh buildcontainer`) the image will be named `webhare/webhare-extern:localbuild-withts`.
 
 If you want to test against a CI built version,
 you're probably after `webhare/webhare-core:master-withts`. If you didn't build
@@ -84,11 +84,11 @@ docker exec -ti webhare-test /bin/bash
 
 Running coverage tests for a single test
 ```bash
-wh builddocker
+wh buildcontainer
 # Run a coverage test, using the local builddocker result (-w local)
-wh testdocker -w local --coverage <testname>
+wh testcontainer -w local --coverage <testname>
 # Run a single test directly, open a shell after the tests have run
-wh testdocker -w local --sh publisher-webdesign.testwebdesign-template
+wh testcontainer -w local --sh publisher-webdesign.testwebdesign-template
 ```
 
 ## Running tests locally

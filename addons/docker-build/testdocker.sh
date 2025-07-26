@@ -2,7 +2,7 @@
 # shellcheck disable=SC2129
 # disable complaints about >> on two lines in a row
 
-# This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
+# This script is also deployed to https://build.webhare.dev/ci/scripts/testcontainer.sh
 if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
   source "${BASH_SOURCE[0]%/*}/../../whtree/lib/wh-functions.sh"
@@ -11,13 +11,13 @@ elif [ -f "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
   # shellcheck source=../../whtree/lib/wh-functions.sh
   source "${BASH_SOURCE%/*}/wh-functions.sh"
 else
-  echo "Unrecognized environment for testdocker"
+  echo "Unrecognized environment for testcontainer"
   exit 1
 fi
 
-# Podman testdocker support is still experimental. to try it:
-# wh builddocker --podman
-# wh testdocker --nopull --podman --webhareimage localhost/webhare/webhare-extern:localbuild --tag=-external checkmodules
+# Podman testcontainer support is still experimental. to try it:
+# wh buildcontainer --podman
+# wh testcontainer --nopull --podman --webhareimage localhost/webhare/webhare-extern:localbuild --tag=-external checkmodules
 
 version=""
 CONTAINERS=()
@@ -308,14 +308,14 @@ print_syntax()
   # Note that we only document the options most likely to stay in the future
   # A lot of undocumented options eg --twohares are only intended for specific platform CI tests
   cat << HERE
-wh testdocker [options]
+wh testcontainer [options]
 
 Options:
 -m <module>             - Test the specified module
 --containername <name>  - Force this name for the CI container
 --nopull                - Do not pull the image (implicit with --webhareimage localbuild)
 --webhareimage <image>  - Use this image. Image tags 'main/beta/stable' correspond to their release channels.
-                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh builddocker'. This is the default
+                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh buildcontainer'. This is the default
 --nocheckmodule         - Do not run checkmodule before the actual tests
 --sh                    - Open a shell inside the container after running the tests
 --podman                - Use podman instead of docker
@@ -425,7 +425,7 @@ while true; do
     LOCALDEPS=1
     shift
   elif [[ $1 =~ ^- ]]; then
-    echo "Illegal option '$1'. Use 'wh testdocker --help' for help"
+    echo "Illegal option '$1'. Use 'wh testcontainer --help' for help"
     exit 1
   else
     break
@@ -506,7 +506,7 @@ if [ -z "$ISPLATFORMTEST" ] && [ -z "$WEBHAREIMAGE" ]; then
   WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
   NOPULL=1
   if ! RunDocker inspect "$WEBHAREIMAGE" >/dev/null 2>&1 ; then
-    exit_failure_sh "Cannot find localbuild image $WEBHAREIMAGE, please run 'wh builddocker' first or use --webhareimage [main/stable/beta/...]"
+    exit_failure_sh "Cannot find localbuild image $WEBHAREIMAGE, please run 'wh buildcontainer' first or use --webhareimage [main/stable/beta/...]"
   fi
 fi
 
@@ -547,7 +547,7 @@ while IFS='=' read -r -d '' n v; do
     printf "%s=%s " "$n" "$v"
   fi
 done < <(env -0)
-echo -n "wh testdocker "
+echo -n "wh testcontainer "
 # Add --sh if it wasn't there yet
 [ -n "$ENTERSHELL" ] || echo -n "--sh "
 # Add original options, followed by a space...

@@ -13,7 +13,7 @@ WebHare has several methods to collect function profiling information.
 
 - Dynamically enabled by calling `wh debug setconfig apr,session=[sessionname]`.
 
-- In docker tests, by using `wh testdocker --profile`. The cpu profile will be stored as functionprofile.tar.gz in the artefacts. The profiling application can
+- In docker tests, by using `wh testcontainer --profile`. The cpu profile will be stored as functionprofile.tar.gz in the artefacts. The profiling application can
   show this by setting the path to that file as parameter (eg ?app=system:profiles(/tmp/whtest/test.dHvuObPS8/functionprofile.tar.gz).
 
 - By connecting to a job with the debugger, and select Menu > Profiles > Start Function Profiling. Retrieve the profile by Menu > Profiles > Stop Profiling.
@@ -26,12 +26,9 @@ WebHare has several methods to collect function profiling information.
 - Dynamically enabled by calling `wh debug setconfig cov,session=[sessionname]`. Only takes effect when the WEBHARE_DEBUG environment variable is not set. Analyze by using
   `wh calculate-coverage`
 
-- In docker tests, by using `wh testdocker --coverage`. The coverage profile will be analyzed immediately and stored as coverage.tar.gz in the artefacts.
+- In docker tests, by using `wh testcontainer --coverage`. The coverage profile will be analyzed immediately and stored as coverage.tar.gz in the artefacts.
 
 ## Environment variables and console mode
 
 If the WEBHARE_DEBUG environment variable is when running 'wh console', this variable will be propagated to all processes run with 'wh run'. In that case, they cannot
 be changed with 'wh debug setconfig'.
-
-
-

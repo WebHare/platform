@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# To locally test and debug changes to the OpenSearch build and initialization in docker:
-# wh builddocker && wh testdocker --sh --tag=-external -w local consilio
+# To locally test and debug changes to the OpenSearch build and initialization in podman:
+# wh buildcontainer && wh testcontainer --sh --tag=-external -w local consilio
 
 if [ -z "$WEBHARE_BASEPORT" ]; then
   echo "WEBHARE_BASEPORT name not set"

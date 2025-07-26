@@ -2,7 +2,7 @@
 set -eo pipefail
 
 if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
-  echo "We expect to be launched by 'wh builddocker' "
+  echo "We expect to be launched by 'wh buildcontainer' "
   exit 1
 fi
 
