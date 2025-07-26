@@ -6,7 +6,7 @@ set -eo pipefail
 
 exit_syntax() {
   echo "Syntax: wh vscode-extension [ install ]"
-  echo "  compile:   Install the WebHare VSCode extension into your local VSCode"
+  echo "  compile:   Compile and bundle the WebHare VSCode extension"
   echo "  install:   Install the WebHare VSCode extension into your local VSCode"
   exit 1
 }
