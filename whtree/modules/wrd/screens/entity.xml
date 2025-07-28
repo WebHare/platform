@@ -35,7 +35,6 @@
           </line>
         </tab>
         <tab name="fields" />
-        <tab name="history" />
         <tab name="linkcheck" layout="left">
           <includefragment name="objectreport" fragment="consilio:report.objectreport" />
         </tab>
