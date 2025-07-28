@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="hsengine" site="webhare_testsuite.testsite">
+  <test script="test_sourcemanipulation.whscr" />
+  <test script="test_lsp.ts" />
+</group>

@@ -1,0 +1,69 @@
+<?wh
+LOADLIB "mod::devkit/lib/sourcecodeindex/api.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+
+STRING FUNCTION GetLoadLibPrefix(STRING path)
+{
+  IF (path LIKE "module*::*" OR path LIKE "mod::*")
+    RETURN Tokenize(path, "/")[0];
+  IF (path LIKE "wh*" OR path LIKE "*site::*")
+    RETURN Tokenize(path, "::")[0] || "::";
+  RETURN path;
+}
+
+
+PUBLIC RECORD FUNCTION SymbolSearch(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[], options);
+  IF (NOT HavePrimaryTransaction())
+    OpenPrimary();
+
+  RECORD result := ExecuteDocSearch("", query);
+  //Remove exports
+  DELETE FROM result.results WHERE definitionpath != "";
+  RETURN [ results := result.results ];
+}
+
+PUBLIC RECORD FUNCTION GetLoadLibSuggestions(STRING symbol, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ filename := ""], options);
+  IF (NOT HavePrimaryTransaction())
+    OpenPrimary();
+
+  STRING filenameprefix := GetLoadLibPrefix(options.filename);
+  RECORD ARRAY results := ExecuteDocSearch2(symbol, [ searchtype := "loadlibs" ]);
+  IF(Length(results) = 0)
+    RETURN [ error := `Identifier '${symbol}' not found` ];
+
+  // Hide private definitions unless they're in our module
+  DELETE FROM results WHERE ispublic = FALSE AND GetLoadLibPrefix(path) != filenameprefix;
+  IF(Length(results) = 0)
+    RETURN [ error := `Identifier '${symbol}' is private and not in the same module` ];
+
+  // Hide definitions from EXPORTS when we're in a different context (eg other module)
+  STRING ARRAY hidden_definitions :=
+      SELECT AS STRING ARRAY canonicalloadlib ?? path
+        FROM results
+       WHERE ToUppercase(canonicalloadlib ?? path) LIKE "*INTERNAL*"
+         AND filenameprefix != GetLoadLibPrefix(canonicalloadlib ?? path);
+
+  DELETE FROM results
+   WHERE (canonicalloadlib ?? path) IN hidden_definitions;
+
+  IF(Length(results) = 0)
+    RETURN [ error := `Identifier '${symbol}' is not exported and not in the same module` ];
+
+  // Eliminate noncanonical results if some are canonical
+  IF(Length(results) > 1)
+  {
+    STRING ARRAY canonicallibs := SELECT AS STRING ARRAY DISTINCT canonicalloadlib FROM results;
+    IF(Length(canonicallibs) = 1 //we are all in agreement
+       AND filenameprefix != GetLoadLibPrefix(canonicallibs[0])) //and we're not in the same module as the canonical (otherwise we might care about intenral libs
+    {
+      RECORD canonicalmatch := SELECT * FROM results WHERE path = canonicallibs[0];
+      IF(RecordExists(canonicalmatch))
+        RETURN [ results := [ canonicalmatch ]]; //return just this match
+    }
+  }
+  RETURN CELL[ results ];
+}

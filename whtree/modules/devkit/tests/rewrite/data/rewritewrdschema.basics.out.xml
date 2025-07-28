@@ -1,0 +1,80 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
+                  accountemailfield="wrd_contact_email"
+                  accountloginfield="wrd_contact_email"
+                  accounttype="wrd_person">
+
+  <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
+  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" />
+
+  <object tag="wrd_person">
+    <attributes>
+      <email tag="wrd_contact_email" required="true" unique="true" />
+      <free tag="nickname" />
+    </attributes>
+  </object>
+
+  <object tag="whlive_event">
+    <attributes>
+      <record tag="state" />
+      <datetime tag="start" />  <!-- start date/time for display/countdown -->
+      <datetime tag="end" />  <!-- start date/time for display/countdown -->
+      <boolean tag="send_loginlink" />  <!-- send magic login link directly when registering -->
+    </attributes>
+  </object>
+
+  <link tag="whlive_registration" linkfrom="whlive_event" linkto="wrd_person">
+    <!-- FIXME if copying this.. person is conventionally the left entity -->
+    <attributes>
+      <enum tag="type" allowedvalues="guest participant crew" required="true" />
+      <boolean tag="needs_loginlink" />  <!-- user still needs a login link -->
+    </attributes>
+  </link>
+
+  <attachment tag="whlive_poll" linkfrom="whlive_event">
+    <attributes>
+      <free tag="wrd_title" />
+      <free tag="question" />
+      <free tag="description" />
+      <integer tag="wrd_ordering" />
+    </attributes>
+  </attachment>
+
+  <attachment tag="whlive_pollanswer" linkfrom="whlive_poll">
+    <attributes>
+      <integer tag="wrd_ordering" />
+      <free tag="answer" />
+    </attributes>
+  </attachment>
+
+  <attachment tag="zoommeeting" linkfrom="whlive_event">
+    <attributes>
+      <free tag="meetingid" />
+      <free tag="wrd_title" />
+      <free tag="subject" />
+      <integer tag="wrd_ordering" />
+    </attributes>
+  </attachment>
+
+  <attachment tag="question" linkfrom="whlive_registration">
+    <attributes>
+      <free tag="question" />
+    </attributes>
+  </attachment>
+
+  <domain tag="utprogrammetype" title="UT Opleidingstype">
+    <attributes>
+      <free tag="wrd_title" description="Titel (Nederlands)" title="Title" />
+      <free tag="title_en" title="Titel (Engels)" />
+      <free tag="title_de" title="Titel (Duits)" />
+    </attributes>
+    <values matchattribute="wrd_tag" overwriteattributes="wrd_title title_en title_de">
+      <value>
+        <field tag="wrd_tag">ACADEMIC_BACHELOR</field>
+        <field tag="wrd_title">Universitaire bachelor </field>
+        <field tag="title_en">  Bachelor's programmes  </field>
+        <field tag="title_de"></field>
+      </value>
+    </values>
+  </domain>
+
+</schemadefinition>

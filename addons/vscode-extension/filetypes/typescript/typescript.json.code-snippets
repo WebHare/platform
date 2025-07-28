@@ -1,0 +1,36 @@
+{
+	"cli application": {
+    "prefix": "cli application",
+		"body": [
+			"import { run } from \"@webhare/cli\";",
+			"",
+			"run({",
+			"  description: \"${1}\",",
+			"  flags: {",
+			"    \"v,verbose\": \"Show more info\",",
+			"  },",
+			"  main: async function main({ opts, args }) {",
+			"    ${2}",
+			"  }",
+			"});"
+		],
+		"isFileTemplate": true
+	},
+	"test in backend": {
+    "prefix": "test in backend",
+		"body": [
+			"import * as test from \"@webhare/test\";",
+			"",
+			"async function test${1}() {",
+			"  ${2}",
+			"}",
+			"",
+			"test.run( [ test${1} ] );"
+		],
+		"isFileTemplate": true
+	},
+  "dompack register": {
+		"prefix": "dompack.register",
+		"body": ["dompack.register(\"${1}\", node => ${2});\n"]
+	}
+}

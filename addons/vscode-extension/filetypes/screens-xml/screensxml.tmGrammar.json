@@ -1,0 +1,8 @@
+{
+	"scopeName": "source.webharescreensxml",
+	"patterns": [
+		{
+			"include": "text.xml"
+		}
+	]
+}

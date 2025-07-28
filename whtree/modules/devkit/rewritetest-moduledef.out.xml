@@ -1,0 +1,124 @@
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+
+  <meta configscreen="sysmgmt.homepage">
+    <version>1.0.0</version>
+    <description>De Digitale site</description>
+    <packaging download="true" webhareversion=">= 4.27.0">
+      <dependency module="socialite" />
+      <dependency module="newsletter" moduleversion="^4.0.1" />
+      <dependency module="webpack" />
+
+      <unixpermissions path="data/stunnel/stunnel.sh" permissions="0755" />
+
+      <excludepath mask="*localtests*" />
+    </packaging>
+  </meta>
+
+  <portal>
+    <applicationgroup name="siteapps" orderbefore="system:cms" tid="testtids.gid1.gid2.title" />
+
+    <application name="woonvinder" group="siteapps" screen="/screens/dummy.xml#dummyscreen" tid="testtids.gid1.gid2.title">
+      <accesscheck>
+        <requireright right="wpkooprights" />
+      </accesscheck>
+    </application>
+    <application name="usermgmt" group="siteapps" screen="/screens/dummy.xml#dummyscreen" tid="testtids.gid1.gid2.subtitle">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+  </portal>
+
+  <publisher>
+    <webdesign name="wpkoop"
+               title="De site: Koopwoningen"
+               siteprofile="tests/rewrite/data/rewritesiteprofile.editfragment.out.xml" />
+
+    <webfeature name="dwplogin"
+                siteprofile="tests/rewrite/data/rewritesiteprofile.propertyeditor.out.xml"
+                title="DWP ActiveDirectory login"
+                webdesignmasks="tollium:webinterface" />
+
+    <formcomponents namespace="http://www.desite.net/xmlns/forms"
+                    xmlschema="tests/rewrite/data/rewriteformdefs.basics.out.xml" />
+  </publisher>
+
+  <servicemanager>
+    <task runat="15,45 * * * *" runtz="Europe/Amsterdam" script="scripts/tasks/dummy.whscr" tag="import_ogekenmerken" description="Importeer OGE-kenmerken" timeout="120" minservertype="test" />
+    <task runat="4,16,28,40,52 * * * *" runtz="Europe/Amsterdam" script="scripts/tasks/dummy.whscr" tag="import_woningen" description="Importeer huurwoningen naar de website" timeout="120" />
+    <task runat="15 6 * * *" runtz="Europe/Amsterdam" script="scripts/tasks/dummy.whscr" tag="maintenance_task" />
+    <task runat="20 6,14,22 * * *" runtz="Europe/Amsterdam" script="scripts/tasks/dummy.whscr" tag="maintenance_task2" />
+
+    <!-- note: runatstartup tasks also run at module push, which is ideal for us -->
+    <runatstartup script="scripts/tasks/dummy.whscr" />
+
+    <!-- Test comment -->
+  </servicemanager>
+
+  <services>
+    <webservice name="woonvinder"
+                library="/lib/internal/dummy2.whlib"
+                prefix="rpc_"
+                primarytrans="auto"
+                transports="jsonrpc whremoting">
+      <accesscheck />
+    </webservice>
+
+    <check objectname="lib/internal/checks.whlib#siteLoginCheck" />
+  </services>
+
+  <rights>
+    <rightsgroup name="rightsgroup" tid="testtids.gid1.gid2.title" />
+
+    <objecttype name="tracks"
+                describer="lib/internal/dummy2.whlib#MyDescriber"
+                rightsgroup="rightsgroup"
+                table="wrd.entities"
+                tid="testtids.gid1.gid2.title" />
+
+    <right name="wpkooprights" rightsgroup="rightsgroup" tid="testtids.gid1.gid2.subtitle">
+      <impliedby right="system:sysop" />
+    </right>
+  </rights>
+
+  <databaseschema xmlns:d="http://www.webhare.net/xmlns/whdb/databaseschema">
+    <d:table name="ogekenmerkwaarden" primarykey="id">
+      <d:integer name="id" autonumberstart="1">
+        <d:documentation>Unique identification</d:documentation>
+      </d:integer>
+      <d:varchar name="ogenummer" maxlength="64" nullable="false" unique="true" />
+
+      <!-- LOREM IPSUM! -->
+      <d:money name="oppervlakte_woonkamer_1" />
+      <d:index name="ogenummerindex" columns="ogenummer(32)" unique="true" uppercase="true" />
+    </d:table>
+  </databaseschema>
+
+  <moduleregistry>
+    <obsoletenode name="development" />
+
+    <node name="externals">
+      <obsoletekey name="test" />
+      <obsoletekey name="server" />
+      <string name="username" initialval="someaccount" />
+      <string name="password" />
+    </node>
+
+    <obsoletenode name="emails_tuinonderhoud" />
+    <obsoletenode name="emails_nieuweprojecten" />
+  </moduleregistry>
+
+  <newsletter xmlns="http://www.webhare.net/xmlns/newsletter/module">
+    <account autocreate="true" tag="dwp_othermails" title="site overige mails" wrdschema="newsletter:site">
+      <mailtype generator="mod::site_digitaal/newsletters/standaardmail/standaardmail.whlib#GenerateMailing"
+                language="nl"
+                profile="mod::site_digitaal/newsletters/standaardmail/standaardmail.prl"
+                tag="defaultmail"
+                title="site" />
+    </account>
+    <account autocreate="true" tag="servicemails" title="site servicemails" wrdschema="site_digitaal:website">
+      <mailtype language="nl" tag="defaultmail" title="Standaardmailing" />
+    </account>
+  </newsletter>
+
+</module>

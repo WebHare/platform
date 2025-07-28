@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:w="http://www.webhare.net/xmlns/wrd/components"
+             xmlns:ut="http://www.utwente.nl/xmlns/components"
+             gid="testtids.gid1"
+             >
+
+  <propertyeditor name="educationfolderfolder">
+    <compositions>
+      <p:whfsinstance name="whocaresaboutthename" typedef="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+    </compositions>
+    <newtab  tid=".title"  gid=".gid2">
+      <t:textedit composition="whocaresaboutthename" cellname="celletje" height="1pr" tid=".subtitle" />
+    </newtab>
+  </propertyeditor>
+
+  <!-- propertyeditors having more than one whfsinstances cannot be safely rewritten, as objectprops wont autobind the other whfsinstances -->
+  <propertyeditor name="multiplecompositions">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+      <p:whfsinstance name="other" typedef="http://www.utwente.nl/webhare/ws2013/otherdata" />
+    </compositions>
+    <newtab  tid=".title"  gid=".gid2">
+      <t:textedit composition="fsinstance" cellname="celletje" height="1pr" tid=".subtitle" />
+    </newtab>
+    <newtab  title="Tab2">
+      <t:textedit composition="other" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+    </newtab>
+  </propertyeditor>
+
+  <!-- mixing other compositions is fine -->
+  <propertyeditor name="mixingothercompositions">
+    <compositions>
+      <p:whfsinstance name="fsinstance" typedef="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+      <t:record name="other" composition="fsintance" cellname="other" />
+    </compositions>
+    <newtab>
+      <t:textedit composition="fsinstance" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+      <t:textedit composition="other" cellname="celletje" height="1pr" tid=".gid2.subtitle" />
+    </newtab>
+  </propertyeditor>
+
+  <apply>
+    <to type="folder" foldertype="http://www.utwente.nl/webhare/ws2013/educationfolderfolder" />
+    <extendproperties name="educationfolderfolder" />
+    <extendproperties name="multiplecompositions" />
+    <extendproperties name="mixingothercompositions" />
+  </apply>
+</siteprofile>

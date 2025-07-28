@@ -2,6 +2,11 @@
 
   <meta>
     <version>5.7.0</version>  <!-- temporary, we should eliminate this XML file ASAP -->
+    <validation>
+      <exclude mask="tests/rewrite/data/*.in.xml" why="input files for rewrite don't need to validate" />
+      <exclude mask="rewritetest-*.in.xml" why="input files for rewrite don't need to validate" />
+      <format masks="*.ts *.tsx *.mjs" />
+    </validation>
   </meta>
 
   <consilio>
@@ -15,5 +20,16 @@
   <backend>
     <webrule path="allroots:/.wh/devkit/" match="initial" router="js/wh-devkit/wh-devkit.ts#devkitRouter" />
   </backend>
+
+  <rewriters xmlns="http://www.webhare.net/xmlns/dev/moduledefinition">
+    <xmlrewriter getrulesfunction="lib/rewrite/platform-rewrites.whlib#GetWebharePlatformRewrites" priority="-100" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/tollium/screens#screens" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/publisher/siteprofile#siteprofile" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/publisher/forms#formdefinitions" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/wrd/schemadefinition#schemadefinition" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/system/moduledefinition#module" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/system/testinfo#group" />
+    <rewritexmlfiles rootelement="http://www.webhare.net/xmlns/system/restapi#restapi" />
+  </rewriters>
 
 </module>

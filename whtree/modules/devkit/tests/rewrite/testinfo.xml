@@ -1,0 +1,4 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" site="WebHare Backend">
+  <test script="test_rewrite.whscr"/>
+  <test script="testprettify.whscr" />
+</group>

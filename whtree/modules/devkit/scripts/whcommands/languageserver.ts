@@ -1,18 +1,19 @@
-/* Language server stub so the WebHare VScode module can safely transition */
+/* Language server invoked by the VSCode extension through wh devkit:languageserver
+   VSCode will pass additional command line arguments, see https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#implementationConsiderations
+*/
 
-import { backendConfig } from "@webhare/services";
-import { isatty } from "tty";
+import { runWebHareLSP } from "@mod-devkit/js/language-server/server";
 
-if (!backendConfig.module["dev"]) {
-  console.error("You need to install the 'dev' machine for the language server to work (https://www.webhare.dev/manuals/developers/dev-module/)");
-  process.exit(1);
-}
+import { run } from "@webhare/cli";
 
-if (isatty(0)) {
-  //TODO offer cli option to override
-  console.error("The language server is not meant to be run interactively but is used by eg. a VSCode extension");
-  process.exit(1);
-}
+run({
+  flags: {
+    stdio: "Launch LSP in stdio mode",
+  },
+  async main({ args, opts }) {
+    if (!opts.stdio)
+      throw new Error("Invalid mode, expected 'stdio'");
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- FIXME we don't have await import yet..
-require("@mod-dev/js/lsp/server").runWebHareLSP();
+    await runWebHareLSP();
+  }
+});

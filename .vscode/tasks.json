@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "WEBHARE_CHECKEDOUT_TO": "${workspaceRoot}"
+    }
+  },
+  "tasks": [
+    {
+      "label": "Compile VSCode Extension",
+      "type": "shell",
+      "command": "/bin/bash whtree/modules/devkit/scripts/whcommands/vscode-extension.sh compile",
+      "group": "build",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      // "problemMatcher": [
+      // 	"$tsc"
+      // ]
+    },
+  ]
+}

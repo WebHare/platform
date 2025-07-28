@@ -1,0 +1,20 @@
+{
+	"Component": {
+		"prefix": "[comp",
+		"body": [
+			"[component ${1}]\n${2}\n[/component"
+		]
+	},
+	"Start consilio inclusion": {
+		"prefix": "<!--wh",
+		"body": [
+			"<!--wh_consilio_contentxxx-->"
+		]
+	},
+	"End consilio inclusion": {
+		"prefix": "<!--/wh",
+		"body": [
+			"<!--/wh_consilio_content-->"
+		]
+	}
+}

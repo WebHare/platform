@@ -1,0 +1,63 @@
+{
+	"Siteprofiles root": {
+		"prefix": "<siteprofiles",
+		"body": [
+			"<siteprofile xmlns=\"http://www.webhare.net/xmlns/publisher/siteprofile\"",
+			"             xmlns:p=\"http://www.webhare.net/xmlns/publisher/components\">",
+			"\t${1}",
+			"",
+			"</siteprofile>"
+		]
+	},
+	"Widget type": {
+		"prefix": "<widgettype",
+		"body": [
+			"<widgettype namespace=\"${1:http://}\"",
+			"            editextension=\"#${2:embed}\"",
+			"            renderobjectname=\"#${3:widget.whlib#Widget}\"",
+			"            wittycomponent=\"${4:widgets.witty:widget}\"",
+			"            tid=\"${5:.widgetname}\">",
+			"\t<members>",
+			"\t\t${6}",
+			"\t</members>",
+			"</widgettype>"
+		]
+	},
+	"Apply Rule": {
+		"prefix": "<apply",
+		"body": [
+			"<apply>",
+			"\t<to type=\"${1:type}\" />",
+			"\t${2}",
+			"</apply>",
+			""
+		]
+	},
+	"xmlns tollium": {
+		"prefix": "xmlns:t=",
+		"body": "xmlns:t=\"http://www.webhare.net/xmlns/tollium/screens\""
+	},
+	"Tabs extension": {
+		"prefix": "<tabsextension",
+		"body": [
+			"<tabsextension xmlns=\"http://www.webhare.net/xmlns/tollium/screens\" name=\"${1}\">",
+			"\t<newtab>",
+			"\t\t${2}",
+			"\t</newtab>",
+			"</tabsextension>",
+		]
+	},
+	"Row edit screen": {
+		"prefix": "<rowedit",
+		"body": [
+			"<screen xmlns=\"http://www.webhare.net/xmlns/tollium/screens\" name=\"${1:name}\" footerbuttons=\"ok cancel\" implementation=\"rowedit\">",
+			"\t<compositions>",
+			"\t\t<record name=\"row\" />",
+			"\t</compositions>",
+			"\t<body>",
+			"\t\t${2}",
+			"\t</body>",
+			"</screen>"
+		]
+	},
+}

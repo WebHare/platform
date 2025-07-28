@@ -35,6 +35,7 @@ const subsystems = {
       wrd: { generate: ["wrd"] },
       db: { generate: ["db"] },
       schemas: { generate: ["schema"] },
+      devkit: { generate: ["devkit"] }
     }
   },
   registry: {

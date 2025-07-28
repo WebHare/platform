@@ -1,0 +1,164 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::devkit/lib/lsp/noticelog.whlib";
+LOADLIB "mod::devkit/lib/lsp/harescriptfile.whlib";
+
+
+// -----------------------------------------------------------------------------
+//
+// Public API
+//
+
+
+/** Per script, find the match with the highest priority. Then, show the first script with the
+    lowest priority of the stack trace as primary item
+*/
+RECORD ARRAY showpriority :=
+  [ [ mask := "*",                                      priority := 0 ]
+  , [ mask := "mod::consilio/*",                        priority := 1 ]
+  , [ mask := "mod::system/*",                          priority := 1 ]
+  , [ mask := "mod::publisher/*",                       priority := 1 ]
+  , [ mask := "mod::tollium/*",                         priority := 1 ]
+  , [ mask := "mod::wrd/*",                             priority := 1 ]
+  , [ mask := "mod::webhare_testuite/*",                priority := 1 ]
+  , [ mask := "*/modules/consilio/*",                   priority := 1 ]
+  , [ mask := "*/modules/system/*",                     priority := 1 ]
+  , [ mask := "*/modules/publisher/*",                  priority := 1 ]
+  , [ mask := "*/modules/tollium/*",                    priority := 1 ]
+  , [ mask := "*/modules/wrd/*",                        priority := 1 ]
+  , [ mask := "*/modules/webhare_testuite/*",           priority := 1 ]
+  , [ mask := "wh:*",                                   priority := 2 ]
+  , [ mask := "node:*",                                 priority := 2 ]
+  , [ mask := "*/jssdk/*",                              priority := 2 ]
+  , [ mask := "whinstallationroot::jssdk/*",            priority := 2 ]
+  , [ mask := "*/jssdk/test/*",                         priority := 3 ]
+  , [ mask := "whinstallationroot::jssdk/test/*",       priority := 3 ]
+  , [ mask := "*/ap.mjs",                               priority := 3 ]
+  , [ mask := "*/testframework.ts*",                    priority := 3 ]
+  , [ mask := "*/testframework-rte.ts*",                priority := 3 ]
+  , [ mask := "*/checks.ts",                            priority := 3 ]
+  , [ mask := "*/tests.ts",                             priority := 3 ]
+  , [ mask := "*/dompack/testframework/",               priority := 3 ]
+  , [ mask := "*/testsuite.tsx",                        priority := 3 ]
+  ];
+
+
+INTEGER FUNCTION GetResourceShowPriority(STRING path)
+{
+  RETURN SELECT AS INTEGER Max(priority) FROM showpriority WHERE path LIKE mask;
+}
+
+PUBLIC RECORD FUNCTION LSP_StackTraceRequest(RECORD textdocument, STRING lastguid)
+{
+  RECORD ARRAY errors;
+  FOREVERY (RECORD entry FROM ReverseArray(GetNoticeErrors([ count := 20, fromend := TRUE ])))
+  {
+    RECORD rawentry := entry;
+
+    RECORD ARRAY stack;
+    IF (RecordExists(entry))
+    {
+      // Create a stable guid for this entry (assuming there aren't two entries for the same srhid at exactly the same time)
+      STRING guid := ToLowercase(EncodeBase16(GetMD5Hash(FormatISO8601DateTime(rawentry."@timestamp") || "\t" || rawentry.groupid)));
+      IF (guid = lastguid)
+        BREAK; //we're working from new to old, and we've seen this error and everything past it, so abort
+
+      RECORD ARRAY allitems := EnforceStructure(
+          [ [ message :=        ""
+            , filename :=       ""
+            , line :=           1
+            , "column" :=       1
+            , functionname :=   ""
+            ]
+          ], entry.errors CONCAT entry.trace);
+
+      IF (LENGTH(allitems) > 0 AND allitems[0].message = "" AND CellExists(rawentry, "MESSAGE"))
+        allitems[0].message := rawentry.message;
+
+      FOREVERY (RECORD item FROM allitems)
+      {
+        IF (item.filename = "(hidden)")
+        {
+          IF (CellExists(entry, "SCRIPT"))
+            item.filename := entry.script;
+          IF (CellExists(entry, "REQUESTURL"))
+            item.filename := entry.requesturl;
+        }
+
+        //TODO: Convert col to UTF-16 codepoint
+        IF (LENGTH(stack) != 0
+            AND stack[END-1].filename = item.filename
+            AND stack[END-1].line = item.line
+            AND stack[END-1]."column" = item."column"
+            AND CellExists(stack[END-1], "FUNCTIONNAME"))
+          CONTINUE;
+
+        INSERT item INTO stack AT END;
+      }
+
+      IF (CellExists(entry, "CAUSES"))
+      {
+        FOREVERY (RECORD cause FROM entry.causes)
+        {
+          FOREVERY (RECORD item FROM cause.trace)
+          {
+            IF (#item = 0)
+              item.functionname := "Cause: " || cause.message || ": " || item.functionname;
+
+            IF (#item != 0
+                AND LENGTH(stack) != 0
+                AND stack[END-1].filename = item.filename
+                AND stack[END-1].line = item.line
+                AND stack[END-1]."column" = item."column")
+              CONTINUE;
+
+            INSERT item INTO stack AT END;
+          }
+        }
+      }
+
+      INTEGER primary_pos :=
+          SELECT AS INTEGER #stack
+            FROM stack
+        ORDER BY GetResourceShowPriority(filename);
+
+      stack :=
+          SELECT *
+               , editorpath := filename
+               , primary := #stack = primary_pos
+               , col := COLUMN "column"
+               , func := functionname
+               , DELETE "column"
+               , DELETE "functionname"
+            FROM stack;
+
+      INSERT CELL
+          [ stack
+          , guid
+          , rawentry.groupid
+          , date := rawentry."@timestamp"
+          ] INTO errors AT END;
+    }
+  }
+
+  RETURN CELL[ errors ];
+}
+// -----------------------------------------------------------------------------
+//
+// Edit commands
+//
+
+PUBLIC RECORD FUNCTION DirectLSP_AddMissingLoadlib(STRING resource, STRING text, STRING uri, STRING identifier)
+{
+  OBJECT file := NEW HareScriptFile(resource, text, uri);
+  RETURN file->AddMissingLoadlib(identifier);
+}
+
+PUBLIC RECORD FUNCTION DirectLSP_RemoveUnusedLoadlib(STRING resource, STRING text, STRING uri, STRING identifier)
+{
+  OBJECT file := NEW HareScriptFile(resource, text, uri);
+  RETURN file->RemoveUnusedLoadlib(identifier);
+}

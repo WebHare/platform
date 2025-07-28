@@ -1,0 +1,34 @@
+<?wh
+
+LOADLIB "mod::devkit/lib/lsp/utils.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE WebHareSourceFile
+<
+  STRING __resource;
+  STRING __uri;
+  STRING __text;
+  STRING ARRAY __lines;
+
+  PUBLIC PROPERTY resource(__resource, SetResource);
+  PUBLIC PROPERTY uri(__uri, __uri);
+  PUBLIC PROPERTY text(__text, SetText);
+
+  MACRO NEW(STRING resource, STRING text, STRING uri)
+  {
+    this->resource := resource;
+    this->text := text;
+    this->uri := uri;
+  }
+
+  MACRO SetResource(STRING resource)
+  {
+    this->__resource := resource;
+  }
+
+  MACRO SetText(STRING text)
+  {
+    this->__text := text;
+    this->__lines := SplitLines(this->text);
+  }
+>;

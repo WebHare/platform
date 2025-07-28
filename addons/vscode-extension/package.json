@@ -1,0 +1,247 @@
+{
+	"name": "webhare-language-vscode",
+	"displayName": "WebHare language client",
+	"description": "WebHare language client for Visual Studio Code",
+	"author": "WebHare bv",
+	"publisher": "webhare",
+	"icon": "images/webhare.png",
+	"license": "MIT",
+	"version": "1.0.0",
+	"repository": {
+		"type": "git",
+		"url": "https://gitlab.com/webhare/platform"
+	},
+	"engines": {
+		"vscode": "^1.102.0"
+	},
+	"activationEvents": [
+		"onStartupFinished",
+		"onLanguage:xml",
+		"onLanguage:yaml",
+		"onLanguage:webhare-screens-xml",
+		"onLanguage:webhare-siteprofile-xml"
+	],
+	"main": "./dist/extension",
+	"contributes": {
+		"languages": [
+			{
+				"id": "harescript",
+				"extensions": [
+					".whlib",
+					".whscr",
+					".whsock",
+					".shtml"
+				],
+				"firstLine": "^<\\?wh",
+				"aliases": [
+					"HareScript"
+				],
+				"configuration": "./filetypes/harescript.language-configuration.json"
+			},
+			{
+				"id": "witty-template",
+				"extensions": [
+					".witty"
+				],
+				"firstLine": "[component",
+				"aliases": [
+					"Witty Template"
+				],
+				"configuration": "./filetypes/witty/witty.language-configuration.json"
+			},
+			{
+				"id": "javascriptreact",
+				"extensions": [
+					".es"
+				]
+			},
+			{
+				"id": "webhare-screens-xml",
+				"extensions": [
+					".screens.xml"
+				],
+				"firstLine": "<screens",
+				"aliases": [
+					"WebHare Screens XML"
+				]
+			},
+			{
+				"id": "webhare-siteprofile-xml",
+				"extensions": [
+					".siteprl.xml"
+				],
+				"firstLine": "<siteprofle",
+				"aliases": [
+					"WebHare Siteprofile XML"
+				]
+			}
+		],
+		"grammars": [
+			{
+				"language": "harescript",
+				"scopeName": "source.harescript",
+				"path": "./filetypes/harescript/harescript.tmGrammar.json"
+			},
+			{
+				"language": "webhare-screens-xml",
+				"scopeName": "source.webharescreensxml",
+				"path": "./filetypes/screens-xml/screensxml.tmGrammar.json"
+			},
+			{
+				"language": "webhare-siteprofile-xml",
+				"scopeName": "source.webharesiteprofilexml",
+				"path": "./filetypes/siteprofiles-xml/siteprofiles.tmGrammar.json"
+			},
+			{
+				"language": "witty-template",
+				"scopeName": "source.witty-template",
+				"path": "./filetypes/witty/witty.tmGrammar.json"
+			}
+		],
+		"snippets": [
+			{
+				"language": "harescript",
+				"path": "./filetypes/harescript/harescript.json.code-snippets"
+			},
+			{
+				"language": "webhare-screens-xml",
+				"path": "./filetypes/screens-xml/screensxml.json.code-snippets"
+			},
+			{
+				"language": "webhare-screens-xml",
+				"path": "./filetypes/screens-xml/screensxml-shared.json.code-snippets"
+			},
+			{
+				"language": "webhare-siteprofile-xml",
+				"path": "./filetypes/siteprofiles-xml/siteprofiles.json.code-snippets"
+			},
+			{
+				"language": "webhare-siteprofile-xml",
+				"path": "./filetypes/screens-xml/screensxml-shared.json.code-snippets"
+			},
+			{
+				"language": "typescript",
+				"path": "./filetypes/typescript/typescript.json.code-snippets"
+			},
+			{
+				"language": "witty-template",
+				"path": "./filetypes/witty/witty.json.code-snippets"
+			}
+		],
+		"xmlLanguageParticipants": [
+			{
+				"languageId": "webhare-screens-xml"
+			},
+			{
+				"languageId": "webhare-siteprofile-xml"
+			}
+		],
+		"commands": [
+			{
+				"command": "webhare.getStackTrace",
+				"title": "WebHare: Get Stack Trace"
+			},
+			{
+				"command": "webhare.showStackTrace",
+				"title": "WebHare: Show Last Stack Trace"
+			},
+			{
+				"command": "webhare.getLastStackTraces",
+				"title": "WebHare: Get Last Stack Traces"
+			},
+			{
+				"command": "webhare.copyResourcePath",
+				"title": "Copy WebHare Resource path"
+			},
+			{
+				"command": "webhare.run",
+				"title": "Run this script"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "webhare.run",
+				"key": "shift+alt+r"
+			}
+		],
+		"menus": {
+			"commandPalette": [
+				{
+					"command": "webhare.getStackTrace",
+					"when": "editorLangId == harescript"
+				},
+				{
+					"command": "webhare.showStackTrace",
+					"when": "editorLangId == harescript"
+				},
+				{
+					"command": "webhare.getLastStackTraces",
+					"when": "editorLangId == harescript"
+				},
+				{
+					"command": "webhare.run",
+					"when": "resourceLangId == harescript || resourceLangId == typescript"
+				}
+			],
+			"editor/title/context": [
+				{
+					"command": "webhare.copyResourcePath",
+					"group": "navigation"
+				},
+				{
+					"command": "webhare.run",
+					"group": "navigation",
+					"when": "resourceLangId == harescript || resourceLangId == typescript"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "webhare.copyResourcePath",
+					"group": "navigation"
+				},
+				{
+					"command": "webhare.run",
+					"group": "navigation",
+					"when": "resourceLangId == harescript || resourceLangId == typescript"
+				}
+			]
+		},
+		"configuration": {
+			"title": "WebHare",
+			"properties": {
+				"webhare.debugLoglevel": {
+					"type": "integer",
+					"default": 0,
+					"description": "The amount of information to log to the debug log",
+					"enum": [
+						0,
+						1,
+						2,
+						3
+					],
+					"enumDescriptions": [
+						"Log only errors",
+						"Log information about document state",
+						"Log all requests and responses",
+						"Log all debugging information"
+					]
+				}
+			}
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "../../whtree/node_modules/.bin/tsc -b",
+		"watch": "../../whtree/node_modules/.bin/tsc -b -w",
+		"test": "sh ./scripts/run-extension-tests.sh"
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1",
+		"vscode-languageserver-types": "^3.17.5"
+	},
+	"devDependencies": {
+		"@types/node": "^20.11.7",
+		"@types/vscode": "^1.102.0",
+		"@vscode/vsce": "^3.6.0"
+	}
+}

@@ -1,0 +1,734 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+LOADLIB "mod::devkit/lib/rewrite/rewritesupport.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE XMLUpdater
+<
+  OBJECT xmldoc;
+  STRING resourcename;
+  STRING mode;
+  BOOLEAN debug;
+
+  MACRO NEW(STRING infile, OBJECT xmldoc, STRING mode, BOOLEAN debug)
+  {
+    this->resourcename := infile;
+    this->xmldoc := xmldoc;
+    this->mode := mode;
+    this->debug := debug;
+  }
+
+  MACRO Dbg(STRING text)
+  {
+    IF(this->debug)
+      PrintTo(2, text || "\n");
+  }
+
+  MACRO ApplyMembers(OBJECT parent)
+  {
+    FOREVERY(OBJECT membernode FROM parent->ListElements(publisher_sp, "*"))
+    {
+      IF(membernode->localname="member")
+      {
+        OBJECT replacement := this->xmldoc->CreateElementNS(publisher_sp, membernode->GetAttribute("type"));
+        replacement->SetAttribute("name", membernode->GetAttribute("name"));
+
+        WHILE(ObjectExists(membernode->firstchild))
+          replacement->AppendChild(membernode->firstchild);
+
+        membernode->parentnode->ReplaceChild(replacement, membernode);
+      }
+    }
+  }
+
+  OBJECT FUNCTION GetContentType(STRING ns)
+  {
+    FOREVERY(OBJECT ctypenode FROM this->xmldoc->ListElements(publisher_sp, "contenttype"))
+      IF(ctypenode->GetAttribute("namespace") = ns)
+        RETURN ctypenode;
+    RETURN DEFAULT OBJECT;
+  }
+
+  OBJECT ARRAY FUNCTION GetApplyToCandidates(STRING type)
+  {
+    OBJECT ARRAY candidates;
+    FOREVERY(OBJECT applynode FROM this->xmldoc->ListElements(publisher_sp,"apply"))
+      FOREVERY(OBJECT tonode FROM applynode->ListElements(publisher_sp,"to"))
+        IF(tonode->GetAttribute("filetype") = type OR tonode->GetAttribute("foldertype") = type)
+          INSERT applynode INTO candidates AT END;
+    RETURN candidates;
+  }
+
+  MACRO ApplyFileFolderTypeRewrite(OBJECT filefoldertype)
+  {
+    //NOTE 4.28+ only
+    STRING ns := filefoldertype->GetAttribute("typedef");
+    IF(ns = "")
+      RETURN;
+
+    IF(this->mode IN ["431"] AND filefoldertype->HasAttribute("tolliumicon"))
+    {
+      filefoldertype->SetAttribute("icon", filefoldertype->GetAttribute("tolliumicon"));
+      filefoldertype->RemoveAttribute("tolliumicon");
+    }
+
+    OBJECT matchingctype := this->GetContentType(ns);
+    IF(NOT ObjectExists(matchingctype))
+    {
+      this->Dbg(`Cannot rewrite type ${ns} - the <contenttype> is not in the same file`);
+      RETURN;
+    }
+    IF(matchingctype->HasAttribute("cloneoncopy") AND ParseXSBoolean(matchingctype->GetAttribute("cloneoncopy")) = FALSE)
+    {
+      this->Dbg(`Cannot rewrite type ${ns} - the matching contenttype has cloneoncopy=false (but this is very unusual for a file/foldertype contenttype?)`);
+      RETURN;
+    }
+
+    IF(Length(matchingctype->Listchildren("*","*")) != 0)
+    {
+      OBJECT membersnode := filefoldertype->ownerdocument->CreateElementNS(publisher_sp,"members");
+      filefoldertype->InsertBefore(membersnode, filefoldertype->firstchild);
+      WHILE(ObjectExists(matchingctype->firstchild))
+        membersnode->AppendChild(matchingctype->firstchild);
+    }
+    matchingctype->Remove();
+
+    filefoldertype->SetAttribute("namespace", ns);
+    filefoldertype->RemoveAttribute("typedef");
+  }
+
+  MACRO MergeApplyToIntoFileFolderType(OBJECT filefoldertype)
+  {
+    STRING ns := filefoldertype->GetAttribute("namespace");
+    IF(ns = "")
+      RETURN;
+
+    //Find <apply> rules to import. Cast a wide net first so we can give more useful debugging information
+    OBJECT ARRAY candidates := this->GetApplyToCandidates(ns);
+    this->Dbg(`Considering ${Length(candidates)} candidate(s) <apply> rules for type '${ns}'`);
+    FOREVERY(OBJECT applynode FROM candidates)
+    {
+      IF(Length(applynode->ListAttributes()) != 0) //priority=  ? applicability= ?  nevermind...
+      {
+        this->Dbg(`<apply> rule on line ${applynode->linenum} appears too complex, attributes on the <apply> line`);
+        CONTINUE;
+      }
+
+      OBJECT ARRAY to_nodes := applynode->ListElements(publisher_sp,"to");
+      IF(Length(to_nodes) != 1)
+      {
+        this->Dbg(`<apply> rule on line ${applynode->linenum} appears too complex, multiple <to>s`);
+        CONTINUE;
+      }
+
+      IF(Length(applynode->ListElements(publisher_sp,"and")) != 0 OR Length(applynode->ListElements(publisher_sp,"or")) != 0 OR Length(applynode->ListElements(publisher_sp,"not")) != 0)
+      {
+        this->Dbg(`<apply> rule on line ${applynode->linenum} appears too complex, uses <and>/<or>/<not>`);
+        CONTINUE;
+      }
+
+      //we only support <to type="file" filtype=> or <to type="folder" foldertype=> anything else we don't trust
+      //we don't really care to protect against ourself against things like type="file" foldertype="xxx"
+      IF(Length(to_nodes[0]->ListAttributes()) != 2)
+      {
+        this->Dbg(`<to> rule on line ${to_nodes[0]->linenum} appears too complex, other attributes than type & file/foldertype`);
+        CONTINUE;
+      }
+      IF(to_nodes[0]->GetAttribute("type") NOT IN ["all","file","folder"])
+      {
+        this->Dbg(`<to> rule on line ${to_nodes[0]->linenum} appears too complex, we only understand type="all|file|folder"`);
+        CONTINUE;
+      }
+
+      //YES! we can merge this apply rule
+      this->Dbg(`<apply> rule on line ${to_nodes[0]->linenum} will be merged`);
+      to_nodes[0]->Remove();
+      WHILE(ObjectExists(applynode->firstchild))
+        filefoldertype->AppendChild(applynode->firstchild);
+      applynode->Remove();
+    }
+  }
+
+  MACRO ApplyFiletypeKinds(OBJECT filetype)
+  {
+    IF(filetype->HasAttribute("namespace")) //it's possible to set a kind=
+    {
+      IF(filetype->GetAttribute("kind") = ""
+         AND ParseXSBoolean(filetype->GetAttribute("ispublishable"))
+         AND ParseXSBoolean(filetype->GetAttribute("ispublishedassubdir"))
+         AND ParseXSBoolean(filetype->GetAttribute("needstemplate"))
+         AND NOT ParseXSBoolean(filetype->GetAttribute("blobiscontent")))
+      {
+        //ispublishable + needstemplate + !blobiscontent is a good virtualfile kandidate
+        filetype->SetAttribute("kind", "virtualfile");
+        //as this also implies isacceptableindex, set it explicitly if it was unset
+        IF(NOT ParseXSBoolean(filetype->GetAttribute("isacceptableindex")))
+          filetype->SetAttribute("isacceptableindex","false");
+      }
+
+      IF(filetype->GetAttribute("kind") = ""
+         AND ParseXSBoolean(filetype->GetAttribute("blobiscontent"))
+         AND ParseXSBoolean(filetype->GetAttribute("ispublishable"))
+         AND NOT ParseXSBoolean(filetype->GetAttribute("needstemplate")))
+      {
+        filetype->SetAttribute("kind", "rawfile");
+      }
+
+      IF(filetype->GetAttribute("kind") = ""
+         AND NOT ParseXSBoolean(filetype->GetAttribute("blobiscontent"))
+         AND NOT ParseXSBoolean(filetype->GetAttribute("ispublishable")))
+      {
+        filetype->SetAttribute("kind", "datafile");
+      }
+    }
+  }
+
+  MACRO ApplyFileTypeAttributeOptimziation(OBJECT filetype)
+  {
+    STRING ARRAY impliedattributes;
+    IF(filetype->GetAttribute("kind") = "rawfile")
+      impliedattributes := ["blobiscontent","ispublishable"];
+    ELSE IF(filetype->GetAttribute("kind") = "virtualfile")
+      impliedattributes := ["needstemplate", "ispublishable", "ispublishedassubdir", "isacceptableindex"];
+
+    STRING ARRAY optionalattributes := ["needstemplate","needsprofile","requirescontent","isdevelopertype","isacceptableindex","ispublishedassubdir","ispublishable","capturesubpaths"];
+    IF(filetype->GetAttribute("kind") != "") //you need to specify either kind or blobiscontent
+      INSERT "blobiscontent" INTO optionalattributes AT END;
+
+    FOREVERY(STRING attr FROM optionalattributes)
+    {
+      IF(filetype->HasAttribute(attr) AND ParseXSBoolean(filetype->GetAttribute(attr)) = (attr IN impliedattributes))
+        filetype->RemoveAttribute(attr);
+    }
+  }
+
+  MACRO FixEmbeddedObjectType(OBJECT embobjnode)
+  {
+    OBJECT widgetnode := embobjnode->ownerdocument->CreateElementNS(publisher_sp, "widgettype");
+
+    FOREVERY(RECORD attr FROM embobjnode->ListAttributes())
+    {
+      IF(attr.localname = "xmlns")
+        CONTINUE;
+      IF(attr.nodename IN [ "isfiletype", "ispublishable" ])
+        CONTINUE;
+      widgetnode->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+    }
+
+    OBJECT ARRAY members := embobjnode->ListChildren("*","member");
+    IF(Length(members) > 0)
+    {
+      OBJECT membersnode := embobjnode->ownerdocument->CreateElementNS(publisher_sp, "members");
+      widgetnode->AppendChild(membersnode);
+
+      FOREVERY(OBJECT mem FROM members)
+        membersnode->AppendChild(mem);
+    }
+
+    OBJECT ingroup := PickFirst(embobjnode->ListElements("*","ingroup"));
+    IF(ObjectExists(ingroup))
+      widgetnode->SetAttribute("ingroup", ingroup->GetAttribute("type"));
+
+    embobjnode->parentnode->ReplaceChild(widgetnode, embobjnode);
+  }
+
+  MACRO ApplyWidgetRewrite(OBJECT widgetnode)
+  {
+    IF(widgetnode->GetAttribute("editfragment") != "")
+      this->ApplyWidgetRewrite_EditFragment(widgetnode);
+    ELSE IF(widgetnode->GetAttribute("editscreen") != "")
+      this->ApplyWidgetRewrite_EditScreen(widgetnode);
+
+    OBJECT membersnode := PickFirst(widgetnode->ListElements(publisher_sp, "members"));
+    IF(ObjectExists(membersnode))
+      this->ApplyMembers(membersnode);
+  }
+
+  MACRO ApplyWidgetRewrite_EditFragment(OBJECT widgetnode)
+  {
+    STRING fragmentpath := widgetnode->GetAttribute("editfragment");
+    IF(Left(fragmentpath,1) NOT IN [".","#"])
+      RETURN;
+
+    //always replace . with #
+    fragmentpath := "#" || Substring(fragmentpath,1);
+
+    OBJECT ARRAY fragments := widgetnode->ownerdocument->ListElements(tollium_ns,"fragment");
+    FOREVERY(OBJECT fragment FROM fragments)
+      IF(fragment->GetAttribute("name") = Substring(fragmentpath,1))
+      {
+        IF(fragment->GetAttribute("implementation") != "none")
+          RETURN; //don't dare to touch code-backed fragments
+
+        OBJECT tabsextension := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"tabsextension");
+        tabsextension->SetAttribute("xmlns", tollium_ns);
+        FOREVERY(RECORD attr FROM fragment->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename="implementation")
+            CONTINUE;
+
+          tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        OBJECT newtab := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"newtab");
+        tabsextension->AppendChild(newtab);
+
+        OBJECT contentsnode := fragment->ListChildren(tollium_ns,"contents")[0];
+        FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename="implementation")
+            CONTINUE;
+
+          newtab->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        //Migrate nodes
+        WHILE(Objectexists(contentsnode->firstchild))
+          newtab->AppendChild(contentsnode->firstchild);
+
+        //Replace composition=contentdata with composition=fsinstance
+        FOREVERY(OBJECT node FROM tabsextension->ListElements("*","*")) //WAS newtab->GetElements(`*[composition="fsinstance"]`) but broken since CSS path rewrite
+          IF(node->GetAttribute("composition") = "fsinstance")
+            node->SetAttribute("composition", "contentdata");
+
+        fragment->parentnode->replacechild(tabsextension, fragment);
+
+        widgetnode->SetAttribute("editextension", fragmentpath);
+        widgetnode->RemoveAttribute("editfragment");
+        RETURN ;
+     }
+  }
+
+  MACRO ApplyWidgetRewrite_EditScreen(OBJECT widgetnode)
+  {
+    STRING screenpath := widgetnode->GetAttribute("editscreen");
+    IF(Left(screenpath,1) NOT IN [".","#"])
+      RETURN;
+
+    //always replace . with #
+    screenpath := "#" || Substring(screenpath,1);
+
+    OBJECT ARRAY screens := widgetnode->ownerdocument->ListElements(tollium_ns,"screen");
+    FOREVERY(OBJECT screen FROM screens)
+      IF(screen->GetAttribute("name") = Substring(screenpath,1))
+      {
+        IF(screen->GetAttribute("implementation") != "p:widgetedit")
+          RETURN; //don't dare to touch code-backed widget edit screens
+
+        OBJECT tabsextension := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"tabsextension");
+        tabsextension->SetAttribute("xmlns", tollium_ns);
+        FOREVERY(RECORD attr FROM screen->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename IN ["implementation","minwidth","savestate","title"])
+            CONTINUE;
+
+          tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        OBJECT newtab := widgetnode->ownerdocument->CreateElementNS(tollium_ns,"newtab");
+        tabsextension->AppendChild(newtab);
+
+        OBJECT contentsnode := screen->ListChildren(tollium_ns,"body")[0];
+        FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+        {
+          IF(attr.localname="xmlns")
+            CONTINUE;
+          IF(attr.nodename="implementation")
+            CONTINUE;
+
+          newtab->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+        }
+
+        //Migrate nodes
+        WHILE(Objectexists(contentsnode->firstchild))
+          newtab->AppendChild(contentsnode->firstchild);
+
+        screen->parentnode->replacechild(tabsextension, screen);
+
+        widgetnode->SetAttribute("editextension", screenpath);
+        widgetnode->RemoveAttribute("editscreen");
+        RETURN ;
+     }
+  }
+
+  MACRO ApplyExtendPropertiesRewrite(OBJECT extendpropertiesnode)
+  {
+    STRING propertyeditor := extendpropertiesnode->GetAttribute("name");
+    IF(propertyeditor="")
+      RETURN;
+
+    OBJECT ARRAY fragments := extendpropertiesnode->ownerdocument->ListElements(publisher_sp,"propertyeditor");
+    FOREVERY(OBJECT fragment FROM fragments)
+      IF(fragment->GetAttribute("name") = propertyeditor)
+      {
+        OBJECT tabsextension := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,"tabsextension");
+        tabsextension->SetAttribute("xmlns", tollium_ns);
+        FOREVERY(RECORD attr FROM fragment->ListAttributes())
+          tabsextension->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+
+        //Remove p:whfsinstance instance
+        OBJECT ARRAY whfsinstances := fragment->ListElements(publisher_ns,"whfsinstance");
+        IF(Length(whfsinstances) != 1)
+          CONTINUE;
+
+        STRING compositionname := whfsinstances[0]->GetAttribute("name");
+        extendpropertiesnode->SetAttribute("contenttype", whfsinstances[0]->GetAttribute("typedef"));
+        whfsinstances[0]->Dispose();
+
+        OBJECT ARRAY compositions := fragment->ListElements(publisher_sp,"compositions");
+        IF(Length(compositions) = 1)
+        {
+          IF(Length(compositions[0]->ListChildren("*","*")) > 0)
+          {
+            OBJECT newcompositions := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,"compositions");
+            tabsextension->AppendChild(newcompositions);
+            WHILE(ObjectExists(compositions[0]->firstchild))
+              newcompositions->AppendChild(compositions[0]->firstchild);
+          }
+          compositions[0]->Dispose();
+        }
+
+        FOREVERY(OBJECT contentsnode FROM fragment->ListChildren("*","*"))
+        {
+          OBJECT newtabinsert := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns,contentsnode->localname);
+          tabsextension->AppendChild(newtabinsert);
+
+          FOREVERY(RECORD attr FROM contentsnode->ListAttributes())
+          {
+            IF(attr.localname="xmlns")
+              CONTINUE;
+            IF(attr.nodename="implementation")
+              CONTINUE;
+
+            newtabinsert->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+          }
+
+          //Migrate nodes
+          WHILE(Objectexists(contentsnode->firstchild))
+            newtabinsert->AppendChild(contentsnode->firstchild);
+        }
+
+        //Replace composition=contentdata with composition=fsinstance
+        FOREVERY(OBJECT node FROM tabsextension->ListElements("*","*")) //WAS tabsextension->GetElements(`*[composition]`)) but broken since CSS path rewrite
+          if(ToUppercase(node->GetAttribute("composition")) = ToUppercase(compositionname))
+            node->SetAttribute("composition", "contentdata");
+
+        //Kill redundant namespace prefixes
+        FOREVERY(OBJECT node FROM tabsextension->ListElements(tollium_ns,"*"))
+          IF(node->prefix != "")
+          {
+            OBJECT betternode := extendpropertiesnode->ownerdocument->CreateElementNS(tollium_ns, node->localname);
+            FOREVERY(RECORD attr FROM node->ListAttributes())
+            {
+              IF(attr.localname="xmlns")
+                CONTINUE;
+              betternode->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+            }
+            WHILE(Objectexists(node->firstchild))
+              betternode->AppendChild(node->firstchild);
+
+            node->parentnode->replacechild(betternode, node);
+          }
+
+        fragment->parentnode->replacechild(tabsextension, fragment);
+
+        extendpropertiesnode->SetAttribute("extension", "#"||propertyeditor);
+        extendpropertiesnode->RemoveAttribute("name");
+        RETURN ;
+      }
+
+    RETURN; //no match
+  }
+
+  MACRO ApplyScreenRewrite(OBJECT screennode)
+  {
+    OBJECT footer := PickFirst(screennode->ListChildren(tollium_ns, "footer"));
+    IF(ObjectExists(footer))
+    {
+      //migrate <footer><defaultformbuttons/></footer> to <screen footerbuttons=>
+      OBJECT ARRAY footerchildren := footer->ListChildren("*","*");
+      IF(Length(footerchildren) = 1
+         AND Length(footer->ListAttributes()) = 0
+         AND footerchildren[0]->namespaceuri = tollium_ns AND footerchildren[0]->localname = "defaultformbuttons"
+         AND Length(footerchildren[0]->ListAttributes()) = 1
+         AND footerchildren[0]->HasAttribute("buttons"))
+      {
+        screennode->SetAttribute("footerbuttons", footerchildren[0]->GetAttribute("buttons"));
+        screennode->RemoveChild(footer);
+      }
+    }
+  }
+
+  MACRO ApplyTaskRuntimeRewrite(OBJECT tasknode)
+  {
+    INTEGER interval := ToInteger(tasknode->GetAttribute("runinterval"),0);
+    STRING runtime := tasknode->GetAttribute("runtime");
+    IF(interval <= 0 OR runtime NOT LIKE "?*:??")
+      RETURN; //cannot rewrite
+
+    INTEGER hour := ToInteger(Tokenize(runtime,':')[0],-100) + 1; //add 1 hour, assume user meant Winter CET
+    IF(hour = 24)
+      hour := 0;
+    IF(hour < 0)
+      RETURN; //Wooooo! confused!
+
+    INTEGER minute := ToInteger(Tokenize(runtime,':')[1],-100);
+    IF(minute < 0 OR minute >= 60)
+      RETURN; //Wooooo! confused!
+
+    STRING runat;
+    IF(60 % interval = 0 AND interval <= 60) //we run every hour or more often, on fixed intervals... easy fix!
+    {
+      STRING ARRAY intervals;
+      //find first occurence
+      WHILE(minute - interval > 0)
+        minute := minute - interval;
+
+      WHILE(minute < 60)
+      {
+        INSERT ToString(minute) INTO intervals AT END;
+        minute := minute + interval;
+      }
+
+      runat := Detokenize(intervals,',') || " * * * *";
+    }
+    ELSE IF(1440 % interval = 0 AND interval % 60 = 0) //we run every day or more often, on fixed intervals and the same minute each hour
+    {
+      STRING ARRAY intervals;
+      INTEGER hourinterval := interval / 60;
+      //find first occurence
+      WHILE(hour - hourinterval > 0)
+        hour := hour - hourinterval;
+
+      WHILE(hour < 24)
+      {
+        INSERT ToString(hour) INTO intervals AT END;
+        hour := hour + hourinterval;
+      }
+
+      runat := minute || " " || Detokenize(intervals,',') || " * * *";
+    }
+    ELSE
+    {
+      RETURN;
+    }
+
+    tasknode->SetAttribute("runat", runat);
+    tasknode->SetAttribute("runtz", "Europe/Amsterdam");
+    tasknode->RemoveAttribute("runinterval");
+    tasknode->RemoveAttribute("runtime");
+  }
+
+  MACRO ApplyModuleMetaRewrite(OBJECT metanode)
+  {
+    OBJECT packagingnode := PickFirst(metanode->ListElements(moduledef_ns,"packaging"));
+    IF(ObjectExists(packagingnode))
+    {
+      IF(packagingnode->HasAttribute("requireversion"))
+        packagingnode->RemoveAttribute("requireversion");
+
+      STRING module := GetModuleNameFromResourcePath(this->resourcename);
+      IF(NOT packagingnode->HasAttribute("webhareversion") AND module NOT IN whconstant_builtinmodules)
+        packagingnode->SetAttribute("webhareversion", ">= 4.27.0"); //anything modern shouldn ow require at least 4.27, and this gives you a proper 'template' to update
+    }
+
+    FOREVERY(OBJECT dependencynode FROM this->xmldoc->ListElements(moduledef_ns,"dependency"))
+    {
+      IF(dependencynode->HasAttribute("requireversion"))
+      { //requireversion is deprecated, officially this matched the webhare version but users often assumed it was the moduleversion, so we'll rewrite to that
+        dependencynode->SetAttribute("moduleversion", dependencynode->GetAttribute("requireversion"));
+        dependencynode->RemoveAttribute("requireversion");
+      }
+    }
+
+  }
+
+  MACRO ApplyModuleObjecttypeRewrite(OBJECT objecttypenode)
+  {
+    OBJECT describernode := PickFirst(objecttypenode->ListChildren(moduledef_ns,"describer"));
+    IF(ObjectExists(describernode))
+    {
+      STRING lib := describernode->GetAttribute("library");
+      STRING module := GetModuleNameFromResourcePath(this->resourcename);
+
+      FOREVERY(STRING subpath FROM [`include/${lib}`, `lib/${lib}`, lib ])
+        IF(RecordExists(RetrieveWebHareResource(`mod::${module}/${subpath}`, [ allowmissing := TRUE ])))
+        {
+          objecttypenode->SetAttribute("describer", `${subpath}#${describernode->GetAttribute("objectname")}`);
+          objecttypenode->RemoveChild(describernode);
+          BREAK;
+        }
+    }
+  }
+
+  MACRO FixWebdesign(OBJECT node)
+  {
+    STRING siteprofile := node->GetAttribute("siteprofile");
+    IF(siteprofile != "" AND siteprofile NOT LIKE "*/*") //doesn't contain a slahs?
+    {
+      STRING module := GetModuleNameFromResourcePath(this->resourcename);
+      IF(NOT RecordExists(RetrieveWebHareResource(`mod::${module}/${siteprofile}`, [ allowmissing :=TRUE ])))
+      {
+        IF(RecordExists(RetrieveWebHareResource(`mod::${module}/webdesigns/${node->GetAttribute("name")}/${siteprofile}`, [ allowmissing :=TRUE ])))
+        {
+          node->SetAttribute("siteprofile", `webdesigns/${node->GetAttribute("name")}/${siteprofile}`);
+        }
+      }
+    }
+  }
+
+  MACRO FixForm(OBJECT form)
+  {
+    IF(Length(form->ListChildren(publisher_fm,"page")) = 0) // no pages ? wrap everything in a page
+    {
+      OBJECT page := form->ownerdocument->CreateElementNS(publisher_fm,"page");
+      WHILE(ObjectExists(form->firstchild))
+        page->AppendChild(form->firstchild);
+      form->AppendChild(page);
+    }
+  }
+
+  PUBLIC MACRO FixScreenLibAttribute(STRING resourcename, OBJECT node)
+  {
+    IF(NOT node->HasAttribute("lib"))
+      RETURN;
+
+    STRING lib := node->GetAttribute("lib");
+    IF(lib LIKE "*::*") //absolute? just migrate it to library=
+    {
+      node->SetAttribute("library", lib);
+      node->RemoveAttribute("lib");
+      RETURN;
+    }
+
+    FOREVERY(STRING attemptsubdir FROM ["/include/","/lib/"])
+    {
+      STRING tryname := "mod::" || GetModuleNameFromResourcePath(resourcename) || attemptsubdir || lib;
+      IF(RecordExists(RetrieveWebHareResource(tryname, [ allowmissing := TRUE ])))
+      {
+        node->SetAttribute("library", attemptsubdir || lib);
+        node->RemoveAttribute("lib");
+        RETURN;
+      }
+    }
+  }
+
+  MACRO RewriteNode(OBJECT node, STRING newname)
+  {
+    //can't change a localname os recreate it
+    OBJECT newnode := node->ownerdocument->CreateElementNS(node->namespaceuri, newname);
+    WHILE(ObjectExists(node->firstchild))
+      newnode->AppendChild(node->firstchild);
+    FOREVERY(RECORD attr FROM node->ListAttributes())
+    {
+      IF(attr.localname="xmlns")
+        CONTINUE;
+      newnode->SetAttributeNS(attr.namespaceuri, attr.localname ?? attr.nodename, attr.nodevalue);
+    }
+    node->parentnode->Replacechild(newnode, node);
+  }
+
+  PUBLIC MACRO FixActionIcon(OBJECT action) //move action's icon to buttons
+  {
+    FOREVERY(OBJECT buttonnode FROM this->xmldoc->ListElements(tollium_ns,"button"))
+      IF(buttonnode->GetAttribute("action") = action->GetAttribute("name") AND NOT buttonnode->HasAttribute("icon"))
+        buttonnode->SetAttribute("icon", action->GetAttribute("icon"));
+
+    action->RemoveAttribute("icon");
+  }
+
+  PUBLIC MACRO ApplyRewrites(STRING resourcename, STRING format)
+  {
+    IF(format = "http://www.webhare.net/xmlns/tollium/screens#screens" AND this->xmldoc->documentelement->HasAttribute("lib"))
+     this->FixScreenLibAttribute(resourcename, this->xmldoc->documentelement);
+
+    IF(format IN [ "http://www.webhare.net/xmlns/tollium/screens#screens"
+                 , "http://www.webhare.net/xmlns/publisher/siteprofile#siteprofile"
+                 ])
+    {
+      FOREVERY(OBJECT tid_title_conflict FROM this->xmldoc->QuerySelectorAll("*[title][tid]")->GetCurrentElements())
+        tid_title_conflict->RemoveAttribute("title");
+    }
+
+    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"contenttype"))
+      this->ApplyMembers(widgetnode);
+
+    FOREVERY(OBJECT filetype FROM this->xmldoc->ListElements(publisher_sp, "filetype"))
+    {
+      this->ApplyFileFolderTypeRewrite(filetype);
+      this->ApplyFiletypeKinds(filetype);
+      this->MergeApplyToIntoFileFolderType(filetype);
+      this->ApplyFileTypeAttributeOptimziation(filetype);
+    }
+
+    FOREVERY(OBJECT foldertype FROM this->xmldoc->ListElements(publisher_sp, "foldertype"))
+    {
+      this->ApplyFileFolderTypeRewrite(foldertype);
+      this->MergeApplyToIntoFileFolderType(foldertype);
+    }
+
+    FOREVERY(OBJECT oldnode FROM this->xmldoc->ListElements(publisher_sp,"disablelegacysitesettings"))
+      oldnode->Dispose();
+
+    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"embeddedobjecttype"))
+      this->FixEmbeddedObjectType(widgetnode);
+
+    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"widgettype"))
+      this->ApplyWidgetRewrite(widgetnode);
+
+    FOREVERY(STRING allowdenytype FROM ["allowfiletype","allowfoldertype","denyfiletype","denyfoldertype"])
+      FOREVERY(OBJECT node FROM this->xmldoc->ListElements(publisher_sp, allowdenytype))
+        IF(node->HasAttribute("typedef"))
+        {
+          node->SetAttribute("typemask", node->GetAttribute("typedef"));
+          node->RemoveAttribute("typedef");
+        }
+
+    FOREVERY(OBJECT extendpropertiesnode FROM this->xmldoc->ListElements(publisher_sp,"extendproperties"))
+      this->ApplyExtendPropertiesRewrite(extendpropertiesnode);
+
+    //tollium rewrites
+    FOREVERY(OBJECT screennode FROM this->xmldoc->ListElements(tollium_ns,"screen"))
+    {
+      this->FixScreenLibAttribute(resourcename, screennode);
+      this->ApplyScreenRewrite(screennode);
+    }
+
+    FOREVERY(OBJECT actionnode FROM this->xmldoc->ListElements(tollium_ns,"action") CONCAT this->xmldoc->ListElements(tollium_ns,"windowopenaction"))
+      IF(actionnode->HasAttribute("icon"))
+        this->FixActionIcon(actionnode);
+
+    //moduledef rewrites
+    FOREVERY(OBJECT tasknode FROM this->xmldoc->ListElements(moduledef_ns,"task"))
+      this->ApplyTaskRuntimeRewrite(tasknode);
+
+    FOREVERY(OBJECT metanode FROM this->xmldoc->ListElements(moduledef_ns,"meta"))
+      this->ApplyModuleMetaRewrite(metanode);
+
+    FOREVERY(OBJECT objecttypenode FROM this->xmldoc->ListElements(moduledef_ns,"objecttype"))
+      this->ApplyModuleObjecttypeRewrite(objecttypenode);
+
+    FOREVERY(OBJECT node FROM this->xmldoc->ListElements(moduledef_ns,"webdesign"))
+      this->FixWebdesign(node);
+
+    FOREVERY(OBJECT babeltranspilenode FROM this->xmldoc->ListElements(moduledef_ns,"babeltranspile")) //obsolete now compiler-webpack is dropped
+      babeltranspilenode->remove();
+
+    FOREVERY(OBJECT formnode FROM this->xmldoc->ListElements(publisher_fm,"form"))
+      this->FixForm(formnode);
+
+    FOREVERY(OBJECT classificationnode FROM this->xmldoc->ListElements(wrdschemadef_ns,"classification"))
+      this->RewriteNode(classificationnode, "attachment");
+  }
+>;

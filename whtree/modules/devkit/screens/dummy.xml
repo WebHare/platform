@@ -1,0 +1,8 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
+
+  <screen name="dummyscreen" implementation="none" title="Start screen">
+    <body>
+    </body>
+  </screen>
+
+</screens>

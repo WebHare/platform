@@ -1,0 +1,41 @@
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+
+<!-- Side widgets -->
+  <widgettype namespace="urn::testnamespace/widgets/yourbenefits" editextension="#edityourbenefits">
+    <members>
+      <string name="title" />
+      <string name="subtitle" />
+      <array name="items">
+        <string name="title" />
+        <string name="subtitle" />
+        <string name="subtitle_type" />
+        <intextlink name="link" />
+      </array>
+      <string name="toks" />
+    </members>
+  </widgettype>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="edityourbenefits" gid="testtids.gid1">
+    <newtab gid=".gid2">
+      <textedit composition="contentdata" cellname="title" width="1pr" required="true" />
+      <textedit composition="contentdata" cellname="subtitle" width="1pr" />
+      <arrayedit composition="contentdata"
+                 cellname="items"
+                 width="1pr"
+                 height="1pr"
+                 minwidth="450px"
+                 minrows="1"
+                 orderable="true"
+                 roweditscreen=".edityourbenefitlink">
+        <column name="title" type="text" width="120px" />
+        <p:intextlinkcolumn name="link" width="2pr" />
+      </arrayedit>
+      <select composition="contentdata" cellname="toks" type="checkbox" detokenizedvalueseparator="&#9;" title="">
+        <option rowkey="a" title="A" />
+        <option rowkey="b" title="B" />
+      </select>
+    </newtab>
+  </tabsextension>
+
+</siteprofile>

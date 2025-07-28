@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
+             xmlns:t="http://www.webhare.net/xmlns/tollium/screens"
+             xmlns:m="http://www.webhare.net/xmlns/system/moduledefinition"
+             xmlns:p="http://www.webhare.net/xmlns/publisher/components"
+             xmlns:w="http://www.webhare.net/xmlns/wrd/components"
+             xmlns:ut="http://www.utwente.nl/xmlns/components">
+  <!-- Place empty line above, not below  -->
+  <contenttype namespace="urn::xmlns1" cloneoncopy="true">
+    <member name="ChatInfolink" type="whfsref" />
+  </contenttype>
+
+  <contenttype namespace="urn::xmlns2" cloneoncopy="false">
+    <member name="chatinfolink" type="whfsref" />
+    <member name="chatinfolink2" type="whfsref" />
+  </contenttype>
+
+  <contenttype namespace="urn::xmlns3" cloneoncopy="true">
+    <member name="chatinfolink" type="whfsref" />
+    <member name="chatinfolink2" type="whfsref" />
+  </contenttype>
+
+  <filetype typedef="urn::xmlns3"
+              needstemplate="true"
+              blobiscontent="false"
+              needsprofile="false"
+              ispublishable="true"
+              requirescontent="false"
+              isacceptableindex="true"
+              ispublishedassubdir="true"
+              capturesubpaths="true"
+              tolliumicon="tollium:folders/locked"
+              >
+            </filetype>
+
+  <apply>
+    <to type="file" filetype="urn::xmlns3" />
+    <setobjecteditor name="publisher:editdocument" supportsversioning="true" />
+    <bodyrenderer library="lib/dummy.whlib" objectname="RenderRTD" />
+  </apply>
+
+  <contenttype namespace="urn::xmlns4" cloneoncopy="true">
+    <member name="chatinfolink" type="whfsref" />
+  </contenttype>
+  <filetype typedef="urn::xmlns4" blobiscontent="false" ispublishable="true" ispublishedassubdir="true" needstemplate="true" needsprofile="false">
+    <dynamicexecution library="mod::publisher/lib/forms/base.whlib" webpageobjectname="WebtoolFormPage" />
+  </filetype>
+
+  <apply minservertype="test" priority="1">
+    <to type="file" filetype="urn::dummy" />
+    <allowfiletype typedef="urn::dummy2" />
+  </apply>
+
+  <apply>
+    <to type="all"/>
+    <webdesign assetpack="publisher:__dummy__"
+               designfolder="."
+               library="lib/dummy.whlib"
+               objectname="anyobject"
+               wittyencoding="HTML-NI" />
+    <wrdauth xmlns="http://www.webhare.net/xmlns/wrd" api2017="true" wrdschema="dev:nosuchschema" supportlibrary="lib/dummy.whlib" supportobjectname="anyobject" cookiepath="/" sitetag="INNOVATIE"/>
+  </apply>
+
+  <contenttype namespace="urn::xmlns5" />
+  <foldertype typedef="urn::xmlns5">
+    <dynamicexecution library="lib/dummy.whlib" startmacro="AnyMacro" />
+  </foldertype>
+
+  <applysiteprofile path="rewritesiteprofile.editfragment.in.xml" />
+
+  <applysiteprofile path="rewritesiteprofile.editfragment.out.xml" />
+
+  <sitesettings>
+    <webruleset xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+      <webrule allowips="" match="initial" minservertype="test" path="/testportal">
+        <csp policy="script-src 'self' www.example.net 'sha256-x3rcHre5/YnW661p4wgHopS0bVZSfM+VctGwyntHYgs=';
+                     frame-ancestors 'self' [webhare];" />
+     </webrule>
+    </webruleset>
+  </sitesettings>
+
+
+</siteprofile>

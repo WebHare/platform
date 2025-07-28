@@ -1,0 +1,77 @@
+{
+  "scopeName": "source.witty-template",
+  "patterns": [
+    {
+      "include": "text.html.basic"
+    }
+  ],
+  "injections": {
+    "source.witty-template": {
+      "patterns": [
+        {
+          "__comment": "well it does something... but it doesn't actually switch to HTML (and ignore other witty stuff) inside the rawcomponent",
+          "name": "meta.block.rawcomponent",
+          "match": "\\[rawcomponent (.*)\\](.*)\\[/rawcomponent\\]",
+          "captures": {
+            "1": {
+              "name": "variable.language.witty"
+            }
+          },
+          "patterns": [
+            {
+              "include": "text.html.basic"
+            }
+          ]
+        },
+        {
+          "name": "comment.block.documentation.witty",
+          "match": "\\[!.*\\!]"
+        },
+        {
+          "name": "source.witty-template.instruction",
+          "begin": "\\[",
+          "end": "\\]",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.begin.witty"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.end.witty"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#witty-instruction"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "repository": {
+    "witty-instruction": {
+      "patterns": [
+        {
+          "match": "(if|component|forevery) *([^\\]]*)",
+          "captures": {
+            "0": {
+              "name": "meta.block"
+            },
+            "1": {
+              "name": "keyword.control.witty.if"
+            },
+            "2": {
+              "name": "variable.language.witty"
+            }
+          }
+        },
+        {
+          "match": "/if",
+          "name": "keyword.control.witty.if"
+        }
+      ]
+    }
+  }
+}

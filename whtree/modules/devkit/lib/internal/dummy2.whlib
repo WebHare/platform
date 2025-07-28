@@ -1,0 +1,28 @@
+<?wh
+/* This file only exists to satisfy test devkit.rewrite.test_rewrite  */
+
+LOADLIB "mod::system/lib/userrights.whlib";
+
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
+
+PUBLIC OBJECTTYPE MyDescriber EXTEND ObjectTypeDescriber
+<
+>;
+
+PUBLIC OBJECTTYPE AnyObject2
+<
+>;
+
+PUBLIC MACRO AnyMacro2()
+{
+
+}
+
+PUBLIC STATIC OBJECTTYPE Person EXTEND TolliumScreenBase
+<
+>;
+
+PUBLIC STATIC OBJECTTYPE KeepFooter3 EXTEND TolliumScreenBase
+<
+>;

@@ -1,0 +1,103 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::util/comparisons.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::devkit/lib/rewrite/rewrite.whlib";
+
+MACRO TestRewriteXMLFile(STRING basefilename, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  Print(`Rewriting ${basefilename}\n`);
+  options := ValidateOptions([ ignorewarninglines := INTEGER[]
+                             , mode := ""
+                             , extension := '.xml'
+                             , basepath := Resolve(`data`)
+                             ], options);
+
+  STRING outputname := `${basefilename}.${options.mode ?? "out"}${options.extension}`;
+  BLOB expecteddata := GetWebHareResource(`${options.basepath}/${outputname}`);
+  BLOB indata := GetWebHareResource(`${options.basepath}/${basefilename}.in${options.extension}`);
+
+  STRING rewritepath := `${options.basepath}/${basefilename}.in${options.extension}`;
+  RECORD rewriteresult := RewriteFile(rewritepath, indata, CELL[ options.mode, debug := TRUE ]);
+  STRING result := BlobToString(rewriteresult.result);
+
+  RECORD finalvalidation := ValidateSingleFile(`${options.basepath}/${basefilename}.${options.mode ?? "out"}${options.extension}`, [ overridedata := StringToBlob(result) ]);
+  DELETE FROM finalvalidation.warnings WHERE line IN options.ignorewarninglines;
+
+  IF(Length(finalvalidation.errors) > 0 OR Length(finalvalidation.warnings) > 0)
+  {
+    Print(`Rewrite of ${basefilename} failed due to validation errors.\n${RepeatText("-",76)}\nOriginal:\n`);
+    SendBlobTo(0,indata);
+    Print(`\nRewritten version (mode = ${options.mode ?? "default"}):\n`);
+    Print(result || "\n\n");
+    PrintValidationMessages(finalvalidation);
+    ABORT();
+  }
+
+  //it validated, now test for EQ
+  STRING expectedtext := BlobToString(expecteddata);
+  IF(expectedtext != result)
+  {
+    Print(`Rewrite of ${basefilename} gave unexpected results.\n${RepeatText("-",76)}\nExpected:\n`);
+    SendBlobTo(0, expecteddata);
+    Print("\nGot:\n");
+    Print(result || "\n\n");
+    Print(SimpleTextDiff(expectedtext, result));
+    Print(`^^ Rewrite to ${outputname} gave unexpected results.\n`);
+    ABORT();
+  }
+
+  //re-rewrite it just in case
+  STRING rewriteagain := BlobToString(RewriteFile(rewritepath, StringToBlob(result), CELL[ options.mode, debug := TRUE ]).result);
+  IF(rewriteagain != result)
+  {
+    Print("First rewrite:\n");
+    Print(result||"\n\n");
+    Print("Second rewrite:\n");
+    Print(rewriteagain||"\n\n");
+    Print(SimpleTextDiff(result, rewriteagain));
+    Print(`^^ Re-rewrite altered of ${outputname} gave difrent result (we're not stable!)\n`);
+    ABORT();
+  }
+}
+
+MACRO TestRewriter()
+{
+  TestEq("html\n{\n  margin: 0;\n}\n", BlobToString(RewriteFile("test.css", StringToBlob(`html{margin:0}`)).result));
+  TestEq(`{\n  "a": 42\n}`, BlobToString(RewriteFile("test", StringToBlob(`\xEF\xBB\xBF{a:42}`)).result));
+  TestEq(`HSON:\n+RECORD\n +A: 42\n`, BlobToString(RewriteFile("test", EncodeHSONBlob([a:=42])).result));
+  TestEq(`<?xml version="1.0" encoding="UTF-8"?>\n<test/>\n`, BlobToString(RewriteFile("test.xml", StringToBlob("<test/>")).result));
+
+  STRING minisiteprofile := `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"><apply><to type="all"/><sitelanguage lang="en"/></apply></siteprofile>`;
+  STRING minisiteprofile_out := `<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
+
+  <apply>
+    <to type="all" />
+    <sitelanguage lang="en" />
+  </apply>
+
+</siteprofile>
+`;
+  TestEq(`${minisiteprofile_out}`, BlobToString(RewriteFile("test.xml", StringToBlob(minisiteprofile)).result));
+}
+
+RunTestFramework([ PTR TestRewriter
+                 , PTR TestRewriteXMLFile("rewriteformcomponents")
+                 , PTR TestRewriteXMLFile("rewritetolliumcomponents")
+                   //the moduletests HAVE to live in the root, or we'd need to hack the core validator code to pretend they are (ie. wh validate should work)
+                 , PTR TestRewriteXMLFile("rewritetest-moduledef", [ basepath := "mod::devkit/" ])
+                 , PTR TestRewriteXMLFile("rewritescreen.basics")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.basics")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.basics", [ mode := "431" ])
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.propertyeditor")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.widgetedit")
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.editfragment", [ ignorewarninglines := [42] ])
+                 , PTR TestRewriteXMLFile("rewritescreen.wrddemo")
+                 , PTR TestRewriteXMLFile("rewriteformdefs.basics")
+                 , PTR TestRewriteXMLFile("rewritewrdschema.basics")
+                 , PTR TestRewriteXMLFile("rewritecustomxsd", [ extension := ".xsd" ])
+                 ]);

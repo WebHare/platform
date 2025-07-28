@@ -1,0 +1,144 @@
+<?wh
+
+// Minimze the loadlibs by this script, so it will also function to translate core library paths
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/validation.whlib";
+
+OBJECT compilebrowser;
+
+MACRO EnsurePrimary()
+{
+  IF (NOT HavePrimaryTransaction())
+    OpenPrimary();
+}
+
+PUBLIC RECORD FUNCTION ReadLibraryLoadlibs(BLOB doc_blob, STRING resourcename)
+{
+  IF (resourcename LIKE "whfs::*" OR resourcename LIKE "site::*")
+    THROW NEW Exception("Validation of HareScript code in the Publisher is no longer supported - future versions of WebHare will remove support for WHFS/site HareScript code completely!");
+
+  INTEGER compilerport := GetWebHareConfiguration().baseport + 1;
+
+  IF(NOT ObjectExists(compilebrowser))
+    compilebrowser := MakeObject("wh::internet/webbrowser.whlib", "WebBrowser");
+  BOOLEAN res := compilebrowser->PostWebPageBlob("http://127.0.0.1:"||compilerport||"/sourceloadlibs/" || EncodeURL(resourcename), DEFAULT RECORD ARRAY, doc_blob);
+  IF (NOT res)
+    THROW NEW Exception("Could not contact compile server");
+
+  RECORD ARRAY loadlibs;
+  FOREVERY (STRING line FROM Tokenize(BlobToString(compilebrowser->content), "\n"))
+  {
+    IF (line = "")
+      CONTINUE;
+
+    STRING ARRAY parts := Tokenize(line || "\t\t", "\t");
+    INSERT
+        [ name := parts[0]
+        , line := ToInteger(parts[1], 1)
+        , col := ToInteger(parts[2], 1)
+        ] INTO loadlibs AT END;
+  }
+
+  RETURN CELL[ loadlibs ];
+}
+
+
+RECORD FUNCTION GenerateValidationResult(RECORD result, RECORD options)
+{
+   RECORD msgstructure := [resourcename := ""];
+   result := EnforceStructure(CELL[ errors := [msgstructure], warnings := [msgstructure], hints := [msgstructure]], result);
+   RETURN [ messages :=
+                (SELECT iserror :=    TRUE
+                      , iswarning :=  FALSE
+                      , ishint :=     FALSE
+                      , filename :=   resourcename
+                      , line
+                      , col
+                      , code :=       COLUMN source = "harescript" ? metadata.code : 0
+                      , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
+                      , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
+                      , message
+                      , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
+                  FROM result.errors) CONCAT
+                (SELECT iserror :=    FALSE
+                      , iswarning :=  TRUE
+                      , ishint :=     NOT options.separatehints
+                      , filename :=   resourcename
+                      , line
+                      , col
+                      , code :=       COLUMN source = "harescript" ? metadata.code : 0
+                      , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
+                      , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
+                      , message
+                      , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
+                  FROM result.warnings) CONCAT
+                (SELECT iserror :=    FALSE
+                      , iswarning :=  NOT options.separatehints
+                      , ishint :=     options.separatehints
+                      , filename :=   resourcename
+                      , line
+                      , col
+                      , code :=       COLUMN source = "harescript" ? metadata.code : 0
+                      , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
+                      , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
+                      , message
+                      , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
+                  FROM result.hints)
+        ];
+}
+
+/** Validates HareScript source
+    @param liburi URI of the source file
+    @param source Source data
+    @param options (none just yet)
+    @cell options.documentation Whether to validate documentation too
+    @return List of errors and warnings
+    @cell return.iserror Whether this record contains an error
+    @cell return.iswarning Whether this record contains a warning
+    @cell return.filename Relevant filename
+    @cell return.line Line number
+    @cell return.col Column number
+    @cell return.code Message code
+    @cell return.msg1 Message parameter 1
+    @cell return.msg2 Message parameter 2
+    @cell return.message Error/warning message
+*/
+PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := CELL
+      [ separatehints :=    FALSE
+      , ...options
+      ];
+
+  EnsurePrimary();
+  TRY
+  {
+    RECORD result := ValidateSingleFileAdHoc(liburi, CELL[ overridedata := source ]);
+    RETURN GenerateValidationResult(result,options);
+  }
+  CATCH (OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN GenerateValidationResult(CELL [
+       errors := [[ source := "internal-exception", line := 1, col := 0, filename := liburi, message := "Internal exception: " || e->what ]]
+    ],options);
+  }
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetHarescriptSourceLoadlibs(STRING liburi, BLOB source, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  EnsurePrimary();
+  RECORD result := ReadLibraryLoadlibs(source, liburi);
+  // Remove internal system libraries
+  RETURN
+      SELECT *
+        FROM result.loadlibs
+       WHERE name NOT IN [ "wh::system.whlib", "wh::internal/hsservices.whlib", "mod::system/lib/internal/harescript/preload.whlib" ];
+}

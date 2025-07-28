@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:html="http://www.w3.org/1999/xhtml" xml:lang="en">
+  <textgroup gid="testtids">   <!-- testtids -->
+    <textgroup gid="gid1">   <!-- testtids.gid1 -->
+      <textgroup gid="gid2">   <!-- testtids.gid1.gid2 -->
+        <text tid="link">link</text>
+        <text tid="subtitle">subtitle</text>
+        <text tid="title">title</text>
+      </textgroup>
+    </textgroup>
+  </textgroup>
+</language>
