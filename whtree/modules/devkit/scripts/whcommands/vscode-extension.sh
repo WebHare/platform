@@ -23,7 +23,8 @@ function bundle_extension()
 }
 
 if [ "$1" == "compile" ]; then
-  package_exbundle_extension  exit 0
+  bundle_extension
+  exit 0
 fi
 
 if [ "$1" == "install" ]; then
@@ -31,7 +32,7 @@ if [ "$1" == "install" ]; then
     die "'code' not found in path. Is VSCode installed?"
   fi
 
-  package_exbundle_extension
+  bundle_extension
   PACKAGENAME="$(mktemp).vsix"
   node_modules/.bin/vsce package --no-dependencies -o "$PACKAGENAME"
   code --install-extension "$PACKAGENAME"
