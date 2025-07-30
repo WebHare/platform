@@ -15,7 +15,7 @@
           <heading name="availabilitybox" />
           <datetime name="creationdate"
                     type="datetime"
-                    precision="minutes"
+                    precision="milliseconds"
                     required="true"
                     storeutc="true"
                     tid=".available_since" />
@@ -31,11 +31,10 @@
             <radiobutton group="limitdatesetting" onset="onlimitdateset" rowkey="limitdate_date" title="" />
 
             <!-- FIXME: Want to do without title="", but it crashes tollium: "Child not inside the panel is trying to replace itself" -->
-            <datetime name="limitdate" type="datetime" precision="minutes" storeutc="true" title="" />
+            <datetime name="limitdate" type="datetime" precision="milliseconds" storeutc="true" title="" />
           </line>
         </tab>
         <tab name="fields" />
-        <tab name="history" />
         <tab name="linkcheck" layout="left">
           <includefragment name="objectreport" fragment="consilio:report.objectreport" />
         </tab>

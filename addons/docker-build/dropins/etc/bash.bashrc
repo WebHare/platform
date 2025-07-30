@@ -4,29 +4,26 @@
 # To enable the settings / commands in this file for login shells as well,
 # this file has to be sourced in /etc/profile.
 
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
+# If not running interactively, don't do anything
+[ -z "$PS1" ] && exit 0
 
-  # If not running interactively, don't do anything
-  [ -z "$PS1" ] && return
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
 
-  # check the window size after each command and, if necessary,
-  # update the values of LINES and COLUMNS.
-  shopt -s checkwinsize
+#Add MS SQL tools to the path (may not exist though, depending on how you built the container)
+export PATH="$PATH:/opt/mssql-tools/bin"
 
-  #Add MS SQL tools to the path (may not exist though, depending on how you built the container)
-  export PATH="$PATH:/opt/mssql-tools/bin"
+# Disconnect after 15 minutes of inactivity
+TMOUT=900
 
-  # Disconnect after 15 seconds of inactivity
-  TMOUT=900
-
-  # Install 'wh' shortcuts and tab completions
-  # shellcheck disable=SC2046 # disables word split warning
-  eval $(/opt/wh/whtree/bin/wh setupmyshell)
-fi
+# Install 'wh' shortcuts and tab completions
+# shellcheck disable=SC2046 # disables word split warning
+eval $(/opt/wh/whtree/bin/wh setupmyshell)
 
 # History configuration
-## Save 500 lines of history in memory
-export HISTSIZE=500
+## Save 10,000 lines of history in memory
+export HISTSIZE=10000
 ## Save 2,000,000 lines of history to disk
 export HISTFILESIZE=2000000
 ## Append to history instead of overwrite
@@ -37,6 +34,12 @@ shopt -s cmdhist
 export HISTCONTROL=
 ## Set time format
 export HISTTIMEFORMAT='%F %T '
+
+# Makes up/down autocomplete partial commands in history
+## arrow up
+bind '"\e[A":history-search-backward'
+## arrow down
+bind '"\e[B":history-search-forward'
 
 # Set prompt - we overwrote bashrc so it's our problem now
 # NOTE: only gnu understands `hostname --short``, Mac needs `-s`
