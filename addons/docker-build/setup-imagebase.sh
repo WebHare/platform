@@ -169,26 +169,3 @@ if ! pstree ; then
   echo "Missing pstree"
   exit 1
 fi
-
-if [ "$(uname -m)" == "aarch64" ]; then
-  ## Install chromium
-  #npx @puppeteer/browsers install chrome@stable
-#
-true #no chromium now
- # CHROMEVERSION="$(/usr/bin/chromium-browser --version |cut -d' ' -f3)"
-else
-  # Install chrome. Looks like we can also find versions here: https://github.com/ulixee/chrome-versions/blob/main/versions.json
-  #CHROMEVERSION=current
-  CHROMEVERSION=135.0.7049.114-1
-  curl --output /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROMEVERSION}_amd64.deb
-  apt-get install -y /tmp/chrome.deb
-  rm /tmp/chrome.deb
-
-  CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
-  CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
-  REQUIRECHROMEMAJOR=108
-  if (( CHROMEMAJOR < REQUIRECHROMEMAJOR )) ; then
-    echo "We picked up a too old Chrome version. Required $REQUIRECHROMEMAJOR got $CHROMEMAJOR ($CHROMEVERSION)"
-    exit 1
-  fi
-fi
