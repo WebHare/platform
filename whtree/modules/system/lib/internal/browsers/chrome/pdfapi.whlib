@@ -351,7 +351,6 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
       BLOB pdf := AWAIT this->page->PDF(finaloptions);
       RETURN CELL[ pdf
                  , log := ArraySlice(this->logevents, logpos)
-                 , ifdoneresult := AWAIT this->InvokeIfDone(options.invokeifdone)
                  ];
     }
     FINALLY

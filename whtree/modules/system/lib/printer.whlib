@@ -45,20 +45,17 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     @cell(boolean) options.displayheaderfooter Display header and footer. Defaults to FALSE
     @cell(string) options.headertemplate Header template HTML code
     @cell(string) options.footertemplate Header template HTML code
-    @cell(string) options.invokeifdone Function to invoke when rendering is done
     @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
-    @return Wrapped file containing the PDF (or ZIP, if getsource is used). if 'getlog' is used, the wrapped file wil be in the "PDF" member
+    @return Wrapped file containing the PDF
 */
 PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[])
 {
   options := ValidateOptions([ filename := ""
-                             , getlog := FALSE
                              , pdfengine := "chrome"
                              , wittypath := ""
                              , debug := FALSE
                              , printbackground := TRUE
                              , media := "screen"
-                             , getsource := FALSE
                              , delay := 0
                              , lookupresource := DEFAULT FUNCTION PTR
                              , displayheaderfooter := FALSE
@@ -66,8 +63,6 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                              , footertemplate := ""
                              , margin := DEFAULT RECORD
                              , timeout := 30 * 1000
-                             , devtoolsurl := ""
-                             , invokeifdone := ""
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
@@ -77,7 +72,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
     THROW NEW Exception(`Wittypath was not explicitly specified and not passed as part of the data record either`);
 
   STRING wittypath := options.wittypath ?? data.wittypath;
-  STRING extension := options.getsource ? ".zip" : ".pdf";
+  STRING extension := ".pdf";
   IF(options.filename = "")
   {
     options.filename := GetSafeFileName(GetNameFromPath(wittypath)) || extension;
@@ -91,44 +86,25 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
   {
     OBJECT pdfgenerator := NEW ChromePDFAPI(CELL[ options.debug
                                                 , options.printbackground
-                                                , options.devtoolsurl
                                                 ]);
     pdfgenerator->LoadRichBody(wittypath,"text/html");
     pdfgenerator->mergerecord := data;
     pdfgenerator->lookupresource := options.lookupresource;
 
     BLOB filedata;
-    RECORD ARRAY log;
-    VARIANT ifdoneresult := DEFAULT RECORD;
-    IF(options.getsource)
-    {
-      filedata := pdfgenerator->GenerateSource();
-    }
-    ELSE
-    {
-      RECORD result := WaitForPromise(
-                    WrapPromiseInTimeout(
-                      pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
-                                                    , options.headertemplate
-                                                    , options.footertemplate
-                                                    , options.margin
-                                                    , options.delay
-                                                    , options.invokeifdone
-                                                    ]), options.timeout));
-      filedata := result.pdf;
-      log := result.log;
-      ifdoneresult := result.ifdoneresult;
-    }
 
-    RECORD pdf := WrapBlob(filedata, options.filename);
-    IF(NOT options.getlog)
-      RETURN pdf;
+    RECORD result := WaitForPromise(
+                  WrapPromiseInTimeout(
+                    pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
+                                                  , options.headertemplate
+                                                  , options.footertemplate
+                                                  , options.margin
+                                                  , options.delay
+                                                  ]), options.timeout));
+    filedata := result.pdf;
 
-    RETURN CELL[ pdf
-               , log
-               , ifdoneresult
-               ];
-  }
+    RETURN WrapBlob(filedata, options.filename);
+ }
 
   THROW NEW Exception("GeneratePDF failed");
 }
@@ -141,10 +117,7 @@ RECORD FUNCTION __GeneratePDFFrom(STRING link, RECORD options)
                                  , filename := "output.pdf"
                                  , delay := 0
                                  , timeout := 30 * 1000
-                                 , cookies := RECORD[]
                                  , embeddedfiles := RECORD[]
-                                 , getlog := FALSE
-                                 , invokeifdone := ""
                                  ], options, [ enums := [ pdfengine := ["chrome"]
                                                         , media := ["print","screen"]
                                                         ]
@@ -155,18 +128,12 @@ RECORD FUNCTION __GeneratePDFFrom(STRING link, RECORD options)
   OBJECT pdfgen := NEW ChromePDFAPI();
   RECORD result := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, CELL
       [ ...options
-      , DELETE getlog
       , DELETE filename
       , DELETE pdfengine
       , DELETE timeout
       ]), options.timeout));
   RECORD pdf := WrapBlob(result.pdf, options.filename);
-  IF(NOT options.getlog)
-    RETURN pdf;
-
-  RETURN CELL[ pdf
-             , result.log
-             ];
+  RETURN pdf;
 }
 
 /** @short Generate a PDF from a URL
