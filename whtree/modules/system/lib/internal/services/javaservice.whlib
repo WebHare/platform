@@ -1,12 +1,16 @@
 <?wh
 
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 
 
 // https://pdfbox.apache.org/2.0/commandline.html
 PUBLIC RECORD FUNCTION RunJavaServiceApp(STRING ARRAY jar_and_args)
 {
+  IF(IsWasm())
+    RETURN CallJS("./javaservice.ts#runJavaServiceApp", jar_and_args);
+
   STRING app;
   FOREVERY(STRING javapath FROM [ "/opt/homebrew/opt/openjdk/bin/java" //Homebrew macOS on arm
                                 , "/usr/local/opt/openjdk/bin/java" //Homebrew macOs on x86
@@ -44,4 +48,3 @@ PUBLIC RECORD FUNCTION RunJavaServiceApp(STRING ARRAY jar_and_args)
          , exitcode := exitcode
          ];
 }
-
