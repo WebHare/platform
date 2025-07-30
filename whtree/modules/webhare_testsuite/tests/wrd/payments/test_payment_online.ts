@@ -1,10 +1,5 @@
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-system/js/wh/testframework';
-// import * as dompack from 'dompack';
-
-// let testemail = Math.floor(100000000*Math.random()) + '-testformfile-online+jstest@beta.webhare.net';
-let setupdata;
+let setupdata: any;
 
 test.runTests(
   [
@@ -17,13 +12,13 @@ test.runTests(
     async function () {
       //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jopie");
-      test.assert(test.qS(`[name="pm.paymentmethod"]`).checked);
+      test.assert(test.qR(`[name="pm.paymentmethod"]`).checked);
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
 
       test.click("[type=submit]");
       await test.wait('ui');
       await test.wait('load');
-      test.eq("42.42", test.qS(".paymentamount").textContent);
+      test.eq("42.42", test.qR(".paymentamount").textContent);
       test.eq("Test provider payment page", test.getDoc().title, "Some tests verify the page's title to know they're in the right place");
       await test.click("#rejectpayment");
       await test.wait('load');
@@ -48,13 +43,13 @@ test.runTests(
       await test.load(setupdata.url);
       //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jaapie");
-      test.assert(test.qS(`[name="pm.paymentmethod"]`).checked);
+      test.assert(test.qR(`[name="pm.paymentmethod"]`).checked);
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
 
       test.click("[type=submit]");
       await test.wait('ui');
       await test.wait('load');
-      test.eq("42.42", test.qS(".paymentamount").textContent);
+      test.eq("42.42", test.qR(".paymentamount").textContent);
       await test.click("#pendingpayment");
       await test.wait('load');
 
@@ -78,7 +73,7 @@ test.runTests(
       await test.wait('ui');
 
       await test.wait('load');
-      test.eq("1.55", test.qS(".paymentamount").textContent);
+      test.eq("1.55", test.qR(".paymentamount").textContent);
 
       await test.click("#notifyapprovepayment");
       await test.wait('load');
@@ -111,7 +106,7 @@ test.runTests(
       await test.wait('ui');
 
       await test.wait('load');
-      test.eq("1.55", test.qS(".paymentamount").textContent);
+      test.eq("1.55", test.qR(".paymentamount").textContent);
 
       await test.click("#notifyrejectpayment");
       await test.wait('load');
@@ -152,7 +147,7 @@ test.runTests(
       await test.wait('ui');
 
       await test.wait('load');
-      test.eq("1.55", test.qS(".paymentamount").textContent);
+      test.eq("1.55", test.qR(".paymentamount").textContent);
 
       await test.click("#notifyrejectpayment");
       await test.wait('load');
@@ -186,7 +181,7 @@ test.runTests(
       test.click("[type=submit]");
 
       await test.wait('load');
-      test.eq("40.00", test.qS(".paymentamount").textContent);
+      test.eq("40.00", test.qR(".paymentamount").textContent);
 
       await test.click("#approvepayment"); //approving it anyway! CCs can do this, rejecting first and then approving ANYWAY
       await test.wait('load');

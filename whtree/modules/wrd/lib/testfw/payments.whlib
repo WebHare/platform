@@ -17,7 +17,7 @@ PUBLIC RECORD FUNCTION CompleteWRDTestpayment2(STRING payurl, STRING approvetype
 {
   options := ValidateOptions([ cardissuer := "", cardnumber := ""], options);
   payurl := ResolveToAbsoluteURL(GetPrimaryWebhareInterfaceURL(), payurl);
-  RETURN WaitForPromise(ImportJS("./payments.ts")->pushWRDTestPaymentButton(payurl, approvetype, options));
+  RETURN CallJS("./payments.ts#pushWRDTestPaymentButton", payurl, approvetype, options);
 }
 
 PUBLIC MACRO CompleteWRDTestpayment(STRING payurl, STRING approvetype)

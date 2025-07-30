@@ -5,11 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
@@ -728,7 +724,6 @@ MACRO TestPaymentOptions()
 ASYNC MACRO TestFailedPaymentSucceeding()
 {
   // Test a payment that is first notified as failed, then returns as completed
-
   testfw->BeginWork();
 
   OBJECT pm_4 := testfw->wrdschema->^payprov->CreateEntity(
@@ -745,47 +740,27 @@ ASYNC MACRO TestFailedPaymentSucceeding()
 
   testfw->CommitWork();
 
-  RECORD paymentinstruction := paymentapi->StartPayment(pd5->id, 16.61m, [ paymentmethodtag := opts[END - 2].paymentmethodtag]);
+  RECORD paymentinstruction := paymentapi->StartPayment(pd5->id, 16.61m, [ returnurl := GetWRDTestPaymentReturnURL(paymentapi) , paymentmethodtag := opts[END - 2].paymentmethodtag]);
   STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
-
-  OBJECT runner :=  WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
-  RECORD session := AWAIT runner->CreateSession();
-  OBJECT connector := NEW ChromeConnector(session.connectorurl, [ debug := TRUE ]);
-  OBJECT conn := AWAIT connector->ConnectToSession(session);
-  OBJECT pageobj := NEW Page(conn);
-  OBJECT navwatcher := NEW NavigationWatcher(conn);
-  OBJECT pageloadwaiter;
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       ], pd5->GetField("LOG").entries, "*");
 
-  AWAIT pageobj->Init();
-  AWAIT pageobj->Navigate(payurl);
-
-  // Send a notification with rejection
-  pageloadwaiter := navwatcher->WaitForNavigation();
-  AWAIT (AWAIT WaitForChromeElement(conn, pageobj, "#notifyrejectpayment"))->Click();
-  //we'll be redirected..
-  AWAIT pageloadwaiter;
+  CompleteWRDTestpayment2(payurl, "notifyrejectpayment");
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
 
-  pageloadwaiter := navwatcher->WaitForNavigation();
-  AWAIT (AWAIT WaitForChromeElement(conn, pageobj, "#approvepayment"))->Click();
-  //we'll be redirected..
-  AWAIT pageloadwaiter;
+  CompleteWRDTestpayment2(payurl, "approved");
 
   TestEqMembers(
       [ [ status := "pending", type := "onpaymentstarted" ]
       , [ status := "failed", type := "onpaymentfinalized" ]
       , [ status := "approved", type := "onpaymentfinalized" ]
       ], pd5->GetField("LOG").entries, "*");
-
-  runner->CloseService();
 }
 
 ASYNC MACRO TestDashboard()
