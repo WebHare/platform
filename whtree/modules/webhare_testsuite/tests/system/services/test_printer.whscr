@@ -87,13 +87,9 @@ MACRO TestPDFs()
   RECORD result := GeneratePDF( [ body := PTR Print(doc)
                                 , wittypath := "inline::[body]"
                                 ], [ printbackground := FALSE
-                                   , invokeifdone := "onPDFDone"
-                                   , getlog := TRUE
                                    ]);
 
-  TestEq("printertest: I'm here!", result.ifdoneresult);
-
-  RECORD ARRAY images := ExportPDFToImages(result.pdf.data);
+  RECORD ARRAY images := ExportPDFToImages(result.data);
 
   TestEq(1,Length(images));
   Testeq("page-1.jpg", images[0].filename); //pdfbox upgrade from 2.0.8/.11 to 20.0.21 slightly changed screenshot sizes  TODO drop resizeimgifneeded again
@@ -106,7 +102,7 @@ MACRO TestPDFs()
   images := ExportPDFToImages(result2.data);
   testfw->CompareWithImage(images[0].data, Resolve("testdata/background.png"), [ maxmse := 25, resizeimgifneeded := TRUE ]);
 
-  BLOB final := ApplyOverlayToPDF(result.pdf.data, result2.data);
+  BLOB final := ApplyOverlayToPDF(result.data, result2.data);
   images := ExportPDFToImages(final);
   testfw->CompareWithImage(images[0].data, Resolve("testdata/merged.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 
@@ -114,10 +110,10 @@ MACRO TestPDFs()
   TestThrowsLike("Empty PDF*", PTR ConcatenatePDFs(BLOB[]));
 
   //test identity concat
-  BLOB collection := ConcatenatePDFs(BLOB[result.pdf.data]);
-  Testeq(collection, result.pdf.data);
+  BLOB collection := ConcatenatePDFs(BLOB[result.data]);
+  Testeq(collection, result.data);
 
-  collection := ConcatenatePDFs(BLOB[result.pdf.data,result2.data,result.pdf.data,result2.data,result.pdf.data,result2.data,result.pdf.data,result2.data,result.pdf.data,result2.data,result.pdf.data,result2.data]);
+  collection := ConcatenatePDFs(BLOB[result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data,result.data,result2.data]);
   images := ExportPDFToImages(collection);
 
   Testeq(12,Length(images));

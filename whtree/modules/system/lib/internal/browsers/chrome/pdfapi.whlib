@@ -1,19 +1,15 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::graphics/core.whlib";
-LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
-LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/networking/adhocserver.whlib";
 LOADLIB "mod::system/lib/internal/composer.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
-LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
+
 
 // All sizes (width, height, margin.top, margin.left, margin.right and margin.bottom) can be specified as either a number of
 // pixels (@96dpi) or string value with a "px", "in", "cm" or "mm" unit.
@@ -69,55 +65,6 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
                                     , [ notypecheck := [ "width", "height" ] ]);
   }
 
-  UPDATE ASYNC MACRO StartSession()
-  {
-    // reusing the session doesn't work for now
-    AWAIT this->DiscardSession();
-
-    IF (NOT RecordExists(this->session))
-    {
-      IF (NOT ObjectExists(this->runner))
-        IF(this->options.devtoolsurl != "")
-        {
-          this->connector := NEW ChromeConnector(this->options.devtoolsurl, [ debug := this->options.debug ]);
-          this->session := AWAIT this->connector->NewSession();
-        }
-        ELSE
-        {
-          this->runner := WaitForPromise(OpenWebHareService("system:chromeheadlessrunner"));
-          this->session := AWAIT this->runner->CreateSession();
-          this->connector := NEW ChromeConnector(this->session.connectorurl, [ debug := this->options.debug ]);
-        }
-
-      this->conn := AWAIT this->connector->ConnectToSession(this->session);
-
-      this->page := NEW Page(this->conn);
-      this->page->AddListener("Page.Events.ConsoleRaw", PTR this->AddToLog(#1));
-      this->page->AddListener("Page.Events.ExceptionThrown", PTR this->AddExceptionToLog(#1));
-      AWAIT this->page->Init();
-    }
-  }
-
-  MACRO AddToLog(RECORD evt)
-  {
-    INSERT FormatChromeConsoleEntry(evt) INTO this->logevents AT END;
-  }
-
-  MACRO AddExceptionToLog(RECORD evt)
-  {
-    INSERT FormatChromeExceptionEntry(evt) INTO this->logevents AT END;
-  }
-
-  UPDATE ASYNC MACRO DiscardSession()
-  {
-    IF (RecordExists(this->session))
-    {
-      IF (ObjectExists(this->runner))
-        this->runner->CloseSession(this->session.id);
-      this->session := DEFAULT RECORD;
-    }
-  }
-
   UPDATE STRING FUNCTION DoAddEmbeddedObject(BLOB data, STRING mimetype, STRING filename, BOOLEAN external)
   {
     STRING outname := `embedded${Length(this->embedded_files)+1}${GetExtensionFromPath(filename)}`;
@@ -139,14 +86,17 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     STRING styleinfo;
     this->embedded_fonts := RECORD[];
 
-    FOREVERY(RECORD font FROM (SELECT * FROM GfxGetAvailableFonts() ORDER BY family,style))
-    {
-      RECORD css := GfxGetFontCSSCode(font);
-      IF(NOT RecordExists(css))
-        CONTINUE;
+    IF(NOT IsWasm()) {
+      FOREVERY(RECORD font FROM (SELECT * FROM GfxGetAvailableFonts() ORDER BY family,style))  {
+        RECORD css := GfxGetFontCSSCode(font);
+        IF(NOT RecordExists(css))
+          CONTINUE;
 
-      styleinfo := styleinfo || css.csstext;
-      INSERT font INTO this->embedded_fonts AT END;
+        styleinfo := styleinfo || css.csstext;
+        INSERT font INTO this->embedded_fonts AT END;
+      }
+    } ELSE {
+      styleinfo := '/* Font listing not available in wasm */\n';
     }
     stylenode->AppendChild(htmldoc->CreateCDATASection(styleinfo));
 
@@ -154,45 +104,6 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     htmlversion := NEW HTMLRewriterContext->GenerateHTML(htmldoc);
 
     this->htmlversion := htmlversion;
-  }
-
-  ASYNC FUNCTION ParsePageOptions()
-  {
-    RECORD options := this->options;
-
-    //Read options from HTML
-    FOREVERY (STRING prop FROM [ "top", "left", "right", "bottom" ])
-    {
-      TRY
-      {
-        STRING val := AWAIT this->page->"$eval"(`meta[name=wh-chromepdf-margin-${prop}]`, `element => { return element.getAttribute("value"); }`);
-        IF (CellExists(options.margin, "prop"))
-          options.margin := CellUpdate(options.margin, prop, val);
-        ELSE
-          options.margin := CellInsert(options.margin, prop, val);
-      }
-      CATCH; // $eval throws if the selector didn't match an element
-    }
-    FOREVERY (STRING prop FROM [ "format", "width", "height" ])
-    {
-      TRY
-      {
-        STRING val := AWAIT this->page->"$eval"(`meta[name=wh-chromepdf-${prop}]`, `element => { return element.getAttribute("value"); }`);
-        options := CellUpdate(options, prop, val);
-      }
-      CATCH; // $eval throws if the selector didn't match an element
-    }
-    FOREVERY (STRING prop FROM [ "headertemplate", "footertemplate" ])
-    {
-      TRY
-      {
-        STRING val := AWAIT this->page->"$eval"(`template[name=wh-chromepdf-${prop}]`, `element => { return element.innerHTML; }`);
-        options := CellUpdate(options, prop, val);
-      }
-      CATCH; // $eval throws if the selector didn't match an element
-    }
-
-    RETURN options;
   }
 
   RECORD ARRAY FUNCTION GetFileList(BLOB data)
@@ -258,42 +169,6 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN AWAIT this->GeneratePDFInternal(DEFAULT BLOB, options);
   }
 
-  PUBLIC BLOB FUNCTION GenerateSource()
-  {
-    this->PrepareHTMLVersion();
-
-    RECORD ARRAY filelist := this->GetFileList(DEFAULT BLOB);
-    IF(Length(filelist) = 0)
-      RETURN DEFAULT BLOB;
-
-    OBJECT arc := CreateNewArchive("zip");
-    DATETIME now := GetCurrentDateTime();
-    FOREVERY(RECORD file FROM filelist)
-      arc->AddFile(file.path = "/.contents" ? "/contents.html" : file.path, file.data, now);
-
-    BLOB result := arc->MakeBlob();
-    arc->Close();
-    RETURN result;
-  }
-
-  ASYNC FUNCTION GotoThePage(STRING url, RECORD options)
-  {
-    AWAIT this->StartSession();
-    AWAIT this->page->setCacheEnable(FALSE);
-
-    IF(CellExists(options,'cookies'))
-      FOREVERY(RECORD cookie FROM options.cookies)
-        AWAIT this->conn->^Network->^setCookie([ name := cookie.name, value := cookie.value, url := ResolveToAbsoluteURL(url,"/"), path := "/" ]);
-
-    AWAIT this->page->Navigate(url); //FIXME  this seems to early to properly apply 'media' changes in ->PDF/->Screenshot... we should initialize with the proper media!
-
-    //FIXME wait for domready or load or something like that before we delay?
-    IF(CellExists(options,'delay'))
-      Sleep(options.delay);
-
-    RETURN CELL[...options, DELETE cookies, DELETE delay];
-  }
-
   PUBLIC ASYNC FUNCTION GeneratePDFFrom(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->embedded_files := options.embeddedfiles;
@@ -301,62 +176,10 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     RETURN this->GeneratePDFFromURL(url, options);
   }
 
-  ASYNC FUNCTION InvokeIfDone(STRING ifdone)
-  {
-    IF(ifdone = "")
-      RETURN DEFAULT RECORD;
-
-    //We can't truly wait for a promise (and it might be easier to just rewrite ourselves to JS as we'll do that at some point anwyway first) so poll
-    AWAIT this->page->Evaluate(`window.__invokeifdoneresult = null; Promise.resolve(window["${EncodeJava(ifdone)}"]()).then( function(result) { window.__invokeifdoneresult = { result } });`);
-
-    DATETIME deadline := AddTimeToDate(15000, GetCurrentDatetime()); //TODO honor page delay or separate delay for invoke
-    WHILE(TRUE)
-    {
-      RECORD res := AWAIT this->page->Evaluate(`window.__invokeifdoneresult`);
-      IF(RecordExists(res))
-        RETURN res.result;
-
-      IF(GetCurrentDatetime() > deadline)
-        THROW NEW Exception(`The InvokeIfDone callback did not complete in time`);
-
-      Sleep(100);
-    }
-  }
-
-  PUBLIC ASYNC FUNCTION GeneratePDFFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    INTEGER logpos := Length(this->logevents);
-
-    TRY
-    {
-      options := AWAIT this->GotoThePage(url, options);
-
-      RECORD org_this_options := this->options;
-      RECORD pageoptions := AWAIT this->ParsePageOptions();
-      RECORD finaloptions := CELL[ ...pageoptions
-                                 , ...options
-                                 , margin := CELL[ ...pageoptions.margin
-                                                 , ...CellExists(options, "margin") ? options.margin : CELL[]
-                                                 ]
-                                 , DELETE invokeifdone
-                                 ];
-
-      // If the header or footer template was set by the wh-chromepdf-* template tags and are still enabled after the merge, we should display the header/footer
-      IF (org_this_options.headertemplate = "" AND pageoptions.headertemplate != "" AND finaloptions.headertemplate != "")
-        finaloptions.displayheaderfooter := TRUE;
-      IF (org_this_options.footertemplate = "" AND pageoptions.footertemplate != "" AND finaloptions.footertemplate != "")
-        finaloptions.displayheaderfooter := TRUE;
-
-      //https://devdocs.io/puppeteer/index#pagepdfoptions
-      BLOB pdf := AWAIT this->page->PDF(finaloptions);
-      RETURN CELL[ pdf
-                 , log := ArraySlice(this->logevents, logpos)
-                 , ifdoneresult := AWAIT this->InvokeIfDone(options.invokeifdone)
-                 ];
-    }
-    FINALLY
-    {
-      AWAIT this->DiscardSession();
-    }
+  PUBLIC ASYNC FUNCTION GeneratePDFFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD) {
+    // TODO avoid the job, but CallJS is blocking and would block our adhoc server. Once chromeheadlessrunner is a TS service we could just put the generators into that service. Or alternatively replace the adhocserver with something session based
+    STRING res := WaitForPromise(AsyncCallFunctionFromJob("wh::javascript.whlib#CallJS", "mod::platform/js/services/puppeteer.ts#generatePDF", url, options ));
+    RETURN [ pdf := StringToBlob(DecodeBase64(res))
+         ];
   }
 >;
