@@ -72,7 +72,7 @@ testbaselibs:
   script:
     - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external baselibs
 
-testmodules:
+testmodules: # tests both platform modules and the JS SDK (@webhare/..)
   stage: test
   script:
     - addons/docker-build/testdocker.sh --tag=-external checkmodules
