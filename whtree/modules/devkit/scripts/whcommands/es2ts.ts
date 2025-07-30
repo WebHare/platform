@@ -1,16 +1,16 @@
 // @webhare/cli: Convert a module's *.es files to TypeScript (disabling any linting/checking)
 
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { backendConfig, toResourcePath } from "@webhare/services";
+import { backendConfig } from "@webhare/services";
 import { listDirectory, storeDiskFile } from "@webhare/system-tools";
 import { readFile, rename, rm } from "fs/promises";
 import { prepTSHost } from "@webhare//test/src/testsupport";
 import { generateTSConfigTextForModule } from "@mod-system/js/internal/generation/gen_typescript";
 import ts from "typescript/lib/typescript";
-import { handleLintingCommand } from "@mod-system/js/internal/eslint";
 import { simpleGit } from "simple-git";
-import { handleFormattingCommand } from "@mod-system/js/internal/tsfmt";
-import { relative } from "path";
+import { TSFormatter } from "@mod-system/js/internal/tsfmt";
+import { buildRelaxedConfig } from "@webhare/eslint-config";
+import { ESLint } from "eslint";
 
 function containsJSX(file: ts.SourceFile): boolean {
   if (ts.isJsxElement(file) || ts.isJsxSelfClosingElement(file))
@@ -68,7 +68,7 @@ run({
       await storeDiskFile(newPath, code, { overwrite: true });
     }
 
-    console.log("Figuring out which .tsx files can become .ts...");
+    console.log("Compiling .tsx files (to see which .tsx files can become .ts and/or need a @ts-nocheck...)");
     const { program, diagnostics } = await prepTSHost(tsConfigFile, { setFiles: [...output.keys()], ignoreErrors: true });
     const brokenFiles = new Set(diagnostics.map(_ => _.file?.fileName));
 
@@ -93,28 +93,40 @@ run({
     }
 
     console.log("Linting and reformatting the files");
-    for (let [file, code] of [...output.entries()]) {
-      const fixed = await handleLintingCommand(toResourcePath(file), code, true, true);
-      if (fixed.hasfixes)
-        code = Buffer.from(fixed.output, 'base64').toString('utf8'); //handleLintingCommand returns base64 output.
 
-      if (fixed.messages.some(_ => _.fatal))
-        code = '/* eslint-disable */\n' + code;
+    const project = root + "tsconfig.json";
+    const config = buildRelaxedConfig({ project, tsconfigRootDir: root });
+    const formatter = new TSFormatter;
+    const linter = new ESLint({
+      cwd: '/', //without this, we risk "File ignored because outside of base path."
+      overrideConfigFile: true, //needed or eslint will still look for an ondisk file
+      overrideConfig: config,
+      fix: true,
+      allowInlineConfig: true,
+      warnIgnored: true
+    });
 
-      if (opts?.verbose)
-        console.log('- checking ' + relative(root, file));
+    for (let [filePath, code] of [...output.entries()]) {
+      const results = await linter.lintText(code, { filePath });
+      if (results.length < 1)
+        continue; //no results. handleLintingCommand suggests this may be due to the file being ignored, so we'll skip it
 
-      const tsfmtresult = await handleFormattingCommand({ path: file, data: Buffer.from(code, 'utf8').toString('base64') });
-      const tsfmtcode = Buffer.from(tsfmtresult.output, 'base64').toString('utf8');
-      if (tsfmtcode !== code) {
-        const refixed = await handleLintingCommand(toResourcePath(file), tsfmtcode, true, true);
-        if (refixed.hasfixes)
-          code = Buffer.from(refixed.output, 'base64').toString('utf8'); //handleLintingCommand returns base64 output.
+      if (results[0].output !== undefined)
+        code = results[0].output;
+
+      if (results[0].messages.some(_ => _.severity >= 2))
+        code = '/* eslint-disable */\n' + code; //if there are fatal linting errors we disable the checks for now
+
+      const tsfmtresult = formatter.format(filePath, code);
+      if (tsfmtresult !== null && tsfmtresult !== code) {
+        const refix = await linter.lintText(tsfmtresult, { filePath });
+        if (refix[0]?.output)
+          code = refix[0].output;
         else
-          code = tsfmtcode;
+          code = tsfmtresult; //linting didn't change the output, so we can use the tsfmt result
       }
 
-      await storeDiskFile(file, code.trim() + '\n', { overwrite: true });
+      await storeDiskFile(filePath, code.trim() + '\n', { overwrite: true });
     }
 
     //If we get here, it should be safe to remove the es files

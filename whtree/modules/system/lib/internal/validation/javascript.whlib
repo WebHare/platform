@@ -270,19 +270,19 @@ ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
 
   RECORD cmd := CELL
       [ file.path
-      , data :=             EncodeBase64(BlobToString(data))
+      , data :=             BlobToString(data)
       ];
 
   RECORD rec := CallJS("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", cmd);
   BLOB output;
-  IF (rec.output != cmd.data AND rec.error = "" AND autofix)
+  IF (rec.output != cmd.data AND autofix)
   {
     // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
-    RECORD eslintres := AWAIT RunESLint(StringToBlob(DecodeBase64(rec.output)), file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
+    RECORD eslintres := AWAIT RunESLint(StringToBlob(rec.output), file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
     output := eslintres.output;
   }
   ELSE
-    output := StringToBlob(DecodeBase64(rec.output));
+    output := StringToBlob(rec.output);
 
   RETURN CELL
       [ ...file
@@ -327,8 +327,6 @@ PUBLIC ASYNC FUNCTION FormatJavascriptFile(STRING path, BLOB data, RECORD option
   options := ValidateOptions([ autofix := TRUE ], options);
 
   RECORD ARRAY res := AWAIT FormatJavascriptFiles([ CELL[ path, data ] ], options);
-  IF (res[0].error != "")
-    THROW NEW Exception(`Error formatting file: ${res[0].error}`);
   RETURN CELL[ res[0].output ];
 }
 
@@ -382,18 +380,6 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
     FOREVERY (RECORD rec FROM result)
     {
       STRING resourcename := rec.module = "jssdk" ? `direct::${rec.path}` : `mod::${rec.module}/${rec.subpath}`;
-      IF (rec.error != "")
-      {
-        INSERT CELL
-            [ resourcename
-            , line :=         1
-            , col :=          1
-            , message :=      `Formatting file caused an error: ${rec.error}`
-            , category :=     "error"
-            ] INTO retval.issues AT END;
-        CONTINUE;
-
-      }
       BOOLEAN ismatch := BlobToString(rec.output) = BlobToString(rec.data);
       IF (NOT ismatch)
       {
