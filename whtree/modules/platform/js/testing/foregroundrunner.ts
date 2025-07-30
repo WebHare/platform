@@ -99,7 +99,7 @@ async function reportFailure(testinfo: Test, message: string | null, log: LogEnt
   const outbase = `/tmp/jstests/${testinfo.testname}.${new Date().toISOString()}`;
   const logfile = `${outbase}.txt`;
   const jsonlogfile = `${outbase}.json`;
-  const screenshotfile = `${outbase}.png`;
+  const screenshotfile = `${outbase}.png` as const;
 
   console.log(`Test ${testinfo.testname} ${message ? `failed: ${message}` : "completed successfully"}`);
   console.log(`Writing log to ${logfile}`);
