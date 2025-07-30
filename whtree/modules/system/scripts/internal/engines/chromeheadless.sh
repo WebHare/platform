@@ -39,13 +39,18 @@ ARGS="--disable-gpu
       --mute-audio
       --user-data-dir=$PROFILEDIR"
 
+# Find a browser in PUPPETEER_CACHE_DIR first. This one will have proper hyphenations
+BROWSER=$(find "$PUPPETEER_CACHE_DIR" -type f -name chrome | head -n1)
 
-if [ "`uname`" == "Darwin" ]; then
-  BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-elif [ -x /usr/bin/google-chrome ]; then
-  BROWSER="/usr/bin/google-chrome"
-else
-  BROWSER="/usr/bin/chromium-browser"
+if [ -z "$BROWSER" ]; then
+  # If not found, try to find a browser in the system
+  if [ "`uname`" == "Darwin" ]; then
+    BROWSER="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+  elif [ -x /usr/bin/google-chrome ]; then
+    BROWSER="/usr/bin/google-chrome"
+  else
+    BROWSER="/usr/bin/chromium-browser"
+  fi
 fi
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
