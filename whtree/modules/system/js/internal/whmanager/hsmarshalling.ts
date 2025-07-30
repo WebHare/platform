@@ -312,26 +312,31 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       writer.writeU32(msecs);
     } break;
     case HareScriptType.Record: {
-      if (!value)
+      if (!value) {
         writer.writeS32(-1);
-      else {
-        if (path.includes(value as object))
-          throw new Error(`Detected a circular reference`);
-        path.push(value as object);
-
-        const entries = Object.entries(value as object).filter(([, v]) => v !== undefined);// like JSON.stringify we drop undefined values completely
-        writer.writeS32(entries.length);
-        for (const [key, subvalue] of entries) {
-          let columnid = columns.get(key.toUpperCase());
-          if (columnid === undefined) {
-            columnid = columns.size;
-            columns.set(key.toUpperCase(), columnid);
-          }
-          writer.writeU32(columnid);
-          writeMarshalDataInternal(subvalue, writer, columns, blobs, null, path);
-        }
-        path.pop();
+        break;
       }
+
+      // if (getWHType(value) === "ResourceDescriptor") { //we can't load isResourceDescriptor due to cyclic deps. If encodeforMessageTransfer becomes more generic we will need to marshall ResourceDescriptors here for CallJS
+      //   value = __getHareScriptResourceDescriptor(value as ResourceDescriptor);
+      // }
+
+      if (path.includes(value as object))
+        throw new Error(`Detected a circular reference`);
+      path.push(value as object);
+
+      const entries = Object.entries(value as object).filter(([, v]) => v !== undefined);// like JSON.stringify we drop undefined values completely
+      writer.writeS32(entries.length);
+      for (const [key, subvalue] of entries) {
+        let columnid = columns.get(key.toUpperCase());
+        if (columnid === undefined) {
+          columnid = columns.size;
+          columns.set(key.toUpperCase(), columnid);
+        }
+        writer.writeU32(columnid);
+        writeMarshalDataInternal(subvalue, writer, columns, blobs, null, path);
+      }
+      path.pop();
     } break;
     case HareScriptType.Blob: {
       if (!(value as WebHareBlob).size) { //empty blob

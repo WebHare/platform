@@ -2,6 +2,7 @@ import type { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { Money, isBlob, isDate, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "@webhare/std";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "./datetime";
+import type { ResourceDescriptor } from "@webhare/services";
 
 declare global {
   interface Object {
@@ -1272,4 +1273,25 @@ export function decodeHSON(hson: string | Uint8Array | ArrayBuffer | Buffer): IP
   if (res.success)
     return res.value;
   throw new Error(res.msg);
+}
+
+export function getHareScriptResourceDescriptor(value: ResourceDescriptor) {
+  return {
+    hash: value.hash || undefined,
+    mimetype: value.mediaType,
+    extension: value.extension || '',
+    width: value.width || 0,
+    height: value.height || 0,
+    rotation: value.rotation || 0,
+    mirrored: value.mirrored || false,
+    refpoint: value.refPoint || null,
+    dominantcolor: value.dominantColor || 'transparent',
+    filename: value.fileName,
+    data: value.resource,
+    source_fsobject: value.sourceFile || 0,
+    __blobsource: value.dbLoc?.source === 3 ? "w" + value.dbLoc?.id
+      : value.dbLoc?.source === 2 ? "s" + value.dbLoc?.id
+        : value.dbLoc?.source === 1 ? "o" + value.dbLoc?.id
+          : ""
+  };
 }

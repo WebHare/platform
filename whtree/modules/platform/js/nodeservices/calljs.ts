@@ -95,6 +95,7 @@ class CallJSService extends BackendServiceConnection {
     workerPool ??= new RestAPIWorkerPool("CallJSService", 5, 1000);
     return await workerPool.runInWorker(async (worker) => {
       const encodedArgs = await encodeforMessageTransfer(args);
+
       const retval: Awaited<ReturnType<typeof workerHandleCall>>["value"] = await worker.callRemote({
         ref: "@mod-platform/js/nodeservices/calljs.ts#workerHandleCall",
         transferList: encodedArgs.transferList,
@@ -106,6 +107,7 @@ class CallJSService extends BackendServiceConnection {
           ...omit(retval, ["returnValue"]),
         });
       }
+
       return decodeFromMessageTransfer(retval.returnValue);
     });
   }

@@ -1,3 +1,5 @@
+import { getHareScriptResourceDescriptor } from "@webhare/hscompat/hson";
+import { isResourceDescriptor } from "@webhare/services/src/descriptor";
 import { WebHareDiskBlob, WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 import { Money, stdTypeOf } from "@webhare/std";
 import type { TransferListItem } from "node:worker_threads";
@@ -19,44 +21,65 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
   const promises: Array<Promise<void>> = [];
   const transferList: TransferListItem[] = [];
   const retval = runReplacerRecursive(toEncode, (orgValue) => {
-    let value: object | undefined = undefined;
     const type = stdTypeOf(orgValue);
     switch (type) {
       case "Date":
-        value = { "$ipcType": "Date", date: (orgValue as Date).toISOString() };
-        break;
+        return { "$ipcType": "Date", date: (orgValue as Date).toISOString() };
       case "Money":
       case "bigint":
       case "Instant":
       case "PlainDate":
       case "PlainDateTime":
       case "ZonedDateTime":
-        value = { "$ipcType": type, [type.toLowerCase()]: (orgValue as { toString: () => string }).toString() };
-        break;
+        return { "$ipcType": type, [type.toLowerCase()]: (orgValue as { toString: () => string }).toString() };
       case "Blob": {
         if (orgValue instanceof WebHareMemoryBlob) {
           const newBuffer = orgValue.data.buffer.slice(orgValue.data.byteOffset, orgValue.data.byteOffset + orgValue.data.byteLength) as ArrayBuffer;
-          value = {
+          transferList.push(newBuffer);
+          return {
             "$ipcType": "WebHareMemoryBlob",
             type: orgValue.type,
             data: newBuffer
           };
-          transferList.push(newBuffer);
-        } else if (orgValue instanceof WebHareDiskBlob) { //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
-          value = { "$ipcType": "WebHareMemoryBlob", type: (orgValue as Blob).type }; //we'll modify this value when completing the promise
-          const promiseBuffer = (orgValue as Blob).arrayBuffer().then((buffer) => {
-            (value as { "$ipcType": string; data: ArrayBuffer }).data = buffer;
+        } else if (orgValue instanceof WebHareDiskBlob) {
+          //IPC can 't do diskblob:
+          //value = { "$ipcType": "WebHareDiskBlob", type: orgValue.type, path: orgValue.path, size: orgValue.size };
+
+          //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
+          const value = { "$ipcType": "WebHareMemoryBlob", type: orgValue.type, data: undefined as ArrayBuffer | undefined }; //we'll modify this value when completing the promise
+          const promiseBuffer = orgValue.arrayBuffer().then((buffer) => {
+            value.data = buffer;
             transferList.push(buffer);
           });
           promises.push(promiseBuffer);
-        } else throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
+          return value;
+        } else {
+          throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
+        }
       } break;
       case "object":
         if ("$ipcType" in (orgValue as { "$ipcType": string }))
           throw new Error(`Cannot encode objects with already embedded '$ipcType's`);
+
+        if (isResourceDescriptor(orgValue)) { //TODO if we want to use encodeforMessageTransfer more generally than just for CallJS we need to return $ipcType: ResourceDescriptor and properly restore it, and have IPC's writeMarshalDataInternal do the getHareScriptResourceDescriptor call
+          const forhs = getHareScriptResourceDescriptor(orgValue);
+          const value = { ...forhs, data: { "$ipcType": "WebHareMemoryBlob", type: forhs.data.type, data: undefined as ArrayBuffer | undefined } }; //we'll modify this value when completing the promise
+          const promiseBuffer = forhs.data.arrayBuffer().then((buffer) => {
+            value.data.data = buffer;
+            transferList.push(buffer);
+          });
+          promises.push(promiseBuffer);
+          return value;
+        }
+
+        if (Buffer.isBuffer(orgValue)) {
+          const data: ArrayBuffer = orgValue.buffer.slice(orgValue.byteOffset, orgValue.byteOffset + orgValue.byteLength) as ArrayBuffer;
+          transferList.push(data);
+          return { "$ipcType": "Buffer", data };
+        }
     }
     //fallthrough
-    return value;
+    return undefined;
   });
   if (promises.length)
     return Promise.all(promises).then(() => ({ value: retval, transferList }));
@@ -85,8 +108,12 @@ export function decodeFromMessageTransfer(toDecode: unknown): unknown {
         return (globalThis as any).Temporal[value["$ipcType"]].from(value[value["$ipcType"].toLowerCase()]);
       case "WebHareMemoryBlob":
         return new WebHareMemoryBlob(new Uint8Array(value.data), value.type);
+      case "WebHareDiskBlob": //NOTE not yet generated as IPC can't deal with it
+        return new WebHareDiskBlob(value.size as number, value.path as string, { type: value.type as string });
       case "Blob":
         return new Blob([value.data]);
+      case "Buffer":
+        return Buffer.from(value.data as ArrayBuffer);
       case undefined:
         return undefined;
       default:

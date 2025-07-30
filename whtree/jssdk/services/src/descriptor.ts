@@ -1,5 +1,5 @@
 import type { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON, Marshaller, HareScriptType } from "@webhare/hscompat/hson";
+import { encodeHSON, decodeHSON, Marshaller, HareScriptType, getHareScriptResourceDescriptor } from "@webhare/hscompat/hson";
 import { dateToParts } from "@webhare/hscompat/datetime.ts";
 import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
@@ -827,25 +827,7 @@ export class ResourceDescriptor implements ResourceMetaData {
   [Marshaller] = {
     type: HareScriptType.Record,
     setValue: function (this: ResourceDescriptor, value: HSVMVar) {
-      //Bit of an experiment...  allow ResourceDescriptor to convert to Wrapped Blobs when transferred to HareScript
-      value.setJSValue({
-        hash: this.hash || undefined,
-        mimetype: this.mediaType,
-        extension: this.extension || '',
-        width: this.width || 0,
-        height: this.height || 0,
-        rotation: this.rotation || 0,
-        mirrored: this.mirrored || false,
-        refpoint: this.refPoint || null,
-        dominantcolor: this.dominantColor || 'transparent',
-        filename: this.fileName,
-        data: this.resource,
-        source_fsobject: this.sourceFile || 0,
-        __blobsource: this.dbLoc?.source === 3 ? "w" + this.dbLoc?.id
-          : this.dbLoc?.source === 2 ? "s" + this.dbLoc?.id
-            : this.dbLoc?.source === 1 ? "o" + this.dbLoc?.id
-              : ""
-      });
+      value.setJSValue(getHareScriptResourceDescriptor(this));
     }
   };
 
