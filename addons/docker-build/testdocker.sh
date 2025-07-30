@@ -46,7 +46,10 @@ FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
 USEPODMAN=
 
-HOSTTAROPTIONS=(--no-xattrs)
+if ! hash -r apk 2>/dev/null ; then #If alpine we expect busybox and should NOT add --no-xattrs
+  HOSTTAROPTIONS=(--no-xattrs)
+fi
+
 if [ "$(uname)" == "Darwin" ]; then #prevents eg language/._default.xml files
   HOSTTAROPTIONS+=(--disable-copyfile)
 fi
