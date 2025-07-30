@@ -35,7 +35,7 @@ export HISTCONTROL=
 ## Set time format
 export HISTTIMEFORMAT='%F %T '
 
-# Makes up/down autocomlete partial commands in history
+# Makes up/down autocomplete partial commands in history
 ## arrow up
 bind '"\e[A":history-search-backward'
 ## arrow down
