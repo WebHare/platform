@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_xlsx.ts" />
+  <test script="test_ods.ts" />
 </group>
