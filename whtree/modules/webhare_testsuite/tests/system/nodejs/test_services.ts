@@ -5,7 +5,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { importJSFunction, runBackendService } from "@webhare/services";
 import { createVM, type HSVMObject, loadlib, type HSVMWrapper } from "@webhare/harescript";
-import { isTemporalInstant, sleep } from "@webhare/std";
+import { addDuration, isTemporalInstant, sleep } from "@webhare/std";
 import type { ConfigurableSubsystem } from "@mod-platform/js/configure/applyconfig";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import { storeDiskFile } from "@webhare/system-tools";
@@ -544,7 +544,117 @@ async function testLogs() {
       type: 'info'
     }
   ], mynotices);
+
+  {
+    function getLogLine(ms: number, offset: number) {
+      const date = addDuration(test.startTime, { milliseconds: 0 });
+      return {
+        line: `{"@timestamp":"${date.toISOString()}","line":${ms + 1}}\n`,
+        parsed: {
+          "@timestamp": date.toTemporalInstant(),
+          "@id": `A${date.toISOString().split('T')[0].replaceAll("-", "")}:${offset.toString().padStart(15, '0')}`,
+          line: ms + 1
+        },
+      };
+    }
+
+    const logParts = [
+      getLogLine(0, 0),
+      getLogLine(1, 51),
+      getLogLine(2, 102),
+    ];
+
+    const testLog = logParts.map(_ => _.line).join('');
+
+    {
+      const logreader3 = services.readLogLines("webhare_testsuite:test", {
+        start: test.startTime, limit: new Date(Date.now() + 3),
+        content: testLog,
+      });
+      const parsed3 = await gatherAsyncIterable(logreader3);
+      test.eq(logParts.map(_ => _.parsed), parsed3);
+
+      const logreader4 = services.readLogLines("webhare_testsuite:test", {
+        start: test.startTime, limit: new Date(Date.now() + 3),
+        content: testLog,
+        continueAfter: parsed3[0]["@id"],
+      });
+      const parsed4 = await gatherAsyncIterable(logreader4);
+      test.eq(logParts.slice(1).map(_ => _.parsed), parsed4);
+
+      // Test with MiniChunkBlob (streams 1 byte at a time) - no continueAfter
+      const logreader5 = services.readLogLines("webhare_testsuite:test", {
+        start: test.startTime, limit: new Date(Date.now() + 3),
+        content: new MiniChunkBlob(testLog),
+      });
+      const parsed5 = await gatherAsyncIterable(logreader5);
+      test.eq(logParts.map(_ => _.parsed), parsed5);
+
+      // Test with MiniChunkBlob (streams 1 byte at a time) - continueAfter first element
+      const logreader6 = services.readLogLines("webhare_testsuite:test", {
+        start: test.startTime, limit: new Date(Date.now() + 3),
+        content: new MiniChunkBlob(testLog),
+        continueAfter: parsed3[0]["@id"],
+      });
+      const parsed6 = await gatherAsyncIterable(logreader6);
+      test.eq(logParts.slice(1).map(_ => _.parsed), parsed6);
+
+      // Test with MiniChunkBlob (streams 1 byte at a time) - continueAfter second element (with seeking!)
+      const logreader7 = services.readLogLines("webhare_testsuite:test", {
+        start: test.startTime, limit: new Date(Date.now() + 3),
+        content: new MiniChunkBlob(testLog),
+        continueAfter: parsed3[1]["@id"],
+      });
+      const parsed7 = await gatherAsyncIterable(logreader7);
+      test.eq(logParts.slice(2).map(_ => _.parsed), parsed7);
+    }
+  }
 }
+
+async function gatherAsyncIterable<T>(itr: AsyncIterable<T>): Promise<T[]> {
+  const result: T[] = [];
+  for await (const item of itr)
+    result.push(item);
+  return result;
+}
+
+// Blob that streams buffers of 1 byte at a time, useful for testing of chunk boundaries handling
+class MiniChunkBlob implements Blob {
+  data: Uint8Array<ArrayBuffer>;
+  constructor(content: Uint8Array<ArrayBuffer> | string) {
+    this.data = typeof content === "string" ? new TextEncoder().encode(content) as Uint8Array<ArrayBuffer> : content;
+  }
+
+  get size() { return this.data.length; }
+  get type() { return ""; }
+
+  stream(): ReadableStream<Uint8Array> {
+    return new ReadableStream({
+      start: (controller) => {
+        for (const item of this.data)
+          controller.enqueue(new Uint8Array([item]));
+        controller.close();
+      },
+    });
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return this.data.buffer;
+  }
+
+  async bytes(): Promise<Uint8Array> {
+    return this.data.slice();
+  }
+
+  async text(): Promise<string> {
+    return new TextDecoder().decode(this.data);
+  }
+
+  slice(start?: number, end?: number, contentType?: string): Blob {
+    return new MiniChunkBlob(this.data.slice(start, end));
+  }
+}
+
 
 test.runTests(
   [
