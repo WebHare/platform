@@ -6,14 +6,6 @@
     <messagebox name="delete_entity" buttons="yes no" />
     <messagebox name="entity_in_use" buttons="ok" />
     <messagebox name="no_email_column" buttons="ok" />
-    <messagebox name="addressverify_ok" icon="information" buttons="ok" />
-    <messagebox name="addressverify_not_enough_data" icon="error" buttons="ok" />
-    <messagebox name="addressverify_zip_not_found" icon="error" buttons="ok" />
-    <messagebox name="addressverify_address_not_found" icon="error" buttons="ok" />
-    <messagebox name="addressverify_invalid_nr_detail" icon="error" buttons="ok" />
-    <messagebox name="addressverify_invalid_zip" icon="error" buttons="ok" />
-    <messagebox name="addressverify_lookup_failed" icon="error" buttons="ok" />
-    <messagebox name="addressverify_incomplete" icon="warning" buttons="ok" />
   </messageboxes>
 
   <screen name="entities"
