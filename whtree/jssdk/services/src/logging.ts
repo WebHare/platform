@@ -2,14 +2,14 @@ import bridge, { type LogErrorOptions, type LogNoticeOptions } from "@mod-system
 import type { LoggableRecord } from "./logmessages";
 import { backendConfig } from "./config.ts";
 import type { LogFormats } from "./services.ts";
+import { WebHareBlob } from "./webhareblob.ts";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
-import { convertFlexibleInstantToDate, escapeRegExp, type FlexibleInstant } from "@webhare/std";
-import { readFileSync } from "fs";
+import { convertFlexibleInstantToDate, escapeRegExp, isBlob, type FlexibleInstant } from "@webhare/std";
 import type { HTTPMethod, HTTPStatusCode } from "@webhare/router";
 import { listDirectory } from "@webhare/system-tools";
 
-type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
+type LogReadField = string | number | boolean | null | Temporal.Instant | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = {
   /** Log line's timestap */
   "@timestamp": Temporal.Instant;
@@ -83,7 +83,7 @@ function flushLog(logname: string | "*"): Promise<void> {
 export interface ReadLogOptions {
   start?: FlexibleInstant | null;
   limit?: FlexibleInstant | null;
-  content?: string;
+  content?: string | Blob;
   /** Continu reading loglines after the line with this id */
   continueAfter?: string;
 }
@@ -136,40 +136,80 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
     if (limit && (logfiledate.getTime() > limit.getTime()))
       continue;
 
-    //FIXME Jump straight to the right position, combine with rewriting to input streaming (but I'm not sure the common 'readline.createInterface' solution allow us to accurately record offsets)
     const continueAfterOffset: number = options?.continueAfter?.split(':')[0] === `A${datetok}` ? parseInt(options?.continueAfter.split(':')[1], 10) : -1;
 
-    //Okay, this one is in range. Start parsing
-    const content = options?.content ?? readFileSync(file.fullPath, "utf8");
-    const loglines = content.split("\n");
-    let curOffset = 0;
-    for (const line of loglines) {
-      try {
-        const lineOffset = curOffset;
-        curOffset += line.length + 1;
+    // Offset of the current processed chunk, and if this chunk starts at the beginning of a line
+    let curChunkStart = Math.max(0, continueAfterOffset);
+    let atLineStart = continueAfterOffset < 0;
 
-        if (continueAfterOffset && lineOffset <= continueAfterOffset) //we're not there yet
+    // Get the data, slice it so it starts at curChunkStart
+    const fullDataBlob = (options?.content ? isBlob(options.content) ? options.content : WebHareBlob.from(options.content) : await WebHareBlob.fromDisk(file.fullPath));
+    const dataBlob = fullDataBlob.slice(curChunkStart);
+
+    let leftOver: Uint8Array<ArrayBufferLike> | undefined;
+    const textDecoder = new TextDecoder("utf8");
+
+    for await (const chunk of dataBlob.stream()) {
+      let localOfs = 0;
+
+      if (!atLineStart) {
+        // find the end of the current line
+        const firstLineFeed = chunk.indexOf(10);
+        if (firstLineFeed === -1) {
+          // no line feed in this chunk, continue with the next chunk
+          curChunkStart += chunk.length;
           continue;
-
-        if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
-          continue;
-
-        const parsedline = JSON.parse(line) as GenericLogFields;
-        if (typeof parsedline["@timestamp"] !== 'string')
-          continue;
-
-        const timestamp = Temporal.Instant.from(parsedline["@timestamp"]);
-        if (!timestamp || (start && timestamp.epochMilliseconds < start.getTime()) || (limit && timestamp.epochMilliseconds >= limit.getTime()))
-          continue;
-
-        /* The ID needs to be usable as a unique identifier inside this log type but also be ascii sortable so we can easily find the most recently
-           stored record (by sorting by ID in descending order and taking the first. So we're padding ID to be 15 in length (the length of MAX_SAFE_INTEGER)
-           to make is ascii sortable. We're prefixing with 'A' so any future improved algorithm can use 'B' and sort after us */
-        const id = `A${datetok}:${String(lineOffset).padStart(15, '0')}`;
-        yield { ...parsedline, ["@id"]: id, ["@timestamp"]: timestamp } as LogFields & LogLineBase;
-      } catch (e) {
-        continue; //ignore unparseable lines
+        } else {
+          // got a line. INV: leftOver = undefined
+          localOfs = firstLineFeed + 1;
+          atLineStart = true;
+        }
       }
+
+      // find lines in current chunk
+      for (; ;) {
+        // Find the end of the current line
+        const nextLineFeed = chunk.indexOf(10, localOfs);
+        if (nextLineFeed === -1)
+          break;
+
+        // get the line data and decode it. Also calculate the file offset where the line started
+        const part = chunk.slice(localOfs, nextLineFeed);
+        const line = textDecoder.decode(leftOver ? Buffer.concat([leftOver, part]) : part);
+        const lineOffset = curChunkStart + localOfs - (leftOver ? leftOver.length : 0);
+
+        // Prepare for reading the next line before processing this one
+        localOfs = nextLineFeed + 1;
+        leftOver = undefined;
+
+        try {
+          if (continueAfterOffset && lineOffset <= continueAfterOffset) //we're not there yet
+            continue;
+
+          if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
+            continue;
+
+          const parsedline = JSON.parse(line) as GenericLogFields;
+          if (typeof parsedline["@timestamp"] !== 'string')
+            continue;
+
+          const timestamp = Temporal.Instant.from(parsedline["@timestamp"]);
+          if (!timestamp || (start && timestamp.epochMilliseconds < start.getTime()) || (limit && timestamp.epochMilliseconds >= limit.getTime()))
+            continue;
+
+          /* The ID needs to be usable as a unique identifier inside this log type but also be ascii sortable so we can easily find the most recently
+             stored record (by sorting by ID in descending order and taking the first. So we're padding ID to be 15 in length (the length of MAX_SAFE_INTEGER)
+             to make is ascii sortable. We're prefixing with 'A' so any future improved algorithm can use 'B' and sort after us */
+          const id = `A${datetok}:${String(lineOffset).padStart(15, '0')}`;
+          yield { ...parsedline, ["@id"]: id, ["@timestamp"]: timestamp } as LogFields & LogLineBase;
+        } catch (e) {
+          continue; //ignore unparseable lines
+        }
+      }
+
+      // Store the leftover data of the chunk for the next iteration
+      leftOver = leftOver ? Buffer.concat([leftOver, chunk.slice(localOfs)]) : chunk.slice(localOfs);
+      curChunkStart += chunk.length;
     }
   }
 }
