@@ -10,6 +10,7 @@ import { maxDateTime } from "@webhare/hscompat";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { whconstant_whfsid_webharebackend, whwebserverconfig_rescuewebserverid } from "@mod-system/js/internal/webhareconstants";
 import { getRescueOrigin } from "@mod-system/js/internal/configuration";
+import { getBasePort } from "@webhare/services/src/config";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -346,6 +347,25 @@ async function testGenerateUniqueName() {
     await uniquenamefolder.generateName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is"));
 }
 
+async function testRescuePort() {
+  test.eqPartial({
+    site: whconstant_whfsid_webharebackend,
+    folder: whconstant_whfsid_webharebackend,
+  }, await whfs.lookupURL(`http://127.0.0.1:${getBasePort()}/`));
+
+  test.eqPartial({
+    site: whconstant_whfsid_webharebackend,
+    folder: whconstant_whfsid_webharebackend,
+  }, await whfs.lookupURL(`http://127.0.0.1:${getBasePort()}/`, { clientWebServer: whwebserverconfig_rescuewebserverid }));
+}
+
+async function testLookupWithoutConfig() { //mirrors TestRescueWithoutWebservers
+  await whdb.beginWork();
+  await whdb.db<PlatformDB>().deleteFrom("system.webservers").execute();
+  await testRescuePort();
+  await whdb.rollbackWork();
+}
+
 async function testLookup() {
   const testfw = await loadlib("mod::system/lib/testframework.whlib").RunTestframework([]);
 
@@ -375,6 +395,8 @@ async function testLookup() {
 
   root = await whfs.openSite("webhare_testsuite.site");
   test.assert(root.webRoot);
+
+  await testRescuePort();
 
   lookupresult = await whfs.lookupURL(root.webRoot);
   test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
@@ -582,5 +604,6 @@ test.runTests([
   test.resetWTS,
   testWHFS,
   testGenerateUniqueName,
+  testLookupWithoutConfig,
   testLookup
 ]);

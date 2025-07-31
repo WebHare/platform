@@ -1,5 +1,5 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { whconstant_webserver_hstrustedportoffset, whconstant_webserver_indexpages, whconstant_webserver_trustedportoffset, whconstant_webservertype_interface, whwebserverconfig_hstrustedportid, whwebserverconfig_rescueportid, whwebserverconfig_rescuewebserverid, whwebserverconfig_trustedportid } from "@mod-system/js/internal/webhareconstants";
+import { whconstant_webserver_hstrustedportoffset, whconstant_webserver_indexpages, whconstant_webserver_trustedportoffset, whconstant_webservertype_interface, whwebserverconfig_hstrustedportid, whwebserverconfig_rescueportid, whwebserverconfig_rescueportoffset, whwebserverconfig_rescuewebserverid, whwebserverconfig_trustedportid } from "@mod-system/js/internal/webhareconstants";
 import { getBasePort } from "@webhare/services/src/config";
 import { appendToArray, regExpFromWildcards } from "@webhare/std";
 import { db } from "@webhare/whdb";
@@ -153,6 +153,10 @@ export async function getHostedSites() {
     id: whwebserverconfig_hstrustedportid,
     virtualhost: true,
     port: getBasePort() + whconstant_webserver_hstrustedportoffset
+  }, { //and add the "rescue" port which simply hosts the WebHare backend
+    id: whwebserverconfig_rescueportid,
+    virtualhost: false,
+    port: getBasePort() + whwebserverconfig_rescueportoffset
   });
 
   //FIXME ttl 15 * 60 * 1000, eventmasks ["system:internal.webserver.didconfigreload"]
@@ -164,10 +168,7 @@ export async function lookupWebserver(findhostname: string, findport: number) {
 
   //enumerate all our ports.. bit of a workaround as we may not know whether the host is IPv4 or IPv6
   findhostname = findhostname.toUpperCase();
-  const ports = await db<PlatformDB>().selectFrom("system.ports").
-    select(["id", "virtualhost"])
-    .where("port", "=", findport)
-    .execute();
+  const ports = await hostinginfo.ports.filter(port => port.port === findport);
 
   if (ports.some(port => port.virtualhost) || (ports.length === 0 && [80, 443].includes(findport))) {
     const byhost = hostinginfo.hosts.find(server => server.listenhosts!.includes(findhostname));
