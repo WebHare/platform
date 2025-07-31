@@ -219,7 +219,7 @@ class WHFSBaseObject {
   async openParent({ allowRoot = false } = {}): Promise<WHFSFolder> {
     if (!this.parent && !allowRoot)
       throw new Error(`Can't open parent of root subfolder`); //FIXME openWHFSRootFolder?
-    return await openWHFSObject(this.id, this.parent || 0, false, false, `parent of '${this.whfsPath}'`, false, allowRoot);
+    return await __openWHFSObj(this.id, this.parent || 0, false, false, `parent of '${this.whfsPath}'`, false, allowRoot);
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
@@ -537,13 +537,13 @@ export class WHFSFolder extends WHFSBaseObject {
   async openFile(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFile | null>;
   async openFile(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFile>;
   async openFile(path: string, options?: OpenWHFSObjectOptions) {
-    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
+    return __openWHFSObj(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
   }
 
   async openFolder(path: string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions): Promise<WHFSFolder>;
   async openFolder(path: string, options?: OpenWHFSObjectOptions) {
-    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
+    return __openWHFSObj(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`, options?.allowHistoric ?? false, false);
   }
 
   /** Generate a unique name for a new object in this folder
@@ -747,14 +747,14 @@ function getRootFolderDBRow(): FsObjectRow {
   };
 }
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: true, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: true, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | null>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: false, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder | null>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject>;
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: true, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: false, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: true, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFile | null>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: false, allowmissing: true, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSFolder | null>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject>;
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null>;
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null> {
+export async function __openWHFSObj(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string, allowHistoric: boolean, allowRoot: boolean): Promise<WHFSObject | null> {
   let location;
   if (typeof path === "string")
     location = await lookupWHFSObject(startingpoint, path);
@@ -805,7 +805,7 @@ export async function openFile(path: number | string, options?: OpenWHFSObjectOp
 
 /** Open a file */
 export async function openFile(path: number | string, options?: OpenWHFSObjectOptions) {
-  return openWHFSObject(0, path, true, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+  return __openWHFSObj(0, path, true, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
 export async function openFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | null>;
@@ -813,7 +813,7 @@ export async function openFolder(path: number | string, options?: OpenWHFSObject
 
 /** Open a folder */
 export async function openFolder(path: number | string, options?: OpenWHFSObjectOptions) {
-  return openWHFSObject(0, path, false, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+  return __openWHFSObj(0, path, false, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
 export async function openFileOrFolder(path: number | string, options: OpenWHFSObjectOptions & { allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
@@ -821,7 +821,7 @@ export async function openFileOrFolder(path: number | string, options?: OpenWHFS
 
 /** Open a file or folder - used when you're unsure what an ID points to */
 export async function openFileOrFolder(path: number | string, options?: OpenWHFSObjectOptions) {
-  return openWHFSObject(0, path, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
+  return __openWHFSObj(0, path, undefined, options?.allowMissing ?? false, "", options?.allowHistoric ?? false, options?.allowRoot ?? false);
 }
 
 /** Get a new WHFS object id */
