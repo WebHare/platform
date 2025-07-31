@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -190,10 +190,14 @@ class HSRTDImporter {
   }
 
   async processInlineImage(node: Element, state: BlockItemStack, outlist: RTDInlineItems) {
+    const float: RTDImageFloat | undefined = node.getAttribute("class")?.includes("wh-rtd__img--floatleft") ? "left" :
+      node.getAttribute("class")?.includes("wh-rtd__img--floatright") ? "right" : undefined;
+
     const baseattributes = {
       alt: node.getAttribute("alt") || "",
       width: parseInt(node.getAttribute("width") || "0", 10) || undefined,
       height: parseInt(node.getAttribute("height") || "0", 10) || undefined,
+      ...float ? { float } : {}
     };
 
     let outImg: RTDBaseInlineImageItem<"inMemory">;

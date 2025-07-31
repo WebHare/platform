@@ -16,6 +16,8 @@ import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
 
 type RTDItemMode = "inMemory" | "export" | "build";
 
+export type RTDImageFloat = "left" | "right";
+
 /** Paragraph types supported by us */
 export const rtdParagraphTypes = ["h1", "h2", "h3", "h4", "h5", "h6", "p"] as const;
 /** List types supported by us */
@@ -89,7 +91,7 @@ export type RTDBaseInlineImageItem<Mode extends RTDItemMode> = ({
   alt?: string;
   width?: number;
   height?: number;
-  float?: "left" | "right";
+  float?: RTDImageFloat;
 };
 
 export type RTDBaseLink<Mode extends RTDItemMode> = {
