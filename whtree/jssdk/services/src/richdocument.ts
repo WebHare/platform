@@ -79,8 +79,13 @@ type RTDBaseBlock<Mode extends RTDItemMode> =
   { widget: RTDBaseWidget<Mode> };
 
 
-export type RTDBaseInlineImageItem<Mode extends RTDItemMode> = {
+export type RTDBaseInlineImageItem<Mode extends RTDItemMode> = ({
+  /** An image: refers to an image stored with a document */
   image: Mode extends "export" ? ExportedResource : Mode extends "inMemory" ? ResourceDescriptor : ExportedResource | ResourceDescriptor;
+} | {
+  /** A external image is a hyperlink to an image on eg a CDN */
+  externalImage: string;
+}) & {
   alt?: string;
   width?: number;
   height?: number;
@@ -336,7 +341,7 @@ export class RichTextDocument {
 
       if ("text" in item) {
         outitems.push(await this.fixLink(item));
-      } else if ("image" in item) {
+      } else if ("image" in item || "externalImage" in item) {
         outitems.push({ ...await this.fixLink(item), ...await this.addImage(item) });
       } else if ("inlineWidget" in item) {
         outitems.push({ ...await this.fixLink(item), inlineWidget: await this.addWidget(item.inlineWidget) });
@@ -422,10 +427,10 @@ export class RichTextDocument {
     this.#blocks.push(newblock);
   }
 
-  private async addImage(image: RTDBaseInlineItem<"build"> & RTDBaseInlineImageItem<"build">): Promise<RTDBaseInlineItem<"inMemory">> {
-    if (image && !isResourceDescriptor(image.image))
-      image.image = await ResourceDescriptor.import(image.image);
-    return image as RTDBaseInlineItem<"inMemory">;
+  private async addImage(node: RTDBaseInlineItem<"build"> & RTDBaseInlineImageItem<"build">): Promise<RTDBaseInlineItem<"inMemory">> {
+    if (node && "image" in node && !isResourceDescriptor(node.image))
+      node.image = await ResourceDescriptor.import(node.image);
+    return node as RTDBaseInlineItem<"inMemory">;
   }
 
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {

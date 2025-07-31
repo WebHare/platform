@@ -276,6 +276,16 @@ async function testBuilder() {
             link: new IntExtLink(imgEditFile.id, { append: "#test" })
           }
         ]
+      }, {
+        "p": [
+          "This is an external image: ",
+          {
+            externalImage: "https://www.webhare.dev/media/webhare.png",
+            width: 128,
+            height: 128,
+            alt: "External Hare",
+          }
+        ]
       }
     ]);
 
@@ -301,6 +311,17 @@ async function testBuilder() {
             width: 240,
             image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
             link: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
+          }
+        ]
+      }, {
+        tag: "p",
+        items: [
+          { text: "This is an external image: " },
+          {
+            externalImage: "https://www.webhare.dev/media/webhare.png",
+            width: 128,
+            height: 128,
+            alt: "External Hare",
           }
         ]
       }
