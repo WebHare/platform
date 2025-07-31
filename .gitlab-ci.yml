@@ -5,7 +5,7 @@
 #    GitLab has dind runners, which will be able to run wh buildcontainer
 #    WebHarebv has shell executors.. which just ignore the images.. which seems to work just as well
 
-image: docker:19.03.1-dind
+image: docker:28-dind
 
 services:
   - docker:dind

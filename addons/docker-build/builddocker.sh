@@ -87,15 +87,13 @@ echo "Packaging source tree for the WebHare runner"
 # Prune empty directories
 find "$WEBHARE_CHECKEDOUT_TO" -type d -empty -delete
 
-# if [ -z "$DEBUG" ]; then
-  if [ -z "$NOPULL" ]; then
-    DOCKERBUILDARGS+=(--pull)
-  fi
+if [ -z "$NOPULL" ]; then
+  DOCKERBUILDARGS+=(--pull)
+fi
 
-  # Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
-  DOCKERBUILDARGS+=(--progress)
-  DOCKERBUILDARGS+=(plain)
-# fi
+# Enable noisier progress info, otherwise we can't actually see what the long-taking steps are ding
+DOCKERBUILDARGS+=(--progress)
+DOCKERBUILDARGS+=(plain)
 
 [ -n "$WEBHARE_NODE_MAJOR" ] || die "WEBHARE_NODE_MAJOR not set"
 [ -n "$WHBUILD_ASSETROOT" ] || WHBUILD_ASSETROOT="https://build.webhare.dev/whbuild/"

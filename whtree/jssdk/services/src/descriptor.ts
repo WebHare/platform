@@ -170,6 +170,25 @@ const mimeToExt: Record<string, string> = {
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
 
+  "application/vnd.oasis.opendocument.text": ".odt",
+  "application/vnd.oasis.opendocument.spreadsheet": ".ods",
+  "application/vnd.oasis.opendocument.presentation": ".odp",
+  "application/vnd.oasis.opendocument.graphics": ".odg",
+  "application/vnd.oasis.opendocument.chart": ".odc",
+  "application/vnd.oasis.opendocument.formula": ".odf",
+  "application/vnd.oasis.opendocument.image": ".odi",
+  "application/vnd.oasis.opendocument.text-master": ".odm",
+  "application/vnd.oasis.opendocument.base": ".odb",
+  "application/vnd.oasis.opendocument.database": ".odb", //TODO this is not yet supported by the platform
+  "application/vnd.oasis.opendocument.text-template": ".ott",
+  "application/vnd.oasis.opendocument.spreadsheet-template": ".ots",
+  "application/vnd.oasis.opendocument.presentation-template": ".otp",
+  "application/vnd.oasis.opendocument.graphics-template": ".otg",
+  "application/vnd.oasis.opendocument.chart-template": ".otc",
+  "application/vnd.oasis.opendocument.formula-template": ".otf",
+  "application/vnd.oasis.opendocument.image-template": ".oti",
+  "application/vnd.oasis.opendocument.text-web": ".oth",
+
   "application/vnd.android.package-archive": ".apk",
   "application/x-silverlight-app": ".xap",
 
