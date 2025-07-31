@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -190,22 +190,30 @@ class HSRTDImporter {
   }
 
   async processInlineImage(node: Element, state: BlockItemStack, outlist: RTDInlineItems) {
-    const img = node.getAttribute("src")!;
-    if (!img?.startsWith("cid:"))
-      throw new Error("Inline image without cid found, src: " + img);
+    const float: RTDImageFloat | undefined = node.getAttribute("class")?.includes("wh-rtd__img--floatleft") ? "left" :
+      node.getAttribute("class")?.includes("wh-rtd__img--floatright") ? "right" : undefined;
 
-    const contentid = img.substring(4);
-    const matchingimage = this.inrtd.embedded.find(i => i.contentid === contentid);
-    if (!matchingimage)
-      throw new Error("Inline image not found, contentid: " + contentid);
-
-    const image: RTDBaseInlineImageItem<"inMemory"> = {
-      image: importHSEmbeddedResource(matchingimage),
+    const baseattributes = {
       alt: node.getAttribute("alt") || "",
       width: parseInt(node.getAttribute("width") || "0", 10) || undefined,
       height: parseInt(node.getAttribute("height") || "0", 10) || undefined,
+      ...float ? { float } : {}
     };
-    outlist.push({ ...image, ...state });
+
+    let outImg: RTDBaseInlineImageItem<"inMemory">;
+
+    const img = node.getAttribute("src") || '';
+    if (!img?.startsWith("cid:")) {
+      outImg = { ...baseattributes, externalImage: img };
+    } else {
+      const contentid = img.substring(4);
+      const matchingimage = this.inrtd.embedded.find(i => i.contentid === contentid);
+      if (!matchingimage)
+        throw new Error("Inline image not found, contentid: " + contentid);
+
+      outImg = { ...baseattributes, image: importHSEmbeddedResource(matchingimage) };
+    }
+    outlist.push({ ...outImg, ...state });
   }
 
   async processInlineItems(node: Node, state: BlockItemStack, outlist: RTDInlineItems) {
@@ -347,9 +355,15 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
     else if (image.float === "right")
       classes.push("wh-rtd__img--floatright");
 
-    const contentid = imagemapping.get(image) || generateRandomId();
-    embedded.push(exportHSEmbeddedResource(image.image, contentid));
-    return `<img class="${classes.join(" ")}" src="cid:${contentid}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
+    let link: string;
+    if ("externalImage" in image) {
+      link = image.externalImage;
+    } else {
+      const contentid = imagemapping.get(image) || generateRandomId();
+      embedded.push(exportHSEmbeddedResource(image.image, contentid));
+      link = `cid:${contentid}`;
+    }
+    return `<img class="${classes.join(" ")}" src="${encodeString(link, 'attribute')}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
   }
 
   async function buildBlocks(blocks: RecursiveReadonly<Array<RTDBlock | RTDAnonymousParagraph>>) {
@@ -393,7 +407,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
         if ("inlineWidget" in item) {
           gotNonWhitespace = true;
           part = await exportWidgetForHS(item.inlineWidget, false);
-        } else if ("image" in item) {
+        } else if ("image" in item || "externalImage" in item) {
           gotNonWhitespace = true;
           part = await exportImageForHS(item as RTDBaseInlineImageItem<"inMemory">);
         } else {
