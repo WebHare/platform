@@ -4,12 +4,10 @@ Click the specified approval button if the testframework browser is already on t
   @param approvetype - Either 'approved' or 'failed'
 */
 
-import { launchPuppeteer, type Puppeteer } from "@webhare/deps";
+import { connectSharedPuppeteer, type Puppeteer } from "@webhare/deps";
 
 export async function pushWRDTestPaymentButton(payurl: string, approvetype: string, { cardissuer = "", cardnumber = "" } = {}) {
-  const headless = true;
-  await using puppeteer = await launchPuppeteer({ headless });
-  const context = await puppeteer.createBrowserContext();
+  await using context = await connectSharedPuppeteer();
   const page = await context.newPage();
   await page.goto(payurl, { waitUntil: "networkidle2" });
 
@@ -18,12 +16,19 @@ export async function pushWRDTestPaymentButton(payurl: string, approvetype: stri
   if (cardnumber)
     await page.evaluate(x => document!.querySelector<HTMLInputElement>("[name=cardnumber]")!.value = x, cardnumber);
 
+  if (approvetype.startsWith("notify")) { //we can't do much after a notify, wait for page to reload and return
+    await Promise.all([
+      page.waitForNavigation(),
+      page.click(`#${approvetype}`),
+    ]);
+    return null;
+  }
+
   const button = await page.$(`button[name="approve"][value="${approvetype === "approved" ? "yes" : "no"}"]`);
   if (!button)
     throw new Error(`Cant find '${approvetype}' button`);
 
   await page.setRequestInterception(true);
-
 
   const getPaymentInfo = new Promise<unknown>(resolve => {
     const handleRequest = async (interceptedRequest: Puppeteer.HTTPRequest) => {
