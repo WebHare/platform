@@ -338,6 +338,7 @@ export function buildBaseConfig(options) {
     name: "@webhare/eslint-config global ignore",
     ignores: [
       "**/vendor/",
+      "**/node_modules/",
     ]
   });
 }

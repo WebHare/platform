@@ -12,6 +12,8 @@ ASYNC MACRO TestTypeScriptFormatting()
      services will give an error it is not included in the tsconfig project.
   */
   TestEQ(
+"export const x = function (arg: number) { };\n" ||
+"\n" ||
 "function test(): void {\n" ||
 "  /*\n" ||
 "  uitgecomment\n" ||
@@ -19,7 +21,9 @@ ASYNC MACRO TestTypeScriptFormatting()
 "  allemaal\n" ||
 "  */\n" ||
 "}\n", BlobToString((AWAIT FormatJavascriptFile("mod::webhare_testsuite/js/testhelpers.ts", StringToBlob(
-`function test(): void {
+`export const x = function(arg: number) { };
+
+function test(): void {
 /*
 uitgecomment
 

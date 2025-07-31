@@ -18,7 +18,6 @@
   <test name="jssdk"      path="jssdk/" />
 
   <group name="checkmodules">
-    <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
     <test name="validatejssdk" script="mod::platform/scripts/jspackages/validate_jssdk.ts" />
     <!-- publish_jssdk does some more consistency checks that can only happen during packaging-->
     <test name="testjssdk" script="mod::platform/scripts/jspackages/publish_jssdk.ts">

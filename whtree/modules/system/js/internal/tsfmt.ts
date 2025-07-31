@@ -1,6 +1,6 @@
 import { backendConfig } from "@webhare/services";
-import * as typescriptFormat from "typescript-formatter";
-import * as path from "node:path";
+import { readFileSync } from "node:fs";
+import ts from "typescript";
 
 /// Format of our incoming commands
 interface FormattingCommand {
@@ -10,32 +10,60 @@ interface FormattingCommand {
 
 export type TSFormatResult = {
   path: string;
-  error: string;
   output: string;
 };
 
-export async function handleFormattingCommand(indata: FormattingCommand): Promise<TSFormatResult> {
-  const options: typescriptFormat.Options = {
-    baseDir: path.dirname(indata.path),
-    replace: false,
-    verify: false,
-    tsconfig: true,
-    tsconfigFile: null,
-    tslint: false,
-    tslintFile: null,
-    editorconfig: false,
-    vscode: false,
-    vscodeFile: null,
-    tsfmt: true,
-    tsfmtFile: backendConfig.installationRoot + "tsfmt.json",
+// This code is based on the MIT Licensed https://github.com/vvakame/typescript-formatter originally Copyright © 2015 Masahiro Wakame
+class MockedLanguageServiceHost implements ts.LanguageServiceHost {
+  files: ts.MapLike<ts.IScriptSnapshot> = {};
+  addFile(fileName: string, text: string) {
+    this.files[fileName] = ts.ScriptSnapshot.fromString(text);
+  }
+  options: ts.FormatCodeSettings = {
+    ...ts.getDefaultFormatCodeSettings(),
+    ...JSON.parse(readFileSync(`${backendConfig.installationRoot}tsfmt.json`, 'utf8'))
   };
 
-  const contents = Buffer.from(indata.data, "base64").toString("utf-8");
-  const result = await typescriptFormat.processString(indata.path, contents, options);
+  getCompilationSettings = () => ts.getDefaultCompilerOptions();
+  getScriptFileNames = () => Object.keys(this.files);
+  getScriptVersion = (_fileName: string) => "0";
+  getScriptSnapshot = (fileName: string) => this.files[fileName];
+  getCurrentDirectory = () => process.cwd();
+  getDefaultLibFileName = (options: ts.CompilerOptions) => ts.getDefaultLibFilePath(options);
+  readFile = (fileName: string) => this.files[fileName]?.getText(0, this.files[fileName].getLength()) ?? "";
+  fileExists = (fileName: string) => fileName in this.files;
+}
+
+export class TSFormatter {
+  private host = new MockedLanguageServiceHost;
+  private languageService = ts.createLanguageService(this.host);
+
+  format(fileName: string, text: string): string | null {
+    this.host.addFile(fileName, text);
+
+    const edits = this.languageService.getFormattingEditsForDocument(fileName, this.host.options);
+    if (!edits.length) //no changes
+      return null;
+
+    edits
+      .sort((a, b) => a.span.start - b.span.start)
+      .reverse()
+      .forEach(edit => {
+        const head = text.slice(0, edit.span.start);
+        const tail = text.slice(edit.span.start + edit.span.length);
+        text = `${head}${edit.newText}${tail}`;
+      });
+
+    return text;
+  }
+}
+
+export function handleFormattingCommand(indata: FormattingCommand): TSFormatResult {
+  const formatter = new TSFormatter;
+  const result = formatter.format(indata.path, indata.data);
 
   return {
     path: indata.path,
-    error: "",
-    output: Buffer.from(result.dest, "utf-8").toString("base64")
+    output: result || indata.data //if no changes, return the original data
   };
 }
