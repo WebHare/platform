@@ -1,4 +1,4 @@
-#!/bin/bash
+# shellcheck shell=bash
 # We can't mark this script as executable as it shouldn't be run on a build host
 
 # Updated 2019-10-02 (update this timestamp if nothing else to pull in new dependencies)
@@ -136,10 +136,14 @@ PACKAGES+=(certbot
     vim
     zip)
 
+# Chrome specific deps
+PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2)
+
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
   echo "APT-GET failed"
   exit 1
 fi
+
 
 # if it's just one of those days...  downgrade it, see https://github.com/nodejs/node/issues/52909
 # if [[ $(node -v) =~ ^v20.1[3-9] ]]; then
@@ -156,8 +160,7 @@ rm /etc/java-17-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
-# PUPPETEER_CACHE_DIR is where Puppeteer downloads the browser to
-mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache "$PUPPETEER_CACHE_DIR"
+mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
 
 # TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
 if ! certbot --version; then
@@ -168,27 +171,4 @@ fi
 if ! pstree ; then
   echo "Missing pstree"
   exit 1
-fi
-
-if [ "$(uname -m)" == "aarch64" ]; then
-  ## Install chromium
-  #npx @puppeteer/browsers install chrome@stable
-#
-true #no chromium now
- # CHROMEVERSION="$(/usr/bin/chromium-browser --version |cut -d' ' -f3)"
-else
-  # Install chrome. Looks like we can also find versions here: https://github.com/ulixee/chrome-versions/blob/main/versions.json
-  #CHROMEVERSION=current
-  CHROMEVERSION=135.0.7049.114-1
-  curl --output /tmp/chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${CHROMEVERSION}_amd64.deb
-  apt-get install -y /tmp/chrome.deb
-  rm /tmp/chrome.deb
-
-  CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
-  CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
-  REQUIRECHROMEMAJOR=108
-  if (( CHROMEMAJOR < REQUIRECHROMEMAJOR )) ; then
-    echo "We picked up a too old Chrome version. Required $REQUIRECHROMEMAJOR got $CHROMEMAJOR ($CHROMEVERSION)"
-    exit 1
-  fi
 fi
