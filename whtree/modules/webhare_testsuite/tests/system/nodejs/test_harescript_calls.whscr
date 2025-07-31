@@ -12,6 +12,8 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
+
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
 
 //initialize wrdschema etc
@@ -121,6 +123,18 @@ CallJS("./data/calls.ts#runVoid");
 CallJS("./data/calls.ts#runAsyncVoid");
 
 TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));
+
+TestEq("Hello, world!", CallJS("./data/calls.ts#getABuffer"));
+
+RECORD fsresource := CallJS("./data/calls.ts#getResource", "mod::system/web/tests/snowbeagle.jpg");
+TestEq(TYPEID(BLOB), TYPEID(fsresource.data));
+TestEq(45081, Length(fsresource.data));
+
+OBJECT whfsobject := OpenWHFSObjectByPath("site::webhare_testsuite.testsitejs/TestPages/rangetestfile.jpeg");
+RECORD whfsresource := CallJS("./data/calls.ts#getWHFSFileResource", "site::webhare_testsuite.testsitejs/TestPages/rangetestfile.jpeg");
+TestEq(TYPEID(BLOB), TYPEID(whfsresource.data));
+TestEq(424910, Length(whfsresource.data));
+TestEq("o" || whfsobject->id, whfsresource.__BLOBSOURCE); //ensures resizers work
 
 OBJECTTYPE ThrowingGetterSetter <
   PUBLIC PROPERTY p(ThrowingGetter, ThrowingSetter);

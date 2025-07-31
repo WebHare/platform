@@ -5,7 +5,8 @@ import * as test from "@webhare/test";
 import { createFirstPartyToken } from "@webhare/auth";
 import { getLastAuthAuditEvent } from "@mod-webhare_testsuite/js/wts-backend";
 import { wrdTestschemaSchema } from "@mod-platform/generated/wrd/webhare";
-import { WebHareBlob } from "@webhare/services";
+import { ResourceDescriptor, WebHareBlob } from "@webhare/services";
+import { openFile } from "@webhare/whfs/src/objects";
 
 const random = generateRandomId();
 
@@ -77,6 +78,18 @@ export function getObjectValue(o: TestObject) {
 
 export function returnObject(o: TestObject) {
   return o;
+}
+
+export async function getABuffer() {
+  return Buffer.from("Hello, world!");
+}
+
+export async function getResource(res: string) {
+  return await ResourceDescriptor.fromResource(res);
+}
+
+export async function getWHFSFileResource(res: string) {
+  return (await openFile(res)).data;
 }
 
 export function crash() {
