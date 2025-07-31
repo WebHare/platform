@@ -273,6 +273,7 @@ async function testBuilder() {
             width: 240,
             height: 120,
             alt: "Goudvis 2",
+            float: "left",
             link: new IntExtLink(imgEditFile.id, { append: "#test" })
           }
         ]
@@ -283,6 +284,7 @@ async function testBuilder() {
             externalImage: "https://www.webhare.dev/media/webhare.png",
             width: 128,
             height: 128,
+            float: "right",
             alt: "External Hare",
           }
         ]
@@ -307,6 +309,7 @@ async function testBuilder() {
           { text: "This is a linked image: " },
           {
             alt: "Goudvis 2",
+            float: "left",
             height: 120,
             width: 240,
             image: (ex: ExportedResource) => Boolean(ex.data.base64 && ex.hash === 'aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY'),
@@ -321,6 +324,7 @@ async function testBuilder() {
             externalImage: "https://www.webhare.dev/media/webhare.png",
             width: 128,
             height: 128,
+            float: "right",
             alt: "External Hare",
           }
         ]
