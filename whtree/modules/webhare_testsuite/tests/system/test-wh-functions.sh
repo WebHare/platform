@@ -22,7 +22,7 @@ testIsWasmEngine()
   expectWasmEngine false "<?wh *WASMENGINE*)"
 }
 
-testDockerTagCalculation()
+testContainerTagCalculation()
 {
   CI_REGISTRY_IMAGE=gitlab-registry.webhare.com/webhare-opensource/platform
   DOCKERHUB_REGISTRY_USER=exampleuser
@@ -75,6 +75,6 @@ testDockerTagCalculation()
 }
 
 testIsWasmEngine
-testDockerTagCalculation
+testContainerTagCalculation
 
 echo tests succeeded!

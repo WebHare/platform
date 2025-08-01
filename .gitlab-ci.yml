@@ -70,112 +70,112 @@ test-vscode-extension:
 testbaselibs:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external baselibs
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external baselibs
 
 testmodules: # tests both platform modules and the JS SDK (@webhare/..)
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --tag=-external checkmodules
+    - addons/docker-build/testcontainer.sh --tag=-external checkmodules
 
 testpublisher:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,-forms publisher
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,-forms publisher
 
 testpublisher-forms:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=forms publisher
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=forms publisher
 
 testsystem:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,-nodejs system
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,-nodejs system
 
 testsystem_nodejs:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external,nodejs system
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external,nodejs system
 
 testwebdesign:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external publisher-webdesign
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external publisher-webdesign
 
 testdatabase:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.database
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.database
 
 testtollium:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external tollium
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external tollium
 
 testconsilio:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external consilio
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external consilio
 
 testcore:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external --generatexmltests wh.hscore
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external --generatexmltests wh.hscore
 
 testwebserver:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.webserver
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.webserver
 
 testsocialite:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external socialite
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external socialite
 
 testwrd:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wrd
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wrd
 
 testjscomponents:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.jscomponents
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.jscomponents
 
 testdevkit:
   stage: test
   script:
       #We need --noautomoduledir to prevent testmodule just using CI_PROJECT_DIR (which takes precedence over $1)
       #We need --webhareimage because --module makes webhareimage default to 'main'
-    - TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testdocker.sh --noautomoduledir --webhareimage "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" --module $(pwd)/whtree/modules/devkit
+    - TESTFW_WEBHARE_ENABLE_DEVKIT=1 addons/docker-build/testcontainer.sh --noautomoduledir --webhareimage "$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA" --module $(pwd)/whtree/modules/devkit
 
 testexternal:
   stage: test
   allow_failure: true
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=external
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=external
 
 testsftp:
   stage: test
   allow_failure: true
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --tag=-external wh.sftp
+    - addons/docker-build/testcontainer.sh --nocheckmodule --tag=-external wh.sftp
 
 testtwohares:
   stage: test
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
+    - addons/docker-build/testcontainer.sh --nocheckmodule --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
 
 testbackuprestore:
   stage: test
   script: #TESTFW_SKIP_FINALIZE_CI because the container restart kills the script
-    - TESTFW_SKIP_FINALIZE_CI=1 addons/docker-build/testdocker.sh --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
+    - TESTFW_SKIP_FINALIZE_CI=1 addons/docker-build/testcontainer.sh --nocheckmodule --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
 
 calculatecoverage:
   stage: test
   when: manual
   script:
-    - addons/docker-build/testdocker.sh --nocheckmodule --coverage --generatexmltests
+    - addons/docker-build/testcontainer.sh --nocheckmodule --coverage --generatexmltests
 
 deploydocker:
   stage: deploy

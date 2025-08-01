@@ -85,7 +85,7 @@ case $INSTR in
     ;;
 
   "testdocker"|"testcontainer")
-    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/testdocker.sh" "$@"
+    exec "$WEBHARE_CHECKEDOUT_TO/addons/docker-build/testcontainer.sh" "$@"
     ;;
 
   "make")
