@@ -4,6 +4,7 @@ import * as crypto from "node:crypto";
 import { mkdir, readFile, open, stat } from "node:fs/promises";
 import { backendConfig } from "@webhare/services/src/config";
 import { ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { basename } from "node:path";
 
 function hashUrl(url: string) {
   return crypto.createHash("sha1").update(url).digest("base64url");
@@ -13,15 +14,19 @@ export type FetchedFileMetadata = {
   lastDownload: Date;
   status: number;
   headers: Record<string, string>;
+  fileName?: string; // Added in WH5.9
 };
 
 async function returnResource(diskloc: string, metadata: FetchedFileMetadata) {
-  return ResourceDescriptor.fromDisk(diskloc, { mediaType: metadata.headers["content-type"] });
+  return ResourceDescriptor.fromDisk(diskloc, {
+    mediaType: metadata.headers["content-type"],
+    fileName: metadata.fileName
+  });
 }
 
 export async function getCachePaths(url: string) {
   //TODO should we set up a two level cache?
-  const hash = hashUrl(url);
+  const hash = hashUrl(url + "#wh5.9"); //reset hashes now that we store the fileName since WH5.9
   const cachedir = `${backendConfig.dataRoot}caches/platform/fetch/`;
   const diskloc = cachedir + hash + '.dat';
   const metaloc = cachedir + hash + '.json';
@@ -65,7 +70,8 @@ export async function fetchResource(url: string): Promise<ResourceDescriptor> {
   const metadata: FetchedFileMetadata = {
     lastDownload: startDownload,
     status: fetched.status,
-    headers: Object.fromEntries(fetched.headers.entries().map(([k, v]) => [k.toLowerCase(), v]))
+    headers: Object.fromEntries(fetched.headers.entries().map(([k, v]) => [k.toLowerCase(), v])),
+    fileName: basename(new URL(url).pathname) || undefined// Extract file name from URL path
   };
 
   await mkdir(cachedir, { recursive: true });
