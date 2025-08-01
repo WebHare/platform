@@ -593,7 +593,7 @@ HERE
       done;
       NEEDFILTER=filter
     else
-      if [ -S "$WEBHARE_DATAROOT/cli-autocomplete.sock" ] && RESPONSE=$(echo -n "$COMP_SLICED_LINE" | curl --silent --fail --request POST --data-binary @- --unix-socket "$WEBHARE_DATAROOT/cli-autocomplete.sock" http://example.com/autocomplete); then
+      if [ -S "$WEBHARE_DATAROOT/.cli-autocomplete.sock" ] && RESPONSE=$(echo -n "$COMP_SLICED_LINE" | curl --silent --fail --request POST --data-binary @- --unix-socket "$WEBHARE_DATAROOT/.cli-autocomplete.sock" http://example.com/autocomplete); then
         IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$RESPONSE"
       else
         IFS=$'\n' read -d '' -r -a COMPREPLY <<< "$(wh_runjs "$WEBHARE_DIR/modules/platform/js/cli/autocomplete-service.ts" "--try-start-service")"
