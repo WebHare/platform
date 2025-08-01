@@ -16,15 +16,22 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
-MACRO TestRescueWithoutWebservers()
-{
-  //it's important for lookuppublisherurl to work with the rescue port. even if, or especially if, the backend site is not connected to a URL
-
+MACRO TestRescuePort() {
   INTEGER rescueport := GetWebHareConfiguration().baseport + whwebserverconfig_rescueportoffset;
+  TestEq(16, LookupPublisherURL(`http://127.0.0.1:${rescueport}/`, [ clientwebserver := whwebserverconfig_rescuewebserverid ]).site);
+  TestEq(16, LookupPublisherURL(`http://127.0.0.1:${rescueport}/`).site);
+}
+
+MACRO TestRescueWithoutWebservers() {
+  //it's important for lookuppublisherurl to work with the rescue port. even if, or especially if, the backend site is not connected to a URL
   testfw->BeginWork();
   DELETE FROM system_internal.webservers;
-  TestEq(16, LookupPublisherURL(`http://127.0.0.1:${rescueport}/`, [ clientwebserver := whwebserverconfig_rescuewebserverid ]).site);
+  TestRescuePort();
   testfw->RollbackWork();
+}
+
+MACRO TestBuiltinPortsNormally() {
+  TestRescuePort();
 }
 
 MACRO TestPreview()
@@ -288,6 +295,7 @@ MACRO LookupTest()
 }
 
 RunTestFramework([ PTR TestRescueWithoutWebservers
+                 , PTR TestBuiltinPortsNormally
                  , PTR TestPreview
                  , PTR LookupTest
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ] //createdraft requires a user
