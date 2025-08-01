@@ -287,7 +287,7 @@ PUBLIC RECORD FUNCTION __MyGfxResizeImageBlobWithMethod(RECORD fileinfo, RECORD 
   IF(fileinfo.height = 0)
     RETURN DEFAULT RECORD;
 
-  RECORD instructions := ExplainImageProcessing(fileinfo, resizemethod);
+  RECORD instructions := ExplainImageProcessing(fileinfo, CELL[format := "keep", ...resizemethod]);
 
   //ADDME possible to detect untransparent PNG easily ?
   BOOLEAN input_maybe_transparent := fileinfo.mimetype != "image/jpeg";
