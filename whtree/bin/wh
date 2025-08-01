@@ -67,6 +67,7 @@ OPTIONS=("$@")
 [ -n "$WEBHARE_BASEPORT" ] || WEBHARE_BASEPORT=13679
 export WEBHARE_HSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.harescript/${WEBHARE_BASEPORT}/"
 export WEBHARE_TSBUILDCACHE="${WEBHARE_DIR}/currentinstall/cache.typescript/"
+export PUPPETEER_CACHE_DIR="${WEBHARE_DIR}/libexec/puppeteer"
 
 mkdir -p "$WEBHARE_HSBUILDCACHE" "$WEBHARE_TSBUILDCACHE"
 

@@ -401,6 +401,7 @@ async function testFetchResource() {
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const fetched = await services.fetchResource(snowbeagle.link!);
   test.eq(17191, fetched.resource.size);
+  test.eq("snowbeagle.jpg", fetched.fileName, "should extract nice file name from URL: " + snowbeagle.link!);
 
   const locinfo = await getCachePaths(snowbeagle.link!);
   const meta = await readCacheMetadata(locinfo.metaloc);
@@ -417,7 +418,7 @@ async function testFetchResource() {
   test.eq(meta.lastDownload, meta2.lastDownload);
 
 
-  { //Test cleanup. shouldn't be seen by normal 7 days cleanup{
+  { //Test cleanup. shouldn't be seen by normal 7 days cleanup
     const toClean = new Set<string>;
     await getFetchResourceCacheCleanups(7 * 86400_0000, name => void toClean.add(name));
     test.assert(!toClean.has(locinfo.diskloc));
@@ -426,7 +427,7 @@ async function testFetchResource() {
   }
 
 
-  { //Should be seen if we cleanup time to 1 msec{
+  { //Should be seen if we cleanup time to 1 msec
     const toClean = new Set<string>;
     await getFetchResourceCacheCleanups(1, name => void toClean.add(name));
     test.assert(toClean.has(locinfo.diskloc));

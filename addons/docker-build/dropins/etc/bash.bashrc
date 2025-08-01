@@ -19,7 +19,7 @@ TMOUT=900
 
 # Install 'wh' shortcuts and tab completions
 # shellcheck disable=SC2046 # disables word split warning
-eval $(/opt/wh/whtree/bin/wh setupmyshell)
+eval $("$WEBHARE_DIR"/bin/wh setupmyshell)
 
 # History configuration
 ## Save 10,000 lines of history in memory

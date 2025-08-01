@@ -61,18 +61,28 @@ node -e 'require("sharp")' || die "Sharp failed"
 logWithTime "Downloading puppeteer"
 (cd node_modules/puppeteer && npm run postinstall)
 
-# verify the binary works. note that we tried to cache the puppeteer download by doing it an earlier build stage
-# but it turns out npx @puppeteer/browsers install chrome@stable --path "$PUPPETEER_CACHE_DIR"
-# isn't guaranteed to install the real matching browser version
-logWithTime "Locating and testing Chrome"
-BROWSER=$(find "$PUPPETEER_CACHE_DIR" -type f -name chrome | head -n1)
 
+## get dependencies for the postgresql-client
+logWithTime "Setup postgresql-client"
+( cd jssdk/whdb/vendor/postgresql-client && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
+
+logWithTime "Build the resolveplugin"
+modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
+
+# verify the binary works. note that we tried to cache the puppeteer download by doing it an earlier build stage
+logWithTime "Verifying the brwoser"
+BROWSER="$(wh node -e 'console.log(require("puppeteer").executablePath())')"
 if [ -z "$BROWSER" ]; then
-  echo "Chrome download failed?"
+  echo "Puppeteer executablePath() failed, cannot find browser"
   exit 1
 fi
 
-if [ -n "$WEBHARE_IN_DOCKER" ]; then
+if [ ! -x "$BROWSER" ]; then
+  echo "Puppeteer executablePath() returned '$BROWSER', but that file is not executable"
+  exit 1
+fi
+
+if [ -n "$WEBHARE_IN_DOCKER" ]; then # verify using 'ldd', this is helpful when chasing down missing dependencies
   MISSINGLIBS="$(ldd "$BROWSER" | grep not || true)"
   if [ -n "$MISSINGLIBS" ]; then
     echo "Some dependencies are missing! Update CHROMEDEPS in setup-imagebase.sh"
@@ -81,17 +91,10 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then
   fi
 fi
 
-if ! "$BROWSER" --headless --no-sandbox --screenshot=/tmp/chrome.png https://www.example.com/ ; then
-  echo "Screenshot failed. Chrome may be broken?"
+if ! wh run mod::platform/scripts/bootstrap/test-puppeteer.ts ; then
+  echo "Screenshot failed. The browser may be broken?"
   exit 1
 fi
-
-## get dependencies for the postgresql-client
-logWithTime "Setup postgresql-client"
-( cd jssdk/whdb/vendor/postgresql-client && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
-
-logWithTime "Build the resolveplugin"
-modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
 
 # When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
