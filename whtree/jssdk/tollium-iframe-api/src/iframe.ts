@@ -60,7 +60,6 @@ export function requestedBrowserContextMenu(event: MouseEvent) {
 /** Show a menu at a given position
     @param menuName - The name of the menu to show
     @param pos - The position to show the menu at, relative to the top left of the iframe
-    @param event - The mouse event that triggered the context menu
 */
 export function showTolliumContextMenu(menuName: string, pos: { x: number; y: number }): void;
 

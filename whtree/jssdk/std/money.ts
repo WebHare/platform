@@ -169,8 +169,8 @@ export class Money {
   }
 
   /** Rounds a value to a multiple of a unit, with a specific rounding mode
-      @param value - Value to round
-      @param unit - The value will be rounded to a mulitple of this unit (except when rounding mode is 'none')
+      @param amount - Value to round
+      @param roundto - The value will be rounded to a mulitple of this unit (except when rounding mode is 'none')
       @param mode - Rounding mode. Possible values:<br>
         <ul>
           <li>none: No rounding</li>
@@ -188,12 +188,12 @@ export class Money {
   }
 
   /** Compares two numbers
-      @param amount1 - Left hand value
-      @param amount2 - Right hand value
+      @param lhs - Left hand value
+      @param rhs - Right hand value
       @returns Returns 0 if amount1 === amount2, -1 if amount1 \< amount2, 1 if amount1 \> amount2
   */
-  static cmp(left: MoneyParameter, right: MoneyParameter): -1 | 0 | 1 {
-    return finmath.cmp(Money.parseParameter(left), Money.parseParameter(right));
+  static cmp(lhs: MoneyParameter, rhs: MoneyParameter): -1 | 0 | 1 {
+    return finmath.cmp(Money.parseParameter(lhs), Money.parseParameter(rhs));
   }
 
   /** Test whether two values have a specific relation
@@ -204,8 +204,8 @@ export class Money {
       @example
         console.log(Money.check(1, '\<', 2)); // prints 'true'
   */
-  static check(left: MoneyParameter, relation: MoneyTestTypes, right: MoneyParameter): boolean {
-    return finmath.test(Money.parseParameter(left), relation, Money.parseParameter(right));
+  static check(lhs: MoneyParameter, relation: MoneyTestTypes, rhs: MoneyParameter): boolean {
+    return finmath.test(Money.parseParameter(lhs), relation, Money.parseParameter(rhs));
   }
 
   /** Multiplies two numbers together
@@ -216,7 +216,7 @@ export class Money {
 
   /** Returns a percentage of an amount
       @param amount - Original amount
-      @param perc - Percentage of the amount to return
+      @param percentage - Percentage of the amount to return
       @returns Percentage of the amount
   */
   static getPercentage(amount: MoneyParameter, percentage: MoneyParameter): Money {
@@ -228,8 +228,8 @@ export class Money {
       @param divisor - Divisor
       @returns Divided value
   */
-  static divide(numerator: MoneyParameter, divider: MoneyParameter): Money {
-    return new Money(finmath.divide(Money.parseParameter(numerator), Money.parseParameter(divider)));
+  static divide(numerator: MoneyParameter, divisor: MoneyParameter): Money {
+    return new Money(finmath.divide(Money.parseParameter(numerator), Money.parseParameter(divisor)));
   }
   /** Returns the minimum of all the arguments
       @param amount - First value

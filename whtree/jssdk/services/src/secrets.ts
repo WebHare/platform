@@ -34,8 +34,9 @@ export function encryptForThisServer<S extends string>(scope: keyof ServerEncryp
 
 /** Decrypt data encrypted using encryptForThisServer
     @param scope - Scope for encryption (must be unique for each Encrypt usage so you can't accidentally mix up calls)
-    @param data - Data to sign and encrypt. Will be encoded as typed JSON if necessary
-    @param nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
+    @param text - Data to decrypt
+    @param options - Options for decryption
+    @param options.nullIfInvalid - If true, return null if the data is invalid (instead of throwing an error)
 */
 export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options: { nullIfInvalid: true }): (S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown) | null;
 export function decryptForThisServer<S extends string>(scope: keyof ServerEncryptionScopes | S, text: string, options?: { nullIfInvalid?: boolean }): S extends keyof ServerEncryptionScopes ? ServerEncryptionScopes[S] : unknown;

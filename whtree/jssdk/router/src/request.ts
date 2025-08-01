@@ -110,13 +110,11 @@ export interface WebRequest extends SupportedRequestSubset {
 
 
   /** This returns all the cookies originally sent by the client. They are not decrypted.
-      @param req - The request to get the cookies from
       @returns - The cookies
   */
   getAllCookies(): Record<string, string>;
 
   /** This returns a single cookie originally sent by the client. It is not decrypted.
-      @param req - The request to get the cookie from
       @param name - The name of the cookie
       @returns - The cookie value or null if not found
   */

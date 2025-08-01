@@ -89,7 +89,7 @@ function resolveResource(path: string) {
 
 /** Register a resource as a dependency for the a module. If the dependency is modified the module will be invalidated (and thus be reloaded when requested again).
     @param mod - The module which will be invalidated when the resource changes. You should use `module` for this parameter
-    @param resourcePath - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
+    @param path - The absolute disk path to the resource to watch, or a resource path starting with "mod::"
 */
 export function registerResourceDependency(mod: NodeModule, path: string) {
   path = resolveResource(path);

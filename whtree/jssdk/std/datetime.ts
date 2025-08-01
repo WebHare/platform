@@ -113,13 +113,14 @@ export function convertFlexibleInstantToDate(input: FlexibleInstant | null | und
   return input ? "epochMilliseconds" in input ? new Date(input.epochMilliseconds) : input : null;
 }
 
-/** Convert a WaitPeriod parameter to a Date
- * @param wait - Wait time as milliseconds or a Date
- * @param relativeTo - Date to use as a reference for relative waits
-*/
 export function convertWaitPeriodToDate(wait: WaitPeriod, options: { relativeTo: Temporal.Instant }): Temporal.Instant;
 export function convertWaitPeriodToDate(wait: WaitPeriod, options?: { relativeTo?: Date }): Date;
 
+/** Convert a WaitPeriod parameter to a Date
+ * @param wait - Wait time as milliseconds or a Date
+ * @param options - Options for conversion
+ * @param options.relativeTo - Date to use as a reference for relative waits
+*/
 export function convertWaitPeriodToDate(wait: WaitPeriod, options?: { relativeTo?: Date | Temporal.Instant }): Date | Temporal.Instant {
   if (options?.relativeTo && isTemporalInstant(options?.relativeTo)) { //then our caller expects a Temporal.Instant
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- if you pass a Temporal.Instant, we should be able to create new ones from Temporal.

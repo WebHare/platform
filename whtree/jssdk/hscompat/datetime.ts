@@ -308,7 +308,7 @@ export function localizeDate(format: string, date: Date, locale: string, timeZon
 }
 
 /** Round down a datetime
-    @param dt - Datetime to round down
+    @param date - Datetime to round down
     @param precision - Precision in milliseconds (eg, 1000 to round down to seconds, 86400*1000 to round down to a day)
     @returns - Rounded datetime
 */

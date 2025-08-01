@@ -197,8 +197,9 @@ export function createJSONResponse(status: HTTPStatusCode, jsonbody: unknown, op
 }
 
 /** Create a redirect response
- * @param jsonbody - The JSON body to return
- * @param options - Optional statuscode and headers
+ * @param location - Target URL/instruction
+ * @param status - Status code to use (default is 303 See Other)
+ * @param options - Optionals for body and headers
  */
 export function createRedirectResponse(location: string | NavigateInstruction, status: HTTPRedirectCode = HTTPSuccessCode.SeeOther, options?: { body?: string; headers?: Record<string, string> | Headers }): WebResponse {
   if (typeof location === "string") {

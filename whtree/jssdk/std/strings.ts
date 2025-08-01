@@ -5,7 +5,8 @@ export type WildcardTypes = "?*";
 
 /** Encode string for use in a regexp
  * @param text - Text to encode
- * @param wildcards - Type of wildcards to encode (defaults to none)
+ * @param options - Options for encoding
+ * @param options.wildcards - Type of wildcards to encode (defaults to none)
  * @returns Encoded for safe use in a RegExp
 */
 export function escapeRegExp(text: string, options?: { wildcards?: WildcardTypes }): string {
@@ -219,8 +220,9 @@ export function parseTyped(input: string) {
 
 /** Generate a slug from a (suggested) (file)name
  * @param text - Text to convert
- * @param separator - Separator to use between words (defaults to '-')
- * @param keep - Set of characters to keep in addition to a-z0-9
+ * @param options - Options for slugification
+ * @param options.separator - Separator to use between words (defaults to '-')
+ * @param options.keep - Set of characters to keep in addition to a-z0-9
  * @returns Slugified text or null if we couldn't generate anything reeadable
  */
 export function slugify(text: string, { separator = "-", keep = "" }: {

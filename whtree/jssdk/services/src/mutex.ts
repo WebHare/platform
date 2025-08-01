@@ -83,14 +83,14 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
   throw new Error("Unable to connect to the mutex manager");
 }
 
+export async function lockMutex(name: string): Promise<Mutex>;
+export async function lockMutex(name: string, options: { timeout: std.WaitPeriod; __skipNameCheck?: boolean }): Promise<Mutex | null>;
+
 /** Lock the requested mutex
  * @param name - The name of the mutex to lock
  * @param options - timeout optional timeout in milliseconds. If not specified, the mutex will be waited for indefinitely
  * @returns A locked mutex, or null if locking failed due to a timeout
  */
-export async function lockMutex(name: string): Promise<Mutex>;
-export async function lockMutex(name: string, options: { timeout: std.WaitPeriod; __skipNameCheck?: boolean }): Promise<Mutex | null>;
-
 export async function lockMutex(name: string, options?: { timeout?: std.WaitPeriod; __skipNameCheck?: boolean }): Promise<Mutex | null> {
   if (!options?.__skipNameCheck) //We're also invoked by WASM HareScript and WASM HareScript doesn't care about mutex name checks (lenient for old code)
     checkModuleScopedName(name);

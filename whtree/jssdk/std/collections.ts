@@ -104,7 +104,7 @@ export function pick<T extends object, K extends string & NoInfer<DistributedKey
 /** Returns an array with a selection of properties
     @typeParam T - Type of the supplied array
     @typeParam K - Type of the property keys to return
-    @param obj - Array to pick properties out of
+    @param arr - Array to pick properties out of
     @param keys - Names of the properties to pick
     @returns Resulting array
 */
@@ -133,7 +133,7 @@ export function omit<T extends object, K extends string & NoInfer<DistributedKey
 /** Returns an array with a selection of properties left out
     @typeParam T - Type of the supplied array
     @typeParam K - Type of the property keys to leave out
-    @param obj - Array to leave properties out of
+    @param arr - Array to leave properties out of
     @param keys - Names of the properties to leave out
     @returns Resulting array
 */

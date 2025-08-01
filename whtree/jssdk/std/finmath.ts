@@ -278,7 +278,7 @@ export function __roundIntegerToMultiple(value: number, roundunit: number, mode:
 /** Rounds a value to a multiple of a unit, with a specific rounding mode
     @param value - Value to round
     @param unit - The value will be rounded to a mulitple of this unit (except when rounding mode is 'none')
-    @param mode - Rounding mode. Possible values:<br>
+    @param mode - Rounding mode. Possible values:
       <ul>
         <li>none: No rounding</li>
         <li>toward-zero: Round toward zero</li>
