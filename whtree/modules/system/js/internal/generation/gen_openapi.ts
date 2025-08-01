@@ -394,8 +394,7 @@ type APIAuthInfo = null;
 
   const clientname = `OpenAPI${tag}Client`;
 
-  result = `/* eslint-disable tsdoc/syntax -- openapi-typescript emits jsdoc, not tsdoc */
-/* eslint-disable @typescript-eslint/no-explicit-any -- used in helper functions emitted by openapi-typescript */
+  result = `/* eslint-disable @typescript-eslint/no-explicit-any -- used in helper functions emitted by openapi-typescript */
 /* eslint-disable @typescript-eslint/array-type -- openapi-typescript doesn't follow the WebHare convention */
 /* eslint-disable no-tabs -- don't care about tabs from source files */
 

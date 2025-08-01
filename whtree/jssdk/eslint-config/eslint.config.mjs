@@ -2,7 +2,6 @@ import globals from "globals";
 import js from "@eslint/js";
 import react from "eslint-plugin-react";
 import tseslint from "typescript-eslint";
-import tsDoc from "eslint-plugin-tsdoc";
 import stylistic from "@stylistic/eslint-plugin";
 import importPlugin from 'eslint-plugin-import';
 
@@ -67,7 +66,6 @@ export function buildBaseConfig(options) {
     },
     plugins: {
       react: react,
-      tsdoc: tsDoc,
       "@stylistic": stylistic
     },
     rules: {
@@ -203,7 +201,6 @@ export function buildBaseConfig(options) {
         "error",
         "always"
       ],
-      "tsdoc/syntax": "error",
       "@typescript-eslint/typedef": "error",
       "no-throw-literal": "off",
       "@typescript-eslint/adjacent-overload-signatures": "error",
