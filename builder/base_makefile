@@ -247,20 +247,24 @@ endif
 
 WHLDFLAGS+=$(GLOBALLDFLAGS)
 
+WASM_EXPORTED_RUNTIME_METHODS = stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction,Emval,HEAP8,HEAP16,HEAP32,HEAPU8,HEAPU16,HEAPU32,HEAPF32,HEAPF64,HEAP64,HEAPU64
+
 WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
 WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
-WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction,Emval
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=$(WASM_EXPORTED_RUNTIME_METHODS)
 WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 
+WHLDFLAGS_EXECUTABLE += -s EXPORTED_RUNTIME_METHODS=$(WASM_EXPORTED_RUNTIME_METHODS)
+
 # Get all normal lines from wasm-suspending-functions.txt, seperated by commas
-ASYNCIFY_EXPORTS := $(shell cat $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt | grep -oe "^[^ \#]\+" | tr '\n' ','  | sed "s/,$$//" )
+JSPI_EXPORTS := $(shell cat $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt | grep -oe "^[^ \#]\+" | tr '\n' ','  | sed "s/,$$//" )
 
 WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
 WHLDFLAGS_WASM += -s IMPORTED_MEMORY
 WHLDFLAGS_WASM += -s STACK_SIZE=8MB
 WHLDFLAGS_WASM += -s INITIAL_MEMORY=16MB
-WHLDFLAGS_WASM += -s ASYNCIFY=2
-WHLDFLAGS_WASM += -s ASYNCIFY_EXPORTS=$(ASYNCIFY_EXPORTS)
+WHLDFLAGS_WASM += -s JSPI
+WHLDFLAGS_WASM += -s JSPI_EXPORTS=$(JSPI_EXPORTS)
 WHLDFLAGS_WASM += -s ALLOW_TABLE_GROWTH
 WHLDFLAGS_WASM += -s WASM_BIGINT
 WHLDFLAGS_WASM += --pre-js $(SRCDIR)/harescript/vm/wasm-pre.js
@@ -295,7 +299,7 @@ GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM)
 
 # We'll keep the fix-emcc-output.js infrastructure around now fix-emcc-output.js
 LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
-LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
+LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_EXECUTABLE) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
 
 ifeq ($(WEBHARE_PLATFORM),darwin)
  	LinkShared       = $(HIDE)echo "- LinkSharedNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)

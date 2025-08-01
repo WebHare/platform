@@ -96,7 +96,7 @@ if (nodeMajor >= 21 && nodeMajor <= 22) { //apply patches to resolve https://git
     "node-21-prod");
 } //ends 21-22 fixes
 
-if (nodeMajor >= 23) { //apply patches to resolve https://gitlab.webhare.com/webharebv/codekloppers/-/issues/941
+if (nodeMajor >= 23 && nodeMajor < 24) { //apply patches to resolve https://gitlab.webhare.com/webharebv/codekloppers/-/issues/941
   // debug build
   applyFix('add hook for fixing async hook behaviour, for imports (debug)', /new WebAssembly.Suspending\(original\);\n            }\n/m,
     `// Wrap async imports with a suspending WebAssembly function.\n            if (isAsyncifyImport) {\n              imports[x] = original = new WebAssembly.Suspending(original);\n            }\n`,
