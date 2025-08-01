@@ -401,7 +401,7 @@ async function testFetchResource() {
   const snowbeagle = await testsitejs.openFile("photoalbum/snowbeagle.jpg");
   const fetched = await services.fetchResource(snowbeagle.link!);
   test.eq(17191, fetched.resource.size);
-  test.eq("snowbeagle.jpg", fetched.fileName, "should extract nice file naem from URL: " + snowbeagle.link!);
+  test.eq("snowbeagle.jpg", fetched.fileName, "should extract nice file name from URL: " + snowbeagle.link!);
 
   const locinfo = await getCachePaths(snowbeagle.link!);
   const meta = await readCacheMetadata(locinfo.metaloc);
