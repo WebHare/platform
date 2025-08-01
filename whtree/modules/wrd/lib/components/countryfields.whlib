@@ -100,92 +100,82 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
     RETURN IsAddressEqual(this->verified_address, this->value);
   }
 
-  PUBLIC BOOLEAN FUNCTION CheckVerifyAddress(BOOLEAN also_report_ok)
-  {
+  PUBLIC BOOLEAN FUNCTION CheckVerifyAddress(BOOLEAN used_lookup_button) {
     RECORD addressdata := this->value;
-    IF (NOT RecordExists(addressdata))
+    IF (NOT RecordExists(addressdata)) {
+      IF(used_lookup_button)
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_not_enough_data"));
       RETURN TRUE;
+    }
 
     OBJECT lookup;
     IF(ObjectExists(this->contexts->applytester))
       lookup := GetAddressLookupAPI(this->contexts->applytester, addressdata.country);
 
-    IF(NOT ObjectExists(lookup))
-    {
+    IF(NOT ObjectExists(lookup)) {
       OBJECT wrdschema := this->wrdschema ?? this->contexts->wrdschema;
       IF(ObjectExists(wrdschema))
         lookup := GetWRDAddressLookupAPI(wrdschema, addressdata.country);
     }
 
-    IF(NOT ObjectExists(lookup))
+    IF(NOT ObjectExists(lookup)) {
+      IF(used_lookup_button)
+        this->owner->RunSimpleScreen("info", GetTid("wrd:commondialogs.messages.addressverify_unavailable"));
       RETURN TRUE;
+    }
 
     RECORD verify_data := lookup->CheckAddress(addressdata, [ alwaysverify := TRUE ]);
     RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
 
-    SWITCH (verify_data.status)
-    {
-      CASE "ok"
-      {
+    SWITCH (verify_data.status) {
+      CASE "ok" {
         this->value := newaddr;
         this->verified_address := newaddr;
 
-        IF (also_report_ok)
-          this->owner->RunMessageBox("wrd:commondialogs.addressverify_ok");
+        IF (used_lookup_button)
+          this->owner->RunSimpleScreen("info", GetTid("wrd:commondialogs.messages.addressverify_ok"));
+
         RETURN TRUE;
       }
-      CASE "incomplete"
-      {
+      CASE "incomplete" {
         this->value := newaddr;
         this->verified_address := newaddr;
       }
-      CASE "different_citystreet"
-      {
-        IF (NOT CellExists(verify_data.looked_up, "NR_DETAIL") AND CellExists(this->value, "NR_DETAIL"))
-          INSERT CELL nr_detail := this->value.nr_detail INTO verify_data.looked_up;
-
+      CASE "different_citystreet" {
         OBJECT dialog := this->owner->LoadScreen("wrd:commondialogs.verificationresult");
         dialog->original->value := FormatAddress(addressdata);
-        dialog->returned->value := FormatAddress(verify_data.looked_up);
-        dialog->problems_street->visible := ToUppercase(addressdata.street) != ToUppercase(verify_data.looked_up.street);
-        dialog->problems_city->visible := ToUppercase(addressdata.city) != ToUppercase(verify_data.looked_up.city);
-        IF(dialog->RunModal()="overwrite")
-        {
+        dialog->returned->value := FormatAddress(verify_data.data);
+        dialog->problems_street->visible := ToUppercase(addressdata.street) != ToUppercase(verify_data.data.street);
+        dialog->problems_city->visible := ToUppercase(addressdata.city) != ToUppercase(verify_data.data.city);
+        IF(dialog->RunModal()="overwrite")         {
           this->value := verify_data.data;
         }
       }
-      CASE "not_enough_data"
-      {
+      CASE "not_enough_data" {
         this->value := newaddr; //copy what we did get
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_not_enough_data");
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_not_enough_data"));
       }
-      CASE "zip_not_found"
-      {
+      CASE "zip_not_found" {
         this->value := newaddr; //copy what we did get
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_zip_not_found");
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_zip_not_found"));
       }
-      CASE "address_not_found"
-      {
+      CASE "address_not_found" {
         this->value := newaddr; //copy what we did get
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_address_not_found");
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_address_not_found"));
       }
-      CASE "invalid_nr_detail"
-      {
+      CASE "invalid_nr_detail" {
         this->value := newaddr; //copy what we did get
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_nr_detail");
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_invalid_nr_detail"));
       }
-      CASE "invalid_zip"
-      {
+      CASE "invalid_zip" {
         this->value := newaddr; //copy what we did get
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_zip");
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_invalid_zip"));
       }
-      CASE "lookup_failed"
-      {
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_lookup_failed");
+      CASE "lookup_failed" {
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_lookup_failed"));
       }
-      CASE "invalid_settings"
-      {
-        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_settings");
+      CASE "invalid_settings" {
+        this->owner->RunSimpleScreen("error", GetTid("wrd:commondialogs.messages.addressverify_invalid_settings"));
       }
     }
     RETURN FALSE;
@@ -367,4 +357,3 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
       field.component->ValidateValue(work);
   }
 >;
-

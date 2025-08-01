@@ -276,6 +276,7 @@
       <text tid="addressverify_lookup_failed">Kon geen verbinding maken met adresverificatie-service</text>
       <text tid="addressverify_not_enough_data">Niet genoeg gegevens om dit adres te verifiëren</text>
       <text tid="addressverify_ok">Adres is geverifieerd, en bevat geen fouten</text>
+      <text tid="addressverify_unavailable">Adresverificatie is niet beschikbaar</text>
       <text tid="addressverify_zip_not_found">De postcode/huisnummer combinatie is niet gevonden</text>
       <text tid="delete_entity">Weet je zeker dat je deze waarde wilt verwijderen?</text>
       <text tid="entity_in_use">Deze waarde is op dit moment in gebruik en kan daarom niet verwijderd worden.</text>

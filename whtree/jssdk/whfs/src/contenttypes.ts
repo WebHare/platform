@@ -1,7 +1,7 @@
 import * as kysely from "kysely";
 import { db, isWorkOpen, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { openWHFSObject } from "./objects";
+import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions } from "@webhare/services/src/descriptor";
@@ -220,7 +220,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
     const descr = await describeWHFSType(this.ns);
     if (!descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
-    const objinfo = await openWHFSObject(0, id, undefined, false, "setInstanceData", false, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
+    const objinfo = await __openWHFSObj(0, id, undefined, false, "setInstanceData", false, false); //TODO should we derive InstanceSetOptions from OpenWHFSObjectOptions ? but how does that work with readonly skip/fail/update ?
     if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
       if (options?.ifReadOnly !== 'skip') //ie "fail"
         throw new Error(`Attempting to update instance data on non existing file #${id} `);

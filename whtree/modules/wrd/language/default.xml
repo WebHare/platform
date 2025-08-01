@@ -276,6 +276,7 @@
       <text tid="addressverify_lookup_failed">Couldn't connect to the address verification service</text>
       <text tid="addressverify_not_enough_data">Not enough data to verify this address</text>
       <text tid="addressverify_ok">Address has been verified, and doesn't contain any errors</text>
+      <text tid="addressverify_unavailable">Adddress verification is not available</text>
       <text tid="addressverify_zip_not_found">Zip not found</text>
       <text tid="delete_entity">Are you sure you want to delete this value?</text>
       <text tid="entity_in_use">This value is used at the moment and therefore cannot be deleted.</text>

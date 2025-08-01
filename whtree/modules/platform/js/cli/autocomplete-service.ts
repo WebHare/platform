@@ -119,14 +119,14 @@ async function runServerMode() {
     res.setHeader('Content-Type', 'text/plain');
   });
 
-  const socketPath = backendConfig.dataRoot + "/cli-autocomplete.sock";
+  const socketPath = backendConfig.dataRoot + "/.cli-autocomplete.sock";
   try {
     // unlink the file if it exists
     await fs.unlink(socketPath);
   } catch (e) {
   }
 
-  server.listen(backendConfig.dataRoot + "/cli-autocomplete.sock");
+  server.listen(backendConfig.dataRoot + "/.cli-autocomplete.sock");
 }
 
 run({

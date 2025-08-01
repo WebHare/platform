@@ -116,3 +116,6 @@ DeleteDiskDirectoryRecursive(MergePath(dataroot, "storage/platform/assetpacks"))
 
 //5.7 Obsolete eslintrc.json
 DeleteDiskFile(MergePath(dataroot, ".eslintrc.json"));
+
+//5.9 Delete visible version of cli-autocomplete.sock
+DeleteDiskFile(MergePath(dataroot, "cli-autocomplete.sock"));
