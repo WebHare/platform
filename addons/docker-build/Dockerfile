@@ -11,6 +11,7 @@ ARG WHBUILD_NODE_URL
 # Environment variables
 ENV LC_ALL=C \
   WEBHARE_BASEPORT=13679 \
+  WEBHARE_IN_CONTAINER=1 \
   WEBHARE_IN_DOCKER=1 \
   WEBHARE_DATAROOT=/opt/whdata/ \
   WEBHARE_DIR=/opt/wh/whtree \
