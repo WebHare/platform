@@ -517,7 +517,7 @@ export async function describeTask(taskid: number, options?: { allowMissing: boo
 }
 
 /** Retry pending managed tasks by ID or tyoe
-    @param taskids - ID(s) of tasks to retry or a type maks
+    @param tasks - ID(s) of tasks to retry or a type maks
 */
 export async function retryTask(tasks: number | number[] | string): Promise<void> {
   const now = new Date;

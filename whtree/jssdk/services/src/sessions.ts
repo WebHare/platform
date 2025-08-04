@@ -97,8 +97,9 @@ export interface UploadSessionOptions {
 
 /** Create an upload session
  * @param manifest - Manifest of files to upload as prepared by requestFile(s)
- * @param chunkSize - Chunk size for the upload. This should generally be in the megabyte range
- * @param expires - Upload session expiry
+ * @param options - Options for the upload session
+ * @param options.chunkSize - Chunk size for the upload. This should generally be in the megabyte range
+ * @param options.expires - Upload session expiry
 */
 export async function createUploadSession(manifest: UploadManifest, { chunkSize = DefaultChunkSize, expires = DefaultUploadExpiry, baseUrl = "" }: UploadSessionOptions = {}): Promise<UploadInstructions> {
   const sessid = await createServerSession("platform:uploadsession", { manifest, chunkSize }, { expires });

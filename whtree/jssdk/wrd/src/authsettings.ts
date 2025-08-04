@@ -93,7 +93,9 @@ export class AuthenticationSettings {
   //TODO when to clear password? probably needs to be a WRD schema setting enforced on updateEntity
   /** Update the password in this setting
    * @param password - The new password
-   * @param alg - The hash algorithm to use. If not set, use best known method (may change in future versions)
+   * @param options - Options for updating the password
+   * @param options.algorithm - The hash algorithm to use. If not set, use best known method (may change in future versions)
+   * @param options.inPlace - Update the last password in place (if it exists), otherwise add to the list. Used to upgrade passwords to a new algorithm without changing the password history and resetting the password age
   */
   async updatePassword(password: string, options?: { algorithm?: "PLAIN" | "WHBF"; inPlace?: boolean }): Promise<void> {
     if (!password)

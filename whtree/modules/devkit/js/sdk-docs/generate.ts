@@ -7,8 +7,6 @@ import { listDirectory } from "@webhare/system-tools";
          we also had to override the dependency in our package.json to get 'npm install' to not complain about the incompatible version */
 
 const blacklistModules = [
-  //@webhare/deps is a convenience lib but definitely not an official API
-  "deps",
   //might not want to provide as a separate maintained module in core webhare
   "dompack-overlays"
 ];

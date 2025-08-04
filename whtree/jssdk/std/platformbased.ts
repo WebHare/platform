@@ -4,7 +4,7 @@ export function isLikeRandomId(input: string): boolean { //TODO add encoding par
 }
 
 /** Test whether a string is a valid hex UUID
- * @param string - uuid in hex format to verify. you may need to lowercase the uuid first
+ * @param input - uuid in hex format to verify. you may need to lowercase the uuid first
  * @param format - optional, if set to "v4" it will only accept UUIDv4 format
 */
 export function isValidUUID(input: string, format?: "v4"): boolean {

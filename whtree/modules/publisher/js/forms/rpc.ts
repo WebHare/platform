@@ -203,7 +203,7 @@ export default class RPCFormBase<DataShape extends object = Record<string, unkno
   }
 
   /** Invoke a function on the form on the server
-      @param methodname- Name of the function on the form
+      @param methodname - Name of the function on the form
       @param args - Arguments for the function
       @returns Promise that resolves to the result of the rpc call
   */

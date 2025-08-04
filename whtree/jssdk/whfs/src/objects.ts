@@ -548,8 +548,9 @@ export class WHFSFolder extends WHFSBaseObject {
 
   /** Generate a unique name for a new object in this folder
    * @param suggestion - Suggested name for the new object. If this name is already taken, a counter will be appended to the name
-   * @param ignoreObject - Ignore this object when looking for a free name (usually refers to an object being renamed as it shouldn't clash with itself)
-   * @param slugify - Slugify the suggested name, defaults to true
+   * @param options - Options for generating the name
+   * @param options.ignoreObject - Ignore this object when looking for a free name (usually refers to an object being renamed as it shouldn't clash with itself)
+   * @param options.slugify - Slugify the suggested name, defaults to true
    */
 
   async generateName(suggestion: string, { ignoreObject = null, slugify = true }: {

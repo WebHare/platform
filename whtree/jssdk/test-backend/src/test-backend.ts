@@ -127,14 +127,14 @@ export async function getLastAuthAuditEvent<S extends SchemaTypeDefinition, Type
   return (await getAuditEvents<S, Type>(w, { ...filter, limit: 1 }))[0] || throwError(`No audit event found for schema ${w.tag} with filter ${JSON.stringify(filter)}`);
 }
 
-/** Wait for publication to complete
+/** Wait for publication to complete!
     @param startingpoint - Folder or file we're waiting to complete republishing (recursively)
     @param options - Options for waiting
-    @param deadline - Maximum time to wait (defaults to 5 minutes)
-    @param reportFrequency - If set, frequency (in ms) to report we're still waiting
-    @param skipEventCompletion - Do not wait for publisher (republish) events to complete processing
-    @param acceptErrors - Accept any error in the publication (WebHare 4.33+)
-    @param expectErrorsFor - Explicit file IDs we accept and expect an error for */
+    @param options.deadline - Maximum time to wait (defaults to 5 minutes)
+    @param options.reportFrequency - If set, frequency (in ms) to report we're still waiting
+    @param options.skipEventCompletion - Do not wait for publisher (republish) events to complete processing
+    @param options.acceptErrors - Accept any error in the publication (WebHare 4.33+)
+    @param options.expectErrorsFor - Explicit file IDs we accept and expect an error for */
 export async function waitForPublishCompletion(startingpoint: number | string, options: {
   deadline?: WaitPeriod;
   reportFrequency?: number;

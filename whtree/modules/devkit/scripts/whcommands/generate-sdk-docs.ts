@@ -37,10 +37,11 @@ run({
       await app.convertAndWatch(p => renderProject(app, p, opts));
     } else {
       const project = await app.convert();
-      if (project)
-        await renderProject(app, project, opts);
-      else
+      if (!project)
         return 1;
+
+      await renderProject(app, project, opts);
+      return app.logger.warningCount === 0 && app.logger.errorCount === 0 ? 0 : 1;
     }
 
     return 0;

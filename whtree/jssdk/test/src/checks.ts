@@ -43,6 +43,7 @@ let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 export type WaitRetVal<T> = Promise<Exclude<T, undefined | false | null>>;
 export type WaitOptions<T> = Annotation | {
   timeout?: number;
+  /**  An optional test that should return true for the wait to end. By default wait() waits for a truthy value */
   test?: (value: T) => boolean;
   annotation?: Annotation;
 };
@@ -300,7 +301,7 @@ function testStringify(val: unknown): string {
 }
 
 /** Verify deep equality of two values (to compare object identity, you need to use {@link assert} with ===)
- * @typeparam T - The type of the values (both values are expected to be of the same type). This type is only inferred
+ * @typeParam T - The type of the values (both values are expected to be of the same type). This type is only inferred
  * from the 'actual' parameter.
  * @param expected - The expected value
  * @param actual - The actual value
@@ -401,7 +402,7 @@ function verifyThrowsException(expect: RegExp, exception: unknown, options?: Tes
 /** Expect a call or promise to throw
  * @param expect - A regular expression to match the exception message against
  * @param func_or_promise - A function to call, or a promise to await
- * @param annotation - Optional annotation to log if the test fails
+ *  @param options - Test compare options or annotation
  * @returns The Error object thrown */
 export function throws(expect: RegExp, func_or_promise: () => never, options?: Annotation | TestOptions): Error; // only picks up always-throwing functions
 export function throws(expect: RegExp, func_or_promise: Promise<unknown>, options?: Annotation | TestOptions): Promise<Error>;
@@ -429,11 +430,12 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
 }
 
 /** Compare specific cells of two values (partial, recursive)
- * @typeparam T - The type of the values (both values are expected to be of the same type). This type is only inferred
+ * @typeParam T - The type of the values (both values are expected to be of the same type). This type is only inferred
  * from the 'actual' parameter.
- *  @param expected - Expected value
+ *  @param expect - Expected value
  *  @param actual - Actual value
- *  @param annotation - Message to display when the test fails */
+ *  @param options - Test compare options or annotation
+ * */
 export function eqPartial<T>(expect: NoInfer<RecursivePartialTestable<T>>, actual: T, options?: Annotation | TestOptions) {
   if (typeof options === "string" || typeof options === "function")
     options = { annotation: options };
@@ -602,7 +604,7 @@ export async function loadJSONSchema(schema: string | JSONSchemaObject): Promise
 
 /** Wait for a condition to become truthy
  * @param waitfor - A function/promiose that should resolve to true for the wait to finish
- * @param test - An optional test that should return true for the wait to end. By default wait() waits for a truthy value
+ * @param options - Test compare options or annotation
  * @returns The value that the waitfor function last resolved to
  */
 export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<T>, options?: WaitOptions<T>): WaitRetVal<T> {
@@ -657,8 +659,10 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
  *
  * This is generally equivalent to `assert(!test); run(); wait(test);` but helps prevent mistakes if the two test conditions weren't identical, or if they became true because of another side effect rather than the run() function.
  *
- * @param test - A function that should resolve to falsy value before run() is invoked (tested immediatley and after one tick), and to a truthy value once run() has completed
- * @param run - The function to run
+ * @param wait - Toggle set
+ * @param wait.test - A function that should resolve to falsy value before run() is invoked (tested immediatley and after one tick), and to a truthy value once run() has completed
+ * @param wait.run - The function to run
+ * @param options - Test compare options or annotation
 */
 export async function waitToggled<T>({ test, run }: {
   test: () => T | Promise<T>;

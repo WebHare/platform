@@ -314,8 +314,10 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
   return importer.outdoc;
 }
 
-/** Build a HareScript record structure RTD. Necessary to communicatee with HareScript (directly and through database storage)
- *  @param recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
+/** Build a HareScript record structure RTD. Necessary to communicate with HareScript (directly and through database storage)
+ * @param rtd - RTD to export
+ * @param options - Options
+ * @param options.recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
 */
 export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<HareScriptRTD> {
   const instances: HareScriptRTD["instances"] = [];

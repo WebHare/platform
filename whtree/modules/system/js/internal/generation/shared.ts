@@ -48,7 +48,6 @@ function getEnvironment(unsafeEnv: boolean): Record<string, string> {
   return Object.fromEntries(Object.entries(process.env).filter(([key]) => unsafeEnv || key.startsWith("WEBHARE_")).map(([key, value]) => [key, value ?? '']));
 }
 
-/** @param unsafeEnv - Allow unsafe environment variables to be tested, eg TESTSECRET__. You should only enable this for 'trusted' ifWebHare sources (eg static moduledefinition.ymls are okay, a RPC from a connecting peer server is not) */
 export function getMyApplicabilityInfo({ unsafeEnv = false } = {}): WebHareVersionInfo {
   return {
     versionnum: getVersionInteger(),
@@ -149,8 +148,9 @@ export function readApplicableToWebHareNode(xmlnode: Element, prefix: string): I
 }
 
 /** Returns whether an ifWebHare node maches this WebHare installation
-    @param xmlnode - XML node to check
-    @param prefix - Prefix to add before attribute names. Eg set to 'data-' by <meta> mailer tags
+    @param restrictions - Restrictions to check for
+    @param options - Options for checking
+    @param options.unsafeEnv - Allow unsafe environment variables to be tested, eg TESTSECRET__. You should only enable this for 'trusted' ifWebHare sources as environment variables may leak information (eg static moduledefinition.ymls are okay, a RPC from a connecting peer server is not)
     @returns Whether the node is applicable to this WebHare installation.
 */
 export function matchesThisServer(restrictions: IfWebHare, { unsafeEnv = false } = {}) {

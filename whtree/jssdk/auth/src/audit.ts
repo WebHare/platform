@@ -130,20 +130,19 @@ export function updateAuditContext(updates: AuthAuditContext) {
 }
 
 /** Writes a audit event to the logs in a separate transction
-    @param  wrdtype - Relevant wrd type
-    @param type - Audit event type
+    @param wrdSchema - Target schema
     @param event - Event data
 */
-export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(w: WRDSchema<S>, event: AuthAuditEvent<Type>) {
-  const schemaId = await w.getId();
+export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type extends keyof AuthEventData>(wrdSchema: WRDSchema<S>, event: AuthAuditEvent<Type>) {
+  const schemaId = await wrdSchema.getId();
 
   //FIXME if we receive the *Login values in the eventdata, actually use that instead of bothering with a lookup
   const accountInfo = event.entity ? await describeActingEntity(event.entity, false) : null;
   const impersonatedBy = event.impersonatedBy ? await describeActingEntity(event.impersonatedBy, true) : null;
   const actionBy = event.actionBy ? event.actionBy === event.impersonatedBy ? impersonatedBy : await describeActingEntity(event.actionBy, true) : null;
 
-  if (accountInfo && accountInfo.wrdSchema !== w.tag)
-    throw new Error(`Account #${event.entity} is not in schema ${w.tag}`);
+  if (accountInfo && accountInfo.wrdSchema !== wrdSchema.tag)
+    throw new Error(`Account #${event.entity} is not in schema ${wrdSchema.tag}`);
 
   const toInsert: Insertable<PlatformDB, "wrd.auditevents"> = {
     creationdate: new Date,
@@ -167,7 +166,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
   broadcastOnCommit(`wrd:auditlog.${schemaId}.${event?.entity || 0}`);
   log("system:audit", {
     source: "platform:auth",
-    wrdSchema: w.tag,
+    wrdSchema: wrdSchema.tag,
     type: toInsert.type,
     id: inserted[0].id,
     ip: toInsert.ip || undefined,
