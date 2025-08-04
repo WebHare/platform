@@ -12,6 +12,7 @@ import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import { WebHareMemoryBlob, WebHareNativeBlob } from "@webhare/services/src/webhareblob";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
+import { isDatabaseError } from "@webhare/whdb/src/impl";
 
 async function cleanup() {
   await beginWork();
@@ -697,6 +698,104 @@ async function testSeparatePrimaryLeak() {
   await rollbackWork();
 }
 
+async function testDeadlockDetection() {
+  // See if deadlock detection is working and throws the appropriate DatabaseError with the 40P01 code
+  {
+    await beginWork();
+    await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values([{ id: 1, text: "Record 1" }, { id: 2, text: "Record 2" }]).execute();
+    await commitWork();
+
+    const ctxt1 = new CodeContext("test_whdb: Context #1");
+    const ctxt2 = new CodeContext("test_whdb: Context #1");
+
+    const update1_1 = Promise.withResolvers<void>();
+    const update2_2 = Promise.withResolvers<void>();
+
+    const run1 = ctxt1.run(async () => {
+      await beginWork();
+      // update row 1
+      await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated1" }).where("id", "=", 1).execute();
+      // wait for the second context to update row 2
+      update1_1.resolve();
+      await update2_2.promise;
+      // update row 2 - which will deadlock if the second context updated row 1 first
+      await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 2 - updated1" }).where("id", "=", 2).execute();
+      await commitWork();
+    }).catch(e => e);
+
+    const run2 = ctxt2.run(async () => {
+      await beginWork();
+      // update row 2 (not the one the first context is updated first)
+      await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 2 - updated2" }).where("id", "=", 2).execute();
+      // wait for the first context to update row 1
+      update2_2.resolve();
+      await update1_1.promise;
+      // update row 1 - which will deadlock if the first context updated row 2 first
+      await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated2" }).where("id", "=", 1).execute();
+      await commitWork();
+    }).catch(e => e);
+
+    const error = await run1 || await run2;
+
+    test.assert(isDatabaseError(error), "At least one of the runs should have failed with a deadlock error");
+    test.eq("40P01", error.code);
+  }
+
+  // See if deadlock detection is working and throws the appropriate DatabaseError with the 40P01 code
+  {
+    await beginWork();
+    await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+    await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values([{ id: 1, text: "Record 1" }, { id: 2, text: "Record 2" }]).execute();
+    await commitWork();
+
+    const ctxt1 = new CodeContext("test_whdb: Context #1");
+    const ctxt2 = new CodeContext("test_whdb: Context #1");
+
+    const update1_1 = Promise.withResolvers<void>();
+    const update2_2 = Promise.withResolvers<void>();
+
+    let run1_itr = 0, run2_itr = 0;
+    const run1 = ctxt1.run(async () => {
+      await runInWork(async () => {
+        ++run1_itr;
+        // update row 1
+        await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated1" }).where("id", "=", 1).execute();
+        // wait for the second context to update row 2
+        update1_1.resolve();
+        await update2_2.promise;
+        // update row 2 - which will deadlock if the second context updated row 1 first
+        await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 2 - updated1" }).where("id", "=", 2).execute();
+      }, { autoRetry: true, isolationLevel: "serializable" });
+    }).catch(e => e);
+
+    const run2 = ctxt2.run(async () => {
+      await runInWork(async () => {
+        ++run2_itr;
+        // update row 2 (not the one the first context is updated first)
+        await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 2 - updated2" }).where("id", "=", 2).execute();
+        // wait for the first context to update row 1
+        update2_2.resolve();
+        await update1_1.promise;
+        // update row 1 - which will deadlock if the first context updated row 2 first
+        await db<WebHareTestsuiteDB>().updateTable("webhare_testsuite.exporttest").set({ text: "Record 1 - updated2" }).where("id", "=", 1).execute();
+      }, { autoRetry: true });
+    }).catch(e => e);
+
+    test.eq(undefined, await run1);
+    test.eq(undefined, await run2);
+    test.eq(3, run1_itr + run2_itr, "1 normal run, 1 deadlock, 1 retry");
+
+    test.eq(run1_itr === 2 ? [
+      { id: 1, text: "Record 1 - updated1" },
+      { id: 2, text: "Record 2 - updated1" },
+    ] : [
+      { id: 1, text: "Record 1 - updated2" },
+      { id: 2, text: "Record 2 - updated2" },
+    ], await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").select(["id", "text"]).orderBy("id").execute());
+  }
+}
+
 test.runTests([
   cleanup,
   testWork,
@@ -713,5 +812,6 @@ test.runTests([
   testHSRunInSeparatePrimary,
   testHSCommitHandlers, //moving this higher triggers races around commit handlers and VM shutdowns
   testClosedConnectionHandling,
-  testSeparatePrimaryLeak
+  testSeparatePrimaryLeak,
+  testDeadlockDetection,
 ]);
