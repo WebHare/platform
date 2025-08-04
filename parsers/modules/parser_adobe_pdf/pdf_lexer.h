@@ -2,6 +2,7 @@
 #define blex_harescript_modules_pdf_lexer
 
 #include "pdf_objects.h"
+#include <utility>
 
 using namespace std::rel_ops;
 
