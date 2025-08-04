@@ -23,6 +23,7 @@ async function setupWHAPITest() {
     users: {
       sysop: { grantRights: ["system:sysop", "platform:api"] },
       noApiSysop: { grantRights: ["system:sysop"] },
+      notASysop: { grantRights: ["platform:api"] },
     }
   });
 
@@ -57,8 +58,19 @@ async function setupWHAPITest() {
     }
   }
 
-  //TODO what scopes will WH really be using? eg things like `platform:whfs:/myfolder` to scope them away from openid/3rd party modules?
-  apiSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Finite Token" });
+  { // fetch with a non-sysop
+    const nonSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("notASysop").wrdId, { scopes: ["system:sysop"] });
+    const api = new OpenAPIApiClient(directFetch, { bearerToken: nonSysopToken.accessToken });
+    test.eqPartial({ status: 401, body: { error: /User does not have the privileges/ } }, (await api.get("/meta")));
+  }
+
+  { // fetch with a token lacking the required scope
+    const sysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { scopes: ["wrd:schemas:0"] });
+    const api = new OpenAPIApiClient(directFetch, { bearerToken: sysopToken.accessToken });
+    test.eqPartial({ status: 401, body: { error: /User lacks.*scope/ } }, (await api.get("/meta")));
+  }
+
+  apiSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { scopes: ["system:sysop", "wrd:schemas:0"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Finite Token" });
   test.eq(/^secret-token:eyJ/, apiSysopToken.accessToken);
 
   test.eqPartial({ title: "Finite Token", expires: apiSysopToken.expires }, await getToken(jsAuthSchema, apiSysopToken.id));
@@ -69,15 +81,16 @@ async function setupWHAPITest() {
   test.eqPartial([
     { type: "id", scopes: [] },
     { type: "id", scopes: [], metadata: null },
-    { type: "api", scopes: ["testscope", "test:scope:2"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Infinity Token" }
+    { type: "api", scopes: ["wrd:schemas:0"] },
+    { type: "api", scopes: ["system:sysop", "wrd:schemas:0"], metadata: { myFavouriteKey: true, myDate: Temporal.PlainDate.from("2025-03-25") }, title: "Infinity Token" }
   ], tokens);
 
   await test.throws(/does not belong to schema system:usermgmt/, () => deleteToken(systemUsermgmtSchema, tokens[0].id));
   await runInWork(() => deleteToken(jsAuthSchema, tokens[0].id));
-  test.eq(2, (await listTokens(jsAuthSchema, test.getUser("sysop").wrdId)).length);
+  test.eq(3, (await listTokens(jsAuthSchema, test.getUser("sysop").wrdId)).length);
 
   await test.throws(/No such .* system:usermgmt/, () => createFirstPartyToken(systemUsermgmtSchema, "id", test.getUser("sysop").wrdId));
-  infiniteToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { expires: Infinity });
+  infiniteToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { expires: Infinity, scopes: ["system:sysop"] });
   test.eq(null, infiniteToken.expires);
 
   await test.throws(/does not belong to schema system:usermgmt/, () => listTokens(systemUsermgmtSchema, test.getUser("sysop").wrdId));
