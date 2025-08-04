@@ -89,12 +89,21 @@ async function lookupDomainValues(attr: AttrRec, vals: Array<string | number>): 
       output.push(val);
       continue;
     }
+
     if (isValidUUID(val)) {
       const binaryGuid = decodeWRDGuid(val);
       //FIXME support parent/child types. but accessors don't have the schema info?
       const res = await db<PlatformDB>().selectFrom("wrd.entities").where("type", "=", attr.domain).where("guid", "=", binaryGuid).select(["id"]).executeTakeFirst();
       if (!res) //TODO clearer error using JS metadata/names
-        throw new Error(`Unable to locate ${val} for domain ${attr.tag} in type #${attr.domain}`);
+        throw new Error(`Unable to locate '${val}' for domain ${attr.tag} in type #${attr.domain}`);
+      output.push(res.id);
+      continue;
+    }
+
+    if (isValidWRDTag(val)) {
+      const res = await db<PlatformDB>().selectFrom("wrd.entities").where("type", "=", attr.domain).where("tag", "=", val).select(["id"]).executeTakeFirst();
+      if (!res) //TODO clearer error using JS metadata/names
+        throw new Error(`Unable to locate '${val}' for domain ${attr.tag} in type #${attr.domain}`);
       output.push(res.id);
       continue;
     }
