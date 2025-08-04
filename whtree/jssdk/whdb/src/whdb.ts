@@ -15,4 +15,4 @@ export type {
 } from "kysely";
 
 export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, uploadBlob, DBReadonlyError } from "./impl";
-export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions } from "./impl";
+export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions, DatabaseError } from "./impl";
