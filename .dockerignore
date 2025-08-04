@@ -14,7 +14,7 @@ addons/vscode-extension
 # buildinfo is generated outside the container build because CI_ variables are not copied to the container
 !/whtree/modules/platform/generated/buildinfo
 
-# webhare_testsuite should never ship in the container. testdocker will link it into the containers during CI
+# webhare_testsuite should never ship in the container. testcontainer will link it into the containers during CI
 /whtree/modules/webhare_testsuite
 
 /vendor/emsdk/node

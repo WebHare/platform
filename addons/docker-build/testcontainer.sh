@@ -131,7 +131,7 @@ create_container()
   set | grep -E '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> "${TEMPBUILDROOT}/env-file"
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!. (Also some CI tests are bash scripts and currently require this, but that could otherwise be fixed)
-  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --tmpfs /tmp/ --tmpfs /opt/whdata:exec --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
+  CONTAINERID="$(RunDocker create -l webharecitype=$WEBHARECITYPE -p 80 -p 8000 $DOCKERARGS --tmpfs /tmp/ --tmpfs /opt/whdata:exec --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
 
   if [ -z "$CONTAINERID" ]; then
     echo Container creating failed
@@ -483,10 +483,13 @@ CONTAINERENGINE=()
 if [ "$DOCKERSUDO" == "1" ]; then
   CONTAINERENGINE+=(sudo)
 fi
+
 if [ -n "$USEPODMAN" ]; then
   CONTAINERENGINE+=(podman)
+  WEBHARECITYPE="testpodman"  #WEBHARECITYPE is used to recognize CI containers running too long
 else
   CONTAINERENGINE+=(docker)
+  WEBHARECITYPE="testdocker"
 fi
 
 if "${CONTAINERENGINE[@]}" inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
@@ -685,7 +688,7 @@ create_container 1 #once a container is created, we have the version number
 echo "Container 1: $TESTENV_CONTAINER1"
 
 if ! is_atleast_version 5.5.0 ; then
-  echo "version macro broke or unsupported webhare version for this testdocker.sh ($version)"
+  echo "version macro broke or unsupported webhare version for this testcontainer.sh ($version)"
 fi
 
 

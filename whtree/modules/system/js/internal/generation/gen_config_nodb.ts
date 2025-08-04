@@ -143,12 +143,12 @@ export function parseModuleFolderName(name: string) {
   return { creationdate: new Date(Date.parse("1970-01-01T00:00:00Z")), name };
 }
 
-/* The devkit module is part of Webhare but not activated inside a docker container (WEBHARE_IN_DOCKER) unless WEBHARE_ENABLE_DEVKIT is set */
+/* The devkit module is part of Webhare but not activated inside a container (WEBHARE_IN_CONTAINER) unless WEBHARE_ENABLE_DEVKIT is set */
 export function enableDevKit() {
   /* Initially devkit also activated for WEBHARE_CI_MODULE - but that's dangerous as it we wouldn't enable it on prod either. We might have
      future validation steps in CI that *do* use WEBHARE_CI_MODULE but if we want that, it's better to do those in a separate CI step or
      to somehow relaunch webhare with an enabled devkit */
-  return Boolean(process.env.WEBHARE_ENABLE_DEVKIT || !process.env.WEBHARE_IN_DOCKER);
+  return Boolean(process.env.WEBHARE_ENABLE_DEVKIT || !process.env.WEBHARE_IN_CONTAINER);
 }
 
 function scanModuleFolder(modulemap: ModuleScanMap, folder: string, rootfolder: boolean, always_overwrites: boolean) {

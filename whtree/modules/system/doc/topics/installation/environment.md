@@ -43,8 +43,11 @@ If `WEBHARE_DATAROOT/webhare.restoremode` exists, WebHare will read the contents
 ### WEBHARE_CLI_USER
 The user currently accessing the server. You should ensure this is set to the user executing commands for proper auditing.
 
+### WEBHARE_IN_CONTAINER
+Set if we're running inside a container environment, and not from a source installation. Added in WebHare 5.9
+
 ### WEBHARE_IN_DOCKER
-Set if we're running inside a docker environment, and not from a source installation
+Old name for `WEBHARE_IN_CONTAINER`
 
 ### WEBHARE_VERSION
 Current semantic WebHare version number, eg 4.27.0
@@ -77,7 +80,7 @@ Directory for temporary files. If not set, $WEBHARE_DATAROOT/tmp will be used.
 Maintenance window time offset, in minutes. All tasks with the 'maintenance' timezone will be offset this many minutes.
 
 ### WEBHARE_MODULEPATHS
-Additional modulepath to search. Separate by colon (':'). In docker, this is usually `/opt/whmodules`
+Additional modulepath to search. Separate by colon (':'). In a containers this is set `/opt/whmodules`
 
 ### WEBHARE_NOINSTALLATIONINFO
 If set, no connectinfo will be written to the installationroot. This allows you to run a secondary WebHare installation
@@ -168,10 +171,10 @@ Please make sure you protect it !
 If set, two separate WebHares are running. This enables some additional tests
 
 ### WEBHARE_CI
-The `WEBHARE_CI` variable is set by testdocker/testmodule to indicate that the current installation is started by CI
+The `WEBHARE_CI` variable is set by testcontainer/testmodule to indicate that the current installation is started by CI
 
 ### WEBHARE_CI_MODULE
 The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by CI. (added in 5.02)
 
 ### WEBHARE_ENABLE_DEVKIT
-Enable the devkit module - even if running in a Docker container
+The devkit module is normally only enabled in source installations (see `enableDevKit()`). This flag enable the devkit module even if running in a container environment.

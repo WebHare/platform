@@ -18,15 +18,15 @@ function cleanup()
 
 trap cleanup EXIT # clean up our tmp on interrupt
 
-for P in make-functions.sh wh-functions.sh testdocker.sh; do
+for P in make-functions.sh wh-functions.sh testcontainer.sh; do
   if ! curl --fail --silent "https://build.webhare.dev/ci/scripts/$P" -o "${MKTEMP}/${P}" ; then
     echo "Download of $P failed"
     exit 1
   fi
 done
 
-chmod a+x "$MKTEMP"/testdocker.sh
-"$MKTEMP"/testdocker.sh -m "$@"
+chmod a+x "$MKTEMP"/testcontainer.sh
+"$MKTEMP"/testcontainer.sh -m "$@"
 TESTRESULT=$?
 
 exit $TESTRESULT
