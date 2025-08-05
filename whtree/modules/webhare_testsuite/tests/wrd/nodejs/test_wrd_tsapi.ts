@@ -564,6 +564,8 @@ async function testNewAPI() {
   await whdb.beginWork();
 
   const domain1value1 = await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1");
+  const domain1value2 = await schema.find("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2" });
+
   test.assert(domain1value1);
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "=", "TEST_DOMAINVALUE_1_1").execute());
   test.eq([domain1value1], await schema.query("testDomain_1").select("wrdId").where("wrdTag", "in", ["TEST_DOMAINVALUE_1_1"]).execute());
@@ -593,6 +595,9 @@ async function testNewAPI() {
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "in", [null, domain1value1]).execute());
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", domain1value1));
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
+
+  await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: "TEST_DOMAINVALUE_1_2" }); //verify wrdTag is supported on input
+  test.eq([{ wrdId: newperson, testSingleDomain: domain1value2 }], await schema.query("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value2).execute());
 
   // verify File/Image fields (blob)
   //@ts-expect-error data:Buffer is no longer valid to avoid confusion between the 5.3 compat option and the 5.8 ExportedResource

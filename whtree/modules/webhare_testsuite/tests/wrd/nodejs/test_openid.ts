@@ -32,7 +32,7 @@ async function runWebHareLoginFlow(page: Puppeteer.Page, options?: { password?: 
   await page.click('button[type=submit]');
 
   if (options?.changePasswordTo) {
-    await page.waitForSelector('#completeaccountpassword-passwordnew');
+    await page.waitForSelector('.wh-form--allowsubmit #completeaccountpassword-passwordnew'); //wh-form--allowsubmit ensures the form is ready for to submit (and JS code is loaded)
     await page.type('#completeaccountpassword-passwordnew', options.changePasswordTo);
     await page.type('#completeaccountpassword-passwordrepeat', options.changePasswordTo);
     await page.click('button[type=submit]');

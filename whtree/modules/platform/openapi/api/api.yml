@@ -15,21 +15,23 @@ paths:
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/meta"
+                "$ref": "#/components/schemas/Meta"
         '401':
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "meta.ts#getMeta"
 
 components:
   schemas:
-    meta:
+    Meta:
       type: object
+      additionalProperties: false
       properties:
         user:
-          $ref: "#/components/schemas/user"
+          $ref: "#/components/schemas/User"
 
-    user:
+    User:
       type: object
+      additionalProperties: false
       properties:
         guid:
           type: string
