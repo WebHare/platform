@@ -82,9 +82,14 @@ wh_getnodeconfig() # Discover node binary. Note that as WH is now started by a s
     [ -n "$WEBHARE_NODE_MAJOR" ] || die "Could not set WEBHARE_NODE_MAJOR from $WEBHARE_DIR/etc/platform.conf"
   fi
 
-  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then
-    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
+  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then
+    BREWPREFIX="$(brew --prefix)"
+    [ -n "$BREWPREFIX" ] || die "Could not find brew (brew --prefix), is Homebrew properly installed and is 'brew' in the PATH?"
+    if [ -x "${BREWPREFIX}/opt/node@${WEBHARE_NODE_MAJOR}/bin/node" ]; then # See if our preferred version is available
+      WEBHARE_NODE_BINARY="${BREWPREFIX}/opt/node@${WEBHARE_NODE_MAJOR}/bin/node"
+    fi
   fi
+
   [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
 
   export WEBHARE_NODE_MAJOR WEBHARE_NODE_BINARY

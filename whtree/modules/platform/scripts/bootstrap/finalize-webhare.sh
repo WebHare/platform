@@ -69,8 +69,16 @@ logWithTime "Setup postgresql-client"
 logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
 
-# verify the binary works. note that we tried to cache the puppeteer download by doing it an earlier build stage
-logWithTime "Verifying the brwoser"
+# When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
+[ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
+
+# We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_HARESCRIPT_OFF=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
+# After this step, 'wh node' should be available.
+logWithTime "Generate minimal config to bootstrap WebHare"
+WEBHARE_NO_CONFIG=1 WEBHARE_HARESCRIPT_OFF=1 wh apply --nodb --offline config.base
+
+# verify the binary works. depends on 'wh node' working
+logWithTime "Verifying the browser"
 BROWSER="$(wh node -e 'console.log(require("puppeteer").executablePath())')"
 if [ -z "$BROWSER" ]; then
   echo "Puppeteer executablePath() failed, cannot find browser"
@@ -95,13 +103,6 @@ if ! wh run mod::platform/scripts/bootstrap/test-puppeteer.ts ; then
   echo "Screenshot failed. The browser may be broken?"
   exit 1
 fi
-
-# When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
-[ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
-
-# We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_HARESCRIPT_OFF=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
-logWithTime "Generate minimal config to bootstrap WebHare"
-WEBHARE_NO_CONFIG=1 WEBHARE_HARESCRIPT_OFF=1 wh apply --nodb --offline config.base
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
 rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
