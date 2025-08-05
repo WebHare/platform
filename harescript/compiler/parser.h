@@ -2,6 +2,7 @@
 #define blex_webhare_harescript_parser_parser
 
 #include <harescript/vm/hs_lexer.h>
+#include <optional>
 
 // out when AstCoder implementation and AST types are complete
 #include "compiler.h"

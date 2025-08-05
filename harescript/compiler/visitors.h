@@ -156,7 +156,7 @@ template <class Visitor, class ReturnType, class Parameter> template <class Node
 template <class Visitor, class Parameter> struct BaseVisitorFunctor<Visitor, void, Parameter>
 {
         Visitor *visitor;
-        BaseVisitorFunctor<Visitor, void, Parameter>(Visitor *visitor) : visitor(visitor) {}
+        BaseVisitorFunctor(Visitor *visitor) : visitor(visitor) {}
         template <class Node>
          void operator ()(Node*& node, Parameter parameter);
 };
@@ -282,7 +282,3 @@ template <class Visitor>
 } // end of namespace HareScript
 
 #endif
-
-
-
-
