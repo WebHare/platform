@@ -617,8 +617,8 @@ STATIC OBJECTTYPE ManagedHSWorker EXTEND ManagedWorker
     STRING ARRAY args := [ "mod::system/scripts/internal/managedtaskworker.whscr" ];
     IF(this->threads > 1)
       args := [ "--workerthreads", ToString(this->threads) ] CONCAT args;
-    RETURN [ process := GetInstallationRoot() || "bin/runscript"
-           , args := args
+    RETURN [ process := GetInstallationRoot() || "bin/wh"
+           , args := STRING["run",...args]
            ];
   }
 >;

@@ -53,7 +53,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
   },
   /// Cluster services enable mutexes (and also set up some after-commit handlers). The startup scripts should not attempt to use cluster services (nothing runs parallelo them anyway)
   "platform:clusterservices": {
-    cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
+    cmd: ["wh", "run", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
     startIn: Stage.StartupScript,
     stopIn: Stage.ShuttingDown, //it'll otherwise quickly cause other scripts to crash with a lost connection
     run: "always"

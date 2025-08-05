@@ -178,3 +178,11 @@ The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by
 
 ### WEBHARE_ENABLE_DEVKIT
 The devkit module is normally only enabled in source installations (see `enableDevKit()`). This flag enable the devkit module even if running in a container environment.
+
+## HareScript control
+
+### WEBHARE_HARESCRIPT_OFF
+If set all HareScript support is disabled. This is useful where we need to ensure TypeScript code does not (indirectly) depend on HareScript
+
+### WEBHARE_HARESCRIPT_WASMONLY
+If set native HareScript support is disabled - all HareScript execution must go through wasm
