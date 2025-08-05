@@ -1,10 +1,10 @@
 import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type AllowedFilterConditions, type WRDAttrBase, WRDGender, type WRDInsertable, type GetResultType, type SimpleWRDAttributeType, baseAttrCells } from "./types";
-import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
+import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -19,6 +19,7 @@ import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHF
 import { isPromise } from "node:util/types";
 import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
 import { buildWHFSInstance, isWHFSInstance, type ExportableRTD, type RTDBuildSource } from "@webhare/services/src/richdocument";
+import type { AnyWRDType } from "./schema";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
@@ -80,34 +81,44 @@ export function decodeWRDGuid(wrdGuid: string) {
   return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
 }
 
-async function lookupDomainValues(attr: AttrRec, vals: Array<string | number>): Promise<number[]> {
+/** Lookup domain values by id, guid or tag
+ * @param type - Referring type (not necessarily the one we're searching *in*)
+ * @param attr - Attribute to lookup
+ */
+async function lookupDomainValues(type: AnyWRDType, attr: AttrRec, vals: Array<string | number>): Promise<number[]> {
   //TODO bulk lookups
   //TODO have an import context to cache earlier lookups during the same import session
   const output: number[] = [];
+
+  let targetType: TypeRec | undefined;
+
   for (const val of vals) {
-    if (typeof val === "number") {
+    if (typeof val === "number") { //FIXME
       output.push(val);
       continue;
     }
 
-    if (isValidUUID(val)) {
-      const binaryGuid = decodeWRDGuid(val);
-      //FIXME support parent/child types. but accessors don't have the schema info?
-      const res = await db<PlatformDB>().selectFrom("wrd.entities").where("type", "=", attr.domain).where("guid", "=", binaryGuid).select(["id"]).executeTakeFirst();
-      if (!res) //TODO clearer error using JS metadata/names
-        throw new Error(`Unable to locate '${val}' for domain ${attr.tag} in type #${attr.domain}`);
-      output.push(res.id);
-      continue;
+    if (!targetType) {
+      const schemadata = await type.schema.__ensureSchemaData();
+      targetType = schemadata.typeIdMap.get(attr.domain!) ?? throwError(`Type #${attr.domain} not found in schema data`);
     }
 
-    if (isValidWRDTag(val)) {
-      const res = await db<PlatformDB>().selectFrom("wrd.entities").where("type", "=", attr.domain).where("tag", "=", val).select(["id"]).executeTakeFirst();
-      if (!res) //TODO clearer error using JS metadata/names
-        throw new Error(`Unable to locate '${val}' for domain ${attr.tag} in type #${attr.domain}`);
-      output.push(res.id);
-      continue;
+    const query = db<PlatformDB>().selectFrom("wrd.entities").where("type", "in", targetType.childTypeIds);
+    let res;
+
+    if (isValidUUID(val)) {
+      const binaryGuid = decodeWRDGuid(val);
+      res = await query.where("guid", "=", binaryGuid).select(["id"]).executeTakeFirst();
+    } else if (isValidWRDTag(val)) {
+      res = await query.where("tag", "=", val).select(["id"]).executeTakeFirst();
+    } else {
+      throw new Error(`Unrecognized value kind '${val}' for domain ${attr.tag} in type ${type.getFormattedName()}`);
     }
-    throw new Error(`Unrecognized domain value '${val}' for domain ${attr.tag} in type #${attr.domain}`);
+
+    if (!res) //TODO clearer error using JS metadata/names
+      throw new Error(`Unable to locate '${val}' for domain ${attr.tag} in type ${type.getFormattedName()}`);
+    output.push(res.id);
+    continue;
   }
   return output;
 }
@@ -120,7 +131,10 @@ async function lookupDomainValues(attr: AttrRec, vals: Array<string | number>): 
  */
 export abstract class WRDAttributeValueBase<In, Default, Out extends Default, ExportOut, C extends { condition: AllowedFilterConditions; value: unknown }> {
   attr: AttrRec;
-  constructor(attr: AttrRec) {
+  type: AnyWRDType;
+
+  constructor(type: AnyWRDType, attr: AttrRec) {
+    this.type = type;
     this.attr = attr;
   }
 
@@ -947,7 +961,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 
   importValue(value: string | number | NullIfNotRequired<Required>): Promise<number | NullIfNotRequired<Required>> | number | NullIfNotRequired<Required> {
     if (typeof value === "string")
-      return lookupDomainValues(this.attr, [value]).then(val => val[0]);
+      return lookupDomainValues(this.type, this.attr, [value]).then(val => val[0]);
 
     return value;
   }
@@ -971,8 +985,8 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
   ExportOut | NullIfNotRequired<Required>,
   WRDDBDomainConditions
 > {
-  constructor(attr: AttrRec, private exportString: boolean) {
-    super(attr);
+  constructor(type: AnyWRDType, attr: AttrRec, private exportString: boolean) {
+    super(type, attr);
   }
   getDefaultValue(): number | null { return null; }
   isSet(value: number | null) { return Boolean(value); }
@@ -1065,7 +1079,7 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
 
   importValue(value: ExportOut | number | NullIfNotRequired<Required>): MaybePromise<number | NullIfNotRequired<Required>> {
     if (typeof value === "string")
-      return lookupDomainValues(this.attr, [value]).then(val => val[0]);
+      return lookupDomainValues(this.type, this.attr, [value]).then(val => val[0]);
 
     return value as number | NullIfNotRequired<Required>;
   }
@@ -1190,7 +1204,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
 
   importValue(value: Array<number | string>): Promise<number[]> | number[] {
     if (value.some(_ => typeof _ !== "number"))
-      return lookupDomainValues(this.attr, value);
+      return lookupDomainValues(this.type, this.attr, value);
 
     return value as number[];
   }
@@ -1866,15 +1880,15 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   never> {
   fields = new Array<{ name: keyof Members; accessor: AnyWRDAccessor }>;
 
-  constructor(attr: AttrRec, parentAttrMap: Map<number | null, AttrRec[]>) {
-    super(attr);
+  constructor(type: AnyWRDType, attr: AttrRec, parentAttrMap: Map<number | null, AttrRec[]>) {
+    super(type, attr);
 
     const childAttrs = parentAttrMap.get(attr.id);
     if (childAttrs) {
       for (const childAttr of childAttrs) {
         this.fields.push({
           name: childAttr.tag,
-          accessor: getAccessor(childAttr, parentAttrMap)
+          accessor: getAccessor(type, childAttr, parentAttrMap)
         });
       }
     }
@@ -2713,54 +2727,55 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
 
 
 export function getAccessor<T extends WRDAttrBase>(
+  type: AnyWRDType,
   attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
   parentAttrMap: Map<number | null, AttrRec[]>,
 ): AccessorType<T> {
   switch (attrinfo.attributetype) {
-    case WRDBaseAttributeTypeId.Base_Integer: return new WRDDBBaseIntegerValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Guid: return new WRDDBBaseGuidValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Tag: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(attrinfo, true) as AccessorType<T>;
-    case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
-    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true, number>(attrinfo, false) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Integer: return new WRDDBBaseIntegerValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Guid: return new WRDDBBaseGuidValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Tag: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_ModificationDate: return new WRDDBBaseModificationDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Date: return new WRDDBBaseDateValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_GeneratedString: return new WRDDBBaseGeneratedStringValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_NameString: return new WRDDBBaseStringValue(type, attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Domain: return new WRDDBBaseDomainValue<T["__required"], string>(type, attrinfo, true) as AccessorType<T>;
+    case WRDBaseAttributeTypeId.Base_Gender: return new WRDDBBaseGenderValue(type, attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeTypeId.Base_FixedDomain: return new WRDDBBaseDomainValue<true, number>(type, attrinfo, false) as AccessorType<T>;
 
-    case WRDAttributeTypeId.String: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Email: return new WRDDBEmailValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.URL: return new WRDDBUrlValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.String: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Email: return new WRDDBEmailValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Telephone: return new WRDDBStringValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.URL: return new WRDDBUrlValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Boolean: return new WRDDBBooleanValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Integer:
     case WRDAttributeTypeId.Time:
-      return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Password: return new WRDDBPasswordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Image: return new WRDDBImageValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.File: return new WRDDBFileValue<T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.RichDocument: return new WRDDBRichDocumentValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.WHFSInstance: return new WRDDBWHFSInstanceValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.WHFSIntExtLink: return new WRDDBWHFSIntextlinkValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.HSON: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.WHFSRef: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
+      return new WRDDBIntegerValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Date: return new WRDDBDateValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DateTime: return new WRDDBDateTimeValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Domain: return new WRDDBDomainValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DomainArray: return new WRDDBDomainArrayValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Address: return new WRDDBAddressValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Password: return new WRDDBPasswordValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Image: return new WRDDBImageValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.File: return new WRDDBFileValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.RichDocument: return new WRDDBRichDocumentValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSInstance: return new WRDDBWHFSInstanceValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSIntExtLink: return new WRDDBWHFSIntextlinkValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.HSON: return new WRDDBRecordValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.PaymentProvider: return new WRDDBPaymentProviderValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Payment: return new WRDDBPaymentValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.WHFSRef: return new WRDDBWHFSLinkValue(type, attrinfo) as AccessorType<T>;
 
-    case WRDAttributeTypeId.Enum: return new WRDDBEnumValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.EnumArray: return new WRDDBEnumArrayValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
-    case WRDAttributeTypeId.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedValues: string; type: object }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Enum: return new WRDDBEnumValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }, T["__required"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.EnumArray: return new WRDDBEnumArrayValue<{ allowedValues: (T["__options"] & { allowedValues: string })["allowedValues"] }>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(type, attrinfo, parentAttrMap) as AccessorType<T>;
+    case WRDAttributeTypeId.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.DeprecatedStatusRecord: return new WRDDBStatusRecordValue<T["__options"] & { allowedValues: string; type: object }, T["__required"]>(type, attrinfo) as AccessorType<T>;
   }
   throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeTypeId[attrinfo.attributetype] : WRDAttributeTypeId[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
 }

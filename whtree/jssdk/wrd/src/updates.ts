@@ -106,7 +106,7 @@ async function doSplitEntityData<
       if (attr.isreadonly)
         throw new Error(`Trying to set attribute ${JSON.stringify(attr.tag)}, which is readonly`);
 
-      const accessor = getAccessor(attr, typeRec.parentAttrMap);
+      const accessor = getAccessor(type, attr, typeRec.parentAttrMap);
       toSet = accessor.importValue(toSet);
       if (isPromise(toSet))
         toSet = await toSet;
@@ -746,7 +746,7 @@ export async function __internalUpdEntity<S extends SchemaTypeDefinition, T exte
         const curFields = (await runSimpleWRDQuery(type, toCheck, [{ field: "wrdId", condition: "=", value: entityId }], { mode: "unfiltered" }, 1))[0] as object;
         for (const [field, value] of Object.entries(curFields)) {
           const attrRec = typeRec.rootAttrMap.get(field)!;
-          const accessor = getAccessor(attrRec, typeRec.parentAttrMap);
+          const accessor = getAccessor(type, attrRec, typeRec.parentAttrMap);
           if (!accessor.isSet(value as never))
             throw new Error(`Required attribute ${JSON.stringify(field)} is missing`);
         }

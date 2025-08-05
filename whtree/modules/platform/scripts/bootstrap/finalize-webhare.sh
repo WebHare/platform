@@ -99,9 +99,9 @@ fi
 # When running from source, rebuild buildinfo (for docker builddocker.sh generates this, we may no longer have access to git information)
 [ -z "$WEBHARE_IN_DOCKER" ] && generatebuildinfo
 
-# We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_NO_HARESCRIPT=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
+# We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_HARESCRIPT_OFF=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
 logWithTime "Generate minimal config to bootstrap WebHare"
-WEBHARE_NO_CONFIG=1 WEBHARE_NO_HARESCRIPT=1 wh apply --nodb --offline config.base
+WEBHARE_NO_CONFIG=1 WEBHARE_HARESCRIPT_OFF=1 wh apply --nodb --offline config.base
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
 rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare

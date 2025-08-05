@@ -21,16 +21,9 @@ OBJECT FUNCTION CreateRunscriptProcess(
 {
   RECORD arginfo := GetWebhareConfiguration();
 
-  //ADDME: Request the binary dir from configure.whlib (it can be overriden in whcore!)
-  //ADDME: Supply other important values as well (compilecache dir etc) as runscript
-  //       only reads the dbserver location from the environment. Or even better, add a
-  //       HS RunScript command to the WHCore
-  STRING runscriptname := arginfo.installationroot
-                           || "bin/runscript";
-
   OBJECT proc := CreateProcess(
-          runscriptname,
-          [scriptname] CONCAT arguments,
+          arginfo.installationroot || "bin/wh",
+          ["run" ,scriptname, ...arguments],
           take_input,
           take_output,
           take_errors,
@@ -374,5 +367,3 @@ PUBLIC OBJECTTYPE RunScriptDialog EXTEND TolliumScreenBase
     this->UpdateFrameTitle();
   }
 >;
-
-

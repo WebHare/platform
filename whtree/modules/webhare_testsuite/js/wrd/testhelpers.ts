@@ -134,9 +134,11 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   test.eq("domain", (await schemaobj.describeType("testDomain_1"))?.metaType);
   //TestEq(TRUE, ObjectExists(domain1_obj));
 
-  /*domain1value1:= */await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1", wrdTitle: "Domain value 1.1", wrdOrdering: 3 });
-  /*domain1value2:= */await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Domain value 1.2", wrdOrdering: 2 });
-  /*domain1value3:= */await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3", wrdTitle: "Domain value 1.3", wrdOrdering: 1 });
+  await schemaobj.createType("testDomain1Child", { metaType: "domain", title: "Domain 1 Child", parent: "testDomain_1" });
+
+  await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_1", wrdTitle: "Domain value 1.1", wrdOrdering: 3 });
+  await schemaobj.insert("testDomain1Child", { wrdTag: "TEST_DOMAINVALUE_1_2", wrdTitle: "Domain value 1.2", wrdOrdering: 2 });
+  await schemaobj.insert("testDomain_1", { wrdTag: "TEST_DOMAINVALUE_1_3", wrdTitle: "Domain value 1.3", wrdOrdering: 1 });
 
   // Create another domain with some values
   /*const domain2_obj = */await schemaobj.createType("testDomain_2", { metaType: "domain", title: "Domain 2" });

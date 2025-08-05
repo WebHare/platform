@@ -161,7 +161,8 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         ELSE
         {
           engine := testinfo.engine ?? (parsedargs.wasm ? "wasm" : "native");
-          IF (engine = "wasm")
+
+          IF (engine = "wasm" OR GetEnvironmentVariable("WEBHARE_HARESCRIPT_WASMONLY") != "")
           {
             runner := GetInstallationRoot() || "bin/wh";
             arguments := [ "runwasm", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];

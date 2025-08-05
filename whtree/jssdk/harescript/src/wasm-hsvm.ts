@@ -194,7 +194,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   runContextStore = new AsyncLocalStorage<HSVMRunContext>();
 
   constructor(module: WASMModule, startupoptions: StartupOptions) {
-    if (process.env.WEBHARE_NO_HARESCRIPT)
+    if (process.env.WEBHARE_HARESCRIPT_OFF)
       throw new Error(`HareScript is disabled`);
 
     this._wasmmodule = module;

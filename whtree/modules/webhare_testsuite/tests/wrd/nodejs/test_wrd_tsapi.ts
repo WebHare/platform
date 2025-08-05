@@ -967,6 +967,16 @@ async function testBaseTypes() {
   test.eq({ domainSecret: settings.domainSecret, issuer: "https://example.net" }, await getSchemaSettings(schema, ["domainSecret", "issuer"]));
 }
 
+async function testMetaData() {
+  await whdb.beginWork();
+  const wrdschema = new WRDSchema(testSchemaTag);
+  const newType = await wrdschema.createType("newType", { metaType: "object" });
+  test.eq("newType", newType.tag);
+  await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
+
+  await whdb.rollbackWork();
+}
+
 async function testDates() {
   const schema = new WRDSchema<Combine<[WRD_TestschemaSchemaType, CustomExtensions, Extensions]>>(testSchemaTag);
 
@@ -1633,6 +1643,7 @@ test.runTests([
   testTSTypes,
   testNewAPI,
   testBaseTypes,
+  testMetaData,
   testDates,
   testBadValues,
   testOrgs,

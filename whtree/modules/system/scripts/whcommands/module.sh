@@ -2,7 +2,7 @@ source $WEBHARE_DIR/lib/wh-functions.sh
 
 if [ "$1" != "get" ]; then
   #Forward it to the whscript... we only handle 'get'
-  exec_runscript mod::system/scripts/whcommands/module.whscr "$@"
+  exec_wh_runwhscr mod::system/scripts/whcommands/module.whscr "$@"
 fi
 
 shift #Remove "get"

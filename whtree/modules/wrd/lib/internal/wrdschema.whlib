@@ -573,10 +573,10 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
                 , metatype
                 , title
                 , description
-                , isobject := metatype=1
-                , islink := metatype=2
-                , isattachment := metatype=3
-                , isdomain := metatype=4
+                , isobject := metatype = wrd_metatype_object
+                , islink := metatype = wrd_metatype_link
+                , isattachment := metatype = wrd_metatype_attachment
+                , isdomain := metatype = wrd_metatype_domain
                 , linkfrom := requiretype_left
                 , linkto := requiretype_right
                 , parenttype
@@ -656,7 +656,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   PUBLIC OBJECT FUNCTION __DoCreateType(RECORD typerecord)
   {
     typerecord := ValidateOptions([ title := "", description := "", tag := ""
-                                    , requiretype_left := 0, requiretype_right := 0, metatype := 1
+                                    , requiretype_left := 0, requiretype_right := 0, metatype := wrd_metatype_object
                                     , parenttype := 0, abstract := FALSE, deleteclosedafter := 0, keephistorydays := 0
                                     , haspersonaldata := FALSE
                                     ], typerecord);
@@ -673,6 +673,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       THROW NEW Exception("The tag of this type is not unique for its WRD schema");
 
     INTEGER parent := typerecord.parenttype;
+    //FIXME we're not verifying parent has same metatype as child?
 
     INTEGER newtypeid := MakeAutonumber(wrd.types,"id");
     INSERT INTO wrd.types (id, wrd_schema, title, description, tag, metatype
@@ -688,10 +689,10 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     IF(NOT ObjectExists(thetype))
       THROW NEW Exception("Internal error, creation of type #" || newtypeid || " (" || typerecord.tag || ") failed");
 
-    IF(typerecord.metatype = wrd_metatype_domain)
+    IF(typerecord.metatype = wrd_metatype_domain AND parent = 0)
       thetype->__DoCreateAttribute("FREE", "Title", "", "WRD_TITLE", 0);
 
-    IF(parent != 0)
+    IF(parent != 0 AND parent != wrd_metatype_domain)
       this->GetTypeById(parent)->__ReloadTypeAndChildren();
 
     RETURN thetype;
@@ -754,7 +755,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       THROW NEW Exception(`Cannot keep changes for a negative time period`);
 
     INSERT CELL tag := tag
-              , metatype := 4
+              , metatype := wrd_metatype_domain
            INTO options;
     RETURN this->__DoCreateType(options);
   }

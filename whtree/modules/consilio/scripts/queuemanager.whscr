@@ -104,20 +104,8 @@ STATIC OBJECTTYPE Worker
     IF (this->script = "")
       RETURN FALSE;
 
-    // Create the path to the runscript executable
-    STRING runscriptname := GetInstallationRoot() || "bin/runscript";
-
-    // Construct the runscript arguments
-    RECORD params := GetWebhareConfiguration();
-    STRING ARRAY runscriptargs;
-
-    INSERT this->script INTO runscriptargs AT END;
-
-    // Add the script arguments
-    runscriptargs := runscriptargs CONCAT arguments;
-
     // Start the process and save the process identifier
-    this->pvt_pid := StartProcess(runscriptname, runscriptargs,
+    this->pvt_pid := StartProcess(GetInstallationRoot() || "bin/wh", ["run", this->script, ...arguments],
         [ take_input :=           TRUE
         , take_output :=          TRUE
         , take_errors :=          TRUE

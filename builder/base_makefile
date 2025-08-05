@@ -98,7 +98,7 @@ CPPFLAGS += -I$(SRCDIR)
 CPPFLAGS_WASM += -I$(SRCDIR)
 
 # AWS SDK disables exceptions via pkgconfig cflags, put in extra -fexceptions to re-enable
-CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden  -Wno-switch -Wno-nan-infinity-disabled
+CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden -Wno-switch
 # lots of #ifdefs make unused function checking a bit pointless for now
 CXXFLAGS_WASM += -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pedantic -fvisibility=hidden -Wno-unused-function -Wno-deprecated-declarations
 

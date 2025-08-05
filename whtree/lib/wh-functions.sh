@@ -202,16 +202,23 @@ wh_runwhscr()
 {
   local RESOLVEDPATH FIRSTLINE
 
+  WORKERTHREADS=4
+  if [ "$1" == "--workerthreads" ]; then
+    shift
+    WORKERTHREADS="$1"
+    shift
+  fi
+
   getwhparameters
   resolveresourcepath RESOLVEDPATH "$1"
 
   # we use a heuristic to detect the (*WASMENGINE*) text. we can make this a bit more robust but why are you fighting us anyway :-)
   read -r FIRSTLINE < "$RESOLVEDPATH"
-  if is_wasmengine "$FIRSTLINE"; then
+  if [ -n "$WEBHARE_HARESCRIPT_WASMONLY" ] || is_wasmengine "$FIRSTLINE"; then
     #wh_runjs will honor any RUNPREFIX
     wh_runjs "$WEBHARE_DIR/modules/system/scripts/whcommands/runwasm.ts" "$@"
   else
-    "${RUNPREFIX[@]}" $WEBHARE_DIR/bin/runscript --workerthreads 4 "$@"
+    "${RUNPREFIX[@]}" "$WEBHARE_DIR/bin/runscript" --workerthreads "$WORKERTHREADS" "$@"
   fi
 }
 
@@ -219,19 +226,6 @@ exec_wh_runwhscr()
 {
   RUNPREFIX=(exec)
   wh_runwhscr "$@"
-  exit 255
-}
-
-runscript()
-{
-  getwhparameters
-  "${RUNPREFIX[@]}" $WEBHARE_DIR/bin/runscript "$@"
-}
-
-exec_runscript()
-{
-  RUNPREFIX=(exec)
-  runscript "$@"
   exit 255
 }
 

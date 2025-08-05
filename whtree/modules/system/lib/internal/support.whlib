@@ -213,25 +213,25 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
   OBJECT trans := OpenPrimary();
   RECORD ARRAY apps :=
       [ [ name :=     "system:watchsourcefiles"
-        , cmdline :=  "runscript --workerthreads 3 mod::system/scripts/internal/watchsourcefiles.whscr"
+        , cmdline :=  "wh run --workerthreads 3 mod::system/scripts/internal/watchsourcefiles.whscr"
         ]
       , [ name :=     "system:managedqueue"
-        , cmdline :=  "runscript mod::system/scripts/internal/managedqueuemgr.whscr"
+        , cmdline :=  "wh run mod::system/scripts/internal/managedqueuemgr.whscr"
         ]
       , [ name :=     "system:executetasks"
-        , cmdline :=  "runscript mod::system/scripts/internal/executetasks.whscr"
+        , cmdline :=  "wh run mod::system/scripts/internal/executetasks.whscr"
         , databasemodes := [ "online" ]
         ]
       , [ name :=     "system:poststart"
-        , cmdline :=  "runscript mod::system/scripts/internal/post-start.whscr"
+        , cmdline :=  "wh run mod::system/scripts/internal/post-start.whscr"
         , runatsoftreset := TRUE
         ]
       , [ name :=     "system:precalc"
-        , cmdline :=  `runscript --workerthreads ${ReadRegistryKey("system.precalc.maxjobs") + 2} mod::system/lib/internal/precalc/service.whscr`
+        , cmdline :=  `wh run --workerthreads ${ReadRegistryKey("system.precalc.maxjobs") + 2} mod::system/lib/internal/precalc/service.whscr`
         , databasemodes := [ "online" ]
         ]
       , [ name :=     "system:chromeheadlessrunner"
-        , cmdline :=  "runscript mod::system/scripts/internal/chromeheadlessrunner.whscr"
+        , cmdline :=  "wh run mod::system/scripts/internal/chromeheadlessrunner.whscr"
         ]
       ];
 
@@ -239,7 +239,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
   {
     INSERT
         [ name :=       "system:debugmgr"
-        , cmdline :=    "runscript mod::system/scripts/internal/debugmgr.whscr"
+        , cmdline :=    "wh run mod::system/scripts/internal/debugmgr.whscr"
         ] INTO apps AT END;
     INSERT
         [ name :=       "system:debugmgr-ts"

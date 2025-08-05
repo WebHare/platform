@@ -46,6 +46,8 @@ interface WRDTypeMetadataBase {
   deleteClosedAfter: number;
   keepHistoryDays: number;
   hasPersonalData: boolean;
+  /** Tag of parent type (if any) */
+  parent: string | null;
 }
 
 interface WRDObjectTypeMetadata extends WRDTypeMetadataBase {
@@ -287,6 +289,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const schemaobj = await this.getWRDSchema();
     const left = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.left);
     const right = await this.__toWRDTypeId((config as WRDLinkTypeMetadata)?.right);
+    const parent = config.parent ? await this.__toWRDTypeId(config.parent) : null;
 
     if (config.id) //TODO I want to Omit<... "id"|"tag"> but then it won't accept left/right etc anymore...
       throw new Error("Cannot specify an id when creating a new type");
@@ -300,6 +303,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       requiretype_left: left,
       requiretype_right: right,
       metatype: WRDMetaTypes.indexOf(config.metaType) + 1,
+      parenttype: parent || 0,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
       deleteclosedafter: config.deleteClosedAfter || 0,
       keephistorydays: config.keepHistoryDays || 0,
@@ -338,6 +342,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       deleteClosedAfter: typeinfo.deleteclosedafter,
       keepHistoryDays: typeinfo.keephistorydays,
       hasPersonalData: typeinfo.haspersonaldata,
+      parent: typeinfo.parenttype ? await this.__getTypeTag(typeinfo.parenttype) ?? throwError(`No such type ${typeinfo.parenttype} (resolving parent for type ${this.tag}:${typeinfo.tag} (#${typeinfo.id}))`) : null
     } satisfies WRDTypeMetadataBase as WRDTypeMetadata; //TODO workaround to still get some validation even though metaType doesn't validate
 
     if (retval.metaType === "link" || retval.metaType === "attachment")
@@ -584,6 +589,9 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     }
   }
 }
+
+
+export type AnyWRDType = WRDType<any, any>;
 
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
   schema: WRDSchema<S>;
