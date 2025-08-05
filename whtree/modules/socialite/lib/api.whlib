@@ -18,26 +18,12 @@ PUBLIC RECORD FUNCTION PrepareSocialiteConnection(STRING accounttag, STRING appt
                 AND applications.account = accounts.id
                 AND ToUppercase(applications.tag) = ToUppercase(apptag);
 }
-PUBLIC RECORD FUNCTION PrepareSocialiteConnectionById(INTEGER appid)
-{
-  RETURN SELECT applications.*
-              , appkeys := (SELECT tag,value FROM socialite.applicationkeys WHERE application=applications.id)
-              , accounttitle := accounts.title
-              , accounttag := accounts.tag
-           FROM socialite.applications
-              , socialite.accounts
-          WHERE applications.id = appid
-                AND applications.account = accounts.id;
-}
-PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
+
+OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
 {
   OBJECT app;
   SWITCH(ToUpperCase(apprec.type))
   {
-    CASE 'FACEBOOKV3'
-    {
-      app := NEW FacebookV3NetworkApp(apprec);
-    }
     CASE 'LINKEDINV2'
     {
       app := NEW LinkedInV2NetworkApp(apprec);
@@ -49,10 +35,6 @@ PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
     CASE 'VIMEO'
     {
       app := NEW VimeoNetworkApp(apprec);
-    }
-    CASE 'INSTAGRAM'
-    {
-      app := NEW InstagramNetworkApp(apprec);
     }
     DEFAULT
     {
@@ -75,14 +57,6 @@ RECORD FUNCTION GetCacheableApplicationByTags(STRING accounttag, STRING apptag)
          , value :=        PrepareSocialiteConnection(accounttag,apptag)
          ];
 }
-RECORD FUNCTION GetCacheableApplicationById(INTEGER appid)
-{
-  RETURN
-      [ ttl :=          5 * 1000
-      , eventmasks :=   [ "socialite:applications" ]
-      , value :=        PrepareSocialiteConnectionById(appid)
-      ];
-}
 
 PUBLIC OBJECT FUNCTION OpenSocialiteConnection(STRING accounttag, STRING apptag)
 {
@@ -94,26 +68,5 @@ PUBLIC OBJECT FUNCTION OpenSocialiteConnection(STRING accounttag, STRING apptag)
   IF (NOT RecordExists(apprec))
     THROW NEW SocialiteException("INVALIDARG", 'Application "'||accounttag||':'||apptag||'" does not exist.');
 
-  RETURN OpenPreparedSocialiteConnection(apprec);
-}
-
-PUBLIC OBJECT FUNCTION OpenSocialiteConnectionByToken(STRING securetoken)
-{
-  RECORD tok := SplitSecureToken(securetoken);
-  IF(NOT RecordExists(tok))
-    THROW NEW Exception("Unrecognized token format");
-
-  OBJECT conn := OpenSocialiteConnectionById(tok.appid);
-  IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
-    THROW NEW Exception("Invalid token");
-
-  RETURN conn;
-}
-
-PUBLIC OBJECT FUNCTION OpenSocialiteConnectionById(INTEGER appid)
-{
-  RECORD apprec := GetAdhocCached([ type := "app_by_id"
-                                  , appid := appid
-                                  ], PTR GetCacheableApplicationById(appid));
   RETURN OpenPreparedSocialiteConnection(apprec);
 }

@@ -1,17 +1,7 @@
 ﻿<?wh
-LOADLIB "wh::dbase/transaction.whlib";
-LOADLIB "mod::socialite/lib/networkapi/facebookv3.whlib";
 LOADLIB "mod::socialite/lib/networkapi/linkedin_v2.whlib";
 LOADLIB "mod::socialite/lib/networkapi/youtube.whlib";
 LOADLIB "mod::socialite/lib/networkapi/vimeo.whlib";
-LOADLIB "mod::socialite/lib/networkapi/instagram.whlib";
-
-
-
-OBJECT FUNCTION MyGetPrimaryWebhareTransactionObject()
-{
-  RETURN GetPrimaryWebhareTransaction() = 0 ? DEFAULT OBJECT : GetTransactionObjectById(GetPrimaryWebhareTransaction());
-}
 
 
 STATIC OBJECTTYPE NetworkApp
@@ -61,24 +51,6 @@ OBJECTTYPE AccessTokenNetworkApp EXTEND NetworkApp
 >;
 
 
-PUBLIC OBJECTTYPE OAuthNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-  }
->;
-
-PUBLIC OBJECTTYPE FacebookV3NetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY FacebookV3Connection;
-    this->SetupAccessTokenApp();
-  }
->;
-
 PUBLIC OBJECTTYPE LinkedInV2NetworkApp EXTEND AccessTokenNetworkApp
 <
   MACRO NEW(RECORD apprec)
@@ -108,16 +80,6 @@ PUBLIC OBJECTTYPE VimeoNetworkApp EXTEND AccessTokenNetworkApp
   : AccessTokenNetworkApp(apprec)
   {
     EXTEND THIS BY VimeoConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE InstagramNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY InstagramConnection;
     this->SetupAccessTokenApp();
   }
 >;
