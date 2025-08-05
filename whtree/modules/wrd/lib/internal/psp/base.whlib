@@ -153,6 +153,7 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
                 , type :=           CellExists(opt,'type') ? opt.type : "payment"
                 , minamount :=      CellExists(opt,'minamount') ? opt.minamount : 0m
                 , maxamount :=      CellExists(opt,'maxamount') ? opt.maxamount : 0m
+                , images :=         CellExists(opt,'images') ? opt.images : RECORD[]
              FROM this->__DoGetPaymentOptions(options) AS opt;
   }
 

@@ -631,8 +631,7 @@ STATIC OBJECTTYPE PaymentAPI
       providers := SELECT * FROM providers WHERE RecordExists(provider.__paymentprovider) AND provider.__paymentprovider.type="wrd:external";
 
     RECORD ARRAY alloptions;
-    FOREVERY(RECORD opt FROM providers)
-    {
+    FOREVERY(RECORD opt FROM providers) {
       alloptions := alloptions CONCAT SELECT *
                                            , paymentprovider := opt.id
                                            , paymentproviderguid := opt.guid
@@ -640,6 +639,7 @@ STATIC OBJECTTYPE PaymentAPI
                                            , paymentmethodtag := ConstructMethodTag(opt, paymentoptiontag)
                                         FROM this->ListPaymentOptions(opt.id, CELL[ options.types ]);
     }
+
     RETURN alloptions;
   }
 
@@ -670,6 +670,7 @@ STATIC OBJECTTYPE PaymentAPI
                 , type
                 , maxamount
                 , minamount
+                , images
              FROM psp->GetPaymentOptions() AS paymentoption
             WHERE type IN options.types
          ORDER BY ToUppercase(title);

@@ -10,6 +10,10 @@ interface TestDriverConfig {
     requirements?: PSPRequirement[];
     minAmount?: number;
     maxAmount?: number;
+    images?: Array<{
+      mimeType: "image/png" | "image/svg+xml";
+      link: string;
+    }>;
   }>;
   sleep?: number;
 }
@@ -39,6 +43,10 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
         requirements: method.requirements || [],
         minAmount: method.minAmount ? Money.fromNumber(method.minAmount) : undefined,
         maxAmount: method.maxAmount ? Money.fromNumber(method.maxAmount) : undefined,
+        images: method.images?.map(img => ({
+          mimeType: img.mimeType,
+          link: img.link
+        })) || []
       });
     return { methods, isLive: false };
   }

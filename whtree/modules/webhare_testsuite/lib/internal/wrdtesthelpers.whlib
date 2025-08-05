@@ -18,6 +18,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/psptests.whlib" EXPORT GetWRDTestPaymentAPI, GetWRDTestPaymentReturnURL, RunStandardPaymentMethodTests;
 
+PUBLIC CONSTANT STRING jstestdriver := "@mod-platform/packages/psp-testdriver/testdriver.ts#TestDriver";
 
 /* Add a RTD with embedded objects */
 PUBLIC RECORD wrdtest_withembedded;
@@ -278,14 +279,24 @@ PUBLIC MACRO CreateWRDTestSchema(RECORD options DEFAULTSTO DEFAULT RECORD)
   TestEq(TRUE, ObjectExists(schemaobj));
   SetupTheWRDTestSchema(schemaobj, CELL[ options.withrichdoc, options.keephistorydays ]);
 
-  IF(Length(options.withpayment) > 0)
-  {
-    OBJECT pm := testfw->wrdschema->^payprov->CreateEntity(
+  IF(Length(options.withpayment) > 0)  {
+    testfw->wrdschema->^payprov->CreateEntity(
       [ wrd_title := "TestMethod"
       , method := MakePaymentProviderValue("wrd:test", [ disablenoissuer := "noissuer" NOT IN options.withpayment
                                                        , disablewithissuer := "withissuer" NOT IN options.withpayment
                                                        ]  )
       ]);
+
+    IF("testdriver" IN options.withpayment) {
+      testfw->wrdschema->^payprov->CreateEntity(
+        [ wrd_title := "TestMethodJS"
+        , method := MakeJSPaymentProviderValue(jstestdriver, `{
+        "methods":[{ "rowkey": "M1", "title": "Method 1", "maxAmount": 12.5 },
+                  { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250, "images": [{ "link": "/.wh/ea/p/branding/webhare.svg", "mimeType": "image/svg+xml" }]}
+                  ]
+        }`)
+        ]);
+    }
   }
 
   testfw->CommitWork();
