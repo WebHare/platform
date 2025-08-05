@@ -76,7 +76,7 @@ function createSelectMap<S extends SchemaTypeDefinition, T extends keyof S & str
     if (!attrrec) {
       throw new Error(`Could not find attribute '${field}' in type '${type.tag}'`);
     }
-    accessors.push({ field, accessor: getAccessor(attrrec, parentAttrMap) as AnyWRDAccessor });
+    accessors.push({ field, accessor: getAccessor(type, attrrec, parentAttrMap) as AnyWRDAccessor });
   }
   accessors.sort((a, b) => cmp(a.accessor.attr.id, b.accessor.attr.id) ?? cmp(a.field, b.field));
   const accpos = new Map(accessors.map((a, idx) => [a.field, idx]));
@@ -197,7 +197,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     if (parts.length > 1 && !["mentions", "mentionsany"].includes(filter.condition))
       throw new Error(`Condition ${JSON.stringify(filter.condition)} not allowed for field ${JSON.stringify(filter.field)} in type ${type.getFormattedName()}`);
 
-    const accessor = getAccessor(attr, typerec.parentAttrMap);
+    const accessor = getAccessor(type, attr, typerec.parentAttrMap);
     accessor.checkFilter(filter as never);
 
     const queryres = accessor.addToQuery(query, filter as never);
