@@ -585,9 +585,9 @@ STATIC OBJECTTYPE TestFramework <
 
     RETURN userinfo.wrdid;
   }
+
   /** Get a test user's authobject */
-  PUBLIC OBJECT FUNCTION GetUserObject(STRING name)
-  {
+  PUBLIC OBJECT FUNCTION GetUserObject(STRING name) {
     IF(name="")
       RETURN DEFAULT OBJECT;
 
@@ -596,6 +596,23 @@ STATIC OBJECTTYPE TestFramework <
       ABORT("No such user '" || name || "' - use DeclareTestUser");
     RETURN userinfo.userobj;
   }
+
+  /** Get a test user's or role's authobject */
+  PUBLIC OBJECT FUNCTION GetUserOrRoleObject(STRING name) {
+    IF(name="")
+      RETURN DEFAULT OBJECT;
+
+    RECORD userinfo := SELECT * FROM this->credentials WHERE login=name;
+    IF(RecordExists(userinfo))
+      RETURN userinfo.userobj;
+
+    RECORD roleinfo := SELECT * FROM this->roles WHERE rolename=name;
+    IF(RecordExists(roleinfo))
+      RETURN roleinfo.roleobj;
+
+    THROW NEW Exception(`No such user or role '${name}'`);
+  }
+
   /** Get the full login name for a test user */
   PUBLIC STRING FUNCTION GetUserLogin(STRING name)
   {
