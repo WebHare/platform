@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import { createImage } from "@mod-tollium/js/icons";
 import { getTid } from "@webhare/gettid";
-import type IndyShell from "../shell";
+import type { IndyShell } from "../shell";
 import type { AppLaunchInstruction } from "@mod-platform/js/tollium/types";
 
 function getLocalHHMM() {

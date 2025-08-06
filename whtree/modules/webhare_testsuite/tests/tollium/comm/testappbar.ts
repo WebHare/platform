@@ -1,6 +1,6 @@
 import * as test from "@mod-tollium/js/testframework";
 import type WebSocketTransport from "@mod-tollium/web/ui/js/comm/websocket";
-import type IndyShell from "@mod-tollium/web/ui/js/shell";
+import type { IndyShell } from "@mod-tollium/web/ui/js/shell";
 const transport = test.getTestArgument(0);
 
 test.runTests(

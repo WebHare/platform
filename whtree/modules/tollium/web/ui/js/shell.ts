@@ -33,6 +33,7 @@ import './debugging/magicmenu';
 const EventServerConnection = require('@mod-system/js/net/eventserver');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
+import { setupKeyboardHandling } from "./shell/keyboardhandling";
 import { AppMgr } from './shell/appmgr';
 
 import * as $todd from './support';
@@ -123,6 +124,7 @@ class IndyShell extends TolliumShell {
     window.addEventListener("hashchange", evt => this._onHashChange(evt));
 
     setupMouseHandling();
+    setupKeyboardHandling(this);
   }
 
   _onHashChange() {
@@ -760,3 +762,4 @@ export function getIndyShell() {
 }
 
 export default IndyShell;
+export type { IndyShell };
