@@ -1,4 +1,7 @@
 ﻿<?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -45,6 +48,10 @@ BOOLEAN FUNCTION TestHasRightOnAny(STRING user, STRING right) {
 
 INTEGER ARRAY FUNCTION TestHasRightOnMultiple(STRING user, STRING right, INTEGER ARRAY objs) {
   RETURN testfw->GetUserOrRoleObject(user)->HasRightOnMultiple(right, objs);
+}
+
+INTEGER ARRAY FUNCTION TestGetRootObjectsForRights(STRING user, STRING ARRAY rights) {
+  RETURN GetSortedSet(testfw->GetUserOrRoleObject(user)->GetRootObjectsForRights(rights));
 }
 
 MACRO InitDB()
@@ -100,6 +107,7 @@ MACRO DefaultRightsTest()
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 0));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 1));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 7));
+  TestEq([0], TestGetRootObjectsForRights("mysysop", ["webhare_testsuite:objectright"]));
   TestEq(TRUE, TestHasRightOnAny("mysysop", "webhare_testsuite:objectright"));
   TestEq([ 0 ], TestHasRightOnMultiple("mysysop", "webhare_testsuite:objectright", [ 0 ]));
   TestEq([ 0, 1 ], TestHasRightOnMultiple("mysysop", "webhare_testsuite:objectright", [ 0, 1 ]));
@@ -132,6 +140,7 @@ MACRO DefaultRightsTest()
   TestEq(FALSE, TestHasRightOn("limited", "webhare_testsuite:objectright", 1));
   TestEq(FALSE, TestHasRightOn("limited", "webhare_testsuite:objectright", 7));
   TestEq(FALSE, TestHasRightOnAny("limited", "webhare_testsuite:objectright"));
+  TestEq(INTEGER[], TestGetRootObjectsForRights("limited", ["webhare_testsuite:objectright"]));
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited", "webhare_testsuite:objectright", [ 9, 9, 8, 8, 7, 7, 6, 6, 5, 4,3, 2, 1, 0 ]));
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited", "webhare_testsuite:objectright2_impl", [ 9, 9, 8, 8, 7, 7, 6, 6, 5, 4,3, 2, 1, 0 ]));
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited", "webhare_testsuite:objectflatright", [0, 1, 7]));
@@ -337,6 +346,9 @@ MACRO GrantTest()
   TestEq(TRUE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 5));
   TestEq(TRUE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 6));
   TestEq(TRUE, TestHasRightOnAny("limited2", "webhare_testsuite:objectright2"));
+  TestEq(INTEGER[], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright"]));
+  TestEq(INTEGER[2], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright2"]));
+  TestEq(INTEGER[2], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright","webhare_testsuite:objectright2"]));
 
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2", [ 0 ]));
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2_impl", [ 0 ]));
@@ -473,6 +485,8 @@ MACRO RolesTest()
   TestEq(FALSE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 1));
   TestUpdateGrant("limited", "grant", "webhare_testsuite:objectright2", 1, "limited2");
   TestEq(TRUE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 1));
+  TestEq(INTEGER[1], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright2"]));
+
   TestUpdateGrant("limited", "revoke", "webhare_testsuite:objectright2", 1, "limited2");
   TestEq(FALSE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 1));
 
