@@ -515,7 +515,7 @@ HERE
     ;;
 
   "runtest")
-    wh run --workerthreads 10 --onlyshippedfonts mod::system/scripts/internal/tests/runtest.whscr "$@"
+    wh run --workerthreads 10 mod::system/scripts/internal/tests/runtest.whscr "$@"
     EXITCODE=$?
     if [ "$EXITCODE" != "0" ]; then
       echo "Test failed with exit code $EXITCODE"

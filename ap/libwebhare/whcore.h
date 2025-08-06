@@ -307,11 +307,6 @@ class BLEXLIB_PUBLIC Connection
         std::string GetModuleFolder(std::string const &modulename) const;
         /** Get a list of modules */
         void GetModuleNames(std::vector<std::string> *modules) const;
-        /** Use only shipped fonts? */
-        bool UseOnlyShippedFonts() const
-        {
-                return only_shipped_fonts;
-        }
 
         Blex::SocketAddress GetDbaseAddr() const
         {
@@ -394,8 +389,6 @@ class BLEXLIB_PUBLIC Connection
         std::string compilecache;
         ///Module storage directories
         std::vector<std::string> moduledirs;
-        ///Use only the shipped fonts?
-        bool only_shipped_fonts;
 
         //void OpenTransactionConnection(std::string const &clientname) const;
 
