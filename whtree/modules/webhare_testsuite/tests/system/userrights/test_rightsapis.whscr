@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
@@ -34,20 +35,53 @@ INTEGER ARRAY FUNCTION FilterByKnownUsers(INTEGER ARRAY a)
   RETURN SortArray(results);
 }
 
+//Trinary Variant - function supporting different types (unlike the ?: operator)
+VARIANT FUNCTION TV(BOOLEAN cond, VARIANT if_true, VARIANT if_false) {
+  RETURN cond ? if_true : if_false; //you cannot write this out with VARIANT casts(), and the compiler will internal-error on VARIANT[x][0] trickery
+}
+
+BOOLEAN FUNCTION TSHasRight(STRING user, STRING right) {
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRight", right);
+}
+
 BOOLEAN FUNCTION TestHasRight(STRING user, STRING right) {
-  RETURN testfw->GetUserOrRoleObject(user)->HasRight(right);
+  BOOLEAN hs := testfw->GetUserOrRoleObject(user)->HasRight(right);
+  BOOLEAN ts := TSHasRight(user, right);
+  TestEq(hs, ts, `Mismatch for ${user} on right ${right}`);
+  RETURN hs;
+}
+
+BOOLEAN FUNCTION TSHasRightOn(STRING user, STRING right, INTEGER obj) {
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, TV(obj != 0, obj, DEFAULT RECORD));
 }
 
 BOOLEAN FUNCTION TestHasRightOn(STRING user, STRING right, INTEGER obj) {
-  RETURN testfw->GetUserOrRoleObject(user)->HasRightOn(right, obj);
+  BOOLEAN hs := testfw->GetUserOrRoleObject(user)->HasRightOn(right, obj);
+  BOOLEAN ts := TSHasRightOn(user, right, obj);
+  TestEq(hs, ts, `Mismatch for ${user} on right ${right} on ${obj}`);
+  RETURN hs;
+}
+
+BOOLEAN FUNCTION TSHasRightOnAny(STRING user, STRING right) {
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOnAny", right);
 }
 
 BOOLEAN FUNCTION TestHasRightOnAny(STRING user, STRING right) {
-  RETURN testfw->GetUserOrRoleObject(user)->HasRightOnAny(right);
+  BOOLEAN hs := testfw->GetUserOrRoleObject(user)->HasRightOnAny(right);
+  BOOLEAN ts := TSHasRightOnAny(user, right);
+  TestEq(hs, ts, `Mismatch for ${user} on right ${right} on any object`);
+  RETURN hs;
+}
+
+INTEGER ARRAY FUNCTION TSFilterRightOn(STRING user, STRING right, INTEGER ARRAY objs) {
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "filterRightOn", right, objs);
 }
 
 INTEGER ARRAY FUNCTION TestHasRightOnMultiple(STRING user, STRING right, INTEGER ARRAY objs) {
-  RETURN testfw->GetUserOrRoleObject(user)->HasRightOnMultiple(right, objs);
+  INTEGER ARRAY hs := testfw->GetUserOrRoleObject(user)->HasRightOnMultiple(right, objs);
+  INTEGER ARRAY ts := TSFilterRightOn(user, right, objs);
+  TestEq(hs, ts, `Mismatch for ${user} on right ${right} on multiple objects`);
+  RETURN hs;
 }
 
 INTEGER ARRAY FUNCTION TestGetRootObjectsForRights(STRING user, STRING ARRAY rights) {
@@ -102,8 +136,12 @@ MACRO DefaultRightsTest()
   OBJECT limited_user := testfw->GetUserObject("limited");
   OBJECT limited2_user := testfw->GetUserObject("limited2");
 
-  TestEq(TRUE, TestHasRight("mysysop", "system:sysop"));
+  TestEq(TRUE, TestHasRight("sysop", "system:sysop"), "Verify the directly-assigned sysop right");
+  TestThrowsLike("No such right*", PTR TSHasRight("mysysop", "system:nosuchright"));
+  TestEq(TRUE, TestHasRight("mysysop", "system:sysop"), "Verify the role-assigned sysop right");
   TestEq(TRUE, TestHasRight("mysysop", "webhare_testsuite:globalright"));
+  TestThrowsLike("* is not a global right*", PTR TSHasRight("mysysop", "webhare_testsuite:objectright"));
+  TestThrowsLike("* is a global right*", PTR TSHasRightOn("mysysop", "system:sysop", 0));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 0));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 1));
   TestEq(TRUE, TestHasRightOn("mysysop", "webhare_testsuite:objectright", 7));

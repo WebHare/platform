@@ -47,3 +47,6 @@ export { writeAuthAuditEvent, getAuditContext, updateAuditContext, getAuditEvent
 export type { AuthAuditEvent, AuthAuditContext } from "./audit";
 
 export { getRequestUser } from "./authfrontend";
+
+export type { AuthorizationInterface } from "./userrights";
+export { getAuthorizationInterface } from "./userrights";

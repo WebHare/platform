@@ -1,6 +1,7 @@
 /* TODO These APIs are potential hscompat candidates? As the whole idea of XML support is HSCompat...
 */
 
+import type { ModuleQualifiedName } from "@webhare/services/src/naming";
 import { isAbsoluteResource, parseResourcePath } from "@webhare/services/src/resources";
 import { isTruthy } from "@webhare/std";
 import { DOMParser, type Document, type Node, type Element, type NodeList } from "@xmldom/xmldom";
@@ -55,6 +56,13 @@ export function getAttr<T>(node: Element, attr: string, fallback: T = "" as T): 
   if (Array.isArray(fallback))
     return parseXSList(attrval) as T;
   return attrval as T;
+}
+
+export function getQualifiedAttr(defaultmodule: string, node: Element, attr: string): ModuleQualifiedName | null {
+  let val = getAttr(node, attr, "");
+  if (val && !val.includes(':'))
+    val = `${defaultmodule}:${val}`;
+  return val as ModuleQualifiedName | null;
 }
 
 function isAbsoluteTid(tid: string) {

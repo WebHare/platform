@@ -2,6 +2,8 @@
 
 import { nameToSnakeCase } from "@webhare/std/types";
 
+export type ModuleQualifiedName = `${string}:${string}`;
+
 /** Verify a module name is valid
  * - The name must start and end end with a letter or digit and should have a length of at least 2
  * - No names starting with 'wh_' or 'system_'
@@ -10,7 +12,7 @@ import { nameToSnakeCase } from "@webhare/std/types";
  * - No '.', or '-' in module names (as these make it harder to derive valid TS/HS identifiers from module names)
  * - Prevent illegal names that clash with internal resource identifiers
  */
-export function isValidModuleName(name: string) {
+export function isValidModuleName(name: string): name is ModuleQualifiedName {
   return name === '4tu' || (/^[a-z][a-z0-9_]*[a-z0-9]$/.test(name) && !name.startsWith("wh_") && !name.startsWith("system_") && !["wh", "mod", "module", "direct"].includes(name));
 }
 
