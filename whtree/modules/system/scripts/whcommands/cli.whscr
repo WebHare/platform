@@ -39,7 +39,7 @@ MACRO RunGetOverride(STRING ARRAY params)
   INTEGER duration;
   IF(subargs.duration != "")
   {
-    duration := ToInteger(parts[0], 0);
+    duration := ToInteger(subargs.duration, 0);
     IF(duration <= 0 OR duration > 60*24)
     {
       Print("Illegal duration\n");

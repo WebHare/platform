@@ -2297,9 +2297,8 @@ RECORD FUNCTION GetCacheableParsedPage(STRING resource, STRING resourcetype)
   parsedpage.files := parsedpage.files CONCAT docinfo.files;
 
   RETURN
-      [ ttl :=        60 * 60 * 1000
-      , value :=      parsedpage
-      , eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM parsedpage.files)
+      [ value :=      parsedpage
+      , eventmasks := GetResourceEventMasks(SELECT AS STRING ARRAY path FROM parsedpage.files) CONCAT ["system:modulesupdate"]
       ];
 }
 

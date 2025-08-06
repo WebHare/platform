@@ -130,7 +130,7 @@ ifeq ($(BUILDSYSTEM),gcc)
 else
 	CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
 	ifeq ($(WEBHARE_PLATFORM),darwin)
-		CXXFLAGS+=-stdlib=libc++
+		CXXFLAGS+=-stdlib=libc++ -Wno-nan-infinity-disabled
 		GLOBALLDFLAGS+=-stdlib=libc++
 	else
 		CXXFLAGS+=-Wno-unknown-attributes
