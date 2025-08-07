@@ -210,7 +210,7 @@ class WRDEntityAuthorization implements AuthorizationInterface {
       }
 
       let grantQuery = db<RightsDB>().selectFrom(rightEntry.target ? rightsTable! : "system_rights.global_rights").where("right", "=", matchRightId.id).where("grantee", "in", expanded);
-      if (type === "target") ///we desire a grant for either the object, one of its parents, or just null to amtch all
+      if (type === "target") ///we desire a grant for either the object, one of its parents, or just null to match all
         grantQuery = grantQuery.where(eb => eb.or([eb("object", "in", matchObjects), eb("object", "is", null)]));
 
       if (await grantQuery.select("id").executeTakeFirst())
