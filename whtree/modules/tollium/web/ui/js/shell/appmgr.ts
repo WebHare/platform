@@ -1,7 +1,7 @@
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from "@webhare/dompack";
 import type { ApplicationBase } from "../application";
-import type IndyShell from "../shell";
+import type { IndyShell } from "../shell";
 import { TypedEventTarget, type EventMapType } from "../support/typedeventtarget";
 import { debugFlags } from "@webhare/env";
 

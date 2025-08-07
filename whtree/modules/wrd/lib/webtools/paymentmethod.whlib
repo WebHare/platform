@@ -120,8 +120,7 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
     this->Reconstruct();
   }
 
-  RECORD ARRAY FUNCTION ConstructPaymentOptions(RECORD ARRAY options)
-  {
+  RECORD ARRAY FUNCTION ConstructPaymentOptions(RECORD ARRAY options) {
     RETURN SELECT TEMPORARY __pmsubfields := this->ConstructSubfields(this->paymentmethodselect, options, #options)
                 , paymentoptiontag
                 , title
@@ -137,6 +136,9 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
                 , subfields := __pmsubfields //caller may modify subfields
                 , enablecomponents := __pmsubfields //caller may modify enablecomponents too..
                 , paymentoption := options
+                // older webshops aren't passing images[] through yet, so be careful
+                , dataset := CellExists(options,"images") AND Length(options.images) > 0 AND options.images[0].link != "" ?
+                               CELL [ "wh-paymentmethod-image" := options.images[0].link ] : DEFAULT RECORD
             FROM options;
   }
 
@@ -156,6 +158,7 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
                               , paymentprovider
                               , paymentoption
                               , islive
+                              , dataset
                               , __pmsubfields
                            FROM this->paymentoptions;
 

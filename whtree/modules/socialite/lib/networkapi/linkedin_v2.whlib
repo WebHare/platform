@@ -154,7 +154,6 @@ PUBLIC OBJECTTYPE LinkedInV2Connection EXTEND OauthV2NetworkConnection
 
   MACRO NEW() : OauthV2NetworkConnection(linkedin_scopes)
   {
-    this->pvt_newpermissionmodel := TRUE;
     this->SetMode("linkedinv2");
     this->pvt_apiurl         := "https://api.linkedin.com/v2/";
     this->pvt_authorizeurl   := "https://www.linkedin.com/oauth/v2/authorization";
@@ -166,12 +165,6 @@ PUBLIC OBJECTTYPE LinkedInV2Connection EXTEND OauthV2NetworkConnection
   //
   // oAuth connection support
   //
-
-  UPDATE PUBLIC BOOLEAN FUNCTION SupportsValidityCheck()
-  {
-    RETURN FALSE;
-  }
-
 
   /** Returns an URI the client needs to be redirected to. The client can then authorize the
       app, and will be redirected to the Spotify redirect page. The redirect url must

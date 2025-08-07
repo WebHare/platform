@@ -18,8 +18,10 @@ export function generateTypeName(str: string) {
     str = "WH_" + str.substring(2);
   else if (str.startsWith("webhare"))
     str = "WebHare_" + str.substring(7);
+
   str = str.split("_").filter(e => e).map(e => e[0].toUpperCase() + e.substring(1)).join("");
-  return str.split("-").filter(e => e).map(e => e[0].toUpperCase() + e.substring(1)).join("");
+  str = str.replaceAll("*", "Wildcard");
+  return str;
 }
 
 /** Convert snake_case to camelCase, with the first character lowercase. Special cases the words 'WRD', 'WH' and 'WebHare' */

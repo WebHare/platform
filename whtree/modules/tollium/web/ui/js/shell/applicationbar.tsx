@@ -177,27 +177,6 @@ export default class ApplicationBar {
     this.scroll_right_node.addEventListener("mouseover", evt => this._scrollMouseOver(evt, 1));
     this.scroll_right_node.addEventListener("mouseout", evt => this._scrollCancel(evt));
 
-    //allow keyboard events to manipulate the bar
-    const keyprefix = "Control+Shift+";
-    const keymap = {};
-    keymap[keyprefix + "ArrowLeft"] = this._gotoApp.bind(this, 'relative', -1);
-    keymap[keyprefix + "ArrowRight"] = this._gotoApp.bind(this, 'relative', +1);
-
-    //Note, we map the usual physical keyboard to the tabs... so 1 is always dashboard and 0 is app #10
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].forEach((key, idx) => keymap[keyprefix + key] = () => this._gotoApp('absolute', idx));
-
-    //Implement arrowleft,right etc
-    new Keyboard(document.body, keymap, { stopmapped: true });
-
-    // Catch (shift+)backspace and cmd+left/right - it's okay to send to an input, but not to propagate it, to prevent
-    // accidental browser navigation (allow stuff like ctrl+[ and cmd+])
-    new Keyboard(document.body, {
-      "Backspace": () => { },
-      "Shift+Backspace": () => { },
-      "Accel+ArrowLeft": () => { },
-      "Accel+ArrowRight": () => { }
-    }, { ignoreformfields: true, stopmapped: true });
-
     this._resize();
     window.addEventListener("resize", () => this._resize());
   }

@@ -138,6 +138,7 @@ PUBLIC STATIC OBJECTTYPE JSPaymentProvider EXTEND WRDPaymentProviderBase
                 , requirements := MapRequirements(requirements)
                 , minamount := CellExists(methods,'minamount') ? MONEY(methods.minamount) : 0m
                 , maxamount := CellExists(methods,'maxamount') ? MONEY(methods.maxamount) : 0m
+                , images := CellExists(methods,'images') ? (SELECT link, mime_type := mimetype FROM methods.images) : RECORD[]
              FROM this->methodsettings.methods;
   }
 

@@ -73,18 +73,6 @@ PUBLIC RECORD ARRAY socialnetworks :=
     ]
   ];
 
-PUBLIC RECORD ARRAY globalpermissionmap :=
-  [ [ id := 1, userapi := "GetOwnRecentStatuses", networks := [ "FACEBOOK", "TWITTER"] ]
-  , [ id := 10, userapi := "PostMessageToFriend", networks := ["FACEBOOK" ] ]
-  , [ id := 11, userapi := "PostMessageWithAttachmentToFriend", networks := ["FACEBOOK" ] ]
-  , [ id := 12, userapi := "Events_Create", networks := ["FACEBOOK" ] ]
-  , [ id := 13, userapi := "Events_RSVP", networks := ["FACEBOOK" ] ]
-  , [ id := 14, userapi := "UpdateTwitterStatus", networks := ["TWITTER" ] ]
-  //, [ id := 15, userapi := "FQL_User_Photos", networks := ["FACEBOOK" ] ]
-  , [ id := 17, userapi := "GetFriendStatuses", networks := ["FACEBOOK" ] ]
-  ];
-
-
 PUBLIC STRING FUNCTION MYEncodeURLBin64(STRING data)
 {
   data := EncodeBase64(data);

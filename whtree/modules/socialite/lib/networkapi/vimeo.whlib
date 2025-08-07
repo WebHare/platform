@@ -72,7 +72,6 @@ PUBLIC STATIC OBJECTTYPE VimeoConnection EXTEND OauthV2NetworkConnection
     this->pvt_authorizeurl    := "https://api.vimeo.com/oauth/authorize";
     this->pvt_accesstokenurl  := "https://api.vimeo.com/oauth/access_token";
 
-    this->pvt_newpermissionmodel := TRUE;
     this->SetMode("vimeo"); // so the main oauth2 code knows to add the authorization header to requests
   }
 

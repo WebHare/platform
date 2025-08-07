@@ -153,7 +153,6 @@ PUBLIC STATIC OBJECTTYPE YouTubeConnection EXTEND OauthNetworkConnection
   MACRO NEW()
   : OauthNetworkConnection("2.0", oauth_scopes)
   {
-    this->pvt_newpermissionmodel := TRUE;
     this->SetMode("youtube");
     this->apiurl_feeds := 'https://www.googleapis.com/youtube/v3/';
   }

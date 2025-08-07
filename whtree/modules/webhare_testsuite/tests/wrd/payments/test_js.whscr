@@ -31,8 +31,6 @@ OBJECT paymentapi;
 STRING pm2_guidprefix;
 OBJECT pm2;
 
-CONSTANT STRING jstestdriver := "@mod-platform/packages/psp-testdriver/testdriver.ts#TestDriver";
-
 MACRO Prep()
 {
   paymentapi := GetWRDTestPaymentAPI();
@@ -50,12 +48,14 @@ ASYNC MACRO SetupPayJS()
   TT(":Configuration")->value := EncodeJSON([ xyz := TRUE]);
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*Missing expected field*" ]);
 
-  TT(":Configuration")->value := EncodeJSON([
-    methods := [[ rowkey := "M1", title := "Method 1" ]
-               ,[ rowkey := "M2", title := "Method 2" ]
-    ],
-     __frigginhugedata := RepeatText("X",4096)
-     ]);
+  TT(":Configuration")->value := `{
+      "methods":[{ "rowkey": "M1", "title": "Method 1", "maxAmount": 12.5 },
+                 { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250, "images": [
+                   { "link": "/.wh/ea/p/branding/webhare.svg", "mimeType": "image/svg+xml" }
+                 ] }
+                ],
+      "__frigginhugedata": "${RepeatText("X",4096)}"
+      }`;
   AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
   TestEq("Method 1, Method 2", TT(":methods")->value);
 
@@ -201,7 +201,7 @@ MACRO TestPaymentMethodTest() //test the 'test' method
     [ wrd_title := "TestMethod"
     , method := MakeJSPaymentProviderValue(jstestdriver, `{
       "methods":[{ "rowkey": "M1", "title": "Method 1", "maxAmount": 12.5 },
-                 { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250 }
+                 { "rowkey": "M2", "title": "Method 2", "minAmount": 25, "maxAmount": 250, "images": [{ "link": "/.wh/ea/p/branding/webhare.svg", "mimeType": "image/svg+xml" }]}
                 ]
       }`)
     ]);
@@ -221,6 +221,9 @@ MACRO TestPaymentMethodTest() //test the 'test' method
   TestEq(0m,               allpaymentoptions[0].minamount);
   TestEq(12.5m,            allpaymentoptions[0].maxamount);
   TestEq("Method 2",       allpaymentoptions[1].title);
+  TestEq([[ link := "/.wh/ea/p/branding/webhare.svg"
+          , mime_type := "image/svg+xml"
+          ]],              allpaymentoptions[1].images);
   TestEq(25m,              allpaymentoptions[1].minamount);
   TestEq(250m,             allpaymentoptions[1].maxamount);
   TestEq("M1",             allpaymentoptions[0].paymentoptiontag);

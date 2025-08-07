@@ -8,12 +8,26 @@ test.runTests(
       await test.load(setupdata.url);
     },
 
+    "Verify autoselect when only one method exists",
+    async function () {
+      //only one issuer, so it should be selected
+      test.assert(test.qR(`[name="pm.paymentmethod"]`).checked);
+      test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
+      await test.load(setupdata.url);
+    },
+
+    async function () {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, withpayment: ["withissuer", "testdriver"], filename: "paymenthandlerform" });
+      await test.load(setupdata.url);
+    },
+
     "Simple payment - cancel it",
     async function () {
       //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jopie");
-      test.assert(test.qR(`[name="pm.paymentmethod"]`).checked);
-      test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
+      const method2 = test.findElement(['[name="pm.paymentmethod"]', 2]);
+      test.eq("/.wh/ea/p/branding/webhare.svg", method2?.dataset.whPaymentmethodImage);
+      test.click(method2!);
 
       test.click("[type=submit]");
       await test.wait('ui');
@@ -41,9 +55,8 @@ test.runTests(
     "Simple payment - keep it pending",
     async function () {
       await test.load(setupdata.url);
-      //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jaapie");
-      test.assert(test.qR(`[name="pm.paymentmethod"]`).checked);
+      test.click(test.findElement(['[name="pm.paymentmethod"]', 0])!);
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
 
       test.click("[type=submit]");
