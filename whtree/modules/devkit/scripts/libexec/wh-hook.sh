@@ -42,53 +42,6 @@ git_update_all()
   UPDATEERRORS=""
   UPDATEFATAL=0
 
-  MAINBRANCH=master  # prep if we someday rename to 'main'
-
-  if [ -d .git ]; then
-    WEBHARE_BRANCH=$(git symbolic-ref --short HEAD 2> /dev/null)
-    if [ "$WEBHARE_BRANCH" == "$MAINBRANCH" ] && # if you appear to be on the main branch
-       ! git merge-base --is-ancestor $MAINBRANCH origin/$MAINBRANCH 2> /dev/null &&  # master is past origin/upstream
-       ! git merge-base --is-ancestor $MAINBRANCH upstream/$MAINBRANCH 2> /dev/null; then
-      die "It seems you have modified the '$MAINBRANCH' branch, but you can't commit there. Move your changes to a branch"
-    fi
-
-    if [ -z "$1" ] || [[ "webhare" =~ $1 ]]; then
-      # Update automatically only when current branch is 'master' or 'release/*'
-      if [[ "$WEBHARE_BRANCH" =~ ^master$|^release/ ]]; then
-        echo "Update $WEBHARE_CHECKEDOUT_TO"
-        if ! git pull --rebase && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
-          UPDATEERRORS="$UPDATEERRORS webhare"
-          UPDATEFATAL=1
-        fi
-      elif [ "$WEBHARE_REBASE_EDGE_BRANCH" == "1" ] && [[ "$WEBHARE_BRANCH" =~ ^edge/ ]]; then
-        # if the edge branche forked of a release branch, rebase on that, otherwise on origin/master
-        local TESTBRANCHES=$(git show-ref | grep -o origin/release/.*)
-        local EDGEPARENT=origin/master
-        for TESTBRANCH in $TESTBRANCHES; do
-          MERGEBASE=$(git merge-base $TESTBRANCH HEAD)
-          if [ -n "$MERGEBASE" ] && ! git merge-base --is-ancestor $MERGEBASE origin/master; then
-            EDGEPARENT="$TESTBRANCH"
-            break;
-          fi
-        done
-        echo "$(tput setaf 6)Rebasing branch $WEBHARE_BRANCH to origin branch $EDGEPARENT$(tput sgr0)"
-
-        if ( ! git fetch || ! git rebase $EDGEPARENT ) && [ "$WEBHARE_IGNORE_WHUP_FAILURE" != "1" ]; then
-          UPDATEERRORS="$UPDATEERRORS webhare"
-          UPDATEFATAL=1
-        fi
-      fi
-
-      # Install any missing submodules
-      git -C "$P" submodule update --init --recursive
-    fi
-
-    # If your current branch isnt "master", update "master" with the origins hash. you're not supposed to manually commit to it anyway
-    if [ "$WEBHARE_BRANCH" != "$MAINBRANCH" ] && [ -f ".git/refs/remotes/origin/$MAINBRANCH" ]; then
-      git branch -f $MAINBRANCH "$(git rev-parse remotes/origin/$MAINBRANCH)"
-    fi
-  fi
-
   gather_repo_dirs
   for P in $DIRS; do
     if [ -d "$P/.git/refs/remotes" ]; then
@@ -169,17 +122,12 @@ setup_for_console()
 
 if [ "$INSTR" == "up" ] ; then
   if [ -z "$*" ]; then
-    echo "=== Updating $WEBHARE_CHECKEDOUT_TO and modules ==="
+    echo "=== Updating modules ==="
     git_update_all
   else
     git_update_all "$1"
   fi
   exit 0
-fi
-
-if [ "$INSTR" == "umic" ]; then
-  git_update_all
-  INSTR="mic"
 fi
 
 if [ "$INSTR" == "monthly-prestart-cleanup" ]; then

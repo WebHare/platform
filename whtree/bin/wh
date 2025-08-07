@@ -184,11 +184,6 @@ wh()
   $WEBHARE_DIR/bin/wh "$@"
 }
 
-exec_wh()
-{
-  $WEBHARE_DIR/bin/wh "$@"
-}
-
 setup_webhare_envsettings()
 {
   getwebhareversion
@@ -255,6 +250,19 @@ setup_for_console()
   # WH 5.6 - move assetpacks into generated/
   move_dir "$WEBHARE_DATAROOT"publisher.ap "$WEBHARE_DATAROOT"generated/platform ap
 }
+
+if [ "$INSTR" == "umic" ]; then # umic attempts to update WebHare from git. do this ASAP - we might be pulling in important bugfixes to the rest of the process
+  [ -d "${WEBHARE_CHECKEDOUT_TO}/.git" ] || die "No .git folder in $WEBHARE_CHECKEDOUT_TO, cannot update WebHare"
+  WEBHARE_BRANCH="$(git -C "$WEBHARE_CHECKEDOUT_TO" symbolic-ref --short HEAD)"
+
+  # Update automatically only when current branch is 'master' or 'release/*'
+  if [[ "$WEBHARE_BRANCH" =~ ^master$|^release/ ]]; then
+    echo "Update $WEBHARE_CHECKEDOUT_TO"
+    git -C "$WEBHARE_CHECKEDOUT_TO" pull --rebase
+  fi
+  # Install any missing submodules
+  git -C "$WEBHARE_CHECKEDOUT_TO" submodule update --init --recursive
+fi
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
 if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|usebuiltwasm|shell|make|finalize-webhare|prepare-whdata|fixbuild|buildcontainer|testcontainer|builddocker|testdocker)$ ]]; then
@@ -565,10 +573,14 @@ HERE
     sudo rm -f /var/run/socket_binder.socket
     ;;
 
-  "mic")
+  "mic" | "umic")
     check_webhare_not_running
 
     "$WEBHARE_CHECKEDOUT_TO/builder/make.sh" install ||  exit 1
+
+    if [ "$INSTR" == "umic" ]; then #Update all modules too before we launch WebHare
+      git_update_all
+    fi
 
     getwhparameters
     exec $WEBHARE_DIR/bin/wh "$@" console
@@ -578,11 +590,6 @@ HERE
   "__listcommands")
     list_commands | sort -u
     exit 0
-    ;;
-
-  "up" | "st" | "status" | "umic")
-    echo "The command '$INSTR' is now provided by the 'dev' module, please install it first"
-    exit 255
     ;;
 
   "__autocomplete_wh")
