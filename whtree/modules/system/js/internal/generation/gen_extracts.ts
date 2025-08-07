@@ -13,6 +13,7 @@ import type { Document } from "@xmldom/xmldom";
 import { generateTasks } from "./gen_extract_tasks";
 import { generateHooks } from "./gen_extract_hooks";
 import { getAllModuleWRDSchemas } from "./gen_wrd";
+import { generateUserRights } from "./gen_extract_userrights";
 
 const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
@@ -339,6 +340,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generateWRDSchemas(context)
+    },
+    {
+      path: `extracts/userrights.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generateUserRights(context)
     }
   ];
 }

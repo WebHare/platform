@@ -87,3 +87,25 @@ PUBLIC RECORD FUNCTION TestAuditEvent(VARIANT expected)
   Sleep(1);
   RETURN auditevents;
 }
+
+PUBLIC MACRO TestUpdateGrant(STRING grantor, STRING action, STRING right, INTEGER obj, STRING grantee, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  TRY {
+    testfw->BeginWork();
+    testfw->GetUserObject(grantor)->UpdateGrant(action, right, obj, testfw->GetUserOrRoleObject(grantee), options);
+  } CATCH(OBJECT e) {
+    testfw->RollbackWork();
+    THROW e;
+  }
+  testfw->CommitWork();
+}
+
+PUBLIC MACRO TestUpdateRoleGrant(STRING grantor, STRING action, STRING role, STRING user, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  TRY {
+    testfw->BeginWork();
+    testfw->GetUserObject(grantor)->UpdateRoleGrant(action, testfw->GetRoleObject(role)->authobjectid, testfw->GetUserObject(user), options);
+  } CATCH(OBJECT e) {
+    testfw->RollbackWork();
+    THROW e;
+  }
+  testfw->CommitWork();
+}
