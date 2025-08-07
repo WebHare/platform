@@ -54,7 +54,7 @@ exclude:
   - "**/node_modules/**"
   - modules/devkit
   - modules/webhare_testsuite
-  - jssdk/whdb/vendor/postgresql-client
+  - jssdk/whdb/vendor/postgrejs
 
 include:
   - "jssdk/**/*"

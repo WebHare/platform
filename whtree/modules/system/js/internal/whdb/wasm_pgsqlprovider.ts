@@ -9,7 +9,7 @@ import type { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import type { HareScriptVM, HSVM_VariableId, HSVM_VariableType } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import type { Money } from "@webhare/std";
-import { BindParam } from "@webhare/whdb/vendor/postgresql-client/src";
+import { BindParam } from "@webhare/whdb/vendor/postgrejs/src";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 
 enum Fases {

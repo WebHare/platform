@@ -195,7 +195,7 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
     resourcename := GetWebHareResourceDiskPath(resourcename);
 
   //TS doesn't let us configure different settings for the postgresql-client dir so just discard the errors
-  IF(resourcename LIKE "*/jssdk/whdb/vendor/postgresql-client/*")
+  IF(resourcename LIKE "*/jssdk/whdb/vendor/postgrejs/*")
     RETURN TRUE;
 
   /* If modules (indirectly) include their own copy of @types/node they may not match the node WebHare is shipping with.

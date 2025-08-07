@@ -1,8 +1,8 @@
 [submodule "vendor/libxml2"]
 	path = vendor/libxml2
 	url = https://github.com/GNOME/libxml2.git
-[submodule "whtree/jssdk/whdb/vendor/postgresql-client"]
-	path = whtree/jssdk/whdb/vendor/postgresql-client
+[submodule "whtree/jssdk/whdb/vendor/postgrejs"]
+	path = whtree/jssdk/whdb/vendor/postgrejs
 	url = https://github.com/panates/postgrejs.git
 [submodule "vendor/emsdk"]
 	path = vendor/emsdk

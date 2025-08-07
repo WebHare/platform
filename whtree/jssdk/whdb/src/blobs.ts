@@ -3,7 +3,7 @@ import { generateRandomId } from '@webhare/std';
 import { mkdir, rename, stat, unlink } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
-import { type Connection, type DataType, DataTypeOIDs, type SmartBuffer } from './../vendor/postgresql-client/src/index';
+import { type Connection, type DataType, DataTypeOIDs, type SmartBuffer } from './../vendor/postgrejs/src/index';
 import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob';
 import { storeDiskFile } from '@webhare/system-tools/src/fs';
 

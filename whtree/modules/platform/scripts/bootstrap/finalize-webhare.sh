@@ -64,7 +64,7 @@ logWithTime "Downloading puppeteer"
 
 ## get dependencies for the postgresql-client
 logWithTime "Setup postgresql-client"
-( cd jssdk/whdb/vendor/postgresql-client && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
+( cd jssdk/whdb/vendor/postgrejs && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
 
 logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
