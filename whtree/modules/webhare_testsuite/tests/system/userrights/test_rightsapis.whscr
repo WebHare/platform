@@ -52,7 +52,7 @@ BOOLEAN FUNCTION TestHasRight(STRING user, STRING right) {
 }
 
 BOOLEAN FUNCTION TSHasRightOn(STRING user, STRING right, INTEGER obj) {
-  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, TV(obj != 0, obj, DEFAULT RECORD));
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, TV(obj != 0, obj, "all"));
 }
 
 BOOLEAN FUNCTION TestHasRightOn(STRING user, STRING right, INTEGER obj) {
@@ -63,7 +63,7 @@ BOOLEAN FUNCTION TestHasRightOn(STRING user, STRING right, INTEGER obj) {
 }
 
 BOOLEAN FUNCTION TSHasRightOnAny(STRING user, STRING right) {
-  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOnAny", right);
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, "any");
 }
 
 BOOLEAN FUNCTION TestHasRightOnAny(STRING user, STRING right) {

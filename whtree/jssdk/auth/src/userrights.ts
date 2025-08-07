@@ -49,13 +49,9 @@ export interface AuthorizationInterface {
   hasRight(right: GlobalRight): Promise<boolean>;
   /** Check whether the user has a targetted right on a specific object (or inherited through its parnet)
    * @param right The targetted right to check, eg system:sysop (but not eg system:fs_fullaccess which requires hasRightOn)
-   * @param objectId The target object's id, or null to check for access to all objects
+   * @param object The target object's id or "all"/"any" to verify access to all/any object(s)
    */
-  hasRightOn(right: TargettedRight, objectId: number | null): Promise<boolean>;
-  /** Check whether the user has a targetted right on ANY object of the type
-   * @param right The targetted right to check, eg system:sysop (but not eg system:fs_fullaccess which requires hasRightOn)
-   */
-  hasRightOnAny(right: TargettedRight): Promise<boolean>;
+  hasRightOn(right: TargettedRight, object: number | "all" | "any"): Promise<boolean>;
   /** Filter objects on which the user has the requested right (a 'bulk' hasRightOn)
    * @param right The targetted right to check, eg system:sysop (but not eg system:fs_fullaccess which requires hasRightOn)
    */
@@ -224,7 +220,7 @@ class WRDEntityAuthorization implements AuthorizationInterface {
     return expanded;
   }
 
-  private async executeHasRight(right: TargettedRight, type: "global" | "target" | "any", objectId: number | null): Promise<boolean> {
+  private async executeHasRight(right: TargettedRight, type: "global" | "target", object: number | "all" | "any"): Promise<boolean> {
     // We assume that if right has a target implied-by {chain must also refer to the same objecttype OR be a global right
     const { chain, rightsTable, parentColumn, targetTable } = await describeChain(right);
 
@@ -237,11 +233,11 @@ class WRDEntityAuthorization implements AuthorizationInterface {
       if (!chain[0].target)
         throw new Error(`Right '${right}' is a global right, use hasRight instead`);
 
-      if (objectId) //not looking for an 'all' reference
+      if (typeof object === "number") //not looking for all/any
         if (targetTable && parentColumn)
-          matchObjects.push(...await gatherParents(targetTable, parentColumn, objectId));
+          matchObjects.push(...await gatherParents(targetTable, parentColumn, object));
         else
-          matchObjects.push(objectId);
+          matchObjects.push(object);
     }
 
     const expanded = await this.getMyAuthObjects();
@@ -253,7 +249,7 @@ class WRDEntityAuthorization implements AuthorizationInterface {
         continue; //we never found the righttable, so skip this right chec
 
       let grantQuery = db<RightsDB>().selectFrom(rightEntry.target ? rightsTable! : "system_rights.global_rights").where("right", "=", rightEntry.databaseId).where("grantee", "in", expanded);
-      if (type === "target") ///we desire a grant for either the object, one of its parents, or just null to match all
+      if (object !== "any") ///we desire a grant for either the object, one of its parents, or just null to match all
         grantQuery = grantQuery.where(eb => eb.or([eb("object", "in", matchObjects), eb("object", "is", null)]));
 
       if (await grantQuery.select("id").executeTakeFirst())
@@ -263,18 +259,14 @@ class WRDEntityAuthorization implements AuthorizationInterface {
   }
 
   async hasRight(right: GlobalRight): Promise<boolean> {
-    return await this.executeHasRight(right, "global", null);
+    return await this.executeHasRight(right, "global", "any");
   }
 
-  async hasRightOn(right: TargettedRight, objectId: number | null): Promise<boolean> {
-    if (objectId === 0)
+  async hasRightOn(right: TargettedRight, object: number | "all" | "any"): Promise<boolean> {
+    if (object === 0)
       throw new Error("Cannot check rights on object 0 - pass 'null' instead"); //safety check - it's a foreign key in WHDB so we expect 0 to be invalid
 
-    return await this.executeHasRight(right, "target", objectId);
-  }
-
-  async hasRightOnAny(right: TargettedRight): Promise<boolean> {
-    return await this.executeHasRight(right, "any", null);
+    return await this.executeHasRight(right, "target", object);
   }
 
   async filterRightOn(right: TargettedRight, objectIds: number[]): Promise<number[]> {
