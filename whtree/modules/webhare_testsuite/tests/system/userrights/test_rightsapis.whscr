@@ -52,7 +52,7 @@ BOOLEAN FUNCTION TestHasRight(STRING user, STRING right) {
 }
 
 BOOLEAN FUNCTION TSHasRightOn(STRING user, STRING right, INTEGER obj) {
-  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, TV(obj != 0, obj, DEFAULT RECORD));
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, TV(obj != 0, obj, "all"));
 }
 
 BOOLEAN FUNCTION TestHasRightOn(STRING user, STRING right, INTEGER obj) {
@@ -63,7 +63,7 @@ BOOLEAN FUNCTION TestHasRightOn(STRING user, STRING right, INTEGER obj) {
 }
 
 BOOLEAN FUNCTION TSHasRightOnAny(STRING user, STRING right) {
-  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOnAny", right);
+  RETURN CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "hasRightOn", right, "any");
 }
 
 BOOLEAN FUNCTION TestHasRightOnAny(STRING user, STRING right) {
@@ -84,8 +84,23 @@ INTEGER ARRAY FUNCTION TestHasRightOnMultiple(STRING user, STRING right, INTEGER
   RETURN hs;
 }
 
+INTEGER ARRAY FUNCTION TSGetRootObjectsForRights(STRING user, STRING ARRAY rights) {
+  VARIANT res := CallJS("mod::webhare_testsuite/js/hs-helpers.ts#invokeOnAuthorizationInterface", testfw->GetUserOrRoleObject(user)->entityid, "getRootObjects", rights);
+  IF(TYPEID(res) = TYPEID(RECORD)) //'null'
+    RETURN INTEGER[];
+  IF(TYPEID(res) = TYPEID(STRING) AND res = "all")
+    RETURN INTEGER[0];
+  IF(TYPEID(res) = TYPEID(VARIANT ARRAY) OR TYPEID(res) = TYPEID(INTEGER ARRAY))
+    RETURN INTEGER ARRAY(res);
+
+  ABORT(res);
+}
+
 INTEGER ARRAY FUNCTION TestGetRootObjectsForRights(STRING user, STRING ARRAY rights) {
-  RETURN GetSortedSet(testfw->GetUserOrRoleObject(user)->GetRootObjectsForRights(rights));
+  INTEGER ARRAY hs := GetSortedSet(testfw->GetUserOrRoleObject(user)->GetRootObjectsForRights(rights));
+  INTEGER ARRAY ts := TSGetRootObjectsForRights(user, rights);
+  TestEq(hs, ts, `Mismatch for ${user} on root objects for rights ${Detokenize(rights,',')}`);
+  RETURN hs;
 }
 
 MACRO InitDB()
@@ -395,6 +410,7 @@ MACRO GrantTest()
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2", [ 3 ]));
   TestEq(DEFAULT INTEGER ARRAY, TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2_impl", [ 3 ]));
   TestEq([ 2, 4, 5, 6 ], TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2", [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]));
+  TestEq([2], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright2"]));
   TestEq([ 2, 4, 5, 6 ], TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2_impl", [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ]));
   TestEq([ 2, 4, 5, 6 ], TestHasRightOnMultiple("limited2", "webhare_testsuite:objectright2_impl", [ 2, 4, 5, 6 ]));
 
@@ -437,9 +453,13 @@ MACRO GrantTest()
   // Non-recursive, please.
   TestEq(TRUE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 2));
 
+  // Test getRootObjects only returning top level parents
+  TestUpdateGrant("mysysop", "grant", "webhare_testsuite:objectright2", 4, "limited2");
+  TestEq([2], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright2"]));
   TestUpdateGrant("mysysop", "revoke", "webhare_testsuite:objectright2", 2, "limited2");
   TestEq(FALSE, TestHasRightOn("limited2", "webhare_testsuite:objectright2", 2));
-
+  TestEq([4], TestGetRootObjectsForRights("limited2", ["webhare_testsuite:objectright2"]));
+  TestUpdateGrant("mysysop", "revoke", "webhare_testsuite:objectright2", 4, "limited2");
 
   TestUpdateGrant("mysysop", "grant", "webhare_testsuite:objectright2_impl", 2, "limited2");
 
