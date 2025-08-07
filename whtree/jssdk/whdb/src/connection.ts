@@ -107,7 +107,7 @@ export interface FullPostgresQueryResult<R> extends PostgresQueryResult<R> {
 }
 
 function onDebug(evt: PGConnectionDebugEvent) {
-  console.log(evt.location, evt.message);
+  console.log(`[${performance.now().toFixed(3).padStart(10)}] ${evt.location}: ${evt.message}`);
 }
 
 export function getPGConnection() {
