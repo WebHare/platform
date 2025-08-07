@@ -458,8 +458,7 @@ void ScriptEnvironment::Init()
                         typedef void (*AddFontDirFunc)(const char *);
                         AddFontDirFunc addfontdir = (AddFontDirFunc)func;
                         addfontdir( (whconn.GetWebHareRoot() + "fonts").c_str() );
-                        if(!whconn.UseOnlyShippedFonts())
-                            addfontdir( (whconn.GetBaseDataRoot() + "fonts").c_str() );
+                        addfontdir( (whconn.GetBaseDataRoot() + "fonts").c_str() );
                 }
 
                 DEBUGPRINT("Got a handle to the graphics library");
