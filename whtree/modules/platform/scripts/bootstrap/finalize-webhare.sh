@@ -9,6 +9,8 @@
 
 set -eo pipefail
 
+export WEBHARE_HARESCRIPT_OFF=1 # Avoid any invocation of HareScript to ensure as much of finalization is safely HS-free
+
 UPDATE_PACKAGES=
 while [ "$1" != "" ]; do
   if [ "$1" == "--update-packages" ]; then
@@ -75,7 +77,7 @@ modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setu
 # We need a minimal wh apply to get the symlinks/tsconfig in place. WEBHARE_HARESCRIPT_OFF=1 to abort on any accidental HS attempt (we can't do HS yet - there's no compiler running and precompilation is the next step)
 # After this step, 'wh node' should be available.
 logWithTime "Generate minimal config to bootstrap WebHare"
-WEBHARE_NO_CONFIG=1 WEBHARE_HARESCRIPT_OFF=1 wh apply --nodb --offline config.base
+WEBHARE_NO_CONFIG=1 wh apply --nodb --offline config.base
 
 # verify the binary works. depends on 'wh node' working
 logWithTime "Verifying the browser"
@@ -100,9 +102,15 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then # verify using 'ldd', this is helpful when 
 fi
 
 if ! wh run mod::platform/scripts/bootstrap/test-puppeteer.ts ; then
-  echo "Screenshot failed. The browser may be broken?"
-  exit 1
+  echo "Screenshot failed. The browser may be broken? (architecture = $(uname -m))"
+  if [ "$(uname -m)" == "aarch64" ]; then
+    echo "Ignoring on linux AMD - puppeteer and thus WebHare is unsupported there. See also https://github.com/puppeteer/puppeteer/issues/7740"
+  else
+    exit 1
+  fi
 fi
+
+export WEBHARE_HARESCRIPT_OFF= # Re-enable HS
 
 # HS precompile. This *must* be done before any attempt at running WASM engine HS code as they can't run without a live whcompile
 rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machines so the direct__ check later doesn't fail you. Ignore errors, usually triggered by racing a running WebHare
@@ -139,12 +147,13 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
 logWithTime "Generate all config files"
 wh apply --nodb --offline config
 
-logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
-"$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
-
+# Precompile TypeScript. As long as we don't have something like wrd() to ensure we can do type-only import of generated files we need to do precompile *after* generating config files to ensure the generatd TS files are precompiled too
 logWithTime "Precompiling TypeScript"
 rm -rf "$WEBHARE_TSBUILDCACHE" 2>/dev/null || true # ignore errors, often triggered by rebuilding while active
 wh run "$WEBHARE_DIR/jssdk/tsrun/src/precompile.ts" "$WEBHARE_TSBUILDCACHE" "$WEBHARE_DIR"
+
+logWithTime "Prepare whdata, ensure @mod- paths work" # this result will be discarded but it's needed to bootstrap TS/HS code
+"$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
 
 logWithTime "Compress country flags" #TODO brotli them! easiest to do this using node, as that one ships with brotli
 gzip --keep --force "$WEBHARE_DIR/node_modules/flag-icons/flags/"*/*.svg

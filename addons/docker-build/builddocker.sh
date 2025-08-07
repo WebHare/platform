@@ -10,6 +10,7 @@ DOCKERBUILDARGS=()
 USEPODMAN=""
 NOPULL=""
 DEBUG=""
+ARCH=""
 
 source "$WEBHARE_DIR/lib/wh-functions.sh"
 cd "$WEBHARE_CHECKEDOUT_TO" || exit 1
@@ -25,8 +26,8 @@ while [[ $1 =~ ^-.* ]]; do
     NOPULL=1
   elif [ "$1" == "--debug" ]; then
     DEBUG=1
-  elif [ "$1" == "--intel" ]; then
-    export DOCKER_DEFAULT_PLATFORM=linux/amd64
+  elif [ "$1" == "--amd64" ]; then # Build for intel/amd64 on ARM. Haven't seen this work in practice yet, node processes hang during the finalization step
+    ARCH="linux/amd64"
   elif [ "$1" == "--podman" ]; then
     USEPODMAN="1"
     # without label=disable we can't run our build scripts. Adding `,relabel=shared` to RUN --mount=type=bind helps but makes us Docker incompatible
@@ -47,6 +48,14 @@ done
 
 if [ -n "$USEPODMAN" ] && [[ $(type -t whhook_prepare_podman) == function ]]; then
   whhook_prepare_podman # Allow wh script hooks to prepare the build machine
+fi
+
+if [ -n "$ARCH" ]; then
+  if [ -n "$USEPODMAN" ]; then
+    DOCKERBUILDARGS+=(--arch "$ARCH")
+  else
+    export DOCKER_DEFAULT_PLATFORM=linux/amd64
+  fi
 fi
 
 if [ -n "$CI_COMMIT_SHA" ]; then
