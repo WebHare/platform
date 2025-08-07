@@ -1,4 +1,4 @@
-import type { Connection } from "../vendor/postgresql-client/src";
+import type { Connection } from "../vendor/postgrejs/src";
 import { omit } from "@webhare/std";
 
 export function escapePGIdentifier(str: string): string {

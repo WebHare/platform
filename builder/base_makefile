@@ -578,7 +578,7 @@ all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
 ##
 ## Other dependencies
 ##
-$(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json:
+$(PREFIX)/jssdk/whdb/vendor/postgrejs/package.json:
 	git -C $(SRCDIR) submodule update --init --recursive  #update triggered for $@
 
 
@@ -963,7 +963,7 @@ success.node $(PREFIX)/jssdk/tsrun/dist/resolveplugin.js $(PREFIX)/modules/platf
 			$(PREFIX)/tsconfig.yml \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
-			$(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json \
+			$(PREFIX)/jssdk/whdb/vendor/postgrejs/package.json \
 			$(PREFIX)/modules/devkit/package.json \
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/etc/platform.conf \

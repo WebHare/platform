@@ -7,20 +7,20 @@ import type {
   PostgresQueryResult,
 } from 'kysely';
 
-import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgresql-client/src/index';
+import { Connection, type QueryOptions, BindParam, DataTypeOIDs, type QueryResult, type FieldInfo, DataTypeMap } from './../vendor/postgrejs/src/index';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, ArrayWHTimestampType, Float8Type, MoneyType, TidType, WHTimestampType } from "./types";
-import { getIntlConnection } from '../vendor/postgresql-client/src/connection/intl-connection';
-import { ArrayVarcharType, VarcharType } from '../vendor/postgresql-client/src/data-types/varchar-type';
-import { ArrayBoolType, BoolType } from '../vendor/postgresql-client/src/data-types/bool-type';
-import { ArrayByteaType, ByteaType } from '../vendor/postgresql-client/src/data-types/bytea-type';
-import { ArrayInt4Type, Int4Type } from '../vendor/postgresql-client/src/data-types/int4-type';
-import { ArrayInt8Type, Int8Type } from '../vendor/postgresql-client/src/data-types/int8-type';
-import { ArrayInt2Type, Int2Type } from '../vendor/postgresql-client/src/data-types/int2-type';
-import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgresql-client/src/data-types/oid-type';
-import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgresql-client/src/data-types/int2-vector-type';
-import { ArrayCharType, CharType } from '../vendor/postgresql-client/src/data-types/char-type';
+import { getIntlConnection } from '../vendor/postgrejs/src/connection/intl-connection';
+import { ArrayVarcharType, VarcharType } from '../vendor/postgrejs/src/data-types/varchar-type';
+import { ArrayBoolType, BoolType } from '../vendor/postgrejs/src/data-types/bool-type';
+import { ArrayByteaType, ByteaType } from '../vendor/postgrejs/src/data-types/bytea-type';
+import { ArrayInt4Type, Int4Type } from '../vendor/postgrejs/src/data-types/int4-type';
+import { ArrayInt8Type, Int8Type } from '../vendor/postgrejs/src/data-types/int8-type';
+import { ArrayInt2Type, Int2Type } from '../vendor/postgrejs/src/data-types/int2-type';
+import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgrejs/src/data-types/oid-type';
+import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgrejs/src/data-types/int2-vector-type';
+import { ArrayCharType, CharType } from '../vendor/postgrejs/src/data-types/char-type';
 import { getPGType } from './metadata';
 
 let configurationPromise: Promise<void> | undefined;
