@@ -3,14 +3,15 @@
 import { WRDSchema } from '@webhare/wrd/src/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
-import { backendConfig } from '@webhare/services';
+import { backendConfig, importJSObject } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { compressUUID } from "@webhare/auth/src/identity";
+import { compressUUID, createFirstPartyToken, IdentityProvider } from "@webhare/auth/src/identity";
 import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
-import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL } from '@webhare/auth';
+import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer } from '@webhare/auth';
+import { prepAuth } from '@webhare/auth/src/support';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -27,6 +28,19 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
     keys: pick(settings.signingKeys, ["availableSince", "keyId"]),
     metadataUrl: await getOpenIDMetadataURL(schema.tag)
   };
+}
+
+async function getCustomizerForURL(wrdSchema: string, url: string): Promise<AuthCustomizer | null> {
+  const prepped = await prepAuth(url, null);
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+  if (prepped.settings.wrdSchema !== wrdSchema)
+    throw new Error(`WRD schema mismatch: expected ${wrdSchema}, got ${prepped.settings.wrdSchema} from URL`);
+
+  if (prepped.settings.customizer)
+    return await importJSObject<AuthCustomizer>(prepped.settings.customizer);
+  else
+    return null; //no customizer set, so we can't do anything
 }
 
 run({
@@ -90,6 +104,67 @@ run({
         const wrdSchema = await getUserApiSchemaName(opts);
         const url = await getOpenIDMetadataURL(wrdSchema);
         console.log(opts.json ? JSON.stringify({ url }) : url);
+      }
+    },
+    "lookup-login": {
+      options: {
+        "url": { description: "Target URL to get wrdauth and customizer settings" }
+      },
+      arguments: [{ name: "<username>", description: "User name" }],
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName(opts);
+        const customizer = opts.url ? await getCustomizerForURL(wrdSchema, opts.url) : null;
+        const idp = new IdentityProvider(new WRDSchema(wrdSchema));
+        const result = await idp.lookupUser(await idp.getAuthSettings(true), args.username, customizer || undefined);
+        console.log(result);
+        return result ? 0 : 1;
+      }
+    },
+    "describe-login": {
+      shortDescription: "Get the frontend user info for a user",
+      options: {
+        "url": { description: "Target URL to get wrdauth and customizer settings" }
+      },
+      arguments: [{ name: "<entity>", description: "Entity ID" }], //TODO also support actual login names and log lookupUsername. assume any integer has to be a wrdId ?
+      main: async ({ opts, args }) => {
+        if (!opts.url)
+          throw new Error("You must specify a --url to get the frontend user info"); //but hopefully in the future wrdAuth is smart enough to make this optional. it rarely matters anyway
+
+        const auth = await prepAuth(opts.url, null);
+        if ("error" in auth)
+          throw new Error(auth.error);
+        if (!auth.settings.customizer)
+          throw new Error("No customizer or getFrontendUserInfo function defined for this schema");
+
+        const customizer = await importJSObject<AuthCustomizer>(auth.settings.customizer);
+        if (!customizer.onFrontendUserInfo)
+          throw new Error("Customizer does not implement onFrontendUserInfo");
+
+        const frontendUserInfo = await customizer.onFrontendUserInfo({
+          entityId: parseInt(args.entity),
+          user: parseInt(args.entity),
+          wrdSchema: new WRDSchema(auth.settings.wrdSchema),
+        });
+
+        //wrap it so we keep some room to export other props from other frontend calls
+        console.log(JSON.stringify({ frontendUserInfo }, null, 2));
+      }
+    },
+    "create-api-token": {
+      shortDescription: "Creates an API token",
+      options: {
+        "scopes": { description: "Comma-separated list of scopes for the token" },
+      },
+      arguments: [{ name: "<entity>", description: "Entity ID" }], //TODO also support actual login names and log lookupUsername. assume any integer has to be a wrdId ?
+      async main({ opts, args }) {
+        const wrdSchema = await getUserApiSchemaName(opts);
+        const entityId = parseInt(args.entity);
+        const token = await createFirstPartyToken(new WRDSchema(wrdSchema), "api", entityId, { expires: "P1D", scopes: opts.scopes ? opts.scopes.split(",") : [] });
+        if (opts.json) {
+          console.log(JSON.stringify(token, null, 2));
+        } else {
+          console.log(token.accessToken);
+        }
       }
     },
     "add-idp": {
@@ -201,5 +276,27 @@ run({
         }
       }
     },
+    "grant": {
+      shortDescription: "Grant a right to a user",
+      arguments: [
+        { name: "<user>", description: "User id to grant" },
+        { name: "<right>", description: "Right to grant" }
+      ],
+      main: async ({ opts, args }) => {
+        const wrdSchema = await getUserApiSchemaName(opts);
+
+        /* For now we'll have to use the HS api:
+            PUBLIC MACRO UpdateGrant(STRING action, STRING rightname, INTEGER objectid, OBJECT grantee, RECORD options DEFAULTSTO DEFAULT RECORD)
+        */
+        const hsWRDSchema = await loadlib("mod::wrd/lib/api.whlib").openWRDSchema(wrdSchema);
+        const rightsApi = await loadlib("mod::wrd/lib/auth.whlib").GetWRDAuthUserAPI(hsWRDSchema);
+        const user = await rightsApi.GetUser(parseInt(args.user));
+
+        //TODO withgrantoption, explicitly specifying granting user
+        await beginWork();
+        await user.updateGrant('grant', args.right, 0, user, { allowselfassignment: true });
+        await commitWork();
+      }
+    }
   }
 });
