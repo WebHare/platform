@@ -235,8 +235,7 @@ PUBLIC STATIC OBJECTTYPE TotpForm EXTEND FormBase <
     }
 
     IF(NOT work->HasFailed()) {
-      STRING baseurl := this->formcontext->GetWRDAuthPlugin()->webcontext->baseurl;
-      RECORD checkresult := CalLJS("@mod-platform/js/auth/harescript.ts#verifyPasswordComplianceForHS", baseurl,  state.userid, state.password, GetFormWebVariable("pathname"), state.returnto, GetEnrichedAuditContext());
+      RECORD checkresult := CalLJS("@mod-platform/js/auth/harescript.ts#verifyPasswordComplianceForHS", this->formcontext->GetWRDAuthPlugin()->__WRDAuthPluginSettings_HS(), state.userid, state.password, GetFormWebVariable("pathname"), state.returnto, GetEnrichedAuditContext());
 
       IF(CellExists(checkresult,'navigateto'))
         RETURN work->Finish() ? [ submitinstruction := checkresult.navigateto ] : DEFAULT RECORD;

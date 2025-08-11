@@ -11,7 +11,7 @@ import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import { rpc } from "@webhare/rpc";
 import type { OidcschemaSchemaType } from "wh:wrd/webhare_testsuite";
 import { systemUsermgmtSchema } from "@mod-platform/generated/wrd/webhare";
-import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings } from "@webhare/auth/src/support";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, prepAuthForURL } from "@webhare/auth/src/support";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 
@@ -471,8 +471,13 @@ async function testAuthAPI() {
   test.eq({ whuserLastlogin: null }, await oidcAuthSchema.getFields("wrdPerson", testuser, ["whuserLastlogin"]));
 
   //Test the frontend login
+  const prepped = await prepAuthForURL(url, null);
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+
   const baseLogin: FrontendLoginRequest = {
-    targetUrl: url,
+    settings: { ...prepped.settings, reportedCookieName: null, secureRequest: url.startsWith("https:") },
+    returnTo: url,
     login: "jonshow@beta.webhare.net",
     password: "secret$",
     tokenOptions: {
@@ -659,8 +664,13 @@ async function testAuthAPI() {
 
 async function testAuthStatus() {
   const url = (await test.getTestSiteJS()).webRoot ?? throwError("No webroot for JS testsite");
+  const prepped = await prepAuthForURL(url, null);
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+
   const baseLogin: FrontendLoginRequest = {
-    targetUrl: url,
+    settings: { ...prepped.settings, reportedCookieName: null, secureRequest: url.startsWith("https:") },
+    returnTo: url,
     login: "jonshow@beta.webhare.net",
     password: "secret$",
     tokenOptions: {
