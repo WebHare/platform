@@ -7,6 +7,8 @@ import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { getApplyTesterForURL, type WRDAuthPluginSettings } from "@webhare/whfs/src/applytester";
 import { getIdCookieName } from "@webhare/auth/src/authfrontend";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
+import { getSchemaSettings } from "@webhare/wrd/src/settings";
+import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 
 //TODO Export from @webhare/auth? but camelcase first
 export type WRDAuthLoginSettings = {
@@ -48,27 +50,42 @@ export type PrepAuthResult = {
   };
 };
 
-export async function prepAuth(url: string, cookieName: string | null): Promise<PrepAuthResult> {
+//We're making this entrypoint explicit to find dangerous paths later (eg these do not consider clientwebserver id which might make URL interpretation complex?)
+export async function prepAuthForURL(url: string, cookieName: string | null) {
   const applytester = await getApplyTesterForURL(url);
-  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
+  if (!url)
+    throw new Error(`No applytester found for URL ${url}`);
+
   const settings = await applytester?.getWRDAuth();
   if (!settings?.wrdSchema)
     return { error: "No WRD schema defined for URL " + url };
-  if (settings.supportObjectName && !settings.customizer)
-    return { error: "supportobjectname= is set but customizer= is not. This may imply critical login restrictions/data have not been ported for WH 5.8 for URL " + url };
-  if (!settings?.wrdSchema)
-    return { error: "Unable to find id token cookie/wrdauth settings for URL " + url };
 
-  if (cookieName && cookieName !== settings.cookieName)
-    return { error: `WRDAUTH: login offered a different cookie name than expected: ${cookieName} instead of ${settings.cookieName}` };
+  return prepAuth({ ...settings, reportedCookieName: cookieName, secureRequest: url.startsWith("https:") });
+}
+
+export type WRDAuthPluginSettings_Request = WRDAuthPluginSettings & {
+  secureRequest: boolean;
+  reportedCookieName: string | null;
+};
+
+//TODO Maybe we shouldn't event accept url-as-string at all
+export function prepAuth(settings: WRDAuthPluginSettings_Request): PrepAuthResult {
+  if (!settings?.wrdSchema)
+    return { error: "No WRD schema defined" };
+  if (settings.supportObjectName && !settings.customizer)
+    return { error: "supportobjectname= is set but customizer= is not. This may imply critical login restrictions/data have not been ported for WH 5.8" };
+  if (!settings?.wrdSchema)
+    return { error: "Unable to find id token cookie/wrdauth settings " };
+
+  if (settings.reportedCookieName && settings.reportedCookieName !== settings.cookieName)
+    return { error: `WRDAUTH: login offered a different cookie name than expected: ${settings.reportedCookieName} instead of ${settings.cookieName}` };
 
   //FIXME webdesignplugin.whlib rewrites the cookiename if the server is not hosted in port 80/443, our authcode should do so too ?
-  const { idCookie, ignoreCookies } = getIdCookieName(url, settings);
-  const secure = url.startsWith("https:");
+  const { idCookie, ignoreCookies } = getIdCookieName(settings, settings.secureRequest);
 
   const cookieSettings: ServersideCookieOptions = {
     httpOnly: true, //XSS protection
-    secure, //mirror secure if the request was
+    secure: settings.secureRequest, //mirror secure if the request was
     path: "/", //we don't support limiting WRD cookies to subpaths as various helper pages are at /.wh/
     sameSite: settings.sameSite,
   };
@@ -77,16 +94,13 @@ export async function prepAuth(url: string, cookieName: string | null): Promise<
     cookies: {
       idCookie,
       ignoreCookies,
-      secure,
+      secure: settings.secureRequest,
       cookieSettings,
       cookieName: settings.cookieName,
     },
     settings: settings as WRDAuthPluginSettings & { wrdSchema: string }, //as we verified this to be not-null
   };
 }
-
-import { getSchemaSettings } from "@webhare/wrd/src/settings";
-import type { System_UsermgmtSchemaType } from "@mod-platform/generated/wrd/webhare";
 
 export async function getUserValidationSettings<T extends SchemaTypeDefinition>(wrdschema: WRDSchema<T>, unit: number | null): Promise<string> {
   const s = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;

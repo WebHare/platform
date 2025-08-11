@@ -15,13 +15,11 @@ import type { AuthCustomizer, JWTPayload, LoginDeniedInfo, LoginUsernameLookupOp
 import type { WRDAuthAccountStatus } from "@webhare/auth";
 import type { ServersideCookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./audit";
-import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, type PrepAuthResult } from "./support";
-import { doLoginHeaders, doPublicAuthDataCookie } from "@mod-platform/js/auth/authservice";
+import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
-import { returnHeaders, type HSHeaders } from "@mod-platform/js/auth/harescript";
 import { AuthenticationSettings } from "@webhare/wrd";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
@@ -101,7 +99,8 @@ export type SetAuthCookies = {
 };
 
 export type FrontendLoginRequest = {
-  targetUrl: string;
+  returnTo: string;
+  settings: WRDAuthPluginSettings_Request;
   login: string;
   password: string;
   customizer?: AuthCustomizer;
@@ -731,7 +730,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       whuserUnit?: number | null;
     };
 
-    const prepped = await prepAuth(request.targetUrl, null);
+    const prepped = prepAuth(request.settings);
     if ("error" in prepped)
       throw new Error(prepped.error);
 
@@ -788,7 +787,8 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
         navigateTo: {
           type: "form",
           form: {
-            action: new URL(request.targetUrl).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(request.targetUrl).pathname.substring(1)),
+            //FIXME where does our caller gauarantee that returnTo will be compatible with request.settings ? or that it's a safe redirection target?
+            action: new URL(request.returnTo).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(request.returnTo).pathname.substring(1)),
             vars: [{ name: "token", value: token }]
           },
         },
@@ -799,7 +799,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (complianceToken) {
       return { //redirect to authpages to complete the account
         loggedIn: false,
-        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(request.targetUrl).pathname.substring(1))
+        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(request.returnTo).pathname.substring(1))
       };
     }
 
@@ -833,7 +833,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       loggedIn: true,
       setAuth: await prepCookies(authsettings, prepped, userid, prepOptions),
-      navigateTo: { type: "redirect", url: request.loginOptions?.returnTo || request.targetUrl },
+      navigateTo: { type: "redirect", url: request.loginOptions?.returnTo || request.returnTo },
     };
   }
 
@@ -1071,7 +1071,7 @@ export async function deleteToken<S extends SchemaTypeDefinition>(wrdSchema: WRD
   await db<PlatformDB>().deleteFrom("wrd.tokens").where("id", "=", tokenId).execute();
 }
 
-async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped: PrepAuthResult, userId: number, expiresMs: number, persistent: boolean, customizer?: AuthCustomizer): Promise<PublicAuthData> {
+export async function buildPublicAuthData(authsettings: WRDAuthSettings, prepped: PrepAuthResult, userId: number, expiresMs: number, persistent: boolean, customizer?: AuthCustomizer): Promise<PublicAuthData> {
   if ("error" in prepped)
     throw new Error(prepped.error);
 
@@ -1142,25 +1142,18 @@ export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAu
   return setToken;
 }
 
-async function prepareLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<SetAuthCookies> {
-  const prepped = await prepAuth(targetUrl, null);
+export async function prepareLogin(prepped: PrepAuthResult, userId: number, options?: AuthTokenOptions): Promise<SetAuthCookies> {
   if ("error" in prepped)
     throw new Error(prepped.error);
 
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
-  return await prepCookies(await getAuthSettings(new WRDSchema(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?"), prepped, userId, options);
+  const authsettings = await getAuthSettings(new WRDSchema(prepped.settings.wrdSchema)) ?? throwError("unconfigured wrd schema?");
+  return await prepCookies(authsettings, prepped, userId, options);
 }
 
-/** Generate a navigation instruction to set an Id Token cookie. This API can be used to construct a "Login As" service
- * @param targetUrl - URL to which we'll redirect after logging in and which will be used to extract WRDAuth settings
- * @param userId - The user ID to generate a token for
- * @param options - Options for token generation
- */
-export async function prepareFrontendLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
-  const setAuthCookies = await prepareLogin(targetUrl, userId, options);
-
+export function wrapAuthCookiesIntoForm(targetUrl: string, setAuthCookies: SetAuthCookies): NavigateInstruction {
   /* encrypt the data - don't want to build a remotely callable __Host- cookie setter
      also sending origin + pathname so you can't redirect this request to another URL
      (doubt we need pathname though?) */
@@ -1172,10 +1165,20 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   return {
     type: "form",
     form: {
-      action: `${new URL(targetUrl).origin}/.wh/auth/settoken`,
+      action: "/.wh/auth/settoken",
       vars: [{ name: "settoken", value: encryptForThisServer("platform:settoken", setToken) }]
     }
   };
+}
+
+/** Generate a navigation instruction to set an Id Token cookie. This API can be used to construct a "Login As" service
+ * @param targetUrl - URL to which we'll redirect after logging in and which will be used to extract WRDAuth settings
+ * @param userId - The user ID to generate a token for
+ * @param options - Options for token generation
+ */
+export async function prepareFrontendLogin(targetUrl: string, userId: number, options?: AuthTokenOptions): Promise<NavigateInstruction> {
+  const setAuthCookies = await prepareLogin(await prepAuthForURL(targetUrl, null), userId, options);
+  return wrapAuthCookiesIntoForm(targetUrl, setAuthCookies);
 }
 
 export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
@@ -1200,36 +1203,4 @@ export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDef
       return result;
   }
   return null;
-}
-
-/* prepareLoginCookies is how HareScript invokes the second half of the WRDAuth Login process (either username/password or LoginById)
-   and should mostly correspond with handleFrontendLogin
-   */
-export async function prepareLoginCookies(targetUrl: string, userId: number, isImpersonation: boolean, persistent: boolean, thirdParty: boolean, now: Date): Promise<{ headers: HSHeaders } | LoginDeniedInfo> {
-  const setAuthCookies = await prepareLogin(targetUrl, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant(), isImpersonation }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
-
-  if (!isImpersonation) {
-    const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
-    if (result)
-      return result;
-  }
-  return { headers: returnHeaders(hdrs => doLoginHeaders(setAuthCookies, hdrs)) };
-}
-
-/** Update the publicauthdata cookie */
-export async function preparePublicAuthDataCookie(targetUrl: string, idToken: string, currentPublicAuthdata: string): Promise<HSHeaders> {
-  //FIXME match the original 'persistent' setting
-  const prepped = await prepAuth(targetUrl, null);
-  if ("error" in prepped)
-    throw new Error(prepped.error);
-
-  const idp = new IdentityProvider(new WRDSchema(prepped.settings.wrdSchema));
-  const token = await idp.verifyAccessToken("id", idToken);
-  if ("error" in token)
-    throw new Error(token.error);
-
-  const decoded = parseTyped(currentPublicAuthdata) as PublicAuthData;
-  const newData = await buildPublicAuthData(await idp.getAuthSettings(true), prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
-
-  return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
 }

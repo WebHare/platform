@@ -11,7 +11,7 @@ import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform
 import { pick } from '@webhare/std';
 import { CLIRuntimeError, run } from "@webhare/cli";
 import { registerRelyingParty, initializeIssuer, getOpenIDMetadataURL, type AuthCustomizer } from '@webhare/auth';
-import { prepAuth } from '@webhare/auth/src/support';
+import { prepAuthForURL } from '@webhare/auth/src/support';
 
 async function getUserApiSchemaName(opts: { schema?: string }): Promise<string> {
   if (opts?.schema)
@@ -31,7 +31,7 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
 }
 
 async function getCustomizerForURL(wrdSchema: string, url: string): Promise<AuthCustomizer | null> {
-  const prepped = await prepAuth(url, null);
+  const prepped = await prepAuthForURL(url, null);
   if ("error" in prepped)
     throw new Error(prepped.error);
   if (prepped.settings.wrdSchema !== wrdSchema)
@@ -130,7 +130,7 @@ run({
         if (!opts.url)
           throw new Error("You must specify a --url to get the frontend user info"); //but hopefully in the future wrdAuth is smart enough to make this optional. it rarely matters anyway
 
-        const auth = await prepAuth(opts.url, null);
+        const auth = await prepAuthForURL(opts.url, null);
         if ("error" in auth)
           throw new Error(auth.error);
         if (!auth.settings.customizer)

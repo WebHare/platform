@@ -38,7 +38,7 @@ MACRO RunOpenIDAuth()
   IF(NOT ObjectExists(targetplugin))
     THROW NEW Exception(`No authplugin found for target ` || whyreason.redirect);
 
-  INTEGER userid := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
+  INTEGER userid := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", targetplugin->__WRDAuthPluginSettings_HS(), oauth2->token.id_token, spinfo.loginfield);
   IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
     RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
     IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
