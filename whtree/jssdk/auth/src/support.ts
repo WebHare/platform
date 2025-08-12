@@ -53,7 +53,7 @@ export type PrepAuthResult = {
 //We're making this entrypoint explicit to find dangerous paths later (eg these do not consider clientwebserver id which might make URL interpretation complex?)
 export async function prepAuthForURL(url: string, cookieName: string | null) {
   const applytester = await getApplyTesterForURL(url);
-  if (!url)
+  if (!applytester)
     throw new Error(`No applytester found for URL ${url}`);
 
   const settings = await applytester?.getWRDAuth();
@@ -75,7 +75,7 @@ export function prepAuth(settings: WRDAuthPluginSettings_Request): PrepAuthResul
   if (settings.supportObjectName && !settings.customizer)
     return { error: "supportobjectname= is set but customizer= is not. This may imply critical login restrictions/data have not been ported for WH 5.8" };
   if (!settings?.wrdSchema)
-    return { error: "Unable to find id token cookie/wrdauth settings " };
+    return { error: "Unable to find id token cookie/wrdauth settings" };
 
   if (settings.reportedCookieName && settings.reportedCookieName !== settings.cookieName)
     return { error: `WRDAUTH: login offered a different cookie name than expected: ${settings.reportedCookieName} instead of ${settings.cookieName}` };
