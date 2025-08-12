@@ -76,7 +76,7 @@ function importWRDAuthSettings(settings: WRDAuthPluginSettings_HS): WRDAuthPlugi
   return toCamelCase(settings);
 }
 
-export async function login(targetUrl: WRDAuthPluginSettings_HS, returnTo: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
+export async function login(targetUrl: WRDAuthPluginSettings_HS, loginHost: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
   const impSettings = importWRDAuthSettings(targetUrl);
   //TODO can we share more with authservice.ts#login - or should we replace it? at least share through the IDP but basically we're two routes to the same end!
   const prepped = prepAuth(importWRDAuthSettings(targetUrl));
@@ -89,8 +89,9 @@ export async function login(targetUrl: WRDAuthPluginSettings_HS, returnTo: strin
   const provider = new IdentityProvider(wrdschema);
 
   const browserTriplet = userAgent.match(/[a-z]+-[a-z]+-[0-9]+$/) ? userAgent : parseUserAgent(userAgent)?.triplet || "";
+  //harescript.ts#login maps to __DoLoginTS which does not take an explicit returnTo option, but tracks returnTo through its logincontrol variable which will be part of the loginHost URL
   const response = await provider.handleFrontendLogin({
-    returnTo, settings: impSettings, login: username, password, customizer, loginOptions: { lang, returnTo: returnTo, persistent }, tokenOptions: {
+    loginHost, settings: impSettings, login: username, password, customizer, loginOptions: { lang, persistent }, tokenOptions: {
       authAuditContext: { clientIp, browserTriplet }
     }
   });
