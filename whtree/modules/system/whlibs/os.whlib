@@ -1059,3 +1059,5 @@ INTEGER64 FUNCTION ParseVirtualMemorySize(VARIANT size)
 
   RETURN val * mulfactor;
 }
+
+PUBLIC INTEGER FUNCTION GetProcessId() __ATTRIBUTES__(EXTERNAL, CONSTANT);

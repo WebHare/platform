@@ -22,6 +22,7 @@ import { ArrayOidType, OidType, VectorOidType } from '../vendor/postgrejs/src/da
 import { ArrayInt2VectorType, Int2VectorType } from '../vendor/postgrejs/src/data-types/int2-vector-type';
 import { ArrayCharType, CharType } from '../vendor/postgrejs/src/data-types/char-type';
 import { getPGType } from './metadata';
+import bridge from '@mod-system/js/internal/whmanager/bridge';
 
 let configurationPromise: Promise<void> | undefined;
 let configuration: { bloboid: number } | null = null;
@@ -38,6 +39,9 @@ export const whdbTypeMap = new DataTypeMap();
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
 async function configureWHDBClient(pg: Connection): Promise<void> {
+  //manually setting as workaround for https://github.com/panates/postgrejs/issues/51. but once we start pooling and reuse connections we'll need to do this too
+  await pg.execute(`SET application_name = '${process.pid}:${bridge.getGroupId()}'`);
+
   // when another connection is already configuring, wait for it
   // eslint-disable-next-line no-unmodified-loop-condition -- the other connection will modify `configuration`
   while (!configuration && configurationPromise) {
@@ -115,7 +119,8 @@ export function getPGConnection() {
     port: parseInt(process.env.PGPORT!) || 5432,
     host: (process.env.WEBHARE_PGHOST ?? process.env.PGHOST),
     database: process.env.WEBHARE_DBASENAME,
-    rollbackOnError: false
+    rollbackOnError: false,
+    applicationName: process.pid + ':' + bridge.getGroupId() //FIXME https://github.com/panates/postgrejs/issues/51
   });
 
   if (debugFlags["pg-logcommands"])
