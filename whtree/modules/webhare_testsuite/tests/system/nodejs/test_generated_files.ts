@@ -6,9 +6,14 @@ import { checkModule, deleteTestModule, installTestModule } from "@mod-webhare_t
 import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { enableDevKit, parseModuleFolderName } from "@mod-system/js/internal/generation/gen_config_nodb";
+import { generateTypeName } from "@mod-system/js/internal/generation/gen_wrd";
 
 
 async function testWebHareConfig() {
+  test.eq("DshopsProdSkw", generateTypeName("dshops-prod-skw"));
+  test.eq("DshopsProdSkw", generateTypeName("dshops_prod_skw"));
+  test.eq("Wildcard", generateTypeName("*"));
+
   if (enableDevKit()) {
     test.assert(backendConfig.module["devkit"]);
   } else {

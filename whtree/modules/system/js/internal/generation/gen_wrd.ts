@@ -20,6 +20,7 @@ export function generateTypeName(str: string) {
     str = "WebHare_" + str.substring(7);
 
   str = str.split("_").filter(e => e).map(e => e[0].toUpperCase() + e.substring(1)).join("");
+  str = str.split("-").filter(e => e).map(e => e[0].toUpperCase() + e.substring(1)).join("");
   str = str.replaceAll("*", "Wildcard");
   return str;
 }

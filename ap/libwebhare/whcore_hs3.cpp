@@ -432,6 +432,9 @@ ScriptEnvironment::ScriptEnvironment(Connection &whconn, bool allow_direct_compi
  , environment (whconn.GetNotificationEventMgr(), filesystem, blobmgr)
  , adhoccache(whconn)
 {
+        if(!Blex::GetEnvironVariable("WEBHARE_HARESCRIPT_OFF").empty() || !Blex::GetEnvironVariable("WEBHARE_HARESCRIPT_WASMONLY").empty())
+                throw new std::runtime_error("Native HareScript has been disabled");
+
         Init();
 }
 
