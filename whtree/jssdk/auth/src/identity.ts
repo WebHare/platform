@@ -99,7 +99,8 @@ export type SetAuthCookies = {
 };
 
 export type FrontendLoginRequest = {
-  returnTo: string;
+  /** Host page for logins. We should be able to redirect here if authentication is incomplete. It's also a fallback if no returnTo option is set in loginOptions, we assume the loginpage will redirect you if you're already llogged in  */
+  loginHost: string;
   settings: WRDAuthPluginSettings_Request;
   login: string;
   password: string;
@@ -740,6 +741,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error("BrowserTriplet is required for authentication auditing");
 
     const authsettings = await this.getAuthSettings(true);
+    const returnTo = request.loginOptions?.returnTo || request.loginHost;
     const userid = await this.lookupUser(authsettings, request.login, request.customizer, undefined, pick(request.loginOptions || {}, ["persistent", "site"]));
     if (!userid)
       return await this.returnLoginFail(request, null, authsettings.loginIsEmail ? "incorrect-email-password" : "incorrect-login-password", "unknown-account");
@@ -772,7 +774,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       const validUntil = new Date(Date.now() + 5 * 60_000);
       const challenge = generateRandomId();
       //FIXME don't store the password, but instead store its compliance settings. makes it harder to accidentally log passwords. but then totpchallenge would be creating the compliance session *after* us? or we should still arrange for sharing session/tokens ?
-      const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password: request.password, returnTo: request.loginOptions?.returnTo || '' });
+      const token = encryptForThisServer("platform:totpchallenge", { challenge, userId: userid, validUntil, password: request.password, returnTo });
 
       await runInWork(() => writeAuthAuditEvent(this.wrdschema, {
         type: "platform:secondfactor.challenge",
@@ -788,18 +790,19 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
           type: "form",
           form: {
             //FIXME where does our caller gauarantee that returnTo will be compatible with request.settings ? or that it's a safe redirection target?
-            action: new URL(request.returnTo).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(request.returnTo).pathname.substring(1)),
+            action: new URL(request.loginHost).origin + "/.wh/common/authpages/?wrd_pwdaction=totp&pathname=" + encodeURIComponent(new URL(request.loginHost).pathname.substring(1)),
             vars: [{ name: "token", value: token }]
           },
         },
       };
     }
 
-    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, request.loginOptions?.returnTo || "", request.tokenOptions.authAuditContext);
+    //TODO this may be inconsistent, shouldn't verifyPasswordCompliance take the loginHost as parameter instead pf returnTo, and pass loginOptions to deal with returnTo and other preferences ?
+    const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, returnTo, request.tokenOptions.authAuditContext);
     if (complianceToken) {
       return { //redirect to authpages to complete the account
         loggedIn: false,
-        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(request.returnTo).pathname.substring(1))
+        navigateTo: getCompleteAccountNavigation(complianceToken, new URL(request.loginHost).pathname.substring(1))
       };
     }
 
@@ -833,7 +836,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     return {
       loggedIn: true,
       setAuth: await prepCookies(authsettings, prepped, userid, prepOptions),
-      navigateTo: { type: "redirect", url: request.loginOptions?.returnTo || request.returnTo },
+      navigateTo: { type: "redirect", url: returnTo },
     };
   }
 

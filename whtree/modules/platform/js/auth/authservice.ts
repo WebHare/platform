@@ -108,7 +108,7 @@ export const authService = {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
     const response = await provider.handleFrontendLogin({
-      settings: { ...prepped.settings, secureRequest: originUrl.startsWith("https:"), reportedCookieName: cookieName }, returnTo: originUrl, login: username, password, customizer,
+      settings: { ...prepped.settings, secureRequest: originUrl.startsWith("https:"), reportedCookieName: cookieName }, loginHost: originUrl, login: username, password, customizer,
       loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo || originUrl },
       tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });

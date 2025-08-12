@@ -477,7 +477,7 @@ async function testAuthAPI() {
 
   const baseLogin: FrontendLoginRequest = {
     settings: { ...prepped.settings, reportedCookieName: null, secureRequest: url.startsWith("https:") },
-    returnTo: url,
+    loginHost: url,
     login: "jonshow@beta.webhare.net",
     password: "secret$",
     tokenOptions: {
@@ -670,7 +670,7 @@ async function testAuthStatus() {
 
   const baseLogin: FrontendLoginRequest = {
     settings: { ...prepped.settings, reportedCookieName: null, secureRequest: url.startsWith("https:") },
-    returnTo: url,
+    loginHost: url,
     login: "jonshow@beta.webhare.net",
     password: "secret$",
     tokenOptions: {

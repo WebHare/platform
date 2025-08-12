@@ -667,7 +667,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   }
 
   //codepath shared with authpages.whlib loginform
-  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, STRING returnto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, STRING loginhost, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ logincontrol := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , browsertriplet := ""
@@ -676,7 +676,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                ], options);
 
     STRING agent := options.browsertriplet ?? options.useragent ?? (CellExists(__auditcontext,'browsertriplet') ? __auditcontext.browsertriplet : "");
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->__WRDAuthPluginSettings_HS(), returnto ?? this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->__WRDAuthPluginSettings_HS(), loginhost ?? this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
 
     IF(CellExists(result,'headers') AND IsRequest())
       FOREVERY(RECORD toset FROM result.headers)
@@ -704,6 +704,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
       @cell options.logincontrol Encrypted logincontrol token (passed in webvariable 'wrdauth_logincontrol')
       @cell options.browsertriplet Browser triplet
+      @cell options.loginhost The loginpage that can understand totp and other complete account requests
       @return Login result
       @cell return.success Whether the user was logged in successfully
       @cell return.code Login error code
@@ -721,7 +722,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , lastloginfield := ""
                                , browsertriplet := ""
                                , persistent := FALSE
-                               , returnto := ""
+                               , loginhost := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
@@ -743,7 +744,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     BOOLEAN allowexternaluserlogin := "externaluser" IN logincontrol.logintypes;
     IF ("wrdauth" IN logincontrol.logintypes) {
-      RECORD result := this->__DoLoginTS(loginname, password, options.returnto, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
+      RECORD result := this->__DoLoginTS(loginname, password, options.loginhost, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
       IF(CellExists(result,'submitinstruction'))
         RETURN CELL[ ...trylogin, ...result  ];
 
