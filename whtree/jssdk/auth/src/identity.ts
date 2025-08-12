@@ -99,7 +99,7 @@ export type SetAuthCookies = {
 };
 
 export type FrontendLoginRequest = {
-  /** Host page for logins. We should be able to redirect here if authentication is incomplete. It's also a fallback if no returnTo option is set in loginOptions, we assume the loginpage will redirect you if you're already llogged in  */
+  /** Host page for logins. We should be able to redirect here if authentication is incomplete. It's also a fallback if no returnTo option is set in loginOptions, we assume the loginpage will redirect you if you're already logged in  */
   loginHost: string;
   settings: WRDAuthPluginSettings_Request;
   login: string;
@@ -797,7 +797,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       };
     }
 
-    //TODO this may be inconsistent, shouldn't verifyPasswordCompliance take the loginHost as parameter instead pf returnTo, and pass loginOptions to deal with returnTo and other preferences ?
+    //TODO this may be inconsistent, shouldn't verifyPasswordCompliance take the loginHost as parameter instead of returnTo, and pass loginOptions to deal with returnTo and other preferences ?
     const complianceToken = await verifyPasswordCompliance(this.wrdschema, userid, userInfo.whuserUnit || null, request.password, userInfo.password, returnTo, request.tokenOptions.authAuditContext);
     if (complianceToken) {
       return { //redirect to authpages to complete the account
