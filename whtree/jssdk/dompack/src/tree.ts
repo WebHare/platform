@@ -75,6 +75,11 @@ export function isFormControl(field: Element): field is FormControlElement {
   return isHTMLElement(field) && ["INPUT", "SELECT", "TEXTAREA"].includes(field.tagName);
 }
 
+/** Return whether the passed element is an editable text field */
+export function isEditControl(field: Element): field is HTMLElement {
+  return isHTMLElement(field) && (["INPUT", "TEXTAREA"].includes(field.tagName) || field.isContentEditable);
+}
+
 /** Test whether node is an Element, even if it's in a different iframe */
 export function isElement(node: unknown): node is Element {
   //TODO What is actually going on if defaultView is missing?

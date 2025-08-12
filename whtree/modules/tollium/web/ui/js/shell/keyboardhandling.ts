@@ -1,9 +1,11 @@
-import { isMultiSelectKey } from "@webhare/dompack";
+import { isEditControl, isMultiSelectKey } from "@webhare/dompack";
 import type { IndyShell } from "../shell";
 
+
+
 function globalKeyHander(ev: KeyboardEvent, shell: IndyShell) {
-  // Prevent cmd|control arrows from navigating the brwoser
-  if ((ev.key === "ArrowLeft" || ev.key === "ArrowRight") && isMultiSelectKey(ev)) {
+  // Prevent cmd|control arrows from navigating the browser
+  if (!(ev.target instanceof Element && isEditControl(ev.target)) && (ev.key === "ArrowLeft" || ev.key === "ArrowRight") && isMultiSelectKey(ev)) {
     // Note that all major browsers don't bind Backspace to 'back' nowadays so we're no longer bothering to intercept it (as we also need to figure out if a focused control would still respond)
     ev.preventDefault();
     return;

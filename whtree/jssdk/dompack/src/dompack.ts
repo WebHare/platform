@@ -7,7 +7,7 @@ export { flagUIBusy, setupBusyModal } from './busy';
 export type { UIBusyLock, BusyModalEvent } from './busy';
 export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, stop, addDocEventListener } from '../../../modules/system/js/dompack/src/events';
 export type { DocEvent, DomEventOptions } from '../../../modules/system/js/dompack/src/events';
-export { qS, qR, qSA, isFormControl, isElement, isHTMLElement, getRelativeBounds } from './tree';
+export { qS, qR, qSA, isFormControl, isEditControl, isElement, isHTMLElement, getRelativeBounds } from './tree';
 export type { FormControlElement, Rect } from './tree';
 export { isDomReady, onDomReady } from '../../../modules/system/js/dompack/src/tree';
 export { create, jsxcreate, jsxfragment } from '../../../modules/system/js/dompack/src/create';
