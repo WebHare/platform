@@ -121,7 +121,7 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
 
   logWithTime "Precompiling HareScript code"
 
-  trap "" INT  #Ignore CTRL+C to allow ctrlc+ to abort just this step. Not documenting it as it may cause the rest of finalize-webhare to fail
+  trap "" INT  #Ignore CTRL+C to allow to abort just this step. Not documenting it as it may cause the rest of finalize-webhare to fail
   exitcode=0
   wh compile --quiet --onlyerrors "${COREMODULES[@]}" || exitcode="$?"
   trap - INT
