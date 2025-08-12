@@ -974,6 +974,10 @@ void HS_GetProcessPid(VarId id_set, VirtualMachine *vm)
 
 #endif // __EMSCRIPTEN__
 
+void HS_GetProcessId(VarId id_set, VirtualMachine *vm)
+{
+        HSVM_IntegerSet(*vm, id_set, Blex::GetProcessId());
+}
 void HS_GenerateTemporaryPathname(VarId id_set, VirtualMachine *vm)
 {
         std::string pathname = Blex::CreateTempName(Blex::MergePath(vm->GetFileSystem().GetTempDir(),"hsvmtemp"));
@@ -1707,6 +1711,7 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISCONSOLESUPPORTAVAILABLE::B:",HS_IsConsoleSupportAvailable));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPATHABSOLUTE::B:S",HS_IsPathAbsolute));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISSAFEFILEPATH::B:SB",HS_IsSafeFilePath));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSID::I:",HS_GetProcessId));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GENERATETEMPORARYPATHNAME::S:",HS_GenerateTemporaryPathname));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GENERATETEMPORARYPATHNAMEFROMBASEPATH::S:S", HS_GenerateTemporaryPathnameFromBasepath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETTEMPDIR::S:",HS_GetTempDir));

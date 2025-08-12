@@ -4,6 +4,7 @@
 */
 
 LOADLIB "wh::devsupport.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
@@ -1782,11 +1783,13 @@ PUBLIC RECORD ARRAY FUNCTION SendPostgreSQLCommand(INTEGER trans, STRING query, 
 
 STRING FUNCTION CalculateApplicationName()
 {
+  STRING prefix := GetProcessId() || ":" || GetCurrentGroupId() || ":";
+
   // Use script library, but limit to 63 characters
   STRING application_name := GetHarescriptLoadedLibraries()[0].liburi;
   IF (application_name LIKE "direct::*")
     application_name := SubString(application_name, 8);
-  WHILE (LENGTH(application_name) > 63)
+  WHILE (LENGTH(application_name) > 63 - Length(prefix))
   {
     STRING ARRAY parts := Tokenize(application_name, "/");
     IF (LENGTH(parts) < 3)
@@ -1797,7 +1800,7 @@ STRING FUNCTION CalculateApplicationName()
     application_name := Detokenize(parts, "/");
   }
 
-  RETURN application_name;
+  RETURN prefix || application_name;
 }
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
