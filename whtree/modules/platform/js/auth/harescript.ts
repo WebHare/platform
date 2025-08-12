@@ -2,18 +2,20 @@
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import type { AuthCustomizer, AuthAuditContext, LoginDeniedInfo, JWTPayload } from "@webhare/auth";
-import { IdentityProvider, prepareFrontendLogin, verifyAllowedToLogin } from "@webhare/auth/src/identity";
-import { getAuthSettings, prepAuth } from "@webhare/auth/src/support";
-import { defaultDateTime } from "@webhare/hscompat";
+import { buildPublicAuthData, IdentityProvider, prepareLogin, verifyAllowedToLogin, wrapAuthCookiesIntoForm } from "@webhare/auth/src/identity";
+import { getAuthSettings, prepAuth, type WRDAuthPluginSettings_Request } from "@webhare/auth/src/support";
+import { defaultDateTime, toCamelCase, type ToSnakeCase } from "@webhare/hscompat";
 import { importJSObject } from "@webhare/services";
 import { WRDSchema, type AnyWRDSchema, type AuthenticationSettings } from "@webhare/wrd";
-import { doLoginHeaders, mapLoginError, closeAccessToken } from "./authservice";
+import { doLoginHeaders, mapLoginError, closeAccessToken, doPublicAuthDataCookie } from "./authservice";
 import { parseUserAgent } from "@webhare/dompack/src/browser";
 import { verifyPasswordCompliance } from "@webhare/auth/src/passwords";
 import { getCompleteAccountNavigation } from "@webhare/auth/src/shared";
 import type { NavigateInstruction } from "@webhare/env";
 import jwt from "jsonwebtoken";
-import { getApplyTesterForURL } from "@webhare/whfs/src/applytester";
+import { tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { parseTyped } from "@webhare/std";
+import type { PublicAuthData } from "@webhare/frontend/src/auth";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -60,9 +62,24 @@ export function returnHeaders(cb: (hdrs: Headers) => void): HSHeaders {
   return headers;
 }
 
-export async function login(targetUrl: string, returnTo: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
+type WRDAuthPluginSettings_HS = ToSnakeCase<WRDAuthPluginSettings_Request>;
+
+function importWRDAuthSettings(settings: WRDAuthPluginSettings_HS): WRDAuthPluginSettings_Request {
+  if (typeof settings !== "object")
+    throw new Error("Expected WRDAuthPluginSettings_HS");
+  if (settings.secure_request === undefined)
+    throw new Error("Missing 'secure_request' flag in WRDAuthPluginSettings_HS");
+  if (settings.first_login_field)
+    settings.first_login_field = tagToJS(settings.first_login_field);
+  if (settings.last_login_field)
+    settings.last_login_field = tagToJS(settings.last_login_field);
+  return toCamelCase(settings);
+}
+
+export async function login(targetUrl: WRDAuthPluginSettings_HS, loginHost: string, username: string, password: string, lang: string, clientIp: string, userAgent: string, persistent: boolean) {
+  const impSettings = importWRDAuthSettings(targetUrl);
   //TODO can we share more with authservice.ts#login - or should we replace it? at least share through the IDP but basically we're two routes to the same end!
-  const prepped = await prepAuth(targetUrl, null);
+  const prepped = prepAuth(importWRDAuthSettings(targetUrl));
   if ("error" in prepped)
     throw new Error("Unable to prepare auth for login: " + prepped.error);
 
@@ -72,8 +89,9 @@ export async function login(targetUrl: string, returnTo: string, username: strin
   const provider = new IdentityProvider(wrdschema);
 
   const browserTriplet = userAgent.match(/[a-z]+-[a-z]+-[0-9]+$/) ? userAgent : parseUserAgent(userAgent)?.triplet || "";
+  //harescript.ts#login maps to __DoLoginTS which does not take an explicit returnTo option, but tracks returnTo through its logincontrol variable which will be part of the loginHost URL
   const response = await provider.handleFrontendLogin({
-    targetUrl, login: username, password, customizer, loginOptions: { lang, returnTo: returnTo, persistent }, tokenOptions: {
+    loginHost, settings: impSettings, login: username, password, customizer, loginOptions: { lang, persistent }, tokenOptions: {
       authAuditContext: { clientIp, browserTriplet }
     }
   });
@@ -151,8 +169,9 @@ export async function closeFrontendLogin(wrdSchema: string, idCookie: string, re
 
 /* This is the HS authpages entrypoint for post-TOTP and when you're about to be let in
 */
-export async function verifyPasswordComplianceForHS(targetUrl: string, userId: number, password: string, pathname: string, returnto: string, auditContext: AuthAuditContextHS): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
-  const prep = await prepAuth(targetUrl, null);//FIXME persistence setting?
+export async function verifyPasswordComplianceForHS(targetUrl: WRDAuthPluginSettings_HS, userId: number, password: string, pathname: string, returnto: string, auditContext: AuthAuditContextHS): Promise<{ navigateTo: NavigateInstruction } | LoginDeniedInfo> {
+  const impSettings = importWRDAuthSettings(targetUrl);
+  const prep = prepAuth(impSettings);
   if ("error" in prep)
     throw new Error(prep.error);
 
@@ -182,29 +201,59 @@ export async function verifyPasswordComplianceForHS(targetUrl: string, userId: n
   if (complianceToken) //need to further fix passwords etc
     return { navigateTo: getCompleteAccountNavigation(complianceToken, pathname) };
 
+  const setAuthCookies = await prepareLogin(prep, userId);
   //successful login
-  return { navigateTo: await prepareFrontendLogin(returnto, userId) };
+  return { navigateTo: wrapAuthCookiesIntoForm(returnto, setAuthCookies) };
 }
 
 /** HS Callback into the customizer infrastructure that expects validation to already be done */
-export async function lookupOIDCUser(targetUrl: string, raw_id_token: string, loginfield: string): Promise<number> {
+export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string): Promise<number> {
   const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
-  const applytester = await getApplyTesterForURL(targetUrl);
-  if (!applytester)
-    throw new Error("Unable to find WRDAuth settings for URL " + targetUrl);
-
-  //TODO if we can have siteprofiles build a reverse map of which apply rules have wrdauth rules, we may be able to cache these lookups
-  const settings = await applytester?.getWRDAuth();
-  if (!settings.wrdSchema)
-    return 0;
+  const impSettings = importWRDAuthSettings(targetUrl);
 
   const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
-  const wrdSchema = new WRDSchema(settings.wrdSchema);
+  const wrdSchema = new WRDSchema(impSettings.wrdSchema!);
   const idp = new IdentityProvider(wrdSchema);
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     return 0;
 
-  const customizer = settings?.customizer ? await importJSObject(settings.customizer) as AuthCustomizer : undefined;
+  const customizer = impSettings.customizer ? await importJSObject(impSettings.customizer) as AuthCustomizer : undefined;
   return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
+}
+
+/* prepareLoginCookies is how HareScript invokes the second half of the WRDAuth Login process (either username/password or LoginById)
+   and should mostly correspond with handleFrontendLogin
+   */
+export async function prepareLoginCookies(targetUrl: WRDAuthPluginSettings_HS, userId: number, isImpersonation: boolean, persistent: boolean, thirdParty: boolean, now: Date): Promise<{ headers: HSHeaders } | LoginDeniedInfo> {
+  const prepped = prepAuth(importWRDAuthSettings(targetUrl));
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+
+  const setAuthCookies = await prepareLogin(prepped, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant(), isImpersonation }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
+
+  if (!isImpersonation) {
+    const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
+    if (result)
+      return result;
+  }
+  return { headers: returnHeaders(hdrs => doLoginHeaders(setAuthCookies, hdrs)) };
+}
+
+/** Update the publicauthdata cookie */
+export async function preparePublicAuthDataCookie(targetUrl: WRDAuthPluginSettings_HS, idToken: string, currentPublicAuthdata: string): Promise<HSHeaders> {
+  //FIXME match the original 'persistent' setting
+  const prepped = prepAuth(importWRDAuthSettings(targetUrl));
+  if ("error" in prepped)
+    throw new Error(prepped.error);
+
+  const idp = new IdentityProvider(new WRDSchema(prepped.settings.wrdSchema));
+  const token = await idp.verifyAccessToken("id", idToken);
+  if ("error" in token)
+    throw new Error(token.error);
+
+  const decoded = parseTyped(currentPublicAuthdata) as PublicAuthData;
+  const newData = await buildPublicAuthData(await idp.getAuthSettings(true), prepped, token.entity, decoded.expiresMs, decoded.persistent || false);
+
+  return returnHeaders(hdrs => doPublicAuthDataCookie(prepped.cookies.cookieName, prepped.cookies.cookieSettings, newData, hdrs));
 }

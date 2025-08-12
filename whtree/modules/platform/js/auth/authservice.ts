@@ -8,7 +8,7 @@ import { writeAuthAuditEvent, type AuthAuditContext, type AuthCustomizer, type L
 import { hashSHA256, IdentityProvider, type LoginOptions, type SetAuthCookies } from "@webhare/auth/src/identity";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { PublicCookieSuffix, type LoginResult } from "@webhare/auth/src/shared";
-import { prepAuth } from "@webhare/auth/src/support";
+import { prepAuthForURL } from "@webhare/auth/src/support";
 import { getTid } from "@webhare/gettid";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db, runInWork } from "@webhare/whdb";
@@ -53,7 +53,7 @@ export async function closeAccessToken(wrdSchema: string, accessToken: string, a
 }
 
 export async function doLogout(url: string, cookieName: string | null, currentCookie: string | null, hdrs: Headers, auditContext: AuthAuditContext): Promise<void> {
-  const prepped = await prepAuth(url, cookieName);
+  const prepped = await prepAuthForURL(url, cookieName);
   if ("error" in prepped)
     throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for logout: " + prepped.error);
 
@@ -99,7 +99,7 @@ export function mapLoginError(code: LoginErrorCodes, langCode?: string): string 
 export const authService = {
   async login(context: RPCContext, username: string, password: string, cookieName: string, browserTriplet: string, loginOptions?: LoginOptions): Promise<LoginResult> {
     const originUrl = context.getOriginURL() ?? throwError("No origin URL");
-    const prepped = await prepAuth(originUrl, cookieName);
+    const prepped = await prepAuthForURL(originUrl, cookieName);
     if ("error" in prepped)
       throw new RPCError(HTTPErrorCode.InternalServerError, "Unable to prepare auth for login: " + prepped.error);
 
@@ -108,7 +108,7 @@ export const authService = {
     const wrdschema = new WRDSchema<WRD_IdpSchemaType>(settings.wrdSchema);
     const provider = new IdentityProvider(wrdschema);
     const response = await provider.handleFrontendLogin({
-      targetUrl: originUrl, login: username, password, customizer,
+      settings: { ...prepped.settings, secureRequest: originUrl.startsWith("https:"), reportedCookieName: cookieName }, loginHost: originUrl, login: username, password, customizer,
       loginOptions: { ...loginOptions, returnTo: loginOptions?.returnTo || originUrl },
       tokenOptions: { authAuditContext: { browserTriplet, clientIp: context.request.clientIp } }
     });

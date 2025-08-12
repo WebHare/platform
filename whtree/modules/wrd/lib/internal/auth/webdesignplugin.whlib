@@ -464,7 +464,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
     this->CheckNotFailed();
     IF(NOT Objectexists(this->__wrdauth))
     {
-      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig, this->webcontext->baseurl);
+      this->__wrdauth := NEW WRDAuth(this->GetWRDSchema(), this->wrdauthconfig, this->__WRDAuthPluginSettings_HS());
       this->__wrdauth->securecookie := this->pvt_config.securecookie;// OR ;
       /* We'll autoset securecookie if the current URL is being published to https:* AND we're currently on https:
          If we're not on https but the site officially is, we're being accessed through an alias (most likely: http://127.0.0.1:8000)
@@ -514,7 +514,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
   /** Update user info (updates the javascript cookie holding the userinfo fields) */
   PUBLIC MACRO UpdateUserInfo() {
-    RECORD ARRAY setheaders := CallJS("@webhare/auth/src/identity.ts#preparePublicAuthDataCookie", this->webcontext->baseurl, this->__GetWRDAuth()->GetIDToken(), GetWebCookie(this->cookiename || "_publicauthdata"));
+    RECORD ARRAY setheaders := CallJS("@mod-platform/js/auth/harescript.ts#preparePublicAuthDataCookie", this->__WRDAuthPluginSettings_HS(), this->__GetWRDAuth()->GetIDToken(), GetWebCookie(this->cookiename || "_publicauthdata"));
     FOREVERY(RECORD toset FROM setheaders)
       AddHTTPHeader(toset.field, toset.value, toset.always_add);
   }
@@ -667,7 +667,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   }
 
   //codepath shared with authpages.whlib loginform
-  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, STRING returnto, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  PUBLIC RECORD FUNCTION __DoLoginTS(STRING loginname, STRING password, STRING loginhost, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions([ logincontrol := ""
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , browsertriplet := ""
@@ -676,7 +676,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                ], options);
 
     STRING agent := options.browsertriplet ?? options.useragent ?? (CellExists(__auditcontext,'browsertriplet') ? __auditcontext.browsertriplet : "");
-    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->webcontext->baseurl, returnto ?? this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
+    RECORD result := CallJS("@mod-platform/js/auth/harescript.ts#login", this->__WRDAuthPluginSettings_HS(), loginhost ?? this->webcontext->baseurl, loginname, password, GetTidLanguage(), options.remoteip, agent, options.persistent);
 
     IF(CellExists(result,'headers') AND IsRequest())
       FOREVERY(RECORD toset FROM result.headers)
@@ -704,6 +704,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       @cell options.rawlogin Login directly to WRD, do not use supportobject alternative logins. You may need this if your support callback requires a 'standard' login as its fallback
       @cell options.logincontrol Encrypted logincontrol token (passed in webvariable 'wrdauth_logincontrol')
       @cell options.browsertriplet Browser triplet
+      @cell options.loginhost The loginpage that can understand totp and other complete account requests
       @return Login result
       @cell return.success Whether the user was logged in successfully
       @cell return.code Login error code
@@ -721,7 +722,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
                                , lastloginfield := ""
                                , browsertriplet := ""
                                , persistent := FALSE
-                               , returnto := ""
+                               , loginhost := ""
                                ], options, [ optional := ["firstloginfield","lastloginfield"]]);
 
     this->CheckNotFailed();
@@ -743,7 +744,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
 
     BOOLEAN allowexternaluserlogin := "externaluser" IN logincontrol.logintypes;
     IF ("wrdauth" IN logincontrol.logintypes) {
-      RECORD result := this->__DoLoginTS(loginname, password, options.returnto, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
+      RECORD result := this->__DoLoginTS(loginname, password, options.loginhost, PickCells(options, [ "logincontrol", "remoteip", "browsertriplet", "persistent" ]));
       IF(CellExists(result,'submitinstruction'))
         RETURN CELL[ ...trylogin, ...result  ];
 
@@ -1674,6 +1675,23 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
   PUBLIC RECORD FUNCTION _GetConfig()
   {
     RETURN CELL[ ...this->pvt_config, ...this->wrdauthconfig, this->cookiename ];
+  }
+
+  PUBLIC RECORD FUNCTION __WRDAuthPluginSettings_HS() {
+    RECORD config := this->_GetConfig();
+    RETURN CELL[ wrd_schema := config.wrdschema
+               , login_page := config.loginpage
+               , cookie_name := this->cookiename
+               , customizer := config.customizer
+               , cookie_domain := config.cookiedomain
+               , same_site := config.samesitecookie
+               , reported_cookie_name := ""
+               , secure_request := IsRequest() AND GetClientRequestURL() LIKE "https://*"
+               , support_object_name := config.supportobjectname
+               , cache_fields := config.cachefields
+               , first_login_field := config.firstloginfield
+               , last_login_field := config.lastloginfield
+               ];
   }
 
   /** Decodes the logincontrol token
