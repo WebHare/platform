@@ -112,17 +112,19 @@ if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebr
     rm "$WEBHARE_BUILDDIR/last-brew-install" 2>/dev/null || true
 
     # Also reinstall if important apps are missing which may point to a partial/failed brew installation
-    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$DEPSFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$DEPSFILE" ] || ! hash gmake 2>/dev/null || ! [ -x "$WEBHARE_NODE_BINARY" ]; then
+    # Set up a marker so we don't simply ignore brew errors on the next attempt
+    if [ ! -f "$DEPSFILE" ] || [ "${BASH_SOURCE[0]}" -nt "$DEPSFILE" ] || [ "$WEBHARE_DIR/etc/platform.conf" -nt "$DEPSFILE" ] || [ "$DEPSFILE" -nt "$DEPSFILE.ok" ] || ! hash gmake 2>/dev/null || ! [ -x "$WEBHARE_NODE_BINARY" ]; then
       generateFormula > "$DEPSFILE"
       echo "Ensuring Brew definitions are uptodate"
       brew update
       echo "Installing our dependencies using Brew: $DEPSFILE"
-      brew reinstall --formula "$DEPSFILE"; retval="$?"
+      HOMEBREW_DEVELOPER=1 brew reinstall --formula "$DEPSFILE"; retval="$?"
       if [ "$retval" != "0" ]; then
         echo "*** brew failed with errorcode $retval"
         exit 1
       fi
       wh_getnodeconfig # reload config, brew may have been updated
+      touch "$DEPSFILE.ok"
     fi
   fi
 
