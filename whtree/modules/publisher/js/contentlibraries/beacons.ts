@@ -49,9 +49,12 @@ function executeTrigger(tag: string) {
     console.log("[bac] Trigger beacon", tag);
 
   const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
-  if (beacons[tag] && beacons[tag].timestamps)
+  if (beacons[tag] && beacons[tag].timestamps) {
     beacons[tag].timestamps.push(Date.now());
-  else
+    //Limit to 100 timestamps
+    if (beacons[tag].timestamps.length > 100)
+      beacons[tag].timestamps.splice(0, beacons[tag].timestamps.length - 100);
+  } else
     beacons[tag] = { timestamps: [Date.now()] };
   dompack.setLocal("wh:beacons", beacons);
 
