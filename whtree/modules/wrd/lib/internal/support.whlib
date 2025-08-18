@@ -1200,7 +1200,7 @@ PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
   RETURN `wrd:${ToUppercase(Substitute(inuuid, "-", ""))}`;
 }
 
-/** Matches isValidWRDTag in TtypeScript (but harescript is still more tolerant of these tags)
+/** Matches isValidWRDTag in TypeScript (but harescript is still more tolerant of these tags)
     @topic wrd/api
     @public
     @loadlib mod::wrd/lib/api.whlib */
