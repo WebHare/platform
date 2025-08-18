@@ -4,7 +4,7 @@ import { generateRandomId } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 
 let visitCount = 0;
-let beaconconsent = '';
+let beaconconsent: string | null = '';
 let holdbeacons: Array<() => void> | undefined;
 
 type BeaconStorage = Record<string, { timestamps: number[] }>;
@@ -208,7 +208,7 @@ class TriggerBeacon {
   }
 }
 
-export function __setup(consent: string) {
+export function __setup(consent: string | null) {
   beaconconsent = consent;
   if (beaconconsent) {
     holdbeacons = [];
@@ -222,7 +222,7 @@ export function __setup(consent: string) {
             console.log(`[bac] Got any consent, allow beacons`);
           runDelayedInit();
         }
-      } else if (consentsettings.consent?.includes(beaconconsent)) {
+      } else if (beaconconsent && consentsettings.consent?.includes(beaconconsent)) {
         if (debugFlags.bac)
           console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
         runDelayedInit();
