@@ -165,7 +165,7 @@
 
   <rights>
     <right name="api" descriptiontid="module.rights.api-description" isrootright="true" tid="module.rights.api">
-      <impliedby right="api" />
+      <impliedby right="system:sysop" />
     </right>
   </rights>
 

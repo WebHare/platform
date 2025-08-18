@@ -15,10 +15,126 @@ paths:
           content:
             application/json:
               schema:
-                "$ref": "#/components/schemas/Meta"
+                $ref: "#/components/schemas/Meta"
         '401':
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "meta.ts#getMeta"
+
+  "/wrd":
+    get:
+      responses:
+        "200":
+          description: Returns the WRD schemas available to the user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WRDSchema"
+        '401':
+          $ref: "#/components/responses/unauthorized"
+      x-webhare-implementation: "wrd.ts#getSchemas"
+
+  # we are reservering /wrd/{schema} for the actual schema metadata but we don't have a YAML/JSON structure yet
+  # we are reservering /wrd/{schema}/query for joining queries
+  "/wrd/{schema}/type/{type}/query":
+    post:
+      description: Query call
+      parameters:
+        - in: path
+          name: schema
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The query
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TypeQuery"
+
+      responses:
+        "200":
+          description: The query result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TypeQueryResult"
+        '401':
+          $ref: "#/components/responses/unauthorized"
+      x-webhare-implementation: "wrd.ts#queryType"
+
+  "/wrd/{schema}/type/{type}/entity":
+    post:
+      # TODO we could offer an importMode parameter OR an import endpoint. but do we even want external users to use importMode? eg sync won't require it as its a pull interface and using Temp entities may be safer anyway
+      description: Create a new WRD entity
+      parameters:
+        - in: path
+          name: schema
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The entity data to import
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntityBody"
+
+      responses:
+        "201":
+          description: The created entity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateEntityResult"
+      x-webhare-implementation: "wrd.ts#createEntity"
+
+  "/wrd/{schema}/type/{type}/entity/{entity}":
+    patch:
+      # TODO we could offer an importMode parameter OR an import endpoint. but do we even want external users to use importMode? eg sync won't require it as its a pull interface and using Temp entities may be safer anyway
+      description: Update an entity
+      parameters:
+        - in: path
+          name: schema
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+        - in: path
+          description: wrdGuid of the entity to update
+          name: entity
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: The entity data to import
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntityBody"
+
+      responses:
+        "204":
+          description: The entity is updated
+      x-webhare-implementation: "wrd.ts#updateEntity"
 
 components:
   schemas:
@@ -40,6 +156,93 @@ components:
         email:
           type: string
           description: The email address of the user
+
+    WRDSchema:
+      type: object
+      additionalProperties: false
+      required:
+      - tag
+      properties:
+        tag:
+          type: string
+          description: The name of the WRD schema
+
+    CreateEntityBody:
+      type: object
+      additionalProperties: false
+      required: ["fields"]
+      properties: # NOTE wrap the fields so we have room for other import parameters, eg 'temp' or something like ifnew/entitykey for upsert like actions
+        fields:
+          $ref: "#/components/schemas/EntityFields"
+
+    UpdateEntityBody:
+      type: object
+      additionalProperties: false
+      required: ["fields"]
+      properties: # NOTE wrap the fields so we have room for other import parameters, eg de-temp. historymode?
+        fields:
+          $ref: "#/components/schemas/EntityFields"
+
+    EntityFields:
+      type: object
+      additionalProperties: true
+      properties:
+        wrdGuid:
+          type: string
+          description: The entity's guid
+          format: uuid
+        wrdTag:
+          type: string
+          description: The entity's tag
+          pattern: "^[A-Z][A-Z0-9_]{1,63}$"
+
+    CreateEntityResult:
+      type: object
+      additionalProperties: false
+      properties:
+        wrdGuid:
+          type: string
+          description: The new entity's guid
+          format: uuid
+
+    TypeQuery:
+      type: object
+      additionalProperties: false
+      properties:
+        filters:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - field
+            - matchType
+            - value
+            properties:
+              field:
+                type: string
+                description: The field to filter on
+              matchType:
+                type: string
+                description: The match type (e.g., '=', '!=', '>', '<', etc.)
+              value:
+                type: string
+                description: The value to match against the field
+        fields:
+          type: array
+          items:
+            type: string
+
+    TypeQueryResult:
+      type: object
+      additionalProperties: false
+      properties:
+        results:
+          type: array
+        nextToken:
+          type: string
+          nullable: true
+          description: A token for pagination, if applicable
 
   securitySchemes:
     bearerAuth:

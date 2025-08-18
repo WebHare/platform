@@ -39,10 +39,12 @@ async function setupWHAPITest() {
   const noApiSysopToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("noApiSysop").wrdId, { prefix: "" });
   test.eq(/^eyJ[^.]*\.eyJ[^.]*\....+/, noApiSysopToken.accessToken, "verify no prefix and signature present");
 
+  /* TODO re-add these tests as soon as NON sysops get the right to access the API. sysops now inherit system:api so we can't really check for this now
   {  //fetch as sysop without api rights
     const api = new OpenAPIApiClient(directFetch, { bearerToken: noApiSysopToken.accessToken });
     test.eqPartial({ status: 401, body: { error: "User is not authorized to access the WebHare API" } }, (await api.get("/meta")));
   }
+  */
 
   {  //fetch with the wrong token
     const unprefixedIdToken = await createFirstPartyToken(jsAuthSchema, "id", test.getUser("sysop").wrdId, { prefix: "" });
