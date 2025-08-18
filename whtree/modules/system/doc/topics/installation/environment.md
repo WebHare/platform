@@ -102,6 +102,8 @@ Points to a script that will be sourced by 'wh' and can filter any command passe
 ### WEBHARE_WEBSERVER
 If set to `node` this will enable the experimental JS webserver.
 
+If set to `nginx` it will prevent the webserver from opening ports 80 & 443, making room for the WebHare Proxy.
+
 ### WEBHARE_NO_SOURCEMAPS
 If set WebHare will not pass `--enable-source-maps` to NodeJS
 
