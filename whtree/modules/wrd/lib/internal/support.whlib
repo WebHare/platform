@@ -1167,13 +1167,18 @@ PUBLIC BOOLEAN FUNCTION IsValidUUIDv4(STRING inuuid)
 /** @short Does the GUID conform to WRD GUID formatting
     @param guid GUID to test
     @return TRUE if it's a valid GUID
-*/
+    @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib */
 PUBLIC BOOLEAN FUNCTION IsValidWRDGuid(STRING guid)
 {
   RETURN ValidateWRDGUID(guid);
 }
 
-
+/** Convert a HareScript `wrd:xxx` GUID to a TypeScript `xxxxxxxx-` ID
+    @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib */
 PUBLIC STRING FUNCTION WRDGuidToUUId(STRING inguid)
 {
   IF(NOT IsValidWRDGuid(inguid))
@@ -1182,6 +1187,11 @@ PUBLIC STRING FUNCTION WRDGuidToUUId(STRING inguid)
   STRING uuid := ToLowercase(Substring(inguid,4));
   RETURN `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-${Substring(uuid, 12, 4)}-${Substring(uuid, 16, 4)}-${Substring(uuid, 20)}`;
 }
+
+/** Convert a TypeScript `xxxxxxxx-` ID to a HareScript `wrd:xxx` GUID
+    @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib */
 PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
 {
   IF(NOT IsValidUUID(inuuid))
@@ -1190,7 +1200,10 @@ PUBLIC STRING FUNCTION UUIdToWRDGuid(STRING inuuid)
   RETURN `wrd:${ToUppercase(Substitute(inuuid, "-", ""))}`;
 }
 
-/** Matches isValidWRDTag in TtypeScript (but harescript is still more tolerant of these tags) */
+/** Matches isValidWRDTag in TypeScript (but harescript is still more tolerant of these tags)
+    @topic wrd/api
+    @public
+    @loadlib mod::wrd/lib/api.whlib */
 PUBLIC BOOLEAN FUNCTION IsProperWRDTag(STRING intag)
 {
   RETURN intag="" OR (NEW Regex("^[A-Z][A-Z0-9_]{0,63}$")->Test(intag) AND intag NOT LIKE "*_");

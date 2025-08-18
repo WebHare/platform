@@ -4,7 +4,7 @@ import { generateRandomId } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
 
 let visitCount = 0;
-let beaconconsent = '';
+let beaconconsent: string | null = '';
 let holdbeacons: Array<() => void> | undefined;
 
 type BeaconStorage = Record<string, { timestamps: number[] }>;
@@ -49,9 +49,12 @@ function executeTrigger(tag: string) {
     console.log("[bac] Trigger beacon", tag);
 
   const beacons = dompack.getLocal<BeaconStorage>("wh:beacons") || {};
-  if (beacons[tag] && beacons[tag].timestamps)
+  if (beacons[tag] && beacons[tag].timestamps) {
     beacons[tag].timestamps.push(Date.now());
-  else
+    //Limit to 100 timestamps
+    if (beacons[tag].timestamps.length > 100)
+      beacons[tag].timestamps.splice(0, beacons[tag].timestamps.length - 100);
+  } else
     beacons[tag] = { timestamps: [Date.now()] };
   dompack.setLocal("wh:beacons", beacons);
 
@@ -205,7 +208,7 @@ class TriggerBeacon {
   }
 }
 
-export function __setup(consent: string) {
+export function __setup(consent: string | null) {
   beaconconsent = consent;
   if (beaconconsent) {
     holdbeacons = [];
@@ -219,7 +222,7 @@ export function __setup(consent: string) {
             console.log(`[bac] Got any consent, allow beacons`);
           runDelayedInit();
         }
-      } else if (consentsettings.consent?.includes(beaconconsent)) {
+      } else if (beaconconsent && consentsettings.consent?.includes(beaconconsent)) {
         if (debugFlags.bac)
           console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
         runDelayedInit();

@@ -1,25 +1,59 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import * as beacons from './beacons';
+import { debugFlags } from '@webhare/env';
 
-export interface AdaptiveConcentSetup {
+export interface AdaptiveContentSetup {
   now?: Date;
   beaconconsent?: string;
 }
 
-//@cell(Date) now: The reference date to use when matching conditions
-let dcoptions: AdaptiveConcentSetup | undefined;
+type SlotCondition = {
+  _type: "beacon";
+  beacon: string;
+  maxdays: number;
+} | {
+  _type: "visitbeforedate";
+  date: string; //ISO date
+} | {
+  _type: "visitafterdate";
+  date: string; //ISO date
+} | {
+  _type: "newvisitor" | "returningvisitor";
+} | {
+  _type: "and" | "or";
+  conditions: SlotCondition[];
+} | {
+  _type: "not";
+  condition: SlotCondition;
+};
 
-function testWidget(widget) {
+export type SlotsFile = {
+  /** Creationdate in ISO format */
+  creationdate: string;
+  /** Last widget modification */
+  lastmodifiedwidget: string;
+
+  id: number;
+  name: string;
+  state: string;
+  widgets: Array<{
+    condition: SlotCondition;
+    content: string;
+    name: string;
+  }>;
+};
+
+//@cell(Date) now: The reference date to use when matching conditions
+let dcoptions: AdaptiveContentSetup | undefined;
+
+function testWidget(widget: SlotsFile["widgets"][number]) {
   if (widget.condition) {
     return matchCondition(widget.condition);
   }
   return { ok: `No conditions` };
 }
 
-function matchCondition(condition) {
+function matchCondition(condition: SlotCondition): { ok?: string; fail?: string; result?: unknown } {
   switch (condition._type) {
     case "newvisitor":
       {
@@ -41,7 +75,7 @@ function matchCondition(condition) {
       {
         let since;
         if (condition.maxdays > 0) {
-          since = dcoptions.now || new Date();
+          since = dcoptions?.now || new Date();
           since.setDate(since.getDate() - condition.maxdays);
         }
         if (beacons.isSet(condition.beacon, { since }))
@@ -53,7 +87,7 @@ function matchCondition(condition) {
     case "visitbeforedate":
       {
         const date = new Date(condition.date);
-        if ((dcoptions.now || new Date()) < date)
+        if ((dcoptions?.now || new Date()) < date)
           return { ok: `It's before ${date.toLocaleString()}` };
         else
           return { fail: `It's after ${date.toLocaleString()}` };
@@ -62,7 +96,7 @@ function matchCondition(condition) {
     case "visitafterdate":
       {
         const date = new Date(condition.date);
-        if ((dcoptions.now || new Date()) >= date)
+        if ((dcoptions?.now || new Date()) >= date)
           return { ok: `It's after ${date.toLocaleString()}` };
         else
           return { fail: `It's before ${date.toLocaleString()}` };
@@ -77,7 +111,7 @@ function matchCondition(condition) {
             return { fail: `AND Subcondition failed`, result };
           results.push(result);
         }
-        return { ok: `All AND subconditions matched`, results };
+        return { ok: `All AND subconditions matched`, result: results };
       }
 
     case "or":
@@ -89,7 +123,7 @@ function matchCondition(condition) {
             return { ok: `OR Subcondition matched`, result };
           results.push(result);
         }
-        return { fail: `No OR subconditions matched`, results };
+        return { fail: `No OR subconditions matched`, result: results };
       }
 
     case "not":
@@ -102,11 +136,11 @@ function matchCondition(condition) {
       }
   }
 
-  return { fail: `Condition type '${condition._type}' not understood` };
+  return { fail: `Condition type '${(condition satisfies never as SlotCondition)._type}' not understood` };
 }
 
-async function handleAdaptiveContent(node) {
-  if (dompack.debugflags.bac)
+async function handleAdaptiveContent(node: HTMLElement) {
+  if (debugFlags.bac)
     console.log("[bac] Handle adaptive content", node.dataset.name);
   //TODO geoip support etc
 
@@ -118,7 +152,7 @@ async function handleAdaptiveContent(node) {
   let selectedwidget;
   for (const widget of slotinfo.widgets) {
     const testresult = testWidget(widget);
-    if (dompack.debugflags.bac)
+    if (debugFlags.bac)
       console.log(`[bac] Show widget '${widget.name}' for '${node.dataset.name}'?`, testresult);
     if (!testresult.ok)
       continue;
@@ -127,12 +161,12 @@ async function handleAdaptiveContent(node) {
     break;
   }
   if (!selectedwidget) {
-    if (dompack.debugflags.bac)
+    if (debugFlags.bac)
       console.log(`[bac] Not showing any widget for '${node.dataset.name}'`);
     return;
   }
 
-  if (dompack.debugflags.bac)
+  if (debugFlags.bac)
     console.log(`[bac] Showing widget '${selectedwidget.name}' for '${node.dataset.name}'`);
 
   //display the widget
@@ -146,11 +180,11 @@ async function handleAdaptiveContent(node) {
     window.dataLayer.push({ event: "wh:show-dynamic-content", whContentSlot: node.dataset.name, whContentSelected: selectedwidget.name });
 }
 
-export function setup(options?: AdaptiveConcentSetup) {
+export function setup(options?: AdaptiveContentSetup) {
   dcoptions = structuredClone(options);
-  if (dcoptions.now && dompack.debugflags.bac)
-    console.info("[bac] Using 'now' date", dcoptions.now);
+  if (dcoptions?.now && debugFlags.bac)
+    console.info("[bac] Using 'now' date", dcoptions?.now);
 
-  beacons.__setup(dcoptions.beaconconsent);
-  dompack.register("template.wh-adaptivecontent", handleAdaptiveContent);
+  beacons.__setup(dcoptions?.beaconconsent || null);
+  dompack.register("template.wh-adaptivecontent", el => void handleAdaptiveContent(el));
 }
