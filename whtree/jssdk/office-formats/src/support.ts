@@ -20,16 +20,19 @@ export type SpreadsheetColumn = {
   name: string;
   title: string;
   type: Exclude<keyof typeof ColumnTypes, "dateTime" | "number">;
+  align?: "left" | "center" | "right";
 } | {
   name: string;
   title: string;
   type: "dateTime";
   storeUTC: boolean;
+  align?: "left" | "center" | "right";
 } | {
   name: string;
   title: string;
   type: "number";
   decimals?: number;
+  align?: "left" | "center" | "right";
 };
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
@@ -42,6 +45,7 @@ export type GenerateSpreadsheetOptions = ({
 }) & {
   title?: string;
   timeZone?: string;
+  split?: { columns?: number; rows?: number };
 };
 
 export type FixedSpreadsheetOptions = {
@@ -49,6 +53,7 @@ export type FixedSpreadsheetOptions = {
   columns: SpreadsheetColumn[];
   title?: string;
   timeZone?: string;
+  split?: { columns?: number; rows?: number };
 };
 
 export type GenerateWorkbookProperties = {
