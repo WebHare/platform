@@ -236,6 +236,18 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
   preamble += `<pane xSplit="${sheetSettings.split?.columns ?? 0}" ySplit="${sheetSettings.split?.rows ?? 0}" state="frozenSplit" topLeftCell="${getNameForCell((sheetSettings.split?.columns ?? 0) + 1, (sheetSettings.split?.rows ?? 0) + 1)}" />`;
   preamble += `</sheetView></sheetViews>`;
   preamble += `<sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/>`;
+  preamble += `<cols>`;
+  for (const [idx, col] of sheetSettings.columns.entries()) {
+    let width: number | undefined;
+    // Adjust default widths for dateTime & numbers with decimals
+    if (col.type === "dateTime")
+      width = 18;
+    if (col.type === "number" && col.decimals !== undefined)
+      width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
+    if (width !== undefined)
+      preamble += `<col min="${idx + 1}" max="${idx + 1}" bestFit="1" width="${width}"/>`;
+  }
+  preamble += `</cols>`;
   preamble += `<sheetData>`;
   let postamble = `</sheetData>`;
   postamble += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
