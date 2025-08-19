@@ -1,4 +1,4 @@
-import { byteStreamFromStringParts, ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, getNameForCell, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";
@@ -6,21 +6,6 @@ import type { ReadableStream } from "node:stream/web";
 import { utcToLocal } from "@webhare/hscompat";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
-
-//get name for column, 1-based
-function getNameForCell(col: number, row: number): string {
-  if (col < 1 || row < 1)
-    throw new Error(`Invalid column or row number: col=${col}, row=${row}`);
-  let name = "";
-  col -= 1;
-  while (true) {
-    name = String.fromCharCode(65 + col % 26) + name;
-    if (col < 26)
-      break;
-    col = (col - 26) / 26;
-  }
-  return name + row;
-}
 
 function createHeaderRow(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions) {
   let result = '';
@@ -250,6 +235,9 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
   preamble += `</cols>`;
   preamble += `<sheetData>`;
   let postamble = `</sheetData>`;
+  if (sheetSettings.withAutoFilter) {
+    postamble += `<autoFilter ref="A1:${dimensions}"/>`;
+  }
   postamble += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
 
   return byteStreamFromStringParts([
@@ -270,7 +258,7 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
     async build(controller) {
 
       //Create the worksheets
-      const sheetnames: SheetInfo[] = [];
+      const sheetinfo: SheetInfo[] = [];
       const names = new Set<string>;
       const xlsxdoc = new XLSXDocBuilder;
 
@@ -287,11 +275,16 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
         const sheetname = `sheet${idx + 1}.xml`;
         const outputSheet = createSheet(xlsxdoc, sheet, idx === 0, options);
         await controller.addFile(`xl/worksheets/${sheetname}`, outputSheet, new Date);
-        sheetnames.push({ name: sheetname, title: useTitle });
+        sheetinfo.push({
+          name: sheetname,
+          title: useTitle,
+          fixedDimensions: `${getNameForCell(sheet.columns.length || 1, sheet.rows.length + 1, { fixedColumn: true, fixedRow: true })}`,
+          withAutoFilter: sheet.withAutoFilter,
+        });
       }
 
       //Create the workbook
-      for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(xlsxdoc, sheetnames))) {
+      for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(xlsxdoc, sheetinfo))) {
         if (typeof data === "string") {
           await controller.addFile(fullpath, data, new Date);
         } else {

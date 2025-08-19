@@ -312,6 +312,14 @@ function* createSheets(builder: ODSBuilder, sheets: SheetsWithStyle, options: { 
       yield createRow(row, sheet.columns, sheetOptions);
     yield `</table:table>\n`;
   }
+  yield `    <table:database-ranges>\n`;
+  for (const [idx, sheet] of sheets.entries()) {
+    if (sheet.withAutoFilter) {
+      const encodedSheetName = encodeString(sheet.title || ('Sheet' + (idx + 1)), 'attribute');
+      yield `      <table:database-range table:name="__Anonymous_Sheet_DB__${idx}" table:target-range-address="${encodedSheetName}.A1:${encodedSheetName}.${getNameForCell(sheet.columns.length, sheet.rows.length + 1)}" table:display-filter-buttons="true"/>\n`;
+    }
+  }
+  yield `    </table:database-ranges>\n`;
 }
 
 function createSettings(sheets: FixedSpreadsheetOptions[]): string {
