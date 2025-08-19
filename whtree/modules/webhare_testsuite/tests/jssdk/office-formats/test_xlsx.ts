@@ -253,7 +253,9 @@ async function testXLSXMultipleSheets() {
   const output = await generateXLSX({
     title: "Cool document",
     timeZone: "Europe/Amsterdam",
-    sheets: [sheet1, sheet2, sheet3, sheet4]
+    sheets: [sheet1, sheet2, sheet3, sheet4],
+    split: { rows: 1 },
+    withAutoFilter: true
   });
   // await storeDiskFile("/tmp/test_xlsx_multiple_sheets.xlsx", output, { overwrite: true });
 

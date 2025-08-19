@@ -4,6 +4,8 @@ import type { XLSXDocBuilder } from "./xlsx-output";
 export type SheetInfo = {
   name: string;
   title: string;
+  fixedDimensions: string; // eg $G$4
+  withAutoFilter?: boolean;
 };
 
 type TemplateFiles = Record<string, string | IterableIterator<string>>;
@@ -143,6 +145,10 @@ ${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId ?? 0}" fontId="
   <sheets>
     ${addSheets.map((sheet, idx) => `<sheet name="${encodeString(sheet.title, 'attribute')}" sheetId="${idx + 1}" r:id="${sheet.rId}"/>`).join('\n')}
   </sheets>
+   <definedNames>
+    ${addSheets.map((sheet, idx) => ({ localSheetId: idx, ...sheet })).filter(sheet => sheet.withAutoFilter).map(sheet =>
+      `<definedName function="false" hidden="true" localSheetId="${sheet.localSheetId}" name="_xlnm._FilterDatabase" vbProcedure="false">${encodeString(sheet.title, 'attribute')}!$A$1:${sheet.fixedDimensions}</definedName>`).join("\n    ")}
+  </definedNames>
   <calcPr calcId="191029" calcCompleted="0" forceFullCalc="1" fullCalcOnLoad="1"/>
   <extLst>
     <ext xmlns:xcalcf="http://schemas.microsoft.com/office/spreadsheetml/2018/calcfeatures" uri="{B58B0392-4F1F-4190-BB64-5DF3571DCE5F}">

@@ -47,6 +47,7 @@ export type GenerateSpreadsheetOptions = ({
   title?: string;
   timeZone?: string;
   split?: { columns?: number; rows?: number };
+  withAutoFilter?: boolean;
 };
 
 export type FixedSpreadsheetOptions = {
@@ -55,6 +56,7 @@ export type FixedSpreadsheetOptions = {
   title?: string;
   timeZone?: string;
   split?: { columns?: number; rows?: number };
+  withAutoFilter?: boolean;
 };
 
 export type GenerateWorkbookProperties = {
@@ -162,6 +164,22 @@ export function byteStreamFromStringParts(parts: Iterable<string | Iterator<stri
     highWaterMark: 4
   });
 }
+
+//get name for column, 1-based
+export function getNameForCell(col: number, row: number, options?: { fixedRow?: boolean; fixedColumn?: boolean }): string {
+  if (col < 1 || row < 1)
+    throw new Error(`Invalid column or row number: col=${col}, row=${row}`);
+  let name = "";
+  col -= 1;
+  while (true) {
+    name = String.fromCharCode(65 + col % 26) + name;
+    if (col < 26)
+      break;
+    col = (col - 26) / 26;
+  }
+  return (options?.fixedColumn ? "$" : "") + name + (options?.fixedRow ? "$" : "") + row;
+}
+
 export type OmitUndefined<T extends object> = T extends object ? {
   [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>;
 } : never;
