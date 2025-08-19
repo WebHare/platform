@@ -59,7 +59,7 @@ IF (args.until != "")
 INTEGER FUNCTION GetBucketFor(RECORD hostedsites, STRING host, INTEGER port, DATETIME time)
 {
   RECORD lws := LookupWebserver(hostedsites, host, port);
-  IF(NOT RecordExists(lws))
+  IF(NOT RecordExists(lws) OR lws.id < 0)
     RETURN -1;
 
   DATETIME timebucket := GetRoundedDatetime(time, bucketsize); //bucket per minute
