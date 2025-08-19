@@ -162,3 +162,10 @@ export function byteStreamFromStringParts(parts: Iterable<string | Iterator<stri
     highWaterMark: 4
   });
 }
+export type OmitUndefined<T extends object> = T extends object ? {
+  [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>;
+} : never;
+
+export function omitUndefined<T extends object>(obj: T): OmitUndefined<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([_, value]) => value !== undefined)) as OmitUndefined<T>;
+}

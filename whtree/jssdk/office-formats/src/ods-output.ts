@@ -1,6 +1,6 @@
 import { createArchive } from "@webhare/zip";
-import { byteStreamFromStringParts, ColumnTypes, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
-import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
+import { byteStreamFromStringParts, ColumnTypes, getNameForCell, omitUndefined, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { encodeString, pick, stdTypeOf, stringify, type Money } from "@webhare/std";
 import type { ReadableStream } from "node:stream/web";
 
 export type GenerateODSOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
@@ -300,13 +300,17 @@ function calcColumnStyles(builder: ODSBuilder, sheets: FixedSpreadsheetOptions[]
 
 function* createSheets(builder: ODSBuilder, sheets: SheetsWithStyle, options: { timeZone?: string }) {
   for (const [idx, sheet] of sheets.entries()) {
+    const sheetOptions = {
+      ...options,
+      ...omitUndefined(pick(sheet, ["timeZone"]))
+    };
     yield `<table:table table:name="${encodeString(sheet.title || ('Sheet' + (idx + 1)), 'attribute')}">`;
     for (const col of sheet.columns)
       yield `<table:table-column table:style-name="${col.columnStyle}" />`;
     yield createHeaderRow(sheet.columns);
     for (const row of sheet.rows)
-      yield createRow(row, sheet.columns, options);
-    yield `</table:table>`;
+      yield createRow(row, sheet.columns, sheetOptions);
+    yield `</table:table>\n`;
   }
 }
 
@@ -320,7 +324,7 @@ function createSettings(sheets: FixedSpreadsheetOptions[]): string {
           <config:config-item config:name="ViewId" config:type="string">view1</config:config-item>
           <config:config-item-map-named config:name="Tables">
 ${sheets.map((sheet, idx) =>
-    `            <config:config-item-map-entry config:name="Sheet1">
+    `            <config:config-item-map-entry config:name="${encodeString(sheet.title || ('Sheet' + (idx + 1)), 'attribute')}">
 ${sheet.split?.columns ? `              <config:config-item config:name="CursorPositionX" config:type="int">${sheet.split.columns}</config:config-item>
               <config:config-item config:name="HorizontalSplitMode" config:type="short">2</config:config-item>
               <config:config-item config:name="HorizontalSplitPosition" config:type="int">${sheet.split.columns}</config:config-item>
