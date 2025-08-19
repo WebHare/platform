@@ -1,4 +1,5 @@
 import type { Money, stdTypeOf } from "@webhare/std";
+import { ReadableStream } from "node:stream/web";
 
 interface ColumnTypeDef {
   validDataTypes?: Array<ReturnType<typeof stdTypeOf>>;
@@ -112,4 +113,52 @@ export function validateAndFixRowsColumns(options: GenerateSpreadsheetOptions): 
   }
 
   return options as FixedSpreadsheetOptions; //cast should be safe, we verified columns exists
+}
+
+export function byteStreamFromStringParts(parts: Iterable<string | Iterator<string> | (() => string | Iterator<string>)>, options?: { minChunkSize?: number }): ReadableStream<Uint8Array> {
+  const minChunkSize = options?.minChunkSize ?? 32768;
+  const iter = parts[Symbol.iterator]();
+  let cur: Iterator<string> | undefined;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      let toEnqueueLen = 0;
+      const toEnqueue: string[] = [];
+      let finished = false;
+      for (; ;) {
+        if (!cur) {
+          const v = iter.next();
+          if (v.done) {
+            finished = true;
+            break;
+          }
+          if (typeof v.value === "function")
+            v.value = v.value();
+          if (typeof v.value === "string") {
+            toEnqueue.push(v.value);
+            toEnqueueLen += v.value.length;
+            if (toEnqueueLen >= minChunkSize)
+              break;
+            continue;
+          } else
+            cur = v.value;
+        }
+
+        const v = cur.next();
+        if (v.done) {
+          cur = undefined;
+          break;
+        }
+        toEnqueue.push(v.value);
+        toEnqueueLen += v.value.length;
+        if (toEnqueueLen >= minChunkSize)
+          break;
+      }
+      if (toEnqueue.length > 0)
+        controller.enqueue(new TextEncoder().encode(toEnqueue.join("")));
+      if (finished)
+        controller.close();
+    },
+  }, {
+    highWaterMark: 4
+  });
 }

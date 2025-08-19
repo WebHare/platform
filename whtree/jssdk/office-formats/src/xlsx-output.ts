@@ -1,8 +1,9 @@
-import { ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, isValidSheetName, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
 import { getXLSXBaseTemplate, type SheetInfo } from "./xslx-template";
 import { createArchive } from "@webhare/zip";
-import { ReadableStream } from "node:stream/web";
+import type { ReadableStream } from "node:stream/web";
+import { utcToLocal } from "@webhare/hscompat";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
@@ -32,9 +33,16 @@ function createHeaderRow(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOpt
   return result;
 }
 
-function dateToExcel(x: Temporal.Instant | Temporal.ZonedDateTime) {
+function TemporalToExcel(x: Temporal.Instant | Temporal.ZonedDateTime): number {
   return x.epochMilliseconds / 86400_000 + 25569;
 }
+
+function dateToExcel(x: Date): number {
+  return x.getTime() / 86400_000 + 25569;
+}
+
+// Temporal is somewhat heavier than
+const useTemporal = false;
 
 class WorksheetBuilder {
   constructor(private doc: XLSXDocBuilder) {
@@ -54,16 +62,18 @@ class WorksheetBuilder {
         type = "s";
         break;
       case "date":
-        storevalue = String(Math.floor(dateToExcel((value as Date).toTemporalInstant())));
+        storevalue = String(Math.floor(dateToExcel((value as Date))));
         type = "";
         break;
       case "dateTime": {
-
-        const isovalue = col.storeUTC ?
-          (value as Date).toTemporalInstant().toZonedDateTimeISO(options.timeZone!).toPlainDateTime().toZonedDateTime("UTC") :
-          (value as Date).toTemporalInstant();
-
-        storevalue = String(dateToExcel(isovalue));
+        // The temporal conversion costs about 0.01ms, while utcToLocal costs about 0.004ms, so sticking with that one for now
+        if (!useTemporal) {
+          storevalue = String(dateToExcel(col.storeUTC ? utcToLocal(value as Date, options.timeZone!) : (value as Date)));
+        } else {
+          storevalue = col.storeUTC ?
+            String(TemporalToExcel((value as Date).toTemporalInstant().toZonedDateTimeISO(options.timeZone!).toPlainDateTime().toZonedDateTime("UTC"))) :
+            String(dateToExcel(value as Date));
+        }
         type = "";
       } break;
       case "boolean":
@@ -215,7 +225,7 @@ export class XLSXDocBuilder {
   }
 }
 
-function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean, options: { timeZone?: string }): ReadableStream {
+function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions, tabSelected: boolean, options: { timeZone?: string }): ReadableStream<Uint8Array> {
   const builder = new WorksheetBuilder(doc);
   const rows = builder.createRows(sheetSettings, options);
   const dimensions = getNameForCell(sheetSettings.columns.length || 1, sheetSettings.rows.length + 1);
@@ -227,23 +237,14 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
   preamble += `</sheetView></sheetViews>`;
   preamble += `<sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/>`;
   preamble += `<sheetData>`;
-  let postample = `</sheetData>`;
-  postample += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
+  let postamble = `</sheetData>`;
+  postamble += `<pageMargins left="0.75" right="0.75" top="1" bottom="1" header="0.5" footer="0.5"/><extLst><ext uri="{64002731-A6B0-56B0-2670-7721B7C09600}" xmlns:mx="http://schemas.microsoft.com/office/mac/excel/2008/main"><mx:PLV Mode="0" OnePage="0" WScale="0"/></ext></extLst></worksheet>`;
 
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(preamble));
-    },
-    pull(controller) {
-      const { done, value } = rows.next();
-      if (done) {
-        controller.enqueue(new TextEncoder().encode(postample));
-        controller.close();
-      } else {
-        controller.enqueue(new TextEncoder().encode(value));
-      }
-    },
-  });
+  return byteStreamFromStringParts([
+    preamble,
+    rows,
+    postamble
+  ]);
 }
 
 /** Generate a XLSX file
@@ -279,7 +280,12 @@ export async function generateXLSX(options: GenerateXLSXOptions): Promise<File> 
 
       //Create the workbook
       for (const [fullpath, data] of Object.entries(getXLSXBaseTemplate(xlsxdoc, sheetnames))) {
-        await controller.addFile(fullpath, data, new Date);
+        if (typeof data === "string") {
+          await controller.addFile(fullpath, data, new Date);
+        } else {
+          const stream = byteStreamFromStringParts(data);
+          await controller.addFile(fullpath, stream, new Date);
+        }
       }
     },
   });
