@@ -103,61 +103,68 @@ const manifest = `<?xml version="1.0" encoding="UTF-8"?>
 </manifest:manifest>`;
 
 type Style = {
-  name: string;
   align?: "start" | "center" | "end";
   dataStyleName?: string;
 };
 
-type DataStyle = {
-  name: string;
-} & ({
+type DataStyle = ({
   type: "number";
   decimals?: number;
 });
 
+type ColumnStyle = ({
+  width?: number;
+});
+
+class StyleKeeper<T extends object> {
+  prefix: string;
+  counter = 0;
+  list: Array<T & { name: string }> = [];
+  map = new Map<string, T & { name: string }>;
+
+  constructor(prefix: string) {
+    this.prefix = prefix;
+  }
+
+  get(rec: T): string {
+    const hash = stringify(rec, { stable: true });
+    let existing = this.map.get(hash);
+    if (!existing) {
+      existing = {
+        name: `${this.prefix}${++this.counter}`,
+        ...rec
+      };
+      this.list.push(existing);
+      this.map.set(hash, existing);
+    }
+    return existing.name;
+  }
+}
+
 class ODSBuilder {
-  styleCounter = 0;
-  styles: Style[] = [];
-  styleMap = new Map<string, Style>;
-  dataStyleCounter = 0;
-  dataStyles: DataStyle[] = [];
-  dataStyleMap = new Map<string, DataStyle>;
+  style = new StyleKeeper<Style>("ce");
+  dataStyle = new StyleKeeper<DataStyle>("da");
+  columnStyle = new StyleKeeper<ColumnStyle>("co");
 
   constructor() {
-    this.styleMap.set("{}", { name: "Default" });
+    this.style.map.set("{}", { name: "Default" });
+    this.columnStyle.map.set("{}", { name: "Default" });
   }
 
   getStyle(style: Omit<Style, "name">): string {
-    const hash = stringify(style, { stable: true });
-    let rec = this.styleMap.get(hash);
-    if (!rec) {
-      rec = {
-        name: `ce${++this.styleCounter}`,
-        ...style
-      };
-      this.styles.push(rec);
-      this.styleMap.set(hash, rec);
-    }
-    return rec.name;
+    return this.style.get(style);
   }
 
   getNumberStyle(dataStyle: Omit<DataStyle, "name">): string {
-    const hash = stringify(dataStyle, { stable: true });
-    let rec = this.dataStyleMap.get(hash);
-    if (!rec) {
-      rec = {
-        name: `da${++this.dataStyleCounter}`,
-        ...dataStyle
-      };
-      this.dataStyles.push(rec);
-      this.dataStyleMap.set(hash, rec);
-    }
-    return rec.name;
+    return this.dataStyle.get(dataStyle);
   }
 
+  getColumnStyle(columnStyle: Omit<ColumnStyle, "name">): string {
+    return this.columnStyle.get(columnStyle);
+  }
   constructStyleNodes() {
     return [
-      ...this.dataStyles.map((style) => {
+      ...this.dataStyle.list.map((style) => {
         switch (style.type) {
           case "number": return (
             `  <number:number-style style:name="${style.name}">\n` +
@@ -165,11 +172,15 @@ class ODSBuilder {
             `  </number:number-style>`);
         }
       }),
-      ...this.styles.map((style) =>
+      ...this.style.list.map((style) =>
         `   <style:style style:name="${style.name}" style:family="table-cell" style:parent-style-name="Default"${style.dataStyleName ? ` style:data-style-name="${style.dataStyleName}"` : ''}>\n` +
         (style.align ? `      <style:table-cell-properties style:text-align-source="fix" style:repeat-content="false"/>\n` +
           `      <style:paragraph-properties fo:text-align="${style.align}"/>\n` : '') +
-        `   </style:style>`)
+        `   </style:style>`),
+      ...this.columnStyle.list.map((style) =>
+        `   <style:style style:name="${style.name}" style:family="table-column">\n` +
+        `     <style:table-column-properties fo:break-before="auto"${style.width ? ` style:column-width="${style.width.toFixed(4)}in"` : ``}/>\n` +
+        `   </style:style>`),
     ].join('\n');
   }
 }
@@ -247,13 +258,21 @@ function createRow(row: Record<string, unknown>, cols: Array<SpreadsheetColumn &
   return result;
 }
 
-type SheetsWithStyle = Array<FixedSpreadsheetOptions & { columns: Array<FixedSpreadsheetOptions["columns"][number] & { style: string }> }>;
+type SheetsWithStyle = Array<FixedSpreadsheetOptions & { columns: Array<FixedSpreadsheetOptions["columns"][number] & { style: string; columnStyle: string }> }>;
 
 function calcColumnStyles(builder: ODSBuilder, sheets: FixedSpreadsheetOptions[]): SheetsWithStyle {
+  /* Style with is in inches, measured by generating a .xlsx, opening in LibreOffice and saving as .ods
+     default: 0.8811in
+     xlsx width 10: 0.8465in
+     xlsx width 18: 1.5236in
+  */
+  const charWidth = 0.0846375; // (1.5236-0.8654)/8
+
   return sheets.map(sheet => ({
     ...sheet,
     columns: sheet.columns.map(col => {
-      const style: Omit<Style, "name"> = {};
+      const style: Style = {};
+      const columnStyle: ColumnStyle = {};
       if (col.align)
         style.align = ({ left: "start", right: "end", center: "center" } as const)[col.align];
       switch (col.type) {
@@ -262,15 +281,19 @@ function calcColumnStyles(builder: ODSBuilder, sheets: FixedSpreadsheetOptions[]
         } break;
         case "dateTime": {
           style.dataStyleName = "wh_datetime";
+          columnStyle.width ??= 18 * charWidth;
         } break;
         case "time": {
           style.dataStyleName = "wh_time";
         } break;
         case "number": {
           style.dataStyleName = builder.getNumberStyle({ type: "number", decimals: col.decimals });
+          if (col.decimals)
+            columnStyle.width ??= (7 + col.decimals) * charWidth;
         } break;
       }
-      return { ...col, style: builder.getStyle(style) };
+      columnStyle.width ??= 0.8811; // default, measured by generating xlsx, opening in LibreOffice and saving as .ods
+      return { ...col, style: builder.getStyle(style), columnStyle: builder.getColumnStyle(columnStyle) };
     })
   }));
 }
@@ -278,7 +301,8 @@ function calcColumnStyles(builder: ODSBuilder, sheets: FixedSpreadsheetOptions[]
 function* createSheets(builder: ODSBuilder, sheets: SheetsWithStyle, options: { timeZone?: string }) {
   for (const [idx, sheet] of sheets.entries()) {
     yield `<table:table table:name="${encodeString(sheet.title || ('Sheet' + (idx + 1)), 'attribute')}">`;
-    // yield `<table:table-column table:style-name="co1" table:number-columns-repeated="${sheet.columns.length}" table:default-cell-style-name="Default"/>`;
+    for (const col of sheet.columns)
+      yield `<table:table-column table:style-name="${col.columnStyle}" />`;
     yield createHeaderRow(sheet.columns);
     for (const row of sheet.rows)
       yield createRow(row, sheet.columns, options);
