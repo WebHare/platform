@@ -1,7 +1,7 @@
 import { createArchive } from "@webhare/zip";
-import { ColumnTypes, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
+import { byteStreamFromStringParts, ColumnTypes, validateAndFixRowsColumns, type FixedSpreadsheetOptions, type GenerateSpreadsheetOptions, type GenerateWorkbookProperties, type SpreadsheetColumn } from "./support";
 import { encodeString, stdTypeOf, stringify, type Money } from "@webhare/std";
-import { ReadableStream } from "node:stream/web";
+import type { ReadableStream } from "node:stream/web";
 
 export type GenerateODSOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
@@ -315,23 +315,14 @@ ${sheet.split?.columns ? `              <config:config-item config:name="CursorP
 </office:document-settings>`;
 }
 
-function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: string }): ReadableStream {
+function createContent(sheets: FixedSpreadsheetOptions[], options: { timeZone?: string }): ReadableStream<Uint8Array> {
   const builder = new ODSBuilder;
   const rows = createSheets(builder, calcColumnStyles(builder, sheets), options);
-  return new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(new TextEncoder().encode(contentPreamble(builder)));
-    },
-    pull(controller) {
-      const { done, value } = rows.next();
-      if (done) {
-        controller.enqueue(new TextEncoder().encode(contentPostamble));
-        controller.close();
-      } else {
-        controller.enqueue(new TextEncoder().encode(value));
-      }
-    },
-  });
+  return byteStreamFromStringParts([
+    contentPreamble(builder),
+    rows,
+    contentPostamble
+  ]);
 }
 
 /** Generate an ODS file

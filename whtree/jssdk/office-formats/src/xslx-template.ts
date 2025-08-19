@@ -6,7 +6,9 @@ export type SheetInfo = {
   title: string;
 };
 
-export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]) {
+type TemplateFiles = Record<string, string | IterableIterator<string>>;
+
+export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]): TemplateFiles {
   //Note that we number sheet1.xml as rId1 but the next sheets as rId4...
   const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx === 0 ? 1 : idx + 4}` }));
   return {
@@ -118,10 +120,13 @@ ${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId ?? 0}" fontId="
     </ext>
   </extLst>
 </styleSheet>`,
-    'xl/sharedStrings.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    'xl/sharedStrings.xml': function* () {
+      yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-${doc.sharedString.map(str => `  <si><t xml:space="preserve">${encodeString(str, 'attribute')}</t></si>`).join('\n')}
-</sst>`,
+`;
+      yield* doc.sharedString.values().map(str => `\n  <si><t xml:space="preserve">${encodeString(str, 'attribute')}</t></si>`);
+      yield `      </sst>`;
+    }(),
     'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr6="http://schemas.microsoft.com/office/spreadsheetml/2016/revision6" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" mc:Ignorable="x15 xr xr6 xr10 xr2">
   <fileVersion appName="xl" lastEdited="7" lowestEdited="5" rupBuild="10715"/>
