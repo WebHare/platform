@@ -17,4 +17,4 @@ export type {
 export { escapePGIdentifier } from "./metadata";
 
 export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, uploadBlob, DBReadonlyError } from "./impl";
-export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions, DatabaseError } from "./impl";
+export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions } from "./impl";
