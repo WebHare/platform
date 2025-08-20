@@ -30,7 +30,6 @@ import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
 import { isError, sleep } from '@webhare/std';
 import { DatabaseError } from '../vendor/postgrejs/src';
-export { DatabaseError } from '../vendor/postgrejs/src';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
