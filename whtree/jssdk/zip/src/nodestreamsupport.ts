@@ -1,3 +1,4 @@
+import { isError } from "@webhare/std";
 import type { FileHandle } from "node:fs/promises";
 import type { Readable, Writable } from "node:stream";
 import { ReadableStream } from "node:stream/web";
@@ -9,7 +10,7 @@ export function writableToWeb(stream: Writable) {
       return new Promise<void>((resolve, reject) => stream.write(chunk, res => res instanceof Error ? reject(res) : resolve()));
     },
     abort(reason) {
-      stream.destroy(new Error(reason.toString));
+      stream.destroy(isError(reason) ? reason : new Error(reason.toString()));
     },
     close() {
       return new Promise((resolve, reject) => stream.end(() => resolve()));

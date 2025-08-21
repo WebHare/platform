@@ -1,9 +1,10 @@
 import { promises as fs } from "node:fs";
+import { normalize } from "node:path";
 
-let registeredModules: Map<string, (argv: string[]) => string[]> | undefined;
+let registeredModules: Map<string, (argv: string[], options: { cwd: string }) => string[]> | undefined;
 let loading: string | undefined;
 
-export function enableAutoCompleteMode(options?: { registerAsDynamicLoader: (module: NodeModule) => void }) {
+export function enableAutoCompleteMode(options?: { registerAsDynamicLoader: (module: NodeJS.Module) => void }) {
   registeredModules ??= new Map();
 
   // We want to register as dynamic loader for HMR, but can't load HMR here as that would prevent the use of this module in non-HMR environments
@@ -12,7 +13,7 @@ export function enableAutoCompleteMode(options?: { registerAsDynamicLoader: (mod
 }
 
 /// Called by run() to see in which mode it is running
-export function registerRun(autoComplete: (argv: string[]) => string[]): { mode: "normal" | "autocomplete" } {
+export function registerRun(autoComplete: (argv: string[], options: { cwd: string }) => string[]): { mode: "normal" | "autocomplete" } {
   if (!registeredModules)
     return { mode: "normal" };
 
@@ -64,11 +65,12 @@ export function parseCommandLine(line: string) {
   return words;
 }
 
-export async function autoCompleteCLIRunScript(path: string, args: string[], options?: { debug?: boolean }) {
+export async function autoCompleteCLIRunScript(cwd: string, path: string, args: string[], options?: { debug?: boolean }) {
   if (!registeredModules)
     throw new Error(`enableAutoCompleteMode() was not called`);
+  path = normalize(path);
   if (options?.debug)
-    console.error(`Autocompleting ${path} with args ${args}`);
+    console.error(`Autocompleting ${path} with args ${JSON.stringify(args)}, cwd: ${cwd}`);
   const fileData = await fs.readFile(path, "utf8");
   if (!fileData.match(/^\/\/ @webhare\/cli: /m)) { //We require a line starting exactly with "// @webhare/cli: "
     if (options?.debug)
@@ -98,7 +100,7 @@ export async function autoCompleteCLIRunScript(path: string, args: string[], opt
     if (options?.debug)
       console.error(`Running autocomplete with @webhare/cli config data`);
 
-    const completions = autoCompleteData(args);
+    const completions = autoCompleteData(args, { cwd });
 
     if (options?.debug)
       console.error(`Autocomplete result:`, completions);

@@ -1,4 +1,5 @@
 import type { Money, stdTypeOf } from "@webhare/std";
+import { ReadableStream } from "node:stream/web";
 
 interface ColumnTypeDef {
   validDataTypes?: Array<ReturnType<typeof stdTypeOf>>;
@@ -20,16 +21,19 @@ export type SpreadsheetColumn = {
   name: string;
   title: string;
   type: Exclude<keyof typeof ColumnTypes, "dateTime" | "number">;
+  align?: "left" | "center" | "right";
 } | {
   name: string;
   title: string;
   type: "dateTime";
   storeUTC: boolean;
+  align?: "left" | "center" | "right";
 } | {
   name: string;
   title: string;
   type: "number";
   decimals?: number;
+  align?: "left" | "center" | "right";
 };
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
@@ -42,6 +46,8 @@ export type GenerateSpreadsheetOptions = ({
 }) & {
   title?: string;
   timeZone?: string;
+  split?: { columns?: number; rows?: number };
+  withAutoFilter?: boolean;
 };
 
 export type FixedSpreadsheetOptions = {
@@ -49,6 +55,8 @@ export type FixedSpreadsheetOptions = {
   columns: SpreadsheetColumn[];
   title?: string;
   timeZone?: string;
+  split?: { columns?: number; rows?: number };
+  withAutoFilter?: boolean;
 };
 
 export type GenerateWorkbookProperties = {
@@ -107,4 +115,75 @@ export function validateAndFixRowsColumns(options: GenerateSpreadsheetOptions): 
   }
 
   return options as FixedSpreadsheetOptions; //cast should be safe, we verified columns exists
+}
+
+export function byteStreamFromStringParts(parts: Iterable<string | Iterator<string> | (() => string | Iterator<string>)>, options?: { minChunkSize?: number }): ReadableStream<Uint8Array> {
+  const minChunkSize = options?.minChunkSize ?? 32768;
+  const iter = parts[Symbol.iterator]();
+  let cur: Iterator<string> | undefined;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      let toEnqueueLen = 0;
+      const toEnqueue: string[] = [];
+      let finished = false;
+      for (; ;) {
+        if (!cur) {
+          const v = iter.next();
+          if (v.done) {
+            finished = true;
+            break;
+          }
+          if (typeof v.value === "function")
+            v.value = v.value();
+          if (typeof v.value === "string") {
+            toEnqueue.push(v.value);
+            toEnqueueLen += v.value.length;
+            if (toEnqueueLen >= minChunkSize)
+              break;
+            continue;
+          } else
+            cur = v.value;
+        }
+
+        const v = cur.next();
+        if (v.done) {
+          cur = undefined;
+          break;
+        }
+        toEnqueue.push(v.value);
+        toEnqueueLen += v.value.length;
+        if (toEnqueueLen >= minChunkSize)
+          break;
+      }
+      if (toEnqueue.length > 0)
+        controller.enqueue(new TextEncoder().encode(toEnqueue.join("")));
+      if (finished)
+        controller.close();
+    },
+  }, {
+    highWaterMark: 4
+  });
+}
+
+//get name for column, 1-based
+export function getNameForCell(col: number, row: number, options?: { fixedRow?: boolean; fixedColumn?: boolean }): string {
+  if (col < 1 || row < 1)
+    throw new Error(`Invalid column or row number: col=${col}, row=${row}`);
+  let name = "";
+  col -= 1;
+  while (true) {
+    name = String.fromCharCode(65 + col % 26) + name;
+    if (col < 26)
+      break;
+    col = (col - 26) / 26;
+  }
+  return (options?.fixedColumn ? "$" : "") + name + (options?.fixedRow ? "$" : "") + row;
+}
+
+export type OmitUndefined<T extends object> = T extends object ? {
+  [K in keyof T as T[K] extends undefined ? never : K]: Exclude<T[K], undefined>;
+} : never;
+
+export function omitUndefined<T extends object>(obj: T): OmitUndefined<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([_, value]) => value !== undefined)) as OmitUndefined<T>;
 }

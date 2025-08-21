@@ -1,10 +1,11 @@
 import * as test from "@webhare/test-backend";
 import { generateXLSX, type SpreadsheetColumn } from "@webhare/office-formats";
-import { Money, pick } from "@webhare/std";
+import { Money, omit, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
 import { DOMParser, type Document } from "@xmldom/xmldom";
 import { isValidSheetName } from "@webhare/office-formats/src/support";
+import { defaultDateTime } from "@webhare/hscompat";
 
 const columns: SpreadsheetColumn[] =
   [
@@ -66,6 +67,13 @@ async function getSheet1(xlsx: Blob): Promise<Document> {
   return new DOMParser().parseFromString(await (sheet1blob.data as WebHareBlob).text(), 'text/xml');
 }
 
+async function getSharedStrings(xlsx: Blob): Promise<Document> {
+  const result = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").UnpackArchive(await WebHareBlob.fromBlob(xlsx));
+  const sheet1blob = result.find((_: any) => _.name === "sharedStrings.xml");
+  test.assert(sheet1blob);
+  return new DOMParser().parseFromString(await (sheet1blob.data as WebHareBlob).text(), 'text/xml');
+}
+
 async function testSheetsApi() {
   test.assert(!isValidSheetName(""));
   test.assert(!isValidSheetName("History"));
@@ -106,15 +114,19 @@ export async function testXLSXColumnFiles() {
   //FIXME don't allow 'old' timezone names, actually apply timezones to the export format
   const output2 = await generateXLSX({ rows: reftrestrows, columns, timeZone: "CET" });
   test.eq(/\.xlsx$/, output2.name);
-
   // await storeDiskFile("/tmp/test_xlsx_columnfiles.xlsx", output2, { overwrite: true });
 
   //debug using HS apis
   const sheet1xml2 = await getSheet1(output2);
+  const sharedStrings = await getSharedStrings(output2);
 
   //Verify the \n was written as \r
   const nodewithlinefeed = sheet1xml2.getElementsByTagName("c").filter(_ => _.getAttribute("r") === "A3")[0];
-  test.eq("Tit&le 2\rnext line!", nodewithlinefeed.textContent);
+
+  test.eq("s", nodewithlinefeed.getAttribute("t"));
+  const nodewithlinefeed_v = Number(nodewithlinefeed.textContent?.trim());
+  const nodewithlinefeed_text = sharedStrings.getElementsByTagName("si")[nodewithlinefeed_v].getElementsByTagName("t")[0].textContent; //This is the shared string index, which is used to reference the string in the sharedStrings.xml file
+  test.eq("Tit&le 2\nnext line!", nodewithlinefeed_text);
 
   const outrows = await getRows(output2);
 
@@ -133,7 +145,7 @@ export async function testXLSXColumnFiles() {
   test.eq(17, outrows[1][3]);
   test.eq((now.getTime() % 86400_000) / 86400_000, outrows[1][4]);
 
-  test.eq(now, outrows[1][5]);
+  test.eq(now.toTemporalInstant().toZonedDateTimeISO("CET").toPlainDateTime().toString(), (outrows[1][5] as Date).toTemporalInstant().toString().replace("Z", ""));
   test.eq(1.5, outrows[1][6]);
   test.eq(0, outrows[1][7]);
 
@@ -148,9 +160,32 @@ export async function testXLSXColumnFiles() {
   test.eq(sometimeRounded, outrows[2][2]);
   test.eq(666, outrows[2][3]);
   test.eq(666 / 86400, outrows[2][4]);
-  test.eq(sometime, outrows[2][5]);
+  test.eq(sometime.toTemporalInstant().toZonedDateTimeISO("CET").toPlainDateTime().toString(), (outrows[2][5] as Date).toTemporalInstant().toString().replace("Z", ""));
   test.eq(2.5, outrows[2][6]);
   test.eq(-10000000000, outrows[2][7]);
+
+
+  // Compare all non-undefined columns to the HS output
+  const output2_hs = (await loadlib("mod::system/whlibs/ooxml/spreadsheet.whlib").GenerateXLSXFile({
+    rows: reftrestrows.map(row => ({ ...row, time: new Date(row.time), dt: row.dt || defaultDateTime, date: row.date || defaultDateTime, floating: row.floating ?? 0 })),
+    columns: columns.map(c => ({ ...omit(c, ["decimals"]), type: c.type === "number" ? "float" : c.type.toLowerCase() })),
+    timeZone: "CET"
+  })).data;
+  const outrows2 = await getRows(output2_hs);
+  for (const [rownr, row] of outrows.entries()) {
+    for (const [colnr, col] of row.entries()) {
+      if (col !== undefined) {
+        test.eq(outrows2[rownr][colnr], col, {
+          annotation: `Row ${rownr}, Col ${colnr} compare JS vs HS`,
+          onCompare: (jsValue, hsValue) => {
+            if (typeof jsValue === "number" && typeof hsValue === "number")
+              return Math.abs(jsValue - hsValue) < 0.0001; // Allow for minor floating point differences
+          }
+        });
+      }
+    }
+  }
+
 
   //The rest of testXLSXColumnFiles was testing various parse modes (eg alltostring TRUE, floatmode 'money' not the generator )
 }
@@ -218,7 +253,9 @@ async function testXLSXMultipleSheets() {
   const output = await generateXLSX({
     title: "Cool document",
     timeZone: "Europe/Amsterdam",
-    sheets: [sheet1, sheet2, sheet3, sheet4]
+    sheets: [sheet1, sheet2, sheet3, sheet4],
+    split: { rows: 1 },
+    withAutoFilter: true
   });
   // await storeDiskFile("/tmp/test_xlsx_multiple_sheets.xlsx", output, { overwrite: true });
 

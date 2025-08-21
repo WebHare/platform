@@ -5,24 +5,25 @@ import { autoCompleteCLIRunScript, enableAutoCompleteMode, parseCommandLine } fr
 import { debugFlags } from "@webhare/env";
 import * as http from "node:http";
 import { run } from "@webhare/cli";
+import * as path from "node:path";
 
 
-function parseFSPath(path: string) {
-  if (path.startsWith("mod::")) {
-    return toFSPath(path);
+function parseFSPath(fsPath: string) {
+  if (fsPath.startsWith("mod::")) {
+    return toFSPath(fsPath);
   }
-  if (path.startsWith("~")) {
-    return process.env.HOME + path.slice(1);
+  if (fsPath.startsWith("~")) {
+    return process.env.HOME + fsPath.slice(1);
   }
-  return path;
+  return fsPath;
 }
 
-async function runAutoComplete(words: string[]): Promise<string[]> {
-  const completes = await runRawAutoComplete(words);
+async function runAutoComplete(cwd: string, words: string[]): Promise<string[]> {
+  const completes = await runRawAutoComplete(cwd, words);
   return completes.filter((complete) => complete.startsWith(words[words.length - 1]));
 }
 
-async function runRawAutoComplete(words: string[]): Promise<string[]> {
+async function runRawAutoComplete(cwd: string, words: string[]): Promise<string[]> {
   if (words.length < 3)
     return [];
 
@@ -30,26 +31,27 @@ async function runRawAutoComplete(words: string[]): Promise<string[]> {
 
   if (command === "run") {
     if (words.length === 3) {
-      const path = words[2];
-      if (path.length < 5 && "mod::\n".startsWith(path)) {
-        return ["mod::"];
+      const scriptPath = words[2];
+      const possibilities: string[] = [];
+
+      if (scriptPath.length < 5 && "mod::\n".startsWith(scriptPath)) {
+        possibilities.push("mod::");
       }
 
-      const parts = path.split("/");
-      if (parts.length === 1) {
+      const parts = scriptPath.split("/");
+      if (parts.length === 1 && parts[0].startsWith("mod::")) {
         // No completed module name, return all modules
-        if (parts[0].startsWith("mod::")) {
-          return Object.keys(backendConfig.module).map((mod) => `mod::${mod}/`);
-        }
+        possibilities.push(...Object.keys(backendConfig.module).map((mod) => `mod::${mod}/`));
       } else {
         // Return dirs and .whscr, .ts files
-        const baseResourceDir = path.slice(0, path.lastIndexOf("/") + 1);
-        const baseFsDir = parseFSPath(baseResourceDir);
+        const baseResourceDir = scriptPath.slice(0, scriptPath.lastIndexOf("/") + 1);
+        const baseFsDir = parseFSPath(baseResourceDir || path.join(cwd, "./"));
         const files = (await fs.readdir(baseFsDir, { withFileTypes: true })).filter(v => v.isDirectory() || v.name.endsWith(".ts") || v.name.endsWith(".whscr"));
-        return files.map((f) => `${baseResourceDir}${f.name}${f.isDirectory() ? "/" : "\n"}`);
+        possibilities.push(...files.map((f) => `${baseResourceDir}${f.name}${f.isDirectory() ? "/" : "\n"}`));
       }
+      return possibilities.sort((a, b) => a.localeCompare(b));
     } else {
-      return autoCompleteCLIRunScript(parseFSPath(words[2]), words.slice(3), { debug: debugFlags.autocomplete });
+      return autoCompleteCLIRunScript(cwd, parseFSPath(words[2]), words.slice(3), { debug: debugFlags.autocomplete });
     }
   } else {
     if (command.includes(":")) {
@@ -60,14 +62,14 @@ async function runRawAutoComplete(words: string[]): Promise<string[]> {
       const fsPath = `${moduleData.root}/scripts/whcommands/${parts[1]}.ts`;
       if (!existsSync(fsPath))
         return [];
-      return autoCompleteCLIRunScript(fsPath, words.slice(2), { debug: debugFlags.autocomplete });
+      return autoCompleteCLIRunScript(cwd, fsPath, words.slice(2), { debug: debugFlags.autocomplete });
     } else {
       let fsPath = `${backendConfig.module.platform.root}/scripts/whcommands/${command}.ts`;
       if (existsSync(fsPath))
-        return autoCompleteCLIRunScript(fsPath, words.slice(2), { debug: debugFlags.autocomplete });
+        return autoCompleteCLIRunScript(cwd, fsPath, words.slice(2), { debug: debugFlags.autocomplete });
       fsPath = `${backendConfig.module.system.root}/scripts/whcommands/${command}.ts`;
       if (existsSync(fsPath)) {
-        return autoCompleteCLIRunScript(fsPath, words.slice(2), { debug: debugFlags.autocomplete });
+        return autoCompleteCLIRunScript(cwd, fsPath, words.slice(2), { debug: debugFlags.autocomplete });
       }
       return [];
     }
@@ -103,7 +105,8 @@ async function runServerMode() {
     req.on('end', swallowCBPromise(async () => {
       if (req.url === "/autocomplete") {
         const words = parseCommandLine(body);
-        const completes = await runAutoComplete(words);
+        const cwd = [req.headers['x-cwd']].flat()[0] || "";
+        const completes = await runAutoComplete(cwd, words);
         const txt = completes.map(opt => opt.replace(" ", "\\ ").replace(/\n$/m, " ")).map((opt) => opt + "\n").join("");
         res.write(txt);
         res.end();
@@ -153,7 +156,7 @@ run({
       const params = parseCommandLine(process.env.COMP_SLICED_LINE);
 
 
-      const completes = await runAutoComplete(params);
+      const completes = await runAutoComplete(process.cwd(), params);
       for (const complete of completes) {
         console.log(complete.replace(" ", "\\ ").replace(/\n$/m, " "));
       }

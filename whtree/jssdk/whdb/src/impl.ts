@@ -28,6 +28,8 @@ import type { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 import { KyselyInToAnyPlugin } from './kysely-transforms';
 import type { BackendEvents } from '@webhare/services';
 import { escapePGIdentifier } from './metadata';
+import { isError, sleep } from '@webhare/std';
+import { DatabaseError } from '../vendor/postgrejs/src';
 
 export const PGIsolationLevels = ["read committed", "repeatable read", "serializable"] as const;
 
@@ -498,19 +500,32 @@ export function db<T>() {
   return getConnection().db<T>();
 }
 
+// Error codes that trigger retry: https://www.postgresql.org/docs/current/mvcc-serialization-failure-handling.html
+const retryableErrorCodes: Array<string | undefined> = [
+  "40001",  // serialization failure
+  "40P01", // deadlock detected
+];
+
 /** Run a function inside work and commit it
  * @throws If the function throws, the work is rolled back and the exception is rethrown
  */
-export async function runInWork<T>(func: () => T | Promise<T>, options?: WorkOptions): Promise<T> {
-  await beginWork(options);
-  try {
-    const retval = await func();
-    await commitWork();
-    return retval;
-  } catch (e) {
-    if (isWorkOpen())
-      await rollbackWork();
-    throw e;
+export async function runInWork<T>(func: () => T | Promise<T>, options?: WorkOptions & { autoRetry?: boolean; maxRetries?: number }): Promise<T> {
+  const maxRetries = options?.maxRetries ?? 10;
+  for (let tryCount = 1; ; ++tryCount) {
+    await beginWork(options);
+    try {
+      const retval = await func();
+      await commitWork();
+      return retval;
+    } catch (e) {
+      if (isWorkOpen())
+        await rollbackWork();
+
+      if (!options?.autoRetry || tryCount >= maxRetries || !isDatabaseError(e) || !retryableErrorCodes.includes(e.code || ""))
+        throw e;
+      const backupConst = Math.log(100) / 8; // Exponential increase to 100ms in try 8
+      await sleep(Math.min(100, Math.exp(tryCount * backupConst)) * (Math.random() + 0.5)); // Max base out at 100ms, then add [ -50%, +50% ] jitter
+    }
   }
 }
 
@@ -614,6 +629,10 @@ export function finishHandlerFactory<T extends FinishHandler>(obj: new () => T):
 */
 export function __getNewConnection(): WHDBConnection {
   return new WHDBConnectionImpl();
+}
+
+export function isDatabaseError(e: unknown): e is DatabaseError {
+  return isError(e) && e instanceof DatabaseError;
 }
 
 interface NoTable {

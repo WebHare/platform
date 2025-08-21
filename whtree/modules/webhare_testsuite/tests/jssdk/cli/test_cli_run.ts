@@ -554,7 +554,7 @@ async function testCLIAutoCompletion() {
             description: "Destination file",
             type: {
               parseValue: (arg: string) => arg,
-              autoComplete: (arg: string) => ["dest1.txt", "dest2.txt"],
+              autoComplete: (arg: string, opts: { cwd: string }) => opts.cwd === "/" ? ["dest1.txt", "dest2.txt"] : ["dest3.txt", "dest4.txt"]
             },
           },
         ],
@@ -562,56 +562,59 @@ async function testCLIAutoCompletion() {
     },
   };
 
+  const cwd = "/";
+
   // Autocomplete options
-  test.eq(["--1by1\n", "--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"]));
-  test.eq(["--output\n"], runAutoComplete(mockData, ["--o"]));
-  test.eq(["-o\n"], runAutoComplete(mockData, ["-o"]));
-  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output="]));
-  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=f"]));
-  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"]));
+  test.eq(["--1by1\n", "--output\n", "--verbose\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["-"], { cwd }));
+  test.eq(["--output\n"], runAutoComplete(mockData, ["--o"], { cwd }));
+  test.eq(["-o\n"], runAutoComplete(mockData, ["-o"], { cwd }));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output="], { cwd }));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=f"], { cwd }));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"], { cwd }));
 
   // Autocomplete partial options
-  test.eq(["--1by1=1234"], runAutoComplete(mockData, ["--1by1=123"]));
-  test.eq(["--1by1=12345"], runAutoComplete(mockData, ["--1by1=1234"]));
+  test.eq(["--1by1=1234"], runAutoComplete(mockData, ["--1by1=123"], { cwd }));
+  test.eq(["--1by1=12345"], runAutoComplete(mockData, ["--1by1=1234"], { cwd }));
 
   // Autocomplete subcommands
-  test.eq(["check\n", "convert\n"], runAutoComplete(mockData, [""]));
-  test.eq(["convert\n"], runAutoComplete(mockData, ["con"]));
-  test.eq(["convert\n"], runAutoComplete(mockData, ["convert"]));
+  test.eq(["check\n", "convert\n"], runAutoComplete(mockData, [""], { cwd }));
+  test.eq(["convert\n"], runAutoComplete(mockData, ["con"], { cwd }));
+  test.eq(["convert\n"], runAutoComplete(mockData, ["convert"], { cwd }));
 
   // Autocomplete subcommand options
-  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["convert", "-"]));
-  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n"], runAutoComplete(mockData, ["convert", "--"]));
-  test.eq(["--format\n"], runAutoComplete(mockData, ["convert", "--f"]));
-  test.eq(["-f\n"], runAutoComplete(mockData, ["convert", "-f"]));
-  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));
-  test.eq(["--format=json\n"], runAutoComplete(mockData, ["convert", "--format=j"]));
+  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n", "-f\n", "-o\n", "-v\n"], runAutoComplete(mockData, ["convert", "-"], { cwd }));
+  test.eq(["--1by1\n", "--format\n", "--output\n", "--verbose\n"], runAutoComplete(mockData, ["convert", "--"], { cwd }));
+  test.eq(["--format\n"], runAutoComplete(mockData, ["convert", "--f"], { cwd }));
+  test.eq(["-f\n"], runAutoComplete(mockData, ["convert", "-f"], { cwd }));
+  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="], { cwd }));
+  test.eq(["--format=json\n"], runAutoComplete(mockData, ["convert", "--format=j"], { cwd }));
 
   //Lists
-  test.eq(["sub:"], runAutoComplete(mockData, ["check", "sub:123", "sub"]));
-  test.eq(["sub:123\n", "sub:456\n"], runAutoComplete(mockData, ["check", "sub:123", "sub:"]));
+  test.eq(["sub:"], runAutoComplete(mockData, ["check", "sub:123", "sub"], { cwd }));
+  test.eq(["sub:123\n", "sub:456\n"], runAutoComplete(mockData, ["check", "sub:123", "sub:"], { cwd }));
 
   // Autocomplete arguments
-  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["convert", "source"]));
-  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", "dest"]));
+  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["convert", "source"], { cwd }));
+  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", "dest"], { cwd }));
+  test.eq(["dest3.txt\n", "dest4.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", "dest"], { cwd: "/other/" }));
 
   // Handle unknown options
-  test.eq([] as string[], runAutoComplete(mockData, ["--unknown"]));
-  test.eq([], runAutoComplete(mockData, ["convert", "--unknown"]));
+  test.eq([] as string[], runAutoComplete(mockData, ["--unknown"], { cwd }));
+  test.eq([], runAutoComplete(mockData, ["convert", "--unknown"], { cwd }));
 
   // Handle empty input
-  test.eq([], runAutoComplete(mockData, []));
+  test.eq([], runAutoComplete(mockData, [], { cwd }));
 
   // Handle option terminator
-  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["--", "convert", ""]));
-  test.eq([], runAutoComplete(mockData, ["--", "convert", "-"]));
+  test.eq(["source1.txt\n", "source2.txt\n"], runAutoComplete(mockData, ["--", "convert", ""], { cwd }));
+  test.eq([], runAutoComplete(mockData, ["--", "convert", "-"], { cwd }));
 
   // Edge cases
-  test.eq(["file1.txt\n", "file2.txt\n"], runAutoComplete(mockData, ["--output", ""]));
-  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="]));
-  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", ""]));
-  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"]));
-  test.eq(["json\n"], runAutoComplete(mockData, ["convert", "--format", "j"]));
+  test.eq(["file1.txt\n", "file2.txt\n"], runAutoComplete(mockData, ["--output", ""], { cwd }));
+  test.eq(["--format=json\n", "--format=xml\n"], runAutoComplete(mockData, ["convert", "--format="], { cwd }));
+  test.eq(["dest1.txt\n", "dest2.txt\n"], runAutoComplete(mockData, ["convert", "source1.txt", ""], { cwd }));
+  test.eq(["--output=file1.txt\n", "--output=file2.txt\n"], runAutoComplete(mockData, ["--output=file"], { cwd }));
+  test.eq(["json\n"], runAutoComplete(mockData, ["convert", "--format", "j"], { cwd }));
 }
 
 function testAutoCompleteCommandLineParsing() {

@@ -40,22 +40,27 @@ export function dateToParts(date: ValidDateTimeSources): { days: number; msecs: 
   return { days, msecs };
 }
 
+const intlCache = new Map<string, Intl.DateTimeFormat>;
+
 /** @deprecated Switch to Temporal (or use temporal-polyfill) */
 export function utcToLocal(utc: Date, timeZone: string) {
   if (utc.getTime() >= maxDateTimeTotalMsecs || utc.getTime() < defaultDateTime.getTime())
     return utc;
-  // Use the Swedish locale, because it formats dates like `YYYY-MM-DD HH:MM:SS,QQQ`, which is very close the the ISO8601 format needed for reliable parsing.
-  const raw = Intl.DateTimeFormat("sv-SE", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    fractionalSecondDigits: 3,
-  }).format(utc);
-
+  let intl = intlCache.get(timeZone);
+  if (!intl) {
+    // Use the Swedish locale, because it formats dates like `YYYY-MM-DD HH:MM:SS,QQQ`, which is very close the the ISO8601 format needed for reliable parsing.
+    intlCache.set(timeZone, intl = Intl.DateTimeFormat("sv-SE", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      fractionalSecondDigits: 3,
+    }));
+  }
+  const raw = intl.format(utc);
   const toparse = raw.replace(" ", "T").replace(",", ".") + `Z`;
   return new Date(toparse);
 }
