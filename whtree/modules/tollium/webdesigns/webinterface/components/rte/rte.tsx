@@ -228,7 +228,7 @@ export default class ObjRTE extends ComponentBase {
   getSubmitValue() {
     /* We can't become async again unless we figure out how to fix unload-autosave then. */
     const suggestedreturnvalue = this.rte.getValue();
-    if (suggestedreturnvalue === this.restructuredcontent) { //no material change ( FIXME Let the RTD implement this)
+    if (suggestedreturnvalue === this.restructuredcontent && this.untouchedcontent !== null) { //no material change ( FIXME Let the RTD implement this)
       console.log("Returning untouched value");
       return this.untouchedcontent;
     } else {
