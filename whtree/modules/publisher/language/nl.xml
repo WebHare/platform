@@ -1449,6 +1449,7 @@
         <text tid="email_baddomain">Vanwege problemen met het e-mailen naar <param p="1"/> e-mailadressen, willen we je vragen om een alternatief e-mailadres te gebruiken.</text>
         <text tid="email_suggestion">Bedoel je <param p="1"/>?</text>
         <text tid="equalto">De waardes moeten identiek zijn.</text>
+        <text tid="formunavailable">Dit formulier is momenteel niet beschikbaar</text>
         <text tid="integer">De waarde moet een nummer zijn.</text>
         <text tid="length">De waarde moet tussen <param p="1"/> en <param p="2"/> karakters lang zijn.</text>
         <text tid="max">De waarde mag niet groter zijn dan <param p="1"/>.</text>
@@ -2222,15 +2223,19 @@
         <text tid="availabilitytab">Beschikbaarheid</text>
         <text tid="available">Het formulier is beschikbaar</text>
         <text tid="cannotsaveresults">Dit formulier staat niet toe dat de resultaten worden vastgelegd of geëxporteerd</text>
+        <text tid="cursignups">(<param p="1"/> registraties sinds <param p="2"/>)</text>
         <text tid="datalayer">Datalayer</text>
         <text tid="disablecaptcha">Schakel spamcontroles uit voor dit formulier</text>
         <text tid="formid">Formulier ID</text>
         <text tid="formid-aboutvariable">(datalayer variabele: formmeta_id)</text>
         <text tid="general">Algemeen</text>
+        <text tid="maxsignups">Sluit formulier na</text>
+        <text tid="maxsignups-unit">registraties</text>
         <text tid="overwritestoreresults">Stel bewaartermijn in op</text>
         <text tid="settings">Formulierinstellingen</text>
         <text tid="storeresults">Bewaartermijn resultaten</text>
-        <text tid="unavailabletext">Tekst indien niet beschikbaar</text>
+        <text tid="unavailable">Het formulier is niet beschikbaar</text>
+        <text tid="unavailabletext">Tekst indien niet beschikbaar of gesloten</text>
       </textgroup>
     </textgroup>
     <textgroup gid="forum">   <!-- tolliumapps.forum -->

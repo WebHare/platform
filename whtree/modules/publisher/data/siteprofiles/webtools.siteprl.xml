@@ -206,6 +206,7 @@
       <!-- Because the default value is 0 and the default should be "use the server default retention period", the value -1 (or
          any value < 0) is used to signify 0 days (don't store at all) -->
       <integer name="storeresults" />
+      <integer name="maxsignups" />
       <composeddocument name="data" />
       <boolean name="unavailable" />
       <richdocument name="unavailabletext" />
@@ -214,6 +215,11 @@
     <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
   </filetype>
+
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/formstats" cloneoncopy="false">
+    <datetime name="firstresult" />
+    <integer name="numresults" />
+  </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/formcondition">
     <formcondition name="data" />

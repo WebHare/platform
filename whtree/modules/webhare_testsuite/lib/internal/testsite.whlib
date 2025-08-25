@@ -81,6 +81,7 @@ RECORD testformfileoptions := [ js := FALSE
                               , withpayment := STRING[]
                               , jshandler := ""
                               , formid := ""
+                              , maxsignups := 0
                               ];
 
 MACRO SetupMailFeedbackHandler(OBJECT rtdmailhandler, OBJECT formpage, OBJECT emailfield, RECORD options)
@@ -1187,9 +1188,9 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   TestEq(RECORD[], validation.errors);
   TestEq(RECORD[], validation.warnings);
 
-
   //Export the form to disk
   formdefs->SaveToWHFS(formfile);
+  formfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool", [ maxsignups := options.maxsignups ]);
 
   //Try fixing it. We won't save it, but it shouldn't break anything either
   RepairFormIfNeeded(formdef);
