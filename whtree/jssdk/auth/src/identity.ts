@@ -72,6 +72,8 @@ export type ListedToken = {
   expires: Temporal.Instant | null;
   /** Scopes available to this token */
   scopes: string[];
+  /** Client to which the token was provided */
+  client: number | null;
 };
 
 export type SetAuthCookies = {
@@ -229,17 +231,17 @@ export interface JWTVerificationOptions {
 }
 
 export interface VerifyAccessTokenResult {
-  ///wrdId of the found subject
+  /** wrdId of the found subject */
   entity: number;
-  ///authAccountStatus of the found subject, if available
+  /** authAccountStatus of the found subject, if available */
   accountStatus: WRDAuthAccountStatus | null;
-  ///decoded scopes
+  /** decoded scopes */
   scopes: string[];
-  ///client to which the token was provided
+  /** client to which the token was provided */
   client: number | null;
-  ///expiration date
+  /** expiration date */
   expires: Temporal.Instant | null;
-  //id of the used token (refers to wrd.tokens table)
+  /** id of the used token (refers to wrd.tokens table) */
   tokenId: number;
 }
 
@@ -1000,7 +1002,7 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
       fullJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
       fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
       fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
-      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title"]).
+      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title", "wrd.tokens.client"]).
       execute();
 
   if (tokens.length && tokens[0]?.name !== wrdSchema.tag)
@@ -1015,7 +1017,8 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
     created: token.creationdate!.toTemporalInstant(),
     expires: token.expirationdate!.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
     scopes: token.scopes ? token.scopes.split(" ") : [],
-    title: token.title || ''
+    title: token.title || '',
+    client: token.client
   }));
 }
 
