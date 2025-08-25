@@ -18,6 +18,7 @@ function canCastTo(from: HareScriptType, to: HareScriptType): boolean {
 
 //TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob extends WebHareBlob {
+  private static "__ $whTypeSymbol" = "HSVMBlob";
   blob: HSVMHeapVar | null;
   offset: number;
   sliced: boolean;

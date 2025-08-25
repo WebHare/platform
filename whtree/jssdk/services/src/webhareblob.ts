@@ -6,15 +6,14 @@ import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
-import { brandWebhareBlob } from "./symbols";
 import "./blob.d.ts";
 import { readableToWeb } from "@webhare/zip/src/nodestreamsupport.ts";
+import { getWHType } from "@webhare/std/quacks.ts";
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob implements Blob {
   private readonly _size: number;
   private readonly _type: string;
-  private [brandWebhareBlob] = true;
 
   constructor(size: number, type: string) {
     this._size = size;
@@ -22,7 +21,11 @@ export abstract class WebHareBlob implements Blob {
   }
 
   static isWebHareBlob(thingy: unknown): thingy is WebHareBlob {
-    return Boolean((thingy as WebHareBlob)?.[brandWebhareBlob]);
+    if (thingy instanceof WebHareBlob)
+      return true;
+
+    const type = getWHType(thingy);
+    return Boolean(type === "HSVMBlob" || type?.match(/^WebHare.*Blob$/));
   }
 
   /** Create a in-memory WebHareBlob from a string or buffer */
@@ -112,6 +115,7 @@ export abstract class WebHareBlob implements Blob {
 }
 
 export class WebHareMemoryBlob extends WebHareBlob {
+  private static "__ $whTypeSymbol" = "WebHareMemoryBlob";
   readonly data: Uint8Array;
 
   constructor(data: Uint8Array, type = "") {
@@ -142,6 +146,7 @@ export class WebHareMemoryBlob extends WebHareBlob {
 }
 
 export class WebHareDiskBlob extends WebHareBlob {
+  private static "__ $whTypeSymbol" = "WebHareDiskBlob";
   readonly path: string;
   readonly offset: number;
 
@@ -181,6 +186,7 @@ export class WebHareDiskBlob extends WebHareBlob {
  * @deprecated APIs you want to invoke with a WebHareNativeBlob should probably take a Blob instead
 */
 export class WebHareNativeBlob extends WebHareBlob {
+  private static "__ $whTypeSymbol" = "WebHareNativeBlob";
   readonly blob: Blob;
 
   constructor(blob: Blob) {
