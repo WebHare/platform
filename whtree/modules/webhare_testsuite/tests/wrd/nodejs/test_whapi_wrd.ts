@@ -4,6 +4,7 @@ import { WRDSchema } from "@webhare/wrd";
 import { createFirstPartyToken } from "@webhare/auth";
 import { getDirectOpenAPIFetch } from "@webhare/openapi-service";
 import { OpenAPIApiClient } from "@mod-platform/generated/openapi/platform/api";
+import { omit } from "@webhare/std";
 
 let apiSysopToken = '';
 const jsAuthSchema = new WRDSchema<JsschemaSchemaType>("webhare_testsuite:testschema");
@@ -84,8 +85,52 @@ async function testWRDAPI() {
 
     test.eq(204, updateResult.status);
   }
-}
 
+  { //list types
+    const listResult = await api.get("/wrd/{schema}/type", { params: { schema: "webhare_testsuite:testschema" } });
+    test.assert(listResult.status === 200, `Expected 200 got ${listResult.status}`);
+    test.eq({ metaType: "domain" }, listResult.body.whuserUnit);
+  }
+
+  { //test API key setup
+    const testunit = await api.post("/wrd/{schema}/type/{type}/query", {
+      filters: [{ field: "wrdTag", matchType: "=", value: "TESTFW_TESTUNIT" }],
+      fields: ["wrdGuid"]
+    }, { params: { schema: "webhare_testsuite:testschema", type: "whuserUnit" } });
+    test.assert(testunit.status === 200 && testunit.body.results.length === 1);
+
+    const unitguid = (testunit.body.results[0] as { wrdGuid: string }).wrdGuid;
+
+    const apiKey1 = await api.post("/wrd/{schema}/type/{type}/entity/{entity}/apitoken", {}, {
+      params: {
+        schema: "webhare_testsuite:testschema",
+        type: "whuserUnit",
+        entity: unitguid
+      }
+    });
+
+    test.assert(apiKey1.status === 201);
+    test.eqPartial({ token: /^secret-token:/, expires: /^2.*/ }, apiKey1.body);
+
+    const apiKey2 = await api.post("/wrd/{schema}/type/{type}/entity/{entity}/apitoken", { title: "second api key", expires: null, scopes: ["system:sysop"] }, {
+      params: {
+        schema: "webhare_testsuite:testschema",
+        type: "whuserUnit",
+        entity: unitguid
+      }
+    });
+    test.assert(apiKey2.status === 201);
+    test.eqPartial({ token: /^secret-token:/, expires: undefined }, apiKey2.body);
+
+    // List current API keys
+    const keys = await api.get("/wrd/{schema}/type/{type}/entity/{entity}/apitoken", {
+      params: { schema: "webhare_testsuite:testschema", type: "whuserUnit", entity: unitguid }
+    });
+
+    test.assert(keys.status === 200);
+    test.eq(omit([apiKey1.body, apiKey2.body], ["token"]), keys.body);
+  }
+}
 
 test.runTests([
   setup,

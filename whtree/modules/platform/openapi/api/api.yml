@@ -37,22 +37,28 @@ paths:
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "wrd.ts#getSchemas"
 
+  "/wrd/{schema}/type":
+    get:
+      description: List the WRD types in a schema
+      parameters:
+        - $ref: "#/components/parameters/xschema"
+      responses:
+        "200":
+          description: The types
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Types"
+      x-webhare-implementation: "wrd.ts#listTypes"
+
   # we are reservering /wrd/{schema} for the actual schema metadata but we don't have a YAML/JSON structure yet
   # we are reservering /wrd/{schema}/query for joining queries
   "/wrd/{schema}/type/{type}/query":
     post:
       description: Query call
       parameters:
-        - in: path
-          name: schema
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/xschema"
+        - $ref: "#/components/parameters/type"
       requestBody:
         description: The query
         required: true
@@ -77,16 +83,8 @@ paths:
       # TODO we could offer an importMode parameter OR an import endpoint. but do we even want external users to use importMode? eg sync won't require it as its a pull interface and using Temp entities may be safer anyway
       description: Create a new WRD entity
       parameters:
-        - in: path
-          name: schema
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/xschema"
+        - $ref: "#/components/parameters/type"
       requestBody:
         description: The entity data to import
         required: true
@@ -109,22 +107,9 @@ paths:
       # TODO we could offer an importMode parameter OR an import endpoint. but do we even want external users to use importMode? eg sync won't require it as its a pull interface and using Temp entities may be safer anyway
       description: Update an entity
       parameters:
-        - in: path
-          name: schema
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
-        - in: path
-          description: wrdGuid of the entity to update
-          name: entity
-          required: true
-          schema:
-            type: string
+        - $ref: "#/components/parameters/xschema"
+        - $ref: "#/components/parameters/type"
+        - $ref: "#/components/parameters/entity"
       requestBody:
         description: The entity data to import
         required: true
@@ -138,8 +123,80 @@ paths:
           description: The entity is updated
       x-webhare-implementation: "wrd.ts#updateEntity"
 
+  "/wrd/{schema}/type/{type}/entity/{entity}/apitoken":
+    get:
+      description: List API tokens owned by the entity
+      parameters:
+        - $ref: "#/components/parameters/xschema"
+        - $ref: "#/components/parameters/type"
+        - $ref: "#/components/parameters/entity"
+      responses:
+        "200":
+          description: The list of API tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiToken"
+        "404":
+          description: The entity is not found
+      x-webhare-implementation: "wrd.ts#listApiTokens"
+
+    post:
+      description: Create a new API token for the entity
+      parameters:
+        - $ref: "#/components/parameters/xschema"
+        - $ref: "#/components/parameters/type"
+        - $ref: "#/components/parameters/entity"
+      requestBody:
+        description: The API token data
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiTokenBody"
+
+      responses:
+        "201":
+          description: The created API token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedApiToken"
+        "404":
+          description: The entity is not found
+      x-webhare-implementation: "wrd.ts#createApiToken"
+
 components:
+  parameters:
+    xschema: # Prefixed with 'x' otherwise openapi-typescript doesn't pick it up
+      in: path
+      name: schema
+      required: true
+      schema:
+        type: string
+        description: WRD schema name (generally `module:schema` with `:` encoded as `%3A` in the final URL)
+
+    type:
+      in: path
+      name: type
+      required: true
+      schema:
+        type: string
+        description: WRD type name, camel-cased
+
+    entity:
+      in: path
+      name: entity
+      required: true
+      schema:
+        type: string
+        description: wrdGuid of the affected entity (UUID format)
+        format: uuid
+
   schemas:
+    ## Global types
     defaulterror: # This schema must be declared to use TypedRestRequest.createErrorResponse in TypeScript
       type: object
       properties:
@@ -166,6 +223,11 @@ components:
         email:
           type: string
           description: The email address of the user
+
+    ## WRD API
+    MetaType:
+      type: string
+      enum: [object, attachment, link, domain]
 
     WRDSchema:
       type: object
@@ -215,6 +277,21 @@ components:
           description: The new entity's guid
           format: uuid
 
+    Type:
+      type: object
+      additionalProperties: false
+      required:
+        - metaType
+      properties:
+        metaType:
+          $ref: "#/components/schemas/MetaType"
+
+    Types:
+      type: object
+      #patternProperties: # "^[a-z][A-Z0-9_]{0,63}$": # the type's camelcased tag TODO not supported by openapi=typescript but see https://github.com/openapi-ts/openapi-typescript/pull/2288/files
+      additionalProperties: # the type's camelcased tag
+        $ref: "#/components/schemas/Type"
+
     TypeQuery:
       type: object
       additionalProperties: false
@@ -246,6 +323,8 @@ components:
     TypeQueryResult:
       type: object
       additionalProperties: false
+      required:
+        - results
       properties:
         results:
           type: array
@@ -253,6 +332,50 @@ components:
           type: string
           nullable: true
           description: A token for pagination, if applicable
+
+    CreateApiTokenBody:
+      type: object
+      additionalProperties: false
+      properties:
+        title:
+          type: string
+          description: A title for the API token
+          maxLength: 256
+        scopes:
+          type: array
+          items:
+            type: string
+          description: The scopes for the API token
+        expires:
+          type: string
+          format: date-time
+          nullable: true
+
+    ApiToken:
+      type: object
+      required: [created]
+      properties:
+        created:
+          type: string
+          format: date-time
+          nullable: true
+        expires:
+          type: string
+          format: date-time
+        title:
+          type: string
+
+    CreatedApiToken: # ApiToken extended with the actual token
+      type: object
+      allOf:
+        - "$ref": "#/components/schemas/ApiToken"
+        - type: object
+          required: [token]
+          properties:
+            token:
+              type: string
+              description: The created API token
+      unevaluatedProperties: false
 
   securitySchemes:
     bearerAuth:
