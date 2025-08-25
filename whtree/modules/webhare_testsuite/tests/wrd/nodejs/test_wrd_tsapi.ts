@@ -974,6 +974,8 @@ async function testMetaData() {
   test.eq("newType", newType.tag);
   await test.throws(/tag.*is not unique/, wrdschema.createType("newType", { metaType: "object" }));
 
+  test.eqPartial({ metaType: "object" }, (await wrdschema.listTypes()).find(type => type.tag === "newType"));
+
   await whdb.rollbackWork();
 }
 
