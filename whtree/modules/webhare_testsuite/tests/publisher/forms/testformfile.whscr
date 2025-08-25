@@ -752,8 +752,8 @@ ASYNC MACRO SetFormStateThroughApp(OBJECT formfile, BOOLEAN open_it)
   print("in edit\n");
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
   print("in settings\n");
-  TestEq(NOT open_it, TT("available")->value, "Expect inverse 'openit' value");
-  TT("available")->value := open_it;
+  TestEq(open_it ? "unavailable" : "available", TT("availability")->value, "Expect inverse 'openit' value");
+  TT("availability")->value := open_it ? "available" : "unavailable";
   IF(NOT open_it)
     TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>Temporarily closed</p>") ];
 

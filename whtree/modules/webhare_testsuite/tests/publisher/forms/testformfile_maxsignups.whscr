@@ -1,0 +1,72 @@
+<?wh
+
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::xml/dom.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+LOADLIB "mod::publisher/lib/testframework.whlib";
+LOADLIB "mod::publisher/lib/forms/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+//to open: https://webhare.moe.sf.webhare.nl/?app=publisher:edit(/WebHare%20testsuite%20site/webtools/form)
+
+MACRO BuildForm() {
+  BuildWebtoolForm([ maxsignups := 2
+                   , emailfieldname := "email"
+                   ]);
+}
+
+ASYNC MACRO TestMaxSignupForm() {
+  OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
+  IF(testfw->debug)
+    Print('Form URL: ' || formfile->url||'\n');
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+
+  OBJECT tester;
+  RECORD res, stats;
+
+  tester := OpenFormsapiFormTester(testfw->browser);
+  res := tester->SubmitForm(CELL[ email := "signup1@beta.webhare.net"
+                                       ]);
+
+  stats := formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formstats");
+  TestEq(1, stats.numresults);
+  TestAssert(stats.firstresult >= AddDaysToDate(-1, GetCurrentDatetime()));
+
+  res := tester->SubmitForm(CELL[ email := "signup2@beta.webhare.net"
+                                ]);
+
+  //This shouldn't technically block the form
+  TestEq(FALSE, formfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool").unavailable);
+
+  //But it's still preventing submission
+  TestEqLike("*signups*reached*", tester->SubmitForm(CELL[ email := "signup3@beta.webhare.net"
+                                                         ]).errors[0].message);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(formfile->url));
+  TestEqLike("*signups*reached*", testfw->browser->QS("#content")->textcontent);
+  TestEq(FALSE, ObjectExists(testfw->browser->QS("form")));
+
+  //And showing itself locked in the app
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ calltype := "direct", params := STRING[ formfile->whfspath ], target := DEFAULT RECORD ]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Form settings", [menuitem:=TRUE]));
+  TestEq("maxsignups", TT("availability")->value);
+  TT("unavailabletext")->value := [ htmltext := StringToBlob("<p>too many signups</p>") ];
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
+  AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+RunTestframework([ PTR BuildForm
+                 , PTR TestMaxSignupForm
+                 ],[ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                  ]
+                 ]);

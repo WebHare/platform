@@ -1417,7 +1417,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormPage EXTEND WebPageBase
 
     IF(ObjectExists(this->form))
     {
-      IF(NOT this->form->IsAvailable())
+      IF(RecordExists(this->form->unavailabletext)) //if the text is set, assume unavailable
         RETURN this->webdesign->GetRTDBody(this->form->unavailabletext);
 
       // __MaybeConfirmResult returns false if invalid confirmation data was supplied or if the result cannot be confirmed

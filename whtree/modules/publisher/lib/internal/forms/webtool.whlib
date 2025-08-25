@@ -18,9 +18,10 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
-PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
-<
+
+PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
   RECORD ARRAY formhandlers;
   OBJECT pvt_results;
   STRING pvt_editguid;
@@ -30,6 +31,8 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   OBJECT captchaquestion;
   RECORD captchasettings;
   BOOLEAN __didpreparehandlers;
+  RECORD pvt_formsettings;
+  OBJECT pvt_statstype;
 
   PUBLIC PROPERTY formresults(GetFormResults, -);
 
@@ -42,20 +45,27 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   MACRO NEW()
   {
     this->formvariables := CELL[...this->formvariables, formsubmittype := "new" ];
+    this->pvt_statstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formstats");
+    this->pvt_formsettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(this->__form.webtoolformid);
 
     // TODO Optimize/cache ?  We could've gotten this information when loading the form I think... or we should just do the formload here ?
     IF(ObjectExists(this->formcontext))
     {
-      RECORD formsettings := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formwebtool")->GetInstanceData(this->__form.webtoolformid);
-      IF(NOT formsettings.disablecaptcha)
+      IF(NOT this->pvt_formsettings.disablecaptcha)
       {
         OBJECT formintegrationplugin := this->formcontext->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile", "formintegration");
         IF(ObjectExists(formintegrationplugin) AND formintegrationplugin->usecaptcha)
           this->captchaquestion := this->AppendFormField(DEFAULT OBJECT, "http://www.webhare.net/xmlns/publisher/forms#captcha", "__webtoolform__captcha");
 
       }
-      IF(formsettings.unavailable)
-        this->unavailabletext := formsettings.unavailabletext;
+
+      IF(this->pvt_formsettings.unavailable)
+        this->unavailabletext := this->pvt_formsettings.unavailabletext ?? [ htmltext := StringToBlob(`<html><body><p>${GetHTMLTid("publisher:site.forms.commonerrors.formunavailable")}</p></body></html>`) ];
+      ELSE IF(this->pvt_formsettings.maxsignups > 0) {
+        RECORD stats := this->pvt_statstype->GetInstanceData(this->__form.webtoolformid);
+        IF(stats.numresults >= this->pvt_formsettings.maxsignups)
+          this->unavailabletext := this->pvt_formsettings.unavailabletext ?? [ htmltext := StringToBlob(`<html><body><p>${GetHTMLTid("publisher:site.forms.commonerrors.maxsignupsreached")}</p></body></html>`) ];
+      }
     }
 
     IF(RecordExists(this->unavailabletext))
@@ -94,9 +104,8 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   }
 
   ///Returns true if the form is normally available
-  PUBLIC BOOLEAN FUNCTION IsAvailable()
-  {
-    RETURN NOT RecordExists(this->unavailabletext);
+  PUBLIC BOOLEAN FUNCTION IsAvailable() {
+    RETURN NOT this->pvt_formsettings.unavailable; //We only check for direct unavailable to block in-pprogress forms (TODO we should consider just reporting a toplevel error for forms becoming unavailable after rendering)
   }
 
   //Prepare form for use in the frontend (either rendering or for result data)
@@ -335,8 +344,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
   }
 
   // Let the form handlers process the form results after submission
-  RECORD FUNCTION Submit(RECORD extradata)
-  {
+  RECORD FUNCTION Submit(RECORD extradata) {
     IF(NOT this->IsAvailable())
       THROW NEW Exception("This form is currently unavailable");
 
@@ -364,6 +372,9 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     FOREVERY(RECORD handler FROM activehandlers)
       IF (NOT work->HasFailed())
         handler.handlerobject->PrepareSubmit(work);
+
+    RECORD stats := this->pvt_statstype->GetInstanceData(this->__form.webtoolformid);
+    BOOLEAN nospotsleft := this->pvt_formsettings.maxsignups > 0 AND stats.numresults >= this->pvt_formsettings.maxsignups;
 
     // Run the e-mail confirmation task first before we actually start submitting things
     RECORD confirmationhandler := SELECT * FROM activehandlers WHERE handlerobject->IsConfirmationHandler();
@@ -393,6 +404,12 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
       }
     }
 
+    IF(nospotsleft AND this->formsubmittype NOT IN ["pending","cancel"]) {
+      work->AddError(GetTid("publisher:site.forms.commonerrors.maxsignupsreached"));
+      work->Finish();
+      RETURN DEFAULT RECORD;
+    }
+
     // If the WebtoolFormPage submit handler hasn't failed and this isn't a duplicate submission, run the store results handler
     IF (NOT work->HasFailed() AND this->formsubmittype = "confirm")
     {
@@ -413,6 +430,11 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase
     IF (this->formsubmittype NOT IN [ "pending", "duplicate" ] // don't run handlers for pending or duplicate submissions
         AND NOT work->HasFailed())
     {
+      RECORD upd := [ numresults := stats.numresults + 1];
+      IF(stats.firstresult = DEFAULT DATETIME)
+        INSERT CELL firstresult := GetCurrentDatetime() INTO upd;
+      this->pvt_statstype->SetInstanceData(this->__form.webtoolformid, upd);
+
       // If the store handler hasn't failed, schedule a task for each handler
       this->__RunPostStorageHandlers(activehandlers, extradata);
     }

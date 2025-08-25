@@ -18,6 +18,7 @@ LOADLIB "mod::publisher/tolliumapps/formedit/formcomponentapi.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/mail/mergefields.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -1619,8 +1620,13 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
 
     ^disablecaptcha->visible := RecordExists(formsettings) AND formsettings.usecaptcha;
     ^disablecaptcha->value := this->settings.disablecaptcha;
-    ^available->value := NOT this->settings.unavailable;
+    ^availability->value := this->settings.unavailable ? "unavailable" : this->settings.maxsignups > 0 ? "maxsignups" : "available";
     ^unavailabletext->value := this->settings.unavailabletext;
+    ^maxsignups->value := this->settings.maxsignups;
+
+    RECORD formstats := OpenWHFSType("http://www.webhare.net/xmlns/publisher/formstats")->GetInstanceData(this->contexts->editdocumentapi->baseobject);
+    IF(formstats.numresults > 0)
+      ^cursignups->value := this->GetTid(".cursignups", ToString(formstats.numresults), this->tolliumuser->FormatDatetime(formstats.firstresult, "minutes", TRUE, TRUE));
 
     ^tabs->extendposition := Length(^tabs->pages);
     ^tabs->insertpoints :=
@@ -1650,11 +1656,6 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
   //
   // Callbacks
   //
-  MACRO OnAvailableChange()
-  {
-    ^unavailabletext->enabled := ^available->value = FALSE;
-  }
-
   BOOLEAN FUNCTION Submit()
   {
     OBJECT feedback := this->BeginFeedback();
@@ -1684,7 +1685,8 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
               // If the value is 0, storeresults is saved as -1; for the default value, storeresults is saved as 0
             , storeresults := ^overwritestoreresults->value ? (^storeresults->value = 0 ? -1 : ^storeresults->value) : 0
             , unavailabletext := ^unavailabletext->value
-            , unavailable := NOT ^available->value
+            , unavailable := ^availability->value = "unavailable"
+            , maxsignups := ^availability->value IN [ "unavailable", "maxsignups" ] ? ^maxsignups->value : 0
             ];
     IF(^disablecaptcha->enabled)
       instancedata.disablecaptcha := ^disablecaptcha->value;
