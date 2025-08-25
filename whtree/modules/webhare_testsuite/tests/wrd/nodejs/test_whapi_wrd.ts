@@ -49,7 +49,7 @@ async function testWRDAPI() {
       },
     });
 
-    test.eq(201, createResult.status, "Expected to create a new wrdPerson via API");
+    test.assert(createResult.status === 201, "Expected to create a new wrdPerson via API");
     test.assert(createResult.body.wrdGuid, "Expected to get a wrdGuid back from API");
 
     //FIXME verify basic nexttoken/limit support

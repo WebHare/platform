@@ -16,7 +16,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Meta"
-        '401':
+        "401":
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "meta.ts#getMeta"
 
@@ -31,7 +31,9 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/WRDSchema"
-        '401':
+        "400":
+          $ref: "#/components/responses/unauthorized"
+        "401":
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "wrd.ts#getSchemas"
 
@@ -66,7 +68,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/TypeQueryResult"
-        '401':
+        "401":
           $ref: "#/components/responses/unauthorized"
       x-webhare-implementation: "wrd.ts#queryType"
 
@@ -138,6 +140,14 @@ paths:
 
 components:
   schemas:
+    defaulterror: # This schema must be declared to use TypedRestRequest.createErrorResponse in TypeScript
+      type: object
+      properties:
+        error:
+          type: string
+        status:
+          type: number
+
     Meta:
       type: object
       additionalProperties: false
@@ -161,7 +171,7 @@ components:
       type: object
       additionalProperties: false
       required:
-      - tag
+        - tag
       properties:
         tag:
           type: string
@@ -215,9 +225,9 @@ components:
             type: object
             additionalProperties: false
             required:
-            - field
-            - matchType
-            - value
+              - field
+              - matchType
+              - value
             properties:
               field:
                 type: string
