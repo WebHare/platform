@@ -91,7 +91,7 @@ async function setupWHAPITest() {
   await runInWork(() => deleteToken(jsAuthSchema, tokens[0].id));
   test.eq(3, (await listTokens(jsAuthSchema, test.getUser("sysop").wrdId)).length);
 
-  await test.throws(/No such .* system:usermgmt/, () => createFirstPartyToken(systemUsermgmtSchema, "id", test.getUser("sysop").wrdId));
+  await test.throws(/is not in.*system:usermgmt/, () => createFirstPartyToken(systemUsermgmtSchema, "id", test.getUser("sysop").wrdId));
   infiniteToken = await createFirstPartyToken(jsAuthSchema, "api", test.getUser("sysop").wrdId, { expires: Infinity, scopes: ["system:sysop"] });
   test.eq(null, infiniteToken.expires);
 

@@ -21,6 +21,7 @@ import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
 import { AuthenticationSettings } from "@webhare/wrd";
+import { getGuidForEntity } from "@webhare/wrd/src/accessors";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 
@@ -488,7 +489,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Schema '${this.wrdschema.tag}' is not configured for WRD Authentication - accountType not set`);
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
-    const subjectValue = (await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, subject, [subfield]))?.[subfield] as string;
+    const subjectValue = subfield === "wrdGuid"
+      ? await getGuidForEntity(subject) // faster and doesn't enforce a accountType dependency if a there's not clientInfo and thus no configuration anyway
+      : (await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, subject, [subfield]))?.[subfield] as string;
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 

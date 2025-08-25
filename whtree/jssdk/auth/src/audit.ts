@@ -60,8 +60,8 @@ async function describeActingEntity(user: number, requireAuthInfo: boolean) {
   let actorInfo;
 
   if (authsettings?.accountType && authsettings.loginAttribute)
-    actorInfo = await actorSchema.getFields(authsettings.accountType, user, { login: authsettings.loginAttribute }, { historyMode: requireAuthInfo ? "now" : "all" });
-  else if (requireAuthInfo)
+    actorInfo = await actorSchema.getFields(authsettings.accountType, user, { login: authsettings.loginAttribute }, { historyMode: requireAuthInfo ? "now" : "all", allowMissing: true });
+  if (!actorInfo && requireAuthInfo)
     throw new Error(`Actor ${user}'s schema does not have authentication settings`);
 
   return {
@@ -142,7 +142,7 @@ export async function writeAuthAuditEvent<S extends SchemaTypeDefinition, Type e
   const actionBy = event.actionBy ? event.actionBy === event.impersonatedBy ? impersonatedBy : await describeActingEntity(event.actionBy, true) : null;
 
   if (accountInfo && accountInfo.wrdSchema !== wrdSchema.tag)
-    throw new Error(`Account #${event.entity} is not in schema ${wrdSchema.tag}`);
+    throw new Error(`Entity #${event.entity} is not in schema ${wrdSchema.tag}`);
 
   const toInsert: Insertable<PlatformDB, "wrd.auditevents"> = {
     creationdate: new Date,
