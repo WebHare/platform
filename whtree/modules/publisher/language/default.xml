@@ -1450,6 +1450,7 @@
         <text tid="email_baddomain">Due to difficulties with mailing to <param p="1"/> email addresses we kindly request you to use an alternative email provider.</text>
         <text tid="email_suggestion">Did you mean <param p="1"/>?</text>
         <text tid="equalto">This value should be the same.</text>
+        <text tid="formunavailable">This form is currently unavailable</text>
         <text tid="integer">This value should be a valid integer.</text>
         <text tid="length">This value length is invalid. It should be between <param p="1"/> and <param p="2"/> characters long.</text>
         <text tid="max">This value should be lower than or equal to <param p="1"/>.</text>
@@ -1457,6 +1458,7 @@
         <text tid="maxcheck">You must select <ifparam p="1" value="1">1 choice<else/><param p="1"/> choices</ifparam> or fewer.</text>
         <text tid="maxheight">The image is too big. It should be at most <param p="2"/> pixels high.</text>
         <text tid="maxlength">This value is too long. It should have <ifparam p="1" value="1">1 character<else/><param p="1"/> characters</ifparam> or fewer.</text>
+        <text tid="maxsignupsreached">The maximum number of signups has been reached</text>
         <text tid="maxwidth">The image is too big. It should be at most <param p="2"/> pixels wide.</text>
         <text tid="min">This value should be greater than or equal to <param p="1"/>.</text>
         <text tid="minarray">You must add at least <ifparam p="1" value="1">1 item<else/><param p="1"/> items</ifparam>.</text>
@@ -2223,15 +2225,19 @@
         <text tid="availabilitytab">Availability</text>
         <text tid="available">The form is available</text>
         <text tid="cannotsaveresults">This form does not allow to store or export its results</text>
+        <text tid="cursignups">(<param p="1"/> registrations since <param p="2"/>)</text>
         <text tid="datalayer">Datalayer</text>
         <text tid="disablecaptcha">Disable spamchecks for this form</text>
         <text tid="formid">Form ID</text>
         <text tid="formid-aboutvariable">(datalayer variable: formmeta_id)</text>
         <text tid="general">General</text>
+        <text tid="maxsignups">Close form after</text>
+        <text tid="maxsignups-unit">registrations</text>
         <text tid="overwritestoreresults">Set retention period to</text>
         <text tid="settings">Form settings</text>
         <text tid="storeresults">Result retention period</text>
-        <text tid="unavailabletext">Text if unavailable</text>
+        <text tid="unavailable">The form is unavailable</text>
+        <text tid="unavailabletext">Text if unavailable or closed</text>
       </textgroup>
     </textgroup>
     <textgroup gid="forum">   <!-- tolliumapps.forum -->
