@@ -105,7 +105,7 @@ PUBLIC STATIC OBJECTTYPE WebtoolFormBase EXTEND FormBase <
 
   ///Returns true if the form is normally available
   PUBLIC BOOLEAN FUNCTION IsAvailable() {
-    RETURN NOT this->pvt_formsettings.unavailable; //We only check for direct unavailable to block in-pprogress forms (TODO we should consider just reporting a toplevel error for forms becoming unavailable after rendering)
+    RETURN NOT this->pvt_formsettings.unavailable; //We only check for direct unavailable to block in-progress forms (TODO we should consider just reporting a toplevel error for forms becoming unavailable after rendering)
   }
 
   //Prepare form for use in the frontend (either rendering or for result data)
