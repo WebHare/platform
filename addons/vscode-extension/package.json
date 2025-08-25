@@ -36,7 +36,7 @@
 				"aliases": [
 					"HareScript"
 				],
-				"configuration": "./filetypes/harescript.language-configuration.json"
+				"configuration": "./filetypes/harescript/harescript.language-configuration.json"
 			},
 			{
 				"id": "witty-template",

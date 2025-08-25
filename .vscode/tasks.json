@@ -7,9 +7,22 @@
   },
   "tasks": [
     {
-      "label": "Compile VSCode Extension",
+      "label": "Compile WebHare VSCode Extension",
       "type": "shell",
       "command": "/bin/bash whtree/modules/devkit/scripts/whcommands/vscode-extension.sh compile",
+      "group": "build",
+      "presentation": {
+        "panel": "dedicated",
+        "reveal": "always"
+      },
+      // "problemMatcher": [
+      // 	"$tsc"
+      // ]
+    },
+    {
+      "label": "Install WebHare VSCode Extension",
+      "type": "shell",
+      "command": "/bin/bash whtree/modules/devkit/scripts/whcommands/vscode-extension.sh install",
       "group": "build",
       "presentation": {
         "panel": "dedicated",
