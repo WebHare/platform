@@ -171,7 +171,7 @@ async function testTypedClient() {
 async function testUntypedClient() {
   const testAPIService = rpc<any>(`${backendConfig.backendURL}.wh/rpc/webhare_testsuite/testapi/`);
 
-  //Verify even an unknown client is known to return Promiwes
+  //Verify even an unknown client is known to return Promises
   const echoResult = testAPIService.echo(getTypedStringifyableData());
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   echoResult satisfies Promise<any>;

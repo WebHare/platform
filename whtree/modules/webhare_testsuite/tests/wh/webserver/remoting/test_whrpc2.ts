@@ -11,7 +11,7 @@ test.runTests(
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthclient.complexResultsSlow({ x: 42 }));
 
-      //Verify even an unknown client is known to return Promiwes
+      //Verify even an unknown client is known to return Promises
       const echoResult = testnoauthclient.echo('Hi 2');
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       echoResult satisfies Promise<any>;
