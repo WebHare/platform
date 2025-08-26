@@ -1,11 +1,11 @@
 // @webhare/cli: Control WebHare users and rights
 
-import { WRDSchema } from '@webhare/wrd/src/schema';
+import { WRDSchema, type AnyWRDSchema } from '@webhare/wrd/src/schema';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import type { HSVMObject } from '@webhare/harescript/src/harescript';
 import { backendConfig, importJSObject } from '@webhare/services';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { compressUUID, createFirstPartyToken, IdentityProvider } from "@webhare/auth/src/identity";
+import { compressUUID, createFirstPartyToken, IdentityProvider, type AuthTokenOptions } from "@webhare/auth/src/identity";
 import { getSchemaSettings, isValidWRDTag } from '@webhare/wrd';
 import type { System_UsermgmtSchemaType, WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
 import { pick } from '@webhare/std';
@@ -30,17 +30,28 @@ async function describeIdp(schema: WRDSchema<WRD_IdpSchemaType>) {
   };
 }
 
-async function getCustomizerForURL(wrdSchema: string, url: string): Promise<AuthCustomizer | null> {
-  const prepped = await prepAuthForURL(url, null);
-  if ("error" in prepped)
-    throw new Error(prepped.error);
-  if (prepped.settings.wrdSchema !== wrdSchema)
-    throw new Error(`WRD schema mismatch: expected ${wrdSchema}, got ${prepped.settings.wrdSchema} from URL`);
+async function lookupLogin(wrdSchema: AnyWRDSchema | null, username: string, url: string | null) {
+  let customizer;
+  if (url) {
+    const prepped = await prepAuthForURL(url, null);
+    if ("error" in prepped)
+      throw new Error(prepped.error);
+    if (!wrdSchema)
+      wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
+    else if (prepped.settings.wrdSchema !== wrdSchema.tag)
+      throw new Error(`WRD schema mismatch: expected ${wrdSchema.tag}, got ${prepped.settings.wrdSchema} from URL`);
 
-  if (prepped.settings.customizer)
-    return await importJSObject<AuthCustomizer>(prepped.settings.customizer);
-  else
-    return null; //no customizer set, so we can't do anything
+    if (prepped.settings.customizer)
+      customizer = await importJSObject<AuthCustomizer>(prepped.settings.customizer);
+  } else if (!wrdSchema)
+    throw new Error(`URL not specified`);
+
+  const idp = new IdentityProvider(wrdSchema);
+  let entityId = await idp.lookupUser(await idp.getAuthSettings(true), username, customizer || undefined);
+  if (!entityId && username.match(/^0-9+$/)) //looks numeric
+    entityId = parseInt(username);
+
+  return { entityId, customizer, wrdSchema };
 }
 
 run({
@@ -112,12 +123,9 @@ run({
       },
       arguments: [{ name: "<username>", description: "User name" }],
       main: async ({ opts, args }) => {
-        const wrdSchema = await getUserApiSchemaName(opts);
-        const customizer = opts.url ? await getCustomizerForURL(wrdSchema, opts.url) : null;
-        const idp = new IdentityProvider(new WRDSchema(wrdSchema));
-        const result = await idp.lookupUser(await idp.getAuthSettings(true), args.username, customizer || undefined);
-        console.log(result);
-        return result ? 0 : 1;
+        const { entityId } = await lookupLogin(new WRDSchema(await getUserApiSchemaName(opts)), args.username, opts.url || null);
+        console.log(entityId);
+        return entityId ? 0 : 1;
       }
     },
     "describe-login": {
@@ -125,25 +133,21 @@ run({
       options: {
         "url": { description: "Target URL to get wrdauth and customizer settings" }
       },
-      arguments: [{ name: "<entity>", description: "Entity ID" }], //TODO also support actual login names and log lookupUsername. assume any integer has to be a wrdId ?
+      arguments: [{ name: "<entity>", description: "Entity login or ID" }],
       main: async ({ opts, args }) => {
         if (!opts.url)
           throw new Error("You must specify a --url to get the frontend user info"); //but hopefully in the future wrdAuth is smart enough to make this optional. it rarely matters anyway
 
-        const auth = await prepAuthForURL(opts.url, null);
-        if ("error" in auth)
-          throw new Error(auth.error);
-        if (!auth.settings.customizer)
+        const { customizer, entityId, wrdSchema } = await lookupLogin(null, args.entity, opts.url);
+        if (!customizer?.onFrontendUserInfo)
           throw new Error("No customizer or getFrontendUserInfo function defined for this schema");
-
-        const customizer = await importJSObject<AuthCustomizer>(auth.settings.customizer);
-        if (!customizer.onFrontendUserInfo)
-          throw new Error("Customizer does not implement onFrontendUserInfo");
+        if (!entityId)
+          throw new Error(`User '${args.entity}' not found`);
 
         const frontendUserInfo = await customizer.onFrontendUserInfo({
-          entityId: parseInt(args.entity),
-          user: parseInt(args.entity),
-          wrdSchema: new WRDSchema(auth.settings.wrdSchema),
+          entityId: entityId,
+          user: entityId,
+          wrdSchema
         });
 
         //wrap it so we keep some room to export other props from other frontend calls
@@ -154,12 +158,22 @@ run({
       shortDescription: "Creates an API token",
       options: {
         "scopes": { description: "Comma-separated list of scopes for the token" },
+        "expires": { description: "Set expiration period or 'never' if te key should never expire" },
+        "title": { description: "Set a title for the key" },
       },
-      arguments: [{ name: "<entity>", description: "Entity ID" }], //TODO also support actual login names and log lookupUsername. assume any integer has to be a wrdId ?
+      arguments: [{ name: "<entity>", description: "Entity login or ID" }],
       async main({ opts, args }) {
-        const wrdSchema = await getUserApiSchemaName(opts);
-        const entityId = parseInt(args.entity);
-        const token = await createFirstPartyToken(new WRDSchema(wrdSchema), "api", entityId, { expires: "P1D", scopes: opts.scopes ? opts.scopes.split(",") : [] });
+        const wrdSchema = new WRDSchema(await getUserApiSchemaName(opts));
+        const { entityId } = await lookupLogin(wrdSchema, args.entity, null);
+        if (!entityId)
+          throw new Error(`User '${args.entity}' not found`);
+
+        const options: AuthTokenOptions = {
+          scopes: opts.scopes ? opts.scopes.split(",") : [],
+          title: opts.title || "",
+          ...opts.expires ? { expires: opts.expires === null ? Infinity : opts.expires } : {}
+        };
+        const token = await createFirstPartyToken(wrdSchema, "api", entityId, options);
         if (opts.json) {
           console.log(JSON.stringify(token, null, 2));
         } else {
