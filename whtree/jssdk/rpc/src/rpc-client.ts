@@ -260,6 +260,9 @@ class ServiceProxy<Service extends keyof KnownRPCServices | object> {
   }
 
   get(target: object, prop: string, receiver: unknown) {
+    if (["then", "catch", "finally"].includes(prop)) //do not appear like our object is a promise
+      return undefined;
+
     if (prop === 'withOptions') { //create a withOptions function
       return (options: RPCClientOptions) => {
         const newoptions = {
@@ -279,18 +282,25 @@ class ServiceProxy<Service extends keyof KnownRPCServices | object> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need any to not worry about the actual first arg
 type OmitFirstArg<F> = F extends (x: any, ...args: infer P) => infer R ? (...args: P) => R : never;
 
+export type OmitRPCContextArgs<ServiceType> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need any to not worry about the actual first arg
+  [K in keyof ServiceType as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? OmitFirstArg<ServiceType[K]> : never;
+};
+
 /** Creates an async version of the functions in a class, removes context parameters
  * @typeParam ServiceType - Type definition of the service class that implements this service.
 */
 type ConvertToRPCInterface<ServiceType> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-  [K in keyof ServiceType as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<OmitFirstArg<ServiceType[K]>> : never;
+  [K in keyof ServiceType as ServiceType[K] extends (...a: any) => any ? K : never]: ServiceType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<ServiceType[K]> : never;
 };
 
 type ExtractInterface<Service extends object> = ConvertToRPCInterface<Service> & ServiceBase<ConvertToRPCInterface<Service>>;
 
-/** Get the client interface type as would be returned by createClient */
-export type GetRPCClientInterface<Service extends (keyof KnownRPCServices) | object> = Service extends keyof KnownRPCServices ? ExtractInterface<KnownRPCServices[Service]> : Service extends object ? ExtractInterface<Service> : never;
+/** Get the client interface type as would be returned by createClient
+ * @typeParam Service - either the `module:service` name or the interface to implement. If you want to pass the implementation's type you should wrap it into `OmitRPCContextArgs`.
+*/
+export type GetRPCClientInterface<Service extends (keyof KnownRPCServices) | object> = Service extends keyof KnownRPCServices ? ExtractInterface<OmitRPCContextArgs<KnownRPCServices[Service]>> : Service extends object ? ExtractInterface<Service> : never;
 
 /** Create a WebHare RPC client
   @param service - URL (https://<ORIGIN>/.wh/rpc/module/service/) or service name (module:service) to invoke

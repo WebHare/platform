@@ -60,6 +60,9 @@ async function testDidYouMean() {
 
   test.eq(", did you mean '12345'?", apitools.addBestMatch("123", ["12345"]));
   test.eq("", apitools.addBestMatch("123", ["123456"]));
+
+  test.typeAssert<test.Equals<apitools.PromisifyFunctionReturnType<() => number>, () => Promise<number>>>();
+  test.typeAssert<test.Equals<apitools.PromisifyFunctionReturnType<() => Promise<number>>, () => Promise<number>>>();
 }
 
 test.runTests([

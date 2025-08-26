@@ -61,3 +61,24 @@ console.log(await client.echo(1, 2, 3));
 ```
 
 (But ideally you would then also supply a type definition for rpc to get full TypeScript support)
+
+## Temporal types
+`@webhare/rpc` supports the temporal types implemented by [@webhare/std](https://www.webhare.dev/manuals/typescript/std/)'s typed stringify such as Temporal.Instant
+but does not include a polyfill for Temporal itself. RPC will fail if they receive a Temporal in a response but can't find the Temporal global object.
+
+We recommend importing `@webhare/deps/temporal-polyfill` when building webpages inside WebHare. Outside WebHare we recommend importing [`temporal-polyfill/global`](https://www.npmjs.com/package/temporal-polyfill)
+
+## Error tracing and debugging
+`@webhare/rpc` can generate cross-server error traces but requires the origin server to return its part of the stack trace. Generating a cross-error trace depends on the request or the server
+having the `etr` debug flag set (`Error TRace`). This can be set using either a `wh-debug` cookie (use WebHare's debug settings) or by enabling the global `etr` flag for a WebHare installation (`wh debug enable etr`).
+
+**Enabling the `etr` debug flag globally returns error traces to ALL users and may lead to sensitive information being exposed. Use with caution.**
+
+The `etr` flag cannot be enabled by simply adding `?wh-debug=etr` to the request URL as the etr flag requires a signed cookie/variable
+
+The `@webhare/rpc` client also supports logging its request/response by setting the `wrq` debug flag. This flag should be set in either:
+- the `debugFlags` variable (as exposed by `@webhare/env`)
+- `wh-debug` cookies or URL variables (this does *not* require a signed variable)
+- the `WEBHARE_DEBUG` environent variable (eg `WEBHARE_DEBUG=wrq wh run ...`)
+
+Keep in mind that `etr` is a server-side flag and `wrq` is a client-side flag. You cannot enable `etr` from the client.
