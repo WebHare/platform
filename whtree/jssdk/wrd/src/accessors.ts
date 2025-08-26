@@ -4,7 +4,7 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
@@ -79,6 +79,23 @@ export function decodeWRDGuid(wrdGuid: string) {
     throw new Error("Invalid wrdGuid: " + wrdGuid);
 
   return Buffer.from(wrdGuid.replaceAll('-', ''), "hex");
+}
+
+export async function getGuidForEntity(id: number): Promise<string | null> {
+  const row = await db<PlatformDB>()
+    .selectFrom("wrd.entities")
+    .select(["guid"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+  return row ? encodeWRDGuid(row.guid) : null;
+}
+
+export async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<number | null, string>> {
+  return new Map((await db<PlatformDB>()
+    .selectFrom("wrd.entities")
+    .select(["id", "guid"])
+    .where("id", "in", ids.filter(isTruthy))
+    .execute()).map(row => [row.id, encodeWRDGuid(row.guid)]));
 }
 
 /** Lookup domain values by id, guid or tag
@@ -970,11 +987,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     if (value === null)
       return null as unknown as string; //pretend it's all right, we shouldn't receive a null anyway if Required was set
 
-    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "=", value).executeTakeFirst();
-    if (!lookupres)
-      throw new Error(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
-
-    return encodeWRDGuid(lookupres.guid);
+    return await getGuidForEntity(value) ?? throwError(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
   }
 }
 
@@ -1088,11 +1101,7 @@ class WRDDBBaseDomainValue<Required extends boolean, ExportOut extends string | 
     if (value === null || !this.exportString) //wrdId/wrdType are not converted
       return value as unknown as ExportOut; //pretend it's all right, we shouldn't receive a null anyway if Required was set
 
-    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "=", value).executeTakeFirst();
-    if (!lookupres)
-      throw new Error(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
-
-    return encodeWRDGuid(lookupres.guid) as ExportOut;
+    return await getGuidForEntity(value) as ExportOut ?? throwError(`Domain value ${value} for attribute ${this.attr.tag} not found in database`);
   }
 }
 
@@ -1213,7 +1222,8 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     if (!value.length)
       return [];
 
-    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid", "type"]).where("id", "in", value).execute();
+    // we're *almost* getIdToGuidMap but not quite yet...
+    const lookupres = await db<PlatformDB>().selectFrom("wrd.entities").select(["guid"]).where("id", "in", value).execute();
     return lookupres.map(_ => encodeWRDGuid(_.guid)).toSorted();
   }
 }

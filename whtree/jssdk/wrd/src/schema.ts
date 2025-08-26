@@ -362,9 +362,13 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return schemaData.typeIdMap.get(type)?.tag ?? null;
   }
 
-  async __listTypes() {
+  async listTypes() {
     const schemaData = await this.__ensureSchemaData();
-    return schemaData.typeIdMap.entries().map(([id, tag]) => ({ id, tag }));
+    return schemaData.typeIdMap.entries().map(([id, data]) => ({
+      id,
+      tag: data.tag,
+      metaType: WRDMetaTypes[data.metatype - 1]
+    }));
   }
 
   /** Test whether a type exists in this schema */

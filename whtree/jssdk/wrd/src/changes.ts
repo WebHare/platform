@@ -1,9 +1,9 @@
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db, nextVal } from "@webhare/whdb";
 import { type EntityPartialRec, type EntityRec, type EntitySettingsRec, type TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
-import { isTruthy, omit } from "@webhare/std";
-import { encodeWRDGuid } from "./accessors";
+import { omit } from "@webhare/std";
 import { setHareScriptType, type IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
+import { getIdToGuidMap } from "./accessors";
 
 
 export type ChangesSettings<T extends string | number | null> = Array<Omit<EntitySettingsRec, "blobdata" | "entity" | "setting" | "attribute"> & { blobseqnr: number; setting: T; attribute: T }>;
@@ -110,14 +110,6 @@ function gatherEntitiesFromChanges<T extends number | string | null>(changes: Ch
   if (changes.modifications.entityrec.rightentity)
     retval.push(changes.modifications.entityrec.rightentity);
   return retval;
-}
-
-async function getIdToGuidMap(ids: Array<number | null>): Promise<Map<number | null, string>> {
-  return new Map((await db<PlatformDB>()
-    .selectFrom("wrd.entities")
-    .select(["id", "guid"])
-    .where("id", "in", ids.filter(isTruthy))
-    .execute()).map(row => [row.id, encodeWRDGuid(row.guid)]));
 }
 
 function mapChangesRefs<A extends number | string | null, B extends number | string | null>(changes: Changes<A>, attributeMapping: Map<A, B>, settingMapping: Map<A, B>, defaultValue: B): Changes<B> {

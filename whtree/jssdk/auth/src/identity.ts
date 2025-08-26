@@ -5,7 +5,7 @@ import type { WRD_IdpSchemaType, WRD_Idp_WRDPerson } from "@mod-platform/generat
 import { convertWaitPeriodToDate, generateRandomId, isPromise, parseTyped, pick, stringify, throwError, type WaitPeriod } from "@webhare/std";
 import { generateKeyPair, type KeyObject, type JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
 import { getSchemaSettings, updateSchemaSettings } from "@webhare/wrd/src/settings";
-import { beginWork, commitWork, runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
+import { runInWork, db, runInSeparateWork, type Updateable } from "@webhare/whdb";
 import { dtapStage, type NavigateInstruction } from "@webhare/env";
 import { closeServerSession, decryptForThisServer, encryptForThisServer, importJSObject, type ServerEncryptionScopes } from "@webhare/services";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
@@ -20,7 +20,8 @@ import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
-import { AuthenticationSettings } from "@webhare/wrd";
+import { AuthenticationSettings, describeEntity } from "@webhare/wrd";
+import { getGuidForEntity } from "@webhare/wrd/src/accessors";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
 
@@ -50,10 +51,10 @@ export interface AuthTokenOptions {
   thirdParty?: boolean;
   /** Skip writing an audit event. This should only be used if an event was written at a higher level. We may consider removing this flag once all old wrdauth events are replaced by platform events */
   skipAuditEvent?: boolean;
-  /** Indicate to deeper APIs that they should not allocate their own work but share ours. If supported by that api. */
-  shareWork?: boolean;
   /** Explicitly indicate that this is an impersonation, don't auditlog/update lastlogin as if it were real */
   isImpersonation?: boolean;
+  /** Callback to invoke inside the work on succesful token creation */
+  onSuccess?: () => Promise<void>;
 }
 
 export type ListedToken = {
@@ -71,6 +72,8 @@ export type ListedToken = {
   expires: Temporal.Instant | null;
   /** Scopes available to this token */
   scopes: string[];
+  /** Client to which the token was provided */
+  client: number | null;
 };
 
 export type SetAuthCookies = {
@@ -228,17 +231,17 @@ export interface JWTVerificationOptions {
 }
 
 export interface VerifyAccessTokenResult {
-  ///wrdId of the found subject
+  /** wrdId of the found subject */
   entity: number;
-  ///authAccountStatus of the found subject, if available
+  /** authAccountStatus of the found subject, if available */
   accountStatus: WRDAuthAccountStatus | null;
-  ///decoded scopes
+  /** decoded scopes */
   scopes: string[];
-  ///client to which the token was provided
+  /** client to which the token was provided */
   client: number | null;
-  ///expiration date
+  /** expiration date */
   expires: Temporal.Instant | null;
-  //id of the used token (refers to wrd.tokens table)
+  /** id of the used token (refers to wrd.tokens table) */
   tokenId: number;
 }
 
@@ -488,7 +491,9 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       throw new Error(`Schema '${this.wrdschema.tag}' is not configured for WRD Authentication - accountType not set`);
 
     const subfield = clientInfo?.subjectField || "wrdGuid";
-    const subjectValue = (await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, subject, [subfield]))?.[subfield] as string;
+    const subjectValue = subfield === "wrdGuid"
+      ? await getGuidForEntity(subject) // faster and doesn't enforce a accountType dependency if a there's not clientInfo and thus no configuration anyway
+      : (await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, subject, [subfield]))?.[subfield] as string;
     if (!subjectValue)
       throw new Error(`Unable to find '${subjectValue}' for subject #${subject}`);
 
@@ -556,37 +561,38 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     if (Buffer.from(metadata).length > 4096)
       throw new Error(`Metadata too large, max size is 4096 bytes`);
 
-    if (!options?.shareWork)
-      await beginWork();
-    const hash = hashSHA256(access_token);
-    const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
-      type: type,
-      creationdate: new Date(atPayload.nbf! * 1000),
-      expirationdate: atPayload.exp ? new Date(atPayload.exp * 1000) : defaultDateTime,
-      entity: subject,
-      client: client,
-      scopes: scopes?.join(" "),
-      hash,
-      metadata: metadata,
-      title: options?.title ?? ""
-    }).returning("id").execute();
-
-    if (closeSessionId)
-      await closeServerSession(closeSessionId);
-
-    if (type !== "oidc" && !options?.skipAuditEvent) {
-      await writeAuthAuditEvent(this.wrdschema, {
-        type: type === "id" ? "platform:login" : "platform:apikey",
+    return await runInWork(async () => {
+      const hash = hashSHA256(access_token);
+      const insertres = await db<PlatformDB>().insertInto("wrd.tokens").values({
+        type: type,
+        creationdate: new Date(atPayload.nbf! * 1000),
+        expirationdate: atPayload.exp ? new Date(atPayload.exp * 1000) : defaultDateTime,
         entity: subject,
-        ...(options?.authAuditContext ?? getAuditContext()),
-        data: { tokenHash: hash.toString("base64url") }
-      });
-    }
+        client: client,
+        scopes: scopes?.join(" "),
+        hash,
+        metadata: metadata,
+        title: options?.title ?? ""
+      }).returning("id").execute();
 
-    if (!options?.shareWork)
-      await commitWork();
+      if (closeSessionId)
+        await closeServerSession(closeSessionId);
 
-    return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
+      if (options?.onSuccess)
+        await options.onSuccess();
+
+      if (type !== "oidc" && !options?.skipAuditEvent) {
+        await writeAuthAuditEvent(this.wrdschema, {
+          type: type === "id" ? "platform:login" : "platform:apikey",
+          entity: subject,
+          ...(options?.authAuditContext ?? getAuditContext()),
+          data: { tokenHash: hash.toString("base64url") }
+        });
+      }
+
+
+      return { access_token, expires: atPayload.exp || null, ...(id_token ? { id_token } : null), tokenId: insertres[0].id };
+    });
   }
 
   /** An access token may be prefixed with `secret-token:`, strip it (we'll tolerate any `<...>:` prefix here */
@@ -670,20 +676,29 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const authsettings = await this.getAuthSettings(false);
     let accountStatus: WRDAuthAccountStatus | null = null;
     if (authsettings) {
-      const getfields = {
-        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
-      };
-      const entity = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
-        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
-      } | null;
-      if (!entity)
-        return { error: `Token owner does not exist anymore` };
-      if (authsettings.hasAccountStatus) {
-        accountStatus = entity.wrdauthAccountStatus || null;
-        if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
-          return { error: `Token owner has been disabled` };
+
+      let entity;
+      const entityInfo = await describeEntity(matchToken.entity);
+      if (entityInfo) {
+        const getAccountStatus = authsettings.hasAccountStatus && authsettings.accountType === entityInfo.type; //FIXME also support subclasses of accountType
+        const getfields = {
+          ...getAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}
+        };
+
+        entity = await (this.wrdschema as AnyWRDSchema).getFields(entityInfo.type, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
+          wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+        } | null;
+
+        if (entity && getAccountStatus) {
+          accountStatus = entity.wrdauthAccountStatus || null;
+          if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
+            return { error: `Token owner has been disabled` };
+          }
         }
       }
+
+      if (!entity)
+        return { error: `Token owner does not exist anymore` };
     }
 
     return {
@@ -996,7 +1011,7 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
       fullJoin("wrd.entities", "wrd.entities.id", "wrd.tokens.entity").
       fullJoin("wrd.types", "wrd.types.id", "wrd.entities.type").
       fullJoin("wrd.schemas", "wrd.schemas.id", "wrd.types.wrd_schema").
-      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title"]).
+      select(["wrd.schemas.name", "wrd.tokens.id", "wrd.tokens.type", "wrd.tokens.creationdate", "wrd.tokens.expirationdate", "wrd.tokens.scopes", "wrd.tokens.metadata", "wrd.tokens.title", "wrd.tokens.client"]).
       execute();
 
   if (tokens.length && tokens[0]?.name !== wrdSchema.tag)
@@ -1011,7 +1026,8 @@ async function getDBTokens<S extends SchemaTypeDefinition>(wrdSchema: WRDSchema<
     created: token.creationdate!.toTemporalInstant(),
     expires: token.expirationdate!.getTime() === defaultDateTime.getTime() ? null : token.expirationdate?.toTemporalInstant() ?? null,
     scopes: token.scopes ? token.scopes.split(" ") : [],
-    title: token.title || ''
+    title: token.title || '',
+    client: token.client
   }));
 }
 
@@ -1111,24 +1127,26 @@ export async function prepCookies(authsettings: WRDAuthSettings, prepped: PrepAu
   const customizer = options?.customizer || (prepped.settings?.customizer ? await importJSObject(prepped.settings.customizer) as AuthCustomizer : undefined);
   const wrdSchema = new WRDSchema(prepped.settings.wrdSchema);
 
-  if (options?.shareWork)
-    throw new Error("shareWork is not supported in prepCookies");
+  //Create the token
+  const idToken = await createFirstPartyToken(wrdSchema, "id", userId, {
+    ...options,
+    customizer,
+    onSuccess: async () => {
+      //Update first&last login if specified in wrdauth settings
+      const isImpersonation = options?.isImpersonation || Boolean(options?.authAuditContext?.impersonatedBy);
+      if (!isImpersonation && (prepped.settings.firstLoginField || prepped.settings.lastLoginField)) {
+        const needFirstLogin = prepped.settings.firstLoginField && (await wrdSchema.getFields(authsettings.accountType, userId, { firstLogin: prepped.settings.firstLoginField })).firstLogin === null;
+        const now = new Date;
+        await wrdSchema.update(authsettings.accountType, userId, {
+          ...(prepped.settings.lastLoginField ? { [prepped.settings.lastLoginField]: now } : {}),
+          ...(needFirstLogin ? { [prepped.settings.firstLoginField!]: now } : {}),
+        });
+      }
 
-  const idToken = await runInWork(async () => {
-    //Create the token
-    const tok = await createFirstPartyToken(wrdSchema, "id", userId, { ...options, customizer, shareWork: true });
-
-    //Update first&last login if specified in wrdauth settings
-    const isImpersonation = options?.isImpersonation || Boolean(options?.authAuditContext?.impersonatedBy);
-    if (!isImpersonation && (prepped.settings.firstLoginField || prepped.settings.lastLoginField)) {
-      const needFirstLogin = prepped.settings.firstLoginField && (await wrdSchema.getFields(authsettings.accountType, userId, { firstLogin: prepped.settings.firstLoginField })).firstLogin === null;
-      const now = new Date;
-      await wrdSchema.update(authsettings.accountType, userId, {
-        ...(prepped.settings.lastLoginField ? { [prepped.settings.lastLoginField]: now } : {}),
-        ...(needFirstLogin ? { [prepped.settings.firstLoginField!]: now } : {}),
-      });
+      //Chainload any other onSuccess handler
+      if (options?.onSuccess)
+        await options.onSuccess();
     }
-    return tok;
   });
 
   const setToken: SetAuthCookies = {

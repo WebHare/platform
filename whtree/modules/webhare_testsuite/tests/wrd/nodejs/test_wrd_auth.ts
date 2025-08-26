@@ -726,6 +726,16 @@ async function testAuthStatus() {
   await whdb.runInWork(() => oidcAuthSchema.update("wrdPerson", testuser, { wrdauthAccountStatus: { status: "active" } }));
 }
 
+async function testApiTokens() {
+  //should be able to grant first-party tokens to non wrdPersons
+  const testUnit = await oidcAuthSchema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
+  const testUnitKey = await createFirstPartyToken(oidcAuthSchema, "api", testUnit);
+  test.eq(/^secret-token:/, testUnitKey.accessToken);
+
+  const provider = new IdentityProvider(oidcAuthSchema);
+  test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));
+}
+
 async function testSlowPasswordHash() {
   const start = new Date;
   {
@@ -777,5 +787,6 @@ test.runTests([
   setupOpenID,
   testAuthAPI,
   testAuthStatus,
+  testApiTokens,
   testSlowPasswordHash //placed last so we don't have to wait too long for other test failures
 ]);
