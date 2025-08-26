@@ -156,6 +156,22 @@ async function testTypedClient() {
   await testAPIService.lockWork();
 }
 
+async function testUntypedClient() {
+  const testAPIService = rpc<any>(`${backendConfig.backendURL}.wh/rpc/webhare_testsuite/testapi/`);
+
+  //Verify even an unknown client is known to return Promiwes
+  const echoResult = testAPIService.echo(getTypedStringifyableData());
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  echoResult satisfies Promise<any>;
+
+  // @ts-expect-error -- this shouldn't be valid
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  echoResult satisfies string;
+
+  test.eq([getTypedStringifyableData()], await echoResult);
+}
+
+
 async function testFilter() {
   const etrRpc = rpc("webhare_testsuite:testapi", {
     silent: true,
@@ -172,5 +188,6 @@ test.runTests([
   prep,
   testRPCCaller,
   testTypedClient,
+  testUntypedClient,
   testFilter
 ]);
