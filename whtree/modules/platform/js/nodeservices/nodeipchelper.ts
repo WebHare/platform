@@ -2,6 +2,7 @@ import { getHareScriptResourceDescriptor } from "@webhare/hscompat/hson";
 import { isResourceDescriptor } from "@webhare/services/src/descriptor";
 import { WebHareDiskBlob, WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 import { Money, stdTypeOf } from "@webhare/std";
+import { getWHType } from "@webhare/std/quacks";
 import type { TransferListItem } from "node:worker_threads";
 
 function runReplacerRecursive(value: unknown, replacer: (arg: object) => object | undefined): unknown {
@@ -33,28 +34,33 @@ export function encodeforMessageTransfer(toEncode: unknown): Promise<{ value: un
       case "ZonedDateTime":
         return { "$ipcType": type, [type.toLowerCase()]: (orgValue as { toString: () => string }).toString() };
       case "Blob": {
-        if (orgValue instanceof WebHareMemoryBlob) {
-          const newBuffer = orgValue.data.buffer.slice(orgValue.data.byteOffset, orgValue.data.byteOffset + orgValue.data.byteLength) as ArrayBuffer;
-          transferList.push(newBuffer);
-          return {
-            "$ipcType": "WebHareMemoryBlob",
-            type: orgValue.type,
-            data: newBuffer
-          };
-        } else if (orgValue instanceof WebHareDiskBlob) {
-          //IPC can 't do diskblob:
-          //value = { "$ipcType": "WebHareDiskBlob", type: orgValue.type, path: orgValue.path, size: orgValue.size };
+        switch (getWHType(orgValue)) {
+          case "WebHareMemoryBlob": {
+            const blob = orgValue as WebHareMemoryBlob;
+            const newBuffer = blob.data.buffer.slice(blob.data.byteOffset, blob.data.byteOffset + blob.data.byteLength) as ArrayBuffer;
+            transferList.push(newBuffer);
+            return {
+              "$ipcType": "WebHareMemoryBlob",
+              type: blob.type,
+              data: newBuffer
+            };
+          }
+          case "WebHareDiskBlob": {
+            //IPC can 't do diskblob:
+            //value = { "$ipcType": "WebHareDiskBlob", type: orgValue.type, path: orgValue.path, size: orgValue.size };
 
-          //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
-          const value = { "$ipcType": "WebHareMemoryBlob", type: orgValue.type, data: undefined as ArrayBuffer | undefined }; //we'll modify this value when completing the promise
-          const promiseBuffer = orgValue.arrayBuffer().then((buffer) => {
-            value.data = buffer;
-            transferList.push(buffer);
-          });
-          promises.push(promiseBuffer);
-          return value;
-        } else {
-          throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
+            //async transfer as UInt8Buffer (as JS Blobs aren't IPC/CallJS safe anyway)
+            const blob = orgValue as WebHareDiskBlob;
+            const value = { "$ipcType": "WebHareMemoryBlob", type: blob.type, data: undefined as ArrayBuffer | undefined }; //we'll modify this value when completing the promise
+            const promiseBuffer = blob.arrayBuffer().then((buffer) => {
+              value.data = buffer;
+              transferList.push(buffer);
+            });
+            promises.push(promiseBuffer);
+            return value;
+          }
+          default:
+            throw new Error(`Cannot encode Blob of type '${orgValue.constructor.name}' as a message transfer value. Use WebHareMemoryBlob or WebHareDiskBlob instead.`);
         }
       } break;
       case "object":
