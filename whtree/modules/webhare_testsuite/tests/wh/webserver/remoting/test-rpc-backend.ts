@@ -4,9 +4,9 @@ import { WebHareBlob, backendConfig } from '@webhare/services';
 import { parseTrace } from '@webhare/js-api-tools';
 import type { WebRequestInfo } from '@mod-system/js/internal/types';
 import { getSignedWHDebugOptions } from '@webhare/router/src/debug';
-import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
+import type { testAPI, TestApiValidateEmail } from '@mod-webhare_testsuite/js/rpcservice';
 import { backendBase, initEnv } from '@webhare/env/src/envbackend';
-import { rpc, type GetRPCClientInterface, type RPCResponse } from "@webhare/rpc";
+import { rpc, type GetRPCClientInterface, type OmitRPCContextArgs, type RPCResponse } from "@webhare/rpc";
 import { RPCRouter } from "@mod-platform/js/services/rpc-router";
 import { newWebRequestFromInfo } from '@webhare/router/src/request';
 import { parseTyped } from '@webhare/std';
@@ -96,7 +96,12 @@ async function testRPCCaller() {
 async function testTypedClient() {
   const testAPIService = rpc("webhare_testsuite:testapi");
   test.typeAssert<test.Equals<GetRPCClientInterface<"webhare_testsuite:testapi">, typeof testAPIService>>();
-  test.typeAssert<test.Equals<GetRPCClientInterface<typeof testAPI>, typeof testAPIService>>();
+  test.typeAssert<test.Equals<GetRPCClientInterface<OmitRPCContextArgs<typeof testAPI>>, typeof testAPIService>>();
+  test.typeAssert<test.Equals<GetRPCClientInterface<OmitRPCContextArgs<typeof testAPI>>["validateEmail"], TestApiValidateEmail["validateEmail"]>>();
+
+  const reboundService = testAPIService.withOptions({});
+  test.typeAssert<test.Equals<typeof testAPIService, typeof reboundService>>();
+  test.assert(reboundService);
 
   //These normally work out-of-the box as @webhare/env should be configured by the bootstrap
   test.eq(true, await testAPIService.validateEmail("nl", "pietje@webhare.dev"));
@@ -124,7 +129,7 @@ async function testTypedClient() {
   test.eq(true, await myservice1.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await myservice1.validateEmail("en", "klaasje@beta.webhare.net"));
 
-  const myservice2 = rpc<typeof testAPI>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
+  const myservice2 = rpc<OmitRPCContextArgs<typeof testAPI>>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
   test.typeAssert<test.Equals<typeof testAPIService, typeof myservice2>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.lockWork>>>();
   test.typeAssert<test.Equals<Promise<void>, ReturnType<typeof myservice2.serverCrash>>>(); //TODO this only works now because serverCrash is defined as :void but implicitly it would be :never
@@ -144,6 +149,9 @@ async function testTypedClient() {
     test.eq(withError, trace.some(t => t.func === "Object.serverCrash"));
     test.eq(true, trace.some(t => t.func.includes("testTypedClient")));
   }
+
+  const myservice3 = rpc<TestApiValidateEmail>(backendConfig.backendURL + ".wh/rpc/webhare_testsuite/testapi/");
+  test.eq(true, await myservice3.validateEmail("nl", "pietje@webhare.dev"));
 
   const serviceWithHeaders = myservice1.withOptions({ headers: { "Authorization": "grizzly bearer" } });
   const serviceWithMoreHeaders = serviceWithHeaders.withOptions({ headers: { "X-Test": "test" } });

@@ -1,6 +1,6 @@
 import * as test from "@webhare/test-frontend";
 import type { testAPI } from '@mod-webhare_testsuite/js/rpcservice';
-import { rpc } from "@webhare/rpc";
+import { rpc, type OmitRPCContextArgs } from "@webhare/rpc";
 import { getTypedStringifyableData } from "@mod-webhare_testsuite/js/ci/testdata";
 
 test.runTests(
@@ -59,7 +59,7 @@ test.runTests(
     "Use real URLS",
     async function () {
       test.throws(/end in a slash/, () => rpc<typeof testAPI>(location.origin + "/.wh/rpc//webhare_testsuite/testapi"));
-      const client = rpc<typeof testAPI>(location.origin + "/.wh/rpc/webhare_testsuite/testapi/");
+      const client = rpc<OmitRPCContextArgs<typeof testAPI>>(location.origin + "/.wh/rpc/webhare_testsuite/testapi/");
       test.eq(['Hi'], await client.echo('Hi'));
     }
 

@@ -17,6 +17,10 @@ export async function filterAPI(context: RPCContext, args: unknown[]) {
     return {};
 }
 
+export interface TestApiValidateEmail {
+  validateEmail(langcode: string, emailaddress: string): Promise<boolean>;
+}
+
 export const testAPI = {
   async lockWork() {
     await beginWork({ mutex: "webhare_testsuite:lockit" });
