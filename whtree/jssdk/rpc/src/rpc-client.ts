@@ -260,6 +260,9 @@ class ServiceProxy<Service extends keyof KnownRPCServices | object> {
   }
 
   get(target: object, prop: string, receiver: unknown) {
+    if (["then", "catch", "finally"].includes(prop)) //do not appear like our object is a promise
+      return undefined;
+
     if (prop === 'withOptions') { //create a withOptions function
       return (options: RPCClientOptions) => {
         const newoptions = {

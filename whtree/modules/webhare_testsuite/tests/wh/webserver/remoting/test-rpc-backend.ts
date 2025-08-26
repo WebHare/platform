@@ -154,6 +154,10 @@ async function testTypedClient() {
   //Test lock abandonment
   await testAPIService.lockWork();
   await testAPIService.lockWork();
+
+  // Pretend it's a promise and await it. The proxy shouldn't be confused by this or we will break returning rpc objects from async functions
+  const checkSafelyAwaitable = await (testAPIService as unknown as Promise<typeof testAPIService>);
+  test.eq(["pietje@webhare.dev"], await checkSafelyAwaitable.echo("pietje@webhare.dev"));
 }
 
 async function testUntypedClient() {
