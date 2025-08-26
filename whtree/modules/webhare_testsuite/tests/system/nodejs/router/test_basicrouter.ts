@@ -2,7 +2,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { HTTPMethod, createRedirectResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
-import { decodeHSON } from "@webhare/hscompat/hscompat";
+import { decodeHSON } from "@webhare/hscompat/src/hscompat";
 import { IncomingWebRequest, newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
 
 interface GetRequestDataResponse {

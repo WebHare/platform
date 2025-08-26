@@ -3,7 +3,7 @@ import { getConnection } from "@webhare/whdb/src/impl";
 import { type AliasedRawBuilder, type RawBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import type { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
-import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import type { Tid } from "@webhare/whdb/src/types";
 import type { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import type { HareScriptVM, HSVM_VariableId, HSVM_VariableType } from "@webhare/harescript/src/wasm-hsvm";

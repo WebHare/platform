@@ -2,7 +2,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { db, nextVal } from "@webhare/whdb";
 import { type EntityPartialRec, type EntityRec, type EntitySettingsRec, type TypeRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { omit } from "@webhare/std";
-import { setHareScriptType, type IPCMarshallableData, HareScriptType } from "@webhare/hscompat/hson";
+import { setHareScriptType, type IPCMarshallableData, HareScriptType } from "@webhare/hscompat/src/hson";
 import { getIdToGuidMap } from "./accessors";
 
 

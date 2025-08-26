@@ -2,7 +2,7 @@
  */
 
 import * as fs from "node:fs";
-import { omit, pick } from "@webhare/std/collections";
+import { omit, pick } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { DTAPStage } from "@webhare/env/src/concepts";
 import type { BackendConfiguration, ConfigFile, ModuleData, ModuleMap } from "@webhare/services/src/config";

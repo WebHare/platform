@@ -390,8 +390,8 @@ MACRO TestBothConversions(DATETIME localtime, DATETIME gmttime, STRING timezone)
 
   IF (NOT IsWasm())
   {
-    TestEq(gmttime, CallJS("@webhare/hscompat/datetime.ts#localToUTC", localtime, timezone));
-    TestEq(localtime, CallJS("@webhare/hscompat/datetime.ts#utcToLocal", gmttime, timezone));
+    TestEq(gmttime, CallJS("@webhare/hscompat/src/datetime.ts#localToUTC", localtime, timezone));
+    TestEq(localtime, CallJS("@webhare/hscompat/src/datetime.ts#utcToLocal", gmttime, timezone));
   }
 }
 

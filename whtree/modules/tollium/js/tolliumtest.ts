@@ -9,7 +9,7 @@ import { getCurrentScreen, getTestScreen } from "./testframework";
 
 import * as test from "@webhare/test-frontend";
 import { changeValue, isFormControl, qSA } from "@webhare/dompack";
-import { nameToSnakeCase } from "@webhare/std/types";
+import { nameToSnakeCase } from "@webhare/std";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
 

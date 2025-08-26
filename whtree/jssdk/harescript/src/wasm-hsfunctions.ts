@@ -9,7 +9,7 @@ import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase, getCachedWebAssemblyModule, recompileHarescriptLibrary } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, isPromise, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
-import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/src/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";

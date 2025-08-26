@@ -8,7 +8,7 @@ import { checkModuleScopedName } from "./naming";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 import { decodeHSON, decodeHSONorJSONRecord, defaultDateTime, encodeHSON } from "@webhare/hscompat";
 import { logDebug, WebHareBlob } from "@webhare/services";
-import type { IPCMarshallableData } from "@webhare/hscompat/hson";
+import type { IPCMarshallableData } from "@webhare/hscompat/src/hson";
 import { debugFlags } from "@webhare/env";
 import { prependHSStackTrace, type ExceptionTrace } from "@webhare/harescript/src/wasm-support";
 

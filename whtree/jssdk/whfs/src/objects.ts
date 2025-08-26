@@ -2,7 +2,7 @@ import { db, sql, type Selectable, type Updateable, isWorkOpen, uploadBlob, next
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ResourceMetaDataInit } from "@webhare/services/src/descriptor";
 import { getType, describeWHFSType, unknownfiletype, normalfoldertype } from "./describe";
-import { defaultDateTime } from "@webhare/hscompat/datetime";
+import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 import type { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
 import { convertToWillPublish, excludeKeys, formatPathOrId, isPublish, isValidName, PublishedFlag_StripExtension, PubPrio_DirectEdit, setFlagInPublished } from "./support";

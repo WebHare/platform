@@ -1,5 +1,5 @@
 import type { WRDAttributeType } from "./types";
-import { nameToSnakeCase, nameToCamelCase } from "@webhare/std/types";
+import { nameToSnakeCase, nameToCamelCase } from "@webhare/std";
 
 export interface WRDAttributeConfiguration_HS {
   id: number;

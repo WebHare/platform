@@ -1,4 +1,4 @@
-import { addDuration } from "@webhare/std/datetime";
+import { addDuration } from "@webhare/std/src/datetime";
 import type { WRDType } from "./schema";
 import { type WRDInsertable, type SchemaTypeDefinition, type WRDTypeBaseSettings, baseAttrCells, type RecordOutputMap } from "./types";
 import { db, isSameUploadedBlob, nextVal, sql } from "@webhare/whdb";
@@ -6,10 +6,10 @@ import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type SchemaData, type TypeRec, selectEntitySettingColumns/*, selectEntitySettingWHFSLinkColumns*/, type EntityPartialRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, selectEntitySettingWHFSLinkColumns } from "./db";
 import { type EncodedSetting, encodeWRDGuid, getAccessor, type AwaitableEncodedSetting, type AwaitableEncodedValue } from "./accessors";
-import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { appendToArray, compare, generateRandomId, isPromise, omit } from "@webhare/std";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/algorithms";
+import { isDefaultHareScriptValue, recordRangeIterator } from "@webhare/hscompat/src/algorithms";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getBestMatch, getStackTrace } from "@webhare/js-api-tools";
 import { type Changes, type ChangesWHFSLinks, getWHFSLinksForChanges, mapChangesIdsToRefs, saveEntitySettingAttachments } from "./changes";

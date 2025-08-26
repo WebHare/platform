@@ -2,13 +2,13 @@ import { WRDBaseAttributeTypeId, WRDAttributeTypeId, type AllowedFilterCondition
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, TypeRec } from "./db";
 import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, type Expression, type SqlBool, type Updateable } from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
-import { isLike } from "@webhare/hscompat/strings";
+import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
+import { isLike } from "@webhare/hscompat/src/strings";
 import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
-import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/hson";
-import { maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
+import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
 import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance, buildRTD } from "@webhare/services";

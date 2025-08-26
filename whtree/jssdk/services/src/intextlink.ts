@@ -1,5 +1,5 @@
 import type { RecursiveReadonly } from "@webhare/js-api-tools";
-import { getWHType } from "@webhare/std/quacks";
+import { getWHType } from "@webhare/std/src/quacks";
 import { openFileOrFolder } from "@webhare/whfs";
 
 export function isIntExtLink(value: unknown): value is IntExtLink {

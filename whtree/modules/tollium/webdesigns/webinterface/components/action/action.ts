@@ -9,7 +9,7 @@ import ImgeditDialogController, { type RefPoint } from '@mod-tollium/web/ui/js/d
 import * as $todd from "@mod-tollium/web/ui/js/support";
 import type { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 import type { EnableOnRule } from '@mod-tollium/web/ui/js/types';
-import { omit } from '@webhare/std/collections';
+import { omit } from '@webhare/std';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 require("@mod-tollium/web/ui/common.lang.json");

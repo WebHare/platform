@@ -2,7 +2,7 @@ import { createClient } from "@webhare/jsonrpc-client";
 import { type NavigateInstruction, navigateTo } from "@webhare/env";
 import * as dompack from '@webhare/dompack';
 import type { LoginOptions } from "@webhare/auth/src/identity";
-import { rpc } from "@webhare/rpc/src/rpc-client";
+import { rpc } from "@webhare/rpc/src/rpc";
 
 //NOTE: Do *NOT* load @webhare/frontend or we enforce the new CSS reset!
 import { getFrontendData } from '@webhare/frontend/src/init';

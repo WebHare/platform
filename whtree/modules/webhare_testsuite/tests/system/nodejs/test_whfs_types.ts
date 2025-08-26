@@ -8,7 +8,7 @@ import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
-import { getWHType } from "@webhare/std/quacks";
+import { getWHType } from "@webhare/std/src/quacks";
 import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 

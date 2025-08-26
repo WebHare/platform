@@ -1,4 +1,4 @@
-import { parseTyped, stringify } from "@webhare/std/strings";
+import { parseTyped, stringify } from "@webhare/std/src/strings";
 import { importJSExport } from "@webhare/services/src/resourcetools";
 
 ///stringifying for safe transport through HS

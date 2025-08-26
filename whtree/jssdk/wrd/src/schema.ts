@@ -12,7 +12,7 @@ import { type EnrichmentResult, executeEnrichment, type RequiredKeys } from "@mo
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { __internalUpdEntity } from "./updates";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
-import { nameToCamelCase } from "@webhare/std/types";
+import { nameToCamelCase } from "@webhare/std/src/types";
 import { wrdFinishHandler } from "./finishhandler";
 import type { ExportOptions } from "@webhare/services/src/descriptor";
 

@@ -2,7 +2,7 @@ import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 import type { verifyHareScriptAddress as VerifyAddressAPI } from '@webhare/forms/src/address';
 import { FormBase } from '@mod-publisher/js/forms';
-import type { AddressValue } from '@webhare/std/address';
+import type { AddressValue } from '@webhare/std';
 
 function getFormRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));

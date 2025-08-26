@@ -3,7 +3,7 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
 import { uploadBlob } from "./impl";
 import { parseTyped, stringify } from "@webhare/std";
-import { decodeHSON } from "@webhare/hscompat/hson";
+import { decodeHSON } from "@webhare/hscompat/src/hson";
 
 export async function prepareAnyForDatabase(indata: object | null): Promise<{ data: string; datablob: WebHareBlob | null }> {
   if (!indata)

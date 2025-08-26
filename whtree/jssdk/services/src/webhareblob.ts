@@ -8,7 +8,7 @@ import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
 import "./blob.d.ts";
 import { readableToWeb } from "@webhare/zip/src/nodestreamsupport.ts";
-import { getWHType } from "@webhare/std/quacks.ts";
+import { getWHType } from "@webhare/std/src/quacks.ts";
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob implements Blob {

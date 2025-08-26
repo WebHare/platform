@@ -1,5 +1,5 @@
 import whbridge, { type BridgeEvent, type BridgeEventData } from "@mod-system/js/internal/whmanager/bridge";
-import { regExpFromWildcards } from "@webhare/std/strings";
+import { regExpFromWildcards } from "@webhare/std/src/strings";
 import { isValidBackendEventName } from "./naming";
 import type { BackendEvents } from "@webhare/services";
 import { whenAborted } from "@webhare/std";
