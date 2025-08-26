@@ -20,7 +20,7 @@ import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
 import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
-import { AuthenticationSettings } from "@webhare/wrd";
+import { AuthenticationSettings, describeEntity } from "@webhare/wrd";
 import { getGuidForEntity } from "@webhare/wrd/src/accessors";
 
 const defaultPasswordResetExpiry = 3 * 86400_000; //default 3 days epxiry
@@ -676,20 +676,29 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const authsettings = await this.getAuthSettings(false);
     let accountStatus: WRDAuthAccountStatus | null = null;
     if (authsettings) {
-      const getfields = {
-        ...(authsettings.hasAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {})
-      };
-      const entity = await (this.wrdschema as AnyWRDSchema).getFields(authsettings.accountType, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
-        wrdauthAccountStatus?: WRDAuthAccountStatus | null;
-      } | null;
-      if (!entity)
-        return { error: `Token owner does not exist anymore` };
-      if (authsettings.hasAccountStatus) {
-        accountStatus = entity.wrdauthAccountStatus || null;
-        if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
-          return { error: `Token owner has been disabled` };
+
+      let entity;
+      const entityInfo = await describeEntity(matchToken.entity);
+      if (entityInfo) {
+        const getAccountStatus = authsettings.hasAccountStatus && authsettings.accountType === entityInfo.type; //FIXME also support subclasses of accountType
+        const getfields = {
+          ...getAccountStatus ? { wrdauthAccountStatus: "wrdauthAccountStatus" } : {}
+        };
+
+        entity = await (this.wrdschema as AnyWRDSchema).getFields(entityInfo.type, matchToken.entity, getfields, { historyMode: "active", allowMissing: true }) as {
+          wrdauthAccountStatus?: WRDAuthAccountStatus | null;
+        } | null;
+
+        if (entity && getAccountStatus) {
+          accountStatus = entity.wrdauthAccountStatus || null;
+          if (accountStatus?.status !== "active" && !options?.ignoreAccountStatus) {
+            return { error: `Token owner has been disabled` };
+          }
         }
       }
+
+      if (!entity)
+        return { error: `Token owner does not exist anymore` };
     }
 
     return {

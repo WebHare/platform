@@ -731,6 +731,9 @@ async function testApiTokens() {
   const testUnit = await oidcAuthSchema.find("whuserUnit", { wrdTitle: "tempTestUnit" }) ?? throwError("No test unit found");
   const testUnitKey = await createFirstPartyToken(oidcAuthSchema, "api", testUnit);
   test.eq(/^secret-token:/, testUnitKey.accessToken);
+
+  const provider = new IdentityProvider(oidcAuthSchema);
+  test.eqPartial({ entity: testUnit }, await provider.verifyAccessToken("api", testUnitKey.accessToken));
 }
 
 async function testSlowPasswordHash() {
