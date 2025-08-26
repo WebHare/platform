@@ -7,7 +7,7 @@ import { decodeHSON, encodeHSON, setHareScriptType, HareScriptType } from "./hso
 //Starting with WH5.6.1, you can load these from @webhare/std. TODO deprecate
 export { toSnakeCase, toCamelCase, type ToSnakeCase, type ToCamelCase } from "@webhare/std/types";
 export { isLike, isNotLike, UUIDToWrdGuid, wrdGuidToUUID, isValidWRDGuid } from "./strings";
-export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound, lowerBound, upperBound } from "./algorithms";
+export { omitHareScriptDefaultValues, recordLowerBound, recordUpperBound, lowerBound, upperBound, recordRange } from "./algorithms";
 export { makeDateFromParts, dateToParts, defaultDateTime, maxDateTime, getRoundedDateTime, utcToLocal, localToUTC } from "./datetime";
 export { decodeHSON, encodeHSON, setHareScriptType, HareScriptType };
 export { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, exportRTDToRawHTML, type HareScriptRTD } from "./richdocument";
