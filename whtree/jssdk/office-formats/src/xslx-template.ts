@@ -12,7 +12,7 @@ type TemplateFiles = Record<string, string | IterableIterator<string>>;
 
 export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]): TemplateFiles {
   //Note that we number sheet1.xml as rId1 but the next sheets as rId4...
-  const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx === 0 ? 1 : idx + 4}` }));
+  const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx + 4}` }));
   return {
     '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -21,6 +21,7 @@ export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]): T
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   ${addSheets.map(sheet => `<Override PartName="/xl/worksheets/${encodeString(sheet.name, 'attribute')}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("\n")}
   <Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
@@ -65,9 +66,9 @@ export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]): T
     'docProps/core.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:subject></dc:subject><dc:creator></dc:creator><cp:keywords></cp:keywords><dc:description></dc:description><cp:lastModifiedBy>Microsoft Office User</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">2011-08-22T12:15:19Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2019-07-23T10:18:58Z</dcterms:modified><cp:category></cp:category></cp:coreProperties>`,
     'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
-  <Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
   ${addSheets.map(sheet => `<Relationship Id="${sheet.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/${encodeString(sheet.name, 'attribute')}"/>`).join('\n')}
 </Relationships>
 `,
@@ -124,10 +125,9 @@ ${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId ?? 0}" fontId="
 </styleSheet>`,
     'xl/sharedStrings.xml': function* () {
       yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-`;
-      yield* doc.sharedString.values().map(str => `\n  <si><t xml:space="preserve">${encodeString(str, 'attribute')}</t></si>`);
-      yield `      </sst>`;
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${doc.sharedString.length}" uniqueCount="${doc.sharedString.length}">`;
+      yield* doc.sharedString.values().map(str => `<si><t>${encodeString(str, 'attribute')}</t></si>`);
+      yield `</sst>`;
     }(),
     'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr6="http://schemas.microsoft.com/office/spreadsheetml/2016/revision6" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" mc:Ignorable="x15 xr xr6 xr10 xr2">
