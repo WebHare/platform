@@ -122,6 +122,34 @@ OBJECT FUNCTION OpenEmbeddedObject(OBJECT doc, OBJECT node)
   RETURN embeddedobject.widget;
 }
 
+RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
+{
+  STRING tagname := ToLowercase(richobj->blocknode->tagname);
+  RECORD outlinerecord := [ tagname :=    tagname
+                          , classname :=  richobj->blocknode->GetAttribute("class")
+                          , type :=       tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
+                          , rows :=       RecordExists(richobj->__table) ? GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
+                          , richobject := richobj
+                          , node :=       richobj->blocknode
+                          ];
+  RETURN outlinerecord;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
+{
+  RECORD ARRAY nodes;
+  FOREVERY(OBJECT richobj FROM richobjects)
+    INSERT GetOutlineRecord(richobj) INTO nodes AT END;
+
+  RETURN nodes;
+}
+
+RECORD ARRAY FUNCTION GetOutlineRows(OBJECT richobj)
+{
+  RETURN SELECT cells := (SELECT outline := GetOutlineParts(richobjects) FROM cells)
+            FROM richobj->__table.rows;
+}
+
 PUBLIC STATIC OBJECTTYPE RichDocumentFilter
 <
   PUBLIC STRING ARRAY tagfilter;
@@ -859,34 +887,7 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
   {
     IF(NOT this->didscan)
       THROW NEW Exception("GetOutline cannot be invoked until a structure has been applied to the document");
-    RETURN this->GetOutlineParts(this->richobjects);
-  }
-  RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
-  {
-    STRING tagname := ToLowercase(richobj->blocknode->tagname);
-    RECORD outlinerecord := [ tagname :=    tagname
-                            , classname :=  richobj->blocknode->GetAttribute("class")
-                            , type :=       tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
-                            , rows :=       RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
-                            , richobject := richobj
-                            , node :=       richobj->blocknode
-                            ];
-    RETURN outlinerecord;
-  }
-
-  RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
-  {
-    RECORD ARRAY nodes;
-    FOREVERY(OBJECT richobj FROM richobjects)
-      INSERT this->GetOutlineRecord(richobj) INTO nodes AT END;
-
-    RETURN nodes;
-  }
-
-  RECORD ARRAY FUNCTION GetOutlineRows(OBJECT richobj)
-  {
-    RETURN SELECT cells := (SELECT outline := this->GetOutlineParts(richobjects) FROM cells)
-             FROM richobj->__table.rows;
+    RETURN GetOutlineParts(this->richobjects);
   }
 
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
