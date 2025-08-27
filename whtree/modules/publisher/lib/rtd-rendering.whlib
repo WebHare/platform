@@ -1,0 +1,146 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
+
+/* RTD Rendering structure
+
+   Blocks:
+   - Array of Block
+
+   Block:
+   - Suitable parameter to RenderRTDBlock
+*/
+
+PUBLIC OBJECTTYPE RTDRenderer <
+  PUBLIC MACRO RenderRTDBlocks(RECORD context, RECORD ARRAY blocks) {
+    FOREVERY(RECORD block FROM blocks)
+      this->RenderRTDBlock(context, block);
+  }
+
+  /** Renders any block (table/list/paragraph/heading/code/widget/....) */
+  PUBLIC MACRO RenderRTDBlock(RECORD context, RECORD block) { //we recommend against overwriting this function
+    IF(RecordExists(block.widget))
+      this->RenderRTDBlockWidget(context, block);
+    ELSE IF(block.tagname = "table")
+      this->RenderRTDBlockTable(context, block);
+    ELSE IF(NOT RecordExists(block.__richobject->blockstyle))
+      ABORT(block); //NOCOMMIT
+    ELSE
+      this->RenderRTDParagraph(context, block);
+  }
+
+  PUBLIC MACRO RenderRTDBlockTable(RECORD context, RECORD block) {
+    STRING lf := context.prettyprint ? "\n" : "";
+
+    Print("<div class=\"wh-rtd__tablewrap " || EncodeAttributeValue(block.classname) || "\">" || lf);
+    Print("<table class=\"wh-rtd__table " || EncodeAttributeValue(block.classname) || "\">" || lf);
+
+    IF(block.__richobject->__table.caption != "")
+      Print(`<caption class="wh-rtd__tablecaption">${EncodeHTML(block.__richobject->__table.caption)}</caption>`);
+
+    Print("<colgroup>" || lf);
+    FOREVERY(RECORD col FROM block.__richobject->__table.cols)
+      Print('<col style="' || col.node->GetAttribute("style") || '"/>'); //ADDME sanitize style?
+
+    Print("</colgroup>" || lf);
+
+    Print("<tbody>" || lf);
+    FOREVERY(RECORD row FROM block.__richobject->__table.rows)
+    {
+      BOOLEAN hascolheaders, hasrowheaders;
+      FOREVERY(RECORD cellrec FROM row.cells)
+      {
+        IF(cellrec.isheader AND cellrec.scope="col")
+          hascolheaders := TRUE;
+        IF(cellrec.isheader AND cellrec.scope="row")
+          hasrowheaders := TRUE;
+      }
+
+
+      STRING ARRAY trclasses;
+      IF(hascolheaders)
+        INSERT "wh-rtd--hascolheader" INTO trclasses AT END;
+      IF(hasrowheaders)
+        INSERT "wh-rtd--hasrowheader" INTO trclasses AT END;
+
+      Print("<tr");
+      IF(Length(trclasses)>0)
+        Print(' class="' || Detokenize(trclasses,' ') || '"');
+
+      Print(">" || lf);
+      FOREVERY(RECORD cellrec FROM row.cells)  {
+        STRING class := "wh-rtd__tablecell";
+        IF(Length(cellrec.cellclasses) > 0) {
+          RECORD matchstyle := SELECT * FROM block.__richobject->document->structure->structure.cellstyles WHERE cellstyles.tag IN cellrec.cellclasses;
+          IF(RecordExists(matchstyle))
+            class := class || " " || matchstyle.tag;
+        }
+
+        STRING nodename := (cellrec.isheader?"th":"td");
+        Print(`<${nodename} class="${EncodeValue(class)}"`);
+        IF(cellrec.isheader AND cellrec.scope IN ["row","col"])
+          Print(' scope="' || cellrec.scope || '"');
+        IF(cellrec.colspan>1)
+          Print(` colspan="${cellrec.colspan}"`);
+        IF(cellrec.rowspan>1)
+          Print(` rowspan="${cellrec.rowspan}"`);
+        Print(">" || lf);
+
+        RECORD ARRAY suboutline := GetBlocksFromOutline(context.webdesign, GetOutlineParts(cellrec.richobjects));
+        this->RenderRTDBlocks(context, suboutline);
+
+        Print("</" || nodename  || ">" || lf);
+      }
+      Print("</tr>" || lf);
+    }
+    Print("</tbody>" || lf);
+    Print("</table>" || lf);
+    Print("</div>" || lf);
+  }
+
+  PUBLIC MACRO RenderRTDBlockWidget(RECORD context, RECORD block) {
+    IF(MemberExists(block.__widget, "__pvt_widgetsettings"))
+      block.__widget->RenderLive();
+    ELSE
+      block.__widget->RenderObject(CELL[context.webdesign]);
+  }
+
+  PUBLIC MACRO RenderRTDAnchor(RECORD context, RECORD block) {
+    IF(block.needsanchor) {
+      STRING content := TrimWhitespace(block.__node->textcontent);
+      IF(content != "")
+        Print('<a class="wh-anchor" id="' || EncodeAttributeValue(context.webdesign->GenerateAnchor(content)) || '"></a>');
+    }
+  }
+
+  PUBLIC MACRO RenderRTDParagraphContent(RECORD context, RECORD block) {
+    OBJECT filter := NEW StructuredRichDocumentFilter(block.__richobject->blockstyle);
+    BOOLEAN keepwhitespace := block.tagname = "code";
+
+    STRING contentareawidth := context.contentareawidth;
+    IF (contentareawidth != "")
+      filter->maximagewidth := ToInteger(Left(contentareawidth, Length(contentareawidth)-2),0); //strip 'px' and convert to int
+
+    INTEGER webdesignwidth := context.webdesign->GetMaximumContentWidthPixels();
+    IF(webdesignwidth > 0 AND (filter->maximagewidth = 0 OR webdesignwidth < filter->maximagewidth))
+      filter->maximagewidth := webdesignwidth;
+
+    filter->FormatNodes(block.__richobject, block.__node, keepwhitespace);
+  }
+
+  /** Renders a paragraph block, eg p or heading.
+      for now, RenderRTDParagraph will also handle ul/ol/li as we have no use case to intercept them yet and the original
+      rendering code doesn't see them as special and just treats deeper li and ul as inline tags. This
+      may change in the future and we might set up a separate route API for lists */
+  PUBLIC MACRO RenderRTDParagraph(RECORD context, RECORD block) {
+    Print(`<${block.tagname} class="${EncodeAttributeValue(block.classname)}">`);
+
+    //It's important to generate the anchor just-in-time for compatibility with the existing rendering algorithms
+    this->RenderRTDAnchor(context,block);
+    this->RenderRTDParagraphContent(context, block);
+
+    Print(`</${block.tagname}>`);
+    IF(context.prettyprint)
+      Print("\n");
+  }
+>;
