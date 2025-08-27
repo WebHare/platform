@@ -8,14 +8,15 @@
       <text tid="deletepattern">Patroon verwijderen</text>
       <text tid="editpattern">Patroon bewerken</text>
       <text tid="noindex_icon">Niet indexeren</text>
-      <text tid="nolinkcheck_to_icon">Inkomende links niet controleren</text>
+      <text tid="nolinkcheck_to_icon">Uitgaande links niet controleren</text>
       <text tid="nopatterns">Er zijn nog geen patronen gedefinieerd</text>
       <text tid="pattern">URL-patroon</text>
     </textgroup>
     <textgroup gid="blacklistpattern">   <!-- catalog.blacklistpattern -->
+      <text tid="duplicate-pattern">Dit patroon bestaat al</text>
       <text tid="options">Opties</text>
       <text tid="options-noindex">Niet indexeren</text>
-      <text tid="options-nolinkcheck_to">Inkomende links niet controleren</text>
+      <text tid="options-nolinkcheck_to">Uitgaande links niet controleren</text>
       <text tid="pattern">URL-patroon</text>
       <text tid="title-edit">URL-patroon bewerken</text>
       <text tid="title-new">URL-patroon toevoegen</text>

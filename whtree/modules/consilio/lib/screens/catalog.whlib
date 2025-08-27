@@ -513,110 +513,73 @@ PUBLIC OBJECTTYPE Options EXTEND TolliumScreenBase
   }
 >;
 
-PUBLIC OBJECTTYPE Blacklist EXTEND TolliumScreenBase
-<
-  MACRO Init()
-  {
-    this->RefreshList();
+PUBLIC STATIC OBJECTTYPE Blacklist EXTEND TolliumScreenBase <
+  MACRO EditPattern(RECORD row) {
+    this->RunScreen("#blacklistpattern", row);
+  }
+  MACRO DeletePattern(RECORD row) {
+    IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmpatterndelete", ^blacklist->selection.pattern)) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginWork();
+    DELETE FROM consilio.blacklist WHERE id = ^blacklist->value;
+    GetPrimary()->BroadcastOnCommit("consilio:blacklistchanged", DEFAULT RECORD);
+    work->Finish();
   }
 
-  MACRO DoAddPattern()
-  {
-    OBJECT dlg := this->LoadScreen(".blacklistpattern");
-    IF (dlg->RunModal() = "ok")
-    {
-      BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
-      this->RefreshList();
-    }
-  }
-
-  MACRO DoEditPattern()
-  {
-    IF (RecordExists(this->blacklist->selection))
-    {
-      OBJECT dlg := this->LoadScreen(".blacklistpattern", this->blacklist->selection);
-      IF (dlg->RunModal() = "ok")
-      {
-        BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
-        this->RefreshList();
-      }
-    }
-  }
-
-  MACRO DoDeletePattern()
-  {
-    IF (RecordExists(this->blacklist->selection))
-    {
-      IF (this->RunSimpleScreen("confirm", GetTid("consilio:catalog.messages.confirmpatterndelete", this->blacklist->selection.pattern)) = "yes")
-      {
-        OBJECT work := this->BeginWork();
-        DELETE FROM consilio.blacklist WHERE id = this->blacklist->value;
-        IF (work->Finish())
-        {
-          BroadcastEvent("consilio:blacklistchanged", DEFAULT RECORD);
-          this->RefreshList();
-        }
-      }
-    }
-  }
-
-  MACRO RefreshList()
-  {
-    this->blacklist->rows := SELECT *
-                                  , rowkey := id
-                                  , noindex_icon := noindex ? 1 : 0
-                                  , nolinkcheck_to_icon := nolinkcheck_to ? 1 : 0
-                               FROM consilio.blacklist;
+  RECORD ARRAY FUNCTION GetBlacklistRows() {
+    RETURN SELECT *
+                , rowkey := id
+                , noindex_icon := noindex ? 1 : 0
+                , nolinkcheck_to_icon := nolinkcheck_to ? 1 : 0
+              FROM consilio.blacklist;
   }
 >;
 
-PUBLIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase
-< INTEGER patternid;
+PUBLIC STATIC OBJECTTYPE BlacklistPattern EXTEND TolliumScreenBase <
+  INTEGER patternid;
 
-  MACRO Init(RECORD data)
-  {
-    IF (RecordExists(data))
-    {
+  MACRO Init(RECORD data) {
+    IF (RecordExists(data)) {
       this->frame->title := GetTid("consilio:catalog.blacklistpattern.title-edit");
       this->patternid := data.id;
-      this->pattern->value := data.pattern;
+      ^pattern->value := data.pattern;
+
       STRING ARRAY options;
       IF (data.noindex)
         INSERT "noindex" INTO options AT END;
-      IF (data.nolinkcheck_from)
+      IF (data.nolinkcheck_to)
         INSERT "nolinkcheck_to" INTO options AT END;
-      this->options->value := options;
-    }
-    ELSE
-    {
+      ^options->value := options;
+    } ELSE {
       this->frame->title := GetTid("consilio:catalog.blacklistpattern.title-new");
     }
   }
 
-  BOOLEAN FUNCTION Submit()
-  {
+  INTEGER FUNCTION Submit() {
     OBJECT work := this->BeginWork();
-    IF (RecordExists(SELECT FROM consilio.blacklist WHERE pattern = this->pattern->value AND id != this->patternid))
-      work->AddError("", this->pattern->value);
-    IF (NOT work->HasFailed())
-    {
-      IF (this->patternid != 0)
-      {
+    IF (RecordExists(SELECT FROM consilio.blacklist WHERE pattern = ^pattern->value AND id != this->patternid))
+      work->AddErrorFor(^pattern, this->GetTid(".duplicate-pattern"));
+
+    INTEGER updatedid := this->patternid;
+
+    IF (NOT work->HasFailed()) {
+      IF (this->patternid != 0) {
         // Editing
         UPDATE consilio.blacklist
-           SET pattern := this->pattern->value
-             , noindex := "noindex" IN this->options->value
-             , nolinkcheck_to := "nolinkcheck_to" IN this->options->value
+           SET pattern := ^pattern->value
+             , noindex := "noindex" IN ^options->value
+             , nolinkcheck_to := "nolinkcheck_to" IN ^options->value
          WHERE id = this->patternid;
-      }
-      ELSE
-      {
+      } ELSE {
         // Adding
-        INSERT INTO consilio.blacklist(pattern, noindex, nolinkcheck_to)
-               VALUES(this->pattern->value, "noindex" IN this->options->value, "nolinkcheck_to" IN this->options->value);
+        updatedid := MakeAutonumber(consilio.blacklist, "id");
+        INSERT INTO consilio.blacklist(id, pattern, noindex, nolinkcheck_to)
+               VALUES(updatedid, ^pattern->value, "noindex" IN ^options->value, "nolinkcheck_to" IN ^options->value);
       }
     }
-    RETURN work->Finish();
+    GetPrimary()->BroadcastOnCommit("consilio:blacklistchanged", DEFAULT RECORD);
+    RETURN work->Finish() ? updatedid : 0;
   }
 >;
 
