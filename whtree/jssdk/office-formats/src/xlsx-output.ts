@@ -7,17 +7,6 @@ import { utcToLocal } from "@webhare/hscompat";
 
 export type GenerateXLSXOptions = (GenerateSpreadsheetOptions | GenerateWorkbookProperties) & { timeZone?: string };
 
-function createHeaderRow(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions) {
-  let result = '';
-  result += `<row r="1">`;
-  for (const [idx, col] of sheetSettings.columns.entries()) {
-    const v = doc.storeSharedString(col.title);
-    result += `<c r="${getNameForCell(idx + 1, 1)}" t="s"><v>${encodeString(v, 'attribute')}</v></c>`;
-  }
-  result += `</row>`;
-  return result;
-}
-
 function TemporalToExcel(x: Temporal.Instant | Temporal.ZonedDateTime): number {
   return x.epochMilliseconds / 86400_000 + 25569;
 }
@@ -32,6 +21,17 @@ const useTemporal = false;
 class WorksheetBuilder {
   constructor(private doc: XLSXDocBuilder) {
   }
+
+  createHeaderRow(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions) {
+    let result = '';
+    result += `<row r="1">`;
+    for (const [idx, col] of sheetSettings.columns.entries()) {
+      result += this.renderCell(getNameForCell(idx + 1, 1), col.title, { ...col, type: "string", style: this.calcColumnStyle({ ...col, type: "string" }) }, {});
+    }
+    result += `</row>`;
+    return result;
+  }
+
 
   renderCell(cellId: string, value: unknown, col: SpreadsheetColumn & { style: number }, options: { timeZone?: string }) {
     let storevalue: string, type = '';
@@ -126,7 +126,7 @@ class WorksheetBuilder {
     let currow = 1;
 
     //Create header row
-    yield createHeaderRow(this.doc, sheetSettings);
+    yield this.createHeaderRow(this.doc, sheetSettings);
     ++currow;
 
     const cols = this.calcColumnStyles(sheetSettings.columns).entries().toArray();
@@ -218,7 +218,8 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
   preamble += `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x14ac xr xr2 xr3" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" xmlns:xr3="http://schemas.microsoft.com/office/spreadsheetml/2016/revision3" xr:uid="{00000000-0001-0000-0000-000000000000}">`;
   preamble += `<dimension ref="A1:${dimensions}"/>`;
   preamble += `<sheetViews><sheetView ${tabSelected ? `tabSelected="1"` : ""} workbookViewId="0">`;
-  preamble += `<pane xSplit="${sheetSettings.split?.columns ?? 0}" ySplit="${sheetSettings.split?.rows ?? 0}" state="frozenSplit" topLeftCell="${getNameForCell((sheetSettings.split?.columns ?? 0) + 1, (sheetSettings.split?.rows ?? 0) + 1)}" />`;
+  if (sheetSettings.split?.columns || sheetSettings.split?.rows)
+    preamble += `<pane xSplit="${sheetSettings.split?.columns ?? 0}" ySplit="${sheetSettings.split?.rows ?? 0}" state="frozenSplit" topLeftCell="${getNameForCell((sheetSettings.split?.columns ?? 0) + 1, (sheetSettings.split?.rows ?? 0) + 1)}" />`;
   preamble += `</sheetView></sheetViews>`;
   preamble += `<sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/>`;
   preamble += `<cols>`;
