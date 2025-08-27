@@ -539,6 +539,11 @@
   </apply>
 
   <apply>
+    <to type="all" pathmask="*/tmp/listtest.rtd" />
+    <rtddoc rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/listtest" />
+  </apply>
+
+  <apply>
     <to type="file" pathmask="*/rtdtype/override" />
     <rtddoc htmlclass="other" />
     <extendproperties name="rtdtypeprops" />
