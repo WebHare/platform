@@ -53,6 +53,10 @@ MACRO TestServerStatus()
   // robots.txt is always denylisted
   result := CheckLink(`http://example.com/robots.txt`);
   TestEQ(14, result.code);
+
+  // test exception handling - we ran into an issue where checklink was fed a \t url
+  result := CheckLink(`http://example.com/test\tone`);
+  TestEQ(3, result.code);
 }
 
 RunTestFramework( [ PTR TestServerStatus
