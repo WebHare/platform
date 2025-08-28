@@ -70,19 +70,6 @@ INTEGER FUNCTION FindSettings(INTEGER connectionid)
   RETURN pos.found ? pos.position : -1;
 }
 
-/** @short Formats a datetime in the HTTP required format
-    @long This function will format a datetime for HTTP, eg for use inside a Last-Modified header
-    @param whattime Time to format, in UTC time.
-    @return The formatted time
-    @topic sitedev/dynamic
-    @public
-    @loadlib mod::system/lib/webserver.whlib
-*/
-PUBLIC STRING FUNCTION FormatHttpDateTime(DATETIME whattime)
-{
-  RETURN FormatDateTime("%a, %d %b %Y %H:%M:%S GMT", whattime);
-}
-
 /** @short GetSettings is used to get the existing settings from a connection
     @param connectionid Integer indicating the if of the connection to get the settings from
     @return Stored settings, DEFAULT RECORD if not found

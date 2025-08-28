@@ -7,12 +7,12 @@
 */
 
 LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::datetime.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
+LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
