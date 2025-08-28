@@ -147,8 +147,8 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
   */
 
   //if we get an odd HEAD response, retry with GET
-  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code = 400 OR result.code >= 500 OR (result.code = 302 AND options.get_on_302)))
-    result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := TRUE ]);
+  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code IN [400,403] OR result.code >= 500 OR (result.code = 302 AND options.get_on_302)))
+    result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := FALSE ]);
 
   IF (NOT result.success AND result.errorcode != "")
   {
