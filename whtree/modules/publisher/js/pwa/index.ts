@@ -68,11 +68,11 @@ export async function updateApplication() {
 }
 
 
-export async function onReady(initfunction: () => void, options?: {
+export function onReady(initfunction: () => void, options?: {
   reportusage?: boolean;
   onAvailableOffline?: () => void;
   onOfflineFailed?: (e: Error) => void;
-}) {
+}): void {
   if (didinit)
     throw new Error("pwalib.onReady should be invoked only once");
 
@@ -95,44 +95,44 @@ export async function onReady(initfunction: () => void, options?: {
   }
 
   //wait for dompack to be ready...
-  await new Promise<void>(resolve => dompack.onDomReady(resolve));
+  dompack.onDomReady(async function () {
+    //we can now run initialization which can do some basic UI setup
+    initfunction();
 
-  //we can now run initialization which can do some basic UI setup
-  initfunction();
+    //bind it to user given clalbacks
+    if (options?.onAvailableOffline)
+      offlinedeferred.promise = offlinedeferred.promise.then(() => options.onAvailableOffline!());
+    if (options?.onOfflineFailed) //we need to chain our catch to the new promise above or we risk a "unhandled rejection" - https://stackoverflow.com/questions/52409326/unhandled-promise-rejection-despite-catching-the-promise
+      offlinedeferred.promise = offlinedeferred.promise.catch(e => options.onOfflineFailed!(e));
 
-  //bind it to user given clalbacks
-  if (options?.onAvailableOffline)
-    offlinedeferred.promise = offlinedeferred.promise.then(() => options.onAvailableOffline!());
-  if (options?.onOfflineFailed) //we need to chain our catch to the new promise above or we risk a "unhandled rejection" - https://stackoverflow.com/questions/52409326/unhandled-promise-rejection-despite-catching-the-promise
-    offlinedeferred.promise = offlinedeferred.promise.catch(e => options.onOfflineFailed!(e));
-
-  //and we can start registration
-  if (!("serviceWorker" in navigator)) {
-    offlinedeferred.reject(new Error("This browser does not support serviceWorker"));
-    return;
-  }
-  if (window.isSecureContext === false) {
-    offlinedeferred.reject(new Error("This webpage is not running in a secure context (https or localhost)"));
-    return;
-  }
-
-  const swurl = `${getAssetPackBase("platform:pwaserviceworker")}ap.mjs?app=${encodeURIComponent(settings.getAppName())}`;
-
-  try {
-    swregistration = await navigator.serviceWorker.register(swurl, { scope: appbase });
-
-    if (swregistration.installing) { //detect an installing worker going straight to redundant
-      swregistration.installing.addEventListener("statechange", () => {
-        if (swregistration?.installing?.state === "redundant")
-          offlinedeferred.reject(new Error("The serviceWorker failed to install"));
-      });
+    //and we can start registration
+    if (!("serviceWorker" in navigator)) {
+      offlinedeferred.reject(new Error("This browser does not support serviceWorker"));
+      return;
+    }
+    if (window.isSecureContext === false) {
+      offlinedeferred.reject(new Error("This webpage is not running in a secure context (https or localhost)"));
+      return;
     }
 
-    offlinedeferred.resolve(navigator.serviceWorker.ready.then(() => void undefined));
-  } catch (e) {
-    console.log("PWA Registration failed", (e as Error).message);
-    offlinedeferred.reject(e);
-  }
+    const swurl = `${getAssetPackBase("platform:pwaserviceworker")}ap.mjs?app=${encodeURIComponent(settings.getAppName())}`;
+
+    try {
+      swregistration = await navigator.serviceWorker.register(swurl, { scope: appbase });
+
+      if (swregistration.installing) { //detect an installing worker going straight to redundant
+        swregistration.installing.addEventListener("statechange", () => {
+          if (swregistration?.installing?.state === "redundant")
+            offlinedeferred.reject(new Error("The serviceWorker failed to install"));
+        });
+      }
+
+      offlinedeferred.resolve(navigator.serviceWorker.ready.then(() => void undefined));
+    } catch (e) {
+      console.log("PWA Registration failed", (e as Error).message);
+      offlinedeferred.reject(e);
+    }
+  });
 }
 
 //inform any serviceworkers that a pwalib app has connected. gives them a chance to watch for forced version checks
