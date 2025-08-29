@@ -222,7 +222,8 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
     preamble += `<pane xSplit="${sheetSettings.split?.columns ?? 0}" ySplit="${sheetSettings.split?.rows ?? 0}" state="frozenSplit" topLeftCell="${getNameForCell((sheetSettings.split?.columns ?? 0) + 1, (sheetSettings.split?.rows ?? 0) + 1)}" />`;
   preamble += `</sheetView></sheetViews>`;
   preamble += `<sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/>`;
-  preamble += `<cols>`;
+
+  const colDefs = [];
   for (const [idx, col] of sheetSettings.columns.entries()) {
     let width: number | undefined;
     // Adjust default widths for dateTime & numbers with decimals
@@ -231,9 +232,12 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
     if (col.type === "number" && col.decimals !== undefined)
       width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
     if (width !== undefined)
-      preamble += `<col min="${idx + 1}" max="${idx + 1}" bestFit="1" width="${width}"/>`;
+      colDefs.push(`<col min="${idx + 1}" max="${idx + 1}" bestFit="1" width="${width}"/>`);
   }
-  preamble += `</cols>`;
+
+  if (colDefs.length) //<xsd:element name="col" type="CT_Col" minOccurs="1" maxOccurs="unbounded"/> - so only output <cols> if we have at least 1
+    preamble += `<cols>${colDefs.join("")}</cols>`;
+
   preamble += `<sheetData>`;
   let postamble = `</sheetData>`;
   if (sheetSettings.withAutoFilter) {
