@@ -46,7 +46,11 @@ export type GenerateSpreadsheetOptions = ({
 }) & {
   title?: string;
   timeZone?: string;
-  split?: { columns?: number; rows?: number };
+  /** Split (freeze) rows or columns. Set to eg '1' to freeze only the topmost row/column  */
+  split?: {
+    columns?: number;
+    rows?: number;
+  };
   withAutoFilter?: boolean;
 };
 
