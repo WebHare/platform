@@ -154,27 +154,16 @@ export function isDomReady() {
   return typeof document !== "undefined" && (document.readyState === "interactive" || document.readyState === "complete");
 }
 
-/* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions from the ready handler will not be fatal to the rest of code execution */
-export function onDomReady(callback: () => void) {
+/* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions/rejections from the ready handler will not be fatal to the rest of code execution */
+export function onDomReady(callback: () => void | Promise<void>) {
   if (isDomReady()) {
     try {
-      callback();
-    } catch (e) {
-      console.error("Exception executing a domready handler");
-      if (e instanceof Error) {
-        console.log(e, e.stack);
-        if (window.onerror) {
-          // Send to onerror to trigger exception reporting
-          try {
-            // @ts-ignore fileName, lineNumber and columnNumber are non-standard
-            window.onerror(e.message, e.fileName || "", e.lineNumber || 1, e.columNumber || 1, e);
-          } catch (e2) { }
-        }
-      } else
-        console.log(e);
+      void callback(); //Ignore unhandled rejections
+    } catch (e) { // We don't want our caller to 'stop' due to a domready exception as its usually the toplevel initialization code, so log the exception ourselves
+      void Promise.reject(new Error("Synchronous onDomReady handler failed", { cause: e })); //Let it propagate as a standard unhandled rejection
     }
   } else
-    document.addEventListener("DOMContentLoaded", callback);
+    document.addEventListener("DOMContentLoaded", () => void callback());
 }
 
 //parse JSON data, throw with more info on parse failure
