@@ -137,7 +137,7 @@ PACKAGES+=(certbot
     zip)
 
 # Chrome specific deps
-PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2)
+PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libcups2)
 
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
   echo "APT-GET failed"
