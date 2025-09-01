@@ -134,7 +134,7 @@ class WorksheetBuilder {
       let result = `<row r="${currow}">`;
       for (const [idx, col] of cols) {
         const value = row[col.name];
-        if (value === null || value === undefined)
+        if (value === null || value === undefined || Number.isNaN(value))
           continue;
 
         const cellId = getNameForCell(idx + 1, currow);
