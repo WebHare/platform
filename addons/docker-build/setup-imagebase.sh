@@ -100,7 +100,7 @@ PACKAGES+=(certbot
     git
     inotify-tools
     jq
-    openjdk-17-jre-headless
+    openjdk-21-jre-headless
     fonts-liberation
     less
     libaio1
@@ -156,7 +156,7 @@ if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
-rm /etc/java-17-openjdk/accessibility.properties
+rm /etc/java-21-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 
