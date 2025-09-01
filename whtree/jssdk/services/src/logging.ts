@@ -26,14 +26,22 @@ export type AccessLogLine = LogLineBase & {
   ip: string;
   user?: string;
   /** Request method */
-  method: keyof HTTPMethod | string; //add most common methods
+  method: keyof HTTPMethod | string; //keyof HTTPMethod to add common methods directly to intellisense
+  /** Full request URL */
   url: string;
-  statusCode: HTTPStatusCode | number; //add most common statuscodes
+  /** Response status code (eg. 200 = Ok) */
+  statusCode: HTTPStatusCode | number; //keyof statusCode to add common codes directly to intellisense
+  /** Number of bytes sent in the response body */
   bodySent?: number;
+  /** Number of bytes received in the request body */
   bodyReceived?: number;
+  /** Referrer URL (from 'referer' header) */
   referrer?: string;
+  /** Browser User-Agent string */
   userAgent?: string;
+  /** Mime type of the response */
   mimeType?: string;
+  /** Time between full receipt of the request and the start of the response in seconds */
   responseTime?: number;
 };
 
