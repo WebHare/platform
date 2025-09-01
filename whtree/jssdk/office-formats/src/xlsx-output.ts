@@ -226,7 +226,7 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
     let width: number | undefined;
     // Adjust default widths for dateTime & numbers with decimals
     if (col.type === "dateTime")
-      width = 18;
+      width = 19;
     if (col.type === "number" && col.decimals !== undefined)
       width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
     if (width !== undefined)
