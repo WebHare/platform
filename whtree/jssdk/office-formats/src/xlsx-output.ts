@@ -223,12 +223,13 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
   preamble += `<sheetFormatPr baseColWidth="10" defaultRowHeight="16" x14ac:dyDescent="0.2"/>`;
   preamble += `<cols>`;
   for (const [idx, col] of sheetSettings.columns.entries()) {
-    let width: number | undefined;
-    // Adjust default widths for dateTime & numbers with decimals
-    if (col.type === "dateTime")
-      width = 19;
-    if (col.type === "number" && col.decimals !== undefined)
-      width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
+    let width: number | undefined = col.width;
+    if (width === undefined) { // Set default widths for dateTime & numbers with decimals
+      if (col.type === "dateTime")
+        width = 19;
+      if (col.type === "number" && col.decimals !== undefined)
+        width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
+    }
     if (width !== undefined)
       preamble += `<col min="${idx + 1}" max="${idx + 1}" bestFit="1" width="${width}"/>`;
   }
