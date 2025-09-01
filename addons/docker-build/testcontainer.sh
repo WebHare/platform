@@ -17,7 +17,7 @@ fi
 
 # Podman testcontainer support is still experimental. to try it:
 # wh buildcontainer --podman
-# wh testcontainer --nopull --podman --webhareimage localhost/webhare/webhare-extern:localbuild --tag=-external checkmodules
+# wh testcontainer --nopull --podman --webhareimage localhost/webhare/platform:devbuild --tag=-external checkmodules
 
 version=""
 CONTAINERS=()
@@ -316,9 +316,9 @@ wh testcontainer [options]
 Options:
 -m <module>             - Test the specified module
 --containername <name>  - Force this name for the CI container
---nopull                - Do not pull the image (implicit with --webhareimage localbuild)
+--nopull                - Do not pull the image (implicit with --webhareimage devbuild)
 --webhareimage <image>  - Use this image. Image tags 'main/beta/stable' correspond to their release channels.
-                          Image 'localbuild' refers to webhare/webhare-extern:localbuild as built by 'wh buildcontainer'. This is the default
+                          Image 'devbuild' refers to docker.io/webhare/platform:devbuild as built by 'wh buildcontainer'. This is the default
 --nocheckmodule         - Do not run checkmodule before the actual tests
 --sh                    - Open a shell inside the container after running the tests
 --podman                - Use podman instead of docker
@@ -509,10 +509,10 @@ if [ -n "$TESTSECRET_SECRETSURL" ]; then
 fi
 
 if [ -z "$ISPLATFORMTEST" ] && [ -z "$WEBHAREIMAGE" ]; then
-  WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
+  WEBHAREIMAGE="localhost/webhare/platform:devbuild"
   NOPULL=1
   if ! RunDocker inspect "$WEBHAREIMAGE" >/dev/null 2>&1 ; then
-    exit_failure_sh "Cannot find localbuild image $WEBHAREIMAGE, please run 'wh buildcontainer' first or use --webhareimage [main/stable/beta/...]"
+    exit_failure_sh "Cannot find devbuild image $WEBHAREIMAGE, please run 'wh buildcontainer' first or use --webhareimage [main/stable/beta/...]"
   fi
 fi
 
@@ -530,7 +530,7 @@ if [ -z "$WEBHAREIMAGE" ]; then
   get_finaltag
   list_finaltag
   WEBHAREIMAGE=$BUILD_IMAGE
-  if [ "$WEBHAREIMAGE" == "webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}" ]; then
+  if [ "$WEBHAREIMAGE" == "localhost/webhare/platform:devbuild" ]; then
     NOPULL=1
   fi
 fi

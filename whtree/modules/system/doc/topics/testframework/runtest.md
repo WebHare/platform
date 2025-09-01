@@ -52,7 +52,7 @@ When CI tests fail, you may want to reproduce the testenvironment as much
 as possible.
 
 To do this, find the name of the image you want to test. If you've built the image locally
-(eg you've run `wh buildcontainer`) the image will be named `webhare/webhare-extern:localbuild-withts`.
+(eg you've run `wh buildcontainer`) the image will be named `localhost/webhare/platform:devbuild`.
 
 If you want to test against a CI built version,
 you're probably after `webhare/webhare-core:master-withts`. If you didn't build
