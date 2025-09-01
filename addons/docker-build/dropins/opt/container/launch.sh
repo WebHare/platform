@@ -9,9 +9,9 @@ eval `/opt/wh/whtree/bin/wh setupmyshell`
 
 # Setup JAVA_HOME
 if [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
 else
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 fi
 
 export PATH=$PATH:$JAVA_HOME/bin
