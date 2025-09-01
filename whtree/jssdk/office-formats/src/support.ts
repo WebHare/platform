@@ -18,23 +18,24 @@ export const ColumnTypes: Record<ValidColumnTypes, ColumnTypeDef> = {
 };
 
 export type SpreadsheetColumn = {
+  /** Column name (property name in rows) */
   name: string;
+  /** Column title (display name in spreadsheet header) */
   title: string;
-  type: Exclude<keyof typeof ColumnTypes, "dateTime" | "number">;
+  /** Column alignment */
   align?: "left" | "center" | "right";
+  /** Column width measured as the number of characters of the maximum digit width of the
+      numbers 0, 1, 2, …, 9 as rendered in the normal style's font */
+  width?: number;
+} & ({
+  type: Exclude<keyof typeof ColumnTypes, "dateTime" | "number">;
 } | {
-  name: string;
-  title: string;
   type: "dateTime";
   storeUTC: boolean;
-  align?: "left" | "center" | "right";
 } | {
-  name: string;
-  title: string;
   type: "number";
   decimals?: number;
-  align?: "left" | "center" | "right";
-};
+});
 
 export type SpreadsheetRow = Record<string, number | string | Date | boolean | null | Money>;
 
