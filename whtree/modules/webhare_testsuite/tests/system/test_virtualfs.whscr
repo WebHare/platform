@@ -1,7 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/webdav.whlib";
 
 LOADLIB "mod::system/lib/internal/webserver/webdav-diversionfs.whlib";

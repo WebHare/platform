@@ -3,7 +3,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::internet/fetch.whlib";
-LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 

@@ -126,7 +126,9 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
   IF (options.debug)
     PRINT("Get HTTP url '" || url || "'\n");
 
-  RECORD result := GetHTTPUrl(FALSE/*head*/, url, [ autofollow_301 := TRUE ]);
+  RECORD result;
+  TRY {
+    result := GetHTTPUrl(FALSE/*head*/, url, [ autofollow_301 := TRUE ]);
 
   /*
     Some servers are broken when requesting HEADs. Eg, these URLs require(d)
@@ -146,9 +148,13 @@ PUBLIC RECORD FUNCTION CheckLink(STRING url, RECORD options DEFAULTSTO DEFAULT R
     https://wetten.overheid.nl/BWBR0018450/2021-07-01/
   */
 
-  //if we get an odd HEAD response, retry with GET
-  IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code = 400 OR result.code >= 500 OR (result.code = 302 AND options.get_on_302)))
-    result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := TRUE ]);
+    //if we get an odd HEAD response, retry with GET
+    IF(NOT result.success AND (result.errorcode IN ["TIMEOUT","CONNECT"] OR result.code IN [400,403] OR result.code >= 500 OR (result.code = 302 AND options.get_on_302)))
+      result := GetHTTPUrl(TRUE/*get*/, url, [ autofollow_301 := FALSE ]);
+  } CATCH(OBJECT e) { //exception, eg stumbling on an invalid link (IsValidPlainHTTPURL is too early in executelinkcheck.whlib but for now it's easier to handle it here)
+    RETURN [ code := 003 ];
+  }
+
 
   IF (NOT result.success AND result.errorcode != "")
   {

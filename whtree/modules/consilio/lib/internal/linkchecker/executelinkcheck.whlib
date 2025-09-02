@@ -53,10 +53,11 @@ MACRO UpdateDatabase(RECORD ARRAY changed_recs, RECORD options)
   // Time to check new links if status was not changed
   DATETIME newcheckdate := AddTimeToDate(server_status_permanent, GetCurrentDateTime());
 
+  IF (options.debug)
+    PRINT("Updating checked_links\n");
+
   FOREVERY (RECORD changed_rec FROM changed_recs)
   {
-    IF (options.debug)
-      PRINT("Updating checked_links\n");
     UPDATE consilio.checked_links
        SET checked := changed_rec.checked
          , nextcheck := changed_rec.status = 0 ? newcheckdate : nextcheckdate
