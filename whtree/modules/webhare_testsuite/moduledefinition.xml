@@ -39,8 +39,7 @@
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
     </task>
-
-    <task script="scripts/whcommands/reset.whscr" tag="setuptestsite" ifenvironset="WEBHARE_CI" runatstartup="true"/>
+    <task script="scripts/whcommands/reset.whscr" tag="setuptestsite" runatstartup="true" ifenvironset="WEBHARE_CI" />
 
     <taskcluster harescriptworkers="2" tag="testcluster" />
 
@@ -550,8 +549,8 @@
       </record>
     </fieldgroup>
     <fieldgroup tag="storeonly">
-      <keyword name="indexed" ignore_above="16" />
-      <keyword name="stored" ignore_above="16" storeonly="true" />
+      <text name="indexed" />
+      <text name="stored" storeonly="true" />
     </fieldgroup>
     <fieldgroup tag="extrafield">
       <text name="extrafield" />
@@ -561,7 +560,6 @@
     <addtowhfsindex priority="beforerepository" privatefolder="addtowhfsindex/beforerepository" />
     <addtowhfsindex priority="beforesites" privatefolder="addtowhfsindex/beforesites" />
     <addtowhfsindex privatefolder="addtowhfsindex/anywhere" />
-
     <fieldgroup tag="toolslog_fields">
       <datetime name="@timestamp" />
       <record name="minfin">
@@ -571,7 +569,6 @@
         <integer name="versionnr" />
       </record>
     </fieldgroup>
-
     <catalog tag="toolslog" fieldgroups="toolslog_fields" managed="false" suffixed="true" />
   </consilio>
 

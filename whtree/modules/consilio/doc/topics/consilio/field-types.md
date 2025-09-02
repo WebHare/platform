@@ -145,8 +145,8 @@ field cannot be indexed within the `subfields` record, where only a `stuff` fiel
 
 ## Store-only fields
 
-By default, all fields are searchable and can be returned in the search results. If the field is never searched, but only
-used to store information, the `storeonly` attribute of the field can be set to `true`:
+By default, all fields are added to the reverse index to be searchable. If the field is never searched, but only used to
+store information to be displayed with the search results, the `storeonly` attribute of the field can be set to `true`:
 
 ```xml
 <consilio>
@@ -156,6 +156,8 @@ used to store information, the `storeonly` attribute of the field can be set to 
   </index>
 </consilio>
 ```
+
+Note that non-tokenized fields can also be searched when they are only stored, although not as efficiently.
 
 ## Field groups
 
