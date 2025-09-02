@@ -5,7 +5,6 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/catalogdefparser.whlib";
-LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
@@ -13,32 +12,8 @@ LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
-LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-
-MACRO ObsoleteCatalogs(RECORD options)
-{
-  STRING ARRAY obsoletecatalogs;
-  FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "obsoletecatalog"))
-  {
-    STRING catalogname := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`);
-    INSERT ToUppercase(catalogname) INTO obsoletecatalogs AT END;
-  }
-
-  RECORD ARRAY tocleanup := SELECT id, name
-                              FROM consilio.catalogs
-                              WHERE ToUppercase(name) LIKE ToUppercase(options.catalogmask)
-                                    AND ToUppercase(name) IN obsoletecatalogs;
-
-  IF(Length(tocleanup) > 0)
-  {
-    GetPrimary()->BeginWork();
-    DELETE FROM consilio.catalogs WHERE id IN (SELECT AS INTEGER ARRAY id FROM tocleanup);
-    GetConsilioFinishHandler()->ScheduleCleanup();
-    GetPrimary()->CommitWork();
-  }
-}
 
 MACRO UpdateManagedCatalog(OBJECT catalog, RECORD want, RECORD options)
 {
@@ -311,7 +286,6 @@ PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
   OBJECT lock := OpenLockManager()->LockMutex("consilio:updateindices");
   TRY
   {
-    ObsoleteCatalogs(options);
     UpdateModuleCatalogs(options);
   }
   FINALLY

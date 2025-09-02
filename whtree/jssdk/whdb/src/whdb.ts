@@ -15,6 +15,6 @@ export type {
 } from "kysely";
 
 export { escapePGIdentifier } from "./metadata";
-
+export { schemaExists, tableExists, columnExists } from "./meta";
 export { beginWork, broadcastOnCommit, commitWork, db, isWorkOpen, nextVal, nextVals, onFinishWork, query, rollbackWork, runInSeparateWork, runInWork, uploadBlob, DBReadonlyError } from "./impl";
 export type { FinishHandler, Selectable, Updateable, WorkObject, WorkOptions } from "./impl";

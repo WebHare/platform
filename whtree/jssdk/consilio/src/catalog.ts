@@ -5,7 +5,7 @@
    Set DEBUG=opensearch for debugging opensearch requests. It uses the http/https module, not fetch, and WEBHARE_DEBUG=wrq cannot track that
    */
 
-import { broadcastOnCommit, db, nextVal, uploadBlob } from "@webhare/whdb";
+import { broadcastOnCommit, db, nextVal, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isValidModuleScopedName } from "@webhare/services/src/naming";
 import { convertWaitPeriodToDate, isTruthy, omit, pick, type WaitPeriod } from "@webhare/std";
@@ -14,7 +14,7 @@ import "@webhare/env";
 import type { API as OpenSearchAPI, Client as OpenSearchClient } from "@opensearch-project/opensearch";
 import type { ErrorCause } from "@opensearch-project/opensearch/api/_types/_common";
 import { getStackTrace } from "@webhare/js-api-tools";
-import { WebHareBlob } from "@webhare/services";
+import { scheduleTimedTask, WebHareBlob } from "@webhare/services";
 import { encodeHSON } from "@webhare/hscompat";
 import { loadlib } from "@webhare/harescript";
 import type { AttachedIndex, CatalogListEntry, CatalogSuffix } from "./types";
@@ -449,6 +449,19 @@ export async function doCreateCatalog(tag: string, options?: CatalogOptions): Pr
   const finishHandler = await loadlib("mod::consilio/lib/internal/finishhandler.whlib").GetConsilioFinishHandler();
   await finishHandler.ScheduleUpdate();
   broadcastOnCommit("consilio:indiceschanged");
+}
+
+export async function removeCatalogs(obsolete: string[], options?: { verbose?: boolean }) {
+  const tocleanup = await db<PlatformDB>().selectFrom("consilio.catalogs").select(["id", "name"]).where("name", "in", obsolete).execute();
+  if (tocleanup.length) {
+    if (options?.verbose)
+      console.log(`Removing ${tocleanup.length} catalogs`);
+
+    await runInWork(async () => {
+      await db<PlatformDB>().deleteFrom(["consilio.catalogs"]).where("id", "in", tocleanup.map(_ => _.id)).execute();
+      await scheduleTimedTask("consilio:cleanupindices");
+    });
+  }
 }
 
 export type Catalog<DocType extends object = object> = CatalogObj<DocType & OpenSearchDocument>;

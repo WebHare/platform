@@ -1,7 +1,7 @@
 import { sleep } from "@webhare/std";
 import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { db, beginWork, commitWork, sql, query } from "@webhare/whdb";
-import { getConnection } from "@webhare/whdb/src/impl";
+import { getConnection, type WHDBConnectionImpl } from "@webhare/whdb/src/impl";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";
 import * as test from "@webhare/test";
@@ -63,7 +63,7 @@ export async function runShortLivedContext(sleepMs: number) {
   await context.run(async () => {
     db();
     // Wait for the db connection to become ready, after that the blobtype oid scan is started
-    await new Promise(resolve => getConnection()["pgclient"]?.on("ready", resolve));
+    await new Promise(resolve => (getConnection() as WHDBConnectionImpl).pgclient?.on("ready", resolve));
     /* exit - this will kill the db connection. If queries aren't correctly closed when the context is
        closed, the blob oid scan will hang indefinately and subsequent connections will hang on it
     */
