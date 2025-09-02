@@ -189,6 +189,10 @@ export function getCleanValue(tree: HTMLElement): string {
   queryEmbeddedObjects(returntree).forEach(node => {
     node.contentEditable = "inherit";
     node.replaceChildren();
+    //remove all classes to only keep the bare minimum needed for the value
+    for (const className of node.classList)
+      if (!["wh-rtd-embeddedobject", "wh-rtd-embeddedobject--inline", "wh-rtd-embeddedobject--block"].includes(className))
+        node.classList.remove(className);
   });
 
   //clean table editors
