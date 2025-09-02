@@ -8,14 +8,15 @@
       <text tid="deletepattern">Delete pattern</text>
       <text tid="editpattern">Edit pattern</text>
       <text tid="noindex_icon">Not indexing</text>
-      <text tid="nolinkcheck_to_icon">Not checking incoming links</text>
+      <text tid="nolinkcheck_to_icon">Not checking outgoing links</text>
       <text tid="nopatterns">No patterns defined yet</text>
       <text tid="pattern">URL Pattern</text>
     </textgroup>
     <textgroup gid="blacklistpattern">   <!-- catalog.blacklistpattern -->
+      <text tid="duplicate-pattern">This pattern already exists</text>
       <text tid="options">Options</text>
       <text tid="options-noindex">Do not index</text>
-      <text tid="options-nolinkcheck_to">Do not check incoming links</text>
+      <text tid="options-nolinkcheck_to">Do not check outgoing links</text>
       <text tid="pattern">URL pattern</text>
       <text tid="title-edit">Edit URL pattern</text>
       <text tid="title-new">Add URL pattern</text>

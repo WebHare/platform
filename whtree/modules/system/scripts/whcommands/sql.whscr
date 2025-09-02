@@ -339,6 +339,7 @@ BOOLEAN FUNCTION Connect(BOOLEAN logcommands)
 MACRO Run(STRING ARRAY loadlibs)
 {
   PRINT("Type 'help' for help about the SQL client. Autocommit is " || (autocommit ? "ON" : "OFF") || "\n");
+  PRINT("** Consider using 'wh psql' instead for the more powerful postgresql client (which eg. offers tab-completion)\n");
   WHILE (TRUE)
   {
     PRINT ("SQL> ");

@@ -666,8 +666,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
 
 
-PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
-<
+PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase <
   /// Value of the list edit
   PUBLIC PROPERTY value(this->list->value, this->list->value);
   /// Selection of the list edit
@@ -717,15 +716,13 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
     THROW NEW TolliumException(this, "List has no ongetchildren or ongetrows handler");
   }
 
-  MACRO AddValue()
-  {
+  MACRO AddValue() {
     this->onrowedit(DEFAULT RECORD);
     this->SetDirty();
     this->list->ReloadList();
   }
 
-  MACRO EditValue()
-  {
+  MACRO EditValue() {
     this->onrowedit(this->list->selection);
     this->SetDirty();
     this->list->ReloadList();
@@ -768,8 +765,7 @@ PUBLIC OBJECTTYPE ListEdit EXTEND ArrayListEditBase
 >;
 
 
-PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
-<
+PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase <
   RECORD ARRAY currows;
   INTEGER pvt_maxrows;
   INTEGER highestrowkey;
@@ -933,28 +929,23 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
       THROW NEW Exception("Unsupported returntype for onRowEdit.");
   }
 
-  RECORD ARRAY FUNCTION DoRowEdit(RECORD inrow)
-  {
-    IF(this->onrowedit != DEFAULT MACRO PTR)
-    {
+  RECORD ARRAY FUNCTION DoRowEdit(RECORD inrow) {
+    IF(this->onrowedit != DEFAULT MACRO PTR) {
       VARIANT value := this->onrowedit(inrow);
       RETURN this->ConvertReturnValueToArray(value);
     }
 
     STRING rowtype;
-    IF (this->rowtypename != "" AND NOT RecordExists(inrow))
-    {
+    IF (this->rowtypename != "" AND NOT RecordExists(inrow)) {
       // If applicable open a dialog in which the user can select the type of data he wants to add
       OBJECT addscreen := this->GetRowTypeSelectionScreen();
-      IF (ObjectExists(addscreen))
-      {
+      IF (ObjectExists(addscreen)) {
         IF (addscreen->RunModal() != "ok")
           RETURN DEFAULT RECORD ARRAY;
 
         IF (this->rowaddscreen = "" AND this->rowtypename != "")
           rowtype := addscreen->rowtype->value; // inbuild selection uses name 'rowtype'
-        ELSE
-        {
+        ELSE {
           /*
           NOTE: custom rowaddscreen cannot be used to fill in data other than the type.
                 If we deem it wise to implement support for multiple fields in the rowaddscreen,
@@ -994,16 +985,14 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     RETURN [ RECORD(newdata) ];
   }
 
-  MACRO AddValue()
-  {
+  MACRO AddValue() {
     this->RunAddRow(DEFAULT RECORD);
   }
 
   /** @short Run the edit-procedure to add a new row
       @param basedata Base rowdata to initialize the screen with
       @cell(integer) options.insertat Insert position. If not specified, inserts at end */
-  PUBLIC MACRO RunAddRow(RECORD basedata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO RunAddRow(RECORD basedata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
     RECORD ARRAY newrows := this->DoRowEdit(basedata);
     IF(this->InViewMode())
@@ -1012,8 +1001,7 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
     this->AddRows(newrows, options);
   }
 
-  PUBLIC MACRO AddRows(RECORD ARRAY newdata, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO AddRows(RECORD ARRAY newdata, RECORD options DEFAULTSTO DEFAULT RECORD) {
     options := ValidateOptions( [ insertat := 0 ], options, [ optional := [ "insertat" ]]);
 
     IF (Length(newdata) = 0)

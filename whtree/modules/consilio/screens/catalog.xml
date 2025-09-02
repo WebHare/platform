@@ -173,53 +173,24 @@
     </body>
   </screen>
 
-  <screen name="blacklist" height="25x" allowresize="true" gid=".blacklist" savestate="size">
-    <actions>
-      <action name="addpattern" onexecute="doaddpattern" />
-      <action name="editpattern" onexecute="doeditpattern">
-        <enableon source="blacklist" min="1" max="1" />
-      </action>
-      <action name="deletepattern" onexecute="dodeletepattern">
-        <enableon source="blacklist" min="1" max="1" />
-      </action>
-    </actions>
-
+  <screen name="blacklist" height="25x" allowresize="true" gid=".blacklist" savestate="size" footerbuttons="close">
     <body>
-      <panel height="1pr">
-        <list name="blacklist"
+        <listedit name="blacklist"
               width="1pr"
               height="1pr"
               minwidth="60x"
               minheight="10x"
               emptytid=".nopatterns"
               icons="tollium:status/positive"
-              openaction="editpattern"
-              selectmode="single">
+              onrowedit="editpattern"
+              onrowdelete="deletepattern"
+              ongetrows="getblacklistrows"
+              eventmasks="consilio:blacklistchanged">
           <column name="pattern" type="text" />
           <column name="noindex_icon" type="icon" />
           <column name="nolinkcheck_to_icon" type="icon" />
-        </list>
-      </panel>
-    </body>
-
-    <footer>
-      <grid>
-        <col width="1pr" />
-        <col />
-        <row>
-          <cell layout="left">
-            <line>
-              <button action="addpattern" hinttid=".addpattern" icon="tollium:actions/add" />
-              <button action="editpattern" hinttid=".editpattern" icon="tollium:actions/edit" />
-              <button action="deletepattern" hinttid=".deletepattern" icon="tollium:actions/delete" />
-            </line>
-          </cell>
-          <cell layout="right">
-            <defaultformbuttons buttons="close" />
-          </cell>
-        </row>
-      </grid>
-    </footer>
+        </listedit>
+   </body>
   </screen>
 
   <screen name="blacklistpattern" footerbuttons="ok cancel" gid=".blacklistpattern" title="">
