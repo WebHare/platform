@@ -12,6 +12,16 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   echo "WEBHARE_DATAROOT name not set"
   exit 1
 fi
+if [ -z "$WEBHARE_DIR" ]; then
+  echo "WEBHARE_DIR name not set"
+  exit 1
+fi
+
+if [ "$(uname -m)" == "aarch64" ]; then
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
+else
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+fi
 
 echo "Max open files: $(ulimit -n)"
 
@@ -29,9 +39,11 @@ if [ -z "$WEBHARE_OPENSEARCH_BINDHOST" ]; then
   WEBHARE_OPENSEARCH_BINDHOST=127.0.0.1
 fi
 
-mkdir -p "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo"
+# "Elasticsearch does not remove its temporary directory. You should remove leftover temporary directories while Elasticsearch is not running. It is best to do this automatically, for instance on each reboot."
+rm -rf -- "$OPENSEARCHROOT/tmp"
+mkdir -p -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
-  chown opensearch:opensearch "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo"
+  chown opensearch:opensearch -- "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo" "$OPENSEARCHROOT/tmp"
   # It seems the linux version has more plugins than the brew version, and needs these options:
   #ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
 fi
@@ -51,7 +63,7 @@ if [ -z "$MAXIMUMMEMORY" ]; then
   exit 1
 fi
 
-export _JAVA_OPTIONS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=$OPENSEARCHROOT/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m"
+export OPENSEARCH_JAVA_OPTS="-Xms${INITIALMEMORY}m -Xmx${MAXIMUMMEMORY}m -XX:-AlwaysPreTouch -Xlog:gc*,gc+age=trace,safepoint:file=${OPENSEARCHROOT}/logs/gc.log:utctime,pid,tags:filecount=32,filesize=64m -Djava.io.tmpdir=${OPENSEARCHROOT}/tmp -Djava.security.egd=file:/dev/./urandom -Djava.security.properties=${WEBHARE_DIR}/etc/java.security.override"
 
 CHPST=""
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
@@ -65,8 +77,9 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
     exit 1
   fi
 
-  # Don't rely on the configuration files installed by brew, they don't get updated once installed
-  export OPENSEARCH_PATH_CONF="$WEBHARE_DIR/etc/opensearch"
+  # Brew doesn't update /opt/homebrew/etc/opensearch after install, so just point directly to the linked keg's version of the configuration
+  OPENSEARCH_PATH_CONF="$(brew --prefix)/opt/opensearch/.bottle/etc/opensearch"
+  export OPENSEARCH_PATH_CONF
 
   setup_builddir
   # Who thought it was a good idea to write the version to stderr even if explicitly invoking --version ?
