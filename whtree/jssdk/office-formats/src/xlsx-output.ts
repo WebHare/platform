@@ -134,7 +134,7 @@ class WorksheetBuilder {
       let result = `<row r="${currow}">`;
       for (const [idx, col] of cols) {
         const value = row[col.name];
-        if (value === null || value === undefined)
+        if (value === null || value === undefined || Number.isNaN(value))
           continue;
 
         const cellId = getNameForCell(idx + 1, currow);
@@ -225,12 +225,13 @@ function createSheet(doc: XLSXDocBuilder, sheetSettings: FixedSpreadsheetOptions
 
   const colDefs = [];
   for (const [idx, col] of sheetSettings.columns.entries()) {
-    let width: number | undefined;
-    // Adjust default widths for dateTime & numbers with decimals
-    if (col.type === "dateTime")
-      width = 18;
-    if (col.type === "number" && col.decimals !== undefined)
-      width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
+    let width: number | undefined = col.width;
+    if (width === undefined) { // Set default widths for dateTime & numbers with decimals
+      if (col.type === "dateTime")
+        width = 19;
+      if (col.type === "number" && col.decimals !== undefined)
+        width = 7 + col.decimals; // contains 6 decimals + '.' + col.decimals (tested up to 10 decimals)
+    }
     if (width !== undefined)
       colDefs.push(`<col min="${idx + 1}" max="${idx + 1}" bestFit="1" width="${width}"/>`);
   }

@@ -273,6 +273,7 @@ function calcColumnStyles(builder: ODSBuilder, sheets: FixedSpreadsheetOptions[]
     columns: sheet.columns.map(col => {
       const style: Style = {};
       const columnStyle: ColumnStyle = {};
+      //TODO take col.width and translate to ods sizes if set
       if (col.align)
         style.align = ({ left: "start", right: "end", center: "center" } as const)[col.align];
       switch (col.type) {
