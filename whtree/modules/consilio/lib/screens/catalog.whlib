@@ -604,12 +604,14 @@ PUBLIC OBJECTTYPE CatalogEditor EXTEND TolliumScreenBase
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-edit", catalog.name);
       this->priority->value := catalog.priority;
       ^type->value := catalog.type;
+      ^fieldgroups->value := catalog.fieldgroups;
     }
     ELSE
     {
       this->id->visible := FALSE;
       this->debuglevel->visible := FALSE;
       this->frame->title := GetTid("consilio:catalog.catalogeditor.title-new");
+      ^fieldgroups->visible := FALSE;
     }
     ^attachedindices->AddAction(this->GetTid(".refreshsizes"), PTR this->DoRefreshSizes, [ requireselection := FALSE ]);
     this->GotInterval();
