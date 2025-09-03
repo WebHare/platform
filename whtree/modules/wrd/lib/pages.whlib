@@ -59,6 +59,9 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
   IF(action = "totp") {
     RETURN GetTotpPage(webdesign, options);
   }
+  IF(action = "oidc-failure") {
+    RETURN GetOIDCFailurePage(webdesign, options);
+  }
   IF(action = "emailchange")
   {
     IF(NOT authplugin->IsLoggedIn())
