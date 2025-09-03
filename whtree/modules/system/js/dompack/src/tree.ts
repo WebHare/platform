@@ -155,7 +155,7 @@ export function isDomReady() {
 }
 
 /* run the specified function 'on ready'. adds to DOMContentLoaded if dom is not ready yet. Exceptions/rejections from the ready handler will not be fatal to the rest of code execution */
-export function onDomReady(callback: () => void | Promise<void>) {
+export function onDomReady(callback: () => unknown | Promise<unknown>) {
   if (isDomReady()) {
     try {
       void callback(); //Ignore unhandled rejections
