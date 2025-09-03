@@ -13,6 +13,43 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/oidc.whlib";
 
+//FIXME this should be shared with the actual TS algorithms - and oidc.shtml itself should be cancelled together
+RECORD FUNCTION GetOIDCLoginName(RECORD providerinfo, RECORD payload)
+{
+  IF(providerinfo.loginfield != "")
+  {
+    IF(CellExists(payload, providerinfo.loginfield) AND TYPEID(GetCell(payload, providerinfo.loginfield)) = TYPEID(STRING))
+      RETURN CELL [ field := providerinfo.loginfield, value := GetCell(payload, providerinfo.loginfield) ];
+    RETURN DEFAULT RECORD;
+  }
+
+  //Fallback configuration.
+  IF(CellExists(payload, 'email') AND CellExists(payload, 'email_verified') AND payload.email_verified)
+    RETURN [ field := "email", value := payload.email ];
+  ELSE IF(CellExists(payload, 'employeeid')) //FIXME remove this exception (currently used for UT/Azure) and explicitly configure the provider to look in the employeeid claim
+    RETURN [ field := "employeeid", value := payload.employeeid ];
+  ELSE
+    RETURN [ field := "sub", value := payload.sub ];
+
+  RETURN DEFAULT RECORD;
+}
+
+MACRO AbortLogin(STRING redirecturl, RECORD data) {
+  IF(data.reason = "UNKNOWNLOGIN") //HS value
+    data.reason := "unknown-login"; //TS LoginErrorCode
+  IF(data.reason = "NOACCESS") //HS value
+    data.reason := "account-disabled"; //TS LoginErrorCode
+
+  RECORD url := UnpackURL(redirecturl);
+  //TODO we should recover the original login request from the oauth2session/state= so we can send the user back to the actual original login page
+  Redirect(UpdateURLVariables(url.origin || "/.wh/common/authpages/",
+      CELL[ wrd_pwdaction := "oidc-failure"
+          , pathname := url.urlpath
+          , reason := data.reason
+          , loginname := CellExists(data,"loginname") ? data.loginname : ""
+          ]));
+}
+
 MACRO RunOpenIDAuth()
 {
   //FIXME replay protections. we currently just keep accepting the URL
@@ -40,17 +77,11 @@ MACRO RunOpenIDAuth()
 
   INTEGER userid := CallJS("@mod-platform/js/auth/harescript.ts#lookupOIDCUser", whyreason.redirect, oauth2->token.id_token, spinfo.loginfield);
   IF(userid = 0) { //then we fall back to a wrdauthsupport plugin
-    RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(payload, [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ]);
-    IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0))
-    {
-      //what to do? we need to redirect/submit to the caller and we need to inform him what went wrong (unknown login)
-      Redirect(UpdateURLVariables(whyreason.redirect,
-        [ "wrdauth-loginfail-reason" := "unmappedlogin" //TODO remove at some point, user should rely on the encrypted info
-        , "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
-            CELL[ reason := "unmappedlogin"
-                , ...PickCells(result, ["field", "value"]) //may not exist, though the LookupOIDCLogin override is out of spec then!
-                ])
-        ]));
+    RECORD provider := [ oidc_client := spinfo.wrd_id, oidc_tag := spinfo.wrd_tag, loginfield := spinfo.loginfield ];
+    RECORD result := targetplugin->GetSupportObject()->LookupOIDCLogin(payload, provider);
+    IF(NOT RecordExists(result) OR (CellExists(result,'userid') AND result.userid = 0)) {
+      RECORD logininfo := GetOIDCLoginName(provider, payload);
+      AbortLogin(whyreason.redirect, CELL[ reason := "unknown-login", loginname := CellExists(logininfo, 'value') ? logininfo.value : "" ]);
     }
     //TODO support 'navigateto'
     IF(NOT CellExists(result,'userid'))
@@ -69,12 +100,7 @@ MACRO RunOpenIDAuth()
   IF(loginres.success)
     Redirect(whyreason.redirect);
   ELSE
-    Redirect(UpdateURLVariables(whyreason.redirect, [
-      "wrdauth-loginfail-reason" := "loginfailure", //TODO remove at some point, user should rely on the encrypted info
-      "wrdauth-loginfail" := EncryptForThisServer("wrd:authloginfail",
-           CELL[ reason := "loginfailure"
-               ])
-    ]));
+    AbortLogin(whyreason.redirect, CELL[ reason := loginres.code ]);
 }
 
 OpenPrimary();
