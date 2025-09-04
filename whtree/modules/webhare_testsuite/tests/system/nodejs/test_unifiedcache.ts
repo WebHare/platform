@@ -404,7 +404,7 @@ async function fetchUCLink(url: string, expectType: string) {
   test.eq(200, fetchResult.status, `Failed to fetch ${finalurl}`);
   test.eq(expectType, fetchResult.headers.get("content-type"));
   const fetchBuffer = await fetchResult.arrayBuffer();
-  const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true });
+  const fetchData = await ResourceDescriptor.from(Buffer.from(fetchBuffer), { getImageMetadata: true, getHash: true });
   return { resource: fetchData, finalurl, fetchBuffer };
 }
 
@@ -483,6 +483,10 @@ async function testImgCache() {
   await compareSharpImages(snowBeagleAvif, await createSharpImage(webPBeagleAsAvif.fetchBuffer), { minMSE: 0, maxMSE: 5 });
   const avifBeagleAsJpeg = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "image/jpeg" }).link, "image/jpeg");
   await compareSharpImages(snowBeagleWebp, await createSharpImage(avifBeagleAsJpeg.fetchBuffer), { minMSE: 0, maxMSE: 10 });
+
+  const avifBeagleAsAvif = await fetchUCLink(snowbeagleAvifFile.data.toResized({ method: "none", format: "keep" }).link, "image/avif");
+  test.assert(snowbeagleAvifFile.data.hash);
+  test.eq(snowbeagleAvifFile.data.hash, avifBeagleAsAvif.resource.hash);
 
   const kikkerdata = await openType("http://www.webhare.net/xmlns/beta/test").get(testsitejs.id) as any; //FIXME remove 'as any' as soon as we have typings
   const wrappedKikker = kikkerdata.arraytest[0].blobcell.toResized({ method: "none", fixorientation: true, format: "keep" });
