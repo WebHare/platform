@@ -13,6 +13,7 @@ export interface RelyingPartyConfig {
 
 export interface RelyingProviderInit {
   title: string;
+  tag?: string;
   callbackUrls?: string[];
   subjectField?: string;
 }
@@ -30,6 +31,7 @@ export async function registerRelyingParty<S extends SchemaTypeDefinition>(wrdSc
   const clientId = generateRandomId("uuidv4");
   const clientSecret = generateRandomId("base64url", 24);
   const wrdId = await wrdSchema.insert("wrdauthServiceProvider", {
+    ...spSettings.tag ? { wrdTag: spSettings.tag } : null,
     wrdTitle: spSettings.title || "Client " + clientId,
     wrdGuid: clientId,
     clientSecrets:
