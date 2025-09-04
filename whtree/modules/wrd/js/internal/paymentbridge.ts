@@ -1,8 +1,8 @@
 import type { WebRequestInfo } from "@mod-system/js/internal/types";
-import type { PSPAddressFormat, PSPDriver, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
+import type { PSPAddressFormat, PSPDriver, PSPDriverContext, PSPPrecheckRequest, PSPRequest } from "@webhare/psp-base";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { createResponseInfoFromResponse } from "@webhare/router/src/response";
-import { importJSObject } from "@webhare/services";
+import { importJSObject, logDebug } from "@webhare/services";
 import { parseTyped, stringify, type Money } from "@webhare/std";
 
 type HsAddressFormat = {
@@ -75,7 +75,7 @@ function mapAddress(address: HsAddressFormat): PSPAddressFormat | undefined {
   };
 }
 
-async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver | { error: string }> {
+async function openPSP(driver: string, configAsJSON: string, meta?: { paymentId?: string }): Promise<PSPDriver | { error: string }> {
   let config;
   try {
     config = JSON.parse(configAsJSON);
@@ -83,7 +83,13 @@ async function openPSP(driver: string, configAsJSON: string): Promise<PSPDriver 
     return { error: "Invalid configuration: " + (e as Error)?.message };
   }
 
-  return await importJSObject(driver, config) as PSPDriver;
+  const context: PSPDriverContext = {
+    log: (type: string, data: { [key: string]: unknown }): void => {
+      logDebug("wrd:payments", { driver, type, paymentId: meta?.paymentId, data });
+    }
+  };
+
+  return await importJSObject(driver, config, context) as PSPDriver;
 }
 
 export async function connectPSP(driver: string, configAsJSON: string) {
@@ -158,7 +164,7 @@ export async function runPaymentRequest(driver: string, configAsJSON: string, hs
   if (!req.paymentId)
     throw new Error("No paymentId specified");
 
-  const psp = await openPSP(driver, configAsJSON);
+  const psp = await openPSP(driver, configAsJSON, { paymentId: hsPaymentInfo.paymentuuid });
   if ("error" in psp)
     throw new Error(`Cannot initialize PSP - ${psp.error}`);
 

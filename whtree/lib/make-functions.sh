@@ -35,11 +35,12 @@ generatebuildinfo()
   mkdir -p "$BUILDINFO_DIR"
 
   # GitLab CI checks out the commit as a detached head, so we'll have to rely on the CI_ variables to find the branch name
+  # Strip any password from the 'origin'
   cat > "${BUILDINFO_FILE}.tmp" << HERE
 committag="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
 version="${WEBHARE_VERSION}"
 branch="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
-origin=$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url)
+origin="$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url | sed -E 's#(https://[^:/]+):[^@]+@#\1@#')"
 builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 builddate="$(date +'%Y-%m-%d')"
 buildtime="$(date +'%H:%M:%S')"
