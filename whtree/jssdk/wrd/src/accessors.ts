@@ -4,7 +4,7 @@ import { sql, type SelectQueryBuilder, type ExpressionBuilder, type RawBuilder, 
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { recordLowerBound, recordUpperBound } from "@webhare/hscompat/src/algorithms";
 import { isLike } from "@webhare/hscompat/src/strings";
-import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy } from "@webhare/std";
+import { Money, omit, isValidEmail, type AddressValue, isValidUrl, isDate, toCLocaleUppercase, regExpFromWildcards, stringify, parseTyped, isValidUUID, compare, type ComparableType, throwError, isTruthy, stdTypeOf } from "@webhare/std";
 import { addMissingScanData, decodeScanData, ResourceDescriptor, type ExportedResource, type ExportOptions } from "@webhare/services/src/descriptor";
 import { encodeHSON, decodeHSON, dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, exportAsHareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat";
 import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
@@ -439,6 +439,8 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, str
   validateInput(value: string, checker: ValueQueryChecker, attrPath: string) {
     if (this.attr.required && !value && !checker.importMode && (!checker.temp || attrPath))
       throw new Error(`Provided default value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag}`);
+    if (typeof value !== "string")
+      throw new Error(`Expected string for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} but got ${stdTypeOf(value)}`);
     if (value && this.attr.isunique)
       checker.addUniqueCheck(this.attr.fullTag, value, attrPath + this.attr.tag);
     if (Buffer.byteLength(value) > 4096)
