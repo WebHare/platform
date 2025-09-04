@@ -52,33 +52,39 @@ export function getSharpResizeOptions(infile: Pick<ResourceMetaData, "width" | "
   const explain = explainImageProcessing(infile, method);
   const lossless = infile.mediaType !== "image/jpeg";
 
-  if (method.method === "fill") {
-    if (infile.width && infile.height && (explain.renderWidth > explain.outWidth || explain.renderHeight > explain.outHeight)) { //there will be cropping
-      const scaleX = infile.width / explain.renderWidth;
-      const scaleY = infile.height / explain.renderHeight;
-      const left = Math.max(0, Math.floor(-explain.renderX * scaleX));
-      const top = Math.max(0, Math.floor(-explain.renderY * scaleY));
-      const width = Math.floor((explain.outWidth) * scaleX);
-      const height = Math.floor((explain.outHeight) * scaleY);
-      extract = { left, top, width, height };
-      //console.log({ extract }, { explain });
-    }
-    resize = { width: explain.outWidth, height: explain.outHeight, fit: 'cover' };
-  } else if (method.method === "fitcanvas" && explain.renderWidth === infile.width && explain.renderHeight === infile.height) {
-    // fitcanvas without any renderchange should not resize
-    extend = { top: explain.renderY, left: explain.renderX, bottom: explain.renderY, right: explain.renderX };
-    if (bgColor)
-      extend.background = bgColor;
-  } else if (method.method === "fit" && explain.outWidth === infile.width && explain.outHeight === infile.height) {
-    // don't touch image if nothing changed
-  } else if (["scalecanvas", "fitcanvas", "fit", "scale"].includes(method.method)) {
-    resize = { width: explain.outWidth, height: explain.outHeight, fit: method.method.endsWith('canvas') ? 'contain' : 'cover' };
-    if (bgColor)
-      resize.background = bgColor;
-  } else if (method.method !== 'none')
-    throw new Error("Unsupported resize method for avif/webp: " + method.method);
+  if (infile.width !== explain.outWidth || infile.height !== explain.outHeight) { //we only need to consider extract/resize/extend if input & output dimensions differ
+    if (method.method === "fill") {
+      if (infile.width && infile.height && (explain.renderWidth > explain.outWidth || explain.renderHeight > explain.outHeight)) { //there will be cropping
+        const scaleX = infile.width / explain.renderWidth;
+        const scaleY = infile.height / explain.renderHeight;
+        const left = Math.max(0, Math.floor(-explain.renderX * scaleX));
+        const top = Math.max(0, Math.floor(-explain.renderY * scaleY));
+        const width = Math.floor((explain.outWidth) * scaleX);
+        const height = Math.floor((explain.outHeight) * scaleY);
+        extract = { left, top, width, height };
+        //console.log({ extract }, { explain });
+      }
+      resize = { width: explain.outWidth, height: explain.outHeight, fit: 'cover' };
+    } else if (method.method === "fitcanvas" && explain.renderWidth === infile.width && explain.renderHeight === infile.height) {
+      // fitcanvas without any renderchange should not resize
+      extend = { top: explain.renderY, left: explain.renderX, bottom: explain.renderY, right: explain.renderX };
+      if (bgColor)
+        extend.background = bgColor;
+    } else if (method.method === "fit" && explain.outWidth === infile.width && explain.outHeight === infile.height) {
+      // don't touch image if nothing changed
+    } else if (["scalecanvas", "fitcanvas", "fit", "scale"].includes(method.method)) {
+      resize = { width: explain.outWidth, height: explain.outHeight, fit: method.method.endsWith('canvas') ? 'contain' : 'cover' };
+      if (bgColor)
+        resize.background = bgColor;
+    } else if (method.method !== 'none')
+      throw new Error("Unsupported resize method for avif/webp: " + method.method);
+  }
 
   const outputformat = method.format === "keep" ? suggestImageFormat(infile.mediaType) : method.format;
+
+  if (outputformat === infile.mediaType && !extract && !extend && !resize && method.noForce)
+    return null; //do not modify!
+
   if (outputformat === "image/webp")
     return { extract, extend, resize, format: "webp" as const, formatOptions: { lossless, quality: explain.quality } };
   if (outputformat === "image/avif")
@@ -114,10 +120,14 @@ async function renderImageForCache(request: Omit<HSImgCacheRequest, "path">): Pr
 
   const sourceimage = __getBlobDiskFilePath(request.pgblobid);
   const img = await resizeImage(resource, sourceimage, method);
-  return await img.toBuffer();
+  return img ? await img.toBuffer() : await readFile(sourceimage); //TODO avoid copying. consider hardlink or reflink?
 }
 
-export async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: PackableResizeMethod) {
+async function resizeImage(resource: Pick<ResourceMetaData, "width" | "height" | "refPoint" | "mediaType" | "rotation" | "mirrored">, sourceimage: string, method: PackableResizeMethod) {
+  const resizeOptions = getSharpResizeOptions(resource, method);
+  if (!resizeOptions)
+    return null;
+
   // Read first two bytes of sourceimage
   const header = new Uint8Array(2);
   const fd = await open(sourceimage, 'r');
@@ -131,7 +141,7 @@ export async function resizeImage(resource: Pick<ResourceMetaData, "width" | "he
   } else {
     img = await createSharpImage(sourceimage);
   }
-  const { extract, extend, resize, format, formatOptions } = getSharpResizeOptions(resource, method);
+  const { extract, extend, resize, format, formatOptions } = resizeOptions;
 
   img.rotate(); //Fix rotation/mirroring
 
