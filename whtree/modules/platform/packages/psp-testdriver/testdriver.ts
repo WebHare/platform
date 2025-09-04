@@ -1,4 +1,4 @@
-import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPPrecheckRequest, PSPRequest, PSPPayResult, PSPWebRequest, PSPRequirement } from "@webhare/psp-base";
+import type { PSPCheckResult, PSPDriver, PSPPushResult, PSPPrecheckRequest, PSPRequest, PSPPayResult, PSPWebRequest, PSPRequirement, PSPDriverContext } from "@webhare/psp-base";
 import { createServerSession, getServerSession, updateServerSession } from "@webhare/services";
 import { Money } from "@webhare/std";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
@@ -24,10 +24,7 @@ interface TestDriverPayMeta {
 }
 
 export class TestDriver implements PSPDriver<TestDriverPayMeta> {
-  readonly config: TestDriverConfig;
-
-  constructor(config: TestDriverConfig) {
-    this.config = config;
+  constructor(private readonly config: TestDriverConfig, private readonly context: PSPDriverContext) {
   }
 
   /** Connect to the remote, return settings or error */
@@ -53,6 +50,7 @@ export class TestDriver implements PSPDriver<TestDriverPayMeta> {
 
   /** Run a new payment request */
   async startPayment(request: PSPRequest): Promise<PSPPayResult<TestDriverPayMeta>> {
+    this.context.log("startPayment", { request });
     if (request.email?.match(/fraud/i) && request.method === "M1")
       return { errors: [{ field: "wrdContactEmail", error: request.lang === "nl" ? "Geblokkeerd mailadres" : "This emailaddres has been blocked", comment: "User with this email is not trusted" }] };
 

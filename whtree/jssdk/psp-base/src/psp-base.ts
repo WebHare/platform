@@ -5,6 +5,10 @@ declare module "@webhare/psp-base" {
 import type { Money } from "@webhare/std";
 import type { NavigateInstruction } from "@webhare/env";
 
+export interface PSPDriverContext {
+  log(type: string, data: { [key: string]: unknown }): void;
+}
+
 ///WebHare TS address format
 export interface PSPAddressFormat {
   //street name. may contain multiple lines if the address calls for it
