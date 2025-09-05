@@ -202,9 +202,9 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
         wrdGuid: { attributeType: "string", isGenerated: false, isRequired: false, defstr: null },
         wrdType: { attributeType: "integer", isGenerated: false, isRequired: false, defstr: null },
         wrdTag: { attributeType: "string", isGenerated: false, isRequired: false, defstr: null },
-        wrdCreationDate: { attributeType: "dateTime", isGenerated: false, isRequired: false, defstr: null },
-        wrdLimitDate: { attributeType: "dateTime", isGenerated: false, isRequired: false, defstr: null },
-        wrdModificationDate: { attributeType: "dateTime", isGenerated: false, isRequired: false, defstr: null }
+        wrdCreationDate: { attributeType: "instant", isGenerated: false, isRequired: false, defstr: null },
+        wrdLimitDate: { attributeType: "instant", isGenerated: false, isRequired: false, defstr: null },
+        wrdModificationDate: { attributeType: "instant", isGenerated: false, isRequired: false, defstr: null }
       }
     };
 
@@ -233,8 +233,8 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
       typeinfo.attrdefs.wrdInfix = { attributeType: "string", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_NameString` };
       typeinfo.attrdefs.wrdLastName = { attributeType: "string", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_NameString` };
       typeinfo.attrdefs.wrdTitlesSuffix = { attributeType: "string", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_NameString` };
-      typeinfo.attrdefs.wrdDateOfBirth = { attributeType: "dateTime", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_Date` };
-      typeinfo.attrdefs.wrdDateOfDeath = { attributeType: "dateTime", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_Date` };
+      typeinfo.attrdefs.wrdDateOfBirth = { attributeType: "instant", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_Date` };
+      typeinfo.attrdefs.wrdDateOfDeath = { attributeType: "instant", isGenerated: false, isRequired: false, defstr: `WRDBaseAttributeTypeId.Base_Date` };
     }
     if (parentpath.includes("WRD_ORGANIZATION"))
       typeinfo.attrdefs.wrdOrgName = { attributeType: "string", isGenerated: false, isRequired: false, defstr: `WRDAttributeTypeId.Free` };

@@ -46,13 +46,13 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       maxValue: 217483647
     }
   },
-  "date": {
-    dbtype: CSPMemberType.Date,
+  "plainDate": {
+    dbtype: CSPMemberType.PlainDate,
     constraints: {
       valueType: "date"
     },
   },
-  "datetime": {
+  "instant": {
     dbtype: CSPMemberType.DateTime,
     constraints: {
       valueType: "dateTime"
@@ -61,13 +61,13 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "file": {
     dbtype: CSPMemberType.File,
     constraints: {
-      valueType: "resourceDescriptor"
+      valueType: "file"
     }
   },
   "image": {
     dbtype: CSPMemberType.File,
     constraints: {
-      valueType: "imageDescriptor"
+      valueType: "image"
     }
   },
   "boolean": {
@@ -88,32 +88,32 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       valueType: "money"
     }
   },
-  "whfsref": {
+  "whfsRef": {
     dbtype: CSPMemberType.WHFSRef,
     constraints: {
-      valueType: "fsObjectId"
+      valueType: "whfsRef"
     }
   },
   "array": {
     dbtype: CSPMemberType.Array
   },
-  "whfsrefarray": {
+  "whfsRefArray": {
     dbtype: CSPMemberType.WHFSRefArray,
     constraints: {
       valueType: "array",
-      itemType: "fsObjectId"
+      itemType: "whfsRef"
     }
   },
-  "stringarray": {
+  "stringArray": {
     dbtype: CSPMemberType.StringArray
   },
-  "richdocument": {
-    dbtype: CSPMemberType.RichDocument,
+  "richTextDocument": {
+    dbtype: CSPMemberType.RichTextDocument,
     constraints: {
-      valueType: "richDocument"
+      valueType: "richTextDocument"
     }
   },
-  "intextlink": {
+  "intExtLink": {
     dbtype: CSPMemberType.IntExtLink
   },
   "instance": {
@@ -126,7 +126,7 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       validation: ["url"]
     }
   },
-  "composeddocument": {
+  "composedDocument": {
     dbtype: CSPMemberType.ComposedDocument
   },
   "hson": {
@@ -135,6 +135,45 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "record": {
     dbtype: CSPMemberType.Record
   },
+
+  //repeating for 'legacy' values until old names are retired:
+  date: {
+    dbtype: CSPMemberType.PlainDate,
+    constraints: {
+      valueType: "date"
+    }
+  },
+  datetime: {
+    dbtype: CSPMemberType.DateTime,
+    constraints: {
+      valueType: "dateTime"
+    }
+  },
+  whfsref: {
+    dbtype: CSPMemberType.WHFSRef,
+    constraints: {
+      valueType: "whfsRef"
+    }
+  },
+  whfsrefarray: {
+    dbtype: CSPMemberType.WHFSRefArray,
+    constraints: {
+      valueType: "array",
+      itemType: "whfsRef"
+    }
+  },
+  richdocument: {
+    dbtype: CSPMemberType.RichTextDocument,
+    constraints: {
+      valueType: "richTextDocument"
+    }
+  },
+  stringarray: {
+    dbtype: CSPMemberType.StringArray
+  },
+  intextlink: {
+    dbtype: CSPMemberType.IntExtLink
+  }
 };
 
 type YamlCompnentHolder = Pick<Sp.TypeMember, "component" | "lines" | "line">;

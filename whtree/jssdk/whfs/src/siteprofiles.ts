@@ -15,7 +15,7 @@ export enum CSPMemberType {
   Array = 12,
   WHFSRefArray = 13,
   StringArray = 14,
-  RichDocument = 15,
+  RichTextDocument = 15,
   IntExtLink = 16,
   Instance = 18,
   URL = 19,
@@ -23,7 +23,7 @@ export enum CSPMemberType {
   HSON = 21,
   Record = 23,
   Image = 24, //like File, but signal we expect an image
-  Date = 25, //like Date, but signal truncation of the millisecond part
+  PlainDate = 25, //like Date, but signal truncation of the millisecond part
 }
 
 export interface YamlComponentDefinition {

@@ -76,8 +76,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
   const outdata: Record<string, unknown> = {};
   for (const member of members) {
     if (member.name in data) {
-      //We hope to receive RichDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
-      if (member.type === "richDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
+      //We hope to receive RichTextDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
+      if (member.type === "richTextDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
         outdata[member.name] = await buildRTDFromHareScriptRTD(data[member.name] as HareScriptRTD);
       } else {
         outdata[member.name] = data[member.name];

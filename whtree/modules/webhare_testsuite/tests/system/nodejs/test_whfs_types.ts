@@ -28,25 +28,25 @@ async function testCodecs() {
   };
 
   //directly testing the codecs also allows us to check against data format/migration issues
-  test.eq({ setting: "2023-09-28" }, codecs["date"].encoder(new Date("2023-09-28T21:04:35Z"), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(-9999, 0, 1)), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
-  test.throws(/Invalid date/i, () => codecs["date"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(999, 11, 31)), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date(Date.UTC(10000, 0, 1)), {} as WHFSTypeMember));
+  test.eq({ setting: "2023-09-28" }, codecs["plainDate"].encoder(new Date("2023-09-28T21:04:35Z"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(-9999, 0, 1)), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Invalid date/i, () => codecs["plainDate"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(999, 11, 31)), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(10000, 0, 1)), {} as WHFSTypeMember));
 
-  test.throws(/Out of range/i, () => codecs["date"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
 
   const testDecodeContext: DecoderContext = {
     allsettings: [],
     cc: 0,
   };
 
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], {} as WHFSTypeMember, testDecodeContext));
-  test.eq(new Date("2023-09-28"), codecs["date"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], {} as WHFSTypeMember, testDecodeContext)); //sanity check: ensure time part is dropped
+  test.eq(new Date("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], {} as WHFSTypeMember, testDecodeContext));
+  test.eq(new Date("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], {} as WHFSTypeMember, testDecodeContext)); //sanity check: ensure time part is dropped
 
-  test.throws(/Out of range/i, () => codecs["dateTime"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
-  test.throws(/Invalid date/i, () => codecs["dateTime"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["instant"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Invalid date/i, () => codecs["instant"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
 }
 
 async function testMockedTypes() {
@@ -77,7 +77,7 @@ async function testMockedTypes() {
 
   const rtdtype = await whfs.describeWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
   test.assert(rtdtype.metaType === "fileType");
-  test.eqPartial({ name: "data", type: "richDocument" }, rtdtype.members.find(_ => _.name === "data"));
+  test.eqPartial({ name: "data", type: "richTextDocument" }, rtdtype.members.find(_ => _.name === "data"));
   test.assert(!rtdtype.members.find(_ => !_.id), "All members should have an id");
   test.eq(false, rtdtype.hasData);
 
@@ -385,7 +385,7 @@ async function testVisitor() {
 
   //Let's actually rewrite
   await whfs.visitResources(async (ctx, resource) => {
-    if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richDocument") {
+    if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richTextDocument") {
       test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", ctx.fsType);
       test.eq("data", ctx.fieldName);
       return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg");

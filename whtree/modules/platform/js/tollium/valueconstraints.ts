@@ -40,7 +40,7 @@ export type AnyTolliumComponent = Record<string, unknown>;
 
 function suggestByArrayItemType(valueConstraints: Readonly<ValueConstraints>): AnyTolliumComponent | string {
   switch (valueConstraints.itemType) {
-    case "fsObjectId": {
+    case "whfsRef": {
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobjectarray": { valueConstraints } };
     }
   }
@@ -86,16 +86,16 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
       return { datetime };
     }
 
-    case "resourceDescriptor":
+    case "file":
       return { fileedit: { valueConstraints } };
 
-    case "imageDescriptor":
+    case "image":
       return { imgedit: { valueConstraints } };
 
-    case "fsObjectId":
+    case "whfsRef":
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };
 
-    case "richDocument":
+    case "richTextDocument":
       return { "richdocument": { valueConstraints } };
 
     case "array":

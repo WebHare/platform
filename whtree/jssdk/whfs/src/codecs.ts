@@ -20,7 +20,7 @@ import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 type MaybePromise<T> = Promise<T> | T;
 
 export type MemberType = "string" // 2
-  | "dateTime" //4
+  | "instant" //4
   | "file" //5
   | "boolean" //6
   | "integer" //7
@@ -30,7 +30,7 @@ export type MemberType = "string" // 2
   | "array" //12
   | "whfsRefArray" //13
   | "stringArray" //14
-  | "richDocument" //15
+  | "richTextDocument" //15
   | "intExtLink" //16
   | "instance" //18
   | "url" //19
@@ -38,7 +38,7 @@ export type MemberType = "string" // 2
   | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
   | "image" //24
-  | "date" //25
+  | "plainDate" //25
   ;
 
 export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | null;
@@ -110,7 +110,7 @@ function scanDataToHS(settinginfo: ResourceMetaData): Omit<HareScriptRTD["embedd
   };
 }
 
-export const codecs: { [key: string]: TypeCodec } = {
+export const codecs: { [key in MemberType]: TypeCodec } = {
   "boolean": {
     encoder: (value: unknown) => {
       if (typeof value !== "boolean")
@@ -205,7 +205,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       return retval;
     },
   },
-  "date": {
+  "plainDate": {
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
@@ -224,7 +224,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       return dt;
     }
   },
-  "dateTime": {
+  "instant": {
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
@@ -384,7 +384,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       return Array.isArray(value) && value.length === 0;
     }
   },
-  "richDocument": {
+  "richTextDocument": {
     encoder: (value: RichTextDocument | null) => {
       if (value && !isRichTextDocument(value))
         throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
@@ -538,6 +538,22 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
       return importIntExtLink(value);
+    }
+  },
+  "image": {
+    encoder: () => {
+      throw new Error("Not implemented");
+    },
+    decoder: () => {
+      throw new Error("Not implemented");
+    }
+  },
+  "composedDocument": {
+    encoder: () => {
+      throw new Error("Not implemented");
+    },
+    decoder: () => {
+      throw new Error("Not implemented");
     }
   }
 };

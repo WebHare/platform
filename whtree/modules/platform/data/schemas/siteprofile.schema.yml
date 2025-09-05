@@ -63,24 +63,32 @@ $defs:
         enum:
           - string
           - integer
-          - datetime
-          - date
+          - instant
+          - plainDate
           - file
           - image
           - boolean
           - float
           - money
-          - whfsref
+          - whfsRef
           - array
+          - whfsRefArray
+          - stringArray
+          - richTextDocument
+          - composedDocument
+          - intExtLink
+          - instance
+          - url
+          - hson
+          - record
+          # LEGACY values - drop soon (should be few users pre WH5.9)
+          - whfsref
           - whfsrefarray
           - stringarray
           - richdocument
           - intextlink
-          - instance
-          - url
-          - composeddocument
-          - hson
-          - record
+          - datetime
+          - date
       tid:
         type: string
       title:
@@ -124,11 +132,11 @@ $defs:
           - boolean
           - dateTime
           - date
-          - resourceDescriptor
-          - imageDescriptor
-          - fsObjectId
+          - file
+          - image
+          - whfsRef
           - array
-          - richDocument
+          - richTextDocument
       itemType:
         description: Type of value used in an array
         type: string
@@ -139,8 +147,8 @@ $defs:
           - money
           - boolean
           - dateTime
-          - resourceDescriptor
-          - fsObjectId
+          - file
+          - whfsRef
       validation:
         description: Validation checks to apply on the input
         type: array

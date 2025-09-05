@@ -53,8 +53,8 @@ function testTolliumMapping() {
   test.eqPartial({ component: { datetime: { valueConstraints: { precision: undefined }, type: "date", storeUTC: false } } }, suggestTolliumComponent({ valueType: "date" }));
 
   //file and image
-  test.eqPartial({ component: { fileedit: {} } }, suggestTolliumComponent({ valueType: "resourceDescriptor" }));
-  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "imageDescriptor" }));
+  test.eqPartial({ component: { fileedit: {} } }, suggestTolliumComponent({ valueType: "file" }));
+  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "image" }));
 }
 
 test.runTests([

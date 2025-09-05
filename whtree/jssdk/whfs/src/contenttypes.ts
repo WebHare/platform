@@ -271,7 +271,7 @@ export function openType<ContentTypeStructure extends object = Record<string, un
 
 export interface VisitedResourceContext {
   fsObject: number;
-  fieldType: MemberType & ("file" | "richDocument" | "composedDocument");
+  fieldType: MemberType & ("file" | "richTextDocument" | "composedDocument");
   fieldName: string;
   fsType: string;
 }
@@ -354,7 +354,7 @@ export async function visitResources(callback: VisitCallback, scope: {
         {
           fsObject: result.fs_object,
           fsType: typeInfo?.namespace,
-          fieldType: result.type === 5 ? "file" : result.type === 15 ? "richDocument" : result.type === 20 ? "composedDocument" : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
+          fieldType: result.type === 5 ? "file" : result.type === 15 ? "richTextDocument" : result.type === 20 ? "composedDocument" : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
         }, reconstructedDescriptor);
 
