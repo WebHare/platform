@@ -222,7 +222,7 @@
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/formcondition">
-    <formcondition name="data" />
+    <record name="data" />
     <record name="fixformoptions" />  <!-- archived original condition in case we ever need it. at some point we can drop this member -->
   </contenttype>
 

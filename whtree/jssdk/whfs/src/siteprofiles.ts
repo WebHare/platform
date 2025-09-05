@@ -21,7 +21,6 @@ export enum CSPMemberType {
   URL = 19,
   ComposedDocument = 20,
   HSON = 21,
-  FormCondition = 22,
   Record = 23,
   Image = 24, //like File, but signal we expect an image
   Date = 25, //like Date, but signal truncation of the millisecond part

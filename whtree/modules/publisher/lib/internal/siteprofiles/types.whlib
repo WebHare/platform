@@ -16,4 +16,3 @@ PUBLIC CONSTANT INTEGER whfs_membertype_instance       := 18;
 PUBLIC CONSTANT INTEGER whfs_membertype_url            := 19;
 PUBLIC CONSTANT INTEGER whfs_membertype_formdefinition := 20;
 PUBLIC CONSTANT INTEGER whfs_membertype_record         := 21;
-PUBLIC CONSTANT INTEGER whfs_membertype_formcondition  := 22;

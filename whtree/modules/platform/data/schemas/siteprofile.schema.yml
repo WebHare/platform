@@ -81,7 +81,6 @@ $defs:
           - composeddocument
           - hson
           - record
-          # - formcondition  FIXME is this really declarable?
       tid:
         type: string
       title:

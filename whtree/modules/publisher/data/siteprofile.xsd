@@ -611,7 +611,6 @@
           <xs:element name="stringarray" type="SimpleMember" />
           <xs:element name="richdocument" type="SimpleMember" />
           <xs:element name="composeddocument" type="SimpleMember" />
-          <xs:element name="formcondition" type="SimpleMember" />
           <xs:element name="intextlink" type="SimpleMember" />
           <xs:element name="instance" type="SimpleMember" />
           <xs:element name="url" type="SimpleMember" />

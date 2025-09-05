@@ -16,7 +16,7 @@ import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 //positioned list to convert database ids:
 const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", "formCondition", "record", "image", "date"];
+  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", null, "record", "image", "date"];
 
 export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;

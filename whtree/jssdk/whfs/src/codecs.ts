@@ -35,8 +35,7 @@ export type MemberType = "string" // 2
   | "instance" //18
   | "url" //19
   | "composedDocument" //20
-  | "hson" //21 (record in HareScript)
-  | "formCondition" //22
+  | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
   | "image" //24
   | "date" //25
@@ -258,7 +257,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       return settings[0]?.setting || "";
     }
   },
-  "hson": {
+  "hson": { //fs_member type 21 (hson) and 22 (formrecord, dropped in WH5.9)
     encoder: (value: unknown) => {
       if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
         throw new Error(`Incorrect type. Wanted an object`);
@@ -277,7 +276,8 @@ export const codecs: { [key: string]: TypeCodec } = {
       return { setting: ashson };
     },
     decoder: (settings: FSSettingsRow[]) => {
-      if (settings[0]?.setting)
+      //If setting == FC1, this is a former <formcondition> (type 22) which would always overflow to a blob and store FC1 as setting - we didn't do a data conversion after dropping 22
+      if (settings[0]?.setting && settings[0]?.setting !== "FC1")
         return decodeHSON(settings[0].setting);
       else if (settings[0]?.blobdata)
         return settings[0]?.blobdata.text().then(text => decodeHSON(text));

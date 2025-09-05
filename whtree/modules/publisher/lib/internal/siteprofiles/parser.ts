@@ -132,7 +132,6 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "hson": {
     dbtype: CSPMemberType.HSON
   },
-  //"formcondition": CSPMemberType.FormCondition,
   "record": {
     dbtype: CSPMemberType.Record
   },

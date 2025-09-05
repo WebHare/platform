@@ -448,28 +448,15 @@ PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER cu
         ELSE IF(RecordExists(cellrec.value) AND cellrec.value.internallink != 0)
           val := SELECT AS STRING whfspath FROM system.fs_objects WHERE id = cellrec.value.internallink;
       }
-      CASE 20 //webtool form definition
-      {
-        IF (RecordExists(cellrec.value))
-        {
-          val := "webtool form definition";
+      CASE 20 { //composed document
+        IF (RecordExists(cellrec.value)) {
+          val := "composed document";
           subnodes := subnodes CONCAT UnpackCTYPERichDocument(memberinfo.type, cellrec.value, tolliumuser, basename || "." || cellrec.name || ".", canedit, orphanmember);
         }
         ELSE
-          val := "empty webtool form definition";
+          val := "empty composed document";
       }
-      CASE 22 //webtool form condition
-      {
-        IF (RecordExists(cellrec.value))
-        {
-          val := "webtool form condition";
-          subnodes := subnodes CONCAT UnpackCTYPEFormCondition(memberinfo.type, cellrec.value, tolliumuser, basename || "." || cellrec.name || ".", canedit, orphanmember);
-        }
-        ELSE
-          val := "empty webtool form condition";
-      }
-      DEFAULT
-      {
+      DEFAULT {
         SWITCH(TypeId(cellrec.value))
         {
           CASE TypeID(INTEGER)
