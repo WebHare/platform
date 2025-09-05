@@ -7,7 +7,7 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.
 import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, encodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
-import { IntExtLink, type RichTextDocument, type WHFSInstance } from "@webhare/services";
+import { IntExtLink, WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
@@ -259,40 +259,6 @@ export const codecs: { [key: string]: TypeCodec } = {
     }
   },
   "hson": {
-    //FIXME Overlong record support (TODO record automatically triggers blob download and parsing, so any future "JSON" type should be smarter than that)
-    /*
-              IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))
-                THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
-                    ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'RECORD'");
-
-              IF (NOT RecordExists(newval))
-              {
-                killsettings := killsettings CONCAT current_member_settings;
-              }
-              ELSE
-              {
-                STRING data := EncodeHSON(newval);
-                RECORD newset;
-
-                IF (Length(data) <= 4096)
-                  newset := [ setting := data, blobdata := DEFAULT BLOB ];
-                ELSE
-                  newset := [ setting := "", blobdata := StringToBlob(data) ];
-
-                IF (Length(current_member_settings) = 1)
-                {
-                  UPDATE system.fs_settings SET setting := newset.setting, blobdata := newset.blobdata WHERE id = current_member_settings[0].id;
-                }
-                ELSE
-                {
-                  killsettings := killsettings CONCAT current_member_settings;
-
-                  INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
-                  INSERT INTO system.fs_settings(id, fs_instance, fs_member, setting, blobdata, parent)
-                         VALUES(newid, instanceid, memberrec.id, newset.setting, newset.blobdata, cursetting);
-                }
-
-                */
     encoder: (value: unknown) => {
       if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
         throw new Error(`Incorrect type. Wanted an object`);
@@ -303,16 +269,19 @@ export const codecs: { [key: string]: TypeCodec } = {
         throw new Error(`Incorrect type. Wanted a plain object but got a '${Object.getPrototypeOf(value).constructor.name}'`);
 
       const ashson = encodeHSON(value as IPCMarshallableData);
-      if (Buffer.byteLength(ashson) > 4096)
-        throw new Error(`Overlong records not yet implemtened (${ashson.length})`);
-
+      if (Buffer.byteLength(ashson) > 4096) { //upload, requires async completion
+        return (async (): EncoderAsyncReturnValue => {
+          return { blobdata: await uploadBlob(WebHareBlob.from(ashson)) };
+        })();
+      }
       return { setting: ashson };
     },
     decoder: (settings: FSSettingsRow[]) => {
-      if (!settings.length)
-        return null;
-
-      return decodeHSON(settings[0].setting);
+      if (settings[0]?.setting)
+        return decodeHSON(settings[0].setting);
+      else if (settings[0]?.blobdata)
+        return settings[0]?.blobdata.text().then(text => decodeHSON(text));
+      return null;
     }
   },
   "stringArray": {
