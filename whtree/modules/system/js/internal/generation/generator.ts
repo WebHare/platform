@@ -57,7 +57,7 @@ function fixFilePaths(files: FileToUpdate[]) {
 async function listAllGeneratedTypeScript(mods: string[]): Promise<FileToUpdate[]> {
   return [
     ...await listAllServiceTS(mods),
-    ...await listAllRegistryTS(mods),
+    ...await listAllRegistryTS(),
     ...await listMiscTS(mods)
   ];
 }

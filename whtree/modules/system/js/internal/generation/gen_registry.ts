@@ -1,6 +1,7 @@
 import { type FileToUpdate, type GenerateContext, generatorBanner } from "./shared";
 import type { Element, Node } from "@xmldom/xmldom";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
+import { backendConfig } from "@webhare/services";
 
 
 function isElement(node: Node): node is Element {
@@ -115,7 +116,9 @@ ${keys.map(key => {
 `;
 }
 
-export async function listAllRegistryTS(mods: string[]): Promise<FileToUpdate[]> {
+export async function listAllRegistryTS(): Promise<FileToUpdate[]> {
+  const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
+
   return [
     {
       path: `ts/registry.ts`,
@@ -127,7 +130,7 @@ export async function listAllRegistryTS(mods: string[]): Promise<FileToUpdate[]>
       path: `ts/registry.ts`,
       module: "dummy-installed",
       type: "ts",
-      generator: (context: GenerateContext) => generateRegistryDefs(context, false, mods.filter(m => !whconstant_builtinmodules.includes(m)))
+      generator: (context: GenerateContext) => generateRegistryDefs(context, false, noncoremodules)
     }
   ];
 }
