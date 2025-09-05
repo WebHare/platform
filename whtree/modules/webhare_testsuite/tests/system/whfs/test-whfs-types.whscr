@@ -90,7 +90,7 @@ MACRO FindTest()
   OBJECT findtest3 := firstfolder->CreateFile([name:="findtest3"]);
 
   OBJECT ctype := OpenWHFSType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
-  TestEq(ctype, OpenWHFSType("webhare_testsuite:global.genericTestType"));
+  TestEq(ctype, OpenWHFSType("webhare_testsuite:global.generic_test_type"));
   INTEGER ARRAY result;
 
   findtest1->SetInstanceData("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
@@ -481,15 +481,15 @@ MACRO TestRecordMembers()
   testfw->BeginWork();
 
   OBJECT testrecordfile := testsite->rootobject->CreateFile( [ name:="testrecord" ]);
-  RECORD testrecord := testrecordfile->GetInstanceData("webhare_testsuite:global.genericTestType");
+  RECORD testrecord := testrecordfile->GetInstanceData("webhare_testsuite:global.generic_test_type");
   TestEq(DEFAULT RECORD, testrecord.a_typed_record);
-  TestThrowsLike('*non-existing*NO_SUCH_MEMBER*', PTR testrecordfile->SetInstanceData("webhare_testsuite:global.genericTestType", [ a_typed_record := [ no_such_member := 82042 ]]));
-  testrecordfile->SetInstanceData("webhare_testsuite:global.genericTestType", [ a_typed_record := [ int_member := 82042 ]]);
-  TestEqMembers([int_member := 82042 ], testrecordfile->GetInstanceData("webhare_testsuite:global.genericTestType").a_typed_record, '*');
-  testrecordfile->SetInstanceData("webhare_testsuite:global.genericTestType", [ a_typed_record := [ int_member := 82842 ]]);
-  TestEqMembers([int_member := 82842 ], testrecordfile->GetInstanceData("webhare_testsuite:global.genericTestType").a_typed_record, '*');
-  testrecordfile->SetInstanceData("webhare_testsuite:global.genericTestType", [ a_typed_record := DEFAULT RECORD ]);
-  TestEq(DEFAULT RECORD, testrecordfile->GetInstanceData("webhare_testsuite:global.genericTestType").a_typed_record);
+  TestThrowsLike('*non-existing*NO_SUCH_MEMBER*', PTR testrecordfile->SetInstanceData("webhare_testsuite:global.generic_test_type", [ a_typed_record := [ no_such_member := 82042 ]]));
+  testrecordfile->SetInstanceData("webhare_testsuite:global.generic_test_type", [ a_typed_record := [ int_member := 82042 ]]);
+  TestEqMembers([int_member := 82042 ], testrecordfile->GetInstanceData("webhare_testsuite:global.generic_test_type").a_typed_record, '*');
+  testrecordfile->SetInstanceData("webhare_testsuite:global.generic_test_type", [ a_typed_record := [ int_member := 82842 ]]);
+  TestEqMembers([int_member := 82842 ], testrecordfile->GetInstanceData("webhare_testsuite:global.generic_test_type").a_typed_record, '*');
+  testrecordfile->SetInstanceData("webhare_testsuite:global.generic_test_type", [ a_typed_record := DEFAULT RECORD ]);
+  TestEq(DEFAULT RECORD, testrecordfile->GetInstanceData("webhare_testsuite:global.generic_test_type").a_typed_record);
 
   testfw->RollbackWork();
 

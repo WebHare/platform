@@ -25,16 +25,11 @@ async function testSPCompiler() {
 }
 
 async function testSPYaml() {
-  await test.throws(/does not have a typeGroup/, parseSP(`---
-types:
-  testType:
-`));
-
   test.eqPartial({
     contenttypes: [
       {
         namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type',
-        scopedtype: 'webhare_testsuite:myTypes.testType',
+        scopedtype: 'webhare_testsuite:my_types.test_type',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.test_type",
         yaml: true,
@@ -89,7 +84,7 @@ types:
       },
       {
         namespace: 'x-webhare-scopedtype:webhare_testsuite.my_types.test_type2',
-        scopedtype: 'webhare_testsuite:myTypes.testType2',
+        scopedtype: 'webhare_testsuite:my_types.test_type2',
         type: 'contenttype',
         title: "webhare_testsuite:base.gid.tt2.test_type2",
         members:
@@ -97,10 +92,10 @@ types:
       }
     ]
   }, await parseSP(`---
-typeGroup: myTypes
+typeGroup: my_types
 gid: base.gid
 types:
-  testType:
+  test_type:
     members:
       numberField:
         type: integer
@@ -127,7 +122,7 @@ types:
                     members:
                       subSubString:
                         type: string
-  testType2:
+  test_type2:
     gid: .tt2
     members:
       stringField:
@@ -150,9 +145,9 @@ types:
       }
     ]
   }, await parseSP(`---
-typeGroup: myTypes
+typeGroup: my_types
 types:
-  testType:
+  test_type:
     members:
       numberField:
         type: integer
@@ -162,7 +157,7 @@ types:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:myTypes.testType',
+        scopedtype: 'webhare_testsuite:my_types.test_type',
       }
     ],
     rules: [
@@ -173,7 +168,7 @@ types:
         yaml: true,
         extendproperties: [
           {
-            contenttype: 'webhare_testsuite:myTypes.testType',
+            contenttype: 'webhare_testsuite:my_types.test_type',
             layout: ['folksonomy', 'numberField']
           }, {
             contenttype: 'http://www.webhare.net/xmlns/example/somelegacytype',
@@ -190,9 +185,8 @@ types:
     ]
 
   }, await parseSP(`---
-typeGroup: myTypes
 types:
-  testType:
+  my_types.test_type:
     members:
       numberField:
         type: integer
@@ -203,7 +197,7 @@ apply:
     fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
   baseProps: [seotitle]
   editProps:
-    - type: testType
+    - type: my_types.test_type
       layout: [folksonomy,numberField]
     - type: http://www.webhare.net/xmlns/example/somelegacytype
       layout: all
@@ -215,7 +209,7 @@ apply:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:myTypes.testType',
+        scopedtype: 'webhare_testsuite:my_types.test_type',
         members:
           [
             {
@@ -240,7 +234,7 @@ apply:
         yaml: true,
         extendproperties: [
           {
-            contenttype: 'webhare_testsuite:myTypes.testType',
+            contenttype: 'webhare_testsuite:my_types.test_type',
             override: Object.entries({
               'numberField': {
                 constraints: {
@@ -254,9 +248,9 @@ apply:
       }
     ]
   }, await parseSP(`---
-typeGroup: myTypes
+typeGroup: my_types
 types:
-  testType:
+  test_type:
     members:
       numberField:
         type: integer
@@ -269,7 +263,7 @@ apply:
     fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
   baseProps: [seotitle]
   editProps:
-    - type: testType
+    - type: test_type
       override:
          numberField:
           constraints:
@@ -281,7 +275,7 @@ apply:
   test.eqPartial({
     contenttypes: [
       {
-        scopedtype: 'webhare_testsuite:myTypes.testType',
+        scopedtype: 'webhare_testsuite:my_types.sub.test_type',
         members:
           [
             {
@@ -304,7 +298,7 @@ apply:
         yaml: true,
         extendproperties: [
           {
-            contenttype: 'webhare_testsuite:myTypes.testType',
+            contenttype: 'webhare_testsuite:sub.test_type',
             override: Object.entries({
               'numberField': {
                 constraints: {
@@ -320,9 +314,9 @@ apply:
       }
     ]
   }, await parseSP(`---
-typeGroup: myTypes
+typeGroup: my_types
 types:
-  testType:
+  sub.test_type:
     members:
       whUser:
         type: string
@@ -335,7 +329,7 @@ apply:
     fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
   baseProps: [seotitle]
   editProps:
-    - type: testType
+    - type: sub.test_type
       override:
         numberField:
           layout: section
@@ -380,9 +374,9 @@ apply:
       }
     ]
   }, await parseSP(`---
-typeGroup: myTypes
+typeGroup: my_types
 types:
-  testType:
+  test_type:
     members:
       multiField:
         type: record

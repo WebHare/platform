@@ -277,20 +277,18 @@ function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
   return [to];
 }
 
-function resolveType(baseScope: string | null, type: string) {
+function resolveType(baseScope: string, type: string) {
   if (!type)
     return '';
 
   if (type.includes(':'))  //looks like a XML namespace kind of type or a module:ref
     return type;
-  if (!baseScope)
-    throw new Error(`Cannot resolve type '${type}' without a baseScope`);
   if (type.includes('.'))  //guessing it's module scoped
     return baseScope.split(':')[0] + ':' + type;
-  return `${baseScope}.${type}`;
+  return `${baseScope}${type}`;
 }
 
-function parseEditProps(gid: ResourceParserContext, baseScope: string | null, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
+function parseEditProps(gid: ResourceParserContext, baseScope: string, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
   const rules = new Array<CSPApplyRule["extendproperties"][0]>;
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
@@ -355,7 +353,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   };
 }
 
-function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string | null, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
+function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: parseApplyTo(apply.to),
@@ -460,18 +458,15 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
   const rootParser = ResourceParserContext.forResource(resource, options?.onTid, sp);
   result.gid = rootParser.gid;
 
-  const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}` : null;
+  const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
     //TODO siteprl.xml is not perfectly in sync with this, it keeps some parts in snakecase. that needs to be fixed there or just removed from XML
-    // - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
+    // - A global name of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
     // - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
-    if (!baseScope)
-      throw new Error(`Siteprofile ${resource} does not have a typeGroup`);
-
     const typeParser = rootParser.addGid(settings);
-    const scopedtype = `${baseScope}.${type}`;
-    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup!)}.${toHSSnakeCase(type)}`;
+    const scopedtype = `${baseScope}${type}`;
+    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${sp.typeGroup ? sp.typeGroup + '.' : ''}${type}`;
     const ctype: CSPContentType = {
       cloneoncopy: true, //FIXME more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
       dynamicexecution: null,
@@ -489,7 +484,7 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
       previewcomponent: "",
       scopedtype,
       siteprofile: resource,
-      title: typeParser.resolveTid({ name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
+      title: typeParser.resolveTid({ name: type, title: settings.title, tid: settings.tid }),
       tolliumicon: "",
       type: "contenttype",
       wittycomponent: "",

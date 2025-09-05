@@ -20,14 +20,12 @@ MACRO TestParsing()
   TestEq("this_is_a_snake", ToSnakeCase("thisIsASnake"));
   TestEq("thisIsASnake", ToCamelCase("this_is_a_snake"));
 
-  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.genericTestType", FALSE));
+  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.generic_test_type", FALSE));
   TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", TRUE));
 
   //x-namespace enforces converting names that look like scoped types to full namespaces in case we find problems in the field with the heuristic approach
   TestEq("x-webhare-scopedtype:urn.my.type", ScopedTypeToNamespace("urn:my.type", TRUE));
   TestEq("urn:my.type", ScopedTypeToNamespace("x-namespace:urn:my.type", TRUE));
-
-  TestThrowsLike('Invalid scoped type*',PTR ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", FALSE));
 
   RECORD res;
 

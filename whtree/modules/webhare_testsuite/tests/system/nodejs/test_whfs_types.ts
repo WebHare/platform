@@ -88,7 +88,7 @@ async function testMockedTypes() {
   test.eqPartial({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeWHFSType(777777777777, { allowMissing: true, metaType: "fileType" }));
 
   //verify scopedtypenames
-  const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.genericTestType");
+  const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.generic_test_type");
   test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
 
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
@@ -184,7 +184,7 @@ async function testInstanceData() {
     myWhfsRefArray: fileids,
   }, await testtype.get(testfile.id));
 
-  const typeThroughShortName = await whfs.openType("webhare_testsuite:global.genericTestType");
+  const typeThroughShortName = await whfs.openType("webhare_testsuite:global.generic_test_type");
   test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));
 
   //Test files

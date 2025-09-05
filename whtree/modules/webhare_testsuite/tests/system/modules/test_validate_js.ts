@@ -74,10 +74,10 @@ answer: 43
 
   { //verify TID parsing
     const res = await runJSBasedValidator(WebHareBlob.from(`
-typeGroup: baseTest
+typeGroup: base_test
 gid: webdesigns.basetestjs
 types:
-  baseTestProps:
+  base_test_props:
     gid: .basetest
     namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
     members:
