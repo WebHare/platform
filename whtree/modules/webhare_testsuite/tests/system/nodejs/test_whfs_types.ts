@@ -1,16 +1,16 @@
 import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
+import { whfsType } from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/src/quacks";
 import { buildWHFSInstance } from "@webhare/services/src/richdocument";
-import type { ExportedResource } from "@webhare/services/src/descriptor";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -101,7 +101,12 @@ async function testInstanceData() {
   const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
   const fileids = [tmpfolder.id, testfile.id];
 
-  const testtype = whfs.openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  //We should be able to use whfsType() on the 'long' namespace URLs but we don't prefer these (or list them in the type map)
+  const testtypeScopedName = whfsType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtypeScopedName.get(testfile.id));
+
+  //Using the short TS name should give us type intellisense
+  const testtype = whfsType("webhare_testsuite:global.generic_test_type");
   test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 0);
 
@@ -121,6 +126,7 @@ async function testInstanceData() {
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 1);
 
   //Test record validation
+  //@ts-expect-error 'bad' does not exist
   await test.throws(/for the non-existing cell 'bad'/, () => testtype.set(testfile.id, { aTypedRecord: { bad: 42 } }));
 
   //Test the rest of the primitive types
@@ -173,7 +179,7 @@ async function testInstanceData() {
 
   const expWhfsRefs = pick(await testtype.get(testfile.id, { export: true }), ["myWhfsRef", "myWhfsRefArray"]);
   test.eq("site::webhare_testsuite.testsite/tmp/testfile.txt", expWhfsRefs.myWhfsRef);
-  test.eq(["site::webhare_testsuite.testsite/tmp/", "site::webhare_testsuite.testsite/tmp/testfile.txt"], (expWhfsRefs.myWhfsRefArray as string[]).toSorted());
+  test.eq(["site::webhare_testsuite.testsite/tmp/", "site::webhare_testsuite.testsite/tmp/testfile.txt"], expWhfsRefs.myWhfsRefArray.toSorted());
 
   //Verify we can import them again
   await testtype.set(testfile.id, expWhfsRefs);
@@ -184,7 +190,7 @@ async function testInstanceData() {
     myWhfsRefArray: fileids,
   }, await testtype.get(testfile.id));
 
-  const typeThroughShortName = await whfs.openType("webhare_testsuite:global.generic_test_type");
+  const typeThroughShortName = whfs.whfsType("webhare_testsuite:global.generic_test_type");
   test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));
 
   //Test files
@@ -201,11 +207,11 @@ async function testInstanceData() {
   expectNumSettings += 2; //adding blub and blubImg
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
-  const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
-  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
-  const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg as ResourceDescriptor;
-  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2.hash);
-  test.eq(imgEditFile.id, returnedGoldfish2.sourceFile);
+  const returnedGoldfish = (await testtype.get(testfile.id)).blub;
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish?.hash);
+  const returnedGoldfish2 = (await testtype.get(testfile.id)).blubImg;
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish2?.hash);
+  test.eq(imgEditFile.id, returnedGoldfish2?.sourceFile);
 
   //Test export of the goldfish
   test.eq({
@@ -222,7 +228,7 @@ async function testInstanceData() {
     sourceFile: null
   }, (await testtype.get(testfile.id, { export: true })).blub);
 
-  test.eq(`site::${testsitejs.name}/TestPages/imgeditfile.jpeg`, ((await testtype.get(testfile.id, { export: true })).blubImg as ExportedResource).sourceFile);
+  test.eq(`site::${testsitejs.name}/TestPages/imgeditfile.jpeg`, (await testtype.get(testfile.id, { export: true })).blubImg?.sourceFile);
 
   //Test rich documents
   const inRichdoc = await buildRTD([{ "p": "Hello, World!" }]);
@@ -234,8 +240,8 @@ async function testInstanceData() {
   ++expectNumSettings; //adding a simple RTD with no instances/embeds/links
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
 
-  const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichTextDocument;
-  test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
+  const returnedRichdoc = (await testtype.get(testfile.id)).rich;
+  test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
 
   ////////////////////////////////////
   // STORY: Further instance update tests
@@ -246,7 +252,7 @@ async function testInstanceData() {
 
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
   test.eqPartial({
-    anInstance: (instance: WHFSInstance) => instance.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance.data.str1 === "str1b" && getWHType(instance) === "WHFSInstance"
+    anInstance: (instance: WHFSInstance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance?.data.str1 === "str1b" && getWHType(instance) === "WHFSInstance"
   }, await testtype.get(testfile.id));
 
   // Test: Can we put a RTD Object inside an instance?
@@ -264,7 +270,7 @@ async function testInstanceData() {
 
   {
     const { anInstance } = await testtype.get(testfile.id);
-    test.eq([{ items: [{ text: "Left column" }], tag: "p" }], ((anInstance as WHFSInstance).data.rtdleft as RichTextDocument).blocks);
+    test.eq([{ items: [{ text: "Left column" }], tag: "p" }], (anInstance?.data.rtdleft as RichTextDocument).blocks);
   }
 
   // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
@@ -291,12 +297,13 @@ async function testInstanceData() {
     my_link: { internallink: testfile.id }
   }, val);
 
-  test.eq(returnedGoldfish.mediaType, val.blub.mimetype);
-  test.eq(returnedGoldfish.hash, val.blub.hash);
+  test.eq(returnedGoldfish?.mediaType, val.blub.mimetype);
+  test.eq(returnedGoldfish?.hash, val.blub.hash);
 
-  const blubFromHareScript = val.blub.data as WebHareBlob;
-  const blubFromOurGet = returnedGoldfish.resource;
-  test.eq(blubFromHareScript.size, blubFromOurGet.size);
+  const blubFromHareScript = val.blub.data;
+  const blubFromOurGet = returnedGoldfish?.resource;
+  test.assert(blubFromOurGet);
+  test.eq(blubFromHareScript?.size, blubFromOurGet?.size);
   test.eq(Buffer.from(await blubFromOurGet.arrayBuffer()).toString("base64"), Buffer.from(await blubFromHareScript.arrayBuffer()).toString("base64"));
 
   test.eq(inRichdocHTML, Buffer.from(await val.rich.htmltext.arrayBuffer()).toString("utf8"));
@@ -308,16 +315,27 @@ async function testInstanceData() {
   test.eqPartial({ aRecord: { overlongtext: overlongText } }, await testtype.get(testfile.id)); //we've lost the camelcase due to HSON
 
   //Test validation
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { yesNo: "a" }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { str: 1 }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { price: 'a' }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aFloat: "a" }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aDateTime: "a" }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { strArray: 1 }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { url: 1 }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: 1 }));
+  //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: new Date() }));
+  //@ts-expect-error noSuchProp doesn't exist
   await test.throws(/non-existing cell 'noSuchProp/, () => testtype.set(testfile.id, { noSuchProp: new Date() }));
 
   //Test arrays

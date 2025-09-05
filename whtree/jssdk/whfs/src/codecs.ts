@@ -57,6 +57,9 @@ interface TypeCodec {
   importValue?(value: unknown): unknown;
   exportValue?(value: unknown, options?: ExportOptions): unknown;
   isDefaultValue?(value: unknown): boolean;
+  getType: string;
+  setType?: string;
+  exportType?: string;
 }
 
 function assertValidString(value: unknown) {
@@ -112,6 +115,8 @@ function scanDataToHS(settinginfo: ResourceMetaData): Omit<HareScriptRTD["embedd
 
 export const codecs: { [key in MemberType]: TypeCodec } = {
   "boolean": {
+    getType: "boolean",
+
     encoder: (value: unknown) => {
       if (typeof value !== "boolean")
         throw new Error(`Incorrect type. Wanted boolean, got '${typeof value}'`);
@@ -123,6 +128,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "integer": {
+    getType: "number",
+
     encoder: (value: unknown) => {
       if (typeof value !== "number")
         throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
@@ -136,6 +143,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "float": {
+    getType: "number",
+
     encoder: (value: unknown) => {
       if (typeof value !== "number")
         throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
@@ -147,6 +156,10 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "whfsRef": {
+    getType: "number | null",
+    setType: "string | number | null",
+    exportType: "string | null",
+
     encoder: (value: unknown) => {
       if (typeof value !== "number")
         throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
@@ -170,6 +183,10 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     },
   },
   "whfsRefArray": {
+    getType: "Array<number>",
+    setType: "Array<string | number>",
+    exportType: "Array<string>",
+
     encoder: (value: unknown) => {
       if (!Array.isArray(value))
         throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
@@ -206,6 +223,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     },
   },
   "plainDate": {
+    getType: "Temporal.PlainDate | null",
+    setType: "Temporal.PlainDate | Date | null",
+
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
@@ -225,6 +245,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "instant": {
+    getType: "Temporal.Instant | null",
+    setType: "Temporal.Instant | Date | null",
+
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
@@ -240,6 +263,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "string": {
+    getType: "string",
+
     encoder: (value: unknown) => {
       const strvalue = assertValidString(value);
       return strvalue ? { setting: strvalue } : null;
@@ -249,6 +274,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "url": { //TODO identical to "string" at this moment, but we're not handling linkchecking yet
+    getType: "string",
+
     encoder: (value: unknown) => {
       const strvalue = assertValidString(value);
       return strvalue ? { setting: strvalue } : null;
@@ -258,6 +285,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "hson": { //fs_member type 21 (hson) and 22 (formrecord, dropped in WH5.9)
+    getType: "Record<string,unknown> | null",
+
     encoder: (value: unknown) => {
       if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
         throw new Error(`Incorrect type. Wanted an object`);
@@ -285,6 +314,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "stringArray": {
+    getType: "string[]",
+
     encoder: (value: unknown) => {
       if (!Array.isArray(value))
         throw new Error(`Incorrect type. Wanted string array, got '${typeof value}'`);
@@ -299,6 +330,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "money": {
+    getType: "Money",
+
     encoder: (value: unknown) => {
       if (typeof value === "number")
         return value ? { setting: String(value) } : null;
@@ -314,6 +347,10 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "file": {
+    getType: "ResourceDescriptor | null",
+    setType: "ResourceDescriptor | ExportedResource | null",
+    exportType: "ExportedResource | null",
+
     encoder: (value: unknown) => {
       if (typeof value !== "object") //TODO test for an actual ResourceDescriptor
         throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${typeof value}'`);
@@ -353,7 +390,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       return ResourceDescriptor.import(value);
     }
   },
-  "record": {
+  "record": { //NOTE: getType/setType are only queried for records/arrays without children
+    getType: "Record<never, unknown> | null",
+
     encoder: (value: object, member: WHFSTypeMember) => {
       return (async (): EncoderAsyncReturnValue => {
         const toInsert = new Array<EncodedFSSetting>();
@@ -365,7 +404,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       return settings.length ? recurseGetData(member.children || [], settings[0].id, context) : null;
     }
   },
-  "array": {
+  "array": {  //NOTE: getType/setType are only queried for records/arrays without children
+    getType: "Array<never>",
+
     encoder: (value: object[], member: WHFSTypeMember) => {
       if (!Array.isArray(value))
         throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
@@ -385,6 +426,10 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "richTextDocument": {
+    getType: "RichTextDocument | null",
+    setType: "RichTextDocument | RTDBuildSource | null",
+    exportType: "ExportableRTD | null",
+
     encoder: (value: RichTextDocument | null) => {
       if (value && !isRichTextDocument(value))
         throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
@@ -490,6 +535,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "instance": {
+    getType: "WHFSInstance | null",
+    setType: "WHFSInstance | WHFSInstanceData | null",
+
     encoder: (value: WHFSInstance | WHFSInstanceData) => {
       if (!value)
         return null;
@@ -519,6 +567,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "intExtLink": {
+    getType: "IntExtLink | null",
+    setType: "IntExtLink | ExportedIntExtLink | null",
+
     encoder: (value: IntExtLink | null) => {
       if (!value)
         return null;
@@ -541,6 +592,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "image": {
+    getType: "never",
+
     encoder: () => {
       throw new Error("Not implemented");
     },
@@ -549,6 +602,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "composedDocument": {
+    getType: "never",
+
     encoder: () => {
       throw new Error("Not implemented");
     },

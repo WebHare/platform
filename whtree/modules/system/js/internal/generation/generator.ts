@@ -39,6 +39,7 @@ import { listMiscTS, listPublicConfig } from "./gen_misc_ts";
 import { rm } from "node:fs/promises";
 import { parseDocAsXML } from "./xmlhelpers";
 import { pick } from "@webhare/std";
+import { listAllModuleWHFSTypeDefs } from "./gen_whfs";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataRoot + "config/";
@@ -73,6 +74,7 @@ async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
   return fixFilePaths([
     ...await listAllModuleTableDefs(allmods),
     ...await listAllModuleWRDDefs(),
+    ...await listAllModuleWHFSTypeDefs(),
     ...await listAllModuleOpenAPIDefs(),
     ...await listAllGeneratedTypeScript(allmods),
     ...await listPublicConfig(),
