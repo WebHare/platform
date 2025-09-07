@@ -42,8 +42,8 @@ types:
         type: url
       aRecord:
         type: hson
-      # aDoc:
-      #   type: composeddocument
+      aDoc:
+        type: composedDocument
       aTypedRecord:
         type: record
         members:

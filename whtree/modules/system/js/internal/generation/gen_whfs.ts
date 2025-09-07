@@ -72,6 +72,7 @@ import type { Money } from "@webhare/std";
 import type { IntExtLink, ResourceDescriptor, RichTextDocument } from "@webhare/services";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
 import type { RTDBuildSource, WHFSInstance, ExportableRTD } from "@webhare/services/src/richdocument";
+import type { ComposedDocument } from "@webhare/services/src/composeddocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 
 declare module "@webhare/whfs/src/contenttypes" {

@@ -206,7 +206,7 @@ async function testAllTypes() {
 
   const missingSuggestions = wtsgenerictab.fields.filter(_ => _.component?.text?.value && _.component?.text?.enabled === false);
   //TODO can we solve these all? at least prevent more from appearing
-  test.eq(["aRecord", "aTypedRecord", "anArray", "anInstance", "myLink", "strArray"], missingSuggestions.map(_ => _.name).sort());
+  test.eq(["aDoc", "aRecord", "aTypedRecord", "anArray", "anInstance", "myLink", "strArray"], missingSuggestions.map(_ => _.name).sort());
 
   const manualTabs = await describeMetaTabs(await getMockTestApplyTester("manualtabs"));
   // console.dir(manualTabs, { depth: 10 });

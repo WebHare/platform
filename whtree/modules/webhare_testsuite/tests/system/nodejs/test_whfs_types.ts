@@ -6,7 +6,8 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
+import { ResourceDescriptor, type WHFSInstance, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob } from "@webhare/services";
+import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { getWHType } from "@webhare/std/src/quacks";
@@ -242,6 +243,35 @@ async function testInstanceData() {
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich;
   test.eq(inRichdocHTML, await returnedRichdoc?.__getRawHTML());
+
+  //Test composed documents
+  const inComposedDoc = new ComposedDocument("platform:formdefinition", WebHareBlob.from(`
+      <formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms">
+        <form name="webtoolform">
+          <page>
+            <richtext textid="Yl98JQ8ztbgW3-KdqLzYBA" title="asdf def" guid="wtfrm:9A757BDEF63422BC86F6C5586FDA3508"/>
+          </page>
+        </form>
+      </formdefinitions>`), {
+    instances: {
+      'Yl98JQ8ztbgW3-KdqLzYBA': await buildWHFSInstance({
+        whfsType: 'http://www.webhare.net/xmlns/publisher/richdocumentfile',
+        data: await buildRTD([{ p: "asdf def" }])
+      })
+    }
+  });
+
+  await testtype.set(testfile.id, {
+    aDoc: inComposedDoc
+  });
+  expectNumSettings += 3; //one setting for type+text, one for the instance and one for the data member in the instance
+
+  const outComposedDoc = (await testtype.get(testfile.id)).aDoc;
+  test.assert(outComposedDoc);
+  test.eq(inComposedDoc.type, outComposedDoc.type);
+  test.eq(await inComposedDoc.text.text(), await outComposedDoc.text.text());
+  test.eq((inComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0], (outComposedDoc.instances.get('Yl98JQ8ztbgW3-KdqLzYBA')?.data.data as RichTextDocument).blocks[0]);
+
 
   ////////////////////////////////////
   // STORY: Further instance update tests

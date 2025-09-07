@@ -1,20 +1,21 @@
 import type * as kysely from "kysely";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { uploadBlob } from "@webhare/whdb";
-import { appendToArray, isPromise, isTruthy, Money, omit } from "@webhare/std";
+import { appendToArray, isPromise, isTruthy, Money, omit, throwError } from "@webhare/std";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat/src/hson.ts";
 import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.ts";
-import { exportAsHareScriptRTD, type HareScriptRTD, buildRTDFromHareScriptRTD } from "@webhare/hscompat/src/richdocument.ts";
+import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, addMissingScanData, decodeScanData, encodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
 import { IntExtLink, WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType } from "@webhare/std/src/quacks";
 import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
-import type { EncodableResourceMetaData, ExportedResource, ExportOptions, ResourceMetaData } from "@webhare/services/src/descriptor";
+import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
+import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/src/composeddocument";
 
 /// Returns T or a promise resolving to T
 type MaybePromise<T> = Promise<T> | T;
@@ -81,35 +82,106 @@ function assertValidDate(value: unknown): asserts value is Date {
     throw new Error(`Date out of range. The year must be between 1 and 9999, got '${value}'`);
 }
 
-function scanDataFromHS(settinginfo: HareScriptRTD["embedded"][number]): EncodableResourceMetaData {
+async function encodeResourceDescriptor(value: ResourceDescriptor | ExportedResource, opts?: { fileName?: string }): Promise<EncoderBaseReturnValue> {
+  const v = value as ResourceDescriptor;
+  if (v.resource.size)
+    await uploadBlob(v.resource);
+
   return {
-    mediaType: settinginfo.mimetype,
-    fileName: settinginfo.filename || '',
-    refPoint: settinginfo.refpoint,
-    dominantColor: settinginfo.dominantcolor || '',
-    width: settinginfo.width || 0,
-    height: settinginfo.height || 0,
-    hash: settinginfo.hash || '',
-    // extension: settinginfo.extension || '', //is not actually encoded into scandata
-    rotation: settinginfo.rotation || 0,
-    mirrored: settinginfo.mirrored || false,
+    setting: await addMissingScanData(v, opts),
+    fs_object: v.sourceFile,
+    blobdata: v.resource
   };
 }
 
-function scanDataToHS(settinginfo: ResourceMetaData): Omit<HareScriptRTD["embedded"][number], "data" | "source_fsobject"> {
-  return {
-    mimetype: settinginfo.mediaType,
-    filename: settinginfo.fileName || '',
-    contentid: settinginfo.fileName || '',
-    refpoint: settinginfo.refPoint,
-    dominantcolor: settinginfo.dominantColor || '',
-    width: settinginfo.width || 0,
-    height: settinginfo.height || 0,
-    hash: settinginfo.hash || '',
-    extension: settinginfo.extension || '',
-    rotation: settinginfo.rotation || 0,
-    mirrored: settinginfo.mirrored || false,
+function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext) {
+  const meta = {
+    ...decodeScanData(row.setting),
+    dbLoc: { source: 2, id: row.id, cc: context.cc },
+    sourceFile: row.fs_object ?? null,
   };
+  return new ResourceDescriptor(row.blobdata, meta);
+}
+
+async function encodeWHFSInstance(value: WHFSInstance | WHFSInstanceData): Promise<EncoderBaseReturnValue> {
+  const typeinfo = await describeWHFSType(value.whfsType);
+  const data = isWHFSInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
+  return {
+    instancetype: typeinfo.id,
+    sub: await recurseSetData(typeinfo.members, data)
+  };
+}
+
+async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
+  const typeinfo = await describeWHFSType(row.instancetype!);
+  const widgetdata = await recurseGetData(typeinfo.members, row.id, context);
+
+  return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
+}
+
+async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting: string): Promise<EncodedFSSetting[]> {
+  const storetext = toSerialize.text; // isrtd ? newval.htmltext : newval.text;
+
+  const settings: EncodedFSSetting[] = [];
+  settings.push({
+    setting: rootSetting,
+    ordering: 0,
+    blobdata: await uploadBlob(storetext),
+  });
+
+  for (const [contentid, image] of toSerialize.embedded) { //encode images
+    settings.push({
+      ...await encodeResourceDescriptor(image, { fileName: contentid }),
+      ordering: 1,
+    });
+  }
+
+  for (const [tag, linkref] of toSerialize.links) { //encode images
+    settings.push({
+      ordering: 2,
+      setting: tag || "",
+      fs_object: linkref,
+    });
+  }
+
+  for (const [instanceid, instance] of toSerialize.instances) { //encode embedded instanes
+    /* Generate settings for the instance:
+      - It needs a toplevel setting with:
+          - ordering = 3
+          - instancetype pointing to the actual WHFS Type Id
+          - setting will contain the instanceid
+      - Then we write the actual data as a settings (instancetype->__RecurseSetInstanceData(instanceid, 0, elementid ?? newelementid, newval, cursettings, remapper, orphansvisible))
+        - parent = the toplevel setting id we just generated
+      */
+
+    settings.push({
+      ...await encodeWHFSInstance(instance),
+      setting: instanceid,
+      ordering: 3,
+    });
+  }
+  return settings;
+}
+
+async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedDocumentType, context: DecoderContext) {
+  const outdoc = new ComposedDocument(type, settings[0].blobdata!);
+  for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
+    const decoded = decodeResourceDescriptor(img, context);
+    if (decoded.fileName)
+      outdoc.embedded.set(decoded.fileName, decoded);
+  }
+
+  for (const link of settings.filter(s => s.ordering === 2 && s.fs_object)) {
+    outdoc.links.set(link.setting, link.fs_object!);
+  }
+
+  for (const settingInstance of settings.filter(s => s.ordering === 3)) {
+    const typeinfo = await describeWHFSType(settingInstance.instancetype!);
+    const widgetdata = await recurseGetData(typeinfo.members, settingInstance.id, context);
+    outdoc.instances.set(settingInstance.setting, await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata }));
+  }
+
+  return outdoc;
 }
 
 export const codecs: { [key in MemberType]: TypeCodec } = {
@@ -350,35 +422,20 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     setType: "ResourceDescriptor | ExportedResource | null",
     exportType: "ExportedResource | null",
 
-    encoder: (value: unknown) => {
+    encoder: (value: ResourceDescriptor | ExportedResource | null) => {
       if (typeof value !== "object") //TODO test for an actual ResourceDescriptor
         throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${typeof value}'`);
       if (!value)
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
-      return (async (): EncoderAsyncReturnValue => {
-        const v = value as ResourceDescriptor;
-        if (v.resource.size)
-          await uploadBlob(v.resource);
-
-        return {
-          setting: await addMissingScanData(v),
-          fs_object: v.sourceFile,
-          blobdata: v.resource
-        };
-      })();
+      return encodeResourceDescriptor(value);
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): ResourceDescriptor | null => {
       if (!settings.length)
         return null;
 
-      const meta = {
-        ...decodeScanData(settings[0].setting),
-        dbLoc: { source: 2, id: settings[0].id, cc: context.cc },
-        sourceFile: settings[0].fs_object ?? null,
-      };
-      return new ResourceDescriptor(settings[0].blobdata, meta);
+      return decodeResourceDescriptor(settings[0], context);
     },
     exportValue: (value: ResourceDescriptor, options: ExportOptions): Promise<ExportedResource> | null => {
       return value?.export(options) ?? null as unknown as ExportedResource;
@@ -438,53 +495,10 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
         //Don't recurse, we're encoding embedded instances ourselves
-        const toSerialize = await exportAsHareScriptRTD(value, { recurse: false });
+        const asComposed = await exportRTDAsComposedDocument(value, { recurse: false });
         const versionindicator = "RD1"; // isrtd ? "RD1" : "CD1:" || value.type;
-        const storetext = toSerialize.htmltext; // isrtd ? newval.htmltext : newval.text;
+        return await encodeComposedDocument(asComposed, versionindicator);
 
-        const settings: EncodedFSSetting[] = [];
-        settings.push({
-          setting: versionindicator,
-          ordering: 0,
-          blobdata: await uploadBlob(storetext),
-        });
-
-        for (const image of toSerialize.embedded) { //encode images
-          settings.push({
-            ordering: 1,
-            setting: encodeScanData({ ...scanDataFromHS(image), fileName: image.contentid }),
-            fs_object: image.source_fsobject || null,
-            blobdata: await uploadBlob(image.data),
-          });
-        }
-
-        for (const link of toSerialize.links) { //encode images
-          settings.push({
-            ordering: 2,
-            setting: link.tag || "",
-            fs_object: link.linkref,
-          });
-        }
-
-        for (const instance of toSerialize.instances) { //encode embedded instanes
-          /* Generate settings for the instance:
-            - It needs a toplevel setting with:
-                - ordering = 3
-                - instancetype pointing to the actual WHFS Type Id
-                - setting will contain the instanceid
-            - Then we write the actual data as a settings (instancetype->__RecurseSetInstanceData(instanceid, 0, elementid ?? newelementid, newval, cursettings, remapper, orphansvisible))
-              - parent = the toplevel setting id we just generated
-            */
-          const typeinfo = await describeWHFSType(instance.data.whfstype);
-
-          settings.push({
-            instancetype: typeinfo.id,
-            setting: instance.instanceid,
-            ordering: 3,
-            sub: await recurseSetData(typeinfo.members, omit(instance.data, ["whfstype"]))
-          });
-        }
-        return settings;
       })();
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
@@ -492,35 +506,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
         return null;
 
       return (async () => {
-        const rtd: HareScriptRTD = { htmltext: settings[0].blobdata!, instances: [], embedded: [], links: [] };
-
-        for (const img of settings.filter(s => s.ordering === 1 && s.blobdata)) {
-          const settinginfo = decodeScanData(img.setting);
-          rtd.embedded.push({
-            ...scanDataToHS(settinginfo),
-            data: img.blobdata!,
-            source_fsobject: img.fs_object || 0,
-          });
-        }
-
-        for (const link of settings.filter(s => s.ordering === 2 && s.fs_object)) {
-          rtd.links.push({
-            linkref: link.fs_object!,
-            tag: link.setting
-          });
-        }
-
-        for (const settingInstance of settings.filter(s => s.ordering === 3)) {
-          const typeinfo = await describeWHFSType(settingInstance.instancetype!);
-          const widgetdata = await recurseGetData(typeinfo.members, settingInstance.id, context);
-
-          rtd.instances.push({
-            instanceid: settingInstance.setting,
-            data: { whfstype: typeinfo.namespace, ...widgetdata }
-          });
-        }
-
-        return buildRTDFromHareScriptRTD(rtd);
+        const base = await decodeComposedDocument(settings, "platform:richtextdocument", context);
+        return buildRTDFromComposedDocument(base);
       })();
     },
     importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
@@ -544,25 +531,13 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
         throw new Error(`Missing whfsType in instance`);
 
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
-      return (async (): EncoderAsyncReturnValue => {
-        const typeinfo = await describeWHFSType(value.whfsType);
-        const data = isWHFSInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
-        return {
-          instancetype: typeinfo.id,
-          sub: await recurseSetData(typeinfo.members, data)
-        };
-      })();
+      return encodeWHFSInstance(value);
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       if (!settings.length)
         return null;
 
-      return (async () => {
-        const typeinfo = await describeWHFSType(settings[0].instancetype!);
-        const widgetdata = await recurseGetData(typeinfo.members, settings[0].id, context);
-
-        return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
-      })();
+      return decodeWHFSInstance(settings[0], context);
     }
   },
   "intExtLink": {
@@ -591,13 +566,26 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     }
   },
   "composedDocument": {
-    getType: "never",
+    getType: "ComposedDocument | null",
 
-    encoder: () => {
-      throw new Error("Not implemented");
+    encoder: (value: ComposedDocument | null) => {
+      if (!value)
+        return null;
+      if (value.type === "platform:formdefinition")
+        return encodeComposedDocument(value, "CD1:publisher:formdefinition"); //HS used 'publisher:' prefix
+      if (value.type === "platform:markdown")
+        return encodeComposedDocument(value, "CD1:publisher:markdown"); //HS used 'publisher:' prefix
+      throw new Error(`Unsupported composed document type '${value.type}'`);
     },
-    decoder: () => {
-      throw new Error("Not implemented");
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      const type = settings[0].setting === "CD1:publisher:formdefinition" ? "platform:formdefinition"
+        : settings[0].setting === "CD1:publisher:markdown" ? "platform:markdown"
+          : throwError(`Unsupported composed document type indicator '${settings[0].setting}'`);
+
+      return decodeComposedDocument(settings, type, context);
     }
   }
 };
