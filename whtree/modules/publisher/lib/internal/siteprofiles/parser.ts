@@ -64,12 +64,6 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       valueType: "file"
     }
   },
-  "image": {
-    dbtype: CSPMemberType.File,
-    constraints: {
-      valueType: "image"
-    }
-  },
   "boolean": {
     dbtype: CSPMemberType.Boolean,
     constraints: {

@@ -13,6 +13,7 @@ import type { WebHareBlob } from "@webhare/services";
 
 // @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
 import type { } from "wh:ts/whfstypes.ts";
+import { CSPMemberType } from "./siteprofiles";
 
 // We keep this onternal, we might want cq like to restructure this API in the future
 export interface WHFSTypes {
@@ -362,7 +363,10 @@ export async function visitResources(callback: VisitCallback, scope: {
         {
           fsObject: result.fs_object,
           fsType: typeInfo?.namespace,
-          fieldType: result.type === 5 ? "file" : result.type === 15 ? "richTextDocument" : result.type === 20 ? "composedDocument" : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
+          fieldType: result.type === CSPMemberType.File ? "file"
+            : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
+              : result.type === CSPMemberType.ComposedDocument ? "composedDocument"
+                : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
         }, reconstructedDescriptor);
 

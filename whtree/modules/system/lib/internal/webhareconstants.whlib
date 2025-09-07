@@ -200,7 +200,7 @@ PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_invalidtemplate :=
    23 TYPED RECORD
 */
 PUBLIC CONSTANT STRING ARRAY whconstant_whfstype_membertypes :=
-[ "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "", "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "", "instance", "url", "composeddocument", "record", "", "typedrecord", "image", "date" ];
+[ "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "", "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "", "instance", "url", "composeddocument", "record", "", "typedrecord", "", "date" ];
 
 //ip address reported by the consilio fetcher
 PUBLIC CONSTANT STRING whconstant_consilio_fetcher_trusted_ip := "100::cccc:ffff";

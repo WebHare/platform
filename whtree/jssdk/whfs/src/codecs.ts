@@ -37,7 +37,6 @@ export type MemberType = "string" // 2
   | "composedDocument" //20
   | "hson" //21 (record in HareScript). also handles legacy 22 (formCondition)
   | "record" //23 (typedrecord in HareScript)
-  | "image" //24
   | "plainDate" //25
   ;
 
@@ -589,16 +588,6 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     },
     importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
       return importIntExtLink(value);
-    }
-  },
-  "image": {
-    getType: "never",
-
-    encoder: () => {
-      throw new Error("Not implemented");
-    },
-    decoder: () => {
-      throw new Error("Not implemented");
     }
   },
   "composedDocument": {

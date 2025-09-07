@@ -54,7 +54,11 @@ function testTolliumMapping() {
 
   //file and image
   test.eqPartial({ component: { fileedit: {} } }, suggestTolliumComponent({ valueType: "file" }));
-  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "image" }));
+  test.eqPartial({ component: { fileedit: {} } }, suggestTolliumComponent({ valueType: "file", accept: ["image/*"] }));
+  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "file", accept: ["bitmap"] }));
+  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "file", accept: ["image/jpeg"] }));
+  test.eqPartial({ component: { imgedit: {} } }, suggestTolliumComponent({ valueType: "file", accept: ["image/jpeg", "image/webp"] }));
+  test.eqPartial({ component: { fileedit: {} } }, suggestTolliumComponent({ valueType: "file", accept: ["image/gif"] }));
 }
 
 test.runTests([

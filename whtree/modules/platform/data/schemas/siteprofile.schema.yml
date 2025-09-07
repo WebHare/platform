@@ -66,7 +66,6 @@ $defs:
           - instant
           - plainDate
           - file
-          - image
           - boolean
           - float
           - money
@@ -133,7 +132,6 @@ $defs:
           - dateTime
           - date
           - file
-          - image
           - whfsRef
           - array
           - richTextDocument
@@ -191,6 +189,17 @@ $defs:
           - minute
           - second
           - millisecond
+      accept:
+        description: For file values, a list of accepted MIME types. Set to 'bitmap' to support all editable bitmap types (jpeg, png, webp, avif) and WebHare can show an image-edit component
+        type: array
+        items:
+          oneOf:
+            - type: string
+              pattern: "^[a-z0-9]+/[a-z0-9.+-]+$"
+            - enum:
+                - "bitmap" # A special value meaning any supported editable bitmap image (eg jpeg, png, webp, avif - but not gif or svg, and currently not heic)
+                - "*/*"
+                - "image/*"
 
   Apply:
     type: object

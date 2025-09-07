@@ -1,4 +1,5 @@
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
+import { supportedBitmapImages } from "@webhare/services/src/descriptor";
 
 //As long as we get away with exactly copying the definition in the future it guarantees some consistency..
 export type { ValueConstraints };
@@ -87,10 +88,10 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
     }
 
     case "file":
-      return { fileedit: { valueConstraints } };
+      if (valueConstraints.accept?.length && valueConstraints.accept.every(a => supportedBitmapImages.includes(a as typeof supportedBitmapImages[0]) || a === "bitmap"))
+        return { imgedit: { valueConstraints } };
 
-    case "image":
-      return { imgedit: { valueConstraints } };
+      return { fileedit: { valueConstraints } };
 
     case "whfsRef":
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };
