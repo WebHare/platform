@@ -3,7 +3,7 @@ import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
-import { Money, pick } from "@webhare/std";
+import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, buildRTD, type WebHareBlob, type RichTextDocument, type WHFSInstance, IntExtLink } from "@webhare/services";
 import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
@@ -300,6 +300,12 @@ async function testInstanceData() {
   test.eq(Buffer.from(await blubFromOurGet.arrayBuffer()).toString("base64"), Buffer.from(await blubFromHareScript.arrayBuffer()).toString("base64"));
 
   test.eq(inRichdocHTML, Buffer.from(await val.rich.htmltext.arrayBuffer()).toString("utf8"));
+
+  //test long hson fields
+  const overlongText = generateRandomId("hex", 4096); //8KB text
+  await testtype.set(testfile.id, { aRecord: { overlongText } });
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
+  test.eqPartial({ aRecord: { overlongtext: overlongText } }, await testtype.get(testfile.id)); //we've lost the camelcase due to HSON
 
   //Test validation
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
