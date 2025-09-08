@@ -4,11 +4,15 @@ import type { XLSXDocBuilder } from "./xlsx-output";
 export type SheetInfo = {
   name: string;
   title: string;
+  fixedDimensions: string; // eg $G$4
+  withAutoFilter?: boolean;
 };
 
-export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]) {
+type TemplateFiles = Record<string, string | IterableIterator<string>>;
+
+export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]): TemplateFiles {
   //Note that we number sheet1.xml as rId1 but the next sheets as rId4...
-  const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx === 0 ? 1 : idx + 3}` }));
+  const addSheets = sheets.map((sheet, idx) => ({ ...sheet, rId: `rId${idx + 4}` }));
   return {
     '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -17,6 +21,7 @@ export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]) {
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   ${addSheets.map(sheet => `<Override PartName="/xl/worksheets/${encodeString(sheet.name, 'attribute')}" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("\n")}
   <Override PartName="/xl/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  <Override PartName="/xl/sharedStrings.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sharedStrings+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
@@ -61,14 +66,15 @@ export function getXLSXBaseTemplate(doc: XLSXDocBuilder, sheets: SheetInfo[]) {
     'docProps/core.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:subject></dc:subject><dc:creator></dc:creator><cp:keywords></cp:keywords><dc:description></dc:description><cp:lastModifiedBy>Microsoft Office User</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">2011-08-22T12:15:19Z</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">2019-07-23T10:18:58Z</dcterms:modified><cp:category></cp:category></cp:coreProperties>`,
     'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/sharedStrings" Target="sharedStrings.xml"/>
   ${addSheets.map(sheet => `<Relationship Id="${sheet.rId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/${encodeString(sheet.name, 'attribute')}"/>`).join('\n')}
 </Relationships>
 `,
     'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:x16r2="http://schemas.microsoft.com/office/spreadsheetml/2015/02/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" mc:Ignorable="x14ac x16r2 xr">
-  <numFmts count="${doc.formats.length - 1}">
-${doc.formats.map(format => `    <numFmt numFmtId="${format.numFmtId}" formatCode="${encodeString(format.formatCode, 'attribute')}"/>`).join('\n')}
+  <numFmts count="${doc.numberFormats.length - 1}">
+${doc.numberFormats.map(format => `    <numFmt numFmtId="${format.numFmtId}" formatCode="${encodeString(format.formatCode, 'attribute')}"/>`).join('\n')}
   </numFmts>
   <fonts count="1" x14ac:knownFonts="1">
     <font>
@@ -101,7 +107,7 @@ ${doc.formats.map(format => `    <numFmt numFmtId="${format.numFmtId}" formatCod
   </cellStyleXfs>
   <cellXfs count="${doc.formats.length + 1}">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
-${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>`).join('\n')}
+${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId ?? 0}" fontId="0" fillId="0" borderId="0" xfId="0"${format.numFmtId ? ` applyNumberFormat="1"` : ''}${format.align ? ` applyAlignment="1"` : ''}>${format.align ? `<alignment horizontal="${format.align}"/>` : ''}</xf>`).join('\n')}
   </cellXfs>
   <cellStyles count="1">
     <cellStyle name="Normal" xfId="0" builtinId="0"/>
@@ -117,6 +123,12 @@ ${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId}" fontId="0" fi
     </ext>
   </extLst>
 </styleSheet>`,
+    'xl/sharedStrings.xml': function* () {
+      yield `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="${doc.sharedString.length}" uniqueCount="${doc.sharedString.length}">`;
+      yield* doc.sharedString.values().map(str => `<si><t>${encodeString(str, 'attribute')}</t></si>`);
+      yield `</sst>`;
+    }(),
     'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x15="http://schemas.microsoft.com/office/spreadsheetml/2010/11/main" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:xr6="http://schemas.microsoft.com/office/spreadsheetml/2016/revision6" xmlns:xr10="http://schemas.microsoft.com/office/spreadsheetml/2016/revision10" xmlns:xr2="http://schemas.microsoft.com/office/spreadsheetml/2015/revision2" mc:Ignorable="x15 xr xr6 xr10 xr2">
   <fileVersion appName="xl" lastEdited="7" lowestEdited="5" rupBuild="10715"/>
@@ -133,6 +145,10 @@ ${doc.formats.map(format => `    <xf numFmtId="${format.numFmtId}" fontId="0" fi
   <sheets>
     ${addSheets.map((sheet, idx) => `<sheet name="${encodeString(sheet.title, 'attribute')}" sheetId="${idx + 1}" r:id="${sheet.rId}"/>`).join('\n')}
   </sheets>
+   <definedNames>
+    ${addSheets.map((sheet, idx) => ({ localSheetId: idx, ...sheet })).filter(sheet => sheet.withAutoFilter).map(sheet =>
+      `<definedName function="false" hidden="true" localSheetId="${sheet.localSheetId}" name="_xlnm._FilterDatabase" vbProcedure="false">${encodeString(sheet.title, 'attribute')}!$A$1:${sheet.fixedDimensions}</definedName>`).join("\n    ")}
+  </definedNames>
   <calcPr calcId="191029" calcCompleted="0" forceFullCalc="1" fullCalcOnLoad="1"/>
   <extLst>
     <ext xmlns:xcalcf="http://schemas.microsoft.com/office/spreadsheetml/2018/calcfeatures" uri="{B58B0392-4F1F-4190-BB64-5DF3571DCE5F}">

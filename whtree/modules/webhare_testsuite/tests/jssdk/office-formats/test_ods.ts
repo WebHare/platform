@@ -57,10 +57,30 @@ const reftrestrows = [
 ];
 
 export async function testODSColumnFiles() {
-  const output2 = await generateODS({ rows: reftrestrows, columns, timeZone: "Europe/Amsterdam" });
+  const output2 = await generateODS({
+    rows: reftrestrows,
+    columns,
+    timeZone: "Europe/Amsterdam",
+    split: { rows: 1 },
+    withAutoFilter: true,
+  });
   test.eq(/\.ods$/, output2.name);
 
   await storeDiskFile("/tmp/test_ods_columnfiles.ods", output2, { overwrite: true });
+
+  await generateODS({
+    sheets: [
+      { columns, rows: reftrestrows, timeZone: "Europe/Amsterdam" },
+      { columns, rows: reftrestrows, timeZone: "Europe/Amsterdam" },
+    ],
+  });
+  await generateODS({
+    sheets: [
+      { columns, rows: reftrestrows },
+      { columns, rows: reftrestrows },
+    ],
+    timeZone: "Europe/Amsterdam"
+  });
 }
 
 test.runTests([
