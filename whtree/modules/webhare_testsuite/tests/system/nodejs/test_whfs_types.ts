@@ -445,10 +445,33 @@ async function testVisitor() {
   test.eqPartial({ width: 428, height: 284, mediaType: "image/jpeg", hash: "eyxJtHcJsfokhEfzB3jhYcu5Sy01ZtaJFA5_8r6i9uw" }, (finalRTD as any).data[0].items[1].image);
 }
 
+async function testXMLInstanceData() {
+  //Verify camelCase translation
+  await beginWork();
+  const tmpfolder = await test.getTestSiteHSTemp();
+  const testfile: WHFSFile = await tmpfolder.openFile("testfile.txt");
+  await whfsType("http://www.webhare.net/xmlns/beta/test_naming").set(testfile.id,
+    {
+      stringTest: "aString",
+      arrayTest: [
+        { integerTest: 42 },
+        { integerTest: 43 }
+      ]
+    }
+  );
+
+  const result = await whfsType("http://www.webhare.net/xmlns/beta/test_naming").get(testfile.id);
+  test.eq({ stringTest: "aString", arrayTest: [{ integerTest: 42 }, { integerTest: 43 }] }, result);
+  //@ts-expect-error We want to verify that snake_case is not present
+  test.assert(!result.string_test, "We should not have snake_case members");
+  await commitWork();
+}
+
 test.runTests([
   test.reset,
   testCodecs,
   testMockedTypes,
   testInstanceData,
+  testXMLInstanceData,
   testVisitor
 ]);

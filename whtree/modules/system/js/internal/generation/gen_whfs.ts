@@ -2,7 +2,7 @@ import { backendConfig, parseResourcePath } from "@webhare/services";
 import { generatorBanner, type FileToUpdate, type GenerateContext } from "./shared";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { CSPMemberType, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
-import { nameToSnakeCase, throwError } from "@webhare/std";
+import { nameToCamelCase, throwError } from "@webhare/std";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import { codecs, type MemberType } from "@webhare/whfs/src/codecs";
 import { loadlib } from "@webhare/harescript";
@@ -45,7 +45,7 @@ function exportMember(member: CSPMember, indent: number, structure: "getType" | 
     type = codecs[mapsto]?.[structure] ?? codecs[mapsto]?.["getType"] ?? throwError(`Codec for member type '${mapsto}' is not providing ${structure} information`);
   }
 
-  return " ".repeat(indent) + JSON.stringify(member.jsname || nameToSnakeCase(member.name)) + ": " + type + ";\n";
+  return " ".repeat(indent) + JSON.stringify(member.jsname || nameToCamelCase(member.name)) + ": " + type + ";\n";
 }
 
 function getStructure(ctype: CSPContentType, type: "getType" | "setType" | "exportType"): string {
