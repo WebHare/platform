@@ -136,23 +136,20 @@
               icon="tollium:folders/locked"
               indexfile="none"
               isdevelopertype="true"
-              tid="publisher:foldertypes.foreign"
-              webhare_builtintypeid="1" />
+              tid="publisher:foldertypes.foreign" />
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/systemfolder"
               icon="tollium:folders/system"
               indexfile="none"
               isdevelopertype="true"
               ishidden="true"
-              tid="publisher:foldertypes.system"
-              webhare_builtintypeid="2" />
+              tid="publisher:foldertypes.system" />
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/photoalbum"
               icon="tollium:folders/photoalbum"
               indexfile="contentlisting"
               protectindexfile="true"
-              tid="publisher:foldertypes.photoalbum"
-              webhare_builtintypeid="3">
+              tid="publisher:foldertypes.photoalbum">
     <members>
       <string name="rows" />
       <string name="columns" />
@@ -199,8 +196,7 @@
             pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.msword"
-            webhare_builtintypeid="4">
+            tid="publisher:filetypes.msword">
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/msword.whlib#RenderMSWordFile" />
   </filetype>
 
@@ -211,8 +207,7 @@
             isacceptableindex="true"
             needstemplate="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.html"
-            webhare_builtintypeid="5">
+            tid="publisher:filetypes.html">
     <setobjecteditor name="publisher:texteditor" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
   </filetype>
@@ -223,8 +218,7 @@
             icon="tollium:files/application_x-javascript"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.javascript"
-            webhare_builtintypeid="6" />
+            tid="publisher:filetypes.javascript" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/semidynamicfile"
             blobiscontent="true"
@@ -234,8 +228,7 @@
             isdevelopertype="true"
             ispublishable="true"
             needstemplate="true"
-            tid="publisher:filetypes.semidynamic"
-            webhare_builtintypeid="7" />
+            tid="publisher:filetypes.semidynamic" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/cssfile"
             kind="rawfile"
@@ -243,8 +236,7 @@
             icon="tollium:files/text_css"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.css"
-            webhare_builtintypeid="9" />
+            tid="publisher:filetypes.css" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/targzfile"
             kind="rawfile"
@@ -252,8 +244,7 @@
             icon="tollium:files/application_x-gzip"
             isdevelopertype="true"
             requirescontent="true"
-            tid="publisher:filetypes.targz"
-            webhare_builtintypeid="10" />
+            tid="publisher:filetypes.targz" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/pdffile"
             kind="rawfile"
@@ -261,8 +252,7 @@
             icon="tollium:files/application_pdf"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.pdf"
-            webhare_builtintypeid="11">
+            tid="publisher:filetypes.pdf">
     <preview browserurl="/.publisher/backend/preview/direct.shtml" />
   </filetype>
 
@@ -270,8 +260,7 @@
             kind="rawfile"
             icon="tollium:files/image"
             requirescontent="true"
-            tid="publisher:filetypes.image"
-            webhare_builtintypeid="12">
+            tid="publisher:filetypes.image">
     <preview browserurl="/.publisher/backend/preview/image.shtml" />
   </filetype>
 
@@ -280,8 +269,7 @@
             kind="rawfile"
             icon="tollium:files/video"
             requirescontent="true"
-            tid="publisher:filetypes.multimedia"
-            webhare_builtintypeid="13" />
+            tid="publisher:filetypes.multimedia" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/zipfile"
             kind="rawfile"
@@ -289,8 +277,7 @@
             icon="tollium:files/application_zip"
             isdevelopertype="true"
             requirescontent="true"
-            tid="publisher:filetypes.zip"
-            webhare_builtintypeid="14" />
+            tid="publisher:filetypes.zip" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/webharearchivefile"
             blobiscontent="true"
@@ -306,8 +293,7 @@
             icon="tollium:files/application_zip"
             isdevelopertype="true"
             requirescontent="true"
-            tid="publisher:filetypes.archive"
-            webhare_builtintypeid="15" />
+            tid="publisher:filetypes.archive" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/libraryfile"
             blobiscontent="true"
@@ -315,8 +301,7 @@
             icon="tollium:files/application_x-webhare-library"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.library"
-            webhare_builtintypeid="16" />
+            tid="publisher:filetypes.library" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/externallink"
             blobiscontent="false"
@@ -324,8 +309,7 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
-            tid="publisher:filetypes.externallink"
-            webhare_builtintypeid="18">
+            tid="publisher:filetypes.externallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" skipnormalrepublish="true" />
   </filetype>
 
@@ -335,8 +319,7 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
-            tid="publisher:filetypes.internallink"
-            webhare_builtintypeid="19">
+            tid="publisher:filetypes.internallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
 
@@ -346,24 +329,21 @@
             icon="tollium:files/application_x-webhare-contentlink"
             ispublishable="true"
             needstemplate="true"
-            tid="publisher:filetypes.contentlink"
-            webhare_builtintypeid="20" />
+            tid="publisher:filetypes.contentlink" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/plaintextfile"
             kind="rawfile"
             extensions=".txt"
             icon="tollium:files/text_plain"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.plaintext"
-            webhare_builtintypeid="21" />
+            tid="publisher:filetypes.plaintext" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/xmlfile"
             kind="rawfile"
             extensions=".xml"
             icon="tollium:files/text_xml"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.xml"
-            webhare_builtintypeid="23" />
+            tid="publisher:filetypes.xml" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/contentlisting"
             blobiscontent="false"
@@ -372,8 +352,7 @@
             isacceptableindex="true"
             ispublishable="true"
             needstemplate="true"
-            tid="publisher:filetypes.contentlisting"
-            webhare_builtintypeid="24" />
+            tid="publisher:filetypes.contentlisting" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/shtmlfile"
             kind="rawfile"
@@ -382,8 +361,7 @@
             isacceptableindex="true"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.shtml"
-            webhare_builtintypeid="25" />
+            tid="publisher:filetypes.shtml" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile"
             blobiscontent="true"
@@ -394,8 +372,7 @@
             ispublishable="true"
             needstemplate="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.shtmlwithdesign"
-            webhare_builtintypeid="38" />
+            tid="publisher:filetypes.shtmlwithdesign" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/wittyfile"
             blobiscontent="true"
@@ -403,8 +380,7 @@
             icon="tollium:files/application_x-webhare-witty"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.witty"
-            webhare_builtintypeid="26" />
+            tid="publisher:filetypes.witty" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/templatefile"
             blobiscontent="true"
@@ -412,8 +388,7 @@
             icon="tollium:files/application_x-webhare-template"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.template"
-            webhare_builtintypeid="28" />
+            tid="publisher:filetypes.template" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/profilefile"
             blobiscontent="true"
@@ -421,8 +396,7 @@
             icon="tollium:files/application_x-webhare-profile"
             isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.profile"
-            webhare_builtintypeid="29" />
+            tid="publisher:filetypes.profile" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/mp3audiofile"
             kind="rawfile"
@@ -472,8 +446,7 @@
             isacceptableindex="true"
             isdevelopertype="true"
             ispublishable="true"
-            tid="publisher:filetypes.dynamicfoldercontents"
-            webhare_builtintypeid="35" />
+            tid="publisher:filetypes.dynamicfoldercontents" />
 
   <filetype namespace="http://www.webhare.net/xmlns/wrd/instancefile"
             kind="datafile"

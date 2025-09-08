@@ -5,8 +5,7 @@
             kind="datafile"
             capturesubpaths="true"
             isacceptableindex="true"
-            ispublishedassubdir="true"
-            webhare_builtintypeid="36">
+            ispublishedassubdir="true">
     <dynamicexecution routerfunction="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumPortalRouter"
                       webpageobjectname="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumInterfacePage" />
     <debugsettings title="Commonly used">
