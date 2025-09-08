@@ -16,12 +16,6 @@
 !/whtree/bin/*.sh
 !/whtree/lib/*.sh
 
-# We use our own OpenSearch configuration files (ignore all generated files)
-/whtree/etc/opensearch/*
-!/whtree/etc/opensearch/jvm.options
-!/whtree/etc/opensearch/log4j2.properties
-!/whtree/etc/opensearch/opensearch.yml
-
 # compile caches
 /whtree/currentinstall
 

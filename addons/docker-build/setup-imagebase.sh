@@ -100,7 +100,7 @@ PACKAGES+=(certbot
     git
     inotify-tools
     jq
-    openjdk-17-jre-headless
+    openjdk-21-jre-headless
     fonts-liberation
     less
     libaio1
@@ -137,7 +137,7 @@ PACKAGES+=(certbot
     zip)
 
 # Chrome specific deps
-PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2)
+PACKAGES+=(libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libxkbcommon0 libpango-1.0-0 libcairo2 libcups2)
 
 if ! ( apt-get -q update && apt-get -qy install --no-install-recommends "${PACKAGES[@]}" ); then
   echo "APT-GET failed"
@@ -156,7 +156,7 @@ if [[ $(node -v) =~ ^v22\.[0-7]\. ]] || [[ $(node -v) =~ ^v2[0-1]\. ]] ; then
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
-rm /etc/java-17-openjdk/accessibility.properties
+rm /etc/java-21-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 

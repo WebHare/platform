@@ -3,6 +3,7 @@
 
 # DL instructions from https://opensearch.org/docs/latest/opensearch/install/tar/
 # DL packages from here - https://opensearch.org/downloads.html
+# We locally mirror the packages here: https://cms.webhare.dev/?app=publisher(/webhare.dev/build.webhare.dev/whbuild/)
 
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
 # wh buildcontainer && wh testcontainer --sh --tag=-external -w local consilio
@@ -11,11 +12,11 @@ ASSETROOT="$1"
 GETVERSION="$2"
 
 if [ "$(uname -m)" == "x86_64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
   GETFILE=opensearch-${GETVERSION}-linux-x64.tar.gz
   FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
 elif [ "$(uname -m)" == "aarch64" ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-arm64
+  export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
   GETFILE=opensearch-${GETVERSION}-linux-arm64.tar.gz
   FALLBACKURL=https://artifacts.opensearch.org/releases/bundle/opensearch/${GETVERSION}/${GETFILE}
 else
