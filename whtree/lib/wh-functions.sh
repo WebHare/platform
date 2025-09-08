@@ -349,8 +349,7 @@ get_finaltag()
 
   else
     # local build. No pushes or deploys
-
-    BUILD_IMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
+    BUILD_IMAGE="localhost/webhare/platform:devbuild"
     WEBHARE_VERSION=${WEBHARE_VERSION}
   fi
 
