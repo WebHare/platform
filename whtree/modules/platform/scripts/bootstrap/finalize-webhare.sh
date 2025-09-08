@@ -126,12 +126,14 @@ rm -rf "$WEBHARE_HSBUILDCACHE" 2>/dev/null || true # Mostly useful on dev machin
   wh compile --quiet --onlyerrors "${COREMODULES[@]}" || exitcode="$?"
   trap - INT
 
-  if [ "$exitcode" != "0" ] && [ "$exitcode" != "194" ]; then
+  if [ "$exitcode" == "130" ]; then
+    logWithTime "HareScript compile interrupted"
+  elif [ "$exitcode" != "0" ] && [ "$exitcode" != "194" ]; then
     if [ -n "$WEBHARE_IGNORE_RUNNING" ]; then
       # wh -i finalize-webhare was used.. that'll always race against the running compiler so ignore build errors
-      echo "Ignoring failed compilation as WebHare may have been running during compilation"
+      logWithTime "Ignoring failed compilation as WebHare may have been running during compilation"
     else
-      echo "HareScript compile failed"
+      logWithTime "HareScript compile failed"
       exit 1
     fi
   fi
