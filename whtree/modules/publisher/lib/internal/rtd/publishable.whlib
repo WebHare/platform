@@ -122,8 +122,53 @@ OBJECT FUNCTION OpenEmbeddedObject(OBJECT doc, OBJECT node)
   RETURN embeddedobject.widget;
 }
 
-PUBLIC STATIC OBJECTTYPE RichDocumentFilter
-<
+RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
+{
+  STRING tagname := ToLowercase(richobj->blocknode->tagname);
+  RECORD outlinerecord := [ tagname :=    tagname
+                          , classname :=  richobj->blocknode->GetAttribute("class")
+                          , type :=       tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
+                          , rows :=       RecordExists(richobj->__table) ? GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
+                          , richobject := richobj
+                          , node :=       richobj->blocknode
+                          ];
+  RETURN outlinerecord;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
+{
+  RECORD ARRAY nodes;
+  FOREVERY(OBJECT richobj FROM richobjects)
+    INSERT GetOutlineRecord(richobj) INTO nodes AT END;
+
+  RETURN nodes;
+}
+
+RECORD ARRAY FUNCTION GetOutlineRows(OBJECT richobj)
+{
+  RETURN SELECT cells := (SELECT outline := GetOutlineParts(richobjects) FROM cells)
+            FROM richobj->__table.rows;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetBlocksFromOutline(OBJECT webdesign, RECORD ARRAY outline) { //cleans up the outline to only expose what's safe for RTDRenderer
+  outline :=
+    SELECT TEMPORARY blockstyle := richobject->blockstyle
+         , TEMPORARY widget := richobject->isembeddedobject ? richobject->__GetEmbeddedObject() : DEFAULT OBJECT
+         , tagname := RecordExists(blockstyle) ? blockstyle .containertag : ""
+         , classname := RecordExists(blockstyle) ? ToLowercase(blockstyle .tag) : ""
+         , needsanchor := RecordExists(blockstyle) AND blockstyle.containertag IN webdesign->contentnavstops
+         , widget := ObjectExists(widget) ? widget->data : DEFAULT RECORD
+
+         //internal fields, if anyone starts depending on these I'm going to hide them behind a Map!
+          , __widget := widget
+          , __richobject := richobject
+          , __node := node
+      FROM outline;
+
+  RETURN outline;
+}
+
+PUBLIC STATIC OBJECTTYPE RichDocumentFilter <
   PUBLIC STRING ARRAY tagfilter;
   PUBLIC INTEGER maximagewidth;
 
@@ -308,7 +353,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
       PRINT('" title="' || EncodeAttributeValue(hyperlinkinfo.title));
     PRINT('">');
   }
-  MACRO FormatNodes(OBJECT outputobject, OBJECT parent, BOOLEAN keepwhitespace)
+  PUBLIC MACRO FormatNodes(OBJECT outputobject, OBJECT parent, BOOLEAN keepwhitespace)
   {
     STRING output;
     FOR(OBJECT node := parent->firstchild;ObjectExists(node);node:=node->nextsibling)
@@ -537,7 +582,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentFilter
   }
 >;
 
-OBJECTTYPE StructuredRichDocumentFilter EXTEND RichDocumentFilter
+PUBLIC OBJECTTYPE StructuredRichDocumentFilter EXTEND RichDocumentFilter
 <
   RECORD blockstyle;
 
@@ -744,8 +789,7 @@ STATIC OBJECTTYPE RichDocumentParserObject //EXTEND CustomParserObject
 
 >;
 
-PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
-<
+PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument <
   OBJECT ARRAY richobjects;
   OBJECT ARRAY flatobjects;
   BOOLEAN didscan;
@@ -859,34 +903,7 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
   {
     IF(NOT this->didscan)
       THROW NEW Exception("GetOutline cannot be invoked until a structure has been applied to the document");
-    RETURN this->GetOutlineParts(this->richobjects);
-  }
-  RECORD FUNCTION GetOutlineRecord(OBJECT richobj)
-  {
-    STRING tagname := ToLowercase(richobj->blocknode->tagname);
-    RECORD outlinerecord := [ tagname :=    tagname
-                            , classname :=  richobj->blocknode->GetAttribute("class")
-                            , type :=       tagname="table"? "table" : tagname IN ["ul","ol"] ? "list" : "block"
-                            , rows :=       RecordExists(richobj->__table) ? this->GetOutlineRows(richobj) : DEFAULT RECORD ARRAY
-                            , richobject := richobj
-                            , node :=       richobj->blocknode
-                            ];
-    RETURN outlinerecord;
-  }
-
-  RECORD ARRAY FUNCTION GetOutlineParts(OBJECT ARRAY richobjects)
-  {
-    RECORD ARRAY nodes;
-    FOREVERY(OBJECT richobj FROM richobjects)
-      INSERT this->GetOutlineRecord(richobj) INTO nodes AT END;
-
-    RETURN nodes;
-  }
-
-  RECORD ARRAY FUNCTION GetOutlineRows(OBJECT richobj)
-  {
-    RETURN SELECT cells := (SELECT outline := this->GetOutlineParts(richobjects) FROM cells)
-             FROM richobj->__table.rows;
+    RETURN GetOutlineParts(this->richobjects);
   }
 
   PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
@@ -930,15 +947,31 @@ PUBLIC STATIC OBJECTTYPE PublishableRichDocument EXTEND RichDocument
     RETURN MakeXMLDocumentFromHTML(result);
   }
 
-  PUBLIC MACRO RenderAllObjects(VARIANT options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO RenderAllObjects(VARIANT options DEFAULTSTO DEFAULT RECORD) {
     IF(TypeID(options) = TypeID(OBJECT))
       options := [ webdesign := options ];
 
+    options := ValidateOptions( [ webdesign := this->webdesign
+                                , contentareawidth := ""
+                                ] , options);
+
     IF(NOT this->didscan)
       THROW NEW Exception("RenderAllObjects cannot be invoked until a structure has been applied to the document");
-    FOREVERY(OBJECT richobject FROM this->richobjects)
-      richobject->RenderObject(options);
+
+    IF(ObjectExists(options.webdesign) AND ObjectExists(options.webdesign->rtd_rendering_engine)) {
+      BOOLEAN prettyprint := options.webdesign->wittyencoding NOT LIKE "*-NI";
+      IF(options.contentareawidth = "")
+        options.contentareawidth := this->pvt_structure->structure.contentareawidth;
+
+      this->webdesign->rtd_rendering_engine->RenderRTDBlocks(CELL[
+        options.contentareawidth,
+        options.webdesign,
+        prettyprint
+     ], GetBlocksFromOutline(options.webdesign, this->GetOutline()));
+    } ELSE {
+      FOREVERY(OBJECT richobject FROM this->richobjects)
+        richobject->RenderObject(options);
+    }
   }
   PUBLIC BLOB FUNCTION RenderAllToBlob(VARIANT options DEFAULTSTO DEFAULT RECORD)
   {

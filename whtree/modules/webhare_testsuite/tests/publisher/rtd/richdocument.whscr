@@ -341,6 +341,45 @@ MACRO PublishRichDocTableTest()
   TestEq(`<caption class="wh-rtd__tablecaption">I'm &amp; caption</caption>`, doc->QuerySelector("table > caption")->outerhtml);
 }
 
+MACRO PublishRichDocListTest()
+{
+  testfw->BeginWork();
+
+  OBJECT workfolder := GetTestsuiteTempFolder();
+  OBJECT richdoctype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
+
+  OBJECT richdoc := NEW EditableRichDocument;
+
+  RECORD publishres;
+
+  OBJECT testfile := workfolder->CreateFile( [ name := "listtest.rtd", type := richdoctype->id, publish := TRUE ]);
+
+  richdoc->ImportFromRecord([ htmltext := StringToBlob(
+    `<html>
+      <body>
+        <ul class="unordered">
+          <li>item 1</li>
+          <li>item 2
+            <ul class="unordered">
+              <li>nog dieper</li>
+            </ul>
+          </li>
+        </ul>
+      </body>
+    </html`)
+                 ]);
+  richdoc->SaveToWHFS(testfile);
+  testfw->CommitWork();
+
+  richdoc->LoadFromWHFS(testfile);
+  publishres := RunFilePublish(testfile->id, FALSE);
+
+  TestEq(2, Length(publishres.files));
+  OBJECT doc := MakeXMLDocumentFromHTML(SELECT AS BLOB data FROM publishres.files WHERE name="index.html");
+
+  OBJECT ARRAY listtags := doc->GetElementsByTagName("ul")->GetCurrentElements();
+  TestEq(`<ul class="unordered"> <li>item 1</li> <li>item 2 <ul> <li>nog dieper</li> </ul> </li> </ul>`, listtags[0]->outerhtml);
+}
 
 MACRO PublishRichDocTest()
 {
@@ -667,6 +706,7 @@ RunTestframework([ PTR RichdocumentTest
                  , PTR RichDocInstanceTest
                  , PTR PublishRichDocTest
                  , PTR PublishRichDocTableTest
+                 , PTR PublishRichDocListTest
                  , PTR PublishRichDocImageTest
                  , PTR IntLinktest
                  , PTR RichdocumentStrongEmphasis

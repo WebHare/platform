@@ -28,6 +28,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
+LOADLIB "mod::publisher/lib/rtd-rendering.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/publishable.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/publishing-state.whlib";
@@ -216,6 +217,9 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   /// Extra resource dependencies (for automatic outputtools reload)
   PUBLIC PROPERTY resourcedependencies(this->__resourcedeps, -);
 
+  /// The RTD rendering engine used by this webdesign and embedded widgets
+  PUBLIC OBJECT rtd_rendering_engine;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor
@@ -233,6 +237,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->pageobject := this->__config.pageobject;
     this->pvt_renderwidgetpreview := this->__config.renderwidgetpreview;
     this->pvt_contentnavstops := this->__config.contentnavstops;
+    this->rtd_rendering_engine := NEW RTDRenderer;
 
     IF (ObjectExists(__webdesign_config.applytester))
       this->__SetObjectId(__webdesign_config.applytester->__Deprecated_GetObjInfo().obj.id, __webdesign_config.applytester);
