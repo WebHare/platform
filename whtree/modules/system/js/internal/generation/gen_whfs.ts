@@ -1,11 +1,27 @@
 import { backendConfig, parseResourcePath } from "@webhare/services";
 import { generatorBanner, type FileToUpdate, type GenerateContext } from "./shared";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { getExtractedHSConfig } from "../configuration";
 import { CSPMemberType, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { nameToSnakeCase, throwError } from "@webhare/std";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import { codecs, type MemberType } from "@webhare/whfs/src/codecs";
+import { loadlib } from "@webhare/harescript";
+
+class WHFSCompileContext {
+  private contenttypes?: Promise<CSPContentType[]>;
+
+  private async loadContentTypes() {
+    //FIXME prepare to write this to an extract, but our extract might cache database ids currently? we might need two extracts, one for the Declared situation (based on modules) and one fo the Actual situation (based on database). or just cache in process
+    const csp = await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").getOfflineSiteProfiles();
+    // console.log(csp);
+    return csp.allcontenttypes as CSPContentType[];
+  }
+
+  async getContentTypes() {
+    this.contenttypes ||= this.loadContentTypes();
+    return await this.contenttypes;
+  }
+}
 
 // TODO Integrate siteprofile compilation step with us as we need that one's data to generate the definitions here
 //      or we'll always be a step behind
@@ -43,13 +59,14 @@ function getStructure(ctype: CSPContentType, type: "getType" | "setType" | "expo
   return `{\n${members}\n};`;
 }
 
-export async function generateWHFSDefs(context: GenerateContext, platform: boolean, mods: string[]): Promise<string> {
+export async function generateWHFSDefs(context: GenerateContext, mods: string[], whfscc: WHFSCompileContext): Promise<string> {
   //TODO cache it between the runs? no need to stat it per module
-  const csp = getExtractedHSConfig("siteprofiles");
+  // const csp = getExtractedHSConfig("siteprofiles").contentypes;
+  const contenttypes = await whfscc.getContentTypes();
 
   let interfaces = '';
 
-  for (const sp of csp.contenttypes) {
+  for (const sp of contenttypes) {
     const module = parseResourcePath(sp.siteprofile)?.module;
     if (!module || !mods.includes(module))
       continue;
@@ -87,18 +104,18 @@ ${interfaces}
 
 export async function listAllModuleWHFSTypeDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
-
+  const whfsCompileContext = new WHFSCompileContext;
   return [
     {
       path: "ts/whfstypes.ts",
       module: "platform",
       type: "whfs",
-      generator: (options: GenerateContext) => generateWHFSDefs(options, true, whconstant_builtinmodules)
+      generator: (options: GenerateContext) => generateWHFSDefs(options, whconstant_builtinmodules, whfsCompileContext)
     }, ...noncoremodules.map((module: string): FileToUpdate => ({
       path: `ts/whfstypes.ts`,
       module: "dummy-installed",
       type: "whfs",
-      generator: (options: GenerateContext) => generateWHFSDefs(options, false, noncoremodules)
+      generator: (options: GenerateContext) => generateWHFSDefs(options, noncoremodules, whfsCompileContext)
     }))
   ];
 }

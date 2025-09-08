@@ -29,27 +29,55 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentFSTypes()
   RETURN SELECT * FROM system.fs_types;
 }
 
-PUBLIC STATIC OBJECTTYPE RecompileContext <
-  RECORD ARRAY current_fs_types;
-  RECORD ARRAY current_fs_members;
+PUBLIC RECORD FUNCTION GatherSiteProfiles() {
+  RECORD webdesigns_config := __GetExtractedConfig("webdesigns");
 
-  INTEGER ARRAY seen_members;
+  //Gather unique list of siteprofiles
+  RECORD ARRAY webdesigns  := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE Length(siteprofiles) > 0;
+  RECORD ARRAY webfeatures := SELECT * FROM GetAvailableWebFeatures() WHERE siteprofile != "";
+  STRING ARRAY allsiteprls := SELECT AS STRING ARRAY siteprofile FROM webfeatures;
+  STRING ARRAY basesiteprofiles := webdesigns_config.siteprofiles;
 
-  OBJECT parameters;
-  PUBLIC BOOLEAN debug;
-  PUBLIC BOOLEAN reportmissing;
+  FOREVERY(RECORD webdesign FROM webdesigns)
+    allsiteprls := allsiteprls CONCAT webdesign.siteprofiles;
+
+  allsiteprls := GetSortedSet(allsiteprls CONCAT basesiteprofiles);
+
+  //Rebuild a simple reference -> resourceid list
+  RECORD ARRAY profilerefs := SELECT isfeature := TRUE
+                                    , name := rowkey
+                                    , siteprofileids := INTEGER[BinaryFind(allsiteprls, siteprofile) + 1 ]
+                                FROM webfeatures;
+
+  FOREVERY(RECORD webdesign FROM webdesigns)
+  {
+    INTEGER ARRAY siteprofileids;
+    FOREVERY(STRING siteprof FROM webdesign.siteprofiles)
+      INSERT BinaryFind(allsiteprls, siteprof) + 1 INTO siteprofileids AT END;
+
+    INSERT CELL[ isfeature := FALSE
+                , name := webdesign.rowkey
+                , siteprofileids
+                ] INTO profilerefs AT END;
+  }
+
+  INTEGER ARRAY baseprofiles := SELECT AS INTEGER ARRAY BinaryFind(allsiteprls, siteprl) + 1 FROM ToRecordArray(basesiteprofiles, "siteprl");
+
+  RETURN CELL[ siteprofiles := allsiteprls
+              , profilerefs
+              , baseprofiles
+              ];
+}
+
+PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
   RECORD result;
+  RECORD ARRAY siteprofiles;
+  RECORD ARRAY contenttypes;
+
+  PUBLIC BOOLEAN debug;
   RECORD ARRAY grouptypes;
 
-  MACRO NEW()
-  {
-    this->current_fs_types := SELECT *
-                                FROM system_internal.fs_types
-                            ORDER BY namespace;
-    this->current_fs_members := SELECT *
-                                  FROM system_internal.fs_members
-                              ORDER BY fs_type;
-
+  MACRO NEW() {
     this->result := [ errors               := RECORD[]
                     , warnings             := RECORD[]
                     , hints                := RECORD[]
@@ -65,67 +93,15 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
                     ];
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetErrors()
-  {
-    RETURN this->result.errors;
-  }
-
-  MACRO LogSPError(STRING filename, STRING error, INTEGER line)
-  {
+  MACRO LogSPError(STRING filename, STRING error, INTEGER line)   {
     INSERT INTO this->result.errors(resourcename, message, line, col) VALUES(filename, error, line, 0) AT END;
   }
-
-  PUBLIC RECORD ARRAY FUNCTION GetMembersFor(INTEGER gettype)
-  {
-    RETURN RecordRange(this->current_fs_members, [ fs_type := gettype ], [ "FS_TYPE" ]);
-  }
-
-  MACRO ProcessGroupMemberships()
-  {
-    this->grouptypes := SELECT * FROM this->grouptypes ORDER BY namespace;
-    STRING ARRAY grouptypenamespaces := SELECT AS STRING ARRAY namespace FROM this->grouptypes;
-
-    FOREVERY (RECORD fs_type FROM this->result.contenttypes)
-    {
-      RECORD ARRAY valid_memberships;
-      RECORD ARRAY addtogroups;
-
-      // First filter on valid groups, then add to groups as members. Keeps groupmembership lists valid everywhere.
-      FOREVERY (RECORD rec FROM fs_type.groupmemberships)
-      {
-        RECORD pos := RecordLowerBound(this->grouptypes, [ namespace := rec.grouptype ], [ "NAMESPACE" ]);
-        IF (NOT pos.found)
-        {
-          this->LogSPError(fs_type.siteprofile, "Contenttype '" || fs_type.namespace || "' is member of non-existing group '" || rec.grouptype || "'", rec.line);
-        }
-        ELSE
-        {
-          INSERT rec INTO valid_memberships AT END;
-          INSERT pos INTO addtogroups AT END;
-        }
-      }
-
-      fs_type.groupmemberships := valid_memberships;
-      this->result.contenttypes[#fs_type] := fs_type;
-
-      FOREVERY (RECORD pos FROM addtogroups)
-      {
-        RECORD pos2 := RecordLowerBound(this->grouptypes[pos.position].members, fs_type, [ "NAMESPACE" ]);
-        IF (NOT pos2.found)
-          INSERT fs_type INTO this->grouptypes[pos.position].members AT pos2.position;
-      }
-    }
-  }
-
-  RECORD ARRAY siteprofiles;
-  RECORD ARRAY contenttypes;
 
   MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteprofileids, STRING ARRAY loadpath) {
     IF(this->debug)
       Print("Load " || name || " from " || Detokenize(loadpath," >") || "\n");
 
-    IF(name IN loadpath)
-    {
+    IF(name IN loadpath) {
       this->LogSPError(name,"Recursive loadlib detected, path: " || Detokenize(loadpath," >"),0);
       RETURN;
     }
@@ -134,8 +110,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
     //Do we have the siteprofile already
     INTEGER existingpos := (SELECT AS INTEGER #siteprofiles + 1 FROM this->siteprofiles WHERE resourcename = name)-1;
     RECORD loaded;
-    IF(existingpos=-1)
-    {
+    IF(existingpos=-1) {
       existingpos := Length(this->siteprofiles);
 
       loaded := GetParsedSiteProfile(name);
@@ -148,9 +123,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
              , siteprofileids := siteprofileids
              , siteprofile := loaded
              ] INTO this->siteprofiles AT END;
-    }
-    ELSE
-    {
+    } ELSE {
       loaded := this->siteprofiles[existingpos].siteprofile;
 
       //if both we and the siteprofile already have limited application, combine them
@@ -167,44 +140,109 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
       Print("Done " || name || "\n");
   }
 
-  PUBLIC RECORD FUNCTION GatherSiteProfiles() {
-    RECORD webdesigns_config := __GetExtractedConfig("webdesigns");
+  MACRO ProcessGroupMemberships()   {
+    this->grouptypes := SELECT * FROM this->grouptypes ORDER BY namespace;
+    STRING ARRAY grouptypenamespaces := SELECT AS STRING ARRAY namespace FROM this->grouptypes;
 
-    //Gather unique list of siteprofiles
-    RECORD ARRAY webdesigns  := SELECT * FROM GetAvailableWebDesigns(FALSE) WHERE Length(siteprofiles) > 0;
-    RECORD ARRAY webfeatures := SELECT * FROM GetAvailableWebFeatures() WHERE siteprofile != "";
-    STRING ARRAY allsiteprls := SELECT AS STRING ARRAY siteprofile FROM webfeatures;
-    STRING ARRAY basesiteprofiles := webdesigns_config.siteprofiles;
+    FOREVERY (RECORD fs_type FROM this->result.contenttypes) {
+      RECORD ARRAY valid_memberships;
+      RECORD ARRAY addtogroups;
 
-    FOREVERY(RECORD webdesign FROM webdesigns)
-      allsiteprls := allsiteprls CONCAT webdesign.siteprofiles;
+      // First filter on valid groups, then add to groups as members. Keeps groupmembership lists valid everywhere.
+      FOREVERY (RECORD rec FROM fs_type.groupmemberships) {
+        RECORD pos := RecordLowerBound(this->grouptypes, [ namespace := rec.grouptype ], [ "NAMESPACE" ]);
+        IF (NOT pos.found) {
+          this->LogSPError(fs_type.siteprofile, "Contenttype '" || fs_type.namespace || "' is member of non-existing group '" || rec.grouptype || "'", rec.line);
+        } ELSE {
+          INSERT rec INTO valid_memberships AT END;
+          INSERT pos INTO addtogroups AT END;
+        }
+      }
 
-    allsiteprls := GetSortedSet(allsiteprls CONCAT basesiteprofiles);
+      fs_type.groupmemberships := valid_memberships;
+      this->result.contenttypes[#fs_type] := fs_type;
 
-    //Rebuild a simple reference -> resourceid list
-    RECORD ARRAY profilerefs := SELECT isfeature := TRUE
-                                     , name := rowkey
-                                     , siteprofileids := INTEGER[BinaryFind(allsiteprls, siteprofile) + 1 ]
-                                  FROM webfeatures;
-
-    FOREVERY(RECORD webdesign FROM webdesigns)
-    {
-      INTEGER ARRAY siteprofileids;
-      FOREVERY(STRING siteprof FROM webdesign.siteprofiles)
-        INSERT BinaryFind(allsiteprls, siteprof) + 1 INTO siteprofileids AT END;
-
-      INSERT CELL[ isfeature := FALSE
-                 , name := webdesign.rowkey
-                 , siteprofileids
-                 ] INTO profilerefs AT END;
+      FOREVERY (RECORD pos FROM addtogroups) {
+        RECORD pos2 := RecordLowerBound(this->grouptypes[pos.position].members, fs_type, [ "NAMESPACE" ]);
+        IF (NOT pos2.found)
+          INSERT fs_type INTO this->grouptypes[pos.position].members AT pos2.position;
+      }
     }
+  }
 
-    INTEGER ARRAY baseprofiles := SELECT AS INTEGER ARRAY BinaryFind(allsiteprls, siteprl) + 1 FROM ToRecordArray(basesiteprofiles, "siteprl");
+  PUBLIC RECORD FUNCTION CompileSiteprofiles(RECORD gathersp) {
+    DATETIME now := GetCurrentDateTime();
+    RECORD ARRAY compiledsiteprofiles;
 
-    RETURN CELL[ siteprofiles := allsiteprls
-               , profilerefs
-               , baseprofiles
-               ];
+    // First load all base profiles (these always apply)
+    FOREVERY(INTEGER baseprofile FROM gathersp.baseprofiles)
+      this->LoadSiteProfileRecursively(gathersp.siteprofiles[baseprofile - 1], INTEGER[], STRING[]);
+
+    // Then run through the siteprofiles that can be activated by a resource id
+    FOREVERY(STRING siteprofile FROM gathersp.siteprofiles)
+      IF(#siteprofile + 1 NOT IN gathersp.baseprofiles)
+        this->LoadSiteProfileRecursively(siteprofile, INTEGER[#siteprofile + 1], STRING[]);
+
+    this->ProcessGroupMemberships();
+
+     // Copy siteprofileids from siteprofiles to the individual rules
+    FOREVERY(RECORD siteprof FROM this->siteprofiles)  {
+      FOREVERY(RECORD rule FROM siteprof.siteprofile.rules) {
+        IF(rule.ruletype = "apply")  {
+          RECORD addrule;
+          IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
+            addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
+          ELSE //<filetype> and <foldertype> are not scoped
+            addrule := CELL[...rule, DELETE ruletype, siteprofileids := INTEGER[] ];
+
+          INSERT addrule INTO this->result.applies AT END;
+        } ELSE IF(rule.ruletype = "sitesetting") {
+          IF(Length(siteprof.siteprofileids) = 0) {
+            this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
+            CONTINUE;
+          }
+
+          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
+          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
+        }
+      }
+    }
+    //Sort apply rules. Note that sorts on record arrays are stable.
+    this->result.applies := SELECT * FROM this->result.applies ORDER BY priority;
+
+    RETURN [ result := this->result  //FIXME state leak
+           , compiledsiteprofiles := compiledsiteprofiles
+           , allcontenttypes := this->contenttypes
+           ];
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE RecompileContext EXTEND CoreRecompileContext <
+  RECORD ARRAY current_fs_types;
+  RECORD ARRAY current_fs_members;
+
+  INTEGER ARRAY seen_members;
+
+  OBJECT parameters;
+  PUBLIC BOOLEAN reportmissing;
+
+  MACRO NEW() {
+    this->current_fs_types := SELECT *
+                                FROM system_internal.fs_types
+                            ORDER BY namespace;
+    this->current_fs_members := SELECT *
+                                  FROM system_internal.fs_members
+                              ORDER BY fs_type;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetErrors()
+  {
+    RETURN this->result.errors;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION GetMembersFor(INTEGER gettype)
+  {
+    RETURN RecordRange(this->current_fs_members, [ fs_type := gettype ], [ "FS_TYPE" ]);
   }
 
   PUBLIC RECORD ARRAY FUNCTION PreprocessContentTypes(RECORD ARRAY suppliedcontenttypes, RECORD ARRAY currentcontenttypes) //public for test_compiler
@@ -327,7 +365,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
 
   PUBLIC RECORD FUNCTION RunSPCompiler()
   {
-    RECORD gathersp := this->GatherSiteProfiles();
+    RECORD gathersp := GatherSiteProfiles();
     RECORD compileresult := this->CompileSiteprofiles(gathersp);
     compileresult := this->ApplyStandardPostProcessing(compileresult);
 
@@ -429,63 +467,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext <
                                           WHERE RecordExists(foldertype) AND foldertype.ishidden) INTO compileresult;
     RETURN compileresult;
   }
-
-  PUBLIC RECORD FUNCTION CompileSiteprofiles(RECORD gathersp)
-  {
-    RECORD ARRAY errors;
-
-    DATETIME now := GetCurrentDateTime();
-    this->result.errors := errors;
-
-    RECORD ARRAY compiledsiteprofiles;
-
-    // First load all base profiles (these always apply)
-    FOREVERY(INTEGER baseprofile FROM gathersp.baseprofiles)
-      this->LoadSiteProfileRecursively(gathersp.siteprofiles[baseprofile - 1], INTEGER[], STRING[]);
-
-    // Then run through the siteprofiles that can be activated by a resource id
-    FOREVERY(STRING siteprofile FROM gathersp.siteprofiles)
-      IF(#siteprofile + 1 NOT IN gathersp.baseprofiles)
-        this->LoadSiteProfileRecursively(siteprofile, INTEGER[#siteprofile + 1], STRING[]);
-
-    this->ProcessGroupMemberships();
-
-     // Copy siteprofileids from siteprofiles to the individual rules
-    FOREVERY(RECORD siteprof FROM this->siteprofiles)
-    {
-      FOREVERY(RECORD rule FROM siteprof.siteprofile.rules)
-      {
-        IF(rule.ruletype = "apply")
-        {
-          RECORD addrule;
-          IF(rule.applynodetype = "apply") //explicit <apply> blocks are still scoped to their site(s)
-            addrule := CELL[...rule, DELETE ruletype, siteprofileids := siteprof.siteprofileids ];
-          ELSE //<filetype> and <foldertype> are not scoped
-            addrule := CELL[...rule, DELETE ruletype, siteprofileids := INTEGER[] ];
-
-          INSERT addrule INTO this->result.applies AT END;
-        }
-        ELSE IF(rule.ruletype = "sitesetting")
-        {
-          IF(Length(siteprof.siteprofileids) = 0)
-          {
-            this->LogSPError(siteprof.resourcename, "Sitesettings may not be defined in siteprofiles that affect all sites", rule.line);
-            CONTINUE;
-          }
-
-          this->result.webrules      := this->result.webrules      CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.webrules;
-          this->result.addtocatalogs := this->result.addtocatalogs CONCAT SELECT *, siteprofileids := siteprof.siteprofileids, sitefilter := rule.sitefilter FROM rule.addtocatalogs;
-        }
-      }
-    }
-    //Sort apply rules. Note that sorts on record arrays are stable.
-    this->result.applies := SELECT * FROM this->result.applies ORDER BY priority;
-
-    RETURN [ result := this->result  //FIXME state leak
-           , compiledsiteprofiles := compiledsiteprofiles
-           , allcontenttypes := this->contenttypes
-           ];
-  }
 >;
 
 MACRO SaveCompiledSiteProfiles(RECORD result)
@@ -562,4 +543,12 @@ PUBLIC ASYNC FUNCTION AsyncRecompileSiteProfiles()
   {
     service->CloseService();
   }
+}
+
+//Compile the siteprofiles offline. This is a helper for gen_whfs especially during finalize-webhare
+PUBLIC RECORD FUNCTION GetOfflineSiteProfiles() {
+  RECORD gathersp := GatherSiteProfiles();
+  OBJECT corecompiler := NEW CoreRecompileContext;
+  RECORD compileresult := corecompiler->CompileSiteprofiles(gathersp);
+  RETURN compileresult;
 }

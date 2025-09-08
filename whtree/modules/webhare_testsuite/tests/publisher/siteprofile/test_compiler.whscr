@@ -77,7 +77,7 @@ MACRO TestCompiler()
   INTEGER testsiteid := OpenTestsuiteSite()->id;
 
   OBJECT compiler := NEW RecompileContext();
-  RECORD gathersp := compiler->GatherSiteProfiles();
+  RECORD gathersp := GatherSiteProfiles();
   INTEGER siteprl_neverused_webdesign :=  SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webdesigns/basetest/neverused_compiletest.siteprl.xml") + 1;
   INTEGER siteprl_neverused_webfeature := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webfeatures/neverused_feature.siteprl.xml") + 1;
   INTEGER siteprl_module := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml") + 1;
