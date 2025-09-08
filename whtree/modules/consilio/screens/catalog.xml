@@ -231,7 +231,8 @@
         <option rowkey="0" tid=".type-standard" />
         <option rowkey="1" tid=".type-module" />
       </select>
-      <heading tid=".indexmanagers" />
+      <text name="fieldgroups" width="1pr" wordwrap="true" />
+       <heading tid=".indexmanagers" />
       <listedit name="attachedindices"
                 height="1pr"
                 highlightname="primary"

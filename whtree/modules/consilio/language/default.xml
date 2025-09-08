@@ -29,6 +29,7 @@
       <text tid="debuglevel-1">Skipped documents</text>
       <text tid="debuglevel-2">General information</text>
       <text tid="debuglevel-3">All debugging information</text>
+      <text tid="fieldgroups">Field groups</text>
       <text tid="id">Catalog ID</text>
       <text tid="indexmanager">Index manager</text>
       <text tid="indexmanager_name">Index manager</text>

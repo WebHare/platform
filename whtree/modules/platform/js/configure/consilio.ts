@@ -1,8 +1,23 @@
 import type { GenerateContext } from "@mod-system/js/internal/generation/shared";
 import { elements, getAttr } from "@mod-system/js/internal/generation/xmlhelpers";
 import { listCatalogs } from "@webhare/consilio";
-import { doCreateCatalog } from "@webhare/consilio/src/catalog";
-import { runInWork } from "@webhare/whdb";
+import { doCreateCatalog, removeCatalogs } from "@webhare/consilio/src/catalog";
+import { columnExists, runInWork } from "@webhare/whdb";
+
+function getObsoleteCatalogs(context: GenerateContext) {
+  const obsoleteCatalogs: string[] = [];
+
+  for (const mod of context.moduledefs) {
+    if (mod.modXml) {
+      for (const catalognode of elements(mod.modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "obsoletecatalog"))) {
+        const catalogname = (mod.name + ":" + catalognode.getAttribute("tag"));
+        obsoleteCatalogs.push(catalogname);
+      }
+    }
+  }
+
+  return obsoleteCatalogs;
+}
 
 export function getExpectedCatalogs(context: GenerateContext) {
   const seen = new Set<string>;
@@ -38,6 +53,13 @@ export function getExpectedCatalogs(context: GenerateContext) {
 }
 
 export async function updateConsilioCatalogs(generateContext: GenerateContext, { verbose = false }) {
+  if (!await columnExists("consilio", "indexmanagers", "id"))
+    return; //consilio is not initialized yet!
+
+  const obsolete = getObsoleteCatalogs(generateContext);
+  if (obsolete.length)
+    await removeCatalogs(obsolete, { verbose });
+
   const expected = getExpectedCatalogs(generateContext);
   const currentCatalogs = await listCatalogs();
 

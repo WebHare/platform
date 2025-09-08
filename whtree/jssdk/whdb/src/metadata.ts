@@ -41,6 +41,11 @@ export async function tableExists(pg: Connection, schema: string, table: string)
   return Boolean(result.rows?.length);
 }
 
+export async function columnExists(pg: Connection, schema: string, table: string, column: string) {
+  const result = await pg.query(`SELECT column_name FROM information_schema.columns WHERE table_schema = $1 AND table_name = $2 AND column_name = $3`, { params: [schema, table, column] });
+  return Boolean(result.rows?.length);
+}
+
 export async function getPGType(pg: Connection, schema: string, type: string): Promise<{ oid: number; typname: string } | null> {
   const result = await pg.query(`
     SELECT t.oid, t.typname

@@ -276,7 +276,7 @@ class Work implements WorkObject {
     script ends, don't want that.
     @typeParam T - Kysely database definition interface
 */
-class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, PostgresPool, PostgresPoolClient {
+export class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, PostgresPool, PostgresPoolClient {
   _db;
   reftracker;
   openwork?: Work;
@@ -456,7 +456,7 @@ type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork"
 const connsymbol = Symbol("WHDBConnection");
 const workqueuesymbol = Symbol("WorkQueueSymbol");
 
-export function getConnection() {
+export function getConnection(): WHDBConnection {
   return ensureScopedResource(connsymbol, () => new WHDBConnectionImpl, async (conn) => {
     if (isWorkOpen())
       await rollbackWork();
