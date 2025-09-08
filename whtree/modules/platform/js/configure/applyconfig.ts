@@ -170,6 +170,8 @@ export async function executeApply(options: ApplyConfigurationOptions & { offlin
     broadcast("platform:appliedconfig");
     logDebug("platform:configuration", { type: "done", at: Date.now() - start });
   } catch (e) {
+    if (verbose)
+      console.error("Error occurred:", e);
     logDebug("platform:configuration", { type: "error", at: Date.now() - start, message: (e as Error)?.message ?? "", stack: (e as Error)?.stack ?? "" });
     throw e;
   }
