@@ -411,3 +411,6 @@ export function openType(ns: string): WHFSTypeAccessor<Record<string, unknown>, 
   //note that as we're sync, we can't actually promise to validate whether the type xists
   return new WHFSTypeAccessor(ns);
 }
+
+/** The result of a .get() operation */
+export type WHFSTypeGetResult<type extends keyof WHFSTypes> = WHFSTypes[type]["GetFormat"];
