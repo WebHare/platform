@@ -1,7 +1,6 @@
 import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
-import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { codecs } from "@webhare/whfs/src/codecs";
@@ -44,7 +43,7 @@ type RTDBuildParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 export type RTDListType = typeof rtdListTypes[number];
 
-type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstanceData : Mode extends "inMemory" ? Readonly<WidgetInterface> : Readonly<WidgetInterface> | WHFSInstanceData;
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstanceData : Mode extends "inMemory" ? WHFSInstance : WHFSInstance | WHFSInstanceData;
 
 type BuildOnly<Mode extends RTDItemMode, V> = "build" extends Mode ? V : never;
 
@@ -308,7 +307,7 @@ export class RichTextDocument {
   private __imageIds = new WeakMap<Readonly<RTDBaseInlineImageItem<"inMemory">>, string>;
   private __linkIds = new WeakMap<Readonly<IntExtLink>, string>;
 
-  get blocks(): RecursiveReadonly<RTDBlock[]> {
+  get blocks(): RTDBlock[] {
     return this.#blocks;
   }
 

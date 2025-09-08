@@ -5,14 +5,11 @@ import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
-import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
 import type { Rotation } from "@webhare/services/src/descriptor";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
-
-type ReadonlyWidget = Omit<Readonly<WHFSInstance>, "export">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -46,7 +43,7 @@ function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
-function isSameLink(lhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>, rhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>): boolean {
+function isSameLink(lhs: { link?: IntExtLink; target?: string }, rhs: { link?: IntExtLink; target?: string }): boolean {
   if (!lhs.link)
     return rhs.link ? false : true;
   if (!rhs.link)
@@ -54,8 +51,8 @@ function isSameLink(lhs: RecursiveReadonly<{ link?: IntExtLink; target?: string 
   return lhs.target === rhs.target && IntExtLink.isEqual(lhs.link, rhs.link);
 }
 
-function groupByLink(items: RecursiveReadonly<RTDInlineItems>): ReadonlyArray<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> {
-  const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> = [];
+function groupByLink(items: RTDInlineItems): Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> {
+  const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> = [];
   for (const item of items) {
     if (blocks.length && isSameLink(blocks.at(-1)!, item)) {
       blocks.at(-1)!.items.push(item);
@@ -334,10 +331,10 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
   return buildRTDFromComposedDocument(cdoc);
 }
 
+/** Recursively replace embedded RTD values with further HareScript RTDs */
 async function expandRTDValues(data: Record<string, unknown>) {
   const newobj: Record<string, unknown> = {};
 
-  //TODO recurse to RTDs embedded in arrays ? but then we
   for (const [key, value] of Object.entries(data)) {
     if (value instanceof RichTextDocument) {
       newobj[key] = await exportAsHareScriptRTD(value);
@@ -391,15 +388,15 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<Hare
  * @param options.recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
 */
 export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<ComposedDocument> {
-  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<ReadonlyWidget, string> }).__instanceIds;
-  const imagemapping = (rtd as unknown as { __imageIds: WeakMap<RTDBaseInlineImageItem<"inMemory">, string> }).__imageIds;
-  const linkmapping = (rtd as unknown as { __linkIds: WeakMap<IntExtLink, string> }).__linkIds;
+  const instancemapping = rtd["__instanceIds"];
+  const imagemapping = rtd["__imageIds"];
+  const linkmapping = rtd["__linkIds"];
 
   const instances = new Map<string, WHFSInstance>();
   const embedded = new Map<string, ResourceDescriptor>();
   const links = new Map<string, number>();
 
-  async function exportWidgetForHS(widget: ReadonlyWidget, block: boolean) {
+  async function exportWidgetForHS(widget: WHFSInstance, block: boolean) {
     const tag = block ? 'div' : 'span';
     // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
     const instanceid = instancemapping.get(widget) || generateRandomId();
@@ -429,14 +426,14 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
     return `<img class="${classes.join(" ")}" src="${encodeString(link, 'attribute')}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
   }
 
-  async function buildBlocks(blocks: RecursiveReadonly<Array<RTDBlock | RTDAnonymousParagraph>>) {
+  async function buildBlocks(blocks: Array<RTDBlock | RTDAnonymousParagraph>) {
     let htmlText = '';
     for (const item of blocks)
       htmlText += await buildBlock(item);
     return htmlText;
   }
 
-  async function buildBlock(block: RecursiveReadonly<RTDBlock | RTDAnonymousParagraph>) {
+  async function buildBlock(block: RTDBlock | RTDAnonymousParagraph) {
     let htmlText = '';
     if ("widget" in block)
       htmlText += await exportWidgetForHS(block.widget, true);
@@ -460,7 +457,7 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
     return htmlText;
   }
 
-  async function buildInlineItems(items: RecursiveReadonly<RTDInlineItems>) {
+  async function buildInlineItems(items: RTDInlineItems) {
     let gotNonWhitespace = false;
     let output = '';
     for (const linkitem of groupByLink(items)) {
