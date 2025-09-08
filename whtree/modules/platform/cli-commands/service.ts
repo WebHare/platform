@@ -148,11 +148,16 @@ run({
     },
     "force-terminate-all": {
       description: "Terminate or kill all child processes of this service manager",
-      flags: { "kill": { description: "Use kill instead of terminate" } },
+      flags: {
+        "kill": { description: "Use kill instead of terminate" },
+        "quiet": { description: "Do not report it if no child processes are found" }
+      },
       main: async ({ opts, args }) => {
         const pids = await getServiceManagerChildPids();
         if (pids.length === 0) {
-          console.error("No child processes found");
+          if (!opts.quiet)
+            console.error("No child processes found");
+
           return;
         }
 
