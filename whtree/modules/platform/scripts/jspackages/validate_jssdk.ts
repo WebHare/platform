@@ -47,7 +47,7 @@ run({
       if (pkgjson.name !== `@webhare/${pkg.name}`)
         issues.push({ message: "Package name mismatch", toFix: () => pkgjson.name = `@webhare/${pkg.name}` });
       if (pkgjson.main && !pkgjson.main.endsWith(".mjs")) { //ignore non-typescript packages for these checks
-        if (pkgjson.main !== `src/${pkg.name}.ts`) //Eg @webhare/rpc must use src/rpc.ts (and not rpc-clinet.ts)
+        if (pkgjson.main !== `src/${pkg.name}.ts`) //Eg @webhare/rpc must use src/rpc.ts (and not rpc-client.ts)
           issues.push({ message: "Package main entry mismatch", toFix: () => pkgjson.main = `src/${pkg.name}.ts` });
         if (pkgjson.typedocOptions?.entryPoints?.length !== 1 || pkgjson.typedocOptions?.entryPoints[0] !== `./src/${pkg.name}.ts`) {
           issues.push({
