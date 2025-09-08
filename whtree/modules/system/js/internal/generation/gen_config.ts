@@ -3,7 +3,7 @@
 
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
-import { decodeHSON } from "@webhare/hscompat/hson";
+import { decodeHSON } from "@webhare/hscompat/src/hson";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
 import type { ConfigFile } from "@webhare/services/src/config";

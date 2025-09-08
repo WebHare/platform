@@ -2,13 +2,13 @@
   "name": "@webhare/hscompat",
   "version": "",
   "description": "",
-  "main": "hscompat.ts",
+  "main": "src/hscompat.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./hscompat.ts"
+      "./src/hscompat.ts"
     ]
   },
   "private": true,

@@ -2,14 +2,14 @@ import { backendConfig } from "@webhare/services/src/config.ts";
 import * as vm from 'node:vm';
 import { readFileSync } from "node:fs";
 import { lockMutex as servicesLockMutex } from '@webhare/services/src/mutex.ts';
-import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import type { HareScriptVM } from "./wasm-hsvm";
 import { popWork, stashWork } from "@webhare/whdb/src/impl";
 import { cbDoFinishWork } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { importJSFunction } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import { updateAuditContext } from "@webhare/auth";
-import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/context";
+import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
 export { fulfillResurrectedPromise } from "./wasm-resurrection";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by

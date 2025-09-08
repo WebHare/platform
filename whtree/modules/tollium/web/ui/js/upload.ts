@@ -3,7 +3,7 @@ import ImgeditDialogController, { type ImageSettings, type RefPoint } from './di
 import type { ToddCompBase } from './componentbase';
 import { MultiFileUploader, requestFiles, type UploadInstructions, type UploadRequestOptions } from '@webhare/upload';
 import type { CurrentDragData } from './dragdrop';
-import { isTruthy } from '@webhare/std/collections';
+import { isTruthy } from '@webhare/std';
 import { flagUIBusy } from '@webhare/dompack';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -1,7 +1,7 @@
 import { compare, isDate, Money, type ComparableType } from "@webhare/std";
 import { defaultDateTime } from "./datetime";
 
-export { compare, type ComparableType }; //for backwards compatibility - some external modules directly take compare from @webhare/hscompat/algorithms
+export { compare, type ComparableType }; //for backwards compatibility - some external modules directly take compare from @webhare/hscompat/src/algorithms
 
 // needed for interface definitions, don't want to sprinkle the file with eslint-disables or disable globally
 

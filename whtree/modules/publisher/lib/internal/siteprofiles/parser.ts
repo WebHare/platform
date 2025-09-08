@@ -6,7 +6,7 @@ import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestD
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
-import { nameToSnakeCase, toSnakeCase } from "@webhare/std/types";
+import { nameToSnakeCase, toSnakeCase } from "@webhare/std";
 import type { ContentValidationFunction, ValidationMessage, ValidationState } from "@mod-platform/js/devsupport/validation";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:

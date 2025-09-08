@@ -1,6 +1,6 @@
 import { beginWork, commitWork, db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { defaultDateTime } from "@webhare/hscompat/datetime";
+import { defaultDateTime } from "@webhare/hscompat/src/datetime";
 
 async function fixLastUpdate() {
   //List all current files that have a firstPublishDate but no lastUpdateDate

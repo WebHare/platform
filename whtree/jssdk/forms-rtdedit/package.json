@@ -8,7 +8,7 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/forms.ts"
+      "./src/forms-rtdedit.ts"
     ]
   },
   "private": true

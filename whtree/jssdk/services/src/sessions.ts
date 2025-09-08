@@ -1,4 +1,4 @@
-import { generateRandomId } from "@webhare/std/platformbased";
+import { generateRandomId } from "@webhare/std/src/platformbased";
 import { toFSPath } from "./resources.ts";
 import type { SessionScopes } from "./services.ts";
 import { convertWaitPeriodToDate, type WaitPeriod } from "@webhare/std";

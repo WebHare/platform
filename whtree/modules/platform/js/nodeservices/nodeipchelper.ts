@@ -1,8 +1,8 @@
-import { getHareScriptResourceDescriptor } from "@webhare/hscompat/hson";
+import { getHareScriptResourceDescriptor } from "@webhare/hscompat/src/hson";
 import { isResourceDescriptor } from "@webhare/services/src/descriptor";
 import { WebHareDiskBlob, WebHareMemoryBlob } from "@webhare/services/src/webhareblob";
 import { Money, stdTypeOf } from "@webhare/std";
-import { getWHType } from "@webhare/std/quacks";
+import { getWHType } from "@webhare/std/src/quacks";
 import type { TransferListItem } from "node:worker_threads";
 
 function runReplacerRecursive(value: unknown, replacer: (arg: object) => object | undefined): unknown {

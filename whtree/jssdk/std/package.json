@@ -2,7 +2,7 @@
   "name": "@webhare/std",
   "version": "",
   "description": "A standard library for WebHare modules",
-  "main": "std.ts",
+  "main": "src/std.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,7 +11,7 @@
   },
   "typedocOptions": {
     "entryPoints": [
-      "./std.ts"
+      "./src/std.ts"
     ]
   },
   "private": true,

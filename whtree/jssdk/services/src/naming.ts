@@ -1,6 +1,6 @@
 /* Various 'how to name' things API */
 
-import { nameToSnakeCase } from "@webhare/std/types";
+import { nameToSnakeCase } from "@webhare/std/src/types";
 
 export type ModuleQualifiedName = `${string}:${string}`;
 

@@ -6,7 +6,7 @@ import * as test from "@webhare/test";
 import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
 import { ResourceDescriptor, WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
-import { determineType } from "@webhare/hscompat/hson";
+import { determineType } from "@webhare/hscompat/src/hson";
 
 function testTypeAPIs() {
   test.eq(VariableType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));

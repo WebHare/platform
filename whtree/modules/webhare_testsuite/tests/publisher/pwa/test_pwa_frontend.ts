@@ -1,6 +1,6 @@
 import * as test from "@mod-system/js/wh/testframework";
 import * as pwatests from '@mod-publisher/js/pwa/tests';
-import { throwError } from "@webhare/std/std";
+import { throwError } from "@webhare/std";
 
 test.runTests(
   [

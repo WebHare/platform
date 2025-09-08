@@ -1,1 +1,1 @@
-export * from "@webhare/std/finmath";
+export * from "@webhare/std/src/finmath";

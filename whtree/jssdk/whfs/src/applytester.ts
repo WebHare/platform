@@ -2,7 +2,7 @@ import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDa
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { isLike, isNotLike } from "@webhare/hscompat/strings";
+import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
 import { emplace, omit, pick, slugify } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";

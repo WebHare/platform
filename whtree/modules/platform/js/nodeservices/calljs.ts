@@ -3,7 +3,7 @@
 import { RestAPIWorkerPool } from "@mod-system/js/internal/openapi/workerpool";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { debugFlags } from "@webhare/env";
-import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/context";
+import { toAuthAuditContext, type HarescriptJSCallContext } from "@webhare/hscompat/src/context";
 import { BackendServiceConnection, importJSFunction } from "@webhare/services";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";

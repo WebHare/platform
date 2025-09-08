@@ -5,8 +5,8 @@ import { type AnyWRDAccessor, getAccessor } from "./accessors";
 import { type AttrRec, type EntitySettingsRec, type EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
-import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
-import { maxDateTime } from "@webhare/hscompat/datetime";
+import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/src/algorithms";
+import { maxDateTime } from "@webhare/hscompat/src/datetime";
 import { getUnifiedCC, type ExportOptions } from "@webhare/services/src/descriptor";
 import { isPromise } from "@webhare/std";
 

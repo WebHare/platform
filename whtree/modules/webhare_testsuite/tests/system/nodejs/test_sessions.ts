@@ -2,10 +2,9 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, runInWork } from "@webhare/whdb";
-import { generateRandomId } from "@webhare/std/platformbased";
+import { generateRandomId, Money } from "@webhare/std";
 import { SingleFileUploader, type UploadInstructions } from "@webhare/upload";
 import { createUploadSession, getUploadedFile } from "@webhare/services";
-import { Money } from "@webhare/std";
 import { existsSync } from "fs";
 import { getStorageFolderForSession } from "@webhare/services/src/sessions";
 

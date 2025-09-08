@@ -2,13 +2,13 @@
   "name": "@webhare/tollium-iframe-api",
   "version": "",
   "description": "",
-  "main": "src/iframe.ts",
+  "main": "src/tollium-iframe-api.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/iframe.ts"
+      "./src/tollium-iframe-api.ts"
     ]
   },
   "private": true

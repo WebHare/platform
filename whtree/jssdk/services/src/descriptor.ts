@@ -1,6 +1,6 @@
 import type { ReadableStream } from "node:stream/web";
-import { encodeHSON, decodeHSON, Marshaller, HareScriptType, getHareScriptResourceDescriptor } from "@webhare/hscompat/hson";
-import { dateToParts } from "@webhare/hscompat/datetime.ts";
+import { encodeHSON, decodeHSON, Marshaller, HareScriptType, getHareScriptResourceDescriptor } from "@webhare/hscompat/src/hson";
+import { dateToParts } from "@webhare/hscompat/src/datetime.ts";
 import { pick, slugify, throwError, typedEntries, typedFromEntries, type MaybePromise } from "@webhare/std";
 import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
@@ -14,7 +14,7 @@ import { db } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { selectFSFullPath, selectFSHighestParent, selectFSWHFSPath } from "@webhare/whdb/src/functions";
 import { isHistoricWHFSSpace, lookupWHFSObject } from "@webhare/whfs/src/objects";
-import { getWHType } from "@webhare/std/quacks";
+import { getWHType } from "@webhare/std/src/quacks";
 import { IntExtLink, isIntExtLink, type ExportedIntExtLink } from "./intextlink";
 
 const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images

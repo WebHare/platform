@@ -1,9 +1,9 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
-import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/datetime";
-import { Money } from "../../../../../jssdk/std/money";
+import { dateToParts, makeDateFromParts } from "../../../../../jssdk/hscompat/src/datetime";
+import { Money } from "../../../../../jssdk/std/src/money";
 import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
-import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/hson";
+import { determineType, getDefaultValue, setHareScriptType, HareScriptType, unifyEltTypes, type HSType, type IPCMarshallableData, type IPCMarshallableRecord } from "@webhare/hscompat/src/hson";
 
 export { type IPCMarshallableData, type IPCMarshallableRecord, HareScriptType as VariableType };
 export type { HSType };

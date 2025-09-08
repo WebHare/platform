@@ -4,7 +4,7 @@ import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/w
 import bridge from "../whmanager/bridge";
 import { pick } from "@webhare/std";
 import { parseTrace } from "@webhare/js-api-tools";
-import { type IPCMarshallableData, encodeHSON } from "@webhare/hscompat/hson";
+import { type IPCMarshallableData, encodeHSON } from "@webhare/hscompat/src/hson";
 
 interface TaskInfo {
   queueid: string;

@@ -1,5 +1,5 @@
 import { isValidUUID } from "@webhare/std";
-import { regExpFromWildcards } from "@webhare/std/strings";
+import { regExpFromWildcards } from "@webhare/std/src/strings";
 
 export function isLike(text: string, mask: string): boolean {
   return regExpFromWildcards(mask).test(text);

@@ -1,7 +1,7 @@
 /** This library implements the AuthenticationSettings type */
 
 import { decodeHSON, defaultDateTime, encodeHSON, HareScriptType, setHareScriptType } from "@webhare/hscompat";
-import { createWebHarePasswordHash, isPasswordStillSecure, verifyWebHarePasswordHash } from "@webhare/hscompat/passwords";
+import { createWebHarePasswordHash, isPasswordStillSecure, verifyWebHarePasswordHash } from "@webhare/hscompat/src/passwords";
 
 interface HSONAuthenticationSettings {
   version: number;

@@ -1,7 +1,7 @@
 import { Money } from '@webhare/std';
 import { type DataMappingOptions, type DataType, DataTypeOIDs, type SmartBuffer, parseDateTime } from './../vendor/postgrejs/src/index';
 import { numberBytesToString } from './../vendor/postgrejs/src/data-types/numeric-type';
-import { defaultDateTime, maxDateTime } from '@webhare/hscompat/datetime';
+import { defaultDateTime, maxDateTime } from '@webhare/hscompat/src/datetime';
 
 // const NUMERIC_NEG = 0x4000;
 const NUMERIC_NAN = 0xc000;

@@ -2,13 +2,13 @@
   "name": "@webhare/rpc",
   "version": "",
   "description": "A typed JSON based RPC client built for WebHare client/service communication",
-  "main": "src/rpc-client.ts",
+  "main": "src/rpc.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "typedocOptions": {
     "entryPoints": [
-      "./src/rpc-client.ts"
+      "./src/rpc.ts"
     ]
   },
   "dependencies": {

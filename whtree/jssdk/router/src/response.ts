@@ -4,7 +4,7 @@ import type { WebResponseInfo } from "@mod-system/js/internal/types";
 import { WebHareBlob } from "@webhare/services";
 import type { TransferListItem } from "worker_threads";
 import { encodeString, stringify } from "@webhare/std";
-import type { RPCResponse } from "@webhare/rpc/src/rpc-client";
+import type { RPCResponse } from "@webhare/rpc/src/rpc";
 
 export enum HTTPErrorCode {
   BadRequest = 400,

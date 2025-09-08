@@ -1,4 +1,4 @@
-import { createDeferred } from '@webhare/std/promises';
+import { createDeferred } from '@webhare/std';
 import http from 'node:http';
 import WebSocket, { WebSocketServer } from 'ws';
 import EventSource from '@mod-system/js/internal/eventsource';

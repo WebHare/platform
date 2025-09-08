@@ -9,11 +9,10 @@ import { type WRD_TestschemaSchemaType, type System_Usermgmt_WRDAuthdomainSamlId
 import { buildRTD, ResourceDescriptor, toResourcePath, IntExtLink, type WHFSInstance } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { decodeWRDGuid, encodeWRDGuid } from "@webhare/wrd/src/accessors";
-import { generateRandomId, isValidUUID } from "@webhare/std/platformbased";
 import { isChange, type WRDTypeMetadata } from "@webhare/wrd/src/schema";
 import * as util from "node:util";
 import { wrdSettingId } from "@webhare/services/src/symbols";
-import { compare, Money, throwError, type AddressValue, type ComparableType } from "@webhare/std";
+import { generateRandomId, isValidUUID, compare, Money, throwError, type AddressValue, type ComparableType } from "@webhare/std";
 import type { PSPAddressFormat } from "@webhare/psp-base";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { buildRTDFromHareScriptRTD, exportRTDToRawHTML, defaultDateTime, maxDateTime, type HareScriptRTD } from "@webhare/hscompat";

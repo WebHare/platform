@@ -1,10 +1,8 @@
 import type { WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import { LocalService, LocalServiceHandlerBase } from "@webhare/services/src/localservice";
-import { emplace, SortedMultiSet } from "@webhare/std/collections";
 import bridge, { type BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { regExpFromWildcards } from "@webhare/std/strings";
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { compareProperties } from "@webhare/std";
+import { emplace, SortedMultiSet, regExpFromWildcards, compareProperties } from "@webhare/std";
 
 /* The adhoc cache service is hosted by a local service together with the mainbridge of a
    process.

@@ -14,6 +14,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { readAxioms } from '@mod-platform/js/configure/axioms';
 import { listDirectory } from '@webhare/system-tools';
+import type { PackageJson } from "../../js/devsupport/jspackages";
 
 run({
   description: "Validate/lint the WebHaer JSSDK packages",
@@ -37,20 +38,35 @@ run({
       if (opts.verbose)
         console.log(`Checking ${pkg.name}`);
 
-      const pkgjson = JSON.parse(await readFile(join(pkg.fullPath, "package.json"), "utf8"));
+
+      const pkgjson = JSON.parse(await readFile(join(pkg.fullPath, "package.json"), "utf8")) as PackageJson;
       if (pkgjson.version !== "") //you can't remove it, npm will put it back
         issues.push({ message: "Version should be empty", toFix: () => pkgjson.version = "" });
       if (pkgjson.private !== true)
         issues.push({ message: "Private should be 'true' to prevent accidental manual publishes", toFix: () => pkgjson.private = true });
       if (pkgjson.name !== `@webhare/${pkg.name}`)
         issues.push({ message: "Package name mismatch", toFix: () => pkgjson.name = `@webhare/${pkg.name}` });
+      if (pkgjson.main && !pkgjson.main.endsWith(".mjs")) { //ignore non-typescript packages for these checks
+        if (pkgjson.main !== `src/${pkg.name}.ts`) //Eg @webhare/rpc must use src/rpc.ts (and not rpc-client.ts)
+          issues.push({ message: "Package main entry mismatch", toFix: () => pkgjson.main = `src/${pkg.name}.ts` });
+        if (pkgjson.typedocOptions?.entryPoints?.length !== 1 || pkgjson.typedocOptions?.entryPoints[0] !== `./src/${pkg.name}.ts`) {
+          issues.push({
+            message: "typedoc entrypoint mismatch", toFix: () => {
+              pkgjson.typedocOptions ||= {};
+              pkgjson.typedocOptions.entryPoints = [`./src/${pkg.name}.ts`];
+            }
+
+          });
+        }
+      }
+
       for (const [dep, version] of Object.entries(pkgjson.dependencies || []))
         if (dep.startsWith("@webhare/") && version)
-          issues.push({ message: `Dependency on peer package '${dep}' should not specify an explicit version`, toFix: () => pkgjson.dependencies[dep] = "" });
+          issues.push({ message: `Dependency on peer package '${dep}' should not specify an explicit version`, toFix: () => pkgjson.dependencies![dep] = "" });
 
       for (const forbiddenfield of axioms.copyPackageFields)
         if (forbiddenfield in pkgjson)
-          issues.push({ message: `Field '${forbiddenfield}' is maintained centrally, not per package`, toFix: () => delete pkgjson[forbiddenfield] });
+          issues.push({ message: `Field '${forbiddenfield}' is maintained centrally, not per package`, toFix: () => delete (pkgjson as Record<string, unknown>)[forbiddenfield] });
 
       if (axioms.publishPackages.includes(pkg.name)) { //this package will be published
         if (!existsSync(join(pkg.fullPath, "README.md")))
