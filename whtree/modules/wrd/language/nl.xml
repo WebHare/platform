@@ -920,6 +920,10 @@
         <text tid="emailchange-processed">We hebben een bevestiging naar het nieuwe e-mailadres '<param p="1"/>' verzonden. Klik op de link in deze email om uw wijziging te bevestigen.</text>
         <text tid="emailchange-title">Wijzig e-mailadres</text>
         <text tid="emailchanged">Het e-mailadres is gewijzigd</text>
+        <text tid="extloginfailure-accountdisabled">Het account<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> is uitgeschakeld</text>
+        <text tid="extloginfailure-retry">Opnieuw proberen</text>
+        <text tid="extloginfailure-title">Inloggen niet gelukt</text>
+        <text tid="extloginfailure-unknownlogin">Het account<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> is onbekend</text>
         <text tid="forgotpassword">Wachtwoord vergeten ?</text>
         <text tid="forgotpassword-button">Verstuur email</text>
         <text tid="forgotpassword-intro">Voer het bij dit account behorende e-mailadres in om een herstellink te ontvangen</text>

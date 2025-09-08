@@ -920,6 +920,10 @@
         <text tid="emailchange-processed">We have sent a confirmation email to your new email address '<param p="1"/>'. Click the link in this email to confirm the change.</text>
         <text tid="emailchange-title">Change email address</text>
         <text tid="emailchanged">Your email address has been changed</text>
+        <text tid="extloginfailure-accountdisabled">The account<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> has been disabled</text>
+        <text tid="extloginfailure-retry">Retry</text>
+        <text tid="extloginfailure-title">Login failed</text>
+        <text tid="extloginfailure-unknownlogin">The account<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> is unknown</text>
         <text tid="forgotpassword">Forgot password?</text>
         <text tid="forgotpassword-button">Send email</text>
         <text tid="forgotpassword-intro">Enter the email address associated with your account to receive a password reset link</text>

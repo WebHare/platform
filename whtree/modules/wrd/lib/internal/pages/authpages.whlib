@@ -813,3 +813,21 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
   ExecuteSubmitInstruction(logininstruction);
   ABORT("This line should never be reached");
 }
+
+PUBLIC OBJECT FUNCTION GetOIDCFailurePage(OBJECT webdesign, RECORD options) {
+  STRING reason := GetWebVariable("reason");
+  STRING loginname := GetWebVariable("loginname");
+  STRING backlink := ResolveToAbsoluteURL(GetFormRequestURL(), "/" || GetWebVariable("pathname"));
+
+  SWITCH(reason) {
+    CASE "unknown-login" {
+      reason := GetTid("wrd:site.forms.authpages.extloginfailure-unknownlogin", loginname);
+    }
+    CASE "account-disabled" {
+      reason := GetTid("wrd:site.forms.authpages.extloginfailure-accountdisabled", loginname);
+    }
+  }
+
+  RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "extloginfailure",
+    CELL[ reason, backlink ]));
+}
