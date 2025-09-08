@@ -11,7 +11,7 @@ class WHFSCompileContext {
   private contenttypes?: Promise<CSPContentType[]>;
 
   private async loadContentTypes() {
-    //FIXME prepare to write this to an extract, but our extract might cache database ids currently? we might need two extracts, one for the Declared situation (based on modules) and one fo the Actual situation (based on database). or just cache in process
+    //FIXME prepare to write this to an extract, but our extract might cache database ids currently? we might need two extracts, one for the Declared situation (based on modules) and one for the Actual situation (based on database). or just cache in process
     const csp = await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").getOfflineSiteProfiles();
     // console.log(csp);
     return csp.allcontenttypes as CSPContentType[];

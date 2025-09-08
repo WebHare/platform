@@ -144,7 +144,7 @@ async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting
     });
   }
 
-  for (const [instanceid, instance] of toSerialize.instances) { //encode embedded instanes
+  for (const [instanceid, instance] of toSerialize.instances) { //encode embedded instances
     /* Generate settings for the instance:
       - It needs a toplevel setting with:
           - ordering = 3

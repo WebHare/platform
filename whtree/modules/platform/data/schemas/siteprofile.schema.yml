@@ -11,7 +11,7 @@ properties:
     type: string
   typeGroup:
     type: string
-    pattern: "^[a-z][0-9a-z_.]+[0-9a-z]$" # require alpha and proper identifiers, no ending with dots. TODO permit one-char groups? shouldn't hurt anywhere, just makeas the regex more complex
+    pattern: "^[a-z][0-9a-z_.]+[0-9a-z]$" # require alpha and proper identifiers, no ending with dots. TODO permit one-char groups? shouldn't hurt anywhere, just makes the regex more complex
     description:
       Place all types in this file in this group. This creates a sublevel for the types without encoding into the group into automatic gids.
   types:

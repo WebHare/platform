@@ -15,7 +15,7 @@ import type { WebHareBlob } from "@webhare/services";
 import type { } from "wh:ts/whfstypes.ts";
 import { CSPMemberType } from "./siteprofiles";
 
-// We keep this onternal, we might want cq like to restructure this API in the future
+// We keep this internal, we might want cq like to restructure this API in the future
 export interface WHFSTypes {
 }
 
@@ -395,16 +395,16 @@ export async function visitResources(callback: VisitCallback, scope: {
 export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
 export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
 export function whfsType(ns: string): WHFSTypeAccessor<object, object, object> {
-  //note that as we're sync, we can't actually promise to validate whether the type xists
+  //note that as we're sync, we can't actually promise to validate whether the type exists
   return new WHFSTypeAccessor(ns);
 }
 
 
-/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a */
+/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
 export function openType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
 
 //We need to preserve the 'explicitly indicated type' form as existing apps might rely on it
-/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a */
+/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
 export function openType<GetFormat extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<GetFormat, GetFormat, GetFormat>;
 
 export function openType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> {

@@ -5,7 +5,7 @@ types:
     #   - A global name (scopedtype) of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
     #   - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
     #   - This import: `import { whfsType } from "@webhare/whfs"`
-    #   - To get: `const mydata = whfsType("webhare_testsuite:global.generic_test_type").generic_test_type.get(fileId)`
+    #   - To get: `const mydata = whfsType("webhare_testsuite:global.generic_test_type").get(fileId)`
     title: WTS Generic
     members:
       str:
