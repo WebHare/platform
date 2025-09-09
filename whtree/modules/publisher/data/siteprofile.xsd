@@ -625,7 +625,7 @@
     <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attribute name="comment" type="xs:string">
       <xs:annotation>
-        <xs:documentation>A developer's comment on this type. Not shown to non-prviileged WebHare users. Allows easier porting to YAML</xs:documentation>
+        <xs:documentation>A developer's comment on this type. Not shown to unprivileged WebHare users. Allows easier porting to YAML</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
