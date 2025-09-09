@@ -904,7 +904,7 @@
     <record name="recordtest" />
   </contenttype>
 
-  <contenttype namespace="http://www.webhare.net/xmlns/beta/test_naming"> <!-- this type MUST remain registeed in a XML file -->
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test_naming"> <!-- this type MUST remain registered in a XML file -->
     <string name="string_test" />
     <array name="array_test">
       <integer name="integer_test" />
