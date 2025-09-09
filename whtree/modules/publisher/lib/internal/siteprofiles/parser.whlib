@@ -57,6 +57,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   PUBLIC STRING toplevelgid;
   STRING module;
   PUBLIC RECORD ARRAY contenttypes;
+  PUBLIC RECORD ARRAY rtdtypes;
 
   PUBLIC PROPERTY siteprofile(siteprof, -);
 
@@ -408,7 +409,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RECORD ARRAY contenttypeelements :=
         [ [ ns := whconstant_xmlns_publisher,   name := "contenttype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "widgettype" ]
-        , [ ns := whconstant_xmlns_publisher,   name := "rtdtype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "filetype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "foldertype" ]
         ];
@@ -438,6 +438,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       {
         this->AddError(ctype, e->what);
       }
+    }
+
+    FOREVERY(OBJECT rtdtype FROM this->siteprof->xmldoc->documentelement->ListChildren(whconstant_xmlns_publisher, "rtdtype")) {
+      RECORD typeinfo := ParseSiteprofXMLStructure(this, rtdtype);
+      typeinfo.namespace := rtdtype->GetAttribute("namespace");
+
+      RECORD insertpos := RecordLowerBound(this->rtdtypes, typeinfo, ["NAMESPACE"]);
+      INSERT typeinfo INTO this->rtdtypes AT insertpos.position;
     }
   }
 
@@ -498,7 +506,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     OBJECT membersnode := ctype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "members")->Item(0);
     RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, scopedtypeinfo.namespace);
 
-    RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
+    RECORD typeinfo := MakeBasicTypeInfo(nodename);
     typeinfo.id := typedefid;
     typeinfo.scopedtype := scopedtypeinfo.scopedtype;
     typeinfo.namespace := scopedtypeinfo.namespace;
@@ -1421,6 +1429,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , hints := RECORD[]
                          , icons := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
+                         , rtdtypes := RECORD[]
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
                          , gid := ""
@@ -1473,6 +1482,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     hints := siteprofcontext->GetHints() CONCAT hints;
     icons := siteprofcontext->GetIcons() CONCAT icons;
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
+    siteprofdata.rtdtypes := siteprofcontext->rtdtypes;
   }
 
   siteprofdata.errors := errors;

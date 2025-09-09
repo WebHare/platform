@@ -542,11 +542,7 @@ MACRO TestSiteProfiles()
   BLOB dupetypes_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
     <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" />
-    <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest">
-      <blockstyles defaultstyle="NORMAL">
-        <textstyle tag="NORMAL" textstyles=""/>
-      </blockstyles>
-    </rtdtype>
+    <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" kind="datafile" />
   </siteprofile>`);
 
   RECORD res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupetypes_siteprl ]);
@@ -562,11 +558,7 @@ MACRO TestSiteProfiles()
         <richdocument name="original" />
       </members>
     </filetype>
-    <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest">
-      <blockstyles defaultstyle="NORMAL">
-        <textstyle tag="NORMAL" textstyles=""/>
-      </blockstyles>
-    </rtdtype>
+    <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/validatetest" />
   </siteprofile>`);
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupemembers_siteprl ]);

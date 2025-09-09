@@ -83,6 +83,7 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
                     , warnings             := RECORD[]
                     , hints                := RECORD[]
                     , contenttypes         := RECORD[]
+                    , rtdtypes             := RECORD[]
                     , grouptypes           := RECORD[]
                     , siteprofiles         := STRING[]
                     , profilerefs          := RECORD[]
@@ -117,6 +118,7 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
       loaded := GetParsedSiteProfile(name);
       this->result.errors := this->result.errors CONCAT RECORD ARRAY(loaded.errors);
       this->result.warnings := this->result.warnings CONCAT RECORD ARRAY(loaded.warnings);
+      this->result.rtdtypes := this->result.rtdtypes CONCAT RECORD ARRAY(loaded.rtdtypes);
       this->contenttypes := this->contenttypes CONCAT RECORD ARRAY(loaded.contenttypes);
       this->grouptypes := this->grouptypes CONCAT RECORD ARRAY(loaded.grouptypes);
 
