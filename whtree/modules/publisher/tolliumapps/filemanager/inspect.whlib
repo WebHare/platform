@@ -945,7 +945,6 @@ PUBLIC STATIC OBJECTTYPE Inspect EXTEND TolliumScreenBase <
     ^typetitle->value := GetTid(type.title);
     ^namespace->value := type.namespace;
     ^searchprovider->value := type.searchcontentprovider;
-    ^ishidden->value := NOT this->fsobj->isfolder ? this->GetTid(".filescantbehidden") : type.ishidden ? GetTid("~yes") : GetTid("~no");
 
     RECORD redirectinfo := GetSystemRedirectInfo(this->fsobjid);
     IF(redirectinfo.success)

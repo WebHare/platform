@@ -30,7 +30,6 @@
             blobiscontent="true"
             extensions=".wrdarchive"
             icon="tollium:files/application_wharchive"
-            isdevelopertype="true"
             requirescontent="true"
             tid="wrd:filetypes.schemaarchive" />
 

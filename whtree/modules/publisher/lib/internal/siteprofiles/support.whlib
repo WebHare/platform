@@ -82,7 +82,6 @@ PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord()
 {
   RETURN [ indexfile := ""
          , protectindexfile := FALSE
-         , ishidden := FALSE
          ];
 }
 
@@ -116,7 +115,7 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , line := 0
          , title := ""
          , tolliumicon := ""
-         , groupmemberships := DEFAULT RECORD ARRAY
+         , ingroup := ""
          , isembeddedobjecttype := type = "widgettype"
          , isrtdtype := type = "rtdtype"
          , wittycomponent := ""
@@ -125,7 +124,6 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , foldertype := DEFAULT RECORD
          , orphan := FALSE
          , cloneoncopy := TRUE
-         , isdevelopertype := FALSE //TODO can we deprecate this and just have 'ishidden' and allowfiletype/allowfoldertype deal with this?
          , dynamicexecution := DEFAULT RECORD
          ];
 }

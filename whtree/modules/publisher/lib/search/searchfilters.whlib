@@ -256,7 +256,7 @@ PUBLIC STATIC OBJECTTYPE SearchFilterContext
         SELECT TEMPORARY typedef := RecordExists(filetype) ? filetype : foldertype
              , *
              , tolliumicon := tolliumicon
-             , isdevelopertype := isdevelopertype
+             , isdevelopertype := namespace IN VAR whconstant_developertypes
              , title := title
           FROM csp.contenttypes AS types
          WHERE RecordExists(filetype) OR RecordExists(foldertype);
@@ -264,7 +264,7 @@ PUBLIC STATIC OBJECTTYPE SearchFilterContext
         SELECT *
           FROM whfstypes
          WHERE (this->pvt_showdeveloper OR NOT isdevelopertype)
-               AND (showall OR NOT CellExists(whfstypes, "ishidden") OR NOT ishidden);
+               AND (showall OR namespace NOT IN VAR whconstant_hiddentypes);
 
     // Get all folders this user has rights on
     RECORD query;

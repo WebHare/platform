@@ -135,14 +135,11 @@
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/foreignfolder"
               icon="tollium:folders/locked"
               indexfile="none"
-              isdevelopertype="true"
               tid="publisher:foldertypes.foreign" />
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/systemfolder"
               icon="tollium:folders/system"
               indexfile="none"
-              isdevelopertype="true"
-              ishidden="true"
               tid="publisher:foldertypes.system" />
 
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/photoalbum"
@@ -162,15 +159,9 @@
     <extendproperties extension="#photoalbum_settings" />
   </foldertype>
 
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/designfilessite"
-              icon="tollium:folders/system"
-              indexfile="none"
-              tid="publisher:foldertypes.designfilessite" />
-
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/tagfolder"
               icon="tollium:folders/tag"
               indexfile="none"
-              ishidden="true"
               protectindexfile="true"
               tid="publisher:foldertypes.tagfolder" />
 
@@ -193,7 +184,6 @@
             isacceptableindex="true"
             ispublishedassubdir="true"
             needstemplate="true"
-            pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.msword">
@@ -216,7 +206,6 @@
             kind="rawfile"
             extensions=".js"
             icon="tollium:files/application_x-javascript"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.javascript" />
 
@@ -225,7 +214,6 @@
             extensions=".html .htm .shtml"
             icon="tollium:files/application_x-webhare-semidynamic"
             isacceptableindex="true"
-            isdevelopertype="true"
             ispublishable="true"
             needstemplate="true"
             tid="publisher:filetypes.semidynamic" />
@@ -234,7 +222,6 @@
             kind="rawfile"
             extensions=".css"
             icon="tollium:files/text_css"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.css" />
 
@@ -242,7 +229,6 @@
             kind="rawfile"
             extensions=".tar.gz"
             icon="tollium:files/application_x-gzip"
-            isdevelopertype="true"
             requirescontent="true"
             tid="publisher:filetypes.targz" />
 
@@ -275,7 +261,6 @@
             kind="rawfile"
             extensions=".zip"
             icon="tollium:files/application_zip"
-            isdevelopertype="true"
             requirescontent="true"
             tid="publisher:filetypes.zip" />
 
@@ -283,7 +268,6 @@
             blobiscontent="true"
             extensions=".wharchive"
             icon="tollium:files/application_wharchive"
-            isdevelopertype="true"
             requirescontent="true"
             tid="publisher:filetypes.webharearchive" />
 
@@ -291,7 +275,6 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/archivefile"
             kind="rawfile"
             icon="tollium:files/application_zip"
-            isdevelopertype="true"
             requirescontent="true"
             tid="publisher:filetypes.archive" />
 
@@ -299,7 +282,6 @@
             blobiscontent="true"
             extensions=".whlib"
             icon="tollium:files/application_x-webhare-library"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.library" />
 
@@ -359,7 +341,6 @@
             extensions=".shtml"
             icon="tollium:files/application_x-webhare-whscript"
             isacceptableindex="true"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.shtml" />
 
@@ -368,7 +349,6 @@
             extensions=".shtml"
             icon="tollium:files/application_x-webhare-whscript"
             isacceptableindex="true"
-            isdevelopertype="true"
             ispublishable="true"
             needstemplate="true"
             searchcontentprovider="publisher:contentblob"
@@ -378,7 +358,6 @@
             blobiscontent="true"
             extensions=".witty"
             icon="tollium:files/application_x-webhare-witty"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.witty" />
 
@@ -386,7 +365,6 @@
             blobiscontent="true"
             extensions=".tpl"
             icon="tollium:files/application_x-webhare-template"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.template" />
 
@@ -394,7 +372,6 @@
             blobiscontent="true"
             extensions=".prl"
             icon="tollium:files/application_x-webhare-profile"
-            isdevelopertype="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.profile" />
 
@@ -444,7 +421,6 @@
             extensions=".shtml"
             icon="tollium:files/application_x-webhare-contentlisting"
             isacceptableindex="true"
-            isdevelopertype="true"
             ispublishable="true"
             tid="publisher:filetypes.dynamicfoldercontents" />
 

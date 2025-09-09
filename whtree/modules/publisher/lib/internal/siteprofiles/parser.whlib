@@ -57,6 +57,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   PUBLIC STRING toplevelgid;
   STRING module;
   PUBLIC RECORD ARRAY contenttypes;
+  PUBLIC RECORD ARRAY rtdtypes;
 
   PUBLIC PROPERTY siteprofile(siteprof, -);
 
@@ -292,7 +293,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
-    ctype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
     this->AddIcon(ftype, ctype.tolliumicon);
 
     OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
@@ -374,7 +374,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     //Now construct the final folder type information record
     ctype.foldertype := GetBaseFolderTypeRecord();
     ctype.foldertype.protectindexfile := ParseXSBoolean(ftype->GetAttribute("protectindexfile"));
-    ctype.foldertype.ishidden := ParseXSBoolean(ftype->GetAttribute("ishidden"));
 
     IF (ftype->HasAttribute('indextype'))
     {
@@ -410,7 +409,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RECORD ARRAY contenttypeelements :=
         [ [ ns := whconstant_xmlns_publisher,   name := "contenttype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "widgettype" ]
-        , [ ns := whconstant_xmlns_publisher,   name := "rtdtype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "filetype" ]
         , [ ns := whconstant_xmlns_publisher,   name := "foldertype" ]
         ];
@@ -441,12 +439,19 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         this->AddError(ctype, e->what);
       }
     }
+
+    FOREVERY(OBJECT rtdtype FROM this->siteprof->xmldoc->documentelement->ListChildren(whconstant_xmlns_publisher, "rtdtype")) {
+      RECORD typeinfo := ParseSiteprofXMLStructure(this, rtdtype);
+      typeinfo.namespace := rtdtype->GetAttribute("namespace");
+
+      RECORD insertpos := RecordLowerBound(this->rtdtypes, typeinfo, ["NAMESPACE"]);
+      INSERT typeinfo INTO this->rtdtypes AT insertpos.position;
+    }
   }
 
   RECORD FUNCTION ReadCTMembers(OBJECT memberparent, STRING namespace)
   {
     RECORD ARRAY members;
-    RECORD ARRAY groupmemberships;
     STRING ARRAY seennames;
     FOR(OBJECT node := memberparent->firstelementchild;ObjectExists(node);node:=node->nextelementsibling)
     {
@@ -478,26 +483,15 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           CONTINUE;
         }
 
-        IF(memberinfo.type=12)
+        IF(memberinfo.type=12) // array
         {
           RECORD ctmembers := this->ReadCTMembers(node, namespace);
           memberinfo.children := ctmembers.members;
         }
         INSERT memberinfo INTO members AT END;
       }
-      ELSE IF (node->localname = "ingroup")
-      {
-        INSERT
-            [ grouptype :=    node->GetAttribute("type")
-            , line :=         node->linenum
-            , col :=          0
-            ] INTO groupmemberships AT END;
-      }
     }
-    RETURN
-        [ members :=            members
-        , groupmemberships :=   groupmemberships
-        ];
+    RETURN CELL [ members ];
   }
 
   RECORD FUNCTION ReadContentType(OBJECT ctype)
@@ -512,7 +506,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     OBJECT membersnode := ctype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "members")->Item(0);
     RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, scopedtypeinfo.namespace);
 
-    RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
+    RECORD typeinfo := MakeBasicTypeInfo(nodename);
     typeinfo.id := typedefid;
     typeinfo.scopedtype := scopedtypeinfo.scopedtype;
     typeinfo.namespace := scopedtypeinfo.namespace;
@@ -520,7 +514,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.line := ctype->linenum;
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.cloneoncopy := set_cloneoncopy;
     INSERT CELL members := newmembers.members INTO typeinfo;
 
@@ -541,12 +534,12 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       typeinfo.filetype.needstemplate := nodename!="widgettype";
       typeinfo.filetype.ispublishedassubdir := nodename!="widgettype";
       typeinfo.filetype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
-      typeinfo.filetype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
+      typeinfo.filetype.generatepreview := nodename="widgettype";
 
       typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
       typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
 
-      typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ?? "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
+      typeinfo.ingroup := ctype->GetAttribute("ingroup");
     }
 
     RETURN typeinfo;
@@ -1436,6 +1429,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , hints := RECORD[]
                          , icons := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
+                         , rtdtypes := RECORD[]
                          , grouptypes := DEFAULT RECORD ARRAY
                          , rules := RECORD[]
                          , gid := ""
@@ -1488,6 +1482,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     hints := siteprofcontext->GetHints() CONCAT hints;
     icons := siteprofcontext->GetIcons() CONCAT icons;
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
+    siteprofdata.rtdtypes := siteprofcontext->rtdtypes;
   }
 
   siteprofdata.errors := errors;

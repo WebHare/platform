@@ -8,6 +8,13 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+RECORD FUNCTION RecordBinaryGet(RECORD ARRAY list, RECORD element, STRING ARRAY cellnames)
+{
+  RECORD lb := RecordLowerBound(list, element, cellnames);
+  RETURN lb.found ? list[lb.position] : DEFAULT RECORD;
+}
 
 // Return record array of string arrays as a deduped record array
 // Eg: [[ sa := ["a"],["b"] ], sa := ["a"],"c"] ] will return [ "a","b","c" ]
@@ -19,8 +26,8 @@ STRING ARRAY AGGREGATE FUNCTION DedupeStringArrays(RECORD ARRAY inarray)
   RETURN GetSortedSet(resultset);
 }
 
-PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
-< // ---------------------------------------------------------------------------
+PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -50,7 +57,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
     }
     ELSE IF(NOT RecordExists(^groups->selection))
     {
-      ^groups->SetValueIfValid("http://www.webhare.net/xmlns/publisher/generalwidgets");
+      ^groups->SetValueIfValid(whconstant_defaultwidgetgroup);
     }
 
     BOOLEAN showdeveloper := this->tolliumuser->HasRight("system:supervisor");
@@ -74,17 +81,13 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase
   //
   RECORD ARRAY FUNCTION GetApplicableTypes()
   {
-    RECORD default_group :=
-        [ namespace :=          "_default_group"
-        , title :=              ":" || this->GetTid(".other")
-        , tolliumicon :=        "database/schema"
-        ];
     RECORD csp := GetCachedSiteProfiles();
     BOOLEAN limitit := this->islimited AND ^showalltypes->value = FALSE;
 
-    RETURN SELECT rowkey := namespace
+    RETURN SELECT primarygroup := RecordBinaryGet(csp.grouptypes, [ namespace := ingroup ], [ "NAMESPACE" ])
+                                  ?? RecordBinaryGet(csp.grouptypes, [ namespace := whconstant_defaultwidgetgroup ], [ "NAMESPACE" ])
+                , rowkey := namespace
                 , title :=         GetTid(title)
-                , primarygroup :=  GetContentTypePrimaryGroup(csp, namespace) ?? default_group
                 , tolliumicon
                 , module :=        GetModuleNameFromResourcePath(siteprofile)
              FROM csp.contenttypes

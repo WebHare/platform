@@ -5,7 +5,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
-
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC RECORD __pvt_widget_passthrough;
 
@@ -15,14 +15,11 @@ PUBLIC RECORD FUNCTION GetContentTypePrimaryGroup(RECORD csp, STRING contenttype
   IF (pos.found)
   {
     RECORD ct := csp.contenttypes[pos.position];
-    IF (LENGTH(ct.groupmemberships) != 0)
-    {
-      STRING grouptypens := ct.groupmemberships[0].grouptype;
-      pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
-      IF (NOT pos.found)
-        RETURN DEFAULT RECORD;
-      RETURN csp.grouptypes[pos.position];
-    }
+    STRING grouptypens := ct.ingroup ?? whconstant_defaultwidgetgroup;
+    pos := RecordLowerBound(csp.grouptypes, [ namespace := grouptypens ], [ "NAMESPACE" ]);
+    IF (NOT pos.found)
+      RETURN DEFAULT RECORD;
+    RETURN csp.grouptypes[pos.position];
   }
   RETURN DEFAULT RECORD;
 }

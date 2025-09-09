@@ -911,22 +911,6 @@ OBJECTTYPE WebConfigBuilder
         access := access CONCAT filtered;
       }
 
-      //ADDME: specify this through siteprofiles
-      OBJECT designtype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/designfilessite");
-      IF(ObjectExists(designtype))
-      {
-        RECORD ARRAY designsites := SELECT sites.outputweb, sites.outputfolder
-                                      FROM system.fs_objects, system.sites
-                                     WHERE fs_objects.type = designtype->id
-                                           AND fs_objects.id = sites.id
-                                           AND outputweb != 0;
-
-        FOREVERY(RECORD site FROM designsites)
-        {
-          access := access CONCAT this->FilterWebRuleData(this->GetRuleSet(site.outputfolder, [INTEGER(site.outputweb)], "publisher:allowcorsall", hosts), "publisher", hosts);
-        }
-      }
-
       //Generate redirecting hosts
       RECORD ARRAY redirecthosts := SELECT webservers.id
                                          , baseurl := ANY(baseurl)

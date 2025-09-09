@@ -254,8 +254,7 @@
             kind="rawfile"
             capturesubpaths="true"
             extensions=".shtml"
-            isacceptableindex="true"
-            isdevelopertype="true">
+            isacceptableindex="true">
     <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#WebPage" />
   </filetype>
 

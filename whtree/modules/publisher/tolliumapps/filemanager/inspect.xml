@@ -136,7 +136,6 @@
           <textedit name="namespace" width="1pr" enabled="false" />
           <text name="fstypeid" />
           <textedit name="searchprovider" width="1pr" enabled="false" />
-          <text name="ishidden" />
           <heading name="dynamicexecution" visible="false" />
           <textedit name="dynamicexecution_startmacro" width="1pr" enabled="false" visible="false" />
           <textedit name="dynamicexecution_webpageobjectname" width="1pr" enabled="false" visible="false" />

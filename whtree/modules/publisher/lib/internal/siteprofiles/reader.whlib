@@ -1804,7 +1804,8 @@ PUBLIC OBJECT FUNCTION GetApplyTesterForHSInfo(RECORD __hsinfo)
 RECORD FUNCTION GetCacheableRTDType(STRING typename)
 {
   RECORD csp := GetcachedSiteProfiles();
-  RECORD typedef := SELECT * FROM csp.contenttypes WHERE namespace=typename AND isrtdtype;
+  //fallback to 'contenttypes' to have a chance to run with not yet recompiled WH5.8 CSPs in WH5.9
+  RECORD typedef := SELECT * FROM CellExists(csp,'rtdtypes') ? csp.rtdtypes : csp.contenttypes WHERE namespace=typename AND isrtdtype;
 
   //Ensure fields created in a new WebHare update but not yet in the CSP exist (eg tag_b in 4.28.3)
   IF(RecordExists(typedef))

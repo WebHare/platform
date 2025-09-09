@@ -16,6 +16,7 @@ export type ParsedSiteSetting = unknown & { ruletype: "sitesetting" }; //TODO do
 export type ParsedSiteProfile = {
   applysiteprofiles: string[];
   contenttypes: CSPContentType[];
+  rtdtypes: CSPContentType[];
   errors: ValidationMessage[];
   grouptypes: string[];
   icons: unknown[];
@@ -474,6 +475,7 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
     contenttypes: [],
+    rtdtypes: [],
     errors: [],
     grouptypes: [],
     icons: [],
@@ -504,9 +506,8 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
       dynamicexecution: null,
       filetype: null,
       foldertype: null,
-      groupmemberships: [],
+      ingroup: "",
       id: 0,
-      isdevelopertype: false,
       isembeddedobjecttype: false,
       isrtdtype: false,
       line: 0, //TODO need to use the more sophisticated yaml parser for this
