@@ -149,20 +149,10 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
       RECORD ARRAY addtogroups;
 
       // First filter on valid groups, then add to groups as members. Keeps groupmembership lists valid everywhere.
-      FOREVERY (RECORD rec FROM fs_type.groupmemberships) {
-        RECORD pos := RecordLowerBound(this->grouptypes, [ namespace := rec.grouptype ], [ "NAMESPACE" ]);
-        IF (NOT pos.found) {
-          this->LogSPError(fs_type.siteprofile, "Contenttype '" || fs_type.namespace || "' is member of non-existing group '" || rec.grouptype || "'", rec.line);
-        } ELSE {
-          INSERT rec INTO valid_memberships AT END;
-          INSERT pos INTO addtogroups AT END;
-        }
-      }
-
-      fs_type.groupmemberships := valid_memberships;
-      this->result.contenttypes[#fs_type] := fs_type;
-
-      FOREVERY (RECORD pos FROM addtogroups) {
+      RECORD pos := RecordLowerBound(this->grouptypes, [ namespace := fs_type.ingroup ], [ "NAMESPACE" ]);
+      IF (NOT pos.found) {
+        this->LogSPError(fs_type.siteprofile, "Contenttype '" || fs_type.namespace || "' is member of non-existing group '" || fs_type.ingroup || "'", fs_type.line);
+      } ELSE {
         RECORD pos2 := RecordLowerBound(this->grouptypes[pos.position].members, fs_type, [ "NAMESPACE" ]);
         IF (NOT pos2.found)
           INSERT fs_type INTO this->grouptypes[pos.position].members AT pos2.position;

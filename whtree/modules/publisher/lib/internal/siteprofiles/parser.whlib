@@ -446,7 +446,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   RECORD FUNCTION ReadCTMembers(OBJECT memberparent, STRING namespace)
   {
     RECORD ARRAY members;
-    RECORD ARRAY groupmemberships;
     STRING ARRAY seennames;
     FOR(OBJECT node := memberparent->firstelementchild;ObjectExists(node);node:=node->nextelementsibling)
     {
@@ -478,26 +477,15 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
           CONTINUE;
         }
 
-        IF(memberinfo.type=12)
+        IF(memberinfo.type=12) // array
         {
           RECORD ctmembers := this->ReadCTMembers(node, namespace);
           memberinfo.children := ctmembers.members;
         }
         INSERT memberinfo INTO members AT END;
       }
-      ELSE IF (node->localname = "ingroup")
-      {
-        INSERT
-            [ grouptype :=    node->GetAttribute("type")
-            , line :=         node->linenum
-            , col :=          0
-            ] INTO groupmemberships AT END;
-      }
     }
-    RETURN
-        [ members :=            members
-        , groupmemberships :=   groupmemberships
-        ];
+    RETURN CELL [ members ];
   }
 
   RECORD FUNCTION ReadContentType(OBJECT ctype)
@@ -520,7 +508,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.line := ctype->linenum;
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.cloneoncopy := set_cloneoncopy;
     INSERT CELL members := newmembers.members INTO typeinfo;
 
@@ -546,7 +533,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
       typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
 
-      typeinfo.groupmemberships := [[ line := 0, col := 0, grouptype := ctype->GetAttribute("ingroup") ?? "http://www.webhare.net/xmlns/publisher/generalwidgets" ]];
+      typeinfo.ingroup := ctype->GetAttribute("ingroup");
     }
 
     RETURN typeinfo;

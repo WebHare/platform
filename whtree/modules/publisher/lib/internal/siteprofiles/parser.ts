@@ -504,7 +504,7 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
       dynamicexecution: null,
       filetype: null,
       foldertype: null,
-      groupmemberships: [],
+      ingroup: "",
       id: 0,
       isdevelopertype: false,
       isembeddedobjecttype: false,

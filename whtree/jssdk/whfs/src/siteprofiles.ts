@@ -78,8 +78,8 @@ export interface CSPContentType {
     searchcontentprovider: string;
   } | null;
   foldertype: unknown; //TODO: specify
-  groupmemberships: [];
   id: number;
+  ingroup: string;
   isdevelopertype: boolean;
   isembeddedobjecttype: boolean;
   isrtdtype: boolean;

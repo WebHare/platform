@@ -289,3 +289,5 @@ PUBLIC CONSTANT INTEGER whconstant_formstatus_nolongervalid :=       4; // no-lo
 PUBLIC CONSTANT INTEGER whconstant_formstatus_pendingconfirmation := 5; // pending result, waiting on email confirmation
 
 PUBLIC CONSTANT STRING whconstant_consilio_default_suffix_mask := "-*";
+
+PUBLIC CONSTANT STRING whconstant_defaultwidgetgroup := "http://www.webhare.net/xmlns/publisher/generalwidgets";
