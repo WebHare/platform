@@ -28,7 +28,7 @@ PUBLIC STATIC OBJECTTYPE FormGroup EXTEND FormComponentExtensionBase
           SELECT rowkey := containertag || "." || tag
                , title
             FROM FixupBlockStyleTitles(settings.structure.blockstyles)
-           WHERE toclevel > 0;
+           WHERE containertag IN ["h1","h2","h3","h4","h5","h6"];
     }
     // Block style pulldown is only visible if there are any options
     ^blockstyle->visible := RecordExists(^blockstyle->options);

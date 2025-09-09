@@ -255,7 +255,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell(string) blockstyles.tabledefaultblockstyle Default blockstyle in table cells (for table styles)
       @cell(string array) blockstyles.tableresizing Allowed table resizing operations, [ "all", "rows", "columns", "table" ]
       @cell(boolean) blockstyles.split
-      @cell(integer) blockstyles.toclevel Level in toc
       @cell(boolean) blockstyles.hidden
       @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
       @cell defaultblockstyle Name of default block type
@@ -331,7 +330,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , allowstyles :=       DEFAULT STRING ARRAY
                     , allowwidgets :=      TRUE
                     , split :=             FALSE
-                    , toclevel :=          0
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
@@ -360,11 +358,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
           ELSE
             style.containertag := "p";
         }
-
-        IF(styleblock->HasAttribute("toclevel"))
-          style.toclevel := ParseXSInt(styleblock->HasAttribute("toclevel"));
-        ELSE
-          style.toclevel := SearchElement( ["h1","h2","h3","h4","h5","h6"], style.containertag) + 1; //maps not-found to 0, the rest to 1-6
       }
       CASE "tablestyle"
       {
