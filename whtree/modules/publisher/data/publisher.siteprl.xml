@@ -159,11 +159,6 @@
     <extendproperties extension="#photoalbum_settings" />
   </foldertype>
 
-  <foldertype namespace="http://www.webhare.net/xmlns/publisher/designfilessite"
-              icon="tollium:folders/system"
-              indexfile="none"
-              tid="publisher:foldertypes.designfilessite" />
-
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/tagfolder"
               icon="tollium:folders/tag"
               indexfile="none"
