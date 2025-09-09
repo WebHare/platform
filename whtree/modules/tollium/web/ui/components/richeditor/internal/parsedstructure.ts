@@ -5,7 +5,6 @@ export interface BlockStyle {
   tag: string;
   istable: boolean;
   tabledefaultblockstyle: BlockStyle | null;
-  tableresizing: Array<"all" | "rows" | "columns" | "table">;
   islist: boolean;
   listtype: "unordered" | "ordered" | "";
   importfrom: string[];
@@ -25,7 +24,6 @@ export type ExternalBlockStyle = {
   title?: string;
 } & ({ //table specific fields
   type: "table";
-  tableresizing?: Array<"all" | "rows" | "columns" | "table">;
   allowstyles?: string[];
   allowwidgets?: boolean;
   tabledefaultblockstyle: string;
@@ -115,7 +113,6 @@ export class ParsedStructure {
         tag: inblockstyle.tag,
         istable: inblockstyle.type === "table",
         tabledefaultblockstyle: null,
-        tableresizing: [],
         islist: ['ul', 'ol'].includes(containertag),
         listtype: containertag === 'ul' ? 'unordered' : containertag === 'ol' ? 'ordered' : '',
         importfrom: [],
@@ -127,13 +124,6 @@ export class ParsedStructure {
       if (inblockstyle.importfrom)
         style.importfrom.push(...inblockstyle.importfrom);
 
-      if (inblockstyle.type === "table") {
-        if (!inblockstyle.tableresizing || inblockstyle.tableresizing.includes("all"))
-          style.tableresizing = ["all"];
-        else // using Set to eliminate duplicates
-          style.tableresizing = Array.from(
-            new Set(inblockstyle.tableresizing.filter(val => ["rows", "columns", "table"].includes(val))));
-      }
       this.blockstyles.push(style);
     }
 

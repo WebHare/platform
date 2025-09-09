@@ -253,7 +253,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell(string) blockstyles.title Name of this style
       @cell(string array) blockstyles.textstyles Allowed text styles, subset of [ "b", "i", "u", "a-href", "strike", "sub", "sup", "img" ]
       @cell(string) blockstyles.tabledefaultblockstyle Default blockstyle in table cells (for table styles)
-      @cell(string array) blockstyles.tableresizing Allowed table resizing operations, [ "all", "rows", "columns", "table" ]
       @cell(boolean) blockstyles.split
       @cell(boolean) blockstyles.hidden
       @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
@@ -326,7 +325,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , title :=             styleblock->GetAttribute("title")
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
-                    , tableresizing :=     DEFAULT STRING ARRAY
                     , allowstyles :=       DEFAULT STRING ARRAY
                     , allowwidgets :=      TRUE
                     , split :=             FALSE
@@ -366,14 +364,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
         style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
         style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
-
-        STRING ARRAY resizing := Tokenize(styleblock->GetAttribute("resizing"), " ");
-        IF ("all" IN resizing OR NOT styleblock->HasAttribute("resizing"))
-          style.tableresizing := [ "all" ];
-        ELSE
-          style.tableresizing := SELECT AS STRING ARRAY DISTINCT val
-                                   FROM ToRecordArray(resizing, "val")
-                                  WHERE val IN [ "rows", "columns", "table" ];
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
         {

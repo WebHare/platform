@@ -259,34 +259,6 @@
         <xs:documentation>Set to 'false' to block widgets</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="resizing" default="all">
-      <xs:annotation>
-        <xs:documentation>
-          Either "all" or zero or more of "rows", "columns", "table". "table" only has effect when combined with "rows" or
-          "columns".
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:union>
-          <xs:simpleType>
-            <xs:restriction base="xs:string">
-              <xs:enumeration value="all" />
-            </xs:restriction>
-          </xs:simpleType>
-          <xs:simpleType>
-            <xs:list>
-              <xs:simpleType>
-                <xs:restriction base="xs:string">
-                  <xs:enumeration value="rows" />
-                  <xs:enumeration value="columns" />
-                  <xs:enumeration value="table" />
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:list>
-          </xs:simpleType>
-        </xs:union>
-      </xs:simpleType>
-    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="CellStyle">
