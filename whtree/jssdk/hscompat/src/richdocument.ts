@@ -225,9 +225,7 @@ class HSRTDImporter {
     for (let child = el.firstChild; child; child = child!.nextSibling) {
       if (!isElement(child))
         await this.processInlineItem(child, {}, anonParagraph.items);
-      else if (!(rtdListTypes as readonly string[]).includes(child.tagName.toLowerCase())) {
-        await this.processInlineItems(child, {}, anonParagraph.items);
-      } else {
+      else if ((rtdListTypes as readonly string[]).includes(child.tagName.toLowerCase())) {
         const classNames = parseXSList(child.getAttribute("class"));
         const setClass = classNames.length && isValidRTDClassName(classNames[0]) ? classNames[0] : '';
         const tag = child.tagName.toLowerCase() as typeof rtdListTypes[number];
@@ -236,6 +234,8 @@ class HSRTDImporter {
           ...(setClass && setClass !== rtdBlockDefaultClass[tag] ? { className: setClass } : {}),
           listItems: await this.getListItems(child)
         });
+      } else {
+        await this.processInlineItem(child, {}, anonParagraph.items);
       }
     }
     return [anonParagraph, ...lists];

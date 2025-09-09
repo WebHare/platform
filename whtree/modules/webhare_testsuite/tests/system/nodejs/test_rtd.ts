@@ -27,6 +27,7 @@ async function verifySimpleRoundTrip(doc: RichTextDocument) {
   test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDIgnoreFilename });
 
   const hs = await exportAsHareScriptRTD(doc);
+  console.log(`hs`, await hs.htmltext.text());
   const doc2 = await buildRTDFromHareScriptRTD(hs);
   test.eq(doc.blocks, doc2.blocks, { onCompare: compareRDIgnoreFilename });
   return hs;
@@ -198,10 +199,16 @@ async function testBuilder() {
           "we have... ",
           { text: "all of them", bold: true, italic: true, underline: true, superScript: true, subScript: true, strikeThrough: true }
         ]
+      }, {
+        tag: "ul",
+        listItems: [
+          { li: [{ items: ["item", { text: "1", bold: true }] }] },
+          { li: [{ items: ["item 2"] }] },
+        ]
       }
     ]);
 
-    test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p></body></html>`, await doc.__getRawHTML());
+    test.eq(`<html><body><p class="normal"><b>b</b><i>i</i><u>u</u><sup>sup</sup><sub>sub</sub><strike>strikeThrough</strike></p><p class="normal">we have... <i><b><u><strike><sub><sup>all of them</sup></sub></strike></u></b></i></p><ul class="unordered"><li>item<b>1</b></li><li>item 2</li></ul></body></html>`, await doc.__getRawHTML());
     await verifyRoundTrip(doc);
   }
 
