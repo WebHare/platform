@@ -85,7 +85,7 @@ $defs:
         type: string
       comment:
         type: string
-        description: "A developer's comment on this type. Not shown to non-prviileged WebHare users."
+        description: "A developer's comment on this type. Not shown to unprivileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/$defs/TypeMembers"
       constraints:
