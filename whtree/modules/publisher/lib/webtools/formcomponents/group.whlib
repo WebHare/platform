@@ -6,7 +6,7 @@
 LOADLIB "mod::publisher/lib/forms/components.whlib";
 LOADLIB "mod::publisher/lib/forms/editor.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
-
+LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
 
 PUBLIC STATIC OBJECTTYPE FormGroup EXTEND FormComponentExtensionBase
 <
@@ -24,13 +24,10 @@ PUBLIC STATIC OBJECTTYPE FormGroup EXTEND FormComponentExtensionBase
     RECORD settings := GetRTDSettingsForApplyTester(this->contexts->applytester);
     IF (RecordExists(settings) AND RecordExists(settings.structure))
     {
-      UPDATE settings.structure.blockstyles
-         SET title := GetTid("tollium:common.richstyles." || ToLowercase(tag))
-       WHERE title="" AND isbuiltin = TRUE;
       ^blockstyle->options :=
           SELECT rowkey := containertag || "." || tag
                , title
-            FROM settings.structure.blockstyles
+            FROM FixupBlockStyleTitles(settings.structure.blockstyles)
            WHERE toclevel > 0;
     }
     // Block style pulldown is only visible if there are any options
