@@ -1261,10 +1261,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
                 description="Extensions to strip from published-as-subfolder documents"
                 initialval=".rtd .docx .doc" />
       </node>
-      <node name="msword">
-        <string name="getpagelistpages"
-                description="Allows to override the pagelist provider GetPages for the builtin MSWord type." />
-      </node>
+      <obsoletenode name="msword" />
       <node name="autofileid">
         <string name="extensions" initialval="shtml" />
       </node>

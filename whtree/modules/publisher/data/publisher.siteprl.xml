@@ -184,7 +184,6 @@
             isacceptableindex="true"
             ispublishedassubdir="true"
             needstemplate="true"
-            pagelistprovider="mod::publisher/lib/internal/renderers/msword.whlib#MSWordPageListProvider"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.msword">
