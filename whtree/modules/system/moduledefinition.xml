@@ -1065,7 +1065,7 @@ Add the name of the type of data (for example "headerimages") or the purpose it 
         <d:documentation>If true, publish files in such a way that they capture subpaths.</d:documentation>
       </d:boolean>
       <d:boolean name="generatepreview">
-        <d:documentation>Generate widget preview for files of this type.</d:documentation>
+        <d:documentation>Generate widget preview for files of this type. This is basically an 'iswidgettype' flag currently as all and only widgets support previews</d:documentation>
       </d:boolean>
       <d:obsoletecolumn name="previewlibrary" />
       <d:obsoletecolumn name="previewobjectname" />

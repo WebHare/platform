@@ -528,7 +528,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       typeinfo.filetype.needstemplate := nodename!="widgettype";
       typeinfo.filetype.ispublishedassubdir := nodename!="widgettype";
       typeinfo.filetype.ispublishable := nodename!="widgettype" AND ParseXSBoolean(ctype->GetAttribute("ispublishable"));
-      typeinfo.filetype.generatepreview := nodename="widgettype" OR ParseXSBoolean(ctype->GetAttribute("generatepreview"));
+      typeinfo.filetype.generatepreview := nodename="widgettype";
 
       typeinfo.wittycomponent := this->ExpandWittyComponent(ctype, "wittycomponent");
       typeinfo.previewcomponent := this->ExpandWittyComponent(ctype, "previewcomponent");
