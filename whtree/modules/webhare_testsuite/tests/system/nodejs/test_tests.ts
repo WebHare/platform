@@ -68,6 +68,7 @@ async function testChecks() {
 
   //test overriding comparison
   test.eq({ x: 4, y: 5 }, { x: 3, y: 5 }, { onCompare: (expect, actual) => expect === 4 && actual === 3 ? true : undefined });
+  test.eq({ a: [{ b: 2 }] }, { a: [{ b: 1 }] }, { onCompare: (expect, actual, path) => expect === 2 && actual === 1 ? (test.eq(".a[0].b", path), true) : undefined });
   test.throws(/Custom comparison/, () => test.eq({ x: 4, y: 5 }, { x: 3, y: 5 }, { onCompare: (expect, actual) => expect === 4 && actual === 3 ? false : undefined }));
 
   const x_ab = { cellA: "A", cellB: "B" };
@@ -106,7 +107,22 @@ async function testChecks() {
     test.throws(/Mismatched value at root.b/, () => test.eqPartial({ a: 6, b: undefined }, myVar), "b is present and defined, so undefined should not match it");
 
     test.throws(/^Key unexpectedly exists: b$/, () => test.eq({ a: 6 }, myVar), "b is present so should be marked as extra property");
+    test.eq({ a: 6 }, myVar, {
+      onCompare: (expect, actual, path) => {
+        if (path === ".b" && expect === undefined && actual === '2')
+          return true; //we explicitly accept 'b' unexpectedly present
+      }
+    });
+    test.eq(myVar, { a: 6 }, {
+      onCompare: (expect, actual, path) => {
+        if (path === ".b" && expect === '2' && actual === undefined)
+          return true; //we explicitly accept 'b' missing
+      }
+    });
+
     test.throws(/^Expected type: undefined actual type: string at .b$/, () => test.eq({ a: 6, b: undefined }, myVar), "b is set and not undefined, so should be treated as mismatch");
+    test.eq({ a: 6, b: "2" }, myVar);
+
     test.eq({ a: 6, b: "2" }, myVar);
   }
 

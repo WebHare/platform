@@ -51,9 +51,10 @@ export type TestOptions = {
   /** Custom comparison function. This function will be fed all values before standard comparisons run
    * @param expect - The expected value
    * @param actual - The actual value
+   * @param path - Path to the value being compared
    * @returns True if the values match, false if they don't - undefined if onCompare has no opinion
    */
-  onCompare?: (expect: unknown, actual: unknown) => boolean | undefined;
+  onCompare?: (expect: unknown, actual: unknown, path: string) => boolean | undefined;
   annotation?: Annotation;
 };
 
@@ -181,14 +182,21 @@ function testSet(expect: Set<unknown>, actual: unknown, path: string, options?: 
   }
 }
 
+function handleCustomCompare(expected: unknown, actual: unknown, path: string, options?: TestOptions): boolean {
+  if (!options?.onCompare)
+    return false; //handle it yourself
+
+  const result = options.onCompare(expected, actual, path);
+  if (result === true)
+    return true;
+  if (result === false)
+    throw new TestError(`Custom comparison failed for expected: ${expected} actual: ${actual}${path !== "" ? " at " + path : ""}`, options);
+  return false; //handle it yourself
+}
+
 function testDeepEq(expected: unknown, actual: unknown, path: string, options?: TestOptions) {
-  if (options?.onCompare) {
-    const result = options.onCompare(expected, actual);
-    if (result === true)
-      return;
-    if (result === false)
-      throw new TestError(`Custom comparison failed for expected: ${expected} actual: ${actual}${path !== "" ? " at " + path : ""}`, options);
-  }
+  if (handleCustomCompare(expected, actual, path, options))
+    return true;
 
   if (expected === actual)
     return;
@@ -257,6 +265,10 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, options?: 
     for (const key of expectedkeys) {
       if (!actualkeys.includes(key)) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (handleCustomCompare((expected as any)[key], (actual as any)[key], path + "." + key, options))
+          return true;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         if ((expected as any)[key] === undefined) // allow undefined to function as missing-property indicator too
           continue;
 
@@ -267,8 +279,13 @@ function testDeepEq(expected: unknown, actual: unknown, path: string, options?: 
       testDeepEq((expected as any)[key], (actual as any)[key] as any, path + "." + key, options);
     }
     for (const key of actualkeys) {
-      if (!expectedkeys.includes(key))
+      if (!expectedkeys.includes(key)) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (handleCustomCompare((expected as any)[key], (actual as any)[key], path + "." + key, options))
+          return true;
+
         throw new TestError("Key unexpectedly exists: " + key + (path !== "" ? " at " + path : ""), options);
+      }
     }
   }
 }
