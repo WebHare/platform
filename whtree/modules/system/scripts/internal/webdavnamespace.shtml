@@ -39,7 +39,7 @@ STRING call_method;
 STRING scriptnamespaceroot;
 STRING scripturl;
 
-BOOLEAN prop_displayname,      prop_name,            prop_ishidden,     prop_isreadonly,
+BOOLEAN prop_displayname,      prop_name,            prop_isreadonly,
         prop_creationdate,     prop_getlastmodified, prop_resourcetype, prop_getcontenttype,
         prop_getcontentlength, prop_getlock;
 
@@ -62,8 +62,6 @@ PUBLIC RECORD ARRAY FUNCTION GetDirList(OBJECT vfs, STRING basepath, BOOLEAN rec
                          ];
     IF (prop_name)
       INSERT CELL name := info.name INTO wdproperty;
-    IF (prop_ishidden)
-      INSERT CELL ishidden := FALSE/*info.hidden*/ INTO wdproperty;
     IF (prop_isreadonly)
       INSERT CELL isreadonly := NOT info.write INTO wdproperty;
     IF (prop_getcontentlength)
@@ -196,8 +194,8 @@ MACRO HandleWebdavRequest()
       INTEGER capture := CreateStream();
       RedirectOutputTo(capture);
       WebDavBeginMultistatus();
-      WebDavDoProperties([name:="", href:=scripturl, iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,ishidden:=false,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
-      WebDavDoProperties([name:="webdav", href:=scripturl || "webdav/", iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,ishidden:=false,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
+      WebDavDoProperties([name:="", href:=scripturl, iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
+      WebDavDoProperties([name:="webdav", href:=scripturl || "webdav/", iscollection:=true,length:=0, creationdate:=default datetime, lastmodifieddate:=default datetime,isreadonly:=true,getlock:=true,getcontenttype:=true,resourcetype:=true]);
       WebDavEndMultistatus();
       SendResponse(headers, MakeBlobFromStream(capture));
       RETURN;
@@ -522,62 +520,15 @@ MACRO HandleWebdavRequest()
     CASE "PROPFIND"
     {
       BLOB body := GetrequestBody();
-
-      /*IF (length(body) > 0)
-      {
-          INTEGER xmldoc := ParseXML(body);
-          AddXPathNamespace(xmldoc, 'D', 'DAV:');
-
-          IF (RecordExists(SelectXML(xmldoc,'//D:allprop')))
-          {
-            prop_displayname := TRUE;
-            prop_name := TRUE;
-            prop_ishidden := TRUE;
-            prop_isreadonly := TRUE;
-            prop_creationdate := TRUE;
-            prop_getlastmodified := TRUE;
-            prop_resourcetype := TRUE;
-            prop_getcontenttype := TRUE;
-            prop_getcontentlength := TRUE;
-            prop_getlock := TRUE;
-          }
-          ELSE
-          {
-            IF (RecordExists(SelectXML(xmldoc,'//D:displayname')))
-              prop_displayname := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:name')))
-              prop_name := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:ishidden')))
-              prop_ishidden := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:isreadonly')))
-              prop_isreadonly := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:creationdate')))
-              prop_creationdate := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:getlastmodified')))
-              prop_getlastmodified := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:resourcetype')))
-              prop_resourcetype := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:getcontenttype')))
-              prop_getcontenttype := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:getcontentlength')))
-              prop_getcontentlength := TRUE;
-            IF (RecordExists(SelectXML(xmldoc,'//D:supportedlock')))
-              prop_getlock := TRUE;
-          }
-      }
-      ELSE*/
-      {
-        prop_displayname := TRUE;
-        prop_name := TRUE;
-        prop_ishidden := TRUE;
-        prop_isreadonly := TRUE;
-        prop_creationdate := TRUE;
-        prop_getlastmodified := TRUE;
-        prop_resourcetype := TRUE;
-        prop_getcontenttype := TRUE;
-        prop_getcontentlength := TRUE;
-        prop_getlock := TRUE;
-      }
+      prop_displayname := TRUE;
+      prop_name := TRUE;
+      prop_isreadonly := TRUE;
+      prop_creationdate := TRUE;
+      prop_getlastmodified := TRUE;
+      prop_resourcetype := TRUE;
+      prop_getcontenttype := TRUE;
+      prop_getcontentlength := TRUE;
+      prop_getlock := TRUE;
 
       //ADDME: Reject Infinity on root (with 403?)
 
@@ -617,8 +568,6 @@ MACRO HandleWebdavRequest()
 
       IF (prop_name)
         INSERT CELL name := rootinfo.name INTO wdproperty;
-      IF (prop_ishidden)
-        INSERT CELL ishidden := FALSE/*rootinfo.hidden*/ INTO wdproperty;
       IF (prop_isreadonly)
         INSERT CELL isreadonly := NOT rootinfo.write INTO wdproperty;
       IF (prop_getcontentlength)

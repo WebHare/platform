@@ -698,7 +698,6 @@
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="icon" type="xs:string" />  <!-- Pre-4.28, deprecate -->
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" />  <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
-    <xs:attribute name="isdevelopertype" type="xs:boolean" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>
 
@@ -788,7 +787,6 @@
         <xs:attribute name="indexfile" type="FolderIndexFile" />
         <xs:attribute name="indextype" type="xs:string" />
         <xs:attribute name="protectindexfile" type="xs:boolean" />
-        <xs:attribute name="ishidden" type="xs:boolean" />
         <xs:attributeGroup ref="IndexTypeAttrs" />
       </xs:extension>
     </xs:complexContent>

@@ -64,7 +64,6 @@ PUBLIC RECORD FUNCTION GetCachedSiteProfiles()
     @cell(string array) return.extensions
     @cell(string) return.searchprovider
     @cell(boolean) return.blobiscontent
-    @cell(boolean) return.ishidden
     @cell(boolean) return.capturesubpaths
     @cell(string) return.siteprofile Siteprofile that defines this content type
     @cell(integer) return.line Line on which this content type is defined
@@ -129,7 +128,6 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , searchcontentprovider := RecordExists(type.filetype) ? type.filetype.searchcontentprovider : ""
          , indexversion := RecordExists(type.filetype) ? type.filetype.indexversion : ""
          , blobiscontent := RecordExists(type.filetype) AND type.filetype.blobiscontent
-         , ishidden := RecordExists(type.foldertype) AND type.foldertype.ishidden
          , capturesubpaths := RecordExists(type.filetype) AND type.filetype.capturesubpaths
          , siteprofile := ismissing ? "" : type.siteprofile
          , line := ismissing ? 0 : type.line

@@ -196,7 +196,7 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
     ELSE IF(filetype->GetAttribute("kind") = "virtualfile")
       impliedattributes := ["needstemplate", "ispublishable", "ispublishedassubdir", "isacceptableindex"];
 
-    STRING ARRAY optionalattributes := ["needstemplate","needsprofile","requirescontent","isdevelopertype","isacceptableindex","ispublishedassubdir","ispublishable","capturesubpaths"];
+    STRING ARRAY optionalattributes := ["needstemplate","needsprofile","requirescontent","isacceptableindex","ispublishedassubdir","ispublishable","capturesubpaths"];
     IF(filetype->GetAttribute("kind") != "") //you need to specify either kind or blobiscontent
       INSERT "blobiscontent" INTO optionalattributes AT END;
 

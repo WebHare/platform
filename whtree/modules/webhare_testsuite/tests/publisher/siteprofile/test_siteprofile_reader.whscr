@@ -41,7 +41,6 @@ MACRO TestWHFSType()
   TestEq(wordtype, DescribeContentTypeById(4, [isfolder := FALSE]));
   TestEQ(TRUE, wordtype.blobiscontent);
   TestEq("tollium:files/application_msword", wordtype.tolliumicon);
-  TestEQ(FALSE, wordtype.ishidden);
   TestEq(DEFAULT RECORD, wordtype.dynamicexecution);
   TestEq(DEFAULT RECORD, DescribeContentTypeById(4, [isfolder := TRUE]));
 
@@ -58,7 +57,6 @@ MACRO TestWHFSType()
 
   RECORD systemfolder := DescribeContentTypeById(2, [isfolder := TRUE]);
   TestEq(2, systemfolder.id);
-  TestEQ(TRUE, systemfolder.ishidden);
   TestEq("http://www.webhare.net/xmlns/publisher/systemfolder", systemfolder.namespace);
 
   RECORD unknownfile := DescribeContentTypeById(0, [isfolder := FALSE]);
@@ -77,7 +75,6 @@ MACRO TestWHFSType()
   TestEq(999999999, unrecognized.id);
   TestEq(":#999999999", unrecognized.title);
   TestEq("tollium:folders/normal", unrecognized.tolliumicon);
-  TestEQ(FALSE, unrecognized.ishidden);
   TestEq("", unrecognized.siteprofile);
   TestEq(0, unrecognized.line);
 

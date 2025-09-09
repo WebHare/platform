@@ -292,7 +292,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
-    ctype.isdevelopertype := ParseXSBoolean(ftype->GetAttribute("isdevelopertype"));
     this->AddIcon(ftype, ctype.tolliumicon);
 
     OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
@@ -374,7 +373,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     //Now construct the final folder type information record
     ctype.foldertype := GetBaseFolderTypeRecord();
     ctype.foldertype.protectindexfile := ParseXSBoolean(ftype->GetAttribute("protectindexfile"));
-    ctype.foldertype.ishidden := ParseXSBoolean(ftype->GetAttribute("ishidden"));
 
     IF (ftype->HasAttribute('indextype'))
     {

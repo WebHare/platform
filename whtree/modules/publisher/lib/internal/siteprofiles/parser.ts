@@ -506,7 +506,6 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
       foldertype: null,
       ingroup: "",
       id: 0,
-      isdevelopertype: false,
       isembeddedobjecttype: false,
       isrtdtype: false,
       line: 0, //TODO need to use the more sophisticated yaml parser for this

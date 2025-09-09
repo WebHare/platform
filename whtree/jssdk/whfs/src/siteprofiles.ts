@@ -80,7 +80,6 @@ export interface CSPContentType {
   foldertype: unknown; //TODO: specify
   id: number;
   ingroup: string;
-  isdevelopertype: boolean;
   isembeddedobjecttype: boolean;
   isrtdtype: boolean;
   line: number;

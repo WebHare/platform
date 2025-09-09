@@ -19,6 +19,7 @@ LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/internal/support.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC STATIC OBJECTTYPE PropertyEditorException EXTEND Exception
 <
@@ -371,7 +372,7 @@ PUBLIC RECORD ARRAY FUNCTION GetFolderTypes(OBJECT applytester, STRING languagec
                                    , title
                                    , namespace
                                    , tolliumicon
-                                   , isdevelopertype
+                                   , isdevelopertype := namespace IN VAR whconstant_developertypes
                                    , __visible := FALSE
                                    , newonlytemplate := FALSE
                                 FROM csp.contenttypes
@@ -403,7 +404,7 @@ PUBLIC RECORD ARRAY FUNCTION GetFileTypes(OBJECT applytester, STRING languagecod
                                  , title
                                  , namespace
                                  , tolliumicon
-                                 , isdevelopertype
+                                 , isdevelopertype := namespace IN VAR whconstant_developertypes
                                  , iswidgettype := isembeddedobjecttype
                                  , requirescontent := filetype.requirescontent
                                  , __visible := FALSE

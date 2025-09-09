@@ -684,7 +684,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
              , icon := ^typeslist->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
              , namespace
           FROM this->contexts->^__publisher_searchfilters->whfstypes
-         WHERE ^showall->value OR (NOT ishidden AND NOT isdevelopertype);
+         WHERE ^showall->value OR (namespace NOT IN VAR whconstant_hiddentypes AND namespace NOT IN VAR whconstant_developertypes);
 
     FOREVERY (RECORD row FROM rows)
     {

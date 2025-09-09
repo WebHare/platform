@@ -32,7 +32,6 @@ PUBLIC MACRO WebDavEndMultistatus()
  * @record item.length Length of this item
  * @record item.creationdate Creation date of this item
  * @record item.lastmodifieddate Modification date of this item
-   @record item.ishidden True if this item is supposed to be  hidden
    @record item.isreadonly True if this item is supposed to be read only
  */
 PUBLIC MACRO WebDavDoProperties(RECORD item)
@@ -49,8 +48,6 @@ PUBLIC MACRO WebDavDoProperties(RECORD item)
     print('      <D:displayname>' || EncodeValue(item.name) || '</D:displayname>\n');
   IF (CellExists(item,"name"))
     print('      <D:name>' || EncodeValue(item.name) || '</D:name>\n');
-  IF (CellExists(item,"ishidden"))
-    print('      <D:ishidden>' || (item.ishidden ? 'true' : 'false') || '</D:ishidden>\n');
   IF (CellExists(item,"isreadonly"))
     print('      <D:isreadonly>' || (item.isreadonly ? 'true' : 'false') || '</D:isreadonly>\n');
   IF (CellExists(item,"creationdate") AND item.creationdate!=DEFAULT datetime)
