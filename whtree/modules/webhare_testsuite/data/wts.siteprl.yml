@@ -1,11 +1,11 @@
 typeGroup: global
 types:
-  genericTestType: # webhare_testsuite:global.genericTestType
+  generic_test_type: # webhare_testsuite:global.generic_test_type
     #  The general idea:
-    #   - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
+    #   - A global name (scopedtype) of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
     #   - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
-    #   - This import: `import { globalTypes } from "wh:whfs/webhare_testsuite"`
-    #   - To get: `const mydata = globalTypes.genericTestType.get(fileId)`
+    #   - This import: `import { whfsType } from "@webhare/whfs"`
+    #   - To get: `const mydata = whfsType("webhare_testsuite:global.generic_test_type").get(fileId)`
     title: WTS Generic
     members:
       str:
@@ -17,7 +17,10 @@ types:
       blub:
         type: file
       blubImg:
-        type: image
+        type: file
+        constraints:
+          accept:
+            - bitmap
       price:
         type: money
       rich:
@@ -39,6 +42,8 @@ types:
         type: url
       aRecord:
         type: hson
+      aDoc:
+        type: composedDocument
       aTypedRecord:
         type: record
         members:

@@ -32,6 +32,7 @@ const subsystems = {
       //config.base if you're only here to update eg. the backend URL or module map
       base: { generate: ["config"] },
       extracts: { generate: ["config", "extracts"] },
+      whfs: { generate: ["whfs"] },
       wrd: { generate: ["wrd"] },
       db: { generate: ["db"] },
       schemas: { generate: ["schema"] },

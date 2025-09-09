@@ -2707,10 +2707,10 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.Image]: WRDDBImageValue<Required>;
   [WRDAttributeTypeId.File]: WRDDBFileValue<Required>;
   [WRDAttributeTypeId.Money]: WRDDBMoneyValue;
-  [WRDAttributeTypeId.RichDocument]: WRDDBRichDocumentValue;
+  [WRDAttributeTypeId.RichTextDocument]: WRDDBRichDocumentValue;
   [WRDAttributeTypeId.Integer64]: WRDDBInteger64Value;
-  [WRDAttributeTypeId.WHFSInstance]: WRDDBWHFSInstanceValue;
-  [WRDAttributeTypeId.WHFSIntExtLink]: WRDDBWHFSIntextlinkValue;
+  [WRDAttributeTypeId.Instance]: WRDDBWHFSInstanceValue;
+  [WRDAttributeTypeId.IntExtLink]: WRDDBWHFSIntextlinkValue;
   [WRDAttributeTypeId.HSON]: WRDDBRecordValue;
   [WRDAttributeTypeId.PaymentProvider]: WRDDBPaymentProviderValue;
   [WRDAttributeTypeId.Payment]: WRDDBPaymentValue;
@@ -2773,10 +2773,10 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.Image: return new WRDDBImageValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.File: return new WRDDBFileValue<T["__required"]>(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.RichDocument: return new WRDDBRichDocumentValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.RichTextDocument: return new WRDDBRichDocumentValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.WHFSInstance: return new WRDDBWHFSInstanceValue(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.WHFSIntExtLink: return new WRDDBWHFSIntextlinkValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Instance: return new WRDDBWHFSInstanceValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.IntExtLink: return new WRDDBWHFSIntextlinkValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.HSON: return new WRDDBRecordValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.PaymentProvider: return new WRDDBPaymentProviderValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Payment: return new WRDDBPaymentValue(type, attrinfo) as AccessorType<T>;

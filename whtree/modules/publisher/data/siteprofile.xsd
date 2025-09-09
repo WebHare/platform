@@ -611,7 +611,6 @@
           <xs:element name="stringarray" type="SimpleMember" />
           <xs:element name="richdocument" type="SimpleMember" />
           <xs:element name="composeddocument" type="SimpleMember" />
-          <xs:element name="formcondition" type="SimpleMember" />
           <xs:element name="intextlink" type="SimpleMember" />
           <xs:element name="instance" type="SimpleMember" />
           <xs:element name="url" type="SimpleMember" />
@@ -699,7 +698,6 @@
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="icon" type="xs:string" />  <!-- Pre-4.28, deprecate -->
     <xs:attribute name="tolliumicon" type="sc:ImageSrc" />  <!-- TODO type="sc:ImageSrc" once everyone is 4.30 and we can start deprecating tolliumicon -->
-    <xs:attribute name="webhare_builtintypeid" type="xs:integer" />
     <xs:attribute name="isdevelopertype" type="xs:boolean" />
     <xs:attribute name="searchcontentprovider" type="ModuleNamespacedName" />
   </xs:complexType>

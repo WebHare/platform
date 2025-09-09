@@ -102,7 +102,7 @@ ASYNC MACRO TestMetaTab()
       , title := "My document"
       , publish := TRUE
       ]);
-  testfile->SetInstanceData("webhare_testsuite:baseTest.baseTestProps",
+  testfile->SetInstanceData("webhare_testsuite:base_test.base_test_props",
     [ number_field := 42,
       wh_user := testfw->GetUserObject("sysop")->entity->guid,
       multi_field := [ num1 := 10, num2 := 20 ]
@@ -128,8 +128,8 @@ ASYNC MACRO TestMetaTab()
   TestEq(1,Length(autosaves));
 
   INTEGER currentdraft := autosaves[0].id;
-  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
-  TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+  TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   //Make a change, not saving or publishing but checking through My changes
   AWAIT TestMetaFields(FALSE, FALSE);
@@ -137,9 +137,9 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
-    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+    TestEqMembers([ number_field := 44 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
   //Make a second change, not saving or publishing but checking through My changes
@@ -148,9 +148,9 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(currentdraft), "*");
-    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 43 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(currentdraft), "*");
+    TestEqMembers([ number_field := 42 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
@@ -158,7 +158,7 @@ ASYNC MACRO TestMetaTab()
   autosaves := ListUserWHFSDrafts(GetEffectiveUserID());
   TestEq(RECORD[], autosaves);
 
-  TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 
   //Make yet ANOTHER change
   AWAIT TestMetaFields(FALSE, FALSE);
@@ -167,8 +167,8 @@ ASYNC MACRO TestMetaTab()
     RECORD mychanges := ExecuteWindowOpenAction(TT("previewcurrentcontent"));
     RECORD previewinfo := ParsePreviewURL(mychanges.url);
 
-    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(previewinfo.id), "*");
-    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+    TestEqMembers([ number_field := 46 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(previewinfo.id), "*");
+    TestEqMembers([ number_field := 45 ], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
   }
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
@@ -180,7 +180,7 @@ ASYNC MACRO TestMetaTab()
   AWAIT TestMetaFields(FALSE, TRUE);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
-  TestEqMembers([ number_field := 47], OpenWHFSType("webhare_testsuite:baseTest.baseTestProps")->GetInstanceData(testfile->id), "*");
+  TestEqMembers([ number_field := 47], OpenWHFSType("webhare_testsuite:base_test.base_test_props")->GetInstanceData(testfile->id), "*");
 }
 
 ASYNC MACRO TestRevert()

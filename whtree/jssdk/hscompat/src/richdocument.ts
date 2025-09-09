@@ -5,13 +5,11 @@ import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
 import { Node, type Element } from "@xmldom/xmldom";
 import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
-import type { RecursiveReadonly } from "@webhare/js-api-tools";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
 import type { Rotation } from "@webhare/services/src/descriptor";
+import { ComposedDocument } from "@webhare/services/src/composeddocument";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
-
-type ReadonlyWidget = Omit<Readonly<WHFSInstance>, "export">;
 
 export type HareScriptRTD = {
   htmltext: WebHareBlob;
@@ -45,7 +43,7 @@ function isElement(node: Node): node is Element {
   return node.nodeType === Node.ELEMENT_NODE;
 }
 
-function isSameLink(lhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>, rhs: RecursiveReadonly<{ link?: IntExtLink; target?: string }>): boolean {
+function isSameLink(lhs: { link?: IntExtLink; target?: string }, rhs: { link?: IntExtLink; target?: string }): boolean {
   if (!lhs.link)
     return rhs.link ? false : true;
   if (!rhs.link)
@@ -53,8 +51,8 @@ function isSameLink(lhs: RecursiveReadonly<{ link?: IntExtLink; target?: string 
   return lhs.target === rhs.target && IntExtLink.isEqual(lhs.link, rhs.link);
 }
 
-function groupByLink(items: RecursiveReadonly<RTDInlineItems>): ReadonlyArray<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> {
-  const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: Array<RecursiveReadonly<RTDInlineItem>> }> = [];
+function groupByLink(items: RTDInlineItems): Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> {
+  const blocks: Array<(RTDBaseLink<"inMemory"> | { link?: never }) & { items: RTDInlineItem[] }> = [];
   for (const item of items) {
     if (blocks.length && isSameLink(blocks.at(-1)!, item)) {
       blocks.at(-1)!.items.push(item);
@@ -76,8 +74,8 @@ async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], dat
   const outdata: Record<string, unknown> = {};
   for (const member of members) {
     if (member.name in data) {
-      //We hope to receive RichDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
-      if (member.type === "richDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
+      //We hope to receive RichTextDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
+      if (member.type === "richTextDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
         outdata[member.name] = await buildRTDFromHareScriptRTD(data[member.name] as HareScriptRTD);
       } else {
         outdata[member.name] = data[member.name];
@@ -124,22 +122,20 @@ function exportHSEmbeddedResource(resource: ResourceDescriptor, contentid: strin
 class HSRTDImporter {
   outdoc = new RichTextDocument;
 
-  constructor(private inrtd: HareScriptRTD) {
+  constructor(private inrtd: ComposedDocument) {
 
   }
 
   async reconstructWidget(node: Element): Promise<WHFSInstance | null> {
-    const matchinginstance = this.inrtd.instances.find(i => i.instanceid === node.getAttribute("data-instanceid"));
-    if (!matchinginstance)
+    const instanceid = node.getAttribute("data-instanceid");
+    if (!instanceid)
       return null;
 
-    const typeinfo = await describeWHFSType(matchinginstance.data.whfstype, { allowMissing: true });
-    if (!typeinfo)
-      return null; //it must have existed, how can we otherwise have imported it ?
+    const widget = this.inrtd.instances.get(instanceid);
+    if (!widget)
+      return null;
 
-    const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, matchinginstance.data);
-    const widget = await buildWHFSInstance({ ...setdata, whfsType: matchinginstance.data.whfstype });
-    this.outdoc.__hintInstanceId(widget, matchinginstance.instanceid);
+    this.outdoc.__hintInstanceId(widget, instanceid);
     return widget;
   }
 
@@ -159,9 +155,9 @@ class HSRTDImporter {
         const richdoclinkmatch = href?.match(/^x-richdoclink:([^?#/]+)(.*)$/);
         if (richdoclinkmatch) {
           const linkid = richdoclinkmatch[1];
-          const matchinglink = this.inrtd.links.find(l => l.tag === linkid);
+          const matchinglink = this.inrtd.links.get(linkid);
           if (matchinglink)
-            link = new IntExtLink(matchinglink.linkref, { append: richdoclinkmatch[2] });
+            link = new IntExtLink(matchinglink, { append: richdoclinkmatch[2] });
         } else if (href) { //assume an external link
           link = new IntExtLink(href);
         }
@@ -207,11 +203,11 @@ class HSRTDImporter {
       outImg = { ...baseattributes, externalImage: img };
     } else {
       const contentid = img.substring(4);
-      const matchingimage = this.inrtd.embedded.find(i => i.contentid === contentid);
+      const matchingimage = this.inrtd.embedded.get(contentid);
       if (!matchingimage)
         throw new Error("Inline image not found, contentid: " + contentid);
 
-      outImg = { ...baseattributes, image: importHSEmbeddedResource(matchingimage) };
+      outImg = { ...baseattributes, image: matchingimage };
     }
     outlist.push({ ...outImg, ...state });
   }
@@ -298,10 +294,9 @@ class HSRTDImporter {
 }
 
 
-
-export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
+export async function buildRTDFromComposedDocument(rtd: ComposedDocument): Promise<RichTextDocument> {
   const importer = new HSRTDImporter(rtd);
-  let text = await rtd.htmltext.text();
+  let text = await rtd.text.text();
 
   if (!text.startsWith("<html"))
     text = `<html><body>${text}</body></html>`; //If it doesn't start with <, we assume it's just a text block
@@ -312,41 +307,104 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
     await importer.outdoc.addBlocks(await importer.parseBlocks(body));
   }
   return importer.outdoc;
+
+}
+
+export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<RichTextDocument> {
+  const cdoc = new ComposedDocument("platform:richtextdocument", rtd.htmltext);
+  for (const inst of rtd.instances) {
+    const typeinfo = await describeWHFSType(inst.data.whfstype, { allowMissing: true });
+    if (!typeinfo)
+      continue;
+
+    const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, inst.data);
+    const widget = await buildWHFSInstance({ ...setdata, whfsType: inst.data.whfstype });
+    cdoc.instances.set(inst.instanceid, widget);
+  }
+
+  for (const link of rtd.links)
+    cdoc.links.set(link.tag, link.linkref);
+
+  for (const embed of rtd.embedded)
+    cdoc.embedded.set(embed.contentid, importHSEmbeddedResource(embed));
+
+  return buildRTDFromComposedDocument(cdoc);
+}
+
+/** Recursively replace embedded RTD values with further HareScript RTDs */
+async function expandRTDValues(data: Record<string, unknown>) {
+  const newobj: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(data)) {
+    if (value instanceof RichTextDocument) {
+      newobj[key] = await exportAsHareScriptRTD(value);
+    } else if (Array.isArray(value)) {
+      newobj[key] = [];
+      for (const item of value) {
+        if (item instanceof RichTextDocument) {
+          (newobj[key] as unknown[]).push(await exportAsHareScriptRTD(item));
+        } else {
+          (newobj[key] as unknown[]).push(item);
+        }
+      }
+    } else {
+      newobj[key] = value;
+    }
+  }
+  return newobj;
 }
 
 /** Build a HareScript record structure RTD. Necessary to communicate with HareScript (directly and through database storage)
  * @param rtd - RTD to export
+*/
+export async function exportAsHareScriptRTD(rtd: RichTextDocument): Promise<HareScriptRTD> {
+  const exp = await exportRTDAsComposedDocument(rtd, { recurse: false });
+
+  const instances: HareScriptRTD["instances"] = [];
+  for (const [instanceid, instance] of exp.instances) {
+    instances.push({
+      instanceid,
+      data: {
+        whfstype: instance.whfsType,
+        ...await expandRTDValues(instance.data)
+      }
+    });
+  }
+
+  const embedded: HareScriptRTD["embedded"] = [...exp.embedded.entries()].map(([contentid, val]) => exportHSEmbeddedResource(val, contentid));
+  const links: HareScriptRTD["links"] = [...exp.links.entries()].map(([tag, val]) => ({ linkref: val, tag }));
+
+  return {
+    htmltext: exp.text,
+    instances,
+    embedded,
+    links
+  };
+}
+
+/** Build a composed document structure RTD. Necessary to communicate with HareScript (directly and through database storage)
+ * @param rtd - RTD to export
  * @param options - Options
  * @param options.recurse - If true, recursively encode embedded widgets. This is usually needed when sending the data off to a HareScript API, but our encoders (WHFS/WRD) will recurse by themselves
 */
-export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<HareScriptRTD> {
-  const instances: HareScriptRTD["instances"] = [];
-  const embedded: HareScriptRTD["embedded"] = [];
-  const links: HareScriptRTD["links"] = [];
-  const instancemapping = (rtd as unknown as { __instanceIds: WeakMap<ReadonlyWidget, string> }).__instanceIds;
-  const imagemapping = (rtd as unknown as { __imageIds: WeakMap<RTDBaseInlineImageItem<"inMemory">, string> }).__imageIds;
-  const linkmapping = (rtd as unknown as { __linkIds: WeakMap<IntExtLink, string> }).__linkIds;
+export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recurse } = { recurse: true }): Promise<ComposedDocument> {
+  const instancemapping = rtd["__instanceIds"];
+  const imagemapping = rtd["__imageIds"];
+  const linkmapping = rtd["__linkIds"];
 
-  async function exportWidgetForHS(widget: ReadonlyWidget, block: boolean) {
+  const instances = new Map<string, WHFSInstance>();
+  const embedded = new Map<string, ResourceDescriptor>();
+  const links = new Map<string, number>();
+
+  async function exportWidgetForHS(widget: WHFSInstance, block: boolean) {
     const tag = block ? 'div' : 'span';
-    const data: Record<string, unknown> & { whfstype: string } = {
-      whfstype: widget.whfsType,
-      ...widget.data
-    };
-
-    if (recurse) //Encode embedded RTDs. Needed when serializing to HareScript the language, but not by TS instance codev
-      for (const [key, value] of Object.entries(data)) {
-        if (value instanceof RichTextDocument)
-          data[key] = await exportAsHareScriptRTD(value, { recurse });
-      }
-
     // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
     const instanceid = instancemapping.get(widget) || generateRandomId();
 
-    if (instances.find((i) => i.instanceid === instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
+    if (instances.has(instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
       throw new Error(`internal erro0- duplicate instanceid ${instanceid}`);
 
-    instances.push({ data, instanceid });
+    instances.set(instanceid, widget as WHFSInstance);
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
   }
 
@@ -362,20 +420,20 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
       link = image.externalImage;
     } else {
       const contentid = imagemapping.get(image) || generateRandomId();
-      embedded.push(exportHSEmbeddedResource(image.image, contentid));
+      embedded.set(contentid, image.image);
       link = `cid:${contentid}`;
     }
     return `<img class="${classes.join(" ")}" src="${encodeString(link, 'attribute')}" alt="${encodeString(image.alt || '', 'attribute')}"${image.width && image.height ? ` width="${image.width}" height="${image.height}"` : ''}/>`;
   }
 
-  async function buildBlocks(blocks: RecursiveReadonly<Array<RTDBlock | RTDAnonymousParagraph>>) {
+  async function buildBlocks(blocks: Array<RTDBlock | RTDAnonymousParagraph>) {
     let htmlText = '';
     for (const item of blocks)
       htmlText += await buildBlock(item);
     return htmlText;
   }
 
-  async function buildBlock(block: RecursiveReadonly<RTDBlock | RTDAnonymousParagraph>) {
+  async function buildBlock(block: RTDBlock | RTDAnonymousParagraph) {
     let htmlText = '';
     if ("widget" in block)
       htmlText += await exportWidgetForHS(block.widget, true);
@@ -399,7 +457,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
     return htmlText;
   }
 
-  async function buildInlineItems(items: RecursiveReadonly<RTDInlineItems>) {
+  async function buildInlineItems(items: RTDInlineItems) {
     let gotNonWhitespace = false;
     let output = '';
     for (const linkitem of groupByLink(items)) {
@@ -432,7 +490,7 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
         if (linkitem.link.internalLink) {
           //TODO keep hints too?
           const linkid = linkmapping.get(linkitem.link) || generateRandomId();
-          links.push({ tag: linkid, linkref: linkitem.link.internalLink });
+          links.set(linkid, linkitem.link.internalLink);
           url = `x-richdoclink:${linkid}${linkitem.link.append}`;
         } else {
           url = linkitem.link.externalLink || '';
@@ -451,12 +509,11 @@ export async function exportAsHareScriptRTD(rtd: RichTextDocument, { recurse } =
 
   const htmlText = `<html><body>${await buildBlocks(rtd.blocks)}</body></html>`;
 
-  return {
-    htmltext: WebHareBlob.from(htmlText),
+  return new ComposedDocument("platform:richtextdocument", WebHareBlob.from(htmlText), {
     instances,
     embedded,
     links
-  };
+  });
 }
 
 /** Get the raw HTML for a RTD (ie <html><body>...) as HareScript would export it */

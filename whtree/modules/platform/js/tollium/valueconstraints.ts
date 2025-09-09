@@ -1,4 +1,5 @@
 import type { ValueConstraints } from "@mod-platform/generated/schema/siteprofile";
+import { supportedBitmapImages } from "@webhare/services/src/descriptor";
 
 //As long as we get away with exactly copying the definition in the future it guarantees some consistency..
 export type { ValueConstraints };
@@ -40,7 +41,7 @@ export type AnyTolliumComponent = Record<string, unknown>;
 
 function suggestByArrayItemType(valueConstraints: Readonly<ValueConstraints>): AnyTolliumComponent | string {
   switch (valueConstraints.itemType) {
-    case "fsObjectId": {
+    case "whfsRef": {
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobjectarray": { valueConstraints } };
     }
   }
@@ -86,16 +87,16 @@ function suggestByType(valueConstraints: Readonly<ValueConstraints>): AnyTollium
       return { datetime };
     }
 
-    case "resourceDescriptor":
+    case "file":
+      if (valueConstraints.accept?.length && valueConstraints.accept.every(a => supportedBitmapImages.includes(a as typeof supportedBitmapImages[0]) || a === "bitmap"))
+        return { imgedit: { valueConstraints } };
+
       return { fileedit: { valueConstraints } };
 
-    case "imageDescriptor":
-      return { imgedit: { valueConstraints } };
-
-    case "fsObjectId":
+    case "whfsRef":
       return { "http://www.webhare.net/xmlns/publisher/components#browseforobject": { valueConstraints } };
 
-    case "richDocument":
+    case "richTextDocument":
       return { "richdocument": { valueConstraints } };
 
     case "array":

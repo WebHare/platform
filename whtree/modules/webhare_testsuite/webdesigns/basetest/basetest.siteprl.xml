@@ -904,6 +904,13 @@
     <record name="recordtest" />
   </contenttype>
 
+  <contenttype namespace="http://www.webhare.net/xmlns/beta/test_naming"> <!-- this type MUST remain registered in a XML file -->
+    <string name="string_test" />
+    <array name="array_test">
+      <integer name="integer_test" />
+    </array>
+  </contenttype>
+
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="testeditor">
     <insert position="settings">
       <text name="text1" title="Text #1" value="Added setting #1" />

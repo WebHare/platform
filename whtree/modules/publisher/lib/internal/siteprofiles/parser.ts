@@ -46,13 +46,13 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       maxValue: 217483647
     }
   },
-  "date": {
-    dbtype: CSPMemberType.Date,
+  "plainDate": {
+    dbtype: CSPMemberType.PlainDate,
     constraints: {
       valueType: "date"
     },
   },
-  "datetime": {
+  "instant": {
     dbtype: CSPMemberType.DateTime,
     constraints: {
       valueType: "dateTime"
@@ -61,13 +61,7 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   "file": {
     dbtype: CSPMemberType.File,
     constraints: {
-      valueType: "resourceDescriptor"
-    }
-  },
-  "image": {
-    dbtype: CSPMemberType.File,
-    constraints: {
-      valueType: "imageDescriptor"
+      valueType: "file"
     }
   },
   "boolean": {
@@ -88,32 +82,32 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       valueType: "money"
     }
   },
-  "whfsref": {
+  "whfsRef": {
     dbtype: CSPMemberType.WHFSRef,
     constraints: {
-      valueType: "fsObjectId"
+      valueType: "whfsRef"
     }
   },
   "array": {
     dbtype: CSPMemberType.Array
   },
-  "whfsrefarray": {
+  "whfsRefArray": {
     dbtype: CSPMemberType.WHFSRefArray,
     constraints: {
       valueType: "array",
-      itemType: "fsObjectId"
+      itemType: "whfsRef"
     }
   },
-  "stringarray": {
+  "stringArray": {
     dbtype: CSPMemberType.StringArray
   },
-  "richdocument": {
-    dbtype: CSPMemberType.RichDocument,
+  "richTextDocument": {
+    dbtype: CSPMemberType.RichTextDocument,
     constraints: {
-      valueType: "richDocument"
+      valueType: "richTextDocument"
     }
   },
-  "intextlink": {
+  "intExtLink": {
     dbtype: CSPMemberType.IntExtLink
   },
   "instance": {
@@ -126,16 +120,54 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
       validation: ["url"]
     }
   },
-  "composeddocument": {
+  "composedDocument": {
     dbtype: CSPMemberType.ComposedDocument
   },
   "hson": {
     dbtype: CSPMemberType.HSON
   },
-  //"formcondition": CSPMemberType.FormCondition,
   "record": {
     dbtype: CSPMemberType.Record
   },
+
+  //repeating for 'legacy' values until old names are retired:
+  date: {
+    dbtype: CSPMemberType.PlainDate,
+    constraints: {
+      valueType: "date"
+    }
+  },
+  datetime: {
+    dbtype: CSPMemberType.DateTime,
+    constraints: {
+      valueType: "dateTime"
+    }
+  },
+  whfsref: {
+    dbtype: CSPMemberType.WHFSRef,
+    constraints: {
+      valueType: "whfsRef"
+    }
+  },
+  whfsrefarray: {
+    dbtype: CSPMemberType.WHFSRefArray,
+    constraints: {
+      valueType: "array",
+      itemType: "whfsRef"
+    }
+  },
+  richdocument: {
+    dbtype: CSPMemberType.RichTextDocument,
+    constraints: {
+      valueType: "richTextDocument"
+    }
+  },
+  stringarray: {
+    dbtype: CSPMemberType.StringArray
+  },
+  intextlink: {
+    dbtype: CSPMemberType.IntExtLink
+  }
 };
 
 type YamlCompnentHolder = Pick<Sp.TypeMember, "component" | "lines" | "line">;
@@ -277,20 +309,18 @@ function parseApplyTo(apply: Sp.ApplyTo): CSPApplyTo[] {
   return [to];
 }
 
-function resolveType(baseScope: string | null, type: string) {
+function resolveType(baseScope: string, type: string) {
   if (!type)
     return '';
 
   if (type.includes(':'))  //looks like a XML namespace kind of type or a module:ref
     return type;
-  if (!baseScope)
-    throw new Error(`Cannot resolve type '${type}' without a baseScope`);
   if (type.includes('.'))  //guessing it's module scoped
     return baseScope.split(':')[0] + ':' + type;
-  return `${baseScope}.${type}`;
+  return `${baseScope}${type}`;
 }
 
-function parseEditProps(gid: ResourceParserContext, baseScope: string | null, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
+function parseEditProps(gid: ResourceParserContext, baseScope: string, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
   const rules = new Array<CSPApplyRule["extendproperties"][0]>;
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
@@ -355,7 +385,7 @@ function parseBaseProps(props: Sp.ApplyBaseProps): CSPApplyRule["baseproperties"
   };
 }
 
-function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string | null, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
+function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: parseApplyTo(apply.to),
@@ -460,18 +490,15 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
   const rootParser = ResourceParserContext.forResource(resource, options?.onTid, sp);
   result.gid = rootParser.gid;
 
-  const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}` : null;
+  const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
 
   for (const [type, settings] of Object.entries(sp.types || {})) {
     //TODO siteprl.xml is not perfectly in sync with this, it keeps some parts in snakecase. that needs to be fixed there or just removed from XML
-    // - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
+    // - A global name of "webhare_testsuite:global.generic_test_type" (this might appear instead of namespace URLs)
     // - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
-    if (!baseScope)
-      throw new Error(`Siteprofile ${resource} does not have a typeGroup`);
-
     const typeParser = rootParser.addGid(settings);
-    const scopedtype = `${baseScope}.${type}`;
-    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${toHSSnakeCase(sp.typeGroup!)}.${toHSSnakeCase(type)}`;
+    const scopedtype = `${baseScope}${type}`;
+    const ns = settings.namespace ?? `x-webhare-scopedtype:${module}.${sp.typeGroup ? sp.typeGroup + '.' : ''}${type}`;
     const ctype: CSPContentType = {
       cloneoncopy: true, //FIXME more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
       dynamicexecution: null,
@@ -489,7 +516,7 @@ export async function parseSiteProfile(resource: string, sp: Sp.SiteProfile, opt
       previewcomponent: "",
       scopedtype,
       siteprofile: resource,
-      title: typeParser.resolveTid({ name: toHSSnakeCase(type), title: settings.title, tid: settings.tid }),
+      title: typeParser.resolveTid({ name: type, title: settings.title, tid: settings.tid }),
       tolliumicon: "",
       type: "contenttype",
       wittycomponent: "",

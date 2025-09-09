@@ -356,9 +356,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       this->AddError(ftype, "The option 'capturesubpaths' can only be enabled when 'ispublishedassubdir' is also enabled.");
     }
 
-/*    IF (ftype->HasAttribute("webhare_builtintypeid"))
-      typeinfo.ftypeid := ParseXSInt(ftype->GetAttribute("webhare_builtintypeid"));
-*/
     IF(ftype->HasAttribute("extensions"))
     {
       ctype.filetype.extensions := Tokenize(TrimWhitespace(ftype->GetAttribute("extensions")), " ");

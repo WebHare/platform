@@ -1265,6 +1265,18 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         THROW NEW Exception("The attribute type 'PASSWORD' is no longer supported since WH5.8. Use AUTHENTICATIONSETTINGS instead.");
       IF(ToUpperCase(attr.attributetype) = "__PASSWORD_HASH") //only for conversion tests we still allow this. this will be removed in the future without warning
         attr.attributetype := "PASSWORD";
+      IF(ToUpperCase(attr.attributetype) = "INSTANCE")
+        attr.attributetype := "WHFSINSTANCE";
+      IF(ToUpperCase(attr.attributetype) = "INTEXTLINK")
+        attr.attributetype := "WHFSINTEXTLINK";
+      IF(ToUpperCase(attr.attributetype) = "RICHTEXTDOCUMENT")
+        attr.attributetype := "RICHDOCUMENT";
+      IF(ToUpperCase(attr.attributetype) = "PLAINDATE")
+        attr.attributetype := "DATE";
+      IF(ToUpperCase(attr.attributetype) = "INSTANT")
+        attr.attributetype := "DATETIME";
+      IF(ToUpperCase(attr.attributetype) = "PLAINTIME")
+        attr.attributetype := "TIME";
 
       INTEGER attributetypeid := GetAttributeTypeIdByTypeName(ToUpperCase(attr.attributetype), this->wrdschema->__iswrdapi2017);
       IF (attributetypeid=0)

@@ -51,7 +51,7 @@ CONSTANT RECORD ARRAY fixelements :=
   //tai:
   , [ namespace := tollium_appinfo_ns, localnames := ["tolliumcomponent"], fixtwopartrefs := [[ lib := "lib", name := "objecttype", attemptmoduleroot := TRUE ]], fixfspath := ["objecttype"]]
 
-  , [ namespace := publisher_sp, localnames := [ "member" , "boolean", "datetime", "integer", "file", "float", "money", "string", "array", "whfsref", "whfsrefarray", "stringarray", "richdocument", "formdefinition", "formcondition", "intextlink", "instance", "url", "record"
+  , [ namespace := publisher_sp, localnames := [ "member" , "boolean", "datetime", "integer", "file", "float", "money", "string", "array", "whfsref", "whfsrefarray", "stringarray", "richdocument", "composeddocument", "intextlink", "instance", "url", "record"
                                                ], tolowercase := ["name"] ]
 
   , [ namespace := publisher_sp, localnames := ["siteprofile"],  subelementspacing := "betweenall"  ]

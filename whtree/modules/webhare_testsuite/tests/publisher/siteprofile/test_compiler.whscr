@@ -20,14 +20,12 @@ MACRO TestParsing()
   TestEq("this_is_a_snake", ToSnakeCase("thisIsASnake"));
   TestEq("thisIsASnake", ToCamelCase("this_is_a_snake"));
 
-  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.genericTestType", FALSE));
+  TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("webhare_testsuite:global.generic_test_type", FALSE));
   TestEq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", TRUE));
 
   //x-namespace enforces converting names that look like scoped types to full namespaces in case we find problems in the field with the heuristic approach
   TestEq("x-webhare-scopedtype:urn.my.type", ScopedTypeToNamespace("urn:my.type", TRUE));
   TestEq("urn:my.type", ScopedTypeToNamespace("x-namespace:urn:my.type", TRUE));
-
-  TestThrowsLike('Invalid scoped type*',PTR ScopedTypeToNamespace("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", FALSE));
 
   RECORD res;
 
@@ -79,7 +77,7 @@ MACRO TestCompiler()
   INTEGER testsiteid := OpenTestsuiteSite()->id;
 
   OBJECT compiler := NEW RecompileContext();
-  RECORD gathersp := compiler->GatherSiteProfiles();
+  RECORD gathersp := GatherSiteProfiles();
   INTEGER siteprl_neverused_webdesign :=  SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webdesigns/basetest/neverused_compiletest.siteprl.xml") + 1;
   INTEGER siteprl_neverused_webfeature := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/webfeatures/neverused_feature.siteprl.xml") + 1;
   INTEGER siteprl_module := SearchElement(gathersp.siteprofiles, "mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml") + 1;

@@ -39,7 +39,7 @@ export type CustomExtensions = {
         testSingleOther: WRDAttributeTypeId.Domain;
         testMultiple: WRDAttributeTypeId.DomainArray;
         testEmail: WRDAttributeTypeId.Email;
-        testRTD: WRDAttributeTypeId.RichDocument;
+        testRTD: WRDAttributeTypeId.RichTextDocument;
       };
     }>;
     testMoney: WRDAttributeTypeId.Money;//", { title: "Money attribute" });
@@ -54,9 +54,9 @@ export type CustomExtensions = {
     testJson: WRDAttr<WRDAttributeTypeId.JSON, { type: { mixedCase: Array<number | string>; date?: Date; big?: bigint } }>;//", { title: "Json attribute" });
     testStatusrecord: WRDAttr<WRDAttributeTypeId.DeprecatedStatusRecord, { allowedValues: "warning" | "error" | "ok"; type: { status: "warning"; warning: string } | { status: "error"; error: string } | { status: "ok"; message: string } }>;//", { title: "Status record", allowedValues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeTypeId.String;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
-    richie: WRDAttributeTypeId.RichDocument;//", { title: "Rich document" });
-    linkie: WRDAttributeTypeId.WHFSIntExtLink;//", { title: "Internal/external link" });
-    testinstance: WRDAttributeTypeId.WHFSInstance;//", { title: "Testinstance" });
+    richie: WRDAttributeTypeId.RichTextDocument;//", { title: "Rich document" });
+    linkie: WRDAttributeTypeId.IntExtLink;//", { title: "Internal/external link" });
+    testinstance: WRDAttributeTypeId.Instance;//", { title: "Testinstance" });
   } & WRDTypeBaseSettings;
   testDomain_1: {
     wrdLeftEntity: WRDBaseAttributeTypeId.Base_Domain;
@@ -123,9 +123,9 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("personlink", { attributeType: "domain", title: "Person", domain: "wrdPerson" });
   await persontype.createAttribute("relationlink", { attributeType: "domain", title: "Relation", domain: "wrdRelation" });
   await persontype.createAttribute("wrdContactPhone", { attributeType: "telephone", title: "Testphone" });
-  await persontype.createAttribute("testinstance", { attributeType: "whfsInstance", title: "Testinstance" });
-  await persontype.createAttribute("testintextlink", { attributeType: "whfsIntExtLink", title: "Testintextlink" });
-  await persontype.createAttribute("testintextlinkNocheck", { attributeType: "whfsIntExtLink", title: "Testintextlink with checklinks=false", checkLinks: false });
+  await persontype.createAttribute("testinstance", { attributeType: "instance", title: "Testinstance" });
+  await persontype.createAttribute("testintextlink", { attributeType: "intExtLink", title: "Testintextlink" });
+  await persontype.createAttribute("testintextlinkNocheck", { attributeType: "intExtLink", title: "Testintextlink with checklinks=false", checkLinks: false });
   await persontype.createAttribute("testlink", { attributeType: "whfsRef", title: "testlink" });
   await persontype.createAttribute("url", { attributeType: "url", title: "URL" });
 
@@ -157,15 +157,15 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testAddress", { attributeType: "address", title: "Address attribute" });
   await persontype.createAttribute("testEmail", { attributeType: "email", title: "E-mail attribute" });
   await persontype.createAttribute("testPhone", { attributeType: "telephone", title: "Phone attribute" });
-  await persontype.createAttribute("testDate", { attributeType: "date", title: "Date attribute" });
+  await persontype.createAttribute("testDate", { attributeType: "plainDate", title: "Date attribute" });
   await persontype.createAttribute("testPassword", { attributeType: "authenticationSettings", title: "Password attribute" });
   await persontype.createAttribute("testMultipleDomain", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });
   await persontype.createAttribute("testMultipleDomain2", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });
   await persontype.createAttribute("testMultipleDomain3", { attributeType: "domainArray", title: "Multiple attribute", domain: "testDomain_2" });
   await persontype.createAttribute("testImage", { attributeType: "image", title: "Image attribute" });
   await persontype.createAttribute("testFile", { attributeType: "file", title: "File attribute" });
-  await persontype.createAttribute("testTime", { attributeType: "time", title: "Time attribute" });
-  await persontype.createAttribute("testDatetime", { attributeType: "dateTime", title: "Datetime attribute" });
+  await persontype.createAttribute("testTime", { attributeType: "plainTime", title: "Time attribute" });
+  await persontype.createAttribute("testDatetime", { attributeType: "instant", title: "Datetime attribute" });
   await persontype.createAttribute("testArray", { attributeType: "array", title: "Array attribute" });
   await persontype.createAttribute("testMoney", { attributeType: "money", title: "Money attribute" });
   await persontype.createAttribute("testInteger", { attributeType: "integer", title: "Integer attribute" });
@@ -179,8 +179,8 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testJson", { attributeType: "json", title: "JSON attribute" });
   await persontype.createAttribute("testStatusrecord", { attributeType: "deprecatedStatusRecord", title: "Status record", allowedValues: ["warning", "error", "ok"] });
   await persontype.createAttribute("testFreeNocopy", { attributeType: "string", title: "Uncopyable free attribute", isUnsafeToCopy: true });
-  await persontype.createAttribute("richie", { attributeType: "richDocument", title: "Rich document" });
-  await persontype.createAttribute("linkie", { attributeType: "whfsIntExtLink", title: "Internal/external link" });
+  await persontype.createAttribute("richie", { attributeType: "richTextDocument", title: "Rich document" });
+  await persontype.createAttribute("linkie", { attributeType: "intExtLink", title: "Internal/external link" });
 
   const personattachment = await schemaobj.createType("personattachment", { metaType: "attachment", title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   await personattachment.createAttribute("attachfree", { attributeType: "string", title: "Free text attribute" });
@@ -216,7 +216,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testArray.testSingleOther", { attributeType: "domain", title: "Array domain aibute", domain: "testDomain_1" });
   await persontype.createAttribute("testArray.testMultiple", { attributeType: "domainArray", title: "Array multiple domain attribute", domain: "testDomain_1" });
   await persontype.createAttribute("testArray.testEmail", { attributeType: "email", title: "Array email attribute" });
-  await persontype.createAttribute("testArray.testRTD", { attributeType: "richDocument", title: "Array RTD attribute" });
+  await persontype.createAttribute("testArray.testRTD", { attributeType: "richTextDocument", title: "Array RTD attribute" });
 
   /*
   BLOB testimage_blob:= GetWebHareResource("mod::system/web/tests/goudvis.png");

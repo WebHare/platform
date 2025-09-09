@@ -11,11 +11,14 @@ properties:
     type: string
   typeGroup:
     type: string
+    pattern: "^[a-z][0-9a-z_.]+[0-9a-z]$" # require alpha and proper identifiers, no ending with dots. TODO permit one-char groups? shouldn't hurt anywhere, just makes the regex more complex
+    description:
+      Place all types in this file in this group. This creates a sublevel for the types without encoding into the group into automatic gids.
   types:
     type: object
     additionalProperties: false
     patternProperties:
-      "^[a-z][a-zA-Z0-9]*$": # Explicitly not permitting underscores, expecting camelcase. TODO allow URIs too
+      "^[a-z][0-9a-z_.]+[0-9a-z]$":
         $ref: "#/$defs/Type"
         type: object
   apply:
@@ -60,25 +63,31 @@ $defs:
         enum:
           - string
           - integer
-          - datetime
-          - date
+          - instant
+          - plainDate
           - file
-          - image
           - boolean
           - float
           - money
-          - whfsref
+          - whfsRef
           - array
+          - whfsRefArray
+          - stringArray
+          - richTextDocument
+          - composedDocument
+          - intExtLink
+          - instance
+          - url
+          - hson
+          - record
+          # LEGACY values - drop soon (should be few users pre WH5.9)
+          - whfsref
           - whfsrefarray
           - stringarray
           - richdocument
           - intextlink
-          - instance
-          - url
-          - composeddocument
-          - hson
-          - record
-          # - formcondition  FIXME is this really declarable?
+          - datetime
+          - date
       tid:
         type: string
       title:
@@ -122,11 +131,10 @@ $defs:
           - boolean
           - dateTime
           - date
-          - resourceDescriptor
-          - imageDescriptor
-          - fsObjectId
+          - file
+          - whfsRef
           - array
-          - richDocument
+          - richTextDocument
       itemType:
         description: Type of value used in an array
         type: string
@@ -137,8 +145,8 @@ $defs:
           - money
           - boolean
           - dateTime
-          - resourceDescriptor
-          - fsObjectId
+          - file
+          - whfsRef
       validation:
         description: Validation checks to apply on the input
         type: array
@@ -181,6 +189,17 @@ $defs:
           - minute
           - second
           - millisecond
+      accept:
+        description: For file values, a list of accepted MIME types. Set to 'bitmap' to support all editable bitmap types (jpeg, png, webp, avif) and WebHare can show an image-edit component
+        type: array
+        items:
+          oneOf:
+            - type: string
+              pattern: "^[a-z0-9]+/[a-z0-9.+-]+$"
+            - enum:
+                - "bitmap" # A special value meaning any supported editable bitmap image (eg jpeg, png, webp, avif - but not gif or svg, and currently not heic)
+                - "*/*"
+                - "image/*"
 
   Apply:
     type: object

@@ -1,6 +1,7 @@
 import * as kysely from "kysely";
 import { db, isWorkOpen, runInWork, uploadBlob } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
+import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
 import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
@@ -10,9 +11,20 @@ import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
 import { describeWHFSType, type FSSettingsRow } from "./describe";
 import type { WebHareBlob } from "@webhare/services";
 
+// @ts-ignore -- this file is only accessible when this is file loaded from a module (not from the platform tsconfig)
+import type { } from "wh:ts/whfstypes.ts";
+import { CSPMemberType } from "./siteprofiles";
+
+// We keep this internal, we might want cq like to restructure this API in the future
+export interface WHFSTypes {
+}
+
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
-export type WHFSInstanceData = Record<string, unknown> & { whfsType: string };
+export type WHFSInstanceData = {
+  whfsType: keyof WHFSTypes | string;
+  [key: string]: unknown;
+};
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -115,7 +127,7 @@ class RecursiveSetter {
 
 /** An API offering access to data stored in an instance type.
  */
-class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
+class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, ExportFormat extends object> {
   private readonly ns: string;
 
   constructor(ns: string) {
@@ -195,28 +207,30 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
     return retval;
   }
 
+  async get(id: number, options: ExportOptions & { export: true }): Promise<ExportFormat>;
+  async get(id: number, options?: ExportOptions): Promise<GetFormat>;
 
-  async get(id: number, options?: ExportOptions): Promise<ContentTypeStructure> {
+  async get(id: number, options?: ExportOptions): Promise<GetFormat | ExportFormat> {
     const bulkdata = await this.getBulk([id], null, options);
-    return bulkdata.get(id) as ContentTypeStructure;
+    return bulkdata.get(id) as GetFormat | ExportFormat;
   }
 
   async enrich<
     DataRow extends { [K in EnrichKey]: number | null },
     EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
-    AddKey extends keyof ContentTypeStructure = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<ContentTypeStructure, AddKey>>> {
+    AddKey extends keyof GetFormat = never>(data: DataRow[], field: EnrichKey, properties: AddKey[]): Promise<Array<DataRow & Pick<GetFormat, AddKey>>> {
 
     const fsObjIds: number[] = data.map(_ => _[field] as number);
     const bulkdata = await this.getBulk(fsObjIds, properties as string[]);
 
-    const results: Array<DataRow & Pick<ContentTypeStructure, AddKey>> = [];
+    const results: Array<DataRow & Pick<GetFormat, AddKey>> = [];
     for (const row of data) //@ts-ignore should be able to assume it works. besides we'll rewrite this API anyway to actually be efficient
       results.push({ ...row, ...bulkdata.get(row[field]) });
 
     return results;
   }
 
-  async set(id: number, data: ContentTypeStructure, options?: InstanceSetOptions): Promise<void> {
+  async set(id: number, data: Partial<SetFormat>, options?: InstanceSetOptions): Promise<void> {
     const descr = await describeWHFSType(this.ns);
     if (!descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
@@ -264,14 +278,9 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> {
   }
 }
 
-export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<ContentTypeStructure> {
-  //note that as we're sync, we can't actually promise to validate whether the type xists
-  return new WHFSTypeAccessor<ContentTypeStructure>(ns);
-}
-
 export interface VisitedResourceContext {
   fsObject: number;
-  fieldType: MemberType & ("file" | "richDocument" | "composedDocument");
+  fieldType: MemberType & ("file" | "richTextDocument" | "composedDocument");
   fieldName: string;
   fsType: string;
 }
@@ -354,7 +363,10 @@ export async function visitResources(callback: VisitCallback, scope: {
         {
           fsObject: result.fs_object,
           fsType: typeInfo?.namespace,
-          fieldType: result.type === 5 ? "file" : result.type === 15 ? "richDocument" : result.type === 20 ? "composedDocument" : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
+          fieldType: result.type === CSPMemberType.File ? "file"
+            : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
+              : result.type === CSPMemberType.ComposedDocument ? "composedDocument"
+                : throwError(`Unexpected type ${result.type}`), //TODO don't hardcode constant, add RTD and 'image' type
           fieldName: nameToCamelCase(result.name) //FIXME take full path and member name from type info
         }, reconstructedDescriptor);
 
@@ -379,3 +391,26 @@ export async function visitResources(callback: VisitCallback, scope: {
 
   return ''; //done!
 }
+
+export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
+export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
+export function whfsType(ns: string): WHFSTypeAccessor<object, object, object> {
+  //note that as we're sync, we can't actually promise to validate whether the type exists
+  return new WHFSTypeAccessor(ns);
+}
+
+
+/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
+export function openType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
+
+//We need to preserve the 'explicitly indicated type' form as existing apps might rely on it
+/** @deprecated With WH5.9+ just use whfsType() as this call isn't really opening anything until a method is called */
+export function openType<GetFormat extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<GetFormat, GetFormat, GetFormat>;
+
+export function openType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> {
+  //note that as we're sync, we can't actually promise to validate whether the type xists
+  return new WHFSTypeAccessor(ns);
+}
+
+/** The result of a .get() operation */
+export type WHFSTypeGetResult<type extends keyof WHFSTypes> = WHFSTypes[type]["GetFormat"];

@@ -209,7 +209,7 @@ export async function getSchemaData(tag: string): Promise<SchemaData> {
       }
       if (attr.isunique)
         type.uniqueAttrs.add(attr.id);
-      if ([WRDAttributeTypeId.RichDocument, WRDAttributeTypeId.WHFSInstance, WRDAttributeTypeId.URL].includes(attr.attributetype as number) || attr.checklinks)
+      if ([WRDAttributeTypeId.RichTextDocument, WRDAttributeTypeId.Instance, WRDAttributeTypeId.URL].includes(attr.attributetype as number) || attr.checklinks)
         type.consilioLinkCheckAttrs.add(attr.id);
       if (attr.attributetype === WRDAttributeTypeId.WHFSRef)
         type.whfsLinkAttrs.add(attr.id);

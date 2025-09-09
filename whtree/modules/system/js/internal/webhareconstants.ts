@@ -161,36 +161,6 @@ export const whconstant_whfstypes_invalidtemplate = [
   35 //dynamic folder contents (does not make sense to duplicate)
 ];
 
-/* WHFS type member names
-    1 unused, was: Single choice (default value: STRING)
-    2 String
-    3 unused, was: Multiple choice (default value: STRING ARRAY)
-    4 Datetime
-    5 Memo (Blob)
-    6 Boolean
-    7 Integer
-    8 Float
-    9 Money
-   10 unused, was: Blob
-   11 WHFSREF
-   12 Array
-   13 WHFSREFARRAY
-   14 STRINGARRAY
-   15 RICHDCOCUMENT
-   16 INTEXTLINK
-   17 unused
-   18 INSTANCE
-   19 URL
-   20 composeddocument
-   21 RECORD
-   22 FORMCONDITION
-*/
-export const whconstant_whfstype_membertypes = [
-  "", "", "string", "", "datetime", "file", "boolean", "integer", "float", "money", "",
-  "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", "",
-  "instance", "url", "composeddocument", "record", "formcondition"
-];
-
 //ip address reported by the consilio fetcher
 export const whconstant_consilio_fetcher_trusted_ip = "100::cccc:ffff";
 

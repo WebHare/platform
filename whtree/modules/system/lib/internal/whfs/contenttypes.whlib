@@ -127,8 +127,8 @@ PUBLIC RECORD ARRAY FUNCTION GatherReferredSharedBlocks(RECORD ARRAY blocks)
     @topic sitedev/whfs
     @public
 */
-STATIC OBJECTTYPE WHFSType
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE WHFSType <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -328,8 +328,7 @@ STATIC OBJECTTYPE WHFSType
         Otherwise, the link is run through the MapWHFSRef function of the remapper (must return a STRING), and
         returned as strings (string arrays).
   */
-  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER64 cursetting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure)
-  {
+  PUBLIC RECORD FUNCTION __RecurseGetInstanceData(INTEGER curmember, INTEGER64 cursetting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible, INTEGER ARRAY limit_to_members, BOOLEAN isgetstructure) {
     RECORD retval := CELL[];
     RECORD ARRAY getmembers := SELECT *
                                  FROM this->pvt_members
@@ -531,27 +530,17 @@ STATIC OBJECTTYPE WHFSType
             newval.instances := SELECT * FROM newval.instances ORDER BY instanceid;
           }
         }
-        CASE 22 //formcondition
-        {
-          IF(Length(curset) > 0 AND curset[0].setting = "FC1") //version indicator
-          {
-            // There is only version FC1 at the moment, so we can just return the stored data
-            newval := DecodeHSONBlob(curset[0].blobdata);
-          }
-        }
         CASE 18 // instance
         {
           IF(Length(curset) > 0)
             newval := GetInstanceMember(curset[0], cursettings, remapper, orphansvisible);
         }
-        CASE 21 // record
-        {
+        CASE 21,22 {
+          //21: record. data is stored in 'setting' as hson unless it doesn't fit, then its stored in blobdata
+          //22: formcondition, a legacy format - it would set the setting to "FC1" and always store its data in blobdata. In WH5.9 we'll start storing these identical to RECORDs but no explicit conversion is added - so TS will also need to support FC1 for now
+          //    type number 22 should only be around for a very short time after updating to WH5.9+
           IF (Length(curset) > 0)
-          {
-            newval := curset[0].setting != ""
-                ? DecodeHSON(curset[0].setting)
-                : DecodeHSONBlob(curset[0].blobdata);
-          }
+            newval := curset[0].setting NOT IN ["","FC1"] ? DecodeHSON(curset[0].setting) : DecodeHSONBlob(curset[0].blobdata);
         }
         DEFAULT
         {
@@ -575,8 +564,7 @@ STATIC OBJECTTYPE WHFSType
       @cell return.any_nondefault Returns whether any non-default value was written
       @cell return.linkchecked_settingids Link-checked settings that were added/updated
   */
-  PUBLIC RECORD FUNCTION __RecurseSetInstanceData(INTEGER64 instanceid, INTEGER curmember, INTEGER64 cursetting, RECORD newdata, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
-  {
+  PUBLIC RECORD FUNCTION __RecurseSetInstanceData(INTEGER64 instanceid, INTEGER curmember, INTEGER64 cursetting, RECORD newdata, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible) {
     BOOLEAN any_nondefault := FALSE;
 
     STRING ARRAY allowedcells := [ "FS_SETTINGID" ] CONCAT SELECT AS STRING ARRAY ToUppercase(name) FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE);
@@ -609,8 +597,7 @@ STATIC OBJECTTYPE WHFSType
     INTEGER64 ARRAY linkchecked_settingids;
     RECORD ARRAY killsettings;
 
-    FOREVERY(RECORD memberrec FROM (SELECT * FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE)))
-    {
+    FOREVERY(RECORD memberrec FROM (SELECT * FROM this->pvt_members WHERE parent = curmember AND (orphansvisible OR orphan = FALSE))) {
       IF(NOT CellExists(newdata, memberrec.name) AND curmember = 0)
         CONTINUE; //not being updated (not mentioning a top level member in SetInstanceData leaves the data alone)
 
@@ -633,8 +620,7 @@ STATIC OBJECTTYPE WHFSType
         current_member_settings := RECORD[current_member_settings[0]];
       }
 
-      SWITCH(memberrec.type)
-      {
+      SWITCH(memberrec.type) {
         CASE 3,14 //Multiple gok
         {
           //FIXME: Also update for this case!
@@ -872,8 +858,7 @@ STATIC OBJECTTYPE WHFSType
           // Delete non-matched old settings
           killsettings := killsettings CONCAT SELECT * FROM current_member_settings WHERE id IN unmatched_ids;
         }
-        CASE 15,20 //Rich document, composeddocument
-        {
+        CASE 15,20 { //Rich document, composeddocument
           /* Rich documents are stored as follows:
              fs_settings { setting: "RD1" (version indicator, for future use), blobdata: html doc, ordering: 0 }
              embedded images are stored like blobs, but we prefix the setting field with the contentid */
@@ -1009,37 +994,6 @@ STATIC OBJECTTYPE WHFSType
             killsettings := killsettings CONCAT current_member_settings;
           }
         }
-        CASE 22 //formcondition
-        {
-          IF(TYPEID(newval) != TYPEID(RECORD))
-            THROW NEW WHFSException("OTHER","Incorrect type for formcondition field '" || memberrec.name || "' in type " || this->namespace || ", expected RECORD, got " || GetTypeName(TYPEID(newval)));
-
-          newval := ValidateFormCondition(newval);
-
-          IF (RecordExists(newval))
-          {
-            STRING versionindicator := "FC1";
-            BLOB storedata := EncodeHSONBlob(newval);
-
-            IF(Length(current_member_settings) > 0)
-            {
-              UPDATE system.fs_settings
-                     SET setting := versionindicator
-                       , blobdata := VAR storedata
-                     WHERE id = current_member_settings[0].id;
-            }
-            ELSE
-            {
-              INSERT INTO system.fs_settings(fs_instance, fs_member, ordering, parent, setting, blobdata)
-                     VALUES(instanceid, memberrec.id, 0, cursetting, versionindicator, storedata);
-            }
-          }
-          ELSE
-          {
-            IF (Length(current_member_settings) > 0)
-              DELETE FROM system.fs_settings WHERE id = current_member_settings[0].id;
-          }
-        }
         CASE 18
         {
           // Get list of existing ids for the array in the DB
@@ -1089,8 +1043,10 @@ STATIC OBJECTTYPE WHFSType
             }
           }
         }
-        CASE 21 // RECORD
-        {
+        CASE 22 {
+          THROW NEW Exception(`WH5.9+ should not be writing formconditions anymore - that membertype should have been replaced with a RECORD`);
+        }
+        CASE 21 {  //21: HS RECORD
           IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))
             THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
                 ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'RECORD'");

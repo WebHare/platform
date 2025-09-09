@@ -2,7 +2,7 @@ import { db, sql, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { type WHFSFile, type WHFSFolder, __openWHFSObj, type OpenWHFSObjectOptions } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
-import { openType } from "./contenttypes";
+import { openType, whfsType, type WHFSTypeGetResult } from "./contenttypes";
 import { createAppliedPromise } from "@webhare/services/src/applyconfig.ts";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
 
@@ -150,7 +150,7 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 export async function listSites<K extends keyof ListableSiteRow = never>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
   const getkeys = new Set<keyof ListableSiteRow>(["id", "name", ...keys]);
   const selectkeys = new Set<keyof SiteRow>;
-  const getSiteProps: string[] = [];
+  const getSiteProps: Array<keyof WHFSTypeGetResult<"http://www.webhare.net/xmlns/publisher/sitesettings">> = [];
 
   for (const k of getkeys) {
     switch (k) {
@@ -176,7 +176,7 @@ export async function listSites<K extends keyof ListableSiteRow = never>(keys: K
     .execute();
 
   if (getSiteProps.length) {
-    rows = await openType("http://www.webhare.net/xmlns/publisher/sitesettings").enrich(rows, "id", getSiteProps);
+    rows = await whfsType("http://www.webhare.net/xmlns/publisher/sitesettings").enrich(rows, "id", getSiteProps);
   }
 
   const mappedrows = rows.map(row => {

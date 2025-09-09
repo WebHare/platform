@@ -55,10 +55,10 @@ export enum WRDAttributeTypeId {
   Money = 14,
   Integer = 15,
   Boolean = 16,
-  RichDocument = 17,
+  RichTextDocument = 17,
   Integer64 = 18,
-  WHFSInstance = 19,
-  WHFSIntExtLink = 20,
+  Instance = 19,
+  IntExtLink = 20,
   URL = 21,
   HSON = 22,
   Enum = 23,
@@ -75,20 +75,20 @@ export const WRDBaseAttributeTypes = [
   "integer", // -1 Base_Integer, wrd_ordering
   "string", // -2 Base_Guid, wrd_guid
   "string", // -3 Base_Tag, tag
-  "dateTime", // -4 Base_CreationLimitDate, wrdCreationDate, wrdLimitDate
-  "date", // -5 Base_Date, wrdDateOfBirth, wrdDateOfDeath
+  "instant", // -4 Base_CreationLimitDate, wrdCreationDate, wrdLimitDate
+  "plainDate", // -5 Base_Date, wrdDateOfBirth, wrdDateOfDeath
   "string", // -6 Base_GeneratedString, wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
   "string", // -7 Base_NameString, wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitles, wrdTitlesSuffix
   "domain", // -8 Base_Domain, wrdLeftEntity, wrdRightEntity
   "enum", // -9 Base_Gender, wrd_gender
-  "dateTime", // -10 Base_ModificationDate, wrdModificationDate
+  "instant", // -10 Base_ModificationDate, wrdModificationDate
   "integer", // -11 Base_FixedDomain, wrd_id, wrd_type
 ] as const;
 
 export const WRDAttributeTypes = [
-  "domain", /*2*/"string", "address", "email", "telephone", "date", "password",
-  "domainArray", /*9*/"image", "file", "time", "dateTime",/*13*/  "array", "money",
-  "integer", "boolean", "richDocument", "integer64", /*19*/"whfsInstance", "whfsIntExtLink",
+  "domain", /*2*/"string", "address", "email", "telephone", "plainDate", "password",
+  "domainArray", /*9*/"image", "file", "plainTime", "instant",/*13*/  "array", "money",
+  "integer", "boolean", "richTextDocument", "integer64", /*19*/"instance", "intExtLink",
    /*21*/"url", /*22*/"hson", /*23*/"enum", /*24*/"enumArray", /*25*/"paymentProvider", /*26*/"payment",
    /*27*/"deprecatedStatusRecord", /*28*/"authenticationSettings", /*29*/ "whfsRef", /*30*/ "json"
 ] as const;
@@ -124,10 +124,10 @@ export type SimpleWRDAttributeType =
   WRDAttributeTypeId.Money |
   WRDAttributeTypeId.Integer |
   WRDAttributeTypeId.Boolean |
-  WRDAttributeTypeId.RichDocument |
+  WRDAttributeTypeId.RichTextDocument |
   WRDAttributeTypeId.Integer64 |
-  WRDAttributeTypeId.WHFSInstance |
-  WRDAttributeTypeId.WHFSIntExtLink |
+  WRDAttributeTypeId.Instance |
+  WRDAttributeTypeId.IntExtLink |
   WRDAttributeTypeId.URL |
   WRDAttributeTypeId.HSON |
   WRDAttributeTypeId.PaymentProvider |

@@ -13,10 +13,11 @@ import { db, type Selectable } from "@webhare/whdb";
 import type { MemberType } from "./codecs";
 import type { CSPContentType } from "./siteprofiles";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
+import type { WHFSTypes } from "@webhare/whfs/src/contenttypes";
 
 //positioned list to convert database ids:
-const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", "formCondition", "record", "image", "date"];
+export const membertypenames: Array<MemberType | null> =
+  [null, null, "string", null, "instant", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richTextDocument", "intExtLink", null, "instance", "url", "composedDocument", "hson", null, "record", null, "plainDate"];
 
 export type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
 type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
@@ -44,12 +45,15 @@ export function getType(type: string | number, kind?: "fileType" | "folderType")
   return types.find(_ => _.id === type);
 }
 
-export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
-export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
-export async function describeWHFSType(type: string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
-export async function describeWHFSType(type: string | number): Promise<WHFSTypeInfo>;
+//splitting off a keyof WHFSTypes only version for improved intellisense and type autocompletion
 
-export async function describeWHFSType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
+export async function describeWHFSType(type: keyof WHFSTypes, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
+export async function describeWHFSType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null>;
+export async function describeWHFSType(type: keyof WHFSTypes | string | number): Promise<WHFSTypeInfo>;
+
+export async function describeWHFSType(type: keyof WHFSTypes | string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<WHFSTypeInfo | null> {
   const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   if (!matchtype) {
     if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
@@ -104,6 +108,7 @@ export async function describeWHFSType(type: string | number, options?: { allowM
 
   return baseinfo;
 }
+
 
 function memberNameToJS(tag: string): string {
   tag = tag.toLowerCase();

@@ -1,7 +1,7 @@
-typeGroup: baseTest
+typeGroup: base_test
 gid: webdesigns.basetestjs
 types:
-  siteSettings:
+  site_settings:
     gid: .sitesettings
     title: WTS Site Settings
     members:
@@ -12,7 +12,7 @@ types:
       when:
         type: datetime
 
-  baseTestProps:
+  base_test_props:
     gid: .basetest
     namespace: http://www.webhare.net/xmlns/webhare_testsuite/basetestprops
     title: WTS base test
@@ -92,7 +92,7 @@ apply:
       type: http://www.webhare.net/xmlns/publisher/richdocumentfile
     baseProps: [seotitle]
     editProps:
-      - type: baseTestProps
+      - type: base_test_props
         layout: [anyField, numberField, folksonomy, whUser, rtd, multiField, checkIt, extControlledField]
         override:
           numberField:
@@ -111,7 +111,7 @@ apply:
       pathMatch: metaoverride1
     baseProps: [seotitle]
     editProps:
-      - type: baseTestProps
+      - type: base_test_props
         override:
           numberField:
             props:
@@ -124,13 +124,13 @@ apply:
   - to:
       pathMatch: allprops
     editProps:
-      - type: global.genericTestType
+      - type: global.generic_test_type
         layout: all
 
   - to:
       pathMatch: manualtabs
     editProps:
-      - type: baseTestProps
+      - type: base_test_props
         layout:
           tabs:
           - title: Tab 1

@@ -1,7 +1,7 @@
 gid: siteprofiles.pagesettings
 typeGroup: test
 types:
-  myYamlType:
+  my_yaml_type:
     members:
       stringField:
         type: string
