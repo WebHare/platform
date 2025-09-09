@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { normalize } from "node:path";
 
-let registeredModules: Map<string, (argv: string[], options: { cwd: string }) => string[]> | undefined;
+let registeredModules: Map<string, (argv: string[], options: { cwd: string }) => Promise<string[]>> | undefined;
 let loading: string | undefined;
 
 export function enableAutoCompleteMode(options?: { registerAsDynamicLoader: (module: NodeJS.Module) => void }) {
@@ -13,7 +13,7 @@ export function enableAutoCompleteMode(options?: { registerAsDynamicLoader: (mod
 }
 
 /// Called by run() to see in which mode it is running
-export function registerRun(autoComplete: (argv: string[], options: { cwd: string }) => string[]): { mode: "normal" | "autocomplete" } {
+export function registerRun(autoComplete: (argv: string[], options: { cwd: string }) => Promise<string[]>): { mode: "normal" | "autocomplete" } {
   if (!registeredModules)
     return { mode: "normal" };
 
@@ -65,7 +65,7 @@ export function parseCommandLine(line: string) {
   return words;
 }
 
-export async function autoCompleteCLIRunScript(cwd: string, path: string, args: string[], options?: { debug?: boolean }) {
+export async function autoCompleteCLIRunScript(cwd: string, path: string, args: string[], options?: { debug?: boolean }): Promise<string[]> {
   if (!registeredModules)
     throw new Error(`enableAutoCompleteMode() was not called`);
   path = normalize(path);
