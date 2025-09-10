@@ -193,9 +193,6 @@ interface CSPWebtoolsformrule {
 }
 
 interface CSPBodyRendererRule {
-  library: string;
-  rendermacro: string;
-  preparemacro: string;
   objectname: string;
   /// Default render handler. Path to a pagehandler(request,response). Overridable by apply rules
   renderer: string;

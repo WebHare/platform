@@ -1367,22 +1367,14 @@ STATIC OBJECTTYPE ApplyRuleTester
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
     {
-      IF (#apply=0)
-      {
+      IF (#apply=0) {
         typerec := this->GetTypeRecordData();
-        bodyrenderer := [ rendermacro := ""
-                        , preparemacro := ""
-                        , objectname  := ""
-                        , issystemredirect := FALSE
+        bodyrenderer := [ objectname  := ""
                         , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
                         , renderer := ""
                         ];
       }
-      apply.bodyrenderer := EnforceStructure([ renderer := "" ], apply.bodyrenderer); //Add fields that may still be missing during upgrades
-      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "")
-      {
-        bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;
-        bodyrenderer.preparemacro := apply.bodyrenderer.preparemacro;
+      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
         bodyrenderer.renderer := apply.bodyrenderer.renderer;
       }

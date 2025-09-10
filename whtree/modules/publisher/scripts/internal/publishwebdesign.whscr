@@ -61,12 +61,6 @@ IF(NOT RecordExists(webdesigninfo))
 
 PUBLISHER_SetCaptureSubPaths(webdesigninfo.renderinfo.capturesubpaths);
 
-IF(webdesigninfo.renderinfo.issystemredirect)
-{
-  CreateSystemRedirect();
-  RETURN;
-}
-
 //Destroy any contact with the publication engine, to intercept attempts to access 'old' state
 file := DEFAULT RECORD;
 folder := DEFAULT RECORD;
@@ -96,14 +90,6 @@ IF(NOT ObjectExists(webdesign))
 */
 
 opened_firstpage := TRUE;
-
-MACRO CreateSystemRedirect()
-{
-  SwitchToIndexSHTML();
-  INTEGER redirectoutputid := OpenOutputFile("index.shtml", FALSE);
-  PrintTo(redirectoutputid, `WBHRWS::v0dmzc5chW4AxhbiSdDpJQ\r\n${EncodeJSON([whfsexecute := publishfile.id])}\r\n`);
-  PUBLISHER_CloseOutput(redirectoutputid);
-}
 
 //ADDME Set unique/generated names on followup pages
 

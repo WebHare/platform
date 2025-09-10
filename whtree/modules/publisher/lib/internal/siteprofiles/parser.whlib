@@ -930,10 +930,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "bodyrenderer"
             {
-              apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
-                                    , rendermacro := node->GetAttribute("rendermacro")
-                                    , preparemacro := node->GetAttribute("preparemacro")
-                                    , objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
+              apply.bodyrenderer := [ objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
                                     , renderer := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
                                     ];
               CONTINUE;

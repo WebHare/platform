@@ -1227,7 +1227,6 @@
   </xs:complexType>
 
   <xs:complexType name="BodyRenderer">
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" />
     <xs:attribute name="renderer" type="xs:string" />
   </xs:complexType>
