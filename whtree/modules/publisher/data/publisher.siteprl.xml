@@ -238,17 +238,15 @@
             icon="tollium:files/application_pdf"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.pdf">
-    <preview browserurl="/.publisher/backend/preview/direct.shtml" />
-  </filetype>
+            tid="publisher:filetypes.pdf"
+            browserpreview="/.publisher/backend/preview/direct.shtml" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/imagefile"
             kind="rawfile"
             icon="tollium:files/image"
             requirescontent="true"
-            tid="publisher:filetypes.image">
-    <preview browserurl="/.publisher/backend/preview/image.shtml" />
-  </filetype>
+            tid="publisher:filetypes.image"
+            browserpreview="/.publisher/backend/preview/image.shtml" />
 
   <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/multimediafile"

@@ -341,6 +341,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     IF(ftype->HasAttribute("ispublishable"))
       ctype.filetype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
+    ctype.filetype.browserpreview := ftype->GetAttribute("browserpreview");
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.filetype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
 
@@ -820,7 +821,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , typemappings := DEFAULT RECORD ARRAY
                     , uploadtypemapping := DEFAULT RECORD ARRAY
                     , urlhistory := DEFAULT RECORD
-                    , preview := DEFAULT RECORD
                     , usepublishtemplate := DEFAULT RECORD
                     , webdesign := DEFAULT RECORD
                     , formdefinitions := DEFAULT RECORD ARRAY
@@ -908,15 +908,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                       , noarchive := ParseXSBoolean(node->GetAttribute("noarchive"))
                                       , seotitle := ParseXSBoolean(node->GetAttribute("seotitle"))
                                       ];
-              CONTINUE;
-            }
-            CASE "preview"
-            {
-              apply.preview := [ haslist := GetHasList(node, ["browserurl","browseinsite","ignorepublish"])
-                               , browserurl := node->GetAttribute("browserurl")
-                               , browseinsite := ParseXSBoolean(node->GetAttribute("browseinsite"))
-                               , ignorepublish := ParseXSBoolean(node->GetAttribute("ignorepublish"))
-                               ];
               CONTINUE;
             }
             CASE "urlhistory"

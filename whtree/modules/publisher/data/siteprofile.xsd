@@ -733,6 +733,7 @@
             <xs:documentation>Object which describes the URLs this type provides for consilio and sitemaps</xs:documentation>
           </xs:annotation>
         </xs:attribute>
+        <xs:attribute name="browserpreview" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -835,7 +836,6 @@
       <xs:element name="bodyrenderer" type="BodyRenderer" />
       <xs:element name="webdesign" type="WebDesign" />
       <xs:element ref="urlhistory" />
-      <xs:element ref="preview" />
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
@@ -1298,29 +1298,6 @@
       <xs:attribute name="accesscheck">
         <xs:annotation>
           <xs:documentation>Function to invoke to check whether a user is allowed to create URLs in this site, if he doesn't otherwise have write access</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-
-  <xs:element name="preview">
-    <xs:annotation>
-      <xs:documentation>Configure the Publisher preview</xs:documentation>
-    </xs:annotation>
-    <xs:complexType>
-      <xs:attribute name="browserurl">
-        <xs:annotation>
-          <xs:documentation>URL which the preview browser should use to provide a preview for this file. This page should use %DescribePreviewRequest to figure out what to show</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="browserinsite" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>If set, the previewbrowserurl will be resolved relative to the site webroot (otherwise relative to the interface root)</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="ignorepublish" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>Ignore the publish setting for this preview. Normally a preview is only shown if the file is published</xs:documentation>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>

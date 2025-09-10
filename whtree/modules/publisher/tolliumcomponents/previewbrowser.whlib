@@ -260,23 +260,15 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     this->refresh_unpublished := FALSE;
 
     OBJECT applytester := GetApplyTesterForObject(selectedfile.id);
-    RECORD previewinfo := applytester->GetPreviewSettings();
+    RECORD typeinfo;
+    IF(selectedfile.type != 0)
+      typeinfo := LookupContentTypeById(selectedfile.type); //TODO can't we figure out whether or not this is a widget with a preview from the applytester?
 
-
+    STRING browserpreview := RecordExists(typeinfo) AND RecordExists(typeinfo.filetype) ? typeinfo.filetype.browserpreview : "";
     BOOLEAN generatewidgetpreview;
-    IF(previewinfo.browserurl != "")
+    IF(browserpreview != "")
     {
-      //Takes precedence over standard rendering
-      IF(previewinfo.browseinsite)
-      {
-        STRING siteroot := SELECT AS STRING webroot FROM system.sites WHERE id = selectedfile.parentsite;
-        IF(siteroot != "")
-          this->currenturl := ResolveToAbsoluteURL(siteroot, previewinfo.browserurl);
-      }
-      ELSE
-      {
-        this->currenturl := ResolveToAbsoluteURL(this->contexts->controller->baseurl, previewinfo.browserurl);
-      }
+      this->currenturl := ResolveToAbsoluteURL(this->contexts->controller->baseurl, browserpreview);
 
       IF(this->currenturl != "")
         this->currenturl := UpdateURLVariables(this->currenturl, [ preview := this->GetPreviewToken(selectedfile, contentfile) ]);
@@ -285,7 +277,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     {
       IF(selectedfile.type != 0 AND NOT selectedfile.isfolder)
       {
-        RECORD typeinfo := LookupContentTypeById(selectedfile.type); //TODO can't we figure out whether or not this is a widget with a preview from the applytester?
         generatewidgetpreview := RecordExists(typeinfo) AND RecordExists(typeinfo.filetype) AND typeinfo.filetype.generatepreview;
       }
       IF(generatewidgetpreview)
