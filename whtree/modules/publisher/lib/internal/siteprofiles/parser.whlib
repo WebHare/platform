@@ -921,11 +921,13 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "urlhistory"
             {
-              apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","accesscheck"])
-                                  , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
-                                  , store := ParseXSBoolean(node->GetAttribute("store"))
-                                  , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
-                                  ];
+              RECORD urlhistory := [ haslist := GetHasList(node, ["accesscheck"])
+                                   , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
+                                   ];
+
+              IF(Length(urlhistory.haslist) > 0)
+                apply.urlhistory := urlhistory;
+
               CONTINUE;
             }
             CASE "bodyrenderer"

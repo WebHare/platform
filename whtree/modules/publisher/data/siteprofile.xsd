@@ -1293,20 +1293,8 @@
 
   <xs:element name="urlhistory">
     <xs:complexType>
-      <xs:attribute name="redirecton404" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>
-            Enable redirecting using the URL history on this site after a 404. This property must be activated on the root folder of the site (you cannot selectively enable searching of the URL history after a 404)
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="store" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>
-            Record the URLs on which a file was published, to allow URL history searching
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
+      <xs:attribute name="redirecton404" />  <!-- ignored since WH5.9, always true -->
+      <xs:attribute name="store" />  <!-- ignored since WH5.9, always true -->
       <xs:attribute name="accesscheck">
         <xs:annotation>
           <xs:documentation>Function to invoke to check whether a user is allowed to create URLs in this site, if he doesn't otherwise have write access</xs:documentation>

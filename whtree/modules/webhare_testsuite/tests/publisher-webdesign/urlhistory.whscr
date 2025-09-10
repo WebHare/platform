@@ -52,7 +52,6 @@ MACRO Prepare()
   OBJECT siteroot := testfw->GetTestSite()->rootobject->EnsureFolder([name := "tmp"]);
   OBJECT followhtmldoc := siteroot->CreateFile([name:="follow.html", data := StringToBlob("Een <b>test</b> pagina"), publish := TRUE, type := 5 ]);
   OBJECT followlinkdoc := siteroot->CreateFile([name:="follow.whlink", externallink := "http://www.example.net/", publish := TRUE, type := 18 ]);
-  OBJECT ignorehtmldoc := siteroot->CreateFile([name:="ignore.html", data := StringToBlob("Een <b>negeerbare</b> pagina"), publish := TRUE, type := 5 ]);
   OBJECT mutatabledoc := siteroot->CreateFile([name:="mutate.html", data := StringToBlob("Een <b>muteerbare</b> pagina"), publish := TRUE, type := 5 ]);
   OBJECT mutatablesub := siteroot->CreateFolder([name := "sub"]);
   OBJECT mutatablesubdoc := mutatablesub->CreateFile([name:="mutatesub.html", data := StringToBlob("Een <b>muteerbare</b> subpagina"), publish := TRUE, type := 5 ]);
@@ -81,7 +80,6 @@ MACRO Moves()
   testfw->BeginWork();
   siteroot->OpenByPath("follow.html")->MoveTo(siteroot, "follow2.html");
   siteroot->OpenByPath("follow.whlink")->MoveTo(siteroot, "follow2.whlink");
-  siteroot->OpenByPath("ignore.html")->MoveTo(siteroot, "ignore2.html");
   siteroot->UpdateMetadata([indexdoc := 0]);
   siteroot->OpenByName("subje")->UpdateMetadata([indexdoc := 0]);
   testfw->CommitWork();
@@ -94,9 +92,6 @@ MACRO Moves()
 
   testfw->browser->autofollow := FALSE;
   testfw->browser->SetupWebHareTrustedPort(GetWebhareConfiguration().trustedhost, GetWebhareConfiguration().trustedport,"100::1234:5789");
-
-  TestEq(FALSE, testfw->browser->GotoWebPage(root || "ignore.html"));
-  TestEq(404, testfw->browser->GetHTTPStatusCode(), testfw->browser->url);
 
   TestEq(TRUE, testfw->browser->GotoWebPage(root || "follow.html"), testfw->browser->url);
   TestEq(301, testfw->browser->GetHTTPStatusCode());

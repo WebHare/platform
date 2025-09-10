@@ -101,8 +101,6 @@
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
                renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
 
-    <!-- Disable urlhistory storage for most of the testsite -->
-    <urlhistory redirecton404="1" store="false" />
     <setlibrary name="publisher:beacons">
       <source path="site::webhare_testsuite.testsite/tmp/beacons/" />
     </setlibrary>
@@ -855,12 +853,6 @@
   <apply>
     <to type="file" pathmask="*opengraph*" />
     <opengraph xmlns="http://www.webhare.net/xmlns/socialite" site_name="PluginTest" />
-  </apply>
-
-  <!-- URLHistory -->
-  <apply>
-    <to type="all" pathmask="/tmp/*follow*" />
-    <urlhistory store="true" />
   </apply>
 
   <apply>

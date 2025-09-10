@@ -139,14 +139,7 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
   IF(errorcode = 404 AND GetRequestMethod()="GET")
   {
     IF(urlinfo.site != 0)
-    {
-      RECORD urlhistory := GetApplyTesterForObject(urlinfo.site)->GetURLHistorySettings();
-
-      IF(urlhistory.redirecton404)
-      {
-        TryRedirectUsingURLHistory();
-      }
-    }
+      TryRedirectUsingURLHistory();
   }
 
   IF(NOT RecordExists(urlinfo) OR urlinfo.site = 0)
