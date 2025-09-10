@@ -1,12 +1,5 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <apply>
-    <!-- defaults for filetypes -->
-    <to type="file" />
-    <bodyrenderer objectname="mod::publisher/lib/webdesign.whlib#StaticPageBase" />
-    <baseproperties description="true" keywords="true" title="true" />
-  </apply>
-
   <!--
 
       This is the publisher base site profile. It always applies and
@@ -569,9 +562,6 @@
 
     <!-- Republish the index of the parent folder when a folder changes -->
     <republish folder=".." indexonly="true" />
-
-    <!-- Show title+description, but no keywords -->
-    <baseproperties description="true" title="true" />
 
     <!-- To ensure backwards compatibility, we don't specify default folderindex here. If it would be specified here, there
          would be no way to determine if a site uses the old site settings or the new site profile settings. New sites

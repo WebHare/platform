@@ -1361,23 +1361,19 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC RECORD FUNCTION GetObjRenderInfo()
   {
-    RECORD typerec;
-    RECORD bodyrenderer;
+    RECORD typerec := this->GetTypeRecordData();
+    RECORD bodyrenderer := CELL[  //default rendering settings from publisher.siteprl.xml
+      objectname := "mod::publisher/lib/webdesign.whlib#StaticPageBase",
+      capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths,
+      renderer := ""
+    ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
-    {
-      IF (#apply=0) {
-        typerec := this->GetTypeRecordData();
-        bodyrenderer := [ objectname  := ""
-                        , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
-                        , renderer := ""
-                        ];
-      }
       IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
         bodyrenderer.renderer := apply.bodyrenderer.renderer;
       }
-    }
+
     RETURN bodyrenderer;
   }
 
@@ -1909,7 +1905,16 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 
 PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
 {
-  RETURN applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := TRUE, seotab := FALSE
-                                                         , noindex := FALSE, nofollow := FALSE, noarchive := FALSE, seotabrequireright := "", seotitle := FALSE
-                                                         ]);
+  RETURN applytester->GetCachedProperty("baseproperties",
+    CELL[ title := TRUE
+        , description := TRUE
+        , keywords := NOT applytester->objisfolder
+        , striprtdextension := TRUE
+        , seotab := FALSE
+        , noindex := FALSE
+        , nofollow := FALSE
+        , noarchive := FALSE
+        , seotabrequireright := ""
+        , seotitle := FALSE
+    ]);
 }
