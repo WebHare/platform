@@ -24,8 +24,7 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
-PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
-<
+PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase <
   PUBLIC PROPERTY selectedtype(GetSelectedType, SetSelectedType);
   PUBLIC PROPERTY selectedtemplate(GetSelectedTemplate, -);
 
@@ -224,8 +223,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
     this->RefreshTypeList();
   }
 
-  UPDATE BOOLEAN FUNCTION Submit()
-  {
+  UPDATE BOOLEAN FUNCTION Submit() {
     // If we're updating a file or folder type, update it in the database
     IF (this->isnew) // Only selecting a file/folder type
       RETURN RecordExists(^types->selection);
@@ -250,8 +248,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
          WHERE id IN modify_ids
       ORDER BY parent;
 
-    FOREVERY (RECORD rec FROM toupdate)
-    {
+    FOREVERY (RECORD rec FROM toupdate) {
       OBJECT fsobject := OpenWHFSObject(rec.id);
 
       // Update the object type

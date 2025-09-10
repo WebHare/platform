@@ -17,6 +17,49 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::javascript.whlib";
 
+CONSTANT RECORD csp_base_applyrule :=
+  [ siteprofile := ""
+  , line := 0
+  , col := 0
+
+  , baseproperties := DEFAULT RECORD
+  , bodyrenderer := DEFAULT RECORD
+  , contentlisting := DEFAULT RECORD
+  , customnodes := DEFAULT RECORD ARRAY
+  , defaultsettings := DEFAULT RECORD ARRAY
+  , disabletemplateprofile := FALSE
+  , extendproperties := DEFAULT RECORD ARRAY
+  , folderindex := DEFAULT RECORD
+  , setlibrary := DEFAULT RECORD ARRAY
+  , modifyfiletypes := DEFAULT RECORD ARRAY
+  , modifyfoldertypes := DEFAULT RECORD ARRAY
+  , plugins := DEFAULT RECORD ARRAY
+  , republishes := DEFAULT RECORD ARRAY
+  , scheduletasknows := DEFAULT RECORD ARRAY
+  , schedulemanagedtasks := RECORD[]
+  , setobjecteditor := DEFAULT RECORD
+  , setwidget := DEFAULT RECORD ARRAY
+  , sitelanguage := DEFAULT RECORD
+  , tagsources := DEFAULT RECORD ARRAY
+  , typemappings := DEFAULT RECORD ARRAY
+  , uploadtypemapping := DEFAULT RECORD ARRAY
+  , urlhistory := DEFAULT RECORD
+  , usepublishtemplate := DEFAULT RECORD
+  , webdesign := DEFAULT RECORD
+  , formdefinitions := DEFAULT RECORD ARRAY
+  , mailtemplates := RECORD[]
+  , foldersettings := DEFAULT RECORD
+  , webtoolsformrules := DEFAULT RECORD ARRAY
+  , rtddoc := DEFAULT RECORD
+  , hookintercepts := RECORD[]
+  , userdata := RECORD[]
+  , tos := RECORD[]
+  , priority := 0
+  , applyindex := 0
+  , applynodetype := ""
+  , whfstype := ""
+];
+
 PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
 {
   RECORD retval;
@@ -750,13 +793,9 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       IF(NOT RecordExists(apply))
         CONTINUE; //no content
 
-      apply := CELL[ ...apply
-                   , tos := RECORD[]
-                   , priority := ParseXSInt(applyblock->GetAttribute("priority"))
-                   , applyindex
-                   , applynodetype
-                   , whfstype := ""
-                   ];
+      apply.priority := ParseXSInt(applyblock->GetAttribute("priority"));
+      apply.applyindex := applyindex;
+      apply.applynodetype := applynodetype;
 
       IF(applynodetype = "apply")
         apply.tos := this->ParseApplyTosRecurse(applyblock);
@@ -768,47 +807,15 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN applyrules;
   }
 
-  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)
-  {
+  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)   {
     BOOLEAN errorsarenowfatal;
     BOOLEAN anynode;
-    RECORD apply := [ siteprofile := this->siteprof->name
-                    , line := applyblock->linenum
-                    , col := 0
-
-                    , baseproperties := DEFAULT RECORD
-                    , bodyrenderer := DEFAULT RECORD
-                    , contentlisting := DEFAULT RECORD
-                    , customnodes := DEFAULT RECORD ARRAY
-                    , defaultsettings := DEFAULT RECORD ARRAY
-                    , disabletemplateprofile := FALSE
-                    , extendproperties := DEFAULT RECORD ARRAY
-                    , folderindex := DEFAULT RECORD
-                    , setlibrary := DEFAULT RECORD ARRAY
-                    , modifyfiletypes := DEFAULT RECORD ARRAY
-                    , modifyfoldertypes := DEFAULT RECORD ARRAY
-                    , plugins := DEFAULT RECORD ARRAY
-                    , republishes := DEFAULT RECORD ARRAY
-                    , scheduletasknows := DEFAULT RECORD ARRAY
-                    , schedulemanagedtasks := RECORD[]
-                    , setobjecteditor := DEFAULT RECORD
-                    , setwidget := DEFAULT RECORD ARRAY
-                    , sitelanguage := DEFAULT RECORD
-                    , tagsources := DEFAULT RECORD ARRAY
-                    , typemappings := DEFAULT RECORD ARRAY
-                    , uploadtypemapping := DEFAULT RECORD ARRAY
-                    , urlhistory := DEFAULT RECORD
-                    , usepublishtemplate := DEFAULT RECORD
-                    , webdesign := DEFAULT RECORD
-                    , formdefinitions := DEFAULT RECORD ARRAY
-                    , mailtemplates := RECORD[]
-                    , foldersettings := DEFAULT RECORD
-                    , webtoolsformrules := DEFAULT RECORD ARRAY
-                    , rtddoc := DEFAULT RECORD
-                    , hookintercepts := RECORD[]
-                    , userdata := RECORD[]
-                    ];
-
+    RECORD apply := CELL[
+      ...csp_base_applyrule,
+      siteprofile := this->siteprof->name,
+      line := applyblock->linenum,
+      col := 0
+      ];
 
     STRING ARRAY seenuniques;
 
@@ -1443,6 +1450,36 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
     siteprofdata.rtdtypes := siteprofcontext->rtdtypes;
   }
+
+  //Translate <foldertype indexfile= to a WHFSType-apply rule
+  FOREVERY(RECORD ftype FROM siteprofdata.contenttypes)
+    IF(ftype.type="foldertype") {
+      IF(ftype.foldertype.indexfile LIKE "contentlisting:*") { //ie: not 'none' or ""
+        RECORD set_indexfile := [ //prepare the new indexfile apply rule
+              indexfile := "newfile",
+              protectindexfile := ftype.foldertype.protectindexfile,
+              fullpath := "",
+              site := "",
+              newfiletype := Substring(ftype.foldertype.indexfile, Length("contentlisting:")),
+              newfilename := ""
+            ];
+
+        INTEGER matchrule := SELECT AS INTEGER #rules + 1 FROM siteprofdata.rules WHERE ruletype="apply" AND whfstype = ftype.namespace;
+        IF(matchrule > 0) { //matching rule
+          IF(NOT RecordExists(siteprofdata.rules[matchrule-1].folderindex))
+            siteprofdata.rules[matchrule-1].folderindex := set_indexfile;
+        } ELSE { //create a rule
+          INSERT CELL[
+            ...csp_base_applyrule,
+            whfstype := ftype.namespace,
+            ruletype := "apply",
+            folderindex := set_indexfile
+          ] INTO siteprofdata.rules AT END;
+        }
+      }
+      DELETE CELL indexfile, protectindexfile FROM ftype.foldertype;
+      siteprofdata.contenttypes[ #ftype ] := ftype; //update the record
+    }
 
   siteprofdata.errors := errors;
   siteprofdata.warnings := warnings;

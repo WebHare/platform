@@ -131,10 +131,6 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
          , capturesubpaths := RecordExists(type.filetype) AND type.filetype.capturesubpaths
          , siteprofile := ismissing ? "" : type.siteprofile
          , line := ismissing ? 0 : type.line
-
-         , indexfile        := RecordExists(type.foldertype) ? type.foldertype.indexfile : ""
-         , protectindexfile := RecordExists(type.foldertype) ? type.foldertype.protectindexfile : FALSE
-
          ];
 }
 PUBLIC RECORD FUNCTION LookupContentTypeById(INTEGER id)

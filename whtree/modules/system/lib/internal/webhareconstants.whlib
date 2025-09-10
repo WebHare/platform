@@ -94,6 +94,9 @@ PUBLIC CONSTANT INTEGER whconstant_whfstype_foreignfolder := 1;
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/systemfolder
 PUBLIC CONSTANT INTEGER whconstant_whfstype_systemfolder := 2;
 
+/// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/photoalbum
+PUBLIC CONSTANT INTEGER whconstant_whfstype_photoalbum := 3;
+
 /// fs_types.id of whfstype http://www.webhare.net/xmlns/publisher/externallink
 PUBLIC CONSTANT INTEGER whconstant_whfstype_externallink := 18;
 
