@@ -73,8 +73,5 @@ PUBLIC STATIC OBJECTTYPE SiteprofValidator EXTEND ScreensFileValidator
         IF(NOT RecordExists(RetrieveWebHareResource(apply.usepublishtemplate.script, [ allowmissing := TRUE ])))
           this->AddErrorForLine(apply.line, `No such file: ${apply.usepublishtemplate.script}`);
     }
-
-    FOREVERY(OBJECT propertyeditor FROM this->xml->ListElements("http://www.webhare.net/xmlns/publisher/siteprofile","propertyeditor"))
-      this->AddHint(propertyeditor, "<propertyeditor>s should be replaced by tabsextensions");
   }
 >;

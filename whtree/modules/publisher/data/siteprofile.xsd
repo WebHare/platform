@@ -43,7 +43,6 @@
           <xs:group ref="s:ScreenParts" />
           <xs:element name="contenttype" type="ContentType" />
           <xs:element name="rtdtype" type="RTDType" />
-          <xs:element ref="propertyeditor" />
           <xs:element name="filetype" type="FileType" />
           <xs:element name="foldertype" type="FolderType" />
           <xs:element name="grouptype" type="GroupType" />
@@ -66,14 +65,6 @@
     <xs:keyref name="embeddededitors" refer="sp:TabExtensions">
       <xs:selector xpath=".//sp:embeddededitor" />
       <xs:field xpath="@extension" />
-    </xs:keyref>
-    <xs:key name="PropertyEditors">
-      <xs:selector xpath="./sp:propertyeditor" />
-      <xs:field xpath="@name" />
-    </xs:key>
-    <xs:keyref name="propertyeditorrefs" refer="sp:PropertyEditors">
-      <xs:selector xpath="./sp:apply/sp:extendproperties" />
-      <xs:field xpath="@name" />
     </xs:keyref>
   </xs:element>
 
@@ -528,28 +519,6 @@
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
-
-  <!-- ADDME: Can we clean this up? -->
-  <!-- duplicated propertyeditor in sitepropfilecomponentes.xsd to break a recursive import causing two imports for tollium components
-       without it siteprofile extensions in the publisher won't work -->
-  <xs:element name="propertyeditor">
-    <xs:complexType>
-      <xs:annotation>
-        <xs:appinfo>
-          <tai:tolliumcomponent placement="screens" />
-          <tai:childcomponents adoptfields="compositions" field="compositions" target="./sp:compositions" />
-          <tai:childcomponents field="newtabs" target="./sp:newtab" />
-          <tai:childcomponents adoptfields="lines position where" field="inserts" target="./sp:insert" />
-        </xs:appinfo>
-      </xs:annotation>
-      <xs:sequence>
-        <xs:element minOccurs="0" maxOccurs="1" ref="compositions" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="insert" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="newtab" />
-      </xs:sequence>
-      <xs:attribute name="name" type="xs:string" />
-    </xs:complexType>
-  </xs:element>
 
   <xs:element name="compositions" type="s:Compositions" />
 
@@ -1037,7 +1006,6 @@
 
   <xs:element name="extendproperties">
     <xs:complexType>
-      <xs:attribute name="name" type="xs:string" />
       <xs:attribute name="extension" type="xs:string" />
       <xs:attribute name="contenttype" type="xs:anyURI" />
       <xs:attribute name="requireright" type="xs:string" />

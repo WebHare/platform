@@ -9,26 +9,6 @@
 
   <xs:import namespace="http://www.webhare.net/xmlns/tollium/screens" schemaLocation="mod::tollium/data/screens.xsd" />
 
-  <xs:element name="propertyeditor">
-    <xs:complexType>
-      <xs:annotation>
-        <xs:appinfo>
-          <tai:tolliumcomponent placement="screens" />
-          <tai:childcomponents adoptfields="compositions" field="compositions" target="./sp:compositions" />
-          <tai:childcomponents field="newtabs" target="./sp:newtab" />
-          <tai:childcomponents adoptfields="lines position where" field="inserts" target="./sp:insert" />
-        </xs:appinfo>
-      </xs:annotation>
-      <xs:sequence>
-        <xs:element minOccurs="0" maxOccurs="1" ref="compositions" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="insert" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="newtab" />
-      </xs:sequence>
-      <xs:attribute name="name" type="xs:string" />
-      <xs:attribute name="developeronly" type="xs:boolean" />
-    </xs:complexType>
-  </xs:element>
-
   <xs:element name="compositions" type="s:Compositions" />
 
   <xs:element name="newtab" type="s:NewTab" />

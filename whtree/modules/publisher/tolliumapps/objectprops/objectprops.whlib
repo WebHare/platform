@@ -959,7 +959,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
         STRING selector;
         RECORD ARRAY extendcomponents := default_extendcomponents;
 
-        IF (propeditor.contenttype != "") //applicable only for tabsextension
+        IF (propeditor.contenttype != "") //this was a tabsextension inserted by <extendproperties> with a contenttype. (they can also be added with AddTabsExtension and those may not have ae contenttype)
         {
           propeditor.instance := this->CreateCustomComponent("http://www.webhare.net/xmlns/publisher/components", "whfsinstance");
           propeditor.instance->type := OpenWHFSType(propeditor.contenttype);
@@ -1226,15 +1226,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND PublisherEditorBase <
   {
     //Grab siteprofile stuff
     FOREVERY(RECORD extendprop FROM this->extendprops)
-    {
-      IF (extendprop.contenttype="") // FIXME: all <propertyeditor>'s ?
-        FOREVERY(OBJECT comp FROM extendprop.compositions)
-          IF (comp EXTENDSFROM WHFSInstance)
-            this->WriteInstanceData(work, comp, objid, draftid, versioned_contenttypes);
-
       IF (ObjectExists(extendprop.instance)) // <tabsextention> ??
         this->WriteInstanceData(work, extendprop.instance, objid, draftid, versioned_contenttypes);
-    }
 
     this->SaveMetadata(objid);
   }

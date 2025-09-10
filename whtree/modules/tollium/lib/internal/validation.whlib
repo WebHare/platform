@@ -17,13 +17,13 @@ PUBLIC STATIC OBJECTTYPE ScreensFileValidator EXTEND XMLValidatorBase
     // but make the controller/resourcemanager load the screen.
     FOREVERY(OBJECT topnode FROM this->xml->documentelement->childnodes->GetCurrentElements())
     {
-      IF(topnode->localname IN ["screen","fragment","propertyeditor","tabsextension"]) //FIXME validate namespaces. note that propertyeditor is a hack and is from a different namespace!
+      IF(topnode->localname IN ["screen","fragment","tabsextension"]) //FIXME validate namespaces
       {
         RECORD savescreenbuildinfo := __screenbuildinfo;
         TRY
         {
           RECORD parsedelement := ParseFoundXMLPage( this->respath
-                                                   , topnode->localname = "propertyeditor" ? "tabsextension" : topnode->localname
+                                                   , topnode->localname
                                                    , topnode
                                                    , this->xml->documentelement->GetAttribute("gid")
                                                    , TRUE

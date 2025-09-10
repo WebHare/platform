@@ -869,15 +869,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 IF(contenttype = "" AND extension != "")
                   this->AddError(node, "An extendproperties with extension= requires a content type");
               }
-              ELSE //inside a type definition
-              {
-                IF(node->HasAttribute("name"))
-                  this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
-              }
 
               RECORD applynode := [ contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
-                                  , extension := extension ?? apply.siteprofile || "#" || node->GetAttribute("name")
+                                  , extension := extension
                                   ];
               INSERT applynode INTO apply.extendproperties AT END;
               CONTINUE;

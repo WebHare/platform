@@ -2214,15 +2214,6 @@ PUBLIC OBJECT FUNCTION SelectPageNode(OBJECT screendoc, STRING selector, STRING 
         RETURN el;
   }
 
-  IF(resourcetype = "tabsextension" AND screendoc->documentelement->localname = "siteprofile") //backward compatibility with propertyeditors
-  {
-    FOREVERY(OBJECT el FROM screendoc->documentelement->ListChildren(whconstant_xmlns_publisher, "propertyeditor"))
-      IF(ToUppercase(el->GetAttribute("name")) = selector)
-        RETURN el;
-
-    RETURN DEFAULT OBJECT;
-  }
-
   RETURN DEFAULT OBJECT;
 }
 
@@ -2252,7 +2243,7 @@ PUBLIC RECORD FUNCTION ParseFoundXMLPage(STRING resourcename, STRING resourcetyp
     ELSE IF(curpageparser->finalpage.implementation = whconstant_xmlns_screens || "#none")
     {
       curpageparser->finalpage.objtype := "mod::tollium/lib/screenbase.whlib#" ||
-          (screen->localname IN ["propertyeditor","tabsextension"] ? "TolliumTabsExtensionBase"
+          (screen->localname = "tabsextension" ? "TolliumTabsExtensionBase"
            : screen->localname = "fragment" ? "TolliumFragmentBase" : "TolliumScreenBase");
     }
     ELSE
