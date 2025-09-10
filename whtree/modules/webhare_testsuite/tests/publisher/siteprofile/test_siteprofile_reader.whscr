@@ -228,9 +228,9 @@ MACRO TestMailTemplates()
   TestEq(":Cool template", nowtemplates[3].title, "templatehtml should be named Cool template");
 }
 
-RunTestframework([ PTR TestWHFSType
-                 , PTR TestApplyRuleTester
+RunTestframework([ PTR TestApplyRuleTester
                  , PTR SiteSettingsTester
+                 , PTR TestWHFSType
                  , PTR GlobalDataTester
                  , PTR TestMailTemplates
                  ]);

@@ -755,37 +755,14 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                    , priority := ParseXSInt(applyblock->GetAttribute("priority"))
                    , applyindex
                    , applynodetype
+                   , whfstype := ""
                    ];
 
       IF(applynodetype = "apply")
-      {
         apply.tos := this->ParseApplyTosRecurse(applyblock);
-      }
       ELSE
-      {
-        apply.tos := [[ type         := "to"
-                      , match_all    := FALSE
-                      , match_file   := applynodetype IN ["filetype","widgettype"]
-                      , match_index  := FALSE
-                      , match_folder := applynodetype = "folderype"
-                      , pathmask     := ""
-                      , pathregex    := ""
-                      , parentmask   := ""
-                      , parentregex  := ""
-                      , sitemask     := ""
-                      , sitename     := ""
-                      , siteregex    := ""
-                      , parenttype   := ""
-                      , withintype   := ""
-                      , sitetype     := ""
-                      , filetype     := applynodetype IN ["filetype","widgettype"] ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
-                      , contentfiletype := ""
-                      , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
-                      , typeneedstemplate := FALSE
-                      , webfeatures  := STRING[]
-                      ]
-                     ];
-      }
+        apply.whfstype := applyblock->GetAttribute("namespace");
+
       INSERT apply INTO applyrules AT END;
     }
     RETURN applyrules;

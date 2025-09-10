@@ -417,7 +417,8 @@ function parseApply(gid: ResourceParserContext, module: string, siteprofile: str
     tagsources: [],
     typemappings: [],
     uploadtypemapping: [],
-    webtoolsformrules: []
+    webtoolsformrules: [],
+    whfstype: ""
   };
 
   if (apply.baseProps)

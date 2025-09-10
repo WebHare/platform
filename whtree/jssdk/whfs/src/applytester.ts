@@ -411,6 +411,9 @@ export class WHFSApplyTester {
   private async applyIsMatch(apply: CSPApplyRule): Promise<boolean> {
     if (!isResourceMatch(apply.siteprofileids, this.objinfo.siteprofileids))
       return false;
+    if (apply.whfstype) {
+      return this.objinfo.type === apply.whfstype;
+    }
 
     try {
       for (const appl of apply.tos)

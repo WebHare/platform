@@ -8,7 +8,7 @@ PUBLIC STATIC OBJECTTYPE BeaconFormPage EXTEND DynamicPageBase
 <
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody(OBJECT webdesign)
   {
-    RETURN PTR webdesign->OpenForm("beaconform")->RenderForm;
+    RETURN PTR webdesign->OpenForm("webhare_testsuite:beaconform#beaconform")->RenderForm;
   }
 >;
 

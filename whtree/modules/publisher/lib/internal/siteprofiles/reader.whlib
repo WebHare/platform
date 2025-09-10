@@ -746,8 +746,8 @@ MACRO ClearApplyRuleTesterCache(BOOLEAN iscommit DEFAULTSTO TRUE)
     @public
     @topic siteprofiles/api
 */
-STATIC OBJECTTYPE ApplyRuleTester
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE ApplyRuleTester <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -1091,10 +1091,14 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN TRUE;
   }
 
-  BOOLEAN FUNCTION ApplyIsMatch(RECORD apply)
-  {
+  BOOLEAN FUNCTION ApplyIsMatch(RECORD apply) {
     IF(NOT IsResourceMatch(apply.siteprofileids, this->objinfo.siteprofileids))
       RETURN FALSE;
+
+    IF(CellExists(apply,'whfstype') AND apply.whfstype != "") { //directly applied to the type
+      STRING namespace := this->cache->GetWHFSTypeNamespace(this->objinfo.obj.type, this->objinfo.obj.isfolder);
+      RETURN namespace = apply.whfstype;
+    }
 
     FOREVERY (RECORD appl FROM apply.tos)
       IF (this->ToIsMatch(appl, this->objinfo.site, this->objinfo.parent))
@@ -1450,15 +1454,15 @@ STATIC OBJECTTYPE ApplyRuleTester
   }
 
   /** Resolve userdata */
-  PUBLIC RECORD FUNCTION GetUserData(STRING keyname)
-  {
+  PUBLIC RECORD FUNCTION GetUserData(STRING keyname) {
     RECORD retvalue;
-    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA"))
-      FOREVERY (RECORD userdata FROM apply.userdata)
-      {
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA")) {
+      dumpvalue(apply);
+      FOREVERY (RECORD userdata FROM apply.userdata)  {
         IF(userdata."key" = keyname)
           retvalue := CELL[...retvalue, ...DecodeJSON(userdata.value)];
       }
+    }
     RETURN retvalue;
   }
 

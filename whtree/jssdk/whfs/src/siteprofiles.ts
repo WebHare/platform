@@ -225,7 +225,10 @@ export type CustomFieldsLayout = string[] | "all" | {
 };
 
 export interface CSPApplyRule {
+  /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
+  /** Directly applied to the type */
+  whfstype: string;
   /** Set by apply rules sourced from YAML */
   yaml?: true;
 

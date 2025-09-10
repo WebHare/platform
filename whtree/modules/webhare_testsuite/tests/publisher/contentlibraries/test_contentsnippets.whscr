@@ -148,7 +148,7 @@ ASYNC MACRO TestReferences()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher", [ calltype := "direct", params := [ snippetsfolder->whfspath || "textsnippet"], target := DEFAULT RECORD ]));
   AWAIT ExpectScreenChange(+1, PTR TTClick("props"));
 
-  TestEq(2, Length(TT("fragment2!documents")->rows)); //We lack a clean way to find Documents on the References tab, so for now fragment2 will work
+  TestEq(2, Length(TT("fragment1!documents")->rows)); //We lack a clean way to find Documents on the References tab, so for now fragment1 will work
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);

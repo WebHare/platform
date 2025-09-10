@@ -60,7 +60,7 @@ MACRO TestRules()
   TestEq("applytest-megaglobal,applytest-whfsregex,pathmask-applytest1,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
 
   applytest1->UpdateMetadata([typens:="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder"]);
-  TestEq("applytest-megaglobal,applytest-whfsregex,pathmask-applytest1,folderapplytestertest,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
+  TestEq("folderapplytestertest,applytest-megaglobal,applytest-whfsregex,pathmask-applytest1,parentmask-tmp,parentregex-tmp,pathregex-applytest1", GetMyCustomNodes(applytest1->id));
 
   //even apply rules from OTHER websites should apply to us (ie they should escape automatisch siteid= tagging to their implicit apply rules)
   applytest1->UpdateMetadata([typens:="http://www.webhare.net/xmlns/webhare_testsuite/alttestfolder"]);
