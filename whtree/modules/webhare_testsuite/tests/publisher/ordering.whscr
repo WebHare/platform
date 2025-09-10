@@ -135,29 +135,7 @@ ASYNC MACRO FolderOrdering()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
-ASYNC MACRO FolderOrderingOfForeigns()
-{
-  testfw->BeginWork();
-  OBJECT folderholder := GetTestsuiteTempFolder()->CreateFolder([name := "showforeigns"]);
-  OBJECT normalsub := folderholder->CreateFolder([name := "normalsub", ordering := 1 ]);
-  OBJECT foreignsub := folderholder->CreateFolder([name := "foreignsub", ordering := 2, type := 1 ]);
-  testfw->CommitWork();
-
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[folderholder->whfspath ] ]));
-  TT("sortorderselect")->value := "ordering";
-
-  TestEq([ "normalsub", "foreignsub" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
-
-  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "foreignsub";
-  TTClick("moveupbutton");
-
-  TestEq([ "foreignsub", "normalsub" ], SELECT AS STRING ARRAY name FROM TT("filelist")->rows);
-
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-}
-
 RunTestframework([ PTR FolderOrdering
-                 , PTR FolderOrderingOfForeigns
                  ], [ testusers := [[ login := "lisa" ]
                                    ]
                     ]);

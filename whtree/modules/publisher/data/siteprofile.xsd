@@ -1065,11 +1065,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="visibleforeignfolders" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>Make external/foreign folders inside this folder visible irrespective of user preferences or rights</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="ordering">
       <xs:simpleType>
         <xs:annotation>

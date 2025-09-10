@@ -48,7 +48,6 @@ PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
          , filtersettings := DEFAULT RECORD
          , contentslisthandler := [ objectname := "mod::publisher/lib/components/filelist.whlib#DefaultContentsListHandler"
                                   ]
-         , visibleforeignfolders := FALSE
          ];
 }
 
@@ -1446,8 +1445,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     {
       IF(apply.foldersettings.has_filterscreen)
         settings.filterscreen := apply.foldersettings.filterscreen;
-      IF(apply.foldersettings.has_visibleforeignfolders)
-        settings.visibleforeignfolders := apply.foldersettings.visibleforeignfolders;
       IF(apply.foldersettings.ordering!="")
         settings.ordering := apply.foldersettings.ordering;
       IF(RecordExists(apply.foldersettings.contentslisthandler))
