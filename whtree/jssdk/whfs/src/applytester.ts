@@ -256,14 +256,6 @@ export class WHFSApplyTester {
             return false;
         return true;
 
-      case "xor": {
-        let sofar = false;
-        for (const crit of element.criteria)
-          sofar = sofar !== await this.toIsMatch(crit, site, folder);
-
-        return sofar;
-      }
-
       case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
                             we are async and have to be able to reach out to the DB (and implement caching which is also gets
                             flaky very fast... just see the <testdata> tests in HS) */

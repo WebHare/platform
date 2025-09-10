@@ -145,7 +145,7 @@ export interface CSPRtddoc {
 
 /** subtests (eg AND, OR ...) */
 export interface CSPApplyToSubs {
-  type: "and" | "or" | "not" | "xor";
+  type: "and" | "or" | "not";
   criteria: CSPApplyTo[];
 }
 

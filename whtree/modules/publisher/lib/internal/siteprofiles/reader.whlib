@@ -1013,13 +1013,6 @@ STATIC OBJECTTYPE ApplyRuleTester <
             RETURN FALSE;
         RETURN TRUE;
       }
-      CASE "xor"
-      {
-        BOOLEAN sofar:=false;
-        FOREVERY(RECORD crit FROM element.criteria)
-          sofar := sofar XOR this->ToIsMatch(crit, site, folder);
-        RETURN sofar;
-      }
       CASE "testdata"
       {
         INTEGER testid;
