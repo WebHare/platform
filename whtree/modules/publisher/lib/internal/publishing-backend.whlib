@@ -189,7 +189,7 @@ STATIC OBJECTTYPE PublicationRun
 
     //fall through, use the 'usetempl' setting
 
-    retval.has_webdesign := NOT usetempl.skipnormalrepublish;
+    retval.has_webdesign := ObjectExists(this->contentfiletype) AND this->contentfiletype->needstemplate;
     retval.usetempl := usetempl;
     retval.templatescript := usetempl.script;
     RETURN retval;

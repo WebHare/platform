@@ -938,7 +938,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "usepublishtemplate"
             {
               RECORD usepublishtemplate := [ script := this->ParseFSPath(node, "script")
-                                           , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
                                            ];
 
               IF(usepublishtemplate.script = "")

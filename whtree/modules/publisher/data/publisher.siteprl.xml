@@ -289,8 +289,9 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
+            needstemplate="false"
             tid="publisher:filetypes.externallink">
-    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" skipnormalrepublish="true" />
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/internallink"
@@ -299,6 +300,7 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
+            needstemplate="false"
             tid="publisher:filetypes.internallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>

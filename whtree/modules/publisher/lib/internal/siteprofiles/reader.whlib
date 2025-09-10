@@ -1502,7 +1502,6 @@ STATIC OBJECTTYPE ApplyRuleTester
   PUBLIC RECORD FUNCTION GetUsePublishTemplate()
   {
     RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"
-                       , skipnormalrepublish := TRUE //no need to depend on templates
                        , isdefault := TRUE
                        ];
     RECORD csp := GetCachedSiteProfiles();

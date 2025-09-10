@@ -1397,19 +1397,10 @@
     <xs:attribute name="script" type="xs:string" />
     <xs:attribute name="fullpath" type="xs:string" />
     <xs:attribute name="site" type="xs:string" />
-    <xs:attribute name="skipnormalrepublish" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          Mark a published file as not being design-dependent if this template is used.
-          If true, a normal republish will skip file using this template.
-          Explicit republishes or a 'republish, including files not dependent on a template' will always republish.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="haswebdesign" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          Ignored, this is now the default. To prevent normal republishes from republishing this file, use skipnormalrepublish=true
+          Ignored, this is now the default. To prevent normal republishes from republishing this file, use needstemplate=true on the file type
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
