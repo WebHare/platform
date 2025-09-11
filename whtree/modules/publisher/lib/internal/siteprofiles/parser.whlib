@@ -60,25 +60,6 @@ CONSTANT RECORD csp_base_applyrule :=
   , whfstype := ""
 ];
 
-PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
-{
-  RECORD retval;
-
-  IF(matchnode->HasAttribute("sitename"))
-    INSERT CELL sitename := matchnode->GetAttribute("sitename") INTO retval;
-
-  IF(matchnode->HasAttribute("sitemask"))
-    INSERT CELL sitemask := matchnode->GetAttribute("sitemask") INTO retval;
-
-  IF(matchnode->HasAttribute("siteregex"))
-    INSERT CELL siteregex := matchnode->GetAttribute("siteregex") INTO retval;
-
-  IF(matchnode->HasAttribute("webrootregex"))
-    INSERT CELL webrootregex := matchnode->GetAttribute("webrootregex") INTO retval;
-
-  RETURN retval;
-}
-
 STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
 {
   STRING ARRAY haslist;
@@ -679,6 +660,27 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       this->ValidateRegex(node, sitefilter.webrootregex, "webrootregex");
   }
 
+  RECORD FUNCTION ReadSiteFilter(OBJECT matchnode) {
+    RECORD retval;
+
+    IF(matchnode->HasAttribute("sitename"))
+      INSERT CELL sitename := matchnode->GetAttribute("sitename") INTO retval;
+
+    IF(matchnode->HasAttribute("sitemask"))
+      INSERT CELL sitemask := matchnode->GetAttribute("sitemask") INTO retval;
+
+    IF(matchnode->HasAttribute("siteregex"))
+      INSERT CELL siteregex := matchnode->GetAttribute("siteregex") INTO retval;
+
+    IF(matchnode->HasAttribute("webrootregex"))
+      INSERT CELL webrootregex := matchnode->GetAttribute("webrootregex") INTO retval;
+
+    IF((CellExists(retval,'sitename') ? 1:0) + (CellExists(retval,'sitemask') ? 1:0) > 1 + (CellExists(retval,'siteregex') ? 1:0))
+      this->AddError(matchnode, "<to and <sitesettings rules should use only one of sitename=, sitemask= and siteregex=");
+
+    RETURN retval;
+  }
+
   PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
   {
     RECORD ARRAY applytos;
@@ -701,7 +703,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             STRING type := crit->GetAttribute("type");
 
             applyto :=
-                  CELL [ ...ReadSiteFilter(crit)
+                  CELL [ ...this->ReadSiteFilter(crit)
                        , type         := "to"
                        , match_all    := type="all"
                        , match_file   := type="file" OR type="index"
@@ -724,6 +726,17 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        ];
 
             this->ValidateSiteFilter(crit, applyto);
+
+            // Prevent duplicate attributes that may conflict with each other but also make YML mapping harder (as YML will just use on attribute for all these groups below)
+            IF((applyto.pathmask != "" ? 1:0) + (applyto.pathregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of pathmask= and pathregex=");
+            IF((applyto.whfspathmask != "" ? 1:0) + (applyto.whfspathregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of whfspathmask= and whfspathregex=");
+            IF((applyto.parentmask != "" ? 1:0) + (applyto.parentregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of parentmask= and parentregex=");
+            IF((applyto.filetype != "" ? 1:0) + (applyto.foldertype != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of filetype= and foldertype=");
+
             IF(applyto.pathregex != "")
               this->ValidateRegex(crit, applyto.pathregex, "pathregex");
             IF(applyto.parentregex != "")
@@ -1270,7 +1283,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RECORD ARRAY sitesettings;
     FOREVERY(OBJECT siteset FROM this->GetSiteSettingNodes())
     {
-      RECORD sitesetting := [ sitefilter := ReadSiteFilter(siteset)
+      RECORD sitesetting := [ sitefilter := this->ReadSiteFilter(siteset)
                             , webrules := DEFAULT RECORD ARRAY
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
