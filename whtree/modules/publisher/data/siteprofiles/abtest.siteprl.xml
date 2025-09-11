@@ -61,7 +61,7 @@
 
   <apply>
     <!-- we need to control both contentlinks and normal publication -->
-    <to type="file" contentfiletype="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" />
+    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" />
     <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
   </apply>
 

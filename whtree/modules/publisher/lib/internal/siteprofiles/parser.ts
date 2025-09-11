@@ -250,7 +250,6 @@ const baseApplyToRule: CSPApplyToTo = {
   withintype: "",
   sitetype: "",
   filetype: "",
-  contentfiletype: "",
   foldertype: "",
   typeneedstemplate: false,
   webfeatures: []

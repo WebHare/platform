@@ -295,8 +295,6 @@ export class WHFSApplyTester {
           if (element.filetype && (!this.objinfo.isfile || !isLike(this.objinfo.type, element.filetype)))
             return false;
         }
-        if (element.contentfiletype)
-          return false; //FIXME: AND NOT this -> MatchType(this -> GetContentType(), element.contentfiletype, FALSE))
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
           return false;
         if (element.webfeatures?.length && !this.matchWebFeatures(element.webfeatures))

@@ -160,7 +160,6 @@ export interface CSPApplyToTestData {
 export interface CSPApplyToTo {
   type: "to";
   whfstype?: string;
-  contentfiletype: string;
   filetype: string;
   foldertype: string;
   match_all: boolean;

@@ -100,8 +100,7 @@
     <xs:complexType>
       <xs:annotation>
         <xs:documentation>
-          Applies a formdefinition file. Please note that if you're going to apply a formdefinitino to a specific file,
-          you should probably match against the contentfiletype and not the filetype.
+          Applies a formdefinition file.
         </xs:documentation>
       </xs:annotation>
       <xs:sequence>

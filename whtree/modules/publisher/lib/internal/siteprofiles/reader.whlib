@@ -591,10 +591,10 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   RECORD settings;
 
   INTEGER finaltype := applytester->__Deprecated_GetObjInfo().obj.type;
-  IF(finaltype = 20) //contentlink
+  IF(finaltype = whconstant_whfstype_contentlink)
     finaltype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = applytester->__Deprecated_GetObjInfo().obj.filelink;
 
-  IF(finaltype = 25) //SHTML page
+  IF(finaltype = whconstant_whfstype_shtmlfile)
   {
     OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
 
@@ -608,7 +608,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   }
   ELSE
   {
-    IF(finaltype = 35)
+    IF(finaltype = whconstant_whfstype_dynamicfoldercontents)
     {
       executiontester := applytester->GetApplyTesterForParent();
       IF(NOT ObjectExists(executiontester))
@@ -761,6 +761,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
   RECORD ARRAY matchinfo;
 
   INTEGER contenttype;
+
+  OBJECT clink_applytester;
 
   // ---------------------------------------------------------------------------
   //
@@ -988,6 +990,19 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN this->contenttype;
   }
 
+  ///Get the applytester for the actual content (if this is a contentlink)
+  OBJECT FUNCTION GetContentApplyTester() {
+    IF (this->objinfo.obj.type != whconstant_whfstype_contentlink)
+      RETURN this;
+
+    IF(NOT ObjectExists(this->clink_applytester)) {
+      this->clink_applytester := GetApplyTesterForObject(this->objinfo.obj.filelink);
+      IF(NOT ObjectExists(this->clink_applytester) OR this->clink_applytester->__Deprecated_GetObjInfo().obj.type = whconstant_whfstype_contentlink)
+        THROW NEW Exception(`Unable to open a valid applytester for contentlink target #${this->objinfo.obj.filelink} - it is either missing or a contentlink itself`);
+    }
+    RETURN this->clink_applytester;
+  }
+
   BOOLEAN FUNCTION ToIsMatch(RECORD element, RECORD site, RECORD folder)
   {
     SWITCH(element.type)
@@ -1058,8 +1073,6 @@ STATIC OBJECTTYPE ApplyRuleTester <
           RETURN FALSE;
         //WHFSTYPE is used by YML rules
         IF (CellExists(element, "WHFSTYPE") AND element.whfstype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.whfstype, this->objinfo.obj.isfolder))
-          RETURN FALSE;
-        IF (CellExists(element, "CONTENTFILETYPE") AND element.contentfiletype!="" AND NOT this->MatchType(this->GetContentType(), element.contentfiletype, FALSE))
           RETURN FALSE;
 
         IF (CellExists(element, "TYPENEEDSTEMPLATE") AND element.typeneedstemplate AND NOT this->IsTypeNeedsTemplate())
@@ -1197,6 +1210,9 @@ STATIC OBJECTTYPE ApplyRuleTester <
 
   PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)
   {
+    IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
+      RETURN this->GetContentApplyTester()->GetUsePublishTemplate();
+
     RECORD match;
     FOREVERY(RECORD apply FROM this->__GetAppliesForcell("FORMDEFINITIONS"))
       FOREVERY(RECORD formdef FROM apply.formdefinitions)
@@ -1337,21 +1353,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
     }
 
     IF (RecordExists(webdesign))
-    {
-      IF (this->objinfo.obj.type = 20)//content link
-      {
-        OBJECT link_tester := GetApplyTesterForObject(this->objinfo.obj.filelink);
-        IF (ObjectExists(link_tester))
-          webdesign.renderinfo := link_tester->GetObjRenderInfo();
-        ELSE
-          webdesign.is404 := TRUE;
-      }
-      ELSE
-      {
-        webdesign.renderinfo := this->GetObjRenderInfo();
-      }
-    }
-
+      webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
 
     RETURN webdesign;
   }
@@ -1489,8 +1491,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
     RETURN this->GetCachedProperty("urlhistory", [ accesscheck := "" ]);
   }
 
-  PUBLIC RECORD FUNCTION GetUsePublishTemplate()
-  {
+  PUBLIC RECORD FUNCTION GetUsePublishTemplate() {
+    IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
+      RETURN this->GetContentApplyTester()->GetUsePublishTemplate();
+
     RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"
                        , isdefault := TRUE
                        ];
