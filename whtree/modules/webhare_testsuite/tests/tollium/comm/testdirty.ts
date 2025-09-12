@@ -41,7 +41,7 @@ test.runTests(
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
-      // Regression: merely selecting text should make the textedit dirty
+      // Regression: merely selecting text made the textedit dirty
       textedit_node.selectionStart = 0;
       textedit_node.selectionEnd = textedit_node.value.length;
       // We cannot wait until something hasn't happened, so just wait a second and check the status
