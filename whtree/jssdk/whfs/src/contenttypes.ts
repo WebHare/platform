@@ -4,7 +4,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
-import { recurseGetData, recurseSetData, type EncodedFSSetting, type MemberType } from "./codecs";
+import { getData, setData, type EncodedFSSetting, type MemberType } from "./codecs";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
@@ -25,6 +25,10 @@ export type WHFSInstanceData = {
   whfsType: keyof WHFSTypes | string;
   [key: string]: unknown;
 };
+
+export type TypedWHFSInstanceData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["GetFormat"]> }[keyof WHFSTypes];
+export type TypedWHFSInstanceExportData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["ExportFormat"]> }[keyof WHFSTypes];
+export type TypedWHFSInstanceSetData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["SetFormat"]> }[keyof WHFSTypes];
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -200,7 +204,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
         ...options
       };
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance
-      const result = await recurseGetData(getMembers, null, decoderContext);
+      const result = await getData(getMembers, null, decoderContext);
       retval.set(id, result);
     }
 
@@ -230,7 +234,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     return results;
   }
 
-  async set(id: number, data: Partial<SetFormat>, options?: InstanceSetOptions): Promise<void> {
+  async set(id: number, data: SetFormat, options?: InstanceSetOptions): Promise<void> {
     const descr = await describeWHFSType(this.ns);
     if (!descr.id)
       throw new Error(`You cannot set instances of type '${this.ns}'`);
@@ -248,7 +252,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
     const cursettings = instanceId && keysToSet.length ? await this.getCurrentSettings([instanceId], descr, keysToSet) : [];
 
     const setter = new RecursiveSetter(cursettings);
-    appendToArray(setter.toinsert, await recurseSetData(descr.members, data));
+    appendToArray(setter.toinsert, await setData(descr.members, data));
 
     if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
       instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;

@@ -27,7 +27,6 @@ async function verifySimpleRoundTrip(doc: RichTextDocument) {
   test.eq(doc.blocks, docFromExported.blocks, { onCompare: compareRDIgnoreFilename });
 
   const hs = await exportAsHareScriptRTD(doc);
-  console.log(`hs`, await hs.htmltext.text());
   const doc2 = await buildRTDFromHareScriptRTD(hs);
   test.eq(doc.blocks, doc2.blocks, { onCompare: compareRDIgnoreFilename });
   return hs;
@@ -38,9 +37,19 @@ const roundTripTests = new Array<{
   doc: RichTextDocument;
 }>;
 
+function fixTSHSIncompatibilities(data: any) {
+  for (const instances of data.instances) {
+    if ("creationdate" in instances.data && (!instances.data.creationdate || instances.data.creationdate.getTime() < 0))
+      delete instances.data.creationdate;
+  }
+}
+
 async function verifyRoundTrip(doc: RichTextDocument) {
   const hs = await verifySimpleRoundTrip(doc);
   roundTripTests.push({ hs, doc });
+
+  // Convert instance data members to the correct type HS expects
+  fixTSHSIncompatibilities(hs);
 
   //Test roundtrip through WHFS
   await beginWork();
@@ -58,6 +67,11 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 
   //Test roundtrip through HareScript WHFS GetInstanceData
   const hsInstance = await hsWHFSType.getInstanceData(tempfile.id);
+
+  if ("data" in hsInstance && "instances" in hsInstance.data) {
+    fixTSHSIncompatibilities(hsInstance.data);
+  }
+
   const doc5 = await buildRTDFromHareScriptRTD(hsInstance.data);
   test.eq(doc.blocks, doc5.blocks, { onCompare: compareRDIgnoreFilename });
 
@@ -580,7 +594,7 @@ async function testBuildingRTDsWithInstances() {
 
   //Verify that we catch broken whfs types
   await test.throws(/No such type/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
-  await test.throws(/Member 'blah' not found/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", blah: "bu_field" }));
+  await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", blah: "bu_field" }));
 
 
   {  //Build a RTD containing a RTD
@@ -675,6 +689,10 @@ async function testWRDRoundTrips() {
       //FIXME this should also set whfsSettingId and whfsFileId again on instances?
       await wrdschema.update("wrdPerson", testuser, { richie: doc });
       const { richie } = await hsWRDPersonType.getEntityFields(testuser, ["richie"]);
+
+      // Make HS data TS-compatible
+      fixTSHSIncompatibilities(richie);
+
       const richieDoc = await buildRTDFromHareScriptRTD(richie);
       test.eq(doc.blocks, richieDoc.blocks, { onCompare: compareRDIgnoreFilename });
     });
