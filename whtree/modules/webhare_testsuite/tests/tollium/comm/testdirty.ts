@@ -1,4 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
+import { sleep } from "@webhare/std";
 import { prepareUpload } from '@webhare/test-frontend';
 ///@ts-ignore -- not yet ported (and currently being refactored externally)
 import * as rtetest from "@mod-tollium/js/testframework-rte";
@@ -39,6 +40,14 @@ test.runTests(
       await test.wait(() => status_comp.value === "YES");
       test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
+
+      // Regression: merely selecting text should make the textedit dirty
+      textedit_node.selectionStart = 0;
+      textedit_node.selectionEnd = textedit_node.value.length;
+      // We cannot wait until something hasn't happened, so just wait a second and check the status
+      await sleep(1000);
+      test.eq("NO", status_comp.value);
+      test.eq(false, apptab.classList.contains("t-apptab--dirty"));
 
       // Test composition
       const composition_node = test.compByName("textedit_composition").querySelector("input");
