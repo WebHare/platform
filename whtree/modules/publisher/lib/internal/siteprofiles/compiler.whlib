@@ -200,8 +200,8 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
         }
       }
     }
-    //Sort apply rules. Note that sorts on record arrays are stable.
-    this->result.applies := SELECT * FROM this->result.applies ORDER BY priority;
+    //Sort apply rules. Note that sorts on record arrays are stable. We place any directly type applied rules to the top, above any priority
+    this->result.applies := SELECT * FROM this->result.applies ORDER BY whfstype != "" DESC, priority;
 
     RETURN [ result := this->result  //FIXME state leak
            , compiledsiteprofiles := compiledsiteprofiles

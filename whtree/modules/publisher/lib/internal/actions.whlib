@@ -148,25 +148,6 @@ PUBLIC STATIC OBJECTTYPE BulkReceiveOperation
     FOREVERY(RECORD newfolder FROM newfolders)
       AddDefaultIndexToFolder(newfolder.destid);
   }
-
-  /** Get a list of all objects this archive would create
-  PUBLIC RECORD ARRAY FUNCTION GetCurrentPlan()
-  {
-    //Throw an exception, since future versions will likely allow calling GetImportPlan BEFORE Import, but we don't want new code to fail when run on older servers if they expect early access
-    IF(NOT this->didplanload)
-      THROW NEW Exception("GetCurrentPlan() is not available before calling Import()");
-
-    //We're not returning any more fields that people ask from us, to allow safely extending this in the feature without burdening whfs too much right now
-    RETURN SELECT name
-                , destid
-                , destpath
-                , destisfolder
-                , create
-             FROM this->plan
-            WHERE kind="copy";
-  }
-  */
-
 >;
 
 PUBLIC OBJECTTYPE CopyMoveException EXTEND Exception
@@ -498,8 +479,7 @@ PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
 
 
 // Called after type change on fsobject, in same work
-PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype)
-{
+PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER oldtype) {
   BOOLEAN addnewindex;
   BOOLEAN replaceoldindex;
   BOOLEAN oldprotectindex;
@@ -508,10 +488,12 @@ PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER ol
   RECORD csp := GetCachedSiteProfiles();
 
   // Update index files for folders, if necessary
-  IF (fsobject->isfolder)
-  {
-    RECORD oldtypeindex := DescribeContentTypeById(oldtype, [isfolder := TRUE]);
-    RECORD newtypeindex := DescribeContentTypeById(fsobject->type, [isfolder := TRUE]);
+  IF (fsobject->isfolder) {
+    OBJECT oldapplytester := GetApplyTesterForFakeObject(fsobject->parent, FALSE, oldtype);
+    OBJECT newapplytester := GetApplyTesterForObject(fsobject->id);
+
+    RECORD oldtypeindex := GetFolderIndexFile(oldapplytester);
+    RECORD newtypeindex := GetFolderIndexFile(newapplytester);
 
     oldprotectindex := RecordExists(oldtypeindex) AND oldtypeindex.protectindexfile;
     newprotectindex := RecordExists(newtypeindex) AND newtypeindex.protectindexfile;
@@ -522,13 +504,11 @@ PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER ol
          WHERE id = fsobject->indexdoc
            AND isactive);
 
-    IF (newtypeindex.indexfile LIKE "contentlisting:*") // is folder with contentlisting or dynamic folder
-    {
-      IF (RecordExists(oldindex))
-      {
+    IF (RecordExists(newtypeindex) AND newtypeindex.indexfile = "newfile") { // is folder with contentlisting or dynamic folder
+      IF (RecordExists(oldindex)) {
         IF (oldindex.type IN [ 24, 35 ]) // contentlisting or dynamicfolderindex
         {
-          STRING createfiletype := newtypeindex.indexfile LIKE "contentlisting:*" ? Substring(newtypeindex.indexfile, 15) : "http://www.webhare.net/xmlns/publisher/contentlisting";
+          STRING createfiletype := newtypeindex.newfiletype;
           OBJECT newfiletype := OpenWHFSType(createfiletype);
 
           IF (newfiletype->id != oldindex.type)
@@ -565,9 +545,7 @@ PUBLIC MACRO ApplyTypeChangeSideEffects(OBJECT work, OBJECT fsobject, INTEGER ol
   }
 }
 
-
-
-RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
+PUBLIC RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
 {
   RECORD folderindex;
   FOREVERY(RECORD apply FROM applytester->__GetAppliesForcell("FOLDERINDEX"))
@@ -584,19 +562,7 @@ RECORD FUNCTION GetFolderIndexFile(OBJECT applytester)
     INSERT CELL file := (SELECT id, name FROM system.fs_objects WHERE id = targetfile AND isfolder = FALSE) INTO folderindex;
   }
 
-  // If we have a folder index record, check if the folder's type actively overwrites the rule
-  RECORD foldertypeindex := DescribeContentTypeById(applytester->__Deprecated_GetObjInfo().obj.type, [isfolder := TRUE]);
-  IF (RecordExists(foldertypeindex) AND foldertypeindex.indexfile != "")
-  {
-    folderindex := [ indexfile        := foldertypeindex.indexfile
-                   , protectindexfile := foldertypeindex.protectindexfile
-                   , fullpath         := ""
-                   , site             := ""
-                   , newfiletype      := ""
-                   , newfilename      := ""
-                   ];
-  }
-  RETURN folderindex;
+  RETURN RecordExists(folderindex) AND folderindex.indexfile NOT IN [ "", "none" ] ? folderindex : DEFAULT RECORD;
 }
 
 

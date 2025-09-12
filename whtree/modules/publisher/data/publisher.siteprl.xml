@@ -1,12 +1,5 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <apply>
-    <!-- defaults for filetypes -->
-    <to type="file" />
-    <bodyrenderer objectname="mod::publisher/lib/webdesign.whlib#StaticPageBase" />
-    <baseproperties description="true" keywords="true" title="true" />
-  </apply>
-
   <!--
 
       This is the publisher base site profile. It always applies and
@@ -238,17 +231,15 @@
             icon="tollium:files/application_pdf"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.pdf">
-    <preview browserurl="/.publisher/backend/preview/direct.shtml" />
-  </filetype>
+            tid="publisher:filetypes.pdf"
+            browserpreview="/.publisher/backend/preview/direct.shtml" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/imagefile"
             kind="rawfile"
             icon="tollium:files/image"
             requirescontent="true"
-            tid="publisher:filetypes.image">
-    <preview browserurl="/.publisher/backend/preview/image.shtml" />
-  </filetype>
+            tid="publisher:filetypes.image"
+            browserpreview="/.publisher/backend/preview/image.shtml" />
 
   <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/multimediafile"
@@ -291,8 +282,9 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
+            needstemplate="false"
             tid="publisher:filetypes.externallink">
-    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" skipnormalrepublish="true" />
+    <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/internallink"
@@ -301,6 +293,7 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
+            needstemplate="false"
             tid="publisher:filetypes.internallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
@@ -569,9 +562,6 @@
 
     <!-- Republish the index of the parent folder when a folder changes -->
     <republish folder=".." indexonly="true" />
-
-    <!-- Show title+description, but no keywords -->
-    <baseproperties description="true" title="true" />
 
     <!-- To ensure backwards compatibility, we don't specify default folderindex here. If it would be specified here, there
          would be no way to determine if a site uses the old site settings or the new site profile settings. New sites

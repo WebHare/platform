@@ -43,7 +43,6 @@
           <xs:group ref="s:ScreenParts" />
           <xs:element name="contenttype" type="ContentType" />
           <xs:element name="rtdtype" type="RTDType" />
-          <xs:element ref="propertyeditor" />
           <xs:element name="filetype" type="FileType" />
           <xs:element name="foldertype" type="FolderType" />
           <xs:element name="grouptype" type="GroupType" />
@@ -66,14 +65,6 @@
     <xs:keyref name="embeddededitors" refer="sp:TabExtensions">
       <xs:selector xpath=".//sp:embeddededitor" />
       <xs:field xpath="@extension" />
-    </xs:keyref>
-    <xs:key name="PropertyEditors">
-      <xs:selector xpath="./sp:propertyeditor" />
-      <xs:field xpath="@name" />
-    </xs:key>
-    <xs:keyref name="propertyeditorrefs" refer="sp:PropertyEditors">
-      <xs:selector xpath="./sp:apply/sp:extendproperties" />
-      <xs:field xpath="@name" />
     </xs:keyref>
   </xs:element>
 
@@ -258,34 +249,6 @@
       <xs:annotation>
         <xs:documentation>Set to 'false' to block widgets</xs:documentation>
       </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="resizing" default="all">
-      <xs:annotation>
-        <xs:documentation>
-          Either "all" or zero or more of "rows", "columns", "table". "table" only has effect when combined with "rows" or
-          "columns".
-        </xs:documentation>
-      </xs:annotation>
-      <xs:simpleType>
-        <xs:union>
-          <xs:simpleType>
-            <xs:restriction base="xs:string">
-              <xs:enumeration value="all" />
-            </xs:restriction>
-          </xs:simpleType>
-          <xs:simpleType>
-            <xs:list>
-              <xs:simpleType>
-                <xs:restriction base="xs:string">
-                  <xs:enumeration value="rows" />
-                  <xs:enumeration value="columns" />
-                  <xs:enumeration value="table" />
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:list>
-          </xs:simpleType>
-        </xs:union>
-      </xs:simpleType>
     </xs:attribute>
   </xs:complexType>
 
@@ -557,28 +520,6 @@
     </xs:attribute>
   </xs:complexType>
 
-  <!-- ADDME: Can we clean this up? -->
-  <!-- duplicated propertyeditor in sitepropfilecomponentes.xsd to break a recursive import causing two imports for tollium components
-       without it siteprofile extensions in the publisher won't work -->
-  <xs:element name="propertyeditor">
-    <xs:complexType>
-      <xs:annotation>
-        <xs:appinfo>
-          <tai:tolliumcomponent placement="screens" />
-          <tai:childcomponents adoptfields="compositions" field="compositions" target="./sp:compositions" />
-          <tai:childcomponents field="newtabs" target="./sp:newtab" />
-          <tai:childcomponents adoptfields="lines position where" field="inserts" target="./sp:insert" />
-        </xs:appinfo>
-      </xs:annotation>
-      <xs:sequence>
-        <xs:element minOccurs="0" maxOccurs="1" ref="compositions" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="insert" />
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="newtab" />
-      </xs:sequence>
-      <xs:attribute name="name" type="xs:string" />
-    </xs:complexType>
-  </xs:element>
-
   <xs:element name="compositions" type="s:Compositions" />
 
   <xs:element name="newtab" type="s:NewTab" />
@@ -761,6 +702,7 @@
             <xs:documentation>Object which describes the URLs this type provides for consilio and sitemaps</xs:documentation>
           </xs:annotation>
         </xs:attribute>
+        <xs:attribute name="browserpreview" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -863,7 +805,6 @@
       <xs:element name="bodyrenderer" type="BodyRenderer" />
       <xs:element name="webdesign" type="WebDesign" />
       <xs:element ref="urlhistory" />
-      <xs:element ref="preview" />
       <xs:element name="mswordconversion" type="MSWordConversion" />
       <xs:element name="scheduletimedtask" type="ScheduleTimedTask" />
       <xs:element name="schedulemanagedtask" type="ScheduleManagedTask" />
@@ -1065,7 +1006,6 @@
 
   <xs:element name="extendproperties">
     <xs:complexType>
-      <xs:attribute name="name" type="xs:string" />
       <xs:attribute name="extension" type="xs:string" />
       <xs:attribute name="contenttype" type="xs:anyURI" />
       <xs:attribute name="requireright" type="xs:string" />
@@ -1091,11 +1031,6 @@
         <xs:documentation>
           Path to screen (eg mod::mymodule/screens/publisher.xml#newsfilter) to show above the folder contents to allow filtering of the list, similar to the recycle bon
         </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="visibleforeignfolders" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>Make external/foreign folders inside this folder visible irrespective of user preferences or rights</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="ordering">
@@ -1255,7 +1190,6 @@
   </xs:complexType>
 
   <xs:complexType name="BodyRenderer">
-    <xs:attribute name="library" type="xs:string" />
     <xs:attribute name="objectname" type="xs:string" />
     <xs:attribute name="renderer" type="xs:string" />
   </xs:complexType>
@@ -1322,46 +1256,11 @@
 
   <xs:element name="urlhistory">
     <xs:complexType>
-      <xs:attribute name="redirecton404" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>
-            Enable redirecting using the URL history on this site after a 404. This property must be activated on the root folder of the site (you cannot selectively enable searching of the URL history after a 404)
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="store" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>
-            Record the URLs on which a file was published, to allow URL history searching
-          </xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
+      <xs:attribute name="redirecton404" />  <!-- ignored since WH5.9, always true -->
+      <xs:attribute name="store" />  <!-- ignored since WH5.9, always true -->
       <xs:attribute name="accesscheck">
         <xs:annotation>
           <xs:documentation>Function to invoke to check whether a user is allowed to create URLs in this site, if he doesn't otherwise have write access</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-
-  <xs:element name="preview">
-    <xs:annotation>
-      <xs:documentation>Configure the Publisher preview</xs:documentation>
-    </xs:annotation>
-    <xs:complexType>
-      <xs:attribute name="browserurl">
-        <xs:annotation>
-          <xs:documentation>URL which the preview browser should use to provide a preview for this file. This page should use %DescribePreviewRequest to figure out what to show</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="browserinsite" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>If set, the previewbrowserurl will be resolved relative to the site webroot (otherwise relative to the interface root)</xs:documentation>
-        </xs:annotation>
-      </xs:attribute>
-      <xs:attribute name="ignorepublish" type="xs:boolean">
-        <xs:annotation>
-          <xs:documentation>Ignore the publish setting for this preview. Normally a preview is only shown if the file is published</xs:documentation>
         </xs:annotation>
       </xs:attribute>
     </xs:complexType>
@@ -1461,19 +1360,10 @@
     <xs:attribute name="script" type="xs:string" />
     <xs:attribute name="fullpath" type="xs:string" />
     <xs:attribute name="site" type="xs:string" />
-    <xs:attribute name="skipnormalrepublish" type="xs:boolean">
-      <xs:annotation>
-        <xs:documentation>
-          Mark a published file as not being design-dependent if this template is used.
-          If true, a normal republish will skip file using this template.
-          Explicit republishes or a 'republish, including files not dependent on a template' will always republish.
-        </xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
     <xs:attribute name="haswebdesign" type="xs:boolean">
       <xs:annotation>
         <xs:documentation>
-          Ignored, this is now the default. To prevent normal republishes from republishing this file, use skipnormalrepublish=true
+          Ignored, this is now the default. To prevent normal republishes from republishing this file, use needstemplate=true on the file type
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>

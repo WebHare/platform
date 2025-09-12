@@ -101,8 +101,6 @@
     <setwidget contenttype="http://www.webhare.net/xmlns/beta/embedblock1"
                renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedBlock1Widget" />
 
-    <!-- Disable urlhistory storage for most of the testsite -->
-    <urlhistory redirecton404="1" store="false" />
     <setlibrary name="publisher:beacons">
       <source path="site::webhare_testsuite.testsite/tmp/beacons/" />
     </setlibrary>
@@ -466,18 +464,19 @@
     </blockstyles>
   </rtdtype>
 
-  <propertyeditor name="rtdtypeprops">
-    <compositions>
-      <p:whfsinstance name="fsinstance1" typedef="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
-      <p:whfsinstance name="fsinstance2" typedef="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" />
-    </compositions>
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="rtdtypeprops1">
     <newtab title="TestsuiteTab">
-      <t:richdocument composition="fsinstance1" cellname="richdoc" />
-      <t:richdocument composition="fsinstance2"
+      <t:richdocument composition="contentdata" cellname="richdoc" />
+    </newtab>
+  </tabsextension>
+
+  <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="rtdtypeprops2">
+    <newtab title="TestsuiteTab">
+      <t:richdocument composition="contentdata"
                       cellname="richdoc"
                       rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2" />
     </newtab>
-  </propertyeditor>
+  </tabsextension>
 
   <apply>
     <to type="all" pathmask="*/rtdtype/*" />
@@ -492,7 +491,8 @@
     <to type="all" pathmask="/tmp/slots/*" />
     <to type="all" pathmask="/tmp/beacondoc" />
     <to type="all" pathmask="/tmp/beaconform" />
-    <extendproperties name="rtdtypeprops" />
+    <extendproperties extension="#rtdtypeprops1" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
+    <extendproperties extension="#rtdtypeprops2" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" />
   </apply>
 
   <apply>
@@ -545,7 +545,8 @@
   <apply>
     <to type="file" pathmask="*/rtdtype/override" />
     <rtddoc htmlclass="other" />
-    <extendproperties name="rtdtypeprops" />
+    <extendproperties extension="#rtdtypeprops1" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl1" />
+    <extendproperties extension="#rtdtypeprops2" contenttype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2" />
   </apply>
 
   <apply>
@@ -855,12 +856,6 @@
   <apply>
     <to type="file" pathmask="*opengraph*" />
     <opengraph xmlns="http://www.webhare.net/xmlns/socialite" site_name="PluginTest" />
-  </apply>
-
-  <!-- URLHistory -->
-  <apply>
-    <to type="all" pathmask="/tmp/*follow*" />
-    <urlhistory store="true" />
   </apply>
 
   <apply>

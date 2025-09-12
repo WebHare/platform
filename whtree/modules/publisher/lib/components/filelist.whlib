@@ -691,7 +691,7 @@ PUBLIC OBJECTTYPE FileList EXTEND FSContentsOverviewBase
     //Print("refreshlist " || this->Curfolder || " " || (ObjecTExists(this->curextension) ? " have ext" : " no ext") || "\n");
 
     RECORD ARRAY files;
-    BOOLEAN showexternalfolders := (RecordExists(this->foldersettings) AND this->foldersettings.visibleforeignfolders) OR NOT this->hideexternal;
+    BOOLEAN showexternalfolders := NOT this->hideexternal;
     BOOLEAN customcontentsource := ObjectExists(this->_contentslisthandler) AND this->_contentslisthandler EXTENDSFROM ContentsHandlerBase;
     IF(this->hasfilter AND NOT customcontentsource)
     {

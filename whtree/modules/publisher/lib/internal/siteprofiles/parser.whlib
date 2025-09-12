@@ -17,24 +17,48 @@ LOADLIB "wh::regex.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::javascript.whlib";
 
-PUBLIC RECORD FUNCTION ReadSiteFilter(OBJECT matchnode)
-{
-  RECORD retval;
+CONSTANT RECORD csp_base_applyrule :=
+  [ siteprofile := ""
+  , line := 0
+  , col := 0
 
-  IF(matchnode->HasAttribute("sitename"))
-    INSERT CELL sitename := matchnode->GetAttribute("sitename") INTO retval;
-
-  IF(matchnode->HasAttribute("sitemask"))
-    INSERT CELL sitemask := matchnode->GetAttribute("sitemask") INTO retval;
-
-  IF(matchnode->HasAttribute("siteregex"))
-    INSERT CELL siteregex := matchnode->GetAttribute("siteregex") INTO retval;
-
-  IF(matchnode->HasAttribute("webrootregex"))
-    INSERT CELL webrootregex := matchnode->GetAttribute("webrootregex") INTO retval;
-
-  RETURN retval;
-}
+  , baseproperties := DEFAULT RECORD
+  , bodyrenderer := DEFAULT RECORD
+  , contentlisting := DEFAULT RECORD
+  , customnodes := DEFAULT RECORD ARRAY
+  , defaultsettings := DEFAULT RECORD ARRAY
+  , disabletemplateprofile := FALSE
+  , extendproperties := DEFAULT RECORD ARRAY
+  , folderindex := DEFAULT RECORD
+  , setlibrary := DEFAULT RECORD ARRAY
+  , modifyfiletypes := DEFAULT RECORD ARRAY
+  , modifyfoldertypes := DEFAULT RECORD ARRAY
+  , plugins := DEFAULT RECORD ARRAY
+  , republishes := DEFAULT RECORD ARRAY
+  , scheduletasknows := DEFAULT RECORD ARRAY
+  , schedulemanagedtasks := RECORD[]
+  , setobjecteditor := DEFAULT RECORD
+  , setwidget := DEFAULT RECORD ARRAY
+  , sitelanguage := DEFAULT RECORD
+  , tagsources := DEFAULT RECORD ARRAY
+  , typemappings := DEFAULT RECORD ARRAY
+  , uploadtypemapping := DEFAULT RECORD ARRAY
+  , urlhistory := DEFAULT RECORD
+  , usepublishtemplate := DEFAULT RECORD
+  , webdesign := DEFAULT RECORD
+  , formdefinitions := DEFAULT RECORD ARRAY
+  , mailtemplates := RECORD[]
+  , foldersettings := DEFAULT RECORD
+  , webtoolsformrules := DEFAULT RECORD ARRAY
+  , rtddoc := DEFAULT RECORD
+  , hookintercepts := RECORD[]
+  , userdata := RECORD[]
+  , tos := RECORD[]
+  , priority := 0
+  , applyindex := 0
+  , applynodetype := ""
+  , whfstype := ""
+];
 
 STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
 {
@@ -341,6 +365,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     IF(ftype->HasAttribute("ispublishable"))
       ctype.filetype.ispublishable := ParseXSBoolean(ftype->GetAttribute("ispublishable"));
     ctype.filetype.searchcontentprovider := QualifyName(this->module, ftype->GetAttribute("searchcontentprovider"));
+    ctype.filetype.browserpreview := ftype->GetAttribute("browserpreview");
     ctype.filetype.indexversion := QualifyName(this->module, ftype->GetAttribute("indexversion"));
     ctype.filetype.capturesubpaths := ParseXSBoolean(ftype->GetAttribute("capturesubpaths"));
 
@@ -635,6 +660,27 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       this->ValidateRegex(node, sitefilter.webrootregex, "webrootregex");
   }
 
+  RECORD FUNCTION ReadSiteFilter(OBJECT matchnode) {
+    RECORD retval;
+
+    IF(matchnode->HasAttribute("sitename"))
+      INSERT CELL sitename := matchnode->GetAttribute("sitename") INTO retval;
+
+    IF(matchnode->HasAttribute("sitemask"))
+      INSERT CELL sitemask := matchnode->GetAttribute("sitemask") INTO retval;
+
+    IF(matchnode->HasAttribute("siteregex"))
+      INSERT CELL siteregex := matchnode->GetAttribute("siteregex") INTO retval;
+
+    IF(matchnode->HasAttribute("webrootregex"))
+      INSERT CELL webrootregex := matchnode->GetAttribute("webrootregex") INTO retval;
+
+    IF((CellExists(retval,'sitename') ? 1:0) + (CellExists(retval,'sitemask') ? 1:0) > 1 + (CellExists(retval,'siteregex') ? 1:0))
+      this->AddError(matchnode, "<to and <sitesettings rules should use only one of sitename=, sitemask= and siteregex=");
+
+    RETURN retval;
+  }
+
   PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
   {
     RECORD ARRAY applytos;
@@ -657,7 +703,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             STRING type := crit->GetAttribute("type");
 
             applyto :=
-                  CELL [ ...ReadSiteFilter(crit)
+                  CELL [ ...this->ReadSiteFilter(crit)
                        , type         := "to"
                        , match_all    := type="all"
                        , match_file   := type="file" OR type="index"
@@ -672,21 +718,31 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , parenttype   := crit->GetAttribute("parenttype")
                        , withintype   := crit->GetAttribute("withintype")
                        , sitetype     := crit->GetAttribute("sitetype")
-                       , filetype     := crit->GetAttribute("filetype")
-                       , contentfiletype := crit->GetAttribute("contentfiletype")
+                       , filetype     := crit->GetAttribute("filetype") ?? crit->GetAttribute("contentfiletype") //TODO Post WH5.9 consider deprecating or simply dropping contentfiletype=
                        , foldertype   := crit->GetAttribute("foldertype")
                        , typeneedstemplate := ParseXSBoolean(crit->GetAttribute("typeneedstemplate"))
                        , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
                        ];
 
             this->ValidateSiteFilter(crit, applyto);
+
+            // Prevent duplicate attributes that may conflict with each other but also make YML mapping harder (as YML will just use on attribute for all these groups below)
+            IF((applyto.pathmask != "" ? 1:0) + (applyto.pathregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of pathmask= and pathregex=");
+            IF((applyto.whfspathmask != "" ? 1:0) + (applyto.whfspathregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of whfspathmask= and whfspathregex=");
+            IF((applyto.parentmask != "" ? 1:0) + (applyto.parentregex != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of parentmask= and parentregex=");
+            IF((applyto.filetype != "" ? 1:0) + (applyto.foldertype != "" ? 1:0) > 1)
+              this->AddError(crit, "<to rules should use only one of filetype= and foldertype=");
+
             IF(applyto.pathregex != "")
               this->ValidateRegex(crit, applyto.pathregex, "pathregex");
             IF(applyto.parentregex != "")
               this->ValidateRegex(crit, applyto.parentregex, "parentregex");
             IF(applyto.whfspathregex != "")
               this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
-            IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
+            IF(applyto.filetype!="" AND NOT applyto.match_file)
             {
               this->AddError(crit, "Apply <to> rule is trying to match a file type, but is not set to apply to files");
               CONTINUE;
@@ -749,89 +805,29 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       IF(NOT RecordExists(apply))
         CONTINUE; //no content
 
-      apply := CELL[ ...apply
-                   , tos := RECORD[]
-                   , priority := ParseXSInt(applyblock->GetAttribute("priority"))
-                   , applyindex
-                   , applynodetype
-                   ];
+      apply.priority := ParseXSInt(applyblock->GetAttribute("priority"));
+      apply.applyindex := applyindex;
+      apply.applynodetype := applynodetype;
 
       IF(applynodetype = "apply")
-      {
         apply.tos := this->ParseApplyTosRecurse(applyblock);
-      }
       ELSE
-      {
-        apply.tos := [[ type         := "to"
-                      , match_all    := FALSE
-                      , match_file   := applynodetype IN ["filetype","widgettype"]
-                      , match_index  := FALSE
-                      , match_folder := applynodetype = "folderype"
-                      , pathmask     := ""
-                      , pathregex    := ""
-                      , parentmask   := ""
-                      , parentregex  := ""
-                      , sitemask     := ""
-                      , sitename     := ""
-                      , siteregex    := ""
-                      , parenttype   := ""
-                      , withintype   := ""
-                      , sitetype     := ""
-                      , filetype     := applynodetype IN ["filetype","widgettype"] ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
-                      , contentfiletype := ""
-                      , foldertype   := applynodetype = "foldertype" ? applyblock->GetAttribute("namespace") ?? applyblock->GetAttribute("typedef") : ""
-                      , typeneedstemplate := FALSE
-                      , webfeatures  := STRING[]
-                      ]
-                     ];
-      }
+        apply.whfstype := applyblock->GetAttribute("namespace");
+
       INSERT apply INTO applyrules AT END;
     }
     RETURN applyrules;
   }
 
-  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)
-  {
+  RECORD FUNCTION ImportApplyItems(OBJECT applyblock, STRING targetnamespace)   {
     BOOLEAN errorsarenowfatal;
     BOOLEAN anynode;
-    RECORD apply := [ siteprofile := this->siteprof->name
-                    , line := applyblock->linenum
-                    , col := 0
-
-                    , baseproperties := DEFAULT RECORD
-                    , bodyrenderer := DEFAULT RECORD
-                    , contentlisting := DEFAULT RECORD
-                    , customnodes := DEFAULT RECORD ARRAY
-                    , defaultsettings := DEFAULT RECORD ARRAY
-                    , disabletemplateprofile := FALSE
-                    , extendproperties := DEFAULT RECORD ARRAY
-                    , folderindex := DEFAULT RECORD
-                    , setlibrary := DEFAULT RECORD ARRAY
-                    , modifyfiletypes := DEFAULT RECORD ARRAY
-                    , modifyfoldertypes := DEFAULT RECORD ARRAY
-                    , plugins := DEFAULT RECORD ARRAY
-                    , republishes := DEFAULT RECORD ARRAY
-                    , scheduletasknows := DEFAULT RECORD ARRAY
-                    , schedulemanagedtasks := RECORD[]
-                    , setobjecteditor := DEFAULT RECORD
-                    , setwidget := DEFAULT RECORD ARRAY
-                    , sitelanguage := DEFAULT RECORD
-                    , tagsources := DEFAULT RECORD ARRAY
-                    , typemappings := DEFAULT RECORD ARRAY
-                    , uploadtypemapping := DEFAULT RECORD ARRAY
-                    , urlhistory := DEFAULT RECORD
-                    , preview := DEFAULT RECORD
-                    , usepublishtemplate := DEFAULT RECORD
-                    , webdesign := DEFAULT RECORD
-                    , formdefinitions := DEFAULT RECORD ARRAY
-                    , mailtemplates := RECORD[]
-                    , foldersettings := DEFAULT RECORD
-                    , webtoolsformrules := DEFAULT RECORD ARRAY
-                    , rtddoc := DEFAULT RECORD
-                    , hookintercepts := RECORD[]
-                    , userdata := RECORD[]
-                    ];
-
+    RECORD apply := CELL[
+      ...csp_base_applyrule,
+      siteprofile := this->siteprof->name,
+      line := applyblock->linenum,
+      col := 0
+      ];
 
     STRING ARRAY seenuniques;
 
@@ -869,15 +865,10 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 IF(contenttype = "" AND extension != "")
                   this->AddError(node, "An extendproperties with extension= requires a content type");
               }
-              ELSE //inside a type definition
-              {
-                IF(node->HasAttribute("name"))
-                  this->AddError(node, "Only <extendproperties extension=> can be used in a <filetype> or <foldertype>");
-              }
 
               RECORD applynode := [ contenttype := contenttype
                                   , requireright := node->GetAttribute("requireright")
-                                  , extension := extension ?? apply.siteprofile || "#" || node->GetAttribute("name")
+                                  , extension := extension
                                   ];
               INSERT applynode INTO apply.extendproperties AT END;
               CONTINUE;
@@ -910,30 +901,20 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                       ];
               CONTINUE;
             }
-            CASE "preview"
-            {
-              apply.preview := [ haslist := GetHasList(node, ["browserurl","browseinsite","ignorepublish"])
-                               , browserurl := node->GetAttribute("browserurl")
-                               , browseinsite := ParseXSBoolean(node->GetAttribute("browseinsite"))
-                               , ignorepublish := ParseXSBoolean(node->GetAttribute("ignorepublish"))
-                               ];
-              CONTINUE;
-            }
             CASE "urlhistory"
             {
-              apply.urlhistory := [ haslist := GetHasList(node, ["redirecton404","store","accesscheck"])
-                                  , redirecton404 := ParseXSBoolean(node->GetAttribute("redirecton404"))
-                                  , store := ParseXSBoolean(node->GetAttribute("store"))
-                                  , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
-                                  ];
+              RECORD urlhistory := [ haslist := GetHasList(node, ["accesscheck"])
+                                   , accesscheck := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("accesscheck"))
+                                   ];
+
+              IF(Length(urlhistory.haslist) > 0)
+                apply.urlhistory := urlhistory;
+
               CONTINUE;
             }
             CASE "bodyrenderer"
             {
-              apply.bodyrenderer := [ library := this->ParseFSPath(node, "library")
-                                    , rendermacro := node->GetAttribute("rendermacro")
-                                    , preparemacro := node->GetAttribute("preparemacro")
-                                    , objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
+              apply.bodyrenderer := [ objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
                                     , renderer := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
                                     ];
               CONTINUE;
@@ -948,7 +929,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             CASE "usepublishtemplate"
             {
               RECORD usepublishtemplate := [ script := this->ParseFSPath(node, "script")
-                                           , skipnormalrepublish := ParseXSBoolean(node->GetAttribute("skipnormalrepublish"))
                                            ];
 
               IF(usepublishtemplate.script = "")
@@ -1150,8 +1130,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             {
               apply.foldersettings := [ filterscreen := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("filterscreen"))
                                       , has_filterscreen := node->HasAttribute("filterscreen")
-                                      , visibleforeignfolders := ParseXSBoolean(node->GetAttribute("visibleforeignfolders"))
-                                      , has_visibleforeignfolders := node->HasAttribute("visibleforeignfolders")
                                       , ordering := node->GetAttribute("ordering")
                                       , contentslisthandler := DEFAULT RECORD
                                       ];
@@ -1304,7 +1282,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RECORD ARRAY sitesettings;
     FOREVERY(OBJECT siteset FROM this->GetSiteSettingNodes())
     {
-      RECORD sitesetting := [ sitefilter := ReadSiteFilter(siteset)
+      RECORD sitesetting := [ sitefilter := this->ReadSiteFilter(siteset)
                             , webrules := DEFAULT RECORD ARRAY
                             , addtocatalogs := DEFAULT RECORD ARRAY
                             , line := siteset->linenum
@@ -1484,6 +1462,36 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
     siteprofdata.rtdtypes := siteprofcontext->rtdtypes;
   }
+
+  //Translate <foldertype indexfile= to a WHFSType-apply rule
+  FOREVERY(RECORD ftype FROM siteprofdata.contenttypes)
+    IF(ftype.type="foldertype") {
+      IF(ftype.foldertype.indexfile LIKE "contentlisting:*") { //ie: not 'none' or ""
+        RECORD set_indexfile := [ //prepare the new indexfile apply rule
+              indexfile := "newfile",
+              protectindexfile := ftype.foldertype.protectindexfile,
+              fullpath := "",
+              site := "",
+              newfiletype := Substring(ftype.foldertype.indexfile, Length("contentlisting:")),
+              newfilename := ""
+            ];
+
+        INTEGER matchrule := SELECT AS INTEGER #rules + 1 FROM siteprofdata.rules WHERE ruletype="apply" AND whfstype = ftype.namespace;
+        IF(matchrule > 0) { //matching rule
+          IF(NOT RecordExists(siteprofdata.rules[matchrule-1].folderindex))
+            siteprofdata.rules[matchrule-1].folderindex := set_indexfile;
+        } ELSE { //create a rule
+          INSERT CELL[
+            ...csp_base_applyrule,
+            whfstype := ftype.namespace,
+            ruletype := "apply",
+            folderindex := set_indexfile
+          ] INTO siteprofdata.rules AT END;
+        }
+      }
+      DELETE CELL indexfile, protectindexfile FROM ftype.foldertype;
+      siteprofdata.contenttypes[ #ftype ] := ftype; //update the record
+    }
 
   siteprofdata.errors := errors;
   siteprofdata.warnings := warnings;

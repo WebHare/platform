@@ -48,7 +48,6 @@ PUBLIC RECORD FUNCTION GetDefaultFolderSettings()
          , filtersettings := DEFAULT RECORD
          , contentslisthandler := [ objectname := "mod::publisher/lib/components/filelist.whlib#DefaultContentsListHandler"
                                   ]
-         , visibleforeignfolders := FALSE
          ];
 }
 
@@ -592,10 +591,10 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   RECORD settings;
 
   INTEGER finaltype := applytester->__Deprecated_GetObjInfo().obj.type;
-  IF(finaltype = 20) //contentlink
+  IF(finaltype = whconstant_whfstype_contentlink)
     finaltype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = applytester->__Deprecated_GetObjInfo().obj.filelink;
 
-  IF(finaltype = 25) //SHTML page
+  IF(finaltype = whconstant_whfstype_shtmlfile)
   {
     OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
 
@@ -609,7 +608,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   }
   ELSE
   {
-    IF(finaltype = 35)
+    IF(finaltype = whconstant_whfstype_dynamicfoldercontents)
     {
       executiontester := applytester->GetApplyTesterForParent();
       IF(NOT ObjectExists(executiontester))
@@ -747,8 +746,8 @@ MACRO ClearApplyRuleTesterCache(BOOLEAN iscommit DEFAULTSTO TRUE)
     @public
     @topic siteprofiles/api
 */
-STATIC OBJECTTYPE ApplyRuleTester
-< // ---------------------------------------------------------------------------
+STATIC OBJECTTYPE ApplyRuleTester <
+  // ---------------------------------------------------------------------------
   //
   // Variables
   //
@@ -762,6 +761,8 @@ STATIC OBJECTTYPE ApplyRuleTester
   RECORD ARRAY matchinfo;
 
   INTEGER contenttype;
+
+  OBJECT clink_applytester;
 
   // ---------------------------------------------------------------------------
   //
@@ -989,6 +990,19 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN this->contenttype;
   }
 
+  ///Get the applytester for the actual content (if this is a contentlink)
+  OBJECT FUNCTION GetContentApplyTester() {
+    IF (this->objinfo.obj.type != whconstant_whfstype_contentlink)
+      RETURN this;
+
+    IF(NOT ObjectExists(this->clink_applytester)) {
+      this->clink_applytester := GetApplyTesterForObject(this->objinfo.obj.filelink);
+      IF(NOT ObjectExists(this->clink_applytester) OR this->clink_applytester->__Deprecated_GetObjInfo().obj.type = whconstant_whfstype_contentlink)
+        THROW NEW Exception(`Unable to open a valid applytester for contentlink target #${this->objinfo.obj.filelink} - it is either missing or a contentlink itself`);
+    }
+    RETURN this->clink_applytester;
+  }
+
   BOOLEAN FUNCTION ToIsMatch(RECORD element, RECORD site, RECORD folder)
   {
     SWITCH(element.type)
@@ -1013,13 +1027,6 @@ STATIC OBJECTTYPE ApplyRuleTester
           IF (this->ToIsMatch(crit, site, folder))
             RETURN FALSE;
         RETURN TRUE;
-      }
-      CASE "xor"
-      {
-        BOOLEAN sofar:=false;
-        FOREVERY(RECORD crit FROM element.criteria)
-          sofar := sofar XOR this->ToIsMatch(crit, site, folder);
-        RETURN sofar;
       }
       CASE "testdata"
       {
@@ -1067,8 +1074,6 @@ STATIC OBJECTTYPE ApplyRuleTester
         //WHFSTYPE is used by YML rules
         IF (CellExists(element, "WHFSTYPE") AND element.whfstype!="" AND NOT this->MatchType(this->objinfo.obj.type, element.whfstype, this->objinfo.obj.isfolder))
           RETURN FALSE;
-        IF (CellExists(element, "CONTENTFILETYPE") AND element.contentfiletype!="" AND NOT this->MatchType(this->GetContentType(), element.contentfiletype, FALSE))
-          RETURN FALSE;
 
         IF (CellExists(element, "TYPENEEDSTEMPLATE") AND element.typeneedstemplate AND NOT this->IsTypeNeedsTemplate())
           RETURN FALSE;
@@ -1092,10 +1097,14 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN TRUE;
   }
 
-  BOOLEAN FUNCTION ApplyIsMatch(RECORD apply)
-  {
+  BOOLEAN FUNCTION ApplyIsMatch(RECORD apply) {
     IF(NOT IsResourceMatch(apply.siteprofileids, this->objinfo.siteprofileids))
       RETURN FALSE;
+
+    IF(CellExists(apply,'whfstype') AND apply.whfstype != "") { //directly applied to the type
+      STRING namespace := this->cache->GetWHFSTypeNamespace(this->objinfo.obj.type, this->objinfo.obj.isfolder);
+      RETURN namespace = apply.whfstype;
+    }
 
     FOREVERY (RECORD appl FROM apply.tos)
       IF (this->ToIsMatch(appl, this->objinfo.site, this->objinfo.parent))
@@ -1201,6 +1210,9 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC RECORD FUNCTION GetFormDefinitionFile(STRING name)
   {
+    IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
+      RETURN this->GetContentApplyTester()->GetUsePublishTemplate();
+
     RECORD match;
     FOREVERY(RECORD apply FROM this->__GetAppliesForcell("FORMDEFINITIONS"))
       FOREVERY(RECORD formdef FROM apply.formdefinitions)
@@ -1341,52 +1353,26 @@ STATIC OBJECTTYPE ApplyRuleTester
     }
 
     IF (RecordExists(webdesign))
-    {
-      IF (this->objinfo.obj.type = 20)//content link
-      {
-        OBJECT link_tester := GetApplyTesterForObject(this->objinfo.obj.filelink);
-        IF (ObjectExists(link_tester))
-          webdesign.renderinfo := link_tester->GetObjRenderInfo();
-        ELSE
-          webdesign.is404 := TRUE;
-      }
-      ELSE
-      {
-        webdesign.renderinfo := this->GetObjRenderInfo();
-      }
-    }
-
+      webdesign.renderinfo := this->GetContentApplyTester()->GetObjRenderInfo();
 
     RETURN webdesign;
   }
 
   PUBLIC RECORD FUNCTION GetObjRenderInfo()
   {
-    RECORD typerec;
-    RECORD bodyrenderer;
+    RECORD typerec := this->GetTypeRecordData();
+    RECORD bodyrenderer := CELL[  //default rendering settings from publisher.siteprl.xml
+      objectname := "mod::publisher/lib/webdesign.whlib#StaticPageBase",
+      capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths,
+      renderer := ""
+    ];
 
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("BODYRENDERER"))
-    {
-      IF (#apply=0)
-      {
-        typerec := this->GetTypeRecordData();
-        bodyrenderer := [ rendermacro := ""
-                        , preparemacro := ""
-                        , objectname  := ""
-                        , issystemredirect := FALSE
-                        , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
-                        , renderer := ""
-                        ];
-      }
-      apply.bodyrenderer := EnforceStructure([ renderer := "" ], apply.bodyrenderer); //Add fields that may still be missing during upgrades
-      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "")
-      {
-        bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;
-        bodyrenderer.preparemacro := apply.bodyrenderer.preparemacro;
+      IF (apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "") { //we always reset them together
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
         bodyrenderer.renderer := apply.bodyrenderer.renderer;
       }
-    }
+
     RETURN bodyrenderer;
   }
 
@@ -1454,8 +1440,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     {
       IF(apply.foldersettings.has_filterscreen)
         settings.filterscreen := apply.foldersettings.filterscreen;
-      IF(apply.foldersettings.has_visibleforeignfolders)
-        settings.visibleforeignfolders := apply.foldersettings.visibleforeignfolders;
       IF(apply.foldersettings.ordering!="")
         settings.ordering := apply.foldersettings.ordering;
       IF(RecordExists(apply.foldersettings.contentslisthandler))
@@ -1465,15 +1449,14 @@ STATIC OBJECTTYPE ApplyRuleTester
   }
 
   /** Resolve userdata */
-  PUBLIC RECORD FUNCTION GetUserData(STRING keyname)
-  {
+  PUBLIC RECORD FUNCTION GetUserData(STRING keyname) {
     RECORD retvalue;
-    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA"))
-      FOREVERY (RECORD userdata FROM apply.userdata)
-      {
+    FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA")) {
+      FOREVERY (RECORD userdata FROM apply.userdata)  {
         IF(userdata."key" = keyname)
           retvalue := CELL[...retvalue, ...DecodeJSON(userdata.value)];
       }
+    }
     RETURN retvalue;
   }
 
@@ -1504,18 +1487,14 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   PUBLIC RECORD FUNCTION GetURLHistorySettings()
   {
-    RETURN this->GetCachedProperty("urlhistory", [ redirecton404 := TRUE, store := TRUE, accesscheck := "" ]);
+    RETURN this->GetCachedProperty("urlhistory", [ accesscheck := "" ]);
   }
 
-  PUBLIC RECORD FUNCTION GetPreviewSettings()
-  {
-    RETURN this->GetCachedProperty("preview", [ browserurl := "", browseinsite := FALSE, ignorepublish := FALSE ]);
-  }
+  PUBLIC RECORD FUNCTION GetUsePublishTemplate() {
+    IF(this->__Deprecated_GetObjInfo().obj.type = 20) //contentlink - forward it
+      RETURN this->GetContentApplyTester()->GetUsePublishTemplate();
 
-  PUBLIC RECORD FUNCTION GetUsePublishTemplate()
-  {
     RECORD usetempl := [ script := "mod::publisher/scripts/internal/publishother.whscr"
-                       , skipnormalrepublish := TRUE //no need to depend on templates
                        , isdefault := TRUE
                        ];
     RECORD csp := GetCachedSiteProfiles();
@@ -1926,7 +1905,16 @@ PUBLIC RECORD FUNCTION GetSiteApplicabilityInfo(INTEGER siteid)
 
 PUBLIC RECORD FUNCTION GetBaseProperties(OBJECT applytester)
 {
-  RETURN applytester->GetCachedProperty("baseproperties", [ title := FALSE, description := FALSE, keywords := FALSE, striprtdextension := TRUE, seotab := FALSE
-                                                         , noindex := FALSE, nofollow := FALSE, noarchive := FALSE, seotabrequireright := "", seotitle := FALSE
-                                                         ]);
+  RETURN applytester->GetCachedProperty("baseproperties",
+    CELL[ title := TRUE
+        , description := TRUE
+        , keywords := NOT applytester->objisfolder
+        , striprtdextension := TRUE
+        , seotab := FALSE
+        , noindex := FALSE
+        , nofollow := FALSE
+        , noarchive := FALSE
+        , seotabrequireright := ""
+        , seotitle := FALSE
+    ]);
 }

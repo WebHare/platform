@@ -253,10 +253,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell(string) blockstyles.title Name of this style
       @cell(string array) blockstyles.textstyles Allowed text styles, subset of [ "b", "i", "u", "a-href", "strike", "sub", "sup", "img" ]
       @cell(string) blockstyles.tabledefaultblockstyle Default blockstyle in table cells (for table styles)
-      @cell(string array) blockstyles.tableresizing Allowed table resizing operations, [ "all", "rows", "columns", "table" ]
-      @cell(boolean) blockstyles.isbuiltin Whether this is a builtin style
       @cell(boolean) blockstyles.split
-      @cell(integer) blockstyles.toclevel Level in toc
       @cell(boolean) blockstyles.hidden
       @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
       @cell defaultblockstyle Name of default block type
@@ -328,12 +325,9 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , title :=             styleblock->GetAttribute("title")
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
-                    , tableresizing :=     DEFAULT STRING ARRAY
                     , allowstyles :=       DEFAULT STRING ARRAY
                     , allowwidgets :=      TRUE
-                    , isbuiltin :=         FALSE
                     , split :=             FALSE
-                    , toclevel :=          0
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
@@ -354,23 +348,14 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
 
         //modern style requires naming all formatting.
         style.textstyles := ParseXSList(styleblock->GetAttribute("textstyles"));
-
-        RECORD matchbuiltin := SELECT * FROM richstructure_constants.builtinstyles WHERE tag = style.tag;
-        IF(RecordExists(matchbuiltin))
-          style.isbuiltin := TRUE;
-
         IF(style.containertag="")
         {
+          RECORD matchbuiltin := SELECT * FROM richstructure_constants.builtinstyles WHERE tag = style.tag;
           IF(RecordExists(matchbuiltin))
             style.containertag := matchbuiltin.containertag;
           ELSE
             style.containertag := "p";
         }
-
-        IF(styleblock->HasAttribute("toclevel"))
-          style.toclevel := ParseXSInt(styleblock->HasAttribute("toclevel"));
-        ELSE
-          style.toclevel := SearchElement( ["h1","h2","h3","h4","h5","h6"], style.containertag) + 1; //maps not-found to 0, the rest to 1-6
       }
       CASE "tablestyle"
       {
@@ -379,14 +364,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
         style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
         style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
-
-        STRING ARRAY resizing := Tokenize(styleblock->GetAttribute("resizing"), " ");
-        IF ("all" IN resizing OR NOT styleblock->HasAttribute("resizing"))
-          style.tableresizing := [ "all" ];
-        ELSE
-          style.tableresizing := SELECT AS STRING ARRAY DISTINCT val
-                                   FROM ToRecordArray(resizing, "val")
-                                  WHERE val IN [ "rows", "columns", "table" ];
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
         {

@@ -103,18 +103,6 @@ BLOB siteprofoptiontids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   </fragment>
 </siteprofile>`);
 
-//siteprofile with option tids
-BLOB siteprofoptiontids2 := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
-<siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:p="http://www.webhare.net/xmlns/publisher/components">
-  <propertyeditor name="contentlistingfolder">
-    <newtab gid="webdesigns.ws2016.contentlisting" tid=".viewmode" xmlns:t="http://www.webhare.net/xmlns/tollium/screens">
-      <t:select composition="fsinstance" title="" cellname="ViewMode" type="pulldown">
-        <t:option rowkey="filesAndfolders" />
-      </t:select>
-    </newtab>
-  </propertyeditor>
-</siteprofile>`);
-
 //siteprofile gids
 BLOB siteprofgids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" xmlns:p="http://www.webhare.net/xmlns/publisher/components" gid="level1">
@@ -375,17 +363,6 @@ MACRO TestBasicValidate()
   TestEq([[ attrname := "tid", col := 0, line := 5, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color-blue" ]
          ], res.tids);
-
-  res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids2
-                                                                , onlytids := TRUE
-                                                                ]);
-
-  TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
-  TestEq([[ attrname := "tid",    col := 0, line := 4, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode" ]
-         ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:webdesigns.ws2016.contentlisting.viewmode-filesandfolders" ]
-         ], res.tids);
-  TestEq([[message := "<propertyeditor>s should be replaced by tabsextensions", line:= 3]],SELECT message,line FROM res.hints);
-
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := optiontidssynthesis
                                                                 , onlytids := TRUE

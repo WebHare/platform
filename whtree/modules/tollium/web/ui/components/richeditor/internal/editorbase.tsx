@@ -2486,11 +2486,9 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
     }
 
     const options = { onStatechange: this.tableEditorStateHasChanged.bind(this), getUndoLock: () => this.getUndoLock() };
-    if (resizing) {
-      options.resize_columns = resizing.includes("all") || resizing.includes("columns");
-      options.resize_rows = resizing.includes("all") || resizing.includes("rows");
-      options.resize_table = resizing.includes("all") || resizing.includes("table");
-    }
+    options.resize_columns = true;
+    options.resize_rows = true;
+    options.resize_table = true;
 
     editor = new tablesupport.TableEditor(tablenode, this.getBody(), options);
     this.tableeditors.push(editor);

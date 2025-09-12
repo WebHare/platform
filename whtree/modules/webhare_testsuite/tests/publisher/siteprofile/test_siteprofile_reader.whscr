@@ -6,6 +6,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/actions.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -90,8 +91,11 @@ MACRO TestWHFSType()
 
   RECORD photoalbum := DescribeContentTypeById(3);
   TestEq("tollium:folders/photoalbum", photoalbum.tolliumicon); //no icon is (yet?) set
-  TestEq("contentlisting:http://www.webhare.net/xmlns/publisher/contentlisting", photoalbum.indexfile);
-  TestEq(TRUE, photoalbum.protectindexfile);
+
+  RECORD photoalbum_index := GetFolderIndexFile(GetApplyTesterForFakeObject(OpenTestsuiteSite()->id, FALSE, whconstant_whfstype_photoalbum));
+  TestEq("newfile", photoalbum_index.indexfile);
+  TestEq("http://www.webhare.net/xmlns/publisher/contentlisting", photoalbum_index.newfiletype);
+  TestEq(TRUE, photoalbum_index.protectindexfile);
 
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops", OpenWHFSType("webhare_testsuite:base_test.base_test_props")->namespace);
   TestEq(OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/basetestprops")->id, OpenWHFSType("webhare_testsuite:base_test.base_test_props")->id);
@@ -228,9 +232,9 @@ MACRO TestMailTemplates()
   TestEq(":Cool template", nowtemplates[3].title, "templatehtml should be named Cool template");
 }
 
-RunTestframework([ PTR TestWHFSType
-                 , PTR TestApplyRuleTester
+RunTestframework([ PTR TestApplyRuleTester
                  , PTR SiteSettingsTester
+                 , PTR TestWHFSType
                  , PTR GlobalDataTester
                  , PTR TestMailTemplates
                  ]);

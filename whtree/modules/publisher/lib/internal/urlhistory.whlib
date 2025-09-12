@@ -92,10 +92,6 @@ PUBLIC MACRO StoreURLHistoryIfNeeded(INTEGER fileid, STRING currenturl)
   IF(NOT UnpackURL(currenturl).isdefaultport)  //anything not published to a default port doesn't properly support url history anyway
     RETURN;
 
-  RECORD urlhistory := GetApplyTesterForObject(fileid)->GetURLHistorySettings();
-  IF(NOT urlhistory.store)
-    RETURN;
-
   AddURLHistoryEntry(fileid, currenturl);
 }
 

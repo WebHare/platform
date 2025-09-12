@@ -100,7 +100,7 @@
       <richdocument name="thankyou" />
     </members>
     <dynamicexecution webpageobjectname="beaconformpage.whlib#BeaconFormPage" />
-    <formdefinitions path="beaconform.formdef.xml" />
+    <formdefinitions name="webhare_testsuite:beaconform" path="beaconform.formdef.xml" />
     <extendproperties extension="#editbeaconform" />
   </filetype>
 

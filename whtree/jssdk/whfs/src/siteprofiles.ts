@@ -145,7 +145,7 @@ export interface CSPRtddoc {
 
 /** subtests (eg AND, OR ...) */
 export interface CSPApplyToSubs {
-  type: "and" | "or" | "not" | "xor";
+  type: "and" | "or" | "not";
   criteria: CSPApplyTo[];
 }
 
@@ -160,7 +160,6 @@ export interface CSPApplyToTestData {
 export interface CSPApplyToTo {
   type: "to";
   whfstype?: string;
-  contentfiletype: string;
   filetype: string;
   foldertype: string;
   match_all: boolean;
@@ -193,9 +192,6 @@ interface CSPWebtoolsformrule {
 }
 
 interface CSPBodyRendererRule {
-  library: string;
-  rendermacro: string;
-  preparemacro: string;
   objectname: string;
   /// Default render handler. Path to a pagehandler(request,response). Overridable by apply rules
   renderer: string;
@@ -228,7 +224,10 @@ export type CustomFieldsLayout = string[] | "all" | {
 };
 
 export interface CSPApplyRule {
+  /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
+  /** Directly applied to the type */
+  whfstype: string;
   /** Set by apply rules sourced from YAML */
   yaml?: true;
 

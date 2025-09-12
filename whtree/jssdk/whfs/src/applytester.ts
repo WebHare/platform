@@ -256,14 +256,6 @@ export class WHFSApplyTester {
             return false;
         return true;
 
-      case "xor": {
-        let sofar = false;
-        for (const crit of element.criteria)
-          sofar = sofar !== await this.toIsMatch(crit, site, folder);
-
-        return sofar;
-      }
-
       case "testdata": { /* TODO can we git rid of <testdata> ? it's one of the few reasons why
                             we are async and have to be able to reach out to the DB (and implement caching which is also gets
                             flaky very fast... just see the <testdata> tests in HS) */
@@ -303,8 +295,6 @@ export class WHFSApplyTester {
           if (element.filetype && (!this.objinfo.isfile || !isLike(this.objinfo.type, element.filetype)))
             return false;
         }
-        if (element.contentfiletype)
-          return false; //FIXME: AND NOT this -> MatchType(this -> GetContentType(), element.contentfiletype, FALSE))
         if (element.typeneedstemplate && !this.isTypeNeedsTemplate())
           return false;
         if (element.webfeatures?.length && !this.matchWebFeatures(element.webfeatures))
@@ -411,6 +401,9 @@ export class WHFSApplyTester {
   private async applyIsMatch(apply: CSPApplyRule): Promise<boolean> {
     if (!isResourceMatch(apply.siteprofileids, this.objinfo.siteprofileids))
       return false;
+    if (apply.whfstype) {
+      return this.objinfo.type === apply.whfstype;
+    }
 
     try {
       for (const appl of apply.tos)

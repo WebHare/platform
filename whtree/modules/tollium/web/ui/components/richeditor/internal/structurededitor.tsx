@@ -852,14 +852,6 @@ export default class StructuredEditor extends EditorBase {
     this._insertParsed(locator, nodes);
   }
 
-  _getResizingOptionsForTable(tablenode) {
-    const tablestyle = this.structure.lookupTableStyle(tablenode);
-    if (tablestyle)
-      return tablestyle.tableresizing;
-    else
-      console.log("No tablestyle found for node", tablenode);
-  }
-
   /// Pastes the content of a node at a specific locator
   async _pasteContentAt(pastecontent: HTMLDivElement, insertlocator: domlevel.Locator) {
     const undolock = this.getUndoLock();

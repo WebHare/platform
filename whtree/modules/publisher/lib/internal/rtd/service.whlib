@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/structuredef.whlib";
 
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
@@ -36,6 +37,14 @@ INTEGER FUNCTION DecryptLink(STRING href)
   IF(href LIKE "x-richdoclink-e:*")
     RETURN DecryptForThisServer("tollium:rtdlink", Substring(href,16), [ fallback := 0 ]);
   RETURN -1;
+}
+
+PUBLIC RECORD ARRAY FUNCTION FixupBlockStyleTitles(RECORD ARRAY blockstyles) {
+  STRING ARRAY builtin := SELECT AS STRING ARRAY tag FROM richstructure_constants.builtinstyles;
+  UPDATE blockstyles
+        SET title := GetTid("tollium:common.richstyles." || ToLowercase(tag))
+        WHERE title = "" AND tag IN builtin;
+  RETURN blockstyles;
 }
 
 STATIC OBJECTTYPE LinkDecryptor
@@ -598,9 +607,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
     IF (NOT RecordExists(def))
       RETURN DEFAULT RECORD;
 
-    UPDATE def.blockstyles
-          SET title := GetTid("tollium:common.richstyles." || ToLowercase(tag))
-          WHERE title="" AND isbuiltin = TRUE;
+    def.blockstyles := FixupBlockStyleTitles(def.blockstyles);
     RETURN def;
   }
 

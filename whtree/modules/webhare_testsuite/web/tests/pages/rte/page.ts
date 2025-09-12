@@ -154,7 +154,6 @@ function getStructure(type) {
           allowstyles: ["NORMAL", "MYSTYLE"],
           allowwidgets: false
         } : {})
-        //, tableresizing: ["table","columns"] // Defaults to ["all"]
       },
       {
         tag: 'language-harescript',

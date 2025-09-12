@@ -68,6 +68,7 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          , requirescontent := FALSE
          , generatepreview := FALSE
          , searchcontentprovider := ""
+         , browserpreview := ""
          , indexversion := ""
          , isacceptableindex := FALSE
          , needstemplate := FALSE

@@ -628,7 +628,7 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           blockstyle := this->rtdstructure->LookupStyle(parts[0], parts[1], TRUE);
           // If specified style not found, use the first available heading blockstyle
           IF (NOT RecordExists(blockstyle))
-            blockstyle := SELECT * FROM this->rtdstructure->structure.blockstyles WHERE toclevel > 0;
+            blockstyle := SELECT * FROM this->rtdstructure->structure.blockstyles WHERE containertag IN ["h1","h2","h3","h4","h5","h6"];
         }
 
         STRING containertag := RecordExists(blockstyle) ? blockstyle.containertag : "h2";
