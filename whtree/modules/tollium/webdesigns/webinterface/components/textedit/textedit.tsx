@@ -160,7 +160,7 @@ export class ObjTextEdit extends ObjAutoSuggestableBase {
 
     this.inputnode.addEventListener("blur", () => this._gotBlur());
     this.inputnode.addEventListener("input", () => this.onAnyChange());
-    this.inputnode.addEventListener("select", () => this.onAnyChange());
+    this.inputnode.addEventListener("select", () => this.onAnyChange(true));
 
     this._autosuggester = this.setupAutosuggest(this.inputnode);
 
@@ -210,10 +210,11 @@ export class ObjTextEdit extends ObjAutoSuggestableBase {
   }
 
   /// Called after little timout to detect changes in value
-  _reportChangesCallback() {
+  _reportChangesCallback(selectionChange: boolean) {
     this.reportchange_cb = null;
 
-    this.setDirty();
+    if (!selectionChange)
+      this.setDirty();
 
     // Get the current value, compare with last reported value
     const value = this.getValue();
@@ -391,12 +392,12 @@ export class ObjTextEdit extends ObjAutoSuggestableBase {
       this.inputnode.value = newvalue;
   }
 
-  onAnyChange() {
+  onAnyChange(selectionChange = false) {
     // Run change detect handler 100ms after last successive change
     if (this.reportchange_cb)
       clearTimeout(this.reportchange_cb);
 
-    this.reportchange_cb = setTimeout(() => this._reportChangesCallback(), 100);
+    this.reportchange_cb = setTimeout(() => this._reportChangesCallback(selectionChange), 100);
   }
 
   onMsgReplaceSelection(data: { text: string }) {
