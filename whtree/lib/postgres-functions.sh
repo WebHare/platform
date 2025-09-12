@@ -4,20 +4,36 @@ source "${BASH_SOURCE%/*}/wh-functions.sh"
 get_postgres_binaries()   # params: targetvar version
 {
   local XXBINDIR
-  XXBINDIR=""
+  local LOCATIONS=()
 
-  if [ -n "$WEBHARE_IN_DOCKER" ]; then
-    XXBINDIR="/usr/lib/postgresql/$2/bin/"
-  elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
+  LOCATIONS+=("$WEBHARE_DIR/libexec/postgres/$2/bin/") # Allows you to ship or move a postgres install into the WebHare tree for easier management
+
+  if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
     if [ -x "$(brew --prefix)/opt/postgresql@${2}/bin/postgres" ]; then
-      XXBINDIR="$(brew --prefix)/opt/postgresql@${2}/bin/"
+      LOCATIONS+=("$(brew --prefix)/opt/postgresql@${2}/bin/")
     fi
-  else
-    XXBINDIR="/usr/pgsql-$2/bin/"
   fi
 
-  eval $1=\$XXBINDIR
-  [ -n "$XXBINDIR" ] && return 0 || return 1
+  LOCATIONS+=("/usr/lib/postgresql/$2/bin/") # Debian/Ubuntu
+  LOCATIONS+=("/usr/pgsql-$2/bin/")          # RHEL/CentOS/Rocky/Alma/Fedora
+
+  for XXBINDIR in "${LOCATIONS[@]}"; do
+    if [ -x "$XXBINDIR/postgres" ]; then
+      eval $1=\$XXBINDIR
+      return 0
+    fi
+  done
+
+  echo "Unable to find PostgreSQL $2 binaries. They're expected in one of these locations:" >&2
+  for XXBINDIR in "${LOCATIONS[@]}"; do
+    echo "- $XXBINDIR" >&2
+  done
+  echo "" >&2
+  echo "Install PostgreSQL $2 into one of these locations or set the WEBHARE_PGIN variable to point to the correct binary directory." >&2
+  if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
+    echo "You may be able to install it with 'brew install postgresql@$$2' or you may need to download binaries directly" >&2
+  fi
+  exit 1
 }
 
 load_postgres_settings()
@@ -43,13 +59,7 @@ load_postgres_settings()
     fi
 
     PSNAME="PostgreSQL $PGVERSION"
-    if ! get_postgres_binaries WEBHARE_PGBIN "$PGVERSION"; then
-      echo "This database requires PostgreSQL version ${PGVERSION}. Please install it and point the WEBHARE_PGBIN environment variable to it"
-      if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
-        echo "You may be able to install it with 'brew install postgresql@${PGVERSION}' or you may need to download binaries directly"
-      fi
-      exit 1
-    fi
+    get_postgres_binaries WEBHARE_PGBIN "$PGVERSION"
   else
     PSNAME="PostgreSQL (from $WEBHARE_PGBIN)"
   fi
