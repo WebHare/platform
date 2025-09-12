@@ -1452,7 +1452,6 @@ STATIC OBJECTTYPE ApplyRuleTester <
   PUBLIC RECORD FUNCTION GetUserData(STRING keyname) {
     RECORD retvalue;
     FOREVERY (RECORD apply FROM this->__GetAppliesForcell("USERDATA")) {
-      dumpvalue(apply);
       FOREVERY (RECORD userdata FROM apply.userdata)  {
         IF(userdata."key" = keyname)
           retvalue := CELL[...retvalue, ...DecodeJSON(userdata.value)];

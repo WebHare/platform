@@ -41,7 +41,7 @@ MACRO TestMoveFile()
     Print(".");
   }
   Print("\n");
-  TestEq(301,testfw->browser->GetHTTPStatusCode()); //once the file is gone urlhistory will redirect usd
+  TestEq(301,testfw->browser->GetHTTPStatusCode()); //once the file is gone urlhistory will redirect us
 }
 
 
