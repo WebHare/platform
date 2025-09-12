@@ -16,6 +16,8 @@
 #ifndef __EMSCRIPTEN__
 #include "hsvm_processmgr.h"
 #include "hsvm_debugger.h"
+#else
+#include <emscripten.h>
 #endif
 
 /* ADDMEs: - Functions should be exception-safe
@@ -155,8 +157,17 @@ struct DllInterfaceContextData
 typedef Blex::Context<DllInterfaceContextData, 11, void> DllInterfaceContext;
 typedef Blex::Context<DllInterfaceExternalOutputContextData, 19, void> DllInterfaceExternalOutputContext;
 
+#ifdef __EMSCRIPTEN__
+EM_ASYNC_JS(int, supportStandardWriter, (int fd, int numbytes, void const *data), {
+  return await Module.standardWrite(fd, numbytes, data);
+});
+#endif
+
 int StandardWriter(int fd, int numbytes, void const *data)
 {
+#ifdef __EMSCRIPTEN__
+        return supportStandardWriter(fd, numbytes, data);
+#else
         int totalwritten = 0;
 
         while(numbytes > 0)
@@ -183,6 +194,7 @@ int StandardWriter(int fd, int numbytes, void const *data)
                 }
         }
         return totalwritten;
+#endif
 }
 
 int StdoutWriter(void */*opaque_ptr*/, int numbytes, void const *data, int /*allow_partial*/, int *error_code)

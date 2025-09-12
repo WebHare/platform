@@ -547,6 +547,42 @@ export class WASMModule extends WASMModuleBase {
     return this.itf!.anyPendingPermissionRequests();
   }
 
+  streamWriteData = new Map<number, {
+    broken: boolean;
+
+  }>;
+
+  async standardWrite(fd: number, numbytes: number, data: Ptr): Promise<number> {
+    try {
+      // Copy the data, didn't find any guarantee that the data is copied synchronously on .write()
+      const toWrite = this.HEAPU8.slice(data, data + numbytes);
+      if (fd === 0 || fd === 1 || fd === 2) {
+        const stream = fd === 2 ? process.stderr : process.stdout;
+        let streamData = this.streamWriteData.get(fd);
+        if (!streamData) {
+          this.streamWriteData.set(fd, streamData = {
+            broken: false
+          });
+          stream.on("error", () => streamData!.broken = true);
+        }
+        if (stream.writableEnded)
+          return 0;
+        const res = stream.write(toWrite, (err) => console.error(`write to fd ${fd} returned error`, err));
+
+        // if write returns false, we need to wait for 'drain' to avoid excessive memory use
+        if (!res) {
+          await new Promise<void>(resolve => stream.once("drain", () => resolve()));
+        }
+        return toWrite.byteLength;
+      } else {
+        const res = await new Promise<{ err: NodeJS.ErrnoException | null; bytesWritten: number }>(resolve => fs.write(fd, toWrite, (err, bytesWritten) => resolve({ err, bytesWritten })));
+        return res.bytesWritten;
+      }
+    } catch (e) {
+      return 0;
+    }
+  }
+
   /** Print debuginfo from C++ (javascript stack trace and VM stack trace)
    * Usage:
    * ```
