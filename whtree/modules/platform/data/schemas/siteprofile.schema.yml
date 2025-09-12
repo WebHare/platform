@@ -39,6 +39,10 @@ $defs:
         type: string
       members:
         $ref: "#/$defs/TypeMembers"
+      metaType: # WH5.8 compatibility
+        type: string
+      workflow: # WH5.8 compatibiltiy
+        type: boolean
 
   TypeMembers:
     type: object
