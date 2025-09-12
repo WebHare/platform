@@ -8,15 +8,22 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::promise.whlib";
 
 
-PUBLIC MACRO ThrowIt()
-{
+PUBLIC MACRO ThrowIt() {
   THROW NEW Exception("We're throwing it");
 }
 
-PUBLIC ASYNC MACRO ThrowItAsync()
-{
+PUBLIC MACRO AbortIt() {
+  ABORT("We're aborting it");
+}
+
+PUBLIC ASYNC MACRO ThrowItAsync() {
   AWAIT CreateSleepPromise(1);
   THROW NEW Exception("We're async throwing it");
+}
+
+PUBLIC ASYNC MACRO AbortItAsync() {
+  AWAIT CreateSleepPromise(1);
+  ABORT("We're async aborting it");
 }
 
 PUBLIC INTEGER FUNCTION ReentrantSyscall()
