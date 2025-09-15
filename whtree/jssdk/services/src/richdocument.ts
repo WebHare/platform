@@ -3,7 +3,7 @@ import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
-import { codecs } from "@webhare/whfs/src/codecs";
+import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
 import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions } from "./descriptor";
 import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
@@ -239,21 +239,10 @@ class WHFSInstance {
   }
 
   async export(options?: ExportOptions): Promise<WHFSInstanceData> {
-    const retval: WHFSInstanceData = {
+    return {
       whfsType: this.whfsType,
+      ...await exportData(this.#typeInfo.members, this.#data, options)
     };
-
-    for (const member of this.#typeInfo.members) {
-      const decoder = codecs[member.type];
-      const val = this.#data[member.name];
-      if (!val)
-        continue; //we *never* need to export undefined/falsy values
-
-      const outval = decoder?.exportValue ? await decoder.exportValue(this.#data[member.name], options) : this.#data[member.name];
-      if (outval && !decoder.isDefaultValue?.(outval))
-        retval[member.name] = outval;
-    }
-    return retval;
   }
 }
 
@@ -593,20 +582,7 @@ export async function buildRTD(source: RTDBuildSource): Promise<RichTextDocument
 
 export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSInstance> {
   const typeinfo = await describeWHFSType(data.whfsType);
-  const widgetValue: Record<string, unknown> = {};
-  if (data)
-    for (const [key, value] of Object.entries(data))
-      if (key !== "whfsType") {
-        const matchMember = typeinfo.members.find((m) => m.name === key);
-        if (!matchMember)
-          throw new Error(`Member '${key}' not found in ${data.whfsType}`);
-
-        const encoder = codecs[matchMember.type];
-        const inval = encoder?.importValue ? await encoder.importValue(value) : value;
-        widgetValue[key] = inval;
-      }
-
-  return new WHFSInstance(typeinfo, widgetValue);
+  return new WHFSInstance(typeinfo, await importData(typeinfo.members, data, { addMissingMembers: true }));
 }
 
 /** @deprecated use buildWHFSInstance */

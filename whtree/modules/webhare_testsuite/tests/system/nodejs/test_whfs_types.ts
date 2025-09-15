@@ -8,8 +8,7 @@ import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, type WHFSInstance, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob } from "@webhare/services";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
-import { codecs, type DecoderContext } from "@webhare/whfs/src/codecs";
-import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
+import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
 import { buildWHFSInstance } from "@webhare/services/src/richdocument";
 
@@ -29,25 +28,22 @@ async function testCodecs() {
   };
 
   //directly testing the codecs also allows us to check against data format/migration issues
-  test.eq({ setting: "2023-09-28" }, codecs["plainDate"].encoder(new Date("2023-09-28T21:04:35Z"), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(-9999, 0, 1)), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
-  test.throws(/Invalid date/i, () => codecs["plainDate"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(999, 11, 31)), {} as WHFSTypeMember));
-  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date(Date.UTC(10000, 0, 1)), {} as WHFSTypeMember));
+  test.eq(Temporal.PlainDate.from("2023-09-28"), codecs["plainDate"].importValue(new Date("2023-09-28T21:04:35Z")));
+  test.throws(/Out of range/i, () => codecs["plainDate"].importValue(new Date(Date.UTC(-9999, 0, 1))));
+  test.throws(/Out of range/i, () => codecs["plainDate"].importValue(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["plainDate"].importValue(new Date("Pieter Konijn")));
+  test.throws(/Out of range/i, () => codecs["plainDate"].importValue(new Date(Date.UTC(999, 11, 31))));
+  test.throws(/Out of range/i, () => codecs["plainDate"].importValue(new Date(Date.UTC(10000, 0, 1))));
 
-  test.throws(/Out of range/i, () => codecs["plainDate"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["plainDate"].importValue(new Date("0000-12-31T00:00:00Z")));
 
-  const testDecodeContext: DecoderContext = {
-    allsettings: [],
-    cc: 0,
-  };
+  test.eq({ setting: "2023-09-28" }, codecs["plainDate"].encoder(Temporal.PlainDate.from("2023-09-28")));
 
-  test.eq(new Date("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28" }], {} as WHFSTypeMember, testDecodeContext));
-  test.eq(new Date("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }], {} as WHFSTypeMember, testDecodeContext)); //sanity check: ensure time part is dropped
+  test.eq(Temporal.PlainDate.from("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28" }]));
+  test.eq(Temporal.PlainDate.from("2023-09-28"), codecs["plainDate"].decoder([{ ...basesettingrow, setting: "2023-09-28T13:14:15Z" }])); //sanity check: ensure time part is dropped
 
-  test.throws(/Out of range/i, () => codecs["instant"].encoder(new Date("0000-12-31T00:00:00Z"), {} as WHFSTypeMember));
-  test.throws(/Invalid date/i, () => codecs["instant"].encoder(new Date("Pieter Konijn"), {} as WHFSTypeMember));
+  test.throws(/Out of range/i, () => codecs["instant"].importValue(new Date("0000-12-31T00:00:00Z")));
+  test.throws(/Invalid date/i, () => codecs["instant"].importValue(new Date("Pieter Konijn")));
 }
 
 async function testMockedTypes() {
@@ -163,8 +159,8 @@ async function testInstanceData() {
     str: "String",
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
-    aDateTime: new Date("2023-09-28T21:04:35Z"),
-    aDay: new Date("2023-09-29T00:00:00Z"), //msecond part gets truncated
+    aDateTime: new Date("2023-09-28T21:04:35Z").toTemporalInstant(),
+    aDay: Temporal.PlainDate.from("2023-09-29"), //msecond part gets truncated
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
@@ -180,7 +176,7 @@ async function testInstanceData() {
 
   const expWhfsRefs = pick(await testtype.get(testfile.id, { export: true }), ["myWhfsRef", "myWhfsRefArray"]);
   test.eq("site::webhare_testsuite.testsite/tmp/testfile.txt", expWhfsRefs.myWhfsRef);
-  test.eq(["site::webhare_testsuite.testsite/tmp/", "site::webhare_testsuite.testsite/tmp/testfile.txt"], expWhfsRefs.myWhfsRefArray.toSorted());
+  test.eq(["site::webhare_testsuite.testsite/tmp/", "site::webhare_testsuite.testsite/tmp/testfile.txt"], expWhfsRefs.myWhfsRefArray?.toSorted());
 
   //Verify we can import them again
   await testtype.set(testfile.id, expWhfsRefs);
@@ -275,6 +271,44 @@ async function testInstanceData() {
 
   ////////////////////////////////////
   // STORY: Further instance update tests
+
+  // Test: Build instance from scratch
+  test.eq({
+    str1: "str1b"
+  }, (await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })).data);
+  test.eq({
+    str1: ""
+  }, (await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" })).data);
+
+  test.eq({
+    str: "",
+    emptyStr: "",
+    int: 0,
+    blub: null,
+    blubImg: null,
+    price: new Money("0"),
+    rich: null,
+    yesNo: false,
+    aFloat: 0,
+    aDateTime: null,
+    aDay: null,
+    anInstance: null,
+    strArray: [],
+    url: "",
+    aRecord: null,
+    aDoc: null,
+    aTypedRecord: null,
+    anArray: [],
+    myWhfsRef: null,
+    myWhfsRefArray: [],
+    myLink: null,
+  }, (await buildWHFSInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).data);
+
+  // Export of default values should result in only the whfsType property (default values should be omitted)
+  test.eq({
+    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+  }, await (await buildWHFSInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).export());
+
   // Test: Simple overwrite
   await testtype.set(testfile.id, {
     anInstance: await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })
@@ -352,11 +386,10 @@ async function testInstanceData() {
   //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { str: 1 }));
   //@ts-expect-error TS also recognized the bad type
-  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { price: 'a' }));
+  await test.throws(/Illegal money value/, () => testtype.set(testfile.id, { price: 'a' }));
   //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aFloat: "a" }));
-  //@ts-expect-error TS also recognized the bad type
-  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aDateTime: "a" }));
+  await test.throws(/Cannot parse: a/, () => testtype.set(testfile.id, { aDateTime: "a" }));
   //@ts-expect-error TS also recognized the bad type
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { strArray: 1 }));
   //@ts-expect-error TS also recognized the bad type

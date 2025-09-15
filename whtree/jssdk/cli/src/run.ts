@@ -35,7 +35,7 @@ export interface CLIArgumentType<ValueType> {
   /** Return possible autocomplete sugegestions. Incomplete suggestions (user should add more text) should end with a '*'. Returned values that do not match the supplied 'startsWith' are ignored
    * `cwd` is the current working directory, is filled in from WH 5.9+.
   */
-  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): string[];
+  autoComplete?(startsWith: string, options: { argName: string; command?: string; cwd: string }): string[] | Promise<string[]>;
   description?: string;
 }
 
@@ -730,7 +730,7 @@ export function enumOption<const T extends string>(allowedValues: T[]): CLIArgum
 /** Autocompletes the last argv argument (assumes the cmdline which must be autocompleted is split at the cursor).
  * When an new argument must be autocompleted, pass a "".
  */
-export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd: string }): string[] {
+export async function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd: string }): Promise<string[]> {
   const optMap = new Map<string, { storeName: string; isFlag: true; isGlobal: boolean; rec: FlagTemplate } | { storeName: string; isFlag: false; isGlobal: boolean; rec: OptionsTemplate }>();
   let command: [string, SubCommandTemplate] | undefined;
 
@@ -765,7 +765,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
           if (i === argv.length - 1) {
             // autocompleting the argument of this option
             if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-              const completes = optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+              const completes = await optionRef.rec.type.autoComplete(argv[i], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
               return completes.filter(c => c.startsWith(argv[i])).map(fixAutcompleteSuffix);
             }
             return [];
@@ -777,7 +777,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
             if (optionRef?.isFlag || typeof optionRef?.rec !== "object" || !optionRef?.rec.type || !optionRef.rec.type.autoComplete)
               return [];
 
-            const completes = optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+            const completes = await optionRef.rec.type.autoComplete(parts[1], { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
             return completes.map(c => `--${key}=${c}`).filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
           }
 
@@ -808,7 +808,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
           // option followed by immediate value
           if (isLast) {
             if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-              const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+              const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
               return completes.map(c => `${arg.slice(0, j + 1)}${c}`).filter(c => c.startsWith(arg));
             }
             return [];
@@ -826,7 +826,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
         ++i;
         if (i === argv.length - 1) {
           if (typeof optionRef.rec === "object" && optionRef.rec.type?.autoComplete) {
-            const completes = optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
+            const completes = await optionRef.rec.type.autoComplete(arg.slice(j + 1), { argName: `option ${JSON.stringify(key)}`, command: command?.[0], cwd });
             return completes.filter(c => c.startsWith(arg));
           }
           return [];
@@ -864,7 +864,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
     if (curArg.name.endsWith("...>") || curArg.name.endsWith("...]")) {
       if (isLast) {
         if (curArg.type?.autoComplete) {
-          const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
+          const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
           return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
         }
         return [];
@@ -875,7 +875,7 @@ export function runAutoComplete(data: ParseData, argv: string[], { cwd }: { cwd:
     ++argIdx;
     if (isLast) {
       if (curArg.type?.autoComplete) {
-        const completes = curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
+        const completes = await curArg.type.autoComplete(arg, { argName: `argument ${JSON.stringify(curArg.name)}`, command: command?.[0], cwd });
         return completes.filter(c => c.startsWith(arg)).map(fixAutcompleteSuffix);
       }
       return [];

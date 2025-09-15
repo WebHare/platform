@@ -11,7 +11,7 @@ import { IntExtLink, WebHareBlob, type RichTextDocument, type WHFSInstance } fro
 import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
-import { getWHType } from "@webhare/std/src/quacks";
+import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
 import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
@@ -51,11 +51,15 @@ export type DecoderContext = ExportOptions & {
   cc: number;
 };
 
-interface TypeCodec {
+type ImportOptions = {
+  addMissingMembers?: boolean;
+};
+
+export interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
   decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
-  importValue?(value: unknown): unknown;
-  exportValue?(value: unknown, options?: ExportOptions): unknown;
+  importValue?(value: unknown, member: WHFSTypeMember, options?: ImportOptions): unknown;
+  exportValue?(value: unknown, member: WHFSTypeMember, options?: ExportOptions): unknown;
   isDefaultValue?(value: unknown): boolean;
   getType: string;
   setType?: string;
@@ -64,7 +68,7 @@ interface TypeCodec {
 
 function assertValidString(value: unknown) {
   if (typeof value !== "string")
-    throw new Error(`Incorrect type. Wanted string, got '${typeof value}'`);
+    throw new Error(`Incorrect type. Wanted string, got '${describeType(value)}'`);
   if (Buffer.byteLength(value) >= 4096)
     throw new Error(`String too long (${value.length})`);
   return value;
@@ -72,7 +76,7 @@ function assertValidString(value: unknown) {
 
 function assertValidDate(value: unknown): asserts value is Date {
   if (!(value instanceof Date))
-    throw new Error(`Incorrect type. Wanted a Date, got '${typeof value}'`);
+    throw new Error(`Incorrect type. Wanted a Date, got '${describeType(value)}'`);
 
   const t = value.getTime();
   if (isNaN(t))
@@ -108,13 +112,13 @@ async function encodeWHFSInstance(value: WHFSInstance | WHFSInstanceData): Promi
   const data = isWHFSInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
   return {
     instancetype: typeinfo.id,
-    sub: await recurseSetData(typeinfo.members, data)
+    sub: await setData(typeinfo.members, data)
   };
 }
 
 async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
   const typeinfo = await describeWHFSType(row.instancetype!);
-  const widgetdata = await recurseGetData(typeinfo.members, row.id, context);
+  const widgetdata = await getData(typeinfo.members, row.id, context);
 
   return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
 }
@@ -177,52 +181,60 @@ async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedD
 
   for (const settingInstance of settings.filter(s => s.ordering === 3)) {
     const typeinfo = await describeWHFSType(settingInstance.instancetype!);
-    const widgetdata = await recurseGetData(typeinfo.members, settingInstance.id, context);
+    const widgetdata = await getData(typeinfo.members, settingInstance.id, context);
     outdoc.instances.set(settingInstance.setting, await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata }));
   }
 
   return outdoc;
 }
 
-export const codecs: { [key in MemberType]: TypeCodec } = {
+function describeType(value: unknown): string {
+  if (typeof value !== "object")
+    return typeof value;
+  if (!value)
+    return "null";
+  return getWHType(value) ?? value.constructor?.name ?? "object";
+}
+
+export const codecs = {
   "boolean": {
     getType: "boolean",
 
-    encoder: (value: unknown) => {
+    encoder: (value: boolean) => {
       if (typeof value !== "boolean")
-        throw new Error(`Incorrect type. Wanted boolean, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted boolean, got '${describeType(value)}'`);
 
       return value ? { setting: "1" } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): boolean => {
       return ["1", "true"].includes(settings[0]?.setting);
     }
   },
   "integer": {
     getType: "number",
 
-    encoder: (value: unknown) => {
+    encoder: (value: number) => {
       if (typeof value !== "number")
-        throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted number, got '${describeType(value)}'`);
       if (value < -2147483648 || value > 2147483647) //as long as we're HS compatible, this is the range to stick to
         throw new Error(`Value is out of range for a 32 bit signed integer`);
 
       return value ? { setting: String(value) } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): number => {
       return parseInt(settings[0]?.setting) || 0;
     }
   },
   "float": {
     getType: "number",
 
-    encoder: (value: unknown) => {
+    encoder: (value: number) => {
       if (typeof value !== "number")
-        throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted number, got '${describeType(value)}'`);
 
       return value ? { setting: String(value) } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): number => {
       return parseFloat(settings[0]?.setting) || 0;
     }
   },
@@ -231,16 +243,16 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     setType: "string | number | null",
     exportType: "string | null",
 
-    encoder: (value: unknown) => {
-      if (typeof value !== "number")
-        throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
+    encoder: (value: number | null) => {
+      if (typeof value !== "number" && value !== null)
+        throw new Error(`Incorrect type. Wanted number (or null), got '${describeType(value)}'`);
 
       return value ? { fs_object: value } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): number | null => {
       return settings[0]?.fs_object || null;
     },
-    exportValue: (value: number | null, options: ExportOptions): MaybePromise<string | null> => {
+    exportValue: (value: number | null, member: WHFSTypeMember, options: ExportOptions): MaybePromise<string | null> => {
       if (!value)
         return null;
       return mapExternalWHFSRef(value, options);
@@ -250,6 +262,8 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
         return null;
       if (typeof value === "number")
         return value;
+      if (typeof value !== "string")
+        throw new Error(`Incorrect type. Wanted string or number (or null), got '${describeType(value)}'`);
       return unmapExternalWHFSRef(value);
     },
   },
@@ -258,15 +272,15 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     setType: "Array<string | number>",
     exportType: "Array<string>",
 
-    encoder: (value: unknown) => {
+    encoder: (value: number[]) => {
       if (!Array.isArray(value))
-        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted array, got '${describeType(value)}'`);
 
       const settings: Array<Partial<FSSettingsRow>> = [];
       let nextOrdering = 1;
       for (const val of value) {
         if (typeof val !== "number")
-          throw new Error(`Incorrect type. Wanted number, got '${typeof val}'`);
+          throw new Error(`Incorrect type. Wanted number, got '${describeType(typeof val)}'`);
         if (!val)
           continue;
 
@@ -274,16 +288,19 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       }
       return settings;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): number[] => {
       return settings.map(s => s.fs_object).filter(s => s !== null);
     },
     isDefaultValue: (value: unknown) => {
       return Array.isArray(value) && value.length === 0;
     },
-    exportValue: (value: number[], options: ExportOptions): MaybePromise<string[]> => {
+    exportValue: (value: number[], member: WHFSTypeMember, options: ExportOptions): MaybePromise<string[]> => {
       return Promise.all(value.map(v => mapExternalWHFSRef(v, options))).then(mapped => mapped.filter(isTruthy));
     },
     importValue: async (value: Array<string | number>): Promise<number[]> => {
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted array, got '${describeType(value)}'`);
+
       const retval: number[] = [];
       for (const val of value) {
         const add = typeof val === "number" ? val : await unmapExternalWHFSRef(val);
@@ -295,72 +312,93 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
   },
   "plainDate": {
     getType: "Temporal.PlainDate | null",
-    setType: "Temporal.PlainDate | Date | null",
+    setType: "Temporal.PlainDate | Date | string | null",
+    exportType: "string",
 
-    encoder: (value: unknown) => {
+    encoder: (value: Temporal.PlainDate | null) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
-
-      assertValidDate(value);
-
-      //return Date as YYYY-MM-DD
-      const yyyy_mm_dd = `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, "0")}-${String(value.getUTCDate()).padStart(2, "0")}`;
-      return { setting: yyyy_mm_dd };
+      if (!isTemporalPlainDate(value))
+        throw new Error(`Incorrect type. Wanted Temporal.PlainDate (or null), got '${describeType(value)}'`);
+      return { setting: value.toString().split("[")[0] };
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): Temporal.PlainDate | null => {
       if (!settings[0]?.setting)
         return null;
-      const dt = new Date(settings[0].setting);
-      dt.setUTCHours(0, 0, 0, 0); //truncate to a UTC Date
-      return dt;
+      return Temporal.PlainDate.from(settings[0].setting.split("T")[0]);
+    },
+    exportValue(value: Temporal.PlainDate | null): MaybePromise<string> {
+      return value ? value.toString().split("[")[0] : "";
+    },
+    importValue(value: Temporal.PlainDate | Date | string | null): Temporal.PlainDate | null {
+      if (value === null || value === "" || isTemporalPlainDate(value))
+        return value || null;
+      if (typeof value === "string")
+        return Temporal.PlainDate.from(value);
+
+      assertValidDate(value);
+      return Temporal.PlainDate.from(value.toISOString().split("T")[0]);
     }
   },
   "instant": {
     getType: "Temporal.Instant | null",
-    setType: "Temporal.Instant | Date | null",
+    setType: "Temporal.Instant | Date | string | null",
+    exportType: "string",
 
-    encoder: (value: unknown) => {
+    encoder: (value: Temporal.Instant | null) => {
       if (value === null) //we accept nulls in datetime fields
         return null;
-
-      assertValidDate(value);
-
+      if (!isTemporalInstant(value))
+        throw new Error(`Incorrect type. Wanted Temporal.Instant (or null), got '${describeType(value)}'`);
       const { days, msecs } = dateToParts(value);
       return days || msecs ? { setting: `${days}:${msecs}` } : null;
     },
     decoder: (settings: FSSettingsRow[]) => {
       const dt = settings[0]?.setting?.split(":") ?? null;
-      return dt && dt.length === 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])) : null;
+      return dt && dt.length === 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])).toTemporalInstant() : null;
+    },
+    exportValue(value, member, options) {
+      return value ? value.toString() : null;
+    },
+    importValue(value: Temporal.Instant | Date | string | null): Temporal.Instant | null {
+      if (value === null || value === "" || isTemporalInstant(value))
+        return value || null;
+      if (typeof value === "string")
+        return Temporal.Instant.from(value);
+      assertValidDate(value);
+      return value.toTemporalInstant();
     }
   },
   "string": {
     getType: "string",
 
-    encoder: (value: unknown) => {
+    encoder: (value: string) => {
       const strvalue = assertValidString(value);
       return strvalue ? { setting: strvalue } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): string => {
       return settings[0]?.setting || "";
     }
   },
   "url": { //TODO identical to "string" at this moment, but we're not handling linkchecking yet
     getType: "string",
 
-    encoder: (value: unknown) => {
+    encoder: (value: string) => {
       const strvalue = assertValidString(value);
       return strvalue ? { setting: strvalue } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): string => {
       return settings[0]?.setting || "";
     }
   },
   "hson": { //fs_member type 21 (hson) and 22 (formrecord, dropped in WH5.9)
     getType: "Record<string,unknown> | null",
+    setType: "Record<string,unknown> | string | null",
+    exportType: "string | null",
 
-    encoder: (value: unknown) => {
+    encoder: (value: Record<string, unknown> | null) => {
       if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
-        throw new Error(`Incorrect type. Wanted an object`);
+        throw new Error(`Incorrect type. Wanted an object, got a '${describeType(value)}'`);
       if (!value) //null!
         return null; //nothing to store
 
@@ -375,25 +413,33 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       }
       return { setting: ashson };
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): MaybePromise<Record<string, unknown> | null> => {
       //If setting == FC1, this is a former <formcondition> (type 22) which would always overflow to a blob and store FC1 as setting - we didn't do a data conversion after dropping 22
       if (settings[0]?.setting && settings[0]?.setting !== "FC1")
-        return decodeHSON(settings[0].setting);
+        return decodeHSON(settings[0].setting) as Record<string, unknown>;
       else if (settings[0]?.blobdata)
-        return settings[0]?.blobdata.text().then(text => decodeHSON(text));
+        return settings[0]?.blobdata.text().then(text => decodeHSON(text) as Record<string, unknown>);
       return null;
-    }
+    },
+    exportValue(value: Record<string, unknown> | null): string | null {
+      return value && encodeHSON(value as IPCMarshallableData) || null;
+    },
+    importValue(value: Record<string, unknown> | string | null): Record<string, unknown> | null {
+      if (typeof value === "string")
+        return decodeHSON(value) as Record<string, unknown>;
+      return value;
+    },
   },
   "stringArray": {
     getType: "string[]",
 
-    encoder: (value: unknown) => {
+    encoder: (value: string[]) => {
       if (!Array.isArray(value))
-        throw new Error(`Incorrect type. Wanted string array, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted string array, got '${describeType(value)}'`);
 
       return value.length ? value.map((v, idx) => ({ setting: assertValidString(v), ordering: ++idx })) : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): string[] => {
       return settings.map(s => s.setting);
     },
     isDefaultValue: (value: unknown) => {
@@ -403,18 +449,28 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
   "money": {
     getType: "Money",
 
-    encoder: (value: unknown) => {
-      if (typeof value === "number")
-        return value ? { setting: String(value) } : null;
-      if (Money.isMoney(value))
-        return Money.cmp(value, "0") ? { setting: value.toString() } : null;
-      throw new Error(`Incorrect type. Wanted number or Money, got '${typeof value}'`);
+    encoder: (value: Money) => {
+      if (!Money.isMoney(value))
+        throw new Error(`Incorrect type. Wanted Money, got '${describeType(value)}'`);
+      return Money.cmp(value, "0") ? { setting: value.toString() } : null;
     },
-    decoder: (settings: FSSettingsRow[]) => {
+    decoder: (settings: FSSettingsRow[]): Money => {
       return new Money(settings[0]?.setting || "0");
     },
     isDefaultValue: (value: Money) => {
       return Money.cmp(value, "0") === 0;
+    },
+    exportValue(value: Money): string {
+      return value.toString();
+    },
+    importValue(value: string | number | Money): Money {
+      if (typeof value === "number")
+        return new Money(value.toString());
+      if (typeof value === "string")
+        return new Money(value);
+      if (!Money.isMoney(value))
+        throw new Error(`Incorrect type. Wanted string, number or Money, got '${describeType(value)}'`);
+      return value;
     }
   },
   "file": {
@@ -422,9 +478,9 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
     setType: "ResourceDescriptor | ExportedResource | null",
     exportType: "ExportedResource | null",
 
-    encoder: (value: ResourceDescriptor | ExportedResource | null) => {
+    encoder: (value: ResourceDescriptor | null) => {
       if (typeof value !== "object") //TODO test for an actual ResourceDescriptor
-        throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${describeType(value)}'`);
       if (!value)
         return null;
 
@@ -437,27 +493,37 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
 
       return decodeResourceDescriptor(settings[0], context);
     },
-    exportValue: (value: ResourceDescriptor, options: ExportOptions): Promise<ExportedResource> | null => {
-      return value?.export(options) ?? null as unknown as ExportedResource;
+    exportValue: (value: ResourceDescriptor | null, member: WHFSTypeMember, options: ExportOptions): Promise<ExportedResource> | null => {
+      return value?.export(options) ?? null;
     },
     importValue: (value: ResourceDescriptor | ExportedResource | null): MaybePromise<ResourceDescriptor | null> => {
       if (!value || isResourceDescriptor(value))
         return value;
+      if (typeof value !== "object") //TODO test for an actual ResourceDescriptor
+        throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${describeType(value)}'`);
       return ResourceDescriptor.import(value);
     }
   },
   "record": { //NOTE: getType/setType are only queried for records/arrays without children
     getType: "Record<never, unknown> | null",
 
-    encoder: (value: object, member: WHFSTypeMember) => {
+    encoder: (value: object | null, member: WHFSTypeMember) => {
+      if (!value)
+        return [];
       return (async (): EncoderAsyncReturnValue => {
         const toInsert = new Array<EncodedFSSetting>();
-        toInsert.push({ ordering: 1, sub: await recurseSetData(member.children!, value) });
+        toInsert.push({ ordering: 1, sub: await setData(member.children!, value) });
         return toInsert;
       })();
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
-      return settings.length ? recurseGetData(member.children || [], settings[0].id, context) : null;
+      return settings.length ? getData(member.children || [], settings[0].id, context) : null;
+    },
+    exportValue(value: object | null, member, options) {
+      return value ? exportData(member.children || [], value, options) : null;
+    },
+    importValue(value: object | null, member: WHFSTypeMember, options) {
+      return value ? importData(member.children || [], value, options) : null;
     }
   },
   "array": {  //NOTE: getType/setType are only queried for records/arrays without children
@@ -465,17 +531,23 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
 
     encoder: (value: object[], member: WHFSTypeMember) => {
       if (!Array.isArray(value))
-        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+        throw new Error(`Incorrect type. Wanted array, got '${describeType(value)}'`);
 
       return (async (): EncoderAsyncReturnValue => {
         const toInsert = new Array<EncodedFSSetting>();
         for (const row of value)
-          toInsert.push({ ordering: toInsert.length + 1, sub: await recurseSetData(member.children!, row) });
+          toInsert.push({ ordering: toInsert.length + 1, sub: await setData(member.children!, row) });
         return toInsert;
       })();
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
-      return Promise.all(settings.map(s => recurseGetData(member.children || [], s.id, context)));
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<object[]> => {
+      return Promise.all(settings.map(s => getData(member.children || [], s.id, context)));
+    },
+    exportValue(value: object[], member, options): Promise<object[]> {
+      return Promise.all(value.map(v => exportData(member.children || [], v, options)));
+    },
+    importValue(value: object[], member, options): Promise<object[]> {
+      return Promise.all(value.map(v => importData(member.children || [], v, options)));
     },
     isDefaultValue: (value: unknown) => {
       return Array.isArray(value) && value.length === 0;
@@ -488,7 +560,7 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
 
     encoder: (value: RichTextDocument | null) => {
       if (value && !isRichTextDocument(value))
-        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${getWHType(value) ?? typeof value}'`);
+        throw new Error(`Incorrect type. Wanted a RichTextDocument, got '${describeType(value)}'`);
       if (!value || value.isEmpty())
         return null;
 
@@ -510,21 +582,22 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
         return buildRTDFromComposedDocument(base);
       })();
     },
+    exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, options: ExportOptions) => {
+      return value?.export() || null;
+    },
     importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
       if (!value || isRichTextDocument(value))
         return value;
-      else
-        return buildRTD(value as RTDBuildSource);
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted a RichTextDocument or RTDBuildSource, got '${describeType(value)}'`);
+      return buildRTD(value);
     },
-    exportValue: (value: RichTextDocument | null, options: ExportOptions) => {
-      return value?.export() || null;
-    }
   },
   "instance": {
     getType: "WHFSInstance | null",
     setType: "WHFSInstance | WHFSInstanceData | null",
 
-    encoder: (value: WHFSInstance | WHFSInstanceData) => {
+    encoder: (value: WHFSInstance | null) => {
       if (!value)
         return null;
       if (!value.whfsType)
@@ -533,12 +606,23 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
       return encodeWHFSInstance(value);
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<WHFSInstance> | null => {
       if (!settings.length)
         return null;
 
       return decodeWHFSInstance(settings[0], context);
-    }
+    },
+    exportValue: (value: WHFSInstance | null, member, options): Promise<WHFSInstanceData> | null => {
+      return value?.export(options) || null;
+    },
+    importValue(value: WHFSInstance | WHFSInstanceData | null, member, options): MaybePromise<WHFSInstance> | null {
+      if (value && !value.whfsType)
+        throw new Error(`Missing whfsType in instance`);
+
+      if (value && !isWHFSInstance(value))  //looks like an ExportedWHFSInstance?
+        return buildWHFSInstance(value);
+      return value;
+    },
   },
   "intExtLink": {
     getType: "IntExtLink | null",
@@ -551,22 +635,23 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       const data = value.internalLink ? value.append : value.externalLink;
       return { fs_object: value.internalLink || null, setting: data || "" };
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): IntExtLink | null => {
       if (settings[0]?.fs_object)
         return new IntExtLink(settings[0]?.fs_object, { append: settings[0]?.setting || "" });
       if (settings[0]?.setting)
         return new IntExtLink(settings[0]?.setting);
       return null;
     },
-    exportValue: (value: IntExtLink | null, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
+    exportValue: (value: IntExtLink | null, member: WHFSTypeMember, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
       return exportIntExtLink(value, options);
     },
-    importValue: (value: IntExtLink | null | ExportedIntExtLink): MaybePromise<IntExtLink | null> => {
+    importValue: (value: IntExtLink | null | ExportedIntExtLink, member: WHFSTypeMember): MaybePromise<IntExtLink | null> => {
       return importIntExtLink(value);
     }
   },
   "composedDocument": {
     getType: "ComposedDocument | null",
+    // FIXME: export format!
 
     encoder: (value: ComposedDocument | null) => {
       if (!value)
@@ -577,7 +662,7 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
         return encodeComposedDocument(value, "CD1:publisher:markdown"); //HS used 'publisher:' prefix
       throw new Error(`Unsupported composed document type '${value.type}'`);
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<ComposedDocument> | null => {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
@@ -588,7 +673,24 @@ export const codecs: { [key in MemberType]: TypeCodec } = {
       return decodeComposedDocument(settings, type, context);
     }
   }
+} satisfies { [key in MemberType]: TypeCodec };
+
+/** Check if the encoder matches (decoder-returnvalue) => unknown and importValue matches (export-returnvalue | decoder-returnvalue) => encoder-inputvalue */
+type Codecs = typeof codecs;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ResultTypes = { [Key in keyof Codecs]: kysely.Simplify<{ base: Awaited<ReturnType<Codecs[Key]["decoder"]>> } & (Codecs[Key] extends { exportValue: (...args: any) => any } ? { export: Awaited<ReturnType<Codecs[Key]["exportValue"]>> } : object)> };
+
+type ExpectedCodecSignatures = {
+  [Key in keyof ResultTypes]: (ResultTypes[Key] extends { export: unknown } ? {
+    encoder: (data: ResultTypes[Key]["base"], member: WHFSTypeMember) => unknown;
+    importValue: (data: ResultTypes[Key]["export"] | ResultTypes[Key]["base"], member: WHFSTypeMember, options?: ImportOptions) => MaybePromise<ResultTypes[Key]["base"]>;
+  } : {
+    encoder: (data: ResultTypes[Key]["base"], member: WHFSTypeMember) => unknown;
+    importValue?: never;
+  })
 };
+
+(codecs satisfies ExpectedCodecSignatures);
 
 export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"]> & {
   id?: number;
@@ -599,7 +701,7 @@ export type EncodedFSSetting = kysely.Updateable<PlatformDB["system.fs_settings"
 /** Recursively set the data
  * @param members - The set of members at his level
  * @param data - Data to apply at this level */
-export async function recurseSetData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
+export async function setData(members: WHFSTypeMember[], data: object): Promise<EncodedFSSetting[]> {
   const toInsert = new Array<EncodedFSSetting>;
   for (const [key, value] of Object.entries(data as object)) {
     if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
@@ -611,13 +713,13 @@ export async function recurseSetData(members: WHFSTypeMember[], data: object): P
 
     try {
       const mynewsettings = new Array<Partial<FSSettingsRow>>;
-      const encoder = codecs[matchmember.type];
-      if (!codecs[matchmember.type])
+      const codec: TypeCodec = codecs[matchmember.type];
+      if (!codec)
         throw new Error(`Unsupported type ${matchmember.type}`);
 
-      const setValue = encoder?.importValue ? await encoder.importValue(value) : value;
+      const setValue = codec.importValue ? codec.importValue(value, matchmember) : value;
 
-      const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(setValue, matchmember);
+      const encodedsettings: EncoderReturnValue = codec.encoder(isPromise(setValue) ? await setValue : setValue, matchmember);
       const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
 
       if (Array.isArray(finalsettings))
@@ -637,7 +739,7 @@ export async function recurseSetData(members: WHFSTypeMember[], data: object): P
   return toInsert;
 }
 
-export async function recurseGetData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext) {
+export async function getData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext) {
   const retval: { [key: string]: unknown } = {};
 
   for (const member of members) {
@@ -645,14 +747,15 @@ export async function recurseGetData(members: WHFSTypeMember[], elementSettingId
     let setval;
 
     try {
-      if (!codecs[member.type])
+      const codec: TypeCodec = codecs[member.type];
+      if (!codec)
         throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
 
-      setval = codecs[member.type].decoder(settings, member, context);
+      setval = codec.decoder(settings, member, context);
       if (isPromise(setval))
         setval = await setval;
-      if (context?.export && codecs[member.type].exportValue) {
-        setval = codecs[member.type].exportValue!(setval, context);
+      if (context?.export && codec.exportValue) {
+        setval = codec.exportValue(setval, member, context);
         if (isPromise(setval))
           setval = await setval;
       }
@@ -664,5 +767,79 @@ export async function recurseGetData(members: WHFSTypeMember[], elementSettingId
     retval[member.name] = setval;
   }
 
+  return retval;
+}
+
+export async function exportData(members: WHFSTypeMember[], data: object, options?: ExportOptions) {
+  const retval: { [key: string]: unknown } = {};
+
+  for (const member of members) {
+    let setval = (data as Record<string, unknown>)[member.name];
+    if (setval === undefined)
+      throw new Error(`Missing value for member '${member.name}'`);
+    try {
+      const codec: TypeCodec = codecs[member.type];
+      if (!codec)
+        throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+
+      if (codec.isDefaultValue ? codec.isDefaultValue(setval) : !setval)
+        continue; //don't export default values
+
+      if (codec.exportValue) {
+        setval = codec.exportValue(setval, member, options);
+        if (isPromise(setval))
+          setval = await setval;
+      }
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while exporting '${member.name}')`;
+      throw e;
+    }
+    retval[member.name] = setval;
+  }
+
+  return retval;
+}
+
+export async function importData(members: WHFSTypeMember[], data: object, options?: ImportOptions) {
+  const retval: { [key: string]: unknown } = {};
+
+  for (let [key, setval] of Object.entries(data)) {
+    if (key === "whfsType" || setval === undefined)
+      continue;
+    const member = members.find(m => m.name === key);
+    if (!member)
+      throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
+    try {
+      const codec: TypeCodec = codecs[member.type];
+      if (!codec)
+        throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+
+      if (setval === undefined)
+        setval = codec.decoder([], member, { allsettings: [], cc: 0 }); //get default value
+      else if (codec.importValue)
+        setval = codec.importValue(setval, member);
+      if (isPromise(setval))
+        setval = await setval;
+    } catch (e) {
+      if (e instanceof Error)
+        e.message += ` (while importing '${member.name}')`;
+      throw e;
+    }
+    retval[member.name] = setval;
+  }
+  if (options?.addMissingMembers) {
+    for (const member of members) {
+      if (retval[member.name] === undefined) {
+        const codec: TypeCodec = codecs[member.type];
+        if (!codec)
+          throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+        let setval = codec.decoder([], member, { allsettings: [], cc: 0 }); //get default value
+        if (isPromise(setval))
+          setval = await setval;
+        retval[member.name] = setval;
+      }
+    }
+  }
   return retval;
 }

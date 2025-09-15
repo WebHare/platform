@@ -4,7 +4,7 @@ import { whconstant_builtinmodules } from "../webhareconstants";
 import { CSPMemberType, type CSPContentType, type CSPMember } from "@webhare/whfs/src/siteprofiles";
 import { nameToCamelCase, throwError } from "@webhare/std";
 import { membertypenames } from "@webhare/whfs/src/describe";
-import { codecs, type MemberType } from "@webhare/whfs/src/codecs";
+import { codecs, type MemberType, type TypeCodec } from "@webhare/whfs/src/codecs";
 import { loadlib } from "@webhare/harescript";
 
 class WHFSCompileContext {
@@ -42,10 +42,13 @@ function exportMember(member: CSPMember, indent: number, structure: "getType" | 
     else
       type = `${type} | null`;
   } else if (mapsto) {
-    type = codecs[mapsto]?.[structure] ?? codecs[mapsto]?.["getType"] ?? throwError(`Codec for member type '${mapsto}' is not providing ${structure} information`);
+    const codec: TypeCodec = codecs[mapsto];
+    type = codec?.[structure] ?? codecs[mapsto]?.["getType"] ?? throwError(`Codec for member type '${mapsto}' is not providing ${structure} information`);
   }
 
-  return " ".repeat(indent) + JSON.stringify(member.jsname || nameToCamelCase(member.name)) + ": " + type + ";\n";
+  // The 'get' format always fills in missing values with the default values, for setting and exporting they can be omitted (no required values yet)
+  const optional = structure !== "getType";
+  return " ".repeat(indent) + JSON.stringify(member.jsname || nameToCamelCase(member.name)) + (optional ? "?" : "") + ": " + type + ";\n";
 }
 
 function getStructure(ctype: CSPContentType, type: "getType" | "setType" | "exportType"): string {
@@ -56,7 +59,7 @@ function getStructure(ctype: CSPContentType, type: "getType" | "setType" | "expo
   for (const member of ctype.members)
     members += exportMember(member, 8, type);
 
-  return `{\n${members}\n};`;
+  return `{\n${members}      };`;
 }
 
 export async function generateWHFSDefs(context: GenerateContext, mods: string[], whfscc: WHFSCompileContext): Promise<string> {
