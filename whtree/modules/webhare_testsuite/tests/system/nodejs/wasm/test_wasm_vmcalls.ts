@@ -171,13 +171,13 @@ async function testVMAbort() {
   await test.throws(/We're aborting it/, vm1.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").AbortIt());
   await test.throws(/VM .*is shutting down or has aborted/, vm1.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo("Hi"));
 
-  await test.sleep(50); //this give any uncaught rejections time to come forward (eg if createVM wasn't discarding the exception frmo executeScript)
+  await test.sleep(50); //this give any uncaught rejections time to come forward (eg if createVM wasn't discarding the exception from executeScript)
 
   const vm2 = await createVM();
   await test.throws(/We're async aborting it/, vm2.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").AbortItAsync());
   await test.throws(/VM .* has already shut down/, vm1.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").Echo("Hi"));
 
-  await test.sleep(50); //this give any uncaught rejections time to come forward (eg if createVM wasn't discarding the exception frmo executeScript)
+  await test.sleep(50); //this give any uncaught rejections time to come forward (eg if createVM wasn't discarding the exception from executeScript)
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
