@@ -162,7 +162,8 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options) {
                                               , title
                                               , icon
                                               , formid := "sso" || #loginmethods
-                                           FROM options.loginmethods)
+                                           FROM options.loginmethods
+                                          WHERE visibility = "always") //filtering for display, but not when processing POSTs
                       , form := loginform->GetWittyData()
                       ];
 
