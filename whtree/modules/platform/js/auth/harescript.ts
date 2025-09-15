@@ -1,7 +1,7 @@
 /* HareScript auth entry points */
 
 import type { WRD_IdpSchemaType } from "@mod-platform/generated/wrd/webhare";
-import type { AuthCustomizer, AuthAuditContext, LoginDeniedInfo, JWTPayload } from "@webhare/auth";
+import { type AuthCustomizer, type AuthAuditContext, type LoginDeniedInfo, type JWTPayload, writeAuthAuditEvent } from "@webhare/auth";
 import { buildPublicAuthData, IdentityProvider, prepareLogin, verifyAllowedToLogin, wrapAuthCookiesIntoForm } from "@webhare/auth/src/identity";
 import { getAuthSettings, prepAuth, type WRDAuthPluginSettings_Request } from "@webhare/auth/src/support";
 import { defaultDateTime, toCamelCase, type ToSnakeCase } from "@webhare/hscompat";
@@ -16,6 +16,7 @@ import jwt from "jsonwebtoken";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { parseTyped } from "@webhare/std";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
+import { runInWork } from "@webhare/whdb";
 
 export type HSHeaders = Array<{ field: string; value: string; always_add: boolean }>;
 
@@ -207,19 +208,42 @@ export async function verifyPasswordComplianceForHS(targetUrl: WRDAuthPluginSett
 }
 
 /** HS Callback into the customizer infrastructure that expects validation to already be done */
-export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string): Promise<number> {
+export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id_token: string, loginfield: string, client: number): Promise<number> {
+  loginfield ||= 'sub'; //fallback
+
   const jwtPayload = jwt.decode(raw_id_token, { complete: true })?.payload as JWTPayload;
   const impSettings = importWRDAuthSettings(targetUrl);
+  const wrdSchema = new WRDSchema(impSettings.wrdSchema!);
 
   const userfield = jwtPayload[loginfield || 'sub'] ? String(jwtPayload[loginfield || 'sub']) : '';
-  const wrdSchema = new WRDSchema(impSettings.wrdSchema!);
+
+  if (!userfield) {
+    await runInWork(() => writeAuthAuditEvent(wrdSchema, {
+      type: "platform:login-failed",
+      entity: null,
+      entityLogin: userfield,
+      //TODO ...request.tokenOptions?.authAuditContext,
+      data: { code: "internal-error", client, error: `OIDC id_token missing expected login field '${loginfield}'` },
+    }));
+  }
+
   const idp = new IdentityProvider(wrdSchema);
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     return 0;
 
   const customizer = impSettings.customizer ? await importJSObject(impSettings.customizer) as AuthCustomizer : undefined;
-  return await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
+  const user = await idp.lookupUser(authsettings, userfield, customizer, jwtPayload) || 0;
+  if (!user) //log it TODO Add more details once we itegrate oidc.shtml into TS. eg payload info, client info
+    await runInWork(() => writeAuthAuditEvent(wrdSchema, {
+      type: "platform:login-failed",
+      entity: null,
+      entityLogin: userfield,
+      //TODO ...request.tokenOptions?.authAuditContext,
+      data: { code: "unknown-account", client },
+    }));
+
+  return user;
 }
 
 /* prepareLoginCookies is how HareScript invokes the second half of the WRDAuth Login process (either username/password or LoginById)
