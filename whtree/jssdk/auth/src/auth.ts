@@ -20,7 +20,11 @@ export type WRDAuthAccountStatus = {
 /** Auth audit log event formats */
 export interface AuthEventData {
   "platform:login": { tokenHash: string };
-  "platform:login-failed": { code: LoginErrorCode };
+  "platform:login-failed": {
+    code: LoginErrorCode;
+    client?: number;
+    error?: string;
+  };
   "platform:logout": { tokenHash: string };
   "platform:apikey": { tokenHash: string };
   "platform:accountstatus": { oldStatus?: WRDAuthAccountStatus | null; newStatus: WRDAuthAccountStatus | null };

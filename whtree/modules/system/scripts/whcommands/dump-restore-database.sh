@@ -26,10 +26,7 @@ while [[ -n "$1" ]]; do
     shift
     SETVERSION="$1"
     shift
-    if ! get_postgres_binaries NEWBINDIR "$SETVERSION"; then
-      echo "Could not find Postgres $SETVERSION - please use --new-bindir to set the exact path"
-      exit 1
-    fi
+    get_postgres_binaries NEWBINDIR "$SETVERSION"
   elif [ "$1" == "--new-bindir" ]; then
     shift
     NEWBINDIR="$1"

@@ -91,7 +91,8 @@ Override the default image format. Should be 'keep', 'image/webp' or 'image/avif
 to allow CI against different image format settings
 
 ### WEBHARE_PGBIN
-Override the PostgreSQL binaries directory
+Override the PostgreSQL binaries directory. You can also install a PostgreSQL into `$WEBHARE_DIR/libexec/postgres/<version>/bin/`
+and WebHare will find it automatically.
 
 ### WEBHARE_PGCONFIGFILE
 Override the configuration file passed to PostgreSQL
