@@ -926,8 +926,8 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
                   , title := GetTid(tid)
                     // Images from RPC_RetrieveImages are already base64-encoded
                   , icon := RecordExists(image) ? `data:${image.type};base64,${image.data}` : wrdicon
-              FROM config.loginmethods
-              WHERE visibility = "always")
+                  , visibility
+              FROM config.loginmethods)
       ]);
 
       IF(ObjectExists(page)) {

@@ -28,6 +28,7 @@ PUBLIC OBJECT FUNCTION GetWRDAuthPages(OBJECT webdesign, RECORD options DEFAULTS
                  [ tag := ""
                  , title := ""
                  , icon := ""
+                 , visibility := "always"
                  ], loginmethods,
                  [ title := `loginmethods#${#loginmethods}`
                  , required := [ "tag", "title" ]
