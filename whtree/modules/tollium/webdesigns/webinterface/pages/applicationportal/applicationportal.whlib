@@ -181,7 +181,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
     IF(ObjectExists(oidcclient))
     {
       eventmasks := eventmasks CONCAT oidcclient->GetEventMasks();
-      RECORD ARRAY clients := oidcclient->RunQuery(CELL[ outputcolumns := [ "wrd_id", "wrd_title", "wrd_tag", "wrd_ordering", "icon", "metadataurl" ]]);
+      RECORD ARRAY clients := oidcclient->RunQuery(CELL[ outputcolumns := [ "wrd_id", "wrd_title", "wrd_tag", "wrd_ordering", "icon", "metadataurl", "visibility" ]]);
       config.loginmethods := config.loginmethods CONCAT
                              (SELECT type := "oidc"
                                    , tag := wrd_tag ?? "#" || wrd_id
@@ -189,7 +189,7 @@ PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT 
                                    , tid := ":" || wrd_title
                                    , icon := ""
                                    , wrdicon := RecordExists(icon) ? WrapCachedImage(icon, [ method := "fit", setwidth := 24, setheight := 24 ]).link : GuessOpenIdIcon(metadataurl).frontend
-                                   , visibility := "always"
+                                   , visibility := visibility ?? "always"
                                 FROM clients
                              ORDER BY wrd_ordering, ToUppercase(wrd_title));
     }
