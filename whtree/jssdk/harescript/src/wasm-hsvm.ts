@@ -49,7 +49,7 @@ export type MessageList = Array<{
 export class HareScriptLibraryOutOfDateError extends Error {
 }
 
-function throwFirstError(message: string, parsederrors: MessageList): never {
+function getFirstError(message: string, parsederrors: MessageList): Error {
   const prefix = message ? `${message}: ` : "";
   if (parsederrors.length) {
     const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
@@ -58,11 +58,15 @@ function throwFirstError(message: string, parsederrors: MessageList): never {
 
     if (errors.length)
       if (parsederrors[0].code === 170)
-        throw new HareScriptLibraryOutOfDateError(`${prefix}${errors.join("\n") + trace}`);
+        return new HareScriptLibraryOutOfDateError(`${prefix}${errors.join("\n") + trace}`);
       else
-        throw new Error(`${prefix}${errors.join("\n") + trace}`);
+        return new Error(`${prefix}${errors.join("\n") + trace}`);
   }
-  throw new Error(`${prefix}Unknown HSVM error`);
+  return new Error(`${prefix}Unknown HSVM error`);
+}
+
+function throwFirstError(message: string, parsederrors: MessageList): never {
+  throw getFirstError(message, parsederrors);
 }
 
 
@@ -193,6 +197,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
   rootRunPermission = this.permissionSystem.allocRootContext();
   runContextStore = new AsyncLocalStorage<HSVMRunContext>();
 
+  /** Unresolved resurrected promises we still expect the VM to syscall fulfillResurrectedPromise for */
+  unresolvedPromises = new Map<number, PromiseWithResolvers<unknown>>;
+  /** Promises that still appear to be alive and may be requested to resolve by JavaScript users of this VM*/
+  resolveablePromises = new Map<number, WeakRef<Promise<unknown>>>;
+
   constructor(module: WASMModule, startupoptions: StartupOptions) {
     if (process.env.WEBHARE_HARESCRIPT_OFF)
       throw new Error(`HareScript is disabled`);
@@ -249,7 +258,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 
   /** Throw if the current VM has a pending exception or error. Needed to ensure errors are handled on the current stack (and not on the eventloop) */
-  throwDetectedVMError(): void {
+  throwDetectedVMError(): never {
     if (this._wasmmodule?._HSVM_IsUnwinding(this.hsvm)) {
       const throwvarid: HSVM_VariableId = this._wasmmodule._HSVM_GetThrowVar(this.hsvm);
       if (throwvarid) {
@@ -582,12 +591,16 @@ export class HareScriptVM implements HSVM_HSVMSource {
   async executeScript(): Promise<void> {
     this.assertRunPermission();
     const executeresult = await this.wasmmodule._HSVM_ExecuteScript(this.hsvm, 1, 0);
-    if (executeresult === 1)
+    if (executeresult === 1) {
+      this.unresolvedPromises.forEach((p) => p.reject(new Error("The HareScript VM exited normally before it resolved this promise")));
       return;
+    }
 
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-    throwFirstError(`Error executing script`, parsederrors);
+    const error = getFirstError(`Error executing script`, parsederrors);
+    this.unresolvedPromises.forEach((p) => p.reject(error));
+    throw error;
   }
 
   async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<void> {
@@ -631,6 +644,13 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
     if (this.inSyncSyscall)
       throw new Error(`Not allowed to reenter a VM while executing EM_SyncSyscall`);
+    if (this.__isShuttingdown()) {
+      if (debugFlags.vmlifecycle) {
+        console.log(`[${this.currentgroup}] Calling '${functionref}' onto VM that is shutting down or has aborted`);
+        console.trace();
+      }
+      throw new Error(`VM ${this.currentgroup} is shutting down or has aborted`);
+    }
 
     const execResult = await this.executeWithRunPermission(async () => {
       let retvalid: HSVM_VariableId | undefined;
@@ -668,6 +688,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
         retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, 1); //allow macro=1
       }
+
+      if (this.__isShuttingdown())  //we've already crashed. no need to process the return value
+        this.throwDetectedVMError();  //this will always throw
 
       // Handle the return value
       let retval: unknown = false;

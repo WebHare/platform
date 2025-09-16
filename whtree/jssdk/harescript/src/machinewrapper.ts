@@ -73,7 +73,13 @@ export async function runScript(script: string, options?: StartupOptions) {
 
 export async function createVM(options?: StartupOptions) {
   const vm = await allocateHSVM(options || {});
-  return new HSVMWrapper(vm, "mod::system/scripts/internal/eventloop.whscr");
+  const wrapper = new HSVMWrapper(vm, "mod::system/scripts/internal/eventloop.whscr");
+  wrapper.done.catch(e => {
+    if (debugFlags.vmlifecycle)
+      console.log(`[${vm.currentgroup}] Eventloop has shut down with an error`, e);
+    //and ignore. presumably our caller invoked something that caused the VM to abort and also has the error information in the rejection of that call
+  });
+  return wrapper;
 }
 
 function shutdownHSVM(vm: HareScriptVM) {

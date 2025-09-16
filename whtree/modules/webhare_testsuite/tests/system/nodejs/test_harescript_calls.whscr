@@ -172,3 +172,5 @@ IF(NOT IsWasm()) { //Test crash resistance
   FOR (INTEGER i := 0; i < 20; i := i + 1)
     TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");
 }
+
+PRINT("We've reached the end of this HareScript VM\n");

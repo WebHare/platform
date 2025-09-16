@@ -20,30 +20,28 @@ export function resurrectBuffer(obj: HSVMVar) {
   return obj.vm.wrapExistingVariableId(bytes_column).getStringAsBuffer();
 }
 
-let promises: Map<number, PromiseWithResolvers<unknown>> | undefined;
-let localPromises: Map<number, WeakRef<Promise<unknown>>> | undefined;
 let promisesCtr = 0;
 
 export function resurrectPromise(obj: HSVMVar) {
   const tsPromiseRef = obj.getMemberRef("TSPROMISE");
   let tsPromiseId = tsPromiseRef.getInteger();
-  const localPromiseWeakRef = localPromises?.get(tsPromiseId);
+  const localPromiseWeakRef = obj.vm.resolveablePromises.get(tsPromiseId);
   if (localPromiseWeakRef) {
     const localPromise = localPromiseWeakRef.deref();
     if (localPromise)
       return localPromise;
-    localPromises!.delete(tsPromiseId);
+    obj.vm.resolveablePromises.delete(tsPromiseId);
   }
-  promises ??= new Map();
+
   if (tsPromiseId) {
-    const pobj = promises.get(tsPromiseId);
+    const pobj = obj.vm.unresolvedPromises.get(tsPromiseId);
     if (!pobj)
       throw new Error(`Could not find promise with id ${tsPromiseId}`);
     return pobj.promise;
   }
   tsPromiseId = ++promisesCtr;
   const pobj = Promise.withResolvers<unknown>();
-  promises.set(tsPromiseId, pobj);
+  obj.vm.unresolvedPromises.set(tsPromiseId, pobj);
   tsPromiseRef.setInteger(tsPromiseId);
   const status = obj.getMemberRef("STATUS").getString();
   if (status) {
@@ -52,7 +50,7 @@ export function resurrectPromise(obj: HSVMVar) {
       pobj.resolve(value);
     else if (status === "rejected")
       pobj.reject(parseHSException(value!)); // exceptions are never null
-  } else if (promises.size === 1) {
+  } else if (obj.vm.unresolvedPromises.size === 1) {
     obj.vm.setKeepaliveLock("resurrectedPromise", true);
   }
   return pobj.promise;
@@ -60,13 +58,13 @@ export function resurrectPromise(obj: HSVMVar) {
 
 /** Called by HS when a promise with a set tspromise is fulfilled */
 export function fulfillResurrectedPromise(hsvm: HareScriptVM, { id, status, value }: { id: number; status: "resolved" | "rejected"; value: unknown }) {
-  if (!promises)
+  if (!hsvm.unresolvedPromises)
     throw new Error(`Could not find promise with id ${id}`);
-  const pobj = promises?.get(id);
+  const pobj = hsvm.unresolvedPromises.get(id);
   if (!pobj)
     throw new Error(`Could not find promise with id ${id}`);
-  promises.delete(id);
-  if (!promises.size)
+  hsvm.unresolvedPromises.delete(id);
+  if (!hsvm.unresolvedPromises.size)
     hsvm.setKeepaliveLock("resurrectedPromise", false);
   if (status === "resolved")
     pobj.resolve(value);
@@ -116,6 +114,10 @@ export async function resolveHSPromise(promise: HSVMVar, status: string, resolve
   else
     varResult.setJSValue(resolveValue);
   varOriginPromise.setDefault(VariableType.Object);
+
+  if (promise.vm.__isShuttingdown())
+    return; //don't bother, it's too late to send stuff back to the HSVM (and callWithHSVMVars will fail). And let's not forget that *we* might be the cause of the failing VM (if setHSException wasn't caught or any of the above HSVM actions failed)
+
   await promise.vm.callWithHSVMVars("RESOLVEINTERNAL", [varGen, varStatus, varResult, varOriginPromise], promise.id, undefined, { skipAccess: true });
 }
 
@@ -125,7 +127,7 @@ export function setHSPromiseProxy(orgPromise: HSVMVar, jsPromise: Promise<unknow
 
   const tsPromiseId = -(++promisesCtr);
   promise.getMemberRef("TSPROMISE").setInteger(tsPromiseId);
-  (localPromises ??= new Map()).set(tsPromiseId, new WeakRef(jsPromise));
+  orgPromise.vm.resolveablePromises.set(tsPromiseId, new WeakRef(jsPromise));
 
   // Convert resolution to HS - but on failure (and even the conversion may fail!) transfer the rejection instead
   jsPromise.then(value => resolveHSPromise(promise, "resolved", value)
@@ -142,7 +144,7 @@ export function setHSException(obj: HSVMVar, e: Error) {
     //this happens when wh::system.whlib isn't loaded anymore, and generally happens to exceptions during VM teardown.
     //we'll just set the abort flag and be done with the vm
     if (debugFlags.vmlifecycle) {
-      console.log(`[${obj.vm.currentgroup}] Terminating VM because we can't send a proper exception`);
+      console.log(`[${obj.vm.currentgroup}] Terminating VM because we can't send exception`, e);
       console.trace();
     }
     obj.vm.shutdown();
