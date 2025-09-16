@@ -275,13 +275,13 @@ function preparePayload(subject: string, created: Temporal.Instant | null, valid
      It is also a proof that we actually generated the token even without a signature - we wouldn't have stored a hashed token without a random jwtId (all the other fields in the JWT are guessable) */
   const payload: JwtPayload = { jti: generateRandomId() };
   if (created) {
-    payload.iat = created.epochSeconds;
+    payload.iat = Math.floor(created.epochMilliseconds / 1_000);
     payload.nbf = payload.iat;
   }
 
   // nonce: generateRandomId("base64url", 16), //FIXME we should be generating nonce-s if requested by the openid client, but not otherwise
   if (validuntil)
-    payload.exp = validuntil.epochSeconds;
+    payload.exp = Math.floor(validuntil.epochMilliseconds / 1_000);
   if (subject)
     payload.sub = subject;
   if (options?.scopes?.length)
@@ -923,7 +923,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
     const isSetPassword = decode.isSet || false;
     const returnTo = decode.returnUrl;
     if (decode.exp < Date.now())
-      return { result: "expired", isSetPassword, expired: Temporal.Instant.fromEpochSeconds(decode.exp), returnTo };
+      return { result: "expired", isSetPassword, expired: Temporal.Instant.fromEpochMilliseconds(decode.exp * 1_000), returnTo };
 
     const authsettings = await this.getAuthSettings(true);
     const getfields = {
@@ -1000,7 +1000,7 @@ export async function createFirstPartyToken<S extends SchemaTypeDefinition>(wrdS
   return {
     id: tokens.tokenId,
     accessToken: tokens.access_token,
-    expires: tokens.expires ? Temporal.Instant.fromEpochSeconds(tokens.expires) : null
+    expires: tokens.expires ? Temporal.Instant.fromEpochMilliseconds(tokens.expires * 1_000) : null
   };
 }
 

@@ -16,6 +16,6 @@
   },
   "private": true,
   "dependencies": {
-    "temporal-polyfill": "^0.2.5"
+    "temporal-polyfill": "^0.3.0"
   }
 }

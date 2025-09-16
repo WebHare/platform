@@ -172,7 +172,7 @@ async function testWHFS() {
 
   await newFile.update({ publish: true });
   const openNewFile_state2 = await openFile(newFile.id);
-  test.assert(openNewFile_state2.modificationDate.epochMicroseconds > openNewFile.modificationDate.epochMicroseconds);
+  test.assert(openNewFile_state2.modificationDate.epochMilliseconds > openNewFile.modificationDate.epochMilliseconds);
   test.eq(openNewFile_state2.modificationDate, openNewFile_state2.firstPublishDate);
   test.eq(openNewFile_state2.modificationDate, openNewFile_state2.contentModificationDate);
   test.eq(true, openNewFile_state2.publish);

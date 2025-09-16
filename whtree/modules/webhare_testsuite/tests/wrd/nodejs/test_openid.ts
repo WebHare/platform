@@ -312,7 +312,7 @@ async function verifyAsOpenIDSP() {
     test.assert(!("error" in cookieInfo));
     test.assert(cookieInfo.expires, "Cookie should have an expiration date");
     console.log(cookieInfo.expires.toString());
-    test.eq(2, Math.round((cookieInfo.expires.epochSeconds - Temporal.Now.instant().epochSeconds) / 86400), "thirdparty login should expire in 2 days");
+    test.eq(2, Math.round((cookieInfo.expires.epochMilliseconds - Temporal.Now.instant().epochMilliseconds) / 86400_000), "thirdparty login should expire in 2 days");
 
     await logoutRelyingParty(context);  //log out of portal1-oidc, just delete cookies
 

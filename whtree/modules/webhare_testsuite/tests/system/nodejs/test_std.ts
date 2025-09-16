@@ -533,9 +533,9 @@ async function testTypes() {
     { value: new Error, stdType: "object", quacks: [std.isError] }, //we no (longer) have stdTypeOf Error detection
     { value: { "$stdType": "NotARealObject" }, stdType: "object", quacks: [] },
     { value: Temporal.Now.instant(), stdType: "Instant", quacks: [std.isTemporalInstant], typedStringify: true },
-    { value: Temporal.Now.plainDate("iso8601"), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
-    { value: Temporal.Now.plainDateTime("iso8601"), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
-    { value: Temporal.Now.zonedDateTime("iso8601", "Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
+    { value: Temporal.Now.plainDateISO(), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
+    { value: Temporal.Now.plainDateTimeISO(), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
+    { value: Temporal.Now.zonedDateTimeISO("Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
   ];
 
   const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);

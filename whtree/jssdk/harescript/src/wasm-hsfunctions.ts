@@ -545,9 +545,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     try {
       //This takes a few steps as Temporal doesn't agree with having Dates that are not UTC, but HS DATETIMEs lack TZ information. Basically HS DATETIME is a Temporal.PlainDateTime
       const dt = Temporal.Instant.fromEpochMilliseconds(hsdt);
-      const plain = Temporal.TimeZone.from("UTC").getPlainDateTimeFor!(dt);
-      const sourceTz = Temporal.TimeZone.from(var_timezone.getString());
-      id_set.setDateTime(new Date(sourceTz.getInstantFor!(plain, { disambiguation: "later" }).epochMilliseconds));
+      const plain = dt.toZonedDateTimeISO("UTC").toPlainDateTime();
+      id_set.setDateTime(plain.toZonedDateTime(var_timezone.getString(), { disambiguation: "later" }));
     } catch (e) {
       id_set.copyFrom(var_date);
     }
@@ -560,11 +559,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
 
     try {
-      const dt = Temporal.Instant.fromEpochMilliseconds(hsdt);
-      const destTz = Temporal.TimeZone.from(var_timezone.getString());
-      const plain = destTz.getPlainDateTimeFor!(dt);
-      const instant = Temporal.TimeZone.from("UTC").getInstantFor!(plain, { disambiguation: "later" });
-      id_set.setDateTime(new Date(instant.epochMilliseconds));
+      const destTz = Temporal.Instant.fromEpochMilliseconds(hsdt).toZonedDateTimeISO(var_timezone.getString());
+      const plain = destTz.toPlainDateTime().toZonedDateTime("UTC", { disambiguation: "later" });
+      id_set.setDateTime(plain);
     } catch (e) {
       id_set.copyFrom(var_date);
     }
