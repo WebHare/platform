@@ -6,6 +6,8 @@
   <jstest name="test_polyfills_frontend" compatibility="es2020" file="test_polyfills.ts" />
   <test name="test_std_backend" script="test_std.ts" />
   <jstest name="test_std_frontend" compatibility="es2020" file="test_std.ts" />
+  <test name="test_address_backend" script="test_address.ts" />
+  <jstest name="test_address_frontend" compatibility="es2020" file="test_address.ts" />
   <test script="test_apitools.ts" />  <!-- TODO run in frontend too -->
   <test script="test_systemtools.ts" />
   <test script="test_hscompat.ts" />
