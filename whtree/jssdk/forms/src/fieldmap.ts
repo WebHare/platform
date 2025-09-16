@@ -1,7 +1,8 @@
 import { getFieldName } from "./domsupport";
 import { rfSymbol, type FormFieldAPI } from "./registeredfield";
 import ArrayField from "@mod-publisher/js/forms/fields/arrayfield";
-import { omit, type AddressValue, nameToSnakeCase, nameToCamelCase, throwError, isDate } from "@webhare/std";
+import type { AddressValue } from "@webhare/address";
+import { omit, nameToSnakeCase, nameToCamelCase, throwError, isDate } from "@webhare/std";
 import type { RecursivePartial } from "@webhare/js-api-tools";
 import type { FormFieldLike } from "./jsformelement";
 

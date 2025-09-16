@@ -17,7 +17,6 @@ export type { EmplaceHandler, DistributedKeys, DistributedOmit, DistributedPick 
 export { Money, type MoneyRoundingMode, type MoneyFormatOptions } from "./money";
 export { addDuration, parseDuration, subtractDuration, convertWaitPeriodToDate, isValidDate, isValidTime, convertFlexibleInstantToDate, type Duration, type WaitPeriod, type FlexibleInstant } from "./datetime";
 export { stdTypeOf, isDate, isBlob, isFile, isError, isPromise, isMoney, isTemporalInstant, isTemporalPlainDate, isTemporalPlainDateTime, isTemporalZonedDateTime } from "./quacks";
-export { type AddressValue } from "./address";
 
 export { combineAbortSignals, whenAborted } from "./utils";
 

@@ -1,0 +1,19 @@
+{
+  "name": "@webhare/address",
+  "version": "",
+  "description": "The address library for WebHare modules",
+  "main": "src/address.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/address.ts"
+    ]
+  },
+  "private": true,
+  "dependencies": {}
+}

@@ -1,4 +1,5 @@
-import { stringify, emplace, type AddressValue, omit } from "@webhare/std";
+import type { AddressValue } from "@webhare/address";
+import { stringify, emplace, omit } from "@webhare/std";
 import { getFormService, type HareScriptAddressValidationResult, type HareScriptAddressValue } from "./formservice";
 
 export type { HareScriptAddressValue, HareScriptAddressValidationResult } from "./formservice";
