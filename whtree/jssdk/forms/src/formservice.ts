@@ -3,7 +3,7 @@ import type { AddressValidationOptions, AddressValidationStatus } from "./addres
 import type { FormSubmitResult } from "@mod-publisher/js/forms/formbase";
 import type { EmailValidationResult, RPCFormTarget, RPCFormInvokeRPC, RPCFormSubmission, RPCFormMessage } from "./types";
 import type { FormService } from "@mod-publisher/lib/internal/forms/service";
-import type { AddressValue } from "@webhare/std";
+import type { AddressValue } from "@webhare/address";
 
 
 /// HareScript uses 'nr_detail' instead of 'houseNumber'

@@ -1,7 +1,7 @@
 import * as test from '@mod-system/js/wh/testframework';
 import { getPxlLogLines } from "@webhare/test-frontend";
 import * as datetime from 'dompack/types/datetime';
-import type { AddressValue } from '@webhare/std';
+import type { AddressValue } from "@webhare/address";
 import { getFormData, getFormHandler, type FormBase } from '@webhare/forms';
 
 const urlappend = test.getTestArgument(0) === 'replacedcomponents' ? '?dompackpulldown=1' : '';

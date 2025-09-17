@@ -341,6 +341,23 @@ function testDateTime() {
   test.assert(!std.isValidTime(0.5, 0, 0, 0));
 }
 
+function testFormatDateTime() {
+  // test.eq("% Fri Friday Mar March 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916",
+  //   std.formatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", Temporal.Instant.from("0916-03-06T01:02:03.005Z")));
+  test.eq("% Fri Friday Mar March 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916",
+    std.formatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", Temporal.ZonedDateTime.from("0916-03-06T01:02:03.005Z[UTC]")));
+
+  //Ideally we wouldn't have 'am' here but the Intl library doesn't seem to have am/pm itself. anyway jp isn't that important to us right now
+  test.eq("% 金 金曜日 3月 3月 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916",
+    std.formatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", Temporal.ZonedDateTime.from("0916-03-06T01:02:03.005Z[UTC]"), { locale: "ja-JP" }));
+  test.eq("% ven. vendredi mars mars 06 6 01 1 01 1 066 66 03 3 02 2 am 005 5 03 3 10 10 16 16 0916 916",
+    std.formatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I %j %#j %m %#m %M %#M %p %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", Temporal.ZonedDateTime.from("0916-03-06T01:02:03.005Z[UTC]"), { locale: "fr" }));
+  test.eq("% ma maandag mrt maart 06 6 18 18 06 6 | 065 65 03 3 02 2 pm | 005 5 03 3 10 10 95 95 1995 1995",
+    std.formatDateTime("%% %a %A %b %B %d %#d %H %#H %I %#I | %j %#j %m %#m %M %#M %p | %Q %#Q %S %#S %V %#V %y %#y %Y %#Y", Temporal.ZonedDateTime.from("1995-03-06T17:02:03.005Z[Europe/Amsterdam]"), { locale: "nl" }));
+
+  //TODO formatting plaindate and plaintime - should plaindate block any time specifiers or just stretch out to 000000 UTC ?
+}
+
 function testUFS(decoded: string, encoded: string) {
   test.eq(encoded, std.encodeString(decoded, 'base64url'));
   test.eq(decoded, std.decodeString(encoded, 'base64url'));
@@ -516,9 +533,9 @@ async function testTypes() {
     { value: new Error, stdType: "object", quacks: [std.isError] }, //we no (longer) have stdTypeOf Error detection
     { value: { "$stdType": "NotARealObject" }, stdType: "object", quacks: [] },
     { value: Temporal.Now.instant(), stdType: "Instant", quacks: [std.isTemporalInstant], typedStringify: true },
-    { value: Temporal.Now.plainDate("iso8601"), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
-    { value: Temporal.Now.plainDateTime("iso8601"), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
-    { value: Temporal.Now.zonedDateTime("iso8601", "Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
+    { value: Temporal.Now.plainDateISO(), stdType: "PlainDate", quacks: [std.isTemporalPlainDate], typedStringify: true },
+    { value: Temporal.Now.plainDateTimeISO(), stdType: "PlainDateTime", quacks: [std.isTemporalPlainDateTime], typedStringify: true },
+    { value: Temporal.Now.zonedDateTimeISO("Europe/Amsterdam"), stdType: "ZonedDateTime", quacks: [std.isTemporalZonedDateTime], typedStringify: true },
   ];
 
   const allquacks = checkmatrix.reduce((acc, x) => acc.concat(x.quacks), [] as Array<(x: unknown) => boolean>);
@@ -1106,6 +1123,7 @@ test.runTests([
   testMoney,
   "Datetime",
   testDateTime,
+  testFormatDateTime,
   "Crypto and strings",
   testStrings,
   testTypes,

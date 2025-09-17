@@ -165,3 +165,127 @@ export function isValidTime(hour: number, minute: number, second: number, msec: 
   return hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 && second >= 0 && second <= 59 && msec >= 0 && msec <= 999
     && Number.isSafeInteger(hour) && Number.isSafeInteger(minute) && Number.isSafeInteger(second) && Number.isSafeInteger(msec);
 }
+
+/** Returns a string containing a formatted date and time.
+ * @param format  A string that specifies the format of the output string. The string can contain the following:
+%%  Character %
+%a  Abbreviated weekday name
+%A  Full weekday name
+%b  Abbreviated month name
+%B  Full month name
+%d  Two-digit day of month (01 - 31)
+%#d Two-digit day of month, remove any leading zeros
+%H  Hour of the day, 24 hour day
+%#H Hour of the day, 24 hour day, remove any leading zeros
+%I  Two-digit hour, 12 hour day (01 - 12)
+%#I Two-digit hour, 12 hour day, remove any leading zeros
+%j  Three-digit day of year (001 - 366)
+%#j Three-digit day of year, remove any leading zeros
+%m  Two-digit month number (01 - 12)
+%#m Two-digit month number, remove any leading zeros
+%M  2-digit minute (00 - 59)
+%#M 2-digit minute, remove leading any zeros
+%Q  Three-digit millisecond (000-999)
+%#Q Three-digit millisecond, remove any leading zeros
+%p  AM or PM
+%S  Two-digit second (00 - 59)
+%#S Two-digit second, remove leading any zeros
+%V  Two-digot week number (00 - 52)
+%#V One-digit week number (0 - 52)
+%y  Two-digit year without century (00 to 99)
+%#y Two-digit year without century, remove any leading zeros
+%Y  Year with century
+%#Y Year with century, remove any leading zeros
+   @param zdt          The date/time value to format.
+   @example
+// The current date and time in German in the format: 01 Januar 2005
+const example1 = formatDateTime("%d %B %Y", Temporal.Instant.now(), { locale: "de-DE" });
+
+// The current day of the week in the Dutch language, using the
+// parameter datetexts as language switch.
+// The date format is <abbreviated> - <full>.
+const example2 = formatDateTime("%a - %B ", new Date, { locale: "nl-NL" });
+*/
+
+export function formatDateTime(format: string, zdt: Temporal.ZonedDateTime, options?: { locale: string }): string {
+  //TODO consider allowing Date & Instant too? might avoid users going for things like toString().replace("T", " ").replace("Z", "")
+  //const zdt: Temporal.ZonedDateTime = date instanceof Date ? date.toTemporalInstant().toZonedDateTimeISO('UTC') : "year" in date ? date : date.toZonedDateTimeISO('UTC');
+  const locale = options?.locale || 'en-US';
+  let stripZeroes = false;
+
+  function formatNumber(num: number, length: number): string {
+    return stripZeroes ? num.toString() : num.toString().padStart(length, '0');
+  }
+
+  function formatPart(spec: string): string {
+    switch (spec) {
+      case 'a': //dayofweek name, abbreviated
+        return zdt.toLocaleString(locale, { weekday: 'short' });
+      case 'A': //dayofweek name, full
+        return zdt.toLocaleString(locale, { weekday: 'long' });
+      case 'b':  //month name, abbreviated
+        return zdt.toLocaleString(locale, { month: 'short' });
+      case 'B': //month name, abbreviated
+        return zdt.toLocaleString(locale, { month: 'long' });
+      case 'C': //century number
+        return formatNumber(Math.floor(zdt.year / 100), 2);
+      case 'd':  //day of month
+        return formatNumber(zdt.day, 2);
+      case 'H':  //hour of the day (24 hours format)
+        return formatNumber(zdt.hour, 2);
+      case 'I'://hour of the day (12 hours format)
+        return formatNumber((zdt.hour % 12) || 12, 2);
+      case 'j'://day of the year (three-digit)
+        return formatNumber(zdt.dayOfYear, 3);
+      case 'M'://two digit minute
+        return formatNumber(zdt.minute, 2);
+      case 'm'://two digit month
+        return formatNumber(zdt.month, 2);
+      case 'p'://am/pm
+        //Unfortunately this doesn't return am/pm: return zdt.toLocaleString(locale, { dayPeriod: 'narrow', hourCycle: "h12" });
+        return zdt.hour < 12 ? "am" : "pm";
+      case 'Q'://three digit millisecond
+        return formatNumber(Math.floor(zdt.millisecond), 3);
+      case 'S'://two digit second
+        return formatNumber(zdt.second, 2);
+      case 'V'://week number
+        if (zdt.weekOfYear === undefined)
+          throw new Error("Week of year is not defined for this calendar");
+        return formatNumber(zdt.weekOfYear, 2);
+      case 'Y'://year, with century
+        return formatNumber(zdt.year, 4);
+      case 'y'://year, without century
+        return formatNumber(zdt.year % 100, 2);
+      default:
+        throw new Error(`Invalid date format specifier '%${spec}'`);
+    }
+  }
+
+  let out = '', inSpecifier = false;
+  for (const spec of [...format]) {
+    if (inSpecifier) {
+      if (spec === '#') {
+        stripZeroes = true;
+        continue; //get the next char
+      }
+
+      inSpecifier = false;
+      if (spec === '%') {
+        out += '%';
+        continue;
+      }
+      out += formatPart(spec);
+    } else {
+      if (spec === '%') {
+        inSpecifier = true;
+        stripZeroes = false; //reset it
+        continue;
+      }
+      out += spec;
+    }
+  }
+  if (inSpecifier)
+    throw new Error("Invalid date format string, ends with single %");
+
+  return out;
+}
