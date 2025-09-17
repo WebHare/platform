@@ -36,7 +36,7 @@
                   <text title="" value="   " />
                   <text name="moreinfo" onclicklink="doshowinfopanel" title="" visible="false" />
                   <text width="1pr" title="" />
-                  <buttongroup borders="left" layout="horizontal">
+                  <buttongroup name="buttons" borders="left" layout="horizontal">
                     <button name="uploadbutton"
                             action="act_upload"
                             hinttid=".add_image"
