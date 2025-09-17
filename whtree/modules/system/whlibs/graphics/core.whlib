@@ -9,6 +9,7 @@ LOADLIB "wh::internal/graphics.whlib" EXPORT GfxCreateColor, GfxCreateColorFromC
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
 LOADLIB "wh::internal/css/tokenizer.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 
 
@@ -1171,8 +1172,10 @@ PUBLIC FLOAT FUNCTION GfxCompareCanvases(INTEGER Canvas1ID, INTEGER Canvas2ID)
 
 
 /** @short Get a list of all available fonts */
-PUBLIC RECORD ARRAY FUNCTION GfxGetAvailableFonts()
-{
+PUBLIC RECORD ARRAY FUNCTION GfxGetAvailableFonts() {
+  IF(IsWasm())
+    RETURN RECORD[];
+
   RETURN __DRAWLIB_V2_GETAVAILABLEFONTS();
 }
 
