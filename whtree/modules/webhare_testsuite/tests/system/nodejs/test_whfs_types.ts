@@ -412,15 +412,42 @@ async function testInstanceData() {
     ]
   });
 
+  test.eq(
+    [
+      {
+        aSubArray: [
+          { subIntMember: 42, subRichMember: null },
+          { subIntMember: 41, subRichMember: null },
+          { subIntMember: 40, subRichMember: null }
+        ],
+        intMember: 0,
+        richMember: null
+      },
+      {
+        aSubArray: [],
+        intMember: 0,
+        richMember: null
+      },
+      {
+        aSubArray: [
+          { subIntMember: 52, subRichMember: null },
+          { subIntMember: 0, subRichMember: null },
+          (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"
+        ],
+        intMember: 0,
+        richMember: null
+      }
+    ], (await testtype.get(testfile.id)).anArray);
+
   test.eqPartial({
     anArray: [
       { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
-      { aSubArray: [] },
+      {},
       {
-        aSubArray: [{ subIntMember: 52 }, { subIntMember: 0 }, (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"]
+        aSubArray: [{ subIntMember: 52 }, {}, (row: any) => row.subRichMember[0].items[0].text === "Hello, Moon!"]
       }
     ]
-  }, await testtype.get(testfile.id));
+  }, await testtype.get(testfile.id, { export: true }));
 
   await commitWork();
 }

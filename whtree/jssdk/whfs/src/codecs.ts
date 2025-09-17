@@ -541,7 +541,7 @@ export const codecs = {
       })();
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<object[]> => {
-      return Promise.all(settings.map(s => getData(member.children || [], s.id, context)));
+      return Promise.all(settings.map(s => getData(member.children || [], s.id, { ...context, export: false })));
     },
     exportValue(value: object[], member, options): Promise<object[]> {
       return Promise.all(value.map(v => exportData(member.children || [], v, options)));
@@ -583,7 +583,7 @@ export const codecs = {
       })();
     },
     exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, options: ExportOptions) => {
-      return value?.export() || null;
+      return value?.export?.() || null;
     },
     importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
       if (!value || isRichTextDocument(value))
