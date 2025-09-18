@@ -412,15 +412,112 @@ async function testInstanceData() {
     ]
   });
 
+  test.eq(
+    [
+      {
+        aSubArray: [
+          { subIntMember: 42, subRichMember: null },
+          { subIntMember: 41, subRichMember: null },
+          { subIntMember: 40, subRichMember: null }
+        ],
+        intMember: 0,
+        richMember: null
+      },
+      {
+        aSubArray: [],
+        intMember: 0,
+        richMember: null
+      },
+      {
+        aSubArray: [
+          { subIntMember: 52, subRichMember: null },
+          { subIntMember: 0, subRichMember: null },
+          (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"
+        ],
+        intMember: 0,
+        richMember: null
+      }
+    ], (await testtype.get(testfile.id)).anArray);
+
   test.eqPartial({
     anArray: [
       { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
-      { aSubArray: [] },
+      {},
       {
-        aSubArray: [{ subIntMember: 52 }, { subIntMember: 0 }, (row: any) => row.subRichMember.blocks[0].items[0].text === "Hello, Moon!"]
+        aSubArray: [{ subIntMember: 52 }, {}, (row: any) => row.subRichMember[0].items[0].text === "Hello, Moon!"]
       }
     ]
-  }, await testtype.get(testfile.id));
+  }, await testtype.get(testfile.id, { export: true }));
+
+  // test recursive exports
+  //Test arrays
+  await testtype.set(testfile.id, {
+    anInstance: await buildWHFSInstance({
+      whfsType: "webhare_testsuite:global.generic_test_type",
+      anInstance: await buildWHFSInstance({
+        whfsType: "webhare_testsuite:global.generic_test_type",
+        str: "nested",
+        aTypedRecord: { intMember: 123 }
+      })
+    }),
+    aTypedRecord: {
+      richMember: await buildRTD([
+        {
+          p: ["A paragraph with a nested instance: "]
+        }, {
+          widget: await buildWHFSInstance({
+            whfsType: "webhare_testsuite:global.generic_test_type",
+            str: "deeply nested",
+            aTypedRecord: { intMember: 456 }
+          })
+        }
+      ]),
+    },
+    rich: await buildRTD([
+      { p: "Another paragraph" }, {
+        widget: await buildWHFSInstance({
+          whfsType: "webhare_testsuite:global.generic_test_type",
+          str: "deeply nested",
+          aTypedRecord: { intMember: 456 }
+        })
+      }
+    ])
+  });
+
+  test.eq({
+    anInstance: {
+      whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+      anInstance: {
+        whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+        str: "nested",
+        aTypedRecord: { intMember: 123 }
+      }
+    },
+    aTypedRecord: {
+      richMember: [
+        {
+          tag: "p",
+          items: [{ text: "A paragraph with a nested instance: " }]
+        }, {
+          widget: {
+            whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+            str: "deeply nested",
+            aTypedRecord: { intMember: 456 }
+          }
+        }
+      ],
+    },
+    rich: [
+      { tag: "p", items: [{ text: "Another paragraph" }] },
+      {
+        widget: {
+          whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+          str: "deeply nested",
+          aTypedRecord: { intMember: 456 }
+        }
+      }
+    ]
+  }, pick((await testtype.get(testfile.id, { export: true })), ["aTypedRecord", "anInstance", "rich"]));
 
   await commitWork();
 }
