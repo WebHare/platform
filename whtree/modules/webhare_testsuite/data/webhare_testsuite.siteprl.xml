@@ -320,7 +320,7 @@
 
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines">
     <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="NORMAL" title="Normaal" containertag="p" textstyles="i u b sub sup a-href strike ins del" />
+      <textstyle tag="NORMAL" title="Normaal" containertag="p" textstyles="i u b sub sup a-href strike" />
     </blockstyles>
   </rtdtype>
 

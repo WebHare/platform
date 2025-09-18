@@ -2159,8 +2159,6 @@ export default class EditorBase extends RTECompBase implements RTEComponent {
         case 'B': case 'STRONG': /* FIXME shouldn't generate STRONGs! */
         case 'I': case 'EM': /* FIXME shouldn't generate EMs! */
         case 'U':
-        case 'INS':
-        case 'DEL':
         case 'SUP':
         case 'SUB':
         case 'STRIKE':

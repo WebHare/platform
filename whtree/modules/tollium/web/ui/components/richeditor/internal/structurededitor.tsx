@@ -89,7 +89,7 @@ export default class StructuredEditor extends EditorBase {
     super(element, options);
 
     this.properties_selector += ", div.wh-rtd-embeddedobject, span.wh-rtd-embeddedobject, .wh-rtd__tablecell, table.wh-rtd__table caption";
-    this.textstyletags = ['a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup'];
+    this.textstyletags = ['a-href', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup'];
 
     this.textstylewhitelistedattributes =
     {

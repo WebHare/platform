@@ -390,18 +390,6 @@ OBJECTTYPE UnwordFormatterPage EXTEND __CallbackFormatterPageBase
       style := style || " background-color:" || ToColorCode(setcharacter.bgcolor) || ";";
 
     //based on writer.cpp:UpdateCharacterFormatting
-    IF(setcharacter.insertion)
-    {
-      OBJECT newnode := this->doc->CreateElement("ins");
-      this->currentcharcontext->AppendChild(newnode);
-      this->currentcharcontext := newnode;
-    }
-    IF(setcharacter.deletion)
-    {
-      OBJECT newnode := this->doc->CreateElement("del");
-      this->currentcharcontext->AppendChild(newnode);
-      this->currentcharcontext := newnode;
-    }
     IF(setcharacter.bold)
     {
       OBJECT newnode := this->doc->CreateElement("b");
@@ -918,4 +906,3 @@ PUBLIC MACRO __ConvertDOCSToRTD(INTEGER parentid, RECORD options)
   FOREVERY(RECORD sub FROM subs)
     __ConvertDOCSToRTD(sub.id, options);
 }
-
