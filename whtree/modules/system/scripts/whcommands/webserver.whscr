@@ -1,11 +1,13 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -425,6 +427,25 @@ MACRO Main()
       UPDATE config.ports SET privatekey := "***HIDDEN***" WHERE privatekey != "";
       Print(EncodeJSON(config) || "\n");
     }
+    CASE "resolve"
+    {
+      //TODO also consider access rules? more inspect info?
+      STRING tolookup := (cmdargs.params ?? [""])[0];
+      RECORD res := LookupPublisherURL(tolookup);
+      IF(res.folder=0)
+        TerminateScriptWithError(`Did not find url: ${tolookup}`);
+
+      RECORD site := SELECT * FROM system.sites WHERE id = res.site;
+      STRING outputpath := GetWebserverOutputFolder(site.outputweb);
+      IF(outputpath="")
+        TerminateScriptWithError(`The site '${site.name}' containing folder #${res.folder} is not being published`);
+
+      outputpath := MergePath(outputpath, site.outputfolder);
+      outputpath := MergePath(outputpath, (SELECT AS STRING fullpath FROM system.fs_objects WHERE id = res.folder));
+
+      Print("URL is in site '" || site.name || "' folder #" || res.folder || "\n");
+      Print("Output path: " || outputpath || "\n");
+    }
     DEFAULT
     {
       Print("Syntax: wh webserver <command>\n");
@@ -438,6 +459,7 @@ MACRO Main()
       Print("  rewritehosts <newhost>:     Rewrite all webserver URL hostnames under a new host\n");
       Print("  bumphsts:                   Bump all HSTS settings to a minimum of 1 year\n");
       Print("  dumpconfig:                 Dump current webserver configuration as JSON\n");
+      Print("  resolve <url>:              Resolve the specified url\n");
       TerminateScriptWithError("");
     }
   }

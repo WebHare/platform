@@ -457,6 +457,12 @@ case $INSTR in
     fi
     ;;
 
+  "tofspath")
+    [ -n "$1" ] || die "Syntax: wh tofspath <path>"
+    resolveresourcepath RESOLVEDPATH "$1"
+    echo "$RESOLVEDPATH"
+    ;;
+
   "activity")
     getlog LOGFILE access
     cut -d' ' -f4 -- "$LOGFILE" | cut -d':' -f2,3 | sort | uniq -c
@@ -513,7 +519,7 @@ case $INSTR in
 wh() { $WEBHARE_DIR/bin/wh "\$@"; } ;
 whcd() {
   local DEST;
-  DEST="\`wh run mod::system/scripts/internal/cli/getdir.whscr \"\$@\"\`";
+  DEST="\`wh tofspath \"mod::\$@\"\`";
   [ -n "\$DEST" ] && cd "\$DEST";
 } ;
 export -f wh ;
