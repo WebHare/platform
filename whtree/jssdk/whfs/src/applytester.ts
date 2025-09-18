@@ -338,7 +338,7 @@ export class WHFSApplyTester {
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
-    if (rec.whfspathmask && !isNotLikeMask(this.getPath("whfsPath"), rec.whfspathmask)) //TOOD well we could 'fake'
+    if (rec.whfspathmask && isNotLikeMask(this.getPath("whfsPath"), rec.whfspathmask))
       return false;
     if (rec.sitetype !== "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;
@@ -492,10 +492,10 @@ export class WHFSApplyTester {
       renderInfo: null,
       supportsErrors: true,
       supportsAccessDenied: false,
-      supportedLanguages: [],
+      supportedLanguages: [] as string[],
       siteProfile: "",
       is404: false,
-      contentNavStops: [],
+      contentNavStops: [] as string[],
 
       plugins: [] as PluginData[]
     };

@@ -162,9 +162,16 @@ types:
     ],
     rules: [
       {
-        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        tos: [
+          {
+            whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile',
+            whfspathmask: "*seofiles*"
+          }
+        ],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        baseproperties: {
+          description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"]
+        },
         yaml: true,
         extendproperties: [
           {
@@ -194,7 +201,8 @@ types:
         type: whfsrefarray
 apply:
 - to:
-    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    type: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    whfsPath: "*seofiles*"
   baseProps: [seotitle]
   editProps:
     - type: my_types.test_type
@@ -228,9 +236,9 @@ apply:
     ],
     rules: [
       {
-        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"] },
         yaml: true,
         extendproperties: [
           {
@@ -260,7 +268,7 @@ types:
         type: whfsrefarray
 apply:
 - to:
-    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    type: http://www.webhare.net/xmlns/publisher/richdocumentfile
   baseProps: [seotitle]
   editProps:
     - type: test_type
@@ -292,9 +300,9 @@ apply:
     ],
     rules: [
       {
-        tos: [{ filetype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
+        tos: [{ whfstype: 'http://www.webhare.net/xmlns/publisher/richdocumentfile' }],
         applyindex: 0,
-        baseproperties: { description: false, seotitle: true, haslist: ["description", "seotitle", "keywords", "seotab", "striprtdextension", "seotabrequireright"] },
+        baseproperties: { description: false, seotitle: true, haslist: ["DESCRIPTION", "KEYWORDS", "NOARCHIVE", "NOFOLLOW", "NOINDEX", "SEOTITLE", "SEOTAB", "SEOTABREQUIRERIGHT", "STRIPRTDEXTENSION", "TITLE"] },
         yaml: true,
         extendproperties: [
           {
@@ -326,7 +334,7 @@ types:
             inputKind: wrdGuid
 apply:
 - to:
-    fileType: http://www.webhare.net/xmlns/publisher/richdocumentfile
+    type: http://www.webhare.net/xmlns/publisher/richdocumentfile
   baseProps: [seotitle]
   editProps:
     - type: sub.test_type

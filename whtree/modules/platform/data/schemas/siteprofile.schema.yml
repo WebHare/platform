@@ -1,8 +1,8 @@
 ---
-# yaml-language-server: $schema=http://json-schema.org/draft-07/schema#
+# yaml-language-server: $schema=https://json-schema.org/draft/2019-09/schema
 # (To update derived the TypeScript interfaces: wh apply config)
 # TODO we leave some parts open now to allow for custom elements... but we should be able to compile to a complete schema allowing only supported elements
-"$schema": http://json-schema.org/draft-07/schema#
+"$schema": https://json-schema.org/draft/2019-09/schema
 title: Site profile
 type: object
 additionalProperties: false
@@ -12,8 +12,7 @@ properties:
   typeGroup:
     type: string
     pattern: "^[a-z][0-9a-z_.]+[0-9a-z]$" # require alpha and proper identifiers, no ending with dots. TODO permit one-char groups? shouldn't hurt anywhere, just makes the regex more complex
-    description:
-      Place all types in this file in this group. This creates a sublevel for the types without encoding into the group into automatic gids.
+    description: Place all types in this file in this group. This creates a sublevel for the types without encoding into the group into automatic gids.
   types:
     type: object
     additionalProperties: false
@@ -21,27 +20,214 @@ properties:
       "^[a-z][0-9a-z_.]+[0-9a-z]$":
         $ref: "#/$defs/Type"
         type: object
+  rtdTypes:
+    type: object
+    additionalProperties:
+      $ref: "#/$defs/RTDType"
   apply:
     type: array
     items:
       $ref: "#/$defs/Apply"
+  widgetGroups:
+    type: object
+    additionalProperties:
+      type: object
+      properties:
+        namespace:
+          type: string
+        tid:
+          type: string
+        title:
+          type: string
+        icon:
+          type: string
+  applySiteProfiles: # A list of siteprofiles to apply (by path) when this siteprofile is applied
+    type: array
+    items: #TODO alternative syntax with ifWebHare
+      type: string
 
 $defs:
-  Type:
+  Type: # a WHFS type (contenttype, filetype, foldertype, widget)
     type: object
-    additionalProperties: false
+    unevaluatedProperties: false
+    allOf:
+      - $ref: "#/$defs/BaseType"
+      - oneOf:
+          - $ref: "#/$defs/DataFileType"
+          - $ref: "#/$defs/InstanceType"
+          - $ref: "#/$defs/UploadType"
+          - $ref: "#/$defs/PageType"
+          - $ref: "#/$defs/WidgetType"
+          - $ref: "#/$defs/FolderType"
+
+  BaseType:
+    type: object
     properties:
       namespace:
         type: string
-        description: "The namespace assigned to the type. If not set, it will be `x-webhare-scopedtype:module.type_group.type` (snake-cased)"
+        description: "The namespace assigned to the type. If not set, it will be `x-webhare-scopedtype:module.type_group.type`"
+      group:
+        type: string
+        description: The namespace of the group assigned to the type.
+      icon:
+        type: string
       gid:
         type: string
       title:
         type: string
       tid:
         type: string
+      searchContentProvider: # this affects about all meta types except plain whfsType so we'll put it at BaseType level
+        type: string
       members:
         $ref: "#/$defs/TypeMembers"
+      metaType:
+        description: Enables this type as a potential WHFS object, eg a file, folder or widget.
+        oneOf:
+        - const: instance
+          description: A plain instance used to extend existing objects with additional properties. This is the default
+        - const: dataFile
+          description: A dataFile combines properties into a single file but cannot be downloaded or published.
+        - const: upload
+          description: A filetype that has 'raw' content that can be uploaded and downloaded, eg a PDF, Word Document or HTML file
+        - const: page
+          description: "A filetype whose content/properties are fully managed in Webare and is usually managed in a workflow (ie: draft/publish)"
+        - const: blockWidget
+          description: A top-level RTD widget
+        - const: inlineWidget
+          description: An inline RTD widget (can be embedded into paragraphs)
+        - const: folder
+          description: A folder stores other folders and files.
+
+  DataFileType:
+    type: object
+    required:
+      - metaType
+    properties:
+      metaType:
+        const: dataFile
+      apply:
+        $ref: "#/$defs/ApplyRule"
+
+  InstanceType:  # InstanceType is also implicitly selected without a metaType: as it's the only to not require it. Do *not* add other required: properties here or you'll implicitly require whfsType
+    type: object
+    properties:
+      metaType:
+        const: instance
+      clone:
+        type: string
+        description: "Configure the type's behavior when duplicated. Defaults to 'onCopy'"
+        enum:
+          - onCopy
+          - onArchive
+          - never
+      workflow:
+        type: boolean
+        description: "If set, data in this type should be managed together with its owning object's workflow. Incompatible with `clone: never`"
+
+  UploadType:
+    type: object
+    required:
+      - metaType
+    properties:
+      metaType:
+        const: upload
+      requiresContent:
+        type: boolean
+        description: "If set, files of this type must have content (a blob) to be valid and cannot be created as an empty file in a 'New file' dialog"
+      extension:
+        type: string
+        description: "If set, files of this type must have this extension"
+        pattern: "^\\..+$"
+      isAcceptableIndex:
+        type: boolean
+        description: "If set, files of this type are acceptable as index files in folders. For uploaded files this defaults to false and should only be enabled for HTML files"
+      useWebDesign:
+        type: boolean
+        description: "Publish inside webdesign (former 'needstemplate'). Defaults to false for upload types but eg. HTML needs this"
+      isPublishable:
+        type: boolean
+        description: "Whether this uploadable type can be published. Defaults to true"
+      browserPreview:
+        type: string
+        description: "If set, this URL is used to preview files of this type in the Publisher's preview browser"
+      apply:
+        $ref: "#/$defs/ApplyRule"
+
+  PageType:
+    type: object
+    required:
+      - metaType
+      - workflow # Not sure what the safe default is
+    properties:
+      metaType:
+        const: page
+      workflow:
+        type: boolean
+        description: If set, new files of this type are not immediately published after creation but are expected to go throufh Draft/Publish workflow
+      captureSubPaths:
+        type: boolean
+        description: "If set, pages of this type capture all paths below their output url"
+      isAcceptableIndex:
+        type: boolean
+        description: "If set, files of this type are acceptable as index files in folders. For pages this defaults to true"
+      isPublishedAsSubdir:
+        type: boolean
+        description: "If set, pages of this type are published in a subdirectory named after the page (eg /about/index.html). Defaults to true. May be removed in the future" #removal will depend on who still requires it unset.
+      useWebDesign:
+        type: boolean
+        description: "Publish inside webdesign (former 'needstemplate'). Defaults to true for page types"
+      pageListProvider:
+        type: string
+      apply:
+        $ref: "#/$defs/ApplyRule"
+      dynamicExecution:
+        $ref: "#/$defs/DynamicExecution"
+
+  WidgetType:
+    type: object
+    required:
+      - metaType
+    properties:
+      metaType:
+        type: string
+        enum:
+          - blockWidget
+          - inlineWidget
+      editor:
+        oneOf:
+          - type: object
+            additionalProperties: false
+            required:
+              - extension
+            properties:
+              extension:
+                type: string
+          - type: object
+            additionalProperties: false
+            required:
+              - function
+            properties:
+              function:
+                type: string
+      renderer:
+        type: string
+      requireMergeFieldsContext:
+        type: boolean
+      wittyComponent:
+        type: string
+
+  FolderType:
+    type: object
+    required:
+      - metaType
+    properties:
+      metaType:
+        const: folder
+      apply:
+        $ref: "#/$defs/ApplyRule"
+      dynamicExecution:
+        $ref: "#/$defs/DynamicExecution"
 
   TypeMembers:
     type: object
@@ -201,20 +387,98 @@ $defs:
                 - "*/*"
                 - "image/*"
 
-  Apply:
+  DynamicExecution:
     type: object
     additionalProperties: false
-    required:
-      - to
+    description: Configuration for dynamic execution of macros or webpage objects to generate content
     properties:
-      to:
-        $ref: "#/$defs/ApplyTo"
+      startMacro:
+        type: string
+      webPageObjectName:
+        type: string
+      routerFunction:
+        type: string
+      cacheTtl:
+        type: integer
+      cacheGetParameters:
+        type: array
+        items:
+          type: string
+      cacheIgnoreGetParameters:
+        type: array
+        items:
+          type: string
+      cacheCookies:
+        type: array
+        items:
+          type: string
+      cacheIgnoreCookies:
+        type: array
+        items:
+          type: string
+
+  Apply:
+    type: object
+    unevaluatedProperties: false
+    allOf:
+      - type: object
+        required:
+          - to
+        properties:
+          to:
+            $ref: "#/$defs/ApplyTo"
+          priority:
+            type: integer
+            description: Higher priority rules are applied later and thus override lower priority rules. Defaults to 0
+      - $ref: "#/$defs/ApplyRule"
+
+  ApplyRule:
+    type: object
+    properties:
       baseProps:
         $ref: "#/$defs/ApplyBaseProps"
-      editProps:
+      bodyRenderer:
+        $ref: "#/$defs/ApplyBodyRenderer"
+      editProps: # TODO now that we're converting XML to YML we've had to add tabsExtension= to editProps, and this is potentially doing a completely different thing from extending the RTD Editor. requireRight is especially 'off' as what does it mean to not have rights to a field but still hae it go through editdocuemnt workflow?
+        # We might have to properly split this between 'Properties dialog extensions' (where requireright and tabsextension makes sense) and 'Edditor app metadata' (the new versioned stuff)
         $ref: "#/$defs/ApplyEditProps"
+      folderIndex:
+        $ref: "#/$defs/ApplyFolderIndex"
       userData:
         $ref: "#/$defs/ApplyUserData"
+      usePublishTemplate:
+        type: string
+      setObjectEditor:
+        $ref: "#/$defs/ApplySetObjectEditor"
+      forms:
+        $ref: "#/$defs/ApplyForms"
+      fileTypes:
+        $ref: "#/$defs/ApplyTypes"
+      folderTypes:
+        $ref: "#/$defs/ApplyTypes"
+      rtdDoc: # TODO naming? its <rtddoc in XML but if i'm correct this is specifically about configuring the 'richdocument' object editor - just like editProps is a generic object editor ocnfiguration
+        $ref: "#/$defs/ApplyRTDDoc"
+      republish:
+        $ref: "#/$defs/ApplyToRepublish"
+      folderSettings:
+        $ref: "#/$defs/ApplyFolderSettings"
+      scheduleTimedTasks:
+        $ref: "#/$defs/ApplyScheduleTimedTasks"
+      scheduleManagedTasks:
+        $ref: "#/$defs/ApplyScheduleManagedTasks"
+
+  MatchOrRegExp:
+    oneOf:
+      - type: string
+        description: Match using wildcards (* and ?), case-insensitive
+      - type: object
+        description: Match using a regular expression
+        additionalProperties: false
+        required:
+          - regex
+        properties:
+          regex:
+            type: string
 
   ApplyTo:
     oneOf:
@@ -243,21 +507,32 @@ $defs:
       - type: object
         additionalProperties: false
         properties:
+          is: # matches the isFile/isFolder/isIndex but as part of a rule (TODO because its very hard to map to=any/file/folder otherwise. however are the separate enums 'isFile/isFolder/isIndex' actually worth it?
+            type: string
+            enum:
+              - "file"
+              - "folder"
+              - "index"
           type: # should map to scopedType and be resolved
-            type: string
-          fileType: #'legacy' types - note that these in HS matching also support wildcards
-            type: string
-          folderType: #'legacy' types - note that these in HS matching also support wildcards
-            type: string
-          pathMatch:
-            type: string
+            description: Match type
+            $ref: "#/$defs/MatchOrRegExp"
+          site: # TODO share with sitefilter concept somehow
+            description: Match site name
+            $ref: "#/$defs/MatchOrRegExp"
+          whfsPath:
+            description: Match whfsPath
+            $ref: "#/$defs/MatchOrRegExp"
+          sitePath:
+            description: Match the object's sitePath
+            $ref: "#/$defs/MatchOrRegExp"
           parentPath:
-            type: string
+            $ref: "#/$defs/MatchOrRegExp"
+            description: RegExp to match parent object's sitepath against (case-insensitive)
           parentType:
-            type: string
+            $ref: "#/$defs/MatchOrRegExp"
           testSetting:
             $ref: "#/$defs/ApplyToTestSetting"
-      - type: string
+      - type: string # TODO considering removing all but 'all'
         enum:
           - "all"
           - "isFile"
@@ -270,23 +545,54 @@ $defs:
     required: [target, type, member, value]
     properties:
       target:
-        type: string
-        enum:
-          - "self"
+        const: "self"
       type:
         type: string
       member:
         type: string
       value: {}
 
-  ApplyBaseProps:
-    type: array
-    items:
-      type: string
-      enum:
-        - description
-        - keywords
-        - seotitle
+  ApplyBaseProps: # TODO camelcase the properties here? but we may really need to reconsider whether such detailed baseprops are the way to go in the future
+    description: Either an array of flags (to fully reset baseproperties) or a bag of mostly boolen properties to mutate base properties
+    oneOf:
+      - type: array
+        items:
+          type: string
+          enum:
+            - description
+            - keywords
+            - seotitle
+      - type: object
+        properties:
+          title:
+            type: boolean
+          seotitle:
+            type: boolean
+            description: Enable the SEO title field
+          description:
+            type: boolean
+          keywords:
+            type: boolean
+          seotab:
+            type: boolean
+            description: Enable the SEO tab (noindex, nofollow, canonical)
+          seotabrequireright:
+            type: string
+            description: Require this right to see the SEO tab
+          # TODO: nodindex/nofollownoarchive don't seem to be properties that control the UI but primarily affect the generated value
+          noindex:
+            type: boolean
+            description: If true for a file, enforces the 'noindex' robot setting
+          nofollow:
+            type: boolean
+            description: If true for a file, enforces the 'nofollow' robot setting
+          noarchive:
+            type: boolean
+            description: If true for a file, enforces the 'noarchive' robot setting
+          # TODO: isn't this implied now that WH5.9 drops the extension from RTD files (and all virtual files/metaType: page)
+          striprtdextension:
+            type: boolean
+            description: Strip .rtd extension from newly created files
 
   ApplyEditProps:
     description: Set up an editor for these metadata fields
@@ -299,12 +605,16 @@ $defs:
         type:
           description: The type of the metadata field
           type: string
+        requireRight:
+          type: string
+          description: Require this right to edit this field
+        tabsExtension:
+          type: string
+          description: The tabs extension to use for this field instead of the layout here
         layout:
           oneOf:
             - description: All defined fields on a single tab
-              type: string
-              enum:
-                - all
+              const: all
             - description: A single tab with with the specified fields
               type: array
               items:
@@ -354,10 +664,208 @@ $defs:
       layout:
         $ref: "#/$defs/FieldLayout"
 
+  ApplyBodyRenderer:
+    type: object
+    properties:
+      objectName:
+        type: string
+      renderer:
+        type: string
+
   ApplyUserData:
     type: object
     additionalProperties:
       type: string # TODO A future version of YAML may open up this type (eg allow all JS primitves) but for HS compatibility we'll limit this to strings for now
+
+  ApplyFolderIndex:
+    oneOf:
+      - type: string
+        description: "'none' explicitly disables an earler configured folderindex"
+        const: none
+      - type: object
+        unevaluatedProperties: false
+        oneOf:
+          - type: object
+            required:
+              - copy
+            properties:
+              copy:
+                type: string
+              pin:
+                type: boolean
+          - type: object
+            required:
+              - contentLink
+            properties:
+              contentLink:
+                type: string
+              pin:
+                type: boolean
+          - type: object
+            required:
+              - newFileType
+            properties:
+              newFileType:
+                type: string
+              newFileName:
+                type: string
+              pin:
+                type: boolean
+
+  ApplySetObjectEditor: #TODO reconsider if separateapp & screen versions is really what we want, but some options are likely to be forced/obsoleted as they conflict with workflow?
+    type: object
+    additionalProperties: false
+    properties:
+      separateApp:
+        type: boolean
+      screen:
+        type: string
+      name:
+        type: string
+
+  ApplyRTDDoc:
+    type: object
+    additionalProperties: false
+    properties:
+      rtdType: # FIXME look into camelcasing consistency of the various rtdType/RTDType etc stuff
+        type: string
+      htmlClass:
+        type: string
+      bodyClass:
+        type: string
+      margins:
+        type: string
+        enum:
+          - none
+          - compact
+          - wide
+
+  ApplyTypes: # allow/deny file/folder type - or only if a template is used§
+    type: array
+    items:
+      type: object
+      unevaluatedProperties: false
+      oneOf:
+        - type: object
+          required: [allowType]
+          properties:
+            allowType:
+              type: string
+        - type: object
+          required: [allowTemplate]
+          properties:
+            allowTemplate:
+              type: string
+        - type: object
+          required: [denyType]
+          properties:
+            denyType:
+              type: string
+
+  ApplyForms: # an array of - allowQuestion, - denyHandler... not sure if we could do this more elegantly as wildcards make ordering important
+    type: array
+    items:
+      type: object
+      unevaluatedProperties: false
+      oneOf:
+        - type: object
+          required: [allowComponent]
+          properties:
+            allowComponent:
+              type: string
+        - type: object
+          required: [denyComponent]
+          properties:
+            denyComponent:
+              type: string
+        - type: object
+          required: [allowHandler]
+          properties:
+            allowHandler:
+              type: string
+        - type: object
+          required: [denyHandler]
+          properties:
+            denyHandler:
+              type: string
+        - type: object
+          required: [allowRTDType]
+          properties:
+            allowRTDType:
+              type: string
+        - type: object
+          required: [denyRTDType]
+          properties:
+            denyRTDType:
+              type: string
+
+  ApplyToRepublish:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      description: Instruct WebHare to republish files when the applied to item changed
+      properties:
+        folder:
+          type: string
+        siteMask:
+          type: string
+        mask:
+          type: string
+        recursive:
+          type: boolean
+        indexOnly:
+          type: boolean
+        onChange:
+          type: string
+          description: "- metadata: Republish only if metadata changed"
+          const: metadata
+        scope:
+          type: string
+          description: "- references: Interpret the republish instruction from the point of view of any references to this file (internal links, content links and contenttype whfsrefs)"
+          const: references
+
+  ApplyFolderSettings:
+    type: object
+    additionalProperties: false
+    properties:
+      filterScreen:
+        type: string
+      ordering:
+        description: "Configure ordering for this folder
+          - none: There is no ordering, the website ordering option should be unavailable
+          - fixed: A website ordering is available, but cannot be modified through the publisher drag/drop
+          - orderable: Ordering can be changed through the website
+          "
+        type: string
+        enum:
+          - none
+          - fixed
+          - orderable
+      contentsListHandler:
+        type: string
+
+  ApplyScheduleTimedTasks:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [task]
+      properties:
+        task:
+          type: string
+        delay:
+          type: integer
+
+  ApplyScheduleManagedTasks:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [task]
+      properties:
+        task:
+          type: string
 
   Component:
     type: object
@@ -383,3 +891,102 @@ $defs:
             line:
               $ref: "#/$defs/ComponentLine"
         - $ref: "#/$defs/Component"
+
+  RTDType:
+    type: object
+    additionalProperties: false
+    properties:
+      htmlClass:
+        type: string
+      bodyClass:
+        type: string
+      b:
+        type: string
+        enum:
+          - "strong"
+          - "b"
+      i:
+        type: string
+        enum:
+          - "em"
+          - "i"
+      allowedObjects:
+        type: array
+        items:
+          type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+            inherit:
+              type: boolean
+      allowNewWindowLinks:
+        type: boolean
+      ignoreSiteProfileWidgets:
+        type: boolean
+      contentAreaWidth:
+        type: string
+      blockStyles:
+        type: object
+        patternProperties:
+          "^[a-z0-9]+$":
+            type: object
+            additionalProperties: false
+            properties:
+              containerTag:
+                type: string
+                enum:
+                  # The subset of the flow elements in http://www.w3.org/TR/html-markup/common-models.html#common.elem.phrasing
+                  # <code> is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
+                  [
+                    p,
+                    div,
+                    h1,
+                    h2,
+                    h3,
+                    h4,
+                    h5,
+                    h6,
+                    pre,
+                    address,
+                    blockquote,
+                    section,
+                    nav,
+                    article,
+                    aside,
+                    header,
+                    footer,
+                    ol,
+                    ul,
+                    code,
+                  ]
+
+              textStyles:
+                type: array
+                items:
+                  type: string
+                  enum: [i, u, b, a-href, img, sub, sup, strike]
+      tableStyles:
+        type: object
+        patternProperties:
+          "^[a-z0-9]+$":
+            type: object
+            additionalProperties: false
+
+      cellStyles:
+        type: object
+        patternProperties:
+          "^[a-z0-9]+$":
+            type: object
+            additionalProperties: false
+            properties:
+              title:
+                type: string
+
+      css:
+        type: array
+        items:
+          type: string
+      defaultBlockStyle:
+        type: string
