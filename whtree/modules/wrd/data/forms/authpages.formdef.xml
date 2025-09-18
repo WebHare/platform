@@ -2,6 +2,7 @@
 
   <form name="login" library="mod::wrd/lib/internal/pages/authpages.whlib" objectname="LoginForm">
     <page>
+      <richtext name="intro_services" groupclasses="wh-wrdauth-login__intro_services" title="" />
       <richtext name="intro" groupclasses="wh-wrdauth-login__intro" title="" />
       <textedit name="login" autocomplete="username" required="1" tid=".username" />
       <password name="password" autocomplete="current-password" required="1" tid=".password" />

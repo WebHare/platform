@@ -108,6 +108,15 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
     }
 
     RECORD ARRAY authpages_texts := GetWRDSetting(wrdschema, "authpages_texts");
+    RECORD intro_services_text := SELECT AS RECORD text FROM authpages_texts WHERE tag = "login-services-intro" AND language = this->formlanguagecode;
+    IF (RecordExists(intro_services_text))
+      ^intro_services->richvalue := intro_services_text;
+    ELSE
+      ^intro_services->richvalue :=
+          [ htmltext := StringToBlob(
+              `<h2 class="heading2">${GetTid("wrd:site.forms.authpages.login-services")}</h2>`)
+          ];
+
     RECORD introtext := SELECT AS RECORD text FROM authpages_texts WHERE tag = "login-intro" AND language = this->formlanguagecode;
     IF (RecordExists(introtext))
       ^intro->richvalue := introtext;
