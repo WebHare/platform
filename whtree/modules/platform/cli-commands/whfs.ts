@@ -7,7 +7,7 @@ import { CLIRuntimeError, run } from "@webhare/cli";
 import { createArchive, type CreateArchiveController } from "@webhare/zip";
 import { storeDiskFile } from "@webhare/system-tools";
 import { stringify } from '@webhare/std';
-import type { WHFSInstanceData } from '@webhare/whfs/src/contenttypes';
+import type { InstanceExport } from '@webhare/whfs/src/contenttypes';
 
 interface ExportWHFSTreeOptions {
   space?: string | number;
@@ -17,7 +17,7 @@ type ExportedProperties = {
   whfsType: string; //File/folder type namespace
   title?: string;
   /** Other instances (ie *not* the primary content) */
-  instances?: WHFSInstanceData[];
+  instances?: InstanceExport[];
 };
 
 async function exportWHFSTree(source: WHFSObject, basePath: string, target: CreateArchiveController, options?: ExportWHFSTreeOptions) {

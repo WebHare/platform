@@ -7,12 +7,12 @@ import { dateToParts, makeDateFromParts, } from "@webhare/hscompat/src/datetime.
 import { buildRTDFromComposedDocument, exportRTDAsComposedDocument } from "@webhare/hscompat/src/richdocument.ts";
 import type { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, addMissingScanData, decodeScanData, exportIntExtLink, importIntExtLink, isResourceDescriptor, mapExternalWHFSRef, unmapExternalWHFSRef } from "@webhare/services/src/descriptor";
-import { IntExtLink, WebHareBlob, type RichTextDocument, type WHFSInstance } from "@webhare/services";
-import type { WHFSInstanceData, WHFSTypeMember } from "./contenttypes";
+import { IntExtLink, WebHareBlob, type RichTextDocument, type Instance } from "@webhare/services";
+import type { InstanceExport, InstanceSource, WHFSTypeMember } from "./contenttypes";
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
-import { buildRTD, buildWHFSInstance, isRichTextDocument, isWHFSInstance, type RTDBuildSource } from "@webhare/services/src/richdocument";
+import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDBuildSource, type ExportableRTD } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/src/composeddocument";
@@ -45,7 +45,7 @@ export type EncoderBaseReturnValue = EncodedFSSetting | EncodedFSSetting[] | nul
 export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
 export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 
-export type DecoderContext = ExportOptions & {
+export type DecoderContext = {
   allsettings: readonly FSSettingsRow[];
   /* Creationdate code used for link generation */
   cc: number;
@@ -57,7 +57,7 @@ type ImportOptions = {
 
 export interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
-  decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
+  decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext & ExportOptions): unknown;
   importValue?(value: unknown, member: WHFSTypeMember, beforeEncode: boolean, options?: ImportOptions): unknown;
   exportValue?(value: unknown, member: WHFSTypeMember, afterDecode: boolean, options?: ExportOptions): unknown;
   isDefaultValue?(value: unknown): boolean;
@@ -107,9 +107,9 @@ function decodeResourceDescriptor(row: FSSettingsRow, context: DecoderContext) {
   return new ResourceDescriptor(row.blobdata, meta);
 }
 
-async function encodeWHFSInstance(value: WHFSInstance | WHFSInstanceData): Promise<EncoderBaseReturnValue> {
+async function encodeWHFSInstance(value: Instance | InstanceSource): Promise<EncoderBaseReturnValue> {
   const typeinfo = await describeWHFSType(value.whfsType);
-  const data = isWHFSInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
+  const data = isInstance(value) ? value.data as Record<string, unknown> : omit(value, ['whfsType']);
   return {
     instancetype: typeinfo.id,
     sub: await setData(typeinfo.members, data)
@@ -118,9 +118,9 @@ async function encodeWHFSInstance(value: WHFSInstance | WHFSInstanceData): Promi
 
 async function decodeWHFSInstance(row: FSSettingsRow, context: DecoderContext) {
   const typeinfo = await describeWHFSType(row.instancetype!);
-  const widgetdata = await getData(typeinfo.members, row.id, context);
+  const widgetdata = await getData(typeinfo.members, row.id, { ...context, export: false }) as NonExportGetDataResult;
 
-  return await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata });
+  return await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata });
 }
 
 async function encodeComposedDocument(toSerialize: ComposedDocument, rootSetting: string): Promise<EncodedFSSetting[]> {
@@ -181,8 +181,8 @@ async function decodeComposedDocument(settings: FSSettingsRow[], type: ComposedD
 
   for (const settingInstance of settings.filter(s => s.ordering === 3)) {
     const typeinfo = await describeWHFSType(settingInstance.instancetype!);
-    const widgetdata = await getData(typeinfo.members, settingInstance.id, context);
-    outdoc.instances.set(settingInstance.setting, await buildWHFSInstance({ whfsType: typeinfo.namespace, ...widgetdata }));
+    const widgetdata = await getData(typeinfo.members, settingInstance.id, { ...context, export: false }) as NonExportGetDataResult;
+    outdoc.instances.set(settingInstance.setting, await buildInstance({ whfsType: typeinfo.namespace, data: widgetdata }));
   }
 
   return outdoc;
@@ -516,7 +516,7 @@ export const codecs = {
         return toInsert;
       })();
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext & ExportOptions) => {
       return settings.length ? getData(member.children || [], settings[0].id, context) : null;
     },
     exportValue(value: object | null, member, afterDecode, options) {
@@ -542,7 +542,7 @@ export const codecs = {
         return toInsert;
       })();
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<object[]> => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext & ExportOptions): Promise<object[]> => {
       return Promise.all(settings.map(s => getData(member.children || [], s.id, context)));
     },
     exportValue(value: object[], member, afterDecode, options): Promise<object[]> | object[] {
@@ -583,7 +583,7 @@ export const codecs = {
 
       // An RTD doesn't have a non-recursive .export(), so don't export recursively here and leave it to .exportValue
       return (async () => {
-        const base = await decodeComposedDocument(settings, "platform:richtextdocument", { ...context, export: false });
+        const base = await decodeComposedDocument(settings, "platform:richtextdocument", context);
         return buildRTDFromComposedDocument(base);
       })();
     },
@@ -599,11 +599,11 @@ export const codecs = {
     },
   },
   "instance": {
-    getType: "WHFSInstance | null",
-    setType: "WHFSInstance | WHFSInstanceData | null",
-    exportType: "WHFSInstanceData | null",
+    getType: "Instance | null",
+    setType: "Instance | InstanceSource | null",
+    exportType: "InstanceExport | null",
 
-    encoder: (value: WHFSInstance | null) => {
+    encoder: (value: Instance | null) => {
       if (!value)
         return null;
       if (!value.whfsType)
@@ -612,28 +612,29 @@ export const codecs = {
       //Return the actual work as a promise - even when ignoring describeWHFSType, any member might be a promise too
       return encodeWHFSInstance(value);
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<WHFSInstance> | null => {
+    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<Instance> | null => {
       if (!settings.length)
         return null;
 
       // WHFSInstance .export() has no option to skip recursion, so leave export recursion to .exportValue
-      return decodeWHFSInstance(settings[0], { ...context, export: false });
+      return decodeWHFSInstance(settings[0], context);
     },
-    exportValue: (value: WHFSInstance | null, member, afterDecode, options): Promise<WHFSInstanceData> | null => {
+    exportValue: (value: Instance | null, member, afterDecode, options): Promise<InstanceExport> | null => {
       return value?.export(options) || null;
     },
-    importValue(value: WHFSInstance | WHFSInstanceData | null, member, beforeEncode, options): MaybePromise<WHFSInstance> | null {
+    importValue(value: Instance | InstanceSource | null, member, beforeEncode, options): MaybePromise<Instance> | null {
       if (value && !value.whfsType)
         throw new Error(`Missing whfsType in instance`);
 
-      if (value && !isWHFSInstance(value))  //looks like an ExportedWHFSInstance?
-        return buildWHFSInstance(value);
+      if (value && !isInstance(value))  //looks like an ExportedWHFSInstance?
+        return buildInstance(value);
       return value;
     },
   },
   "intExtLink": {
     getType: "IntExtLink | null",
     setType: "IntExtLink | ExportedIntExtLink | null",
+    exportType: "ExportedIntExtLink | null",
 
     encoder: (value: IntExtLink | null) => {
       if (!value)
@@ -642,7 +643,7 @@ export const codecs = {
       const data = value.internalLink ? value.append : value.externalLink;
       return { fs_object: value.internalLink || null, setting: data || "" };
     },
-    decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): IntExtLink | null => {
+    decoder: (settings: FSSettingsRow[]): IntExtLink | null => {
       if (settings[0]?.fs_object)
         return new IntExtLink(settings[0]?.fs_object, { append: settings[0]?.setting || "" });
       if (settings[0]?.setting)
@@ -746,7 +747,9 @@ export async function setData(members: WHFSTypeMember[], data: object): Promise<
   return toInsert;
 }
 
-export async function getData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext) {
+type NonExportGetDataResult = { [key in string]: CodecGetMemberType };
+
+export async function getData(members: WHFSTypeMember[], elementSettingId: number | null, context: DecoderContext & ExportOptions) {
   const retval: { [key: string]: unknown } = {};
 
   for (const member of members) {
@@ -781,8 +784,8 @@ export async function getData(members: WHFSTypeMember[], elementSettingId: numbe
   return retval;
 }
 
-export async function exportData(members: WHFSTypeMember[], data: object, options?: ExportOptions) {
-  const retval: { [key: string]: unknown } = {};
+export async function exportData(members: WHFSTypeMember[], data: object, options?: ExportOptions): Promise<{ [K in string]?: CodecExportMemberType }> {
+  const retval: { [key in string]?: CodecExportMemberType } = {};
 
   for (const member of members) {
     let setval = (data as Record<string, unknown>)[member.name];
@@ -806,14 +809,14 @@ export async function exportData(members: WHFSTypeMember[], data: object, option
         e.message += ` (while exporting '${member.name}')`;
       throw e;
     }
-    retval[member.name] = setval;
+    retval[member.name] = setval as CodecExportMemberType;
   }
 
   return retval;
 }
 
-export async function importData(members: WHFSTypeMember[], data: object, options?: ImportOptions) {
-  const retval: { [key: string]: unknown } = {};
+export async function importData(members: WHFSTypeMember[], data: object, options?: ImportOptions): Promise<{ [K in string]: CodecGetMemberType }> {
+  const retval: { [key in string]: CodecGetMemberType } = {};
 
   for (let [key, setval] of Object.entries(data)) {
     if (key === "whfsType" || setval === undefined)
@@ -827,7 +830,7 @@ export async function importData(members: WHFSTypeMember[], data: object, option
         throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
 
       if (setval === undefined)
-        setval = codec.decoder([], member, { allsettings: [], cc: 0 }); //get default value
+        setval = codec.decoder([], member, { allsettings: [], cc: 0, export: false }); //get default value
       else if (codec.importValue)
         setval = codec.importValue(setval, member, false);
       if (isPromise(setval))
@@ -845,12 +848,75 @@ export async function importData(members: WHFSTypeMember[], data: object, option
         const codec: TypeCodec = codecs[member.type];
         if (!codec)
           throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
-        let setval = codec.decoder([], member, { allsettings: [], cc: 0 }); //get default value
+        let setval = codec.decoder([], member, { allsettings: [], cc: 0, export: false }); //get default value
         if (isPromise(setval))
           setval = await setval;
-        retval[member.name] = setval;
+        retval[member.name] = setval as CodecGetMemberType;
       }
     }
   }
   return retval;
 }
+
+// Possible member types that can be return by getData
+export type CodecGetMemberType =
+  null |
+  boolean |
+  number |
+  number[] |
+  string |
+  string[] |
+  { [K in string]: CodecGetMemberType } |
+  Array<{ [K in string]: CodecGetMemberType }> |
+  ComposedDocument |
+  Instance |
+  IntExtLink |
+  Money |
+  Record<string, unknown> |
+  ResourceDescriptor |
+  RichTextDocument |
+  Temporal.Instant |
+  Temporal.PlainDate;
+
+// Possible member types that can be returned by exportData
+export type CodecExportMemberType =
+  null |
+  boolean |
+  number |
+  string |
+  string[] |
+  Array<{ [K in string]?: CodecExportMemberType }> |
+  ComposedDocument |
+  IntExtLink |
+  Money |
+  { [K in string]?: CodecExportMemberType } |
+  ExportableRTD |
+  ExportedResource |
+  InstanceExport |
+  ExportedIntExtLink;
+
+// Possible member types that are accepted by setData/importData
+export type CodecImportMemberType =
+  null |
+  boolean |
+  number |
+  string |
+  string[] |
+  { [K in string]?: CodecImportMemberType } |
+  Array<{ [K in string]?: CodecImportMemberType }> |
+  Array<string | number> |
+  ComposedDocument |
+  Date |
+  Date |
+  ExportedIntExtLink |
+  ExportedResource |
+  Instance |
+  InstanceSource |
+  IntExtLink |
+  Money |
+  Record<string, unknown> |
+  ResourceDescriptor |
+  RichTextDocument |
+  RTDBuildSource |
+  Temporal.Instant |
+  Temporal.PlainDate;

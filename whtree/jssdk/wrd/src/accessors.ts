@@ -12,14 +12,14 @@ import type { IPCMarshallableData, IPCMarshallableRecord } from "@webhare/hscomp
 import { maxDateTimeTotalMsecs } from "@webhare/hscompat/src/datetime";
 import { isValidWRDTag } from "./wrdsupport";
 import { db, uploadBlob } from "@webhare/whdb";
-import { WebHareBlob, type RichTextDocument, IntExtLink, type WHFSInstance, buildRTD } from "@webhare/services";
+import { WebHareBlob, type RichTextDocument, IntExtLink, type Instance, buildRTD } from "@webhare/services";
 import { wrdSettingId } from "@webhare/services/src/symbols";
 import { AuthenticationSettings } from "./authsettings";
 import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
-import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
-import { buildWHFSInstance, isWHFSInstance, type ExportableRTD, type RTDBuildSource } from "@webhare/services/src/richdocument";
+import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
+import { buildInstance, isInstance, type ExportableRTD, type RTDBuildSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -2287,14 +2287,14 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
   }
 }
 
-class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInstance | WHFSInstanceData | null, WHFSInstance | null, WHFSInstance | null, WHFSInstanceData | null> {
-  getDefaultValue(): WHFSInstance | null {
+class WRDDBInstanceValue extends WRDAttributeUncomparableValueBase<Instance | InstanceSource | null, Instance | null, Instance | null, InstanceExport | null> {
+  getDefaultValue(): Instance | null {
     return null;
   }
 
-  isSet(value: WHFSInstance | null) { return Boolean(value); }
+  isSet(value: Instance | null) { return Boolean(value); }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): Promise<WHFSInstance | null> | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, _settings_limit: number, links: EntitySettingsWHFSLinkRec[], _cc: number): Promise<Instance | null> | null {
     //based on RetrieveInstanceInWHFS(INTEGER64 wrd_settingid, OBJECT whfsmapper)
     const matchobj = links.find(_ => _.id === entity_settings[settings_start].id);
     if (!matchobj?.fsobject)
@@ -2303,12 +2303,12 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
     return getInstanceFromWHFS(matchobj?.fsobject);
   }
 
-  validateInput(value: WHFSInstance | WHFSInstanceData | null, checker: ValueQueryChecker, attrPath: string): void {
+  validateInput(value: Instance | InstanceSource | null, checker: ValueQueryChecker, attrPath: string): void {
     if (value && !value?.whfsType)
       throw new Error(`Invalid WHFS instance value for attribute ${checker.typeTag}.${attrPath}${this.attr.tag} - missing whfsType`);
   }
 
-  encodeValue(value: WHFSInstance | WHFSInstanceData | null): AwaitableEncodedValue {
+  encodeValue(value: Instance | InstanceSource | null): AwaitableEncodedValue {
     if (!value)
       return {};
 
@@ -2321,15 +2321,15 @@ class WRDDBWHFSInstanceValue extends WRDAttributeUncomparableValueBase<WHFSInsta
     };
   }
 
-  importValue(value: WHFSInstance | WHFSInstanceData | null): MaybePromise<WHFSInstance | null> {
-    if (value && !isWHFSInstance(value)) { //looks like an ExportedWHFSInstance?
-      return buildWHFSInstance(value);
+  importValue(value: Instance | InstanceSource | null): MaybePromise<Instance | null> {
+    if (value && !isInstance(value)) { //looks like InstanceSource?
+      return buildInstance(value);
     }
 
     return value;
   }
 
-  async exportValue(value: WHFSInstance | null, exportOptions?: ExportOptions): Promise<WHFSInstanceData | null> {
+  async exportValue(value: Instance | null, exportOptions?: ExportOptions): Promise<InstanceExport | null> {
     return await value?.export() ?? null;
   }
 }
@@ -2710,7 +2710,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeTypeId.Money]: WRDDBMoneyValue;
   [WRDAttributeTypeId.RichTextDocument]: WRDDBRichDocumentValue;
   [WRDAttributeTypeId.Integer64]: WRDDBInteger64Value;
-  [WRDAttributeTypeId.Instance]: WRDDBWHFSInstanceValue;
+  [WRDAttributeTypeId.Instance]: WRDDBInstanceValue;
   [WRDAttributeTypeId.IntExtLink]: WRDDBWHFSIntextlinkValue;
   [WRDAttributeTypeId.HSON]: WRDDBRecordValue;
   [WRDAttributeTypeId.PaymentProvider]: WRDDBPaymentProviderValue;
@@ -2776,7 +2776,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeTypeId.Money: return new WRDDBMoneyValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.RichTextDocument: return new WRDDBRichDocumentValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.Integer64: return new WRDDBInteger64Value(type, attrinfo) as AccessorType<T>;
-    case WRDAttributeTypeId.Instance: return new WRDDBWHFSInstanceValue(type, attrinfo) as AccessorType<T>;
+    case WRDAttributeTypeId.Instance: return new WRDDBInstanceValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.IntExtLink: return new WRDDBWHFSIntextlinkValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.HSON: return new WRDDBRecordValue(type, attrinfo) as AccessorType<T>;
     case WRDAttributeTypeId.PaymentProvider: return new WRDDBPaymentProviderValue(type, attrinfo) as AccessorType<T>;

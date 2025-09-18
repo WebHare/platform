@@ -1,5 +1,5 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob.ts";
-import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type WHFSInstance, buildWHFSInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
+import { RichTextDocument, type RTDInlineItem, type RTDBuildBlock, rtdTextStyles, type RTDInlineItems, isValidRTDClassName, type RTDBlock, rtdBlockDefaultClass, type RTDParagraphType, rtdParagraphTypes, type Instance, buildInstance, type RTDListItems, rtdListTypes, type RTDAnonymousParagraph, type RTDParagraph, type RTDList, type RTDBaseInlineImageItem, type RTDBaseLink, type RTDImageFloat } from "@webhare/services/src/richdocument";
 import { encodeString, generateRandomId, isTruthy, throwError } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
 import type { WHFSTypeMember } from "@webhare/whfs/src/contenttypes";
@@ -8,6 +8,7 @@ import { parseDocAsXML } from "@mod-system/js/internal/generation/xmlhelpers";
 import { IntExtLink, ResourceDescriptor } from "@webhare/services";
 import type { Rotation } from "@webhare/services/src/descriptor";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
+import type { CodecImportMemberType } from "@webhare/whfs/src/codecs";
 
 type BlockItemStack = Pick<RTDInlineItem, "bold" | "italic" | "underline" | "strikeThrough" | "link" | "target">;
 
@@ -71,14 +72,14 @@ function parseXSList(input: string | null): string[] {
 }
 
 async function rebuildInstanceDataFromHSStructure(members: WHFSTypeMember[], data: Record<string, unknown>) {
-  const outdata: Record<string, unknown> = {};
+  const outdata: Record<string, CodecImportMemberType> = {};
   for (const member of members) {
     if (member.name in data) {
       //We hope to receive RichTextDocument but some (legacy?) paths will pass a HareScript-encoded RTD here (eg recursive exportAsHareScriptRTD). If we see it, reconstruct as RTD
       if (member.type === "richTextDocument" && data[member.name] && "htmltext" in (data[member.name] as object)) {
         outdata[member.name] = await buildRTDFromHareScriptRTD(data[member.name] as HareScriptRTD);
       } else {
-        outdata[member.name] = data[member.name];
+        outdata[member.name] = data[member.name] as CodecImportMemberType;
       }
     }
   }
@@ -126,7 +127,7 @@ class HSRTDImporter {
 
   }
 
-  async reconstructWidget(node: Element): Promise<WHFSInstance | null> {
+  async reconstructWidget(node: Element): Promise<Instance | null> {
     const instanceid = node.getAttribute("data-instanceid");
     if (!instanceid)
       return null;
@@ -318,7 +319,7 @@ export async function buildRTDFromHareScriptRTD(rtd: HareScriptRTD): Promise<Ric
       continue;
 
     const setdata = await rebuildInstanceDataFromHSStructure(typeinfo.members, inst.data);
-    const widget = await buildWHFSInstance({ ...setdata, whfsType: inst.data.whfstype });
+    const widget = await buildInstance({ whfsType: inst.data.whfstype, data: setdata });
     cdoc.instances.set(inst.instanceid, widget);
   }
 
@@ -392,11 +393,11 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
   const imagemapping = rtd["__imageIds"];
   const linkmapping = rtd["__linkIds"];
 
-  const instances = new Map<string, WHFSInstance>();
+  const instances = new Map<string, Instance>();
   const embedded = new Map<string, ResourceDescriptor>();
   const links = new Map<string, number>();
 
-  async function exportWidgetForHS(widget: WHFSInstance, block: boolean) {
+  async function exportWidgetForHS(widget: Instance, block: boolean) {
     const tag = block ? 'div' : 'span';
     // TODO do we need to record these ids? but what if the same widget appears twice? then we still need to unshare the id
     const instanceid = instancemapping.get(widget) || generateRandomId();
@@ -404,7 +405,7 @@ export async function exportRTDAsComposedDocument(rtd: RichTextDocument, { recur
     if (instances.has(instanceid)) //FIXME ensure we never have duplicate instances, in such. fix but make sure we have testcases dealing with 2 identical Widgets with same hinted instance id
       throw new Error(`internal erro0- duplicate instanceid ${instanceid}`);
 
-    instances.set(instanceid, widget as WHFSInstance);
+    instances.set(instanceid, widget as Instance);
     return `<${tag} class="wh-rtd-embeddedobject" data-instanceid="${encodeString(instanceid, 'attribute')}"></${tag}>`;
   }
 

@@ -5,7 +5,7 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildWHFSInstance, type RTDBlock, type RTDInlineItem, type RTDBuildSource, type ExportableRTD, type WHFSInstance } from "@webhare/services/src/richdocument";
+import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDBuildSource, type ExportableRTD, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 
 // An exportable RTD should always be a valid input source
@@ -78,9 +78,9 @@ async function verifyRoundTrip(doc: RichTextDocument) {
   await rollbackWork();
 }
 
-async function verifyWidgetRoundTrip(widget: WHFSInstance) {
+async function verifyWidgetRoundTrip(widget: Instance) {
   const testtype = openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
-  test.eq(await widget.export(), await (await buildWHFSInstance(await widget.export())).export());
+  test.eq(await widget.export(), await (await buildInstance(await widget.export())).export());
 
   await beginWork();
   const tempfile = await (await test.getTestSiteJSTemp()).ensureFile("roundtrip", { type: "http://www.webhare.net/xmlns/publisher/richdocumentfile" });
@@ -88,7 +88,7 @@ async function verifyWidgetRoundTrip(widget: WHFSInstance) {
   await commitWork();
   // console.log(await widget.export());
 
-  const returnedWidget = (await testtype.get(tempfile.id)).anInstance as WHFSInstance;
+  const returnedWidget = (await testtype.get(tempfile.id)).anInstance as Instance;
   // console.log(await returnedWidget.export());
   test.eqPartial(await returnedWidget.export(), await widget.export());
 }
@@ -103,7 +103,9 @@ async function testReader() {
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
-        widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest"]
+        data: {
+          widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest"]
+        }
       }
     }, {
       tag: 'p',
@@ -111,7 +113,9 @@ async function testReader() {
     }, {
       widget: {
         whfsType: 'http://www.webhare.net/xmlns/webhare_testsuite/rtd/widgetblock',
-        widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest2"]
+        data: {
+          widgets: ["site::webhare_testsuite.testsitejs/webtools/polltest2"]
+        }
       }
     }, {
       tag: 'p',
@@ -408,16 +412,18 @@ async function testBuilder() {
 }
 
 async function testBuildWHFSInstance() {
-  const htmlwidget = await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" });
+  const htmlwidget = await buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", data: { html: "<b>BOLD</b> HTML" } });
   test.eq("http://www.webhare.net/xmlns/publisher/embedhtml", htmlwidget.whfsType);
   test.eq({ html: "<b>BOLD</b> HTML" }, htmlwidget.data);
 
   await verifyWidgetRoundTrip(htmlwidget);
 
-  const twocolwidget = await buildWHFSInstance({
+  const twocolwidget = await buildInstance({
     whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-    rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-    rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+    data: {
+      rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+      rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+    }
   });
 
   test.eq("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", twocolwidget.whfsType);
@@ -426,8 +432,10 @@ async function testBuildWHFSInstance() {
 
   test.eqPartial({
     whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-    rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
-    rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+    data: {
+      rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
+      rtdright: [{ items: [{ text: "Right column" }], tag: "p" }] satisfies RTDBlock[]
+    }
   }, await twocolwidget.export());
 
   await verifyWidgetRoundTrip(twocolwidget);
@@ -435,14 +443,18 @@ async function testBuildWHFSInstance() {
   const testsitejs = await test.getTestSiteJS();
   const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
 
-  const genericWidget = await buildWHFSInstance({
+  const genericWidget = await buildInstance({
     whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-    myLink: new IntExtLink(imgEditFile.id, { append: "#test" }),
+    data: {
+      myLink: new IntExtLink(imgEditFile.id, { append: "#test" }),
+    }
   });
 
   test.eq({
     whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-    myLink: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
+    data: {
+      myLink: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
+    }
   }, await genericWidget.export());
 
   await verifyWidgetRoundTrip(genericWidget);
@@ -450,42 +462,50 @@ async function testBuildWHFSInstance() {
   const tinyPng = await ResourceDescriptor.from(Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg==", "base64"), { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { sourceFile: imgEditFile.id, getHash: true, getImageMetadata: true, getDominantColor: true });
 
-  const videowidget = await buildWHFSInstance({
+  const videowidget = await buildInstance({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-    thumbnail: tinyPng
+    data: {
+      thumbnail: tinyPng
+    }
   });
 
   test.eq({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-    thumbnail: {
-      data: {
-        base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=="
-      },
-      sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
-      hash: "g2xejJS3S-eEVhIlKLsqRLTPYbOSLyEeK65b8yf5Xwk",
-      extension: ".png",
-      mediaType: "image/png",
-      width: 1,
-      height: 1,
-      dominantColor: /^#.*$/
+    data: {
+      thumbnail: {
+        data: {
+          base64: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQAAAAA3bvkkAAAACklEQVR4AWNgAAAAAgABc3UBGAAAAABJRU5ErkJggg=="
+        },
+        sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+        hash: "g2xejJS3S-eEVhIlKLsqRLTPYbOSLyEeK65b8yf5Xwk",
+        extension: ".png",
+        mediaType: "image/png",
+        width: 1,
+        height: 1,
+        dominantColor: /^#.*$/
+      }
     }
   }, await videowidget.export());
 
   await verifyWidgetRoundTrip(videowidget);
 
-  const realVideowidget = await buildWHFSInstance({
+  const realVideowidget = await buildInstance({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-    thumbnail: goldfish
+    data: {
+      thumbnail: goldfish
+    }
   });
   test.eqPartial({
     whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-    thumbnail: {
-      data: {
-        base64: /^iVBO/ //base64 of goudvis
-      },
-      sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
-      hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
-      width: 385,
+    data: {
+      thumbnail: {
+        data: {
+          base64: /^iVBO/ //base64 of goudvis
+        },
+        sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+        hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+        width: 385,
+      }
     }
   }, await realVideowidget.export());
 
@@ -510,11 +530,13 @@ async function testBuildingRTDsWithInstances() {
           { inlineWidget: await buildWidget("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        "widget": await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", html: "<b>BOLD</b> HTML" })
+        "widget": await buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml", data: { html: "<b>BOLD</b> HTML" } })
       }, {
-        "widget": await buildWHFSInstance({
+        "widget": await buildInstance({
           whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-          thumbnail: goldfish
+          data: {
+            thumbnail: goldfish
+          }
         })
       }
     ]);
@@ -529,13 +551,13 @@ async function testBuildingRTDsWithInstances() {
           { text: ", " },
           { text: "Underline", underline: true },
           { text: ", " },
-          { inlineWidget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
+          { inlineWidget: test.expectInstance("http://www.webhare.net/xmlns/publisher/formmergefield", { fieldname: "bu_field" }), bold: true, underline: true }
         ]
       }, {
-        widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
+        widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedhtml", { html: "<b>BOLD</b> HTML" })
       }, {
-        widget: test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/embedvideo", {
-          thumbnail: (eGR: ResourceDescriptor) => eGR.sourceFile === imgEditFile.id && eGR.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY" && eGR.width === 385
+        widget: test.expectInstance("http://www.webhare.net/xmlns/publisher/embedvideo", {
+          thumbnail: (eGR) => isResourceDescriptor(eGR) && eGR.sourceFile === imgEditFile.id && eGR.hash === "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY" && eGR.width === 385
         }, { partial: true })
       }
     ], doc.blocks);
@@ -553,7 +575,9 @@ async function testBuildingRTDsWithInstances() {
           {
             inlineWidget: {
               whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield",
-              fieldname: "bu_field"
+              data: {
+                fieldname: "bu_field"
+              }
             },
             bold: true,
             underline: true
@@ -562,18 +586,22 @@ async function testBuildingRTDsWithInstances() {
       }, {
         widget: {
           whfsType: "http://www.webhare.net/xmlns/publisher/embedhtml",
-          html: "<b>BOLD</b> HTML"
+          data: {
+            html: "<b>BOLD</b> HTML"
+          }
         }
       }, {
         widget: w => Boolean(test.eqPartial({
           whfsType: "http://www.webhare.net/xmlns/publisher/embedvideo",
-          thumbnail: {
-            data: {
-              base64: /^iVBO/ //base64 of goudvis
-            },
-            sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
-            hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
-            width: 385
+          data: {
+            thumbnail: {
+              data: {
+                base64: /^iVBO/ //base64 of goudvis
+              },
+              sourceFile: `site::${testsitejs.name}/TestPages/imgeditfile.jpeg`,
+              hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",
+              width: 385
+            }
           }
         }, w))
       }
@@ -583,18 +611,20 @@ async function testBuildingRTDsWithInstances() {
     await verifyRoundTrip(doc);
 
     //Now put that doc into a widget so we can build an Instance containing a Doc containing a Widget containing a Resource
-    const twocolwidget = await buildWHFSInstance({
+    const twocolwidget = await buildInstance({
       whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-      rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-      rtdright: doc
+      data: {
+        rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+        rtdright: doc
+      }
     });
 
     await verifyWidgetRoundTrip(twocolwidget);
   }
 
   //Verify that we catch broken whfs types
-  await test.throws(/No such type/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
-  await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", blah: "bu_field" }));
+  await test.throws(/No such type/, () => buildInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
+  await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", data: { blah: "bu_field" } }));
 
 
   {  //Build a RTD containing a RTD
@@ -602,7 +632,7 @@ async function testBuildingRTDsWithInstances() {
     function verifyWidget(d: RichTextDocument) {
       test.eqPartial([
         {
-          "widget": test.expectWHFSInstance("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {}, { partial: true })
+          "widget": test.expectInstance("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {}, { partial: true })
         }
       ], d.blocks);
 
@@ -614,10 +644,12 @@ async function testBuildingRTDsWithInstances() {
 
     const doc = await buildRTD([
       {
-        "widget": await buildWHFSInstance({
+        "widget": await buildInstance({
           whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-          rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-          rtdright: null
+          data: {
+            rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+            rtdright: null
+          }
         })
       }
     ]);
@@ -626,7 +658,9 @@ async function testBuildingRTDsWithInstances() {
       {
         widget: {
           whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-          rtdleft: [{ tag: "p", items: [{ text: "Left column" }] }],
+          data: {
+            rtdleft: [{ tag: "p", items: [{ text: "Left column" }] }],
+          }
         }
       }
     ], await doc.export());

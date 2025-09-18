@@ -1,6 +1,6 @@
 import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { InstanceExport, InstanceSource, UntypedInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
@@ -43,7 +43,7 @@ type RTDBuildParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 export type RTDListType = typeof rtdListTypes[number];
 
-type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstanceData : Mode extends "inMemory" ? WHFSInstance : WHFSInstance | WHFSInstanceData;
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? InstanceExport : Mode extends "inMemory" ? Instance : Instance | InstanceSource;
 
 type BuildOnly<Mode extends RTDItemMode, V> = "build" extends Mode ? V : never;
 
@@ -214,18 +214,18 @@ export function isRichTextDocument(value: unknown): value is RichTextDocument {
   return Boolean(value && getWHType(value) === "RichTextDocument");
 }
 
-export function isWHFSInstance(value: unknown): value is WHFSInstance {
-  return Boolean(value && getWHType(value) === "WHFSInstance");
+export function isInstance(value: unknown): value is Instance {
+  return Boolean(value && getWHType(value) === "Instance");
 }
 
 
-class WHFSInstance {
-  private static "__ $whTypeSymbol" = "WHFSInstance";
+class Instance {
+  private static "__ $whTypeSymbol" = "Instance";
 
   #typeInfo: WHFSTypeInfo;
-  #data: Record<string, unknown>;
+  #data: UntypedInstanceData;
 
-  constructor(typeinfo: WHFSTypeInfo, data: Record<string, unknown>) {
+  constructor(typeinfo: WHFSTypeInfo, data: UntypedInstanceData) {
     this.#typeInfo = typeinfo;
     this.#data = data;
   }
@@ -238,10 +238,11 @@ class WHFSInstance {
     return this.#data;
   }
 
-  async export(options?: ExportOptions): Promise<WHFSInstanceData> {
+  async export(options?: ExportOptions): Promise<InstanceExport> {
+    const data = await exportData(this.#typeInfo.members, this.#data, options);
     return {
       whfsType: this.whfsType,
-      ...await exportData(this.#typeInfo.members, this.#data, options)
+      ...(Object.keys(data).length ? { data } : {}),
     };
   }
 }
@@ -284,15 +285,15 @@ function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Pr
   return isPromise(value) ? value.then(t => cb(t)) : cb(value);
 }
 
-/** @deprecated use WHFSInstance instead */
-type WidgetInterface = Pick<WHFSInstance, "whfsType" | "data" | "export">;
+/** @deprecated use Instance instead */
+type WidgetInterface = Pick<Instance, "whfsType" | "data" | "export">;
 
 export class RichTextDocument {
   private static "__ $whTypeSymbol" = "RichTextDocument";
 
   #blocks = new Array<RTDBlock>;
   //need to expose this for hscompat APIs
-  private __instanceIds = new WeakMap<Readonly<WHFSInstance>, string>;
+  private __instanceIds = new WeakMap<Readonly<Instance>, string>;
   private __imageIds = new WeakMap<Readonly<RTDBaseInlineImageItem<"inMemory">>, string>;
   private __linkIds = new WeakMap<Readonly<IntExtLink>, string>;
 
@@ -424,11 +425,11 @@ export class RichTextDocument {
   }
 
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
-    if (isWHFSInstance(widget)) //we just keep the widget as is
+    if (isInstance(widget)) //we just keep the widget as is
       return widget;
 
     if ("whfsType" in widget)
-      return await buildWHFSInstance(widget);
+      return await buildInstance(widget);
 
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
@@ -494,7 +495,7 @@ export class RichTextDocument {
     return getArrayPromise(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
-        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies WHFSInstanceData } as RTDBaseInlineItem<"export">;
+        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies InstanceExport } as RTDBaseInlineItem<"export">;
       if ("image" in item)
         return { ...item, image: await item.image.export() satisfies ExportedResource } as RTDBaseInlineItem<"export">;
       return item as RTDBaseInlineItem<"export">;
@@ -555,7 +556,7 @@ export class RichTextDocument {
 
   /** Export as buildable RTD */
   async export(options?: ExportOptions): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
-    return await this.#exportRTDBlocks(this.#blocks, options || {});
+    return await this.#exportRTDBlocks(this.#blocks, { export: true, ...options });
   }
 
   /** @deprecated Use exportRTDToRawHTML in hscompat */
@@ -563,7 +564,7 @@ export class RichTextDocument {
     return (await exportRTDToRawHTML(this)) || '';
   }
 
-  __hintInstanceId(widget: WHFSInstance, instanceId: string) {
+  __hintInstanceId(widget: Instance, instanceId: string) {
     if (this.__instanceIds.get(widget))
       this.__instanceIds.set(widget, instanceId);
   }
@@ -580,17 +581,20 @@ export async function buildRTD(source: RTDBuildSource): Promise<RichTextDocument
   return outdoc;
 }
 
-export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSInstance> {
+export async function buildInstance(data: InstanceSource): Promise<Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
-  return new WHFSInstance(typeinfo, await importData(typeinfo.members, data, { addMissingMembers: true }));
+  for (const key of (Object.keys(data)))
+    if (key !== "whfsType" && key !== "data")
+      throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true }));
 }
 
-/** @deprecated use buildWHFSInstance */
+/** @deprecated use buildInstance */
 export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
-  return buildWHFSInstance({ ...data, whfsType: ns });
+  return buildInstance({ whfsType: ns, data: data as UntypedInstanceData });
 }
 
-export type { WidgetInterface as Widget, WHFSInstance };
+export type { WidgetInterface as Widget, Instance };
 
 // Check types in the source code, so not everything has to be exported
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
