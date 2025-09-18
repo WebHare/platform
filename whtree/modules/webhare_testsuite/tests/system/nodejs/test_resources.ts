@@ -411,7 +411,7 @@ async function testFetchResource() {
   await storeDiskFile(straypath, Buffer.from("stray"), { overwrite: true });
 
   //wait a tick and refetch, verify whether it looks like we got the same resource back from the cache (no metadata update)
-  await test.sleep(2); //wait a tick! can't image us beating the cloc kthoug
+  await test.sleep(2); //wait a tick! can't image us beating the clock though
   const fetched2 = await services.fetchResource(snowbeagle.link!);
   const meta2 = await readCacheMetadata(locinfo.metaloc);
   test.eq(17191, fetched2.resource.size);

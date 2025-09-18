@@ -381,13 +381,18 @@ void HandleSendAsIs(WebServer::Connection *webcon, std::string const &path)
         //When handling an error, there is no point in all the checks below..
         if (webcon->protocol.status_so_far == StatusOK)
         {
+                Blex::DateTime modtime = webcon->request->filestatus.ModTime();
+                /* Round down to a full second. Not ideal as files can easily change twice in as second on a modern system,
+                   but we're stuck with HTTP granularity. TODO investigate use of ETag and hashing milliseconds (and inode?)
+                   into it */
+                modtime -= Blex::DateTime::Msecs(modtime.GetMsecs());
                 if (webcon->request->condition_ifmodifiedsince != Blex::DateTime::Invalid()
-                    && webcon->request->filestatus.ModTime() <= webcon->request->condition_ifmodifiedsince)
+                    && modtime <= webcon->request->condition_ifmodifiedsince)
                 {
                         //this was a conditional request, as the resource hasn't been modified, don't retransmit it
                         webcon->protocol.status_so_far = StatusNotModified;
                 }
-                webcon->SetLastModified(webcon->request->filestatus.ModTime());
+                webcon->SetLastModified(modtime);
         }
 
         webcon->AddHeader("Content-Type",12,&webcon->contenttype->contenttype[0],webcon->contenttype->contenttype.size(),false);
