@@ -1475,7 +1475,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase <
       {
         CASE "wrdauth"
         {
-          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, cookietype_external, FALSE );
+          RECORD cookies := this->__GetWRDAuthIntegration()->__CreateLoginCookies(proof.entityid, cookietype_external, FALSE, [ ip := GetClientRemoteIp() ]);
           cookiedata := cookiedata || " " || cookies.external;
 
           result.user := this->userapi->GetTolliumUserFromEntityId(proof.entityid);

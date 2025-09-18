@@ -78,6 +78,8 @@ export interface IsAllowedToLoginParameters<S extends SchemaTypeDefinition = Any
   wrdSchema: WRDSchema<S>;
   /** User id to check */
   user: number;
+  /** IP Address */
+  ipAddress: string;
 }
 
 export interface FrontendRequestParameters<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {

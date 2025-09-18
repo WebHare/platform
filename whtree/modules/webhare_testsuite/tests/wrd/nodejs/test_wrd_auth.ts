@@ -503,8 +503,9 @@ async function testAuthAPI() {
   test.eqPartial({ loggedIn: true, userInfo: { userId: testuser, firstName: "Josie" } }, parseLoginResult(await provider.handleFrontendLogin({ ...baseLogin, customizer: customizerUserInfo })));
 
   const blockUser: AuthCustomizer = {
-    async isAllowedToLogin({ wrdSchema, user }) {
+    async isAllowedToLogin({ wrdSchema, user, ipAddress }) {
       const { wrdContactEmail } = await wrdSchema.getFields("wrdPerson", user, ["wrdContactEmail"]);
+      test.eq("1.2.3.4", ipAddress);
       return { error: "We do not like " + wrdContactEmail, code: "account-disabled" };
     }
   };

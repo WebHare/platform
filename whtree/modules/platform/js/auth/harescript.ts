@@ -179,7 +179,7 @@ export async function verifyPasswordComplianceForHS(targetUrl: WRDAuthPluginSett
   const wrdSchema = new WRDSchema(prep.settings.wrdSchema);
   const customizer = prep.settings?.customizer ? await importJSObject(prep.settings.customizer) as AuthCustomizer : undefined;
 
-  const result = await verifyAllowedToLogin(wrdSchema, userId, customizer);
+  const result = await verifyAllowedToLogin(wrdSchema, userId, auditContext.remoteip, customizer);
   if (result)
     return result;
 
@@ -249,7 +249,7 @@ export async function lookupOIDCUser(targetUrl: WRDAuthPluginSettings_HS, raw_id
 /* prepareLoginCookies is how HareScript invokes the second half of the WRDAuth Login process (either username/password or LoginById)
    and should mostly correspond with handleFrontendLogin
    */
-export async function prepareLoginCookies(targetUrl: WRDAuthPluginSettings_HS, userId: number, isImpersonation: boolean, persistent: boolean, thirdParty: boolean, now: Date): Promise<{ headers: HSHeaders } | LoginDeniedInfo> {
+export async function prepareLoginCookies(targetUrl: WRDAuthPluginSettings_HS, userId: number, isImpersonation: boolean, persistent: boolean, thirdParty: boolean, ipAddress: string, now: Date): Promise<{ headers: HSHeaders } | LoginDeniedInfo> {
   const prepped = prepAuth(importWRDAuthSettings(targetUrl));
   if ("error" in prepped)
     throw new Error(prepped.error);
@@ -257,7 +257,7 @@ export async function prepareLoginCookies(targetUrl: WRDAuthPluginSettings_HS, u
   const setAuthCookies = await prepareLogin(prepped, userId, { skipAuditEvent: true, persistent, thirdParty, now: now.toTemporalInstant(), isImpersonation }); //FIXME stop skipping audit events, this is here because we are used by the WRD Authplugin and HareScript is still writing the audit events
 
   if (!isImpersonation) {
-    const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, setAuthCookies.customizer);
+    const result = await verifyAllowedToLogin(setAuthCookies.wrdSchema, userId, ipAddress, setAuthCookies.customizer);
     if (result)
       return result;
   }
