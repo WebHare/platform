@@ -2,10 +2,11 @@
 	"cli application": {
     "prefix": "cli application",
 		"body": [
+			"// @webhare/cli: ${1:short description}",
+			"",
 			"import { run } from \"@webhare/cli\";",
 			"",
 			"run({",
-			"  description: \"${1}\",",
 			"  flags: {",
 			"    \"v,verbose\": \"Show more info\",",
 			"  },",

@@ -102,59 +102,46 @@ getwhparameters()
   GOTWHPARAMETERS=1
 }
 
-getmoduledir_nofail()
-{
-  local XXMODULEDIR RESTPATH MODULENAME
+function getmoduledir_nofail() {
+  local XXMODULEDIR
 
-  RESTPATH=${2#*/}
-  MODULENAME=${2%%/*}
-  XXMODULEDIR="$(readlink "$WEBHARE_DATAROOT"/config/mod/"$MODULENAME")"
+  if [ -d "$WEBHARE_DIR/modules/$2" ]; then #it's a builtin
+    eval $1="$WEBHARE_DIR/modules/\$2/"
+    return 0
+  fi
 
+  XXMODULEDIR="$(readlink "$WEBHARE_DATAROOT"/config/mod/"$2")"
   if [ -n "$XXMODULEDIR" ]; then
-    if [ "$RESTPATH" != "$2" -a -n "$RESTPATH" ]; then
-      XXMODULEDIR="$XXMODULEDIR$RESTPATH"
-    fi
-    eval $1=\$XXMODULEDIR
+    eval $1="\$XXMODULEDIR"
     return 0
   fi
   return 1
 }
 
-getmoduledir()
-{
+function getmoduledir() {
   local XMODULEDIR
 
   if [ -z "$2" ]; then
     echo "Specify a module name" 1>&2
-    return
-  fi
-  if ! getmoduledir_nofail XMODULEDIR "$2" ; then
-    if [ "$2" == "dev" ]; then
-      echo "No such module $2 - please see https://www.webhare.dev/manuals/developers/dev-module/" 1>&2
-    else
-      echo "No such module $2" 1>&2
-    fi
     exit 1
   fi
-  eval $1=\$XMODULEDIR
+  if ! getmoduledir_nofail XMODULEDIR "$2" ; then
+    echo "No such module $2" 1>&2
+    exit 1
+  fi
+  eval $1="\$XMODULEDIR"
   return 0
 }
 
-resolveresourcepath ()
-{
-  local FINALPATH MODNAME MODPATH
-  FINALPATH=$2
-  if [[ $FINALPATH =~ ^mod::.+/.*$ ]]; then
-    MODNAME=${FINALPATH%%/*}
-    MODNAME=${MODNAME:5}
-    getmoduledir MODPATH "$MODNAME"
-    if [ -z "$MODPATH" ]; then
-        FINALPATH=
-    else
-        FINALPATH="${MODPATH}${FINALPATH#*/}"
-    fi
+function resolveresourcepath() {
+  local MODPATH
+
+  if [[ $2 =~ ^mod::([^/]+)/?(.*)?$ ]]; then
+    getmoduledir MODPATH "${BASH_REMATCH[1]}"
+    eval $1="\${MODPATH}\${BASH_REMATCH[2]}"
+  else
+    eval $1="\$2"
   fi
-  eval $1=\$FINALPATH
 }
 
 calc_dir_relpath()

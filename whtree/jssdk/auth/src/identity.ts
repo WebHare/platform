@@ -830,6 +830,7 @@ export class IdentityProvider<SchemaType extends SchemaTypeDefinition> {
       const awaitableResult = request.customizer.isAllowedToLogin({
         wrdSchema: this.wrdschema as unknown as WRDSchema<AnySchemaTypeDefinition>,
         user: userid,
+        ipAddress: request.tokenOptions.authAuditContext.clientIp,
       });
       const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
       if (result)
@@ -1202,7 +1203,7 @@ export async function prepareFrontendLogin(targetUrl: string, userId: number, op
   return wrapAuthCookiesIntoForm(targetUrl, setAuthCookies);
 }
 
-export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
+export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDefinition>, userId: number, ipAddress: string, customizer?: AuthCustomizer): Promise<LoginDeniedInfo | null> {
   const authsettings = await getAuthSettings(wrdSchema);
   if (!authsettings)
     throw new Error(`WRD schema '${wrdSchema.tag}' not configured for authentication`);
@@ -1217,7 +1218,8 @@ export async function verifyAllowedToLogin(wrdSchema: WRDSchema<AnySchemaTypeDef
     //It's a bit ugly to repeat the isAllowedToLogin call here and have to throw ... but prepareLoginCookies will go away once all HS Login calls go through handleFrontendLogin
     const awaitableResult = customizer.isAllowedToLogin({
       wrdSchema: wrdSchema as unknown as WRDSchema<AnySchemaTypeDefinition>,
-      user: userId
+      user: userId,
+      ipAddress
     });
     const result = isPromise(awaitableResult) ? await awaitableResult : awaitableResult;
     if (result)

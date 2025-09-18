@@ -2,6 +2,13 @@
 # wh runtest system.test-wh-functions
 source "${WEBHARE_DIR}/lib/wh-functions.sh"
 
+function testToFsPath() {
+  testEq "$WEBHARE_DIR/modules/system/lib" "$(wh tofspath mod::system/lib)"
+  testEq "$WEBHARE_DIR/modules/system/" "$(wh tofspath mod::system/)"
+  testEq "$WEBHARE_DIR/modules/system/" "$(wh tofspath mod::system)"
+  testEq "$WEBHARE_DIR/modules/system/ a b" "$(wh tofspath "mod::system/ a b")"
+}
+
 expectWasmEngine()
 {
   local STATUS=false
@@ -74,6 +81,7 @@ testContainerTagCalculation()
   testEq "4.35.0" "$WEBHARE_VERSION"
 }
 
+testToFsPath
 testIsWasmEngine
 testContainerTagCalculation
 

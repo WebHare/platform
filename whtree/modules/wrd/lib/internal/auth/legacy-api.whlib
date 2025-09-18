@@ -339,13 +339,14 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   {
     options := ValidateOptions([ path := ""
                                , setcreationdate := DEFAULT DATETIME
+                               , ip := ""
                                ], options);
 
     IF (cookietype != cookietype_external) {
       //Delegating this to JS now
       //FIXME how to get the proper target url when eg being invoked by a RPC service ?
       this->loggedinentity := userid; //shortcircuit attempts to parse the internal cookies immediately after login
-      RETURN CallJS("@mod-platform/js/auth/harescript.ts#prepareLoginCookies", this->__WRDAuthPluginSettings_HS, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.setcreationdate ?? GetCurrentDatetime());
+      RETURN CallJS("@mod-platform/js/auth/harescript.ts#prepareLoginCookies", this->__WRDAuthPluginSettings_HS, userid, impersonation, cookietype = cookietype_persistent, cookietype = cookietype_thirdparty, options.ip, options.setcreationdate ?? GetCurrentDatetime());
     }
 
     //TODO _e / external cookies still need quite some revision, ideally a self-contained JWT
@@ -650,7 +651,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth <
   */
   RECORD FUNCTION FinalizeLogin(OBJECT the_entity, BOOLEAN isimpersonation, INTEGER cookietype, STRING login, STRING ip, BOOLEAN updatelogindata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, isimpersonation, PickCells(options, ["SETCREATIONDATE"]));
+    RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, isimpersonation, CELL[...PickCells(options, ["SETCREATIONDATE"]), ip]);
     IF(NOT RecordExists(cookies))
       RETURN DEFAULT RECORD;
 
