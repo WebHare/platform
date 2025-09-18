@@ -2,6 +2,7 @@
 
 import type { FieldLayout } from "@mod-platform/generated/schema/siteprofile";
 import type { ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
+import type { Rule } from "@mod-system/js/internal/webserver/webconfig";
 
 export enum CSPMemberType {
   String = 2,
@@ -51,43 +52,47 @@ export interface CSPMember extends CSPMemberBasics {
   jsname?: string;
 }
 
+export interface CSPDynamicExecution {
+
+  cachettl: number;
+  routerfunction: string;
+  startmacro: string;
+  webpageobjectname: string;
+  cacheblacklistcookies: string[];
+  cacheblacklistvariables: string[];
+  cachewebcookies: string[];
+  cachewebvariables: string[];
+}
+
 export interface CSPContentType {
   cloneoncopy: boolean;
-  dynamicexecution: {
-    cachettl: number;
-    routerfunction: string;
-    startmacro: string;
-    webpageobjectname: string;
-    cacheblacklistcookies: string[];
-    cacheblacklistvariables: string[];
-    cachewebcookies: string[];
-    cachewebvariables: string[];
-  } | null;
+  cloneonarchive: boolean;
+  workflow: boolean;
+  dynamicexecution: CSPDynamicExecution | null;
   filetype: {
     blobiscontent: boolean;
+    browserpreview: string;
     capturesubpaths: boolean;
-    extensions: [];
+    extensions: string[];
     generatepreview: boolean;
     indexversion: '';
+    initialpublish: boolean;
     isacceptableindex: boolean;
     ispublishable: boolean;
     ispublishedassubdir: boolean;
     needstemplate: boolean;
-    pagelistprovider: '';
+    pagelistprovider: string;
     requirescontent: boolean;
     searchcontentprovider: string;
   } | null;
-  foldertype: unknown; //TODO: specify
+  foldertype: Record<never, never> | null;
   id: number;
   ingroup: string;
   isembeddedobjecttype: boolean;
   isrtdtype: boolean;
   line: number;
-  members: CSPMember[];
+  members?: CSPMember[]; //optional in RTD types
   namespace: string;
-  renderer?: {
-    objectname: string;
-  };
   scopedtype: string;
   orphan: boolean;
   previewcomponent: string;
@@ -97,6 +102,62 @@ export interface CSPContentType {
   type: string;
   wittycomponent: string;
   yaml?: true;
+
+  //These props (editor, renderer, embedtype, requiremergefieldscontext) are only set for widgets
+  editor?: { type: "extension"; extension: string } | { type: "function"; functionname: string } | null;
+  renderer?: { objectname: string } | null;
+  embedtype?: "inline" | "block";
+  requiremergefieldscontext?: boolean;
+
+  //Used by RTDTypes which still piggyback on CSPContentType
+  structure?: CSPRTDStructure;
+  cssfiles?: Array<{ path: string }>;
+  internallinkroots?: string[]; //TODO might be number[] ?
+  css?: string;
+  htmlclass?: string;
+  bodyclass?: string;
+  allowedobjects?: CSPRTDAllowedObject[];
+  allownewwindowlinks?: boolean;
+  ignoresiteprofilewidgets?: boolean;
+  applytester?: null;
+  linkhandlers?: string[];
+  margins?: "none" | "compact" | "wide";
+  tag_b?: string;
+  tag_i?: string;
+}
+
+export type CSPRTDBlockStyle = {
+  type: "text" | "table";
+  containertag: string;
+  textstyles: string[];
+  tabledefaultblockstyle: string;
+  split: boolean;
+  hidden: boolean;
+  title: string;
+  tag: string;
+  importfrom: string[];
+  nextblockstyle: string;
+  allowstyles: string[];
+  allowwidgets: boolean;
+};
+
+export interface CSPRTDAllowedObject {
+  type: string;
+  inherit: boolean;
+}
+
+export interface CSPRTDCellStyle {
+  tag: string;
+  title: string;
+}
+
+export interface CSPRTDStructure {
+  blockstyles: CSPRTDBlockStyle[];
+  cellstyles: CSPRTDCellStyle[];
+  defaultblockstyle: string;
+  contentareawidth: string;
+  tag_b: string;
+  tag_i: string;
 }
 
 export interface CSPPluginDataRow {
@@ -140,7 +201,10 @@ export interface CSPPlugin extends CSPPluginBase {
 }
 
 export interface CSPRtddoc {
-  rtdtype: string;
+  rtdtype?: string;
+  margins?: "none" | "compact" | "wide";
+  htmlclass?: string;
+  bodyclass?: string;
 }
 
 /** subtests (eg AND, OR ...) */
@@ -185,9 +249,9 @@ export interface CSPApplyToTo {
 
 export type CSPApplyTo = CSPApplyToTo | CSPApplyToTestData | CSPApplyToSubs;
 
-interface CSPWebtoolsformrule {
+export interface CSPWebtoolsFormRule {
   allow: boolean;
-  comp: string;
+  comp: "component" | "handler" | "rtdtype";
   type: string;
 }
 
@@ -197,7 +261,7 @@ interface CSPBodyRendererRule {
   renderer: string;
 }
 
-type CSPBaseProperties = {
+export type CSPBaseProperties = {
   title: boolean;
   description: boolean;
   keywords: boolean;
@@ -223,6 +287,44 @@ export type CustomFieldsLayout = string[] | "all" | {
   }>;
 };
 
+export type CSPWebDesign = {
+  objectname: string;
+  getdata: string;
+  siteresponsefactory: string;
+  witty: string;
+  assetpack: string;
+  wittyencoding: string;
+  designfolder: string;
+  maxcontentwidth: string;
+  siteprofile: string;
+  supportserrors: boolean;
+  supportsaccessdenied: boolean;
+  supportedlanguages: string[];
+  contentnavstops: string[];
+
+  has_assetpack: boolean;
+  has_supportserrors: boolean;
+  has_supportsaccessdenied: boolean;
+  has_contentnavstops: boolean;
+};
+
+export type CSPFolderSettings = {
+  filterscreen: string;
+  has_filterscreen: boolean;
+  ordering: "" | "none" | "fixed" | "orderable";
+  contentslisthandler: { objectname: string } | null;
+};
+
+export type CSPModifyType = {
+  isallow: true;
+  typedef: string;
+  newonlytemplate: boolean;
+  setnewonlytemplate: boolean;
+} | {
+  isallow: false;
+  typedef: string;
+};
+
 export interface CSPApplyRule {
   /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
@@ -233,10 +335,10 @@ export interface CSPApplyRule {
 
   applyindex: number;
   applynodetype: "apply" | "filetype" | "foldertype" | "widgettype";
-  baseproperties?: (CSPBaseProperties & { haslist: Array<keyof CSPBaseProperties> }) | null;
-  bodyrenderer?: CSPBodyRendererRule;
+  baseproperties: (CSPBaseProperties & { haslist: Array<Uppercase<keyof CSPBaseProperties>> }) | null;
+  bodyrenderer: CSPBodyRendererRule | null;
   col: number;
-  contentlisting?: any;
+  contentlisting: { fullpath: string; site: string } | null;
   customnodes: any[];
   defaultsettings: any[];
   disabletemplateprofile: boolean;
@@ -244,31 +346,55 @@ export interface CSPApplyRule {
     contenttype: string;
     extension: string;
     requireright: string;
-    name: string;
     /* Sets and orders which fields to offer to edit */
     layout?: CustomFieldsLayout;
     /* Specific field level overrides */
     override?: Array<[string, CSPMemberOverride]>;
   }>;
-  folderindex?: any;
-  foldersettings?: any;
+  folderindex: {
+    indexfile: "none" | "copy_of_file" | "contentlink" | "newfile";
+    protectindexfile: boolean;
+    fullpath: string;
+    site: string;
+    newfiletype: string;
+    newfilename: string;
+  } | null;
+  foldersettings: CSPFolderSettings | null;
   formdefinitions: any[];
   hookintercepts: any[];
   line: number;
   mailtemplates: any[];
-  modifyfiletypes: any[];
-  modifyfoldertypes: any[];
+  modifyfiletypes: CSPModifyType[];
+  modifyfoldertypes: CSPModifyType[];
   plugins: CSPPlugin[];
   preview?: any;
   priority: number;
-  republishes: any[];
+  republishes: Array<{
+    folder: string;
+    sitemask: string;
+    mask: string;
+    recursive: boolean;
+    indexonly: boolean;
+    onchange: "" | "metadata";
+    scope: "" | "references";
+  }>;
+
   rtddoc: CSPRtddoc | null;
-  schedulemanagedtasks: any[];
-  scheduletasknows: any[];
+  schedulemanagedtasks: Array<{
+    task: string;
+  }>;
+  scheduletasknows: Array<{
+    task: string;
+    delay: number;
+  }>;
   setlibrary: any[];
-  setobjecteditor?: any;
+  setobjecteditor: {
+    name: string;
+    screen: string;
+    separateapp: boolean;
+  } | null;
   setwidget: any[];
-  sitelanguage?: {
+  sitelanguage: {
     has_lang: boolean;
     lang: string;
   } | null;
@@ -277,19 +403,53 @@ export interface CSPApplyRule {
   tagsources: any[];
   typemappings: any[];
   uploadtypemapping: any[];
-  userdata?: Array<{
+  userdata: Array<{
     key: string;
     value: string;
   }>;
-  urlhistory?: any;
-  usepublishtemplate?: any;
-  webdesign?: any;
-  webtoolsformrules: CSPWebtoolsformrule[];
+  urlhistory: {
+    haslist: ["ACCESSCHECK"];
+    accesscheck: string;
+  } | null;
+  usepublishtemplate: {
+    script: string;
+  } | null;
+  webdesign: CSPWebDesign | null;
+  webtoolsformrules: CSPWebtoolsFormRule[];
 }
+
+export interface CSPSiteFilter {
+  sitename?: string;
+  sitemask?: string;
+  siteregex?: string;
+  webrootregex?: string;
+}
+
+export interface CSPAddToCatalog {
+  col: number;
+  catalog: string;
+  module: string;
+  siteprofile: string;
+  line: number;
+  folder: string;
+  siteprofileids: number[];
+  sitefilter: CSPSiteFilter | null;
+}
+
+export type CSPWebRule = Rule & {
+  siteprofileids: number[];
+  sitefilter: CSPSiteFilter | null;
+  module: string;
+  siteprofile: string;
+  line: number;
+  col: number;
+};
 
 export interface CachedSiteProfiles {
   contenttypes: CSPContentType[];
   applies: CSPApplyRule[];
+  webrules: CSPWebRule[];
+  addtocatalogs: CSPAddToCatalog[];
 }
 
 export interface SiteProfileRef {

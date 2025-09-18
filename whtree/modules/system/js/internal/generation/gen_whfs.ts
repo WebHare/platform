@@ -52,7 +52,7 @@ function exportMember(member: CSPMember, indent: number, structure: "getType" | 
 }
 
 function getStructure(ctype: CSPContentType, type: "getType" | "setType" | "exportType"): string {
-  if (!ctype.members.length)//empty
+  if (!ctype.members?.length)//empty
     return 'Record<never,unknown>;';
 
   let members = '';
