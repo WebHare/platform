@@ -58,8 +58,8 @@ type ImportOptions = {
 export interface TypeCodec {
   encoder(value: unknown, member: WHFSTypeMember): EncoderReturnValue;
   decoder(settings: readonly FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): unknown;
-  importValue?(value: unknown, member: WHFSTypeMember, options?: ImportOptions): unknown;
-  exportValue?(value: unknown, member: WHFSTypeMember, options?: ExportOptions): unknown;
+  importValue?(value: unknown, member: WHFSTypeMember, beforeEncode: boolean, options?: ImportOptions): unknown;
+  exportValue?(value: unknown, member: WHFSTypeMember, afterDecode: boolean, options?: ExportOptions): unknown;
   isDefaultValue?(value: unknown): boolean;
   getType: string;
   setType?: string;
@@ -252,7 +252,7 @@ export const codecs = {
     decoder: (settings: FSSettingsRow[]): number | null => {
       return settings[0]?.fs_object || null;
     },
-    exportValue: (value: number | null, member: WHFSTypeMember, options: ExportOptions): MaybePromise<string | null> => {
+    exportValue: (value: number | null, member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions): MaybePromise<string | null> => {
       if (!value)
         return null;
       return mapExternalWHFSRef(value, options);
@@ -294,7 +294,7 @@ export const codecs = {
     isDefaultValue: (value: unknown) => {
       return Array.isArray(value) && value.length === 0;
     },
-    exportValue: (value: number[], member: WHFSTypeMember, options: ExportOptions): MaybePromise<string[]> => {
+    exportValue: (value: number[], member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions): MaybePromise<string[]> => {
       return Promise.all(value.map(v => mapExternalWHFSRef(v, options))).then(mapped => mapped.filter(isTruthy));
     },
     importValue: async (value: Array<string | number>): Promise<number[]> => {
@@ -493,7 +493,7 @@ export const codecs = {
 
       return decodeResourceDescriptor(settings[0], context);
     },
-    exportValue: (value: ResourceDescriptor | null, member: WHFSTypeMember, options: ExportOptions): Promise<ExportedResource> | null => {
+    exportValue: (value: ResourceDescriptor | null, member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions): Promise<ExportedResource> | null => {
       return value?.export(options) ?? null;
     },
     importValue: (value: ResourceDescriptor | ExportedResource | null): MaybePromise<ResourceDescriptor | null> => {
@@ -519,11 +519,13 @@ export const codecs = {
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext) => {
       return settings.length ? getData(member.children || [], settings[0].id, context) : null;
     },
-    exportValue(value: object | null, member, options) {
-      return value ? exportData(member.children || [], value, options) : null;
+    exportValue(value: object | null, member, afterDecode, options) {
+      // If afterDecode is true, the getData call will already have done the export conversion
+      return value && !afterDecode ? exportData(member.children || [], value, options) : value;
     },
-    importValue(value: object | null, member: WHFSTypeMember, options) {
-      return value ? importData(member.children || [], value, options) : null;
+    importValue(value: object | null, member: WHFSTypeMember, beforeEncode, options): MaybePromise<{ [key: string]: unknown } | null> {
+      // encode will call getData which will call importValue on children, so no need to do that here
+      return value && !beforeEncode ? importData(member.children || [], value, options) : value as { [key: string]: unknown } | null;
     }
   },
   "array": {  //NOTE: getType/setType are only queried for records/arrays without children
@@ -541,13 +543,15 @@ export const codecs = {
       })();
     },
     decoder: (settings: FSSettingsRow[], member: WHFSTypeMember, context: DecoderContext): Promise<object[]> => {
-      return Promise.all(settings.map(s => getData(member.children || [], s.id, { ...context, export: false })));
+      return Promise.all(settings.map(s => getData(member.children || [], s.id, context)));
     },
-    exportValue(value: object[], member, options): Promise<object[]> {
-      return Promise.all(value.map(v => exportData(member.children || [], v, options)));
+    exportValue(value: object[], member, afterDecode, options): Promise<object[]> | object[] {
+      // If afterDecode is true, the getData call will already have done the export conversion
+      return !afterDecode ? Promise.all(value.map(v => exportData(member.children || [], v, options))) : value;
     },
-    importValue(value: object[], member, options): Promise<object[]> {
-      return Promise.all(value.map(v => importData(member.children || [], v, options)));
+    importValue(value: object[], member, beforeEncode, options): Promise<object[]> | object[] {
+      // encode will call getData which will call importValue on children, so no need to do that here
+      return !beforeEncode ? Promise.all(value.map(v => importData(member.children || [], v, options))) : value;
     },
     isDefaultValue: (value: unknown) => {
       return Array.isArray(value) && value.length === 0;
@@ -577,13 +581,14 @@ export const codecs = {
       if (!settings.length || !settings[0].blobdata)
         return null;
 
+      // An RTD doesn't have a non-recursive .export(), so don't export recursively here and leave it to .exportValue
       return (async () => {
-        const base = await decodeComposedDocument(settings, "platform:richtextdocument", context);
+        const base = await decodeComposedDocument(settings, "platform:richtextdocument", { ...context, export: false });
         return buildRTDFromComposedDocument(base);
       })();
     },
-    exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, options: ExportOptions) => {
-      return value?.export?.() || null;
+    exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions) => {
+      return value?.export() || null;
     },
     importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
       if (!value || isRichTextDocument(value))
@@ -596,6 +601,7 @@ export const codecs = {
   "instance": {
     getType: "WHFSInstance | null",
     setType: "WHFSInstance | WHFSInstanceData | null",
+    exportType: "WHFSInstanceData | null",
 
     encoder: (value: WHFSInstance | null) => {
       if (!value)
@@ -610,12 +616,13 @@ export const codecs = {
       if (!settings.length)
         return null;
 
-      return decodeWHFSInstance(settings[0], context);
+      // WHFSInstance .export() has no option to skip recursion, so leave export recursion to .exportValue
+      return decodeWHFSInstance(settings[0], { ...context, export: false });
     },
-    exportValue: (value: WHFSInstance | null, member, options): Promise<WHFSInstanceData> | null => {
+    exportValue: (value: WHFSInstance | null, member, afterDecode, options): Promise<WHFSInstanceData> | null => {
       return value?.export(options) || null;
     },
-    importValue(value: WHFSInstance | WHFSInstanceData | null, member, options): MaybePromise<WHFSInstance> | null {
+    importValue(value: WHFSInstance | WHFSInstanceData | null, member, beforeEncode, options): MaybePromise<WHFSInstance> | null {
       if (value && !value.whfsType)
         throw new Error(`Missing whfsType in instance`);
 
@@ -642,7 +649,7 @@ export const codecs = {
         return new IntExtLink(settings[0]?.setting);
       return null;
     },
-    exportValue: (value: IntExtLink | null, member: WHFSTypeMember, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
+    exportValue: (value: IntExtLink | null, member: WHFSTypeMember, afterDecode, options: ExportOptions): MaybePromise<ExportedIntExtLink | null> => {
       return exportIntExtLink(value, options);
     },
     importValue: (value: IntExtLink | null | ExportedIntExtLink, member: WHFSTypeMember): MaybePromise<IntExtLink | null> => {
@@ -683,7 +690,7 @@ type ResultTypes = { [Key in keyof Codecs]: kysely.Simplify<{ base: Awaited<Retu
 type ExpectedCodecSignatures = {
   [Key in keyof ResultTypes]: (ResultTypes[Key] extends { export: unknown } ? {
     encoder: (data: ResultTypes[Key]["base"], member: WHFSTypeMember) => unknown;
-    importValue: (data: ResultTypes[Key]["export"] | ResultTypes[Key]["base"], member: WHFSTypeMember, options?: ImportOptions) => MaybePromise<ResultTypes[Key]["base"]>;
+    importValue: (data: ResultTypes[Key]["export"] | ResultTypes[Key]["base"], member: WHFSTypeMember, recursive: boolean, options?: ImportOptions) => MaybePromise<ResultTypes[Key]["base"]>;
   } : {
     encoder: (data: ResultTypes[Key]["base"], member: WHFSTypeMember) => unknown;
     importValue?: never;
@@ -717,7 +724,7 @@ export async function setData(members: WHFSTypeMember[], data: object): Promise<
       if (!codec)
         throw new Error(`Unsupported type ${matchmember.type}`);
 
-      const setValue = codec.importValue ? codec.importValue(value, matchmember) : value;
+      const setValue = codec.importValue ? codec.importValue(value, matchmember, true) : value;
 
       const encodedsettings: EncoderReturnValue = codec.encoder(isPromise(setValue) ? await setValue : setValue, matchmember);
       const finalsettings: EncoderBaseReturnValue = isPromise(encodedsettings) ? await encodedsettings : encodedsettings;
@@ -754,10 +761,14 @@ export async function getData(members: WHFSTypeMember[], elementSettingId: numbe
       setval = codec.decoder(settings, member, context);
       if (isPromise(setval))
         setval = await setval;
-      if (context?.export && codec.exportValue) {
-        setval = codec.exportValue(setval, member, context);
-        if (isPromise(setval))
-          setval = await setval;
+      if (context?.export) {
+        if (codec.isDefaultValue ? codec.isDefaultValue(setval) : !setval)
+          continue; //don't export default values
+        if (codec.exportValue) {
+          setval = codec.exportValue(setval, member, true, context);
+          if (isPromise(setval))
+            setval = await setval;
+        }
       }
     } catch (e) {
       if (e instanceof Error)
@@ -786,7 +797,7 @@ export async function exportData(members: WHFSTypeMember[], data: object, option
         continue; //don't export default values
 
       if (codec.exportValue) {
-        setval = codec.exportValue(setval, member, options);
+        setval = codec.exportValue(setval, member, false, options);
         if (isPromise(setval))
           setval = await setval;
       }
@@ -818,7 +829,7 @@ export async function importData(members: WHFSTypeMember[], data: object, option
       if (setval === undefined)
         setval = codec.decoder([], member, { allsettings: [], cc: 0 }); //get default value
       else if (codec.importValue)
-        setval = codec.importValue(setval, member);
+        setval = codec.importValue(setval, member, false);
       if (isPromise(setval))
         setval = await setval;
     } catch (e) {
