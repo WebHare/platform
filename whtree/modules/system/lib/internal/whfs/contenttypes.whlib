@@ -1045,10 +1045,7 @@ STATIC OBJECTTYPE WHFSType <
             }
           }
         }
-        CASE 22 {
-          THROW NEW Exception(`WH5.9+ should not be writing formconditions anymore - that membertype should have been replaced with a RECORD`);
-        }
-        CASE 21 {  //21: HS RECORD
+        CASE 21, 22 {  //21: HS RECORD, 22: Form condition (import from WH5.8-)
           IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))
             THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
                 ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'RECORD'");
