@@ -79,11 +79,10 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          ];
 }
 
-PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord()
-{
-  RETURN [ indexfile := ""
-         , protectindexfile := FALSE
-         ];
+PUBLIC RECORD FUNCTION GetBaseFolderTypeRecord() {
+  RETURN CELL[ indexfile := "none"
+             , protectindexfile := FALSE
+             ];
 }
 
 PUBLIC RECORD FUNCTION MakePluginRecord(STRING objectname)
@@ -125,6 +124,8 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , foldertype := DEFAULT RECORD
          , orphan := FALSE
          , cloneoncopy := TRUE
+         , cloneonarchive := TRUE
+         , workflow := FALSE
          , dynamicexecution := DEFAULT RECORD
          ];
 }
@@ -143,7 +144,7 @@ PUBLIC RECORD FUNCTION MakeBaseSiteprofileXMLStructure()
          , ignoresiteprofilewidgets := FALSE
          , applytester := DEFAULT OBJECT
          , linkhandlers := RECORD[]
-         , margins := ""
+         , margins := "none"
          , tag_b := "b"
          , tag_i := "i"
          ]);

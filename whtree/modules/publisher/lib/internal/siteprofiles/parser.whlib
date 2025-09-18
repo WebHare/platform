@@ -66,11 +66,10 @@ STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
   FOREVERY(STRING attr FROM searchfor)
     IF(node->HasAttribute(attr))
       INSERT ToUppercase(attr) INTO haslist AT END;
-  RETURN haslist;
+  RETURN GetSortedSet(haslist);
 }
 
-STATIC OBJECTTYPE SiteprofileCompilationContext
-<
+STATIC OBJECTTYPE SiteprofileCompilationContext <
   RECORD ARRAY errormessages;
   RECORD ARRAY warnings;
   RECORD ARRAY hints;
@@ -389,6 +388,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     }
 
     ctype.filetype.initialpublish := ctype.filetype.ispublishable AND ParseXSBoolean(ftype->GetAttribute("initialpublish") ?? "true");
+    ctype.workflow := ctype.filetype.ispublishable AND NOT ctype.filetype.initialpublish AND ctype.filetype.needstemplate;
     RETURN ctype;
   }
 
@@ -540,6 +540,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.cloneoncopy := set_cloneoncopy;
+    typeinfo.cloneonarchive := set_cloneoncopy;
     INSERT CELL members := newmembers.members INTO typeinfo;
 
     this->AddIcon(ctype, typeinfo.tolliumicon);
@@ -598,7 +599,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       RECORD assetpackinfo := SELECT * FROM this->parameters->assetpacks WHERE ToUppercase(name) = ToUppercase(webdesign.assetpack);
       IF(RecordExists(assetpackinfo))
       {
-        //Cache important settings which would be too slow to look up separately from <webdeisgn>
+        //Cache important settings which would be too slow to look up separately from <webdesign>
         webdesign.supportedlanguages := assetpackinfo.supportedlanguages;
       }
       ELSE
@@ -681,8 +682,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN retval;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode)
-  {
+  PUBLIC RECORD ARRAY FUNCTION ParseApplyTosRecurse(OBJECT basenode) {
     RECORD ARRAY applytos;
 
     //ADDME: Instead of continueing, report the error during compilation
@@ -692,7 +692,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
         RECORD applyto;
         SWITCH(crit->localname)
         {
-          CASE "and", "or", "not", "xor"
+          CASE "and", "or", "not"
           {
             applyto := [ type := crit->localname
                        , criteria := this->ParseApplyTosRecurse(crit)
@@ -914,7 +914,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
             }
             CASE "bodyrenderer"
             {
-              apply.bodyrenderer := [ objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
+              apply.bodyrenderer := [ objectname := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
                                     , renderer := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
                                     ];
               CONTINUE;
@@ -1043,6 +1043,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                 this->AddError(node, "Folder index definition selected newfile, but does not specify a newfiletype");
                 CONTINUE;
               }
+              IF(data.indexfile IN ["","none"])
+                data.protectindexfile := FALSE; // no newly created file to protect so stabilize our outptu
               apply.folderindex := data;
               CONTINUE;
             }
@@ -1497,6 +1499,13 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
   siteprofdata.warnings := warnings;
   siteprofdata.hints := hints;
   siteprofdata.icons := icons;
+
+  // Stabilize per-siteprofile result
+  siteprofdata.contenttypes := SELECT * FROM siteprofdata.contenttypes ORDER BY namespace;
+  siteprofdata.rules := SELECT * FROM siteprofdata.rules
+                             ORDER BY CellExists(rules,'whfstype') AND whfstype != "" DESC,
+                                      CellExists(rules,'whfstype') ? whfstype : "",
+                                      CellExists(rules,'priority') ? priority : 0;
 
   RETURN [ value := siteprofdata
          , ttl := 60*60*1000
