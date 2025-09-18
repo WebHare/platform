@@ -49,13 +49,13 @@ export async function fetchResource(url: string): Promise<ResourceDescriptor> {
   const startDownload = new Date;
   try {
     const metadata = await readCacheMetadata(metaloc);
-
-    //Format date
-    fetched = await fetch(url, { headers: { "If-Modified-Since": metadata.lastDownload.toUTCString() } });
-    if (fetched.status === 304) {
-      //Open and close the stat file so we know it's been downloaded. FIXME this isn't truly race-free (if the cache cleanup has noted the older time before starting to cleanup?) and may still cause the file to be deleted by cache cleanup
-      await (await open(metaloc, 'a')).close();
-      return returnResource(diskloc, metadata);
+    if (metadata.headers["last-modified"]) { //attempt a conditional fetch (TODO also support etag? but currently we mostly use this to fetch from WebHares and they don't etag static resources anyway)
+      fetched = await fetch(url, { headers: { "if-modified-since": metadata.headers["last-modified"] } });
+      if (fetched.status === 304) {
+        //Open and close the stat file so we know it's been downloaded. FIXME this isn't truly race-free (if the cache cleanup has noted the older time before starting to cleanup?) and may still cause the file to be deleted by cache cleanup
+        await (await open(metaloc, 'a')).close();
+        return returnResource(diskloc, metadata);
+      }
     }
   } catch (e) {
     // File does not exist or could not be fetched using If-Modified-Since. ignore, we'll retry
