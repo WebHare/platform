@@ -39,6 +39,7 @@
         <enum tag="language" allowedvalues="en nl" />
         <enum tag="tag"
               allowedvalues="login-intro
+                             login-services-intro
                              totp-intro
                              forgotpassword-intro
                              forgotpassword-done

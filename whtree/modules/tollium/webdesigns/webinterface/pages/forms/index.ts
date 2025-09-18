@@ -16,3 +16,9 @@ dompack.register(".wh-wrdauth-login__forgotpasswordlink", node => {
       (node as HTMLAnchorElement).href = url.toString();
     }, { capture: true });
 });
+
+// Links inside forms (probably other places in tollium?) should open in new windows
+dompack.register<HTMLAnchorElement>(".wh-form a[href]", node => {
+  node.setAttribute("target", "_blank");
+  node.setAttribute("rel", "noopener noreferrer");
+});
