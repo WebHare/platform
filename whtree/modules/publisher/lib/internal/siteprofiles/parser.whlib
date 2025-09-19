@@ -822,8 +822,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 
     STRING ARRAY seenuniques;
 
-    FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())
-    {
+    FOREVERY(OBJECT node FROM applyblock->childnodes->GetCurrentElements())  {
       //Skip non-aplpyitems (<to> rules and filetype/foldertype nodes)
       IF(node->localname IN ["to","not","and","or","xor","testtype","testdata","dynamicexecution","members"])
         CONTINUE;
@@ -841,8 +840,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
         INSERT node->localname INTO seenuniques AT END;
       }
 
-      TRY
-      {
+      TRY {
         IF(node->namespaceuri = whconstant_xmlns_publisher)
         {
           SWITCH(node->localname)
@@ -1234,10 +1232,32 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 
         IF(NOT matched)
           FOREVERY(RECORD siteprofnode FROM this->parameters->customnodes)
-            IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname)
-            {
+            IF(siteprofnode.namespace = node->namespaceuri  AND siteprofnode.name = node->localname) {
               matched := TRUE;
-              INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
+
+              IF(siteprofnode.toyaml = "") { //legacy version, to read using GetCustomSettings / GetCustomSiteProfileSettings
+                INSERT [ namespaceuri := node->namespaceuri, localname := node->localname ] INTO apply.customnodes AT END;
+              } ELSE {
+                //A YAML parser has been supplied, invoke it and pretend it was the snakecased version of YAML data. Read using GetYamlPluginSettings
+                RECORD result := MakeFunctionPtr(siteprofnode.toyaml)(node);
+                STRING storename := "yml_" || ToSnakeCase(siteprofnode.yamlproperty);
+                IF(Length(storename) >= 64)
+                  THROW NEW Exception(`Preoperty name '${siteprofnode.yamlproperty}' returned a cell name which is too long for YAML mapping`);
+
+                //Wrap through typed JSON to get rid of HS types, forcing processors to be more robust
+                RECORD cleared_for_json := DecodeJSON(EncodeJSON(result, [typed := true]), [typed := true]);
+
+                IF(CellExists(apply, storename)) {
+                  IF(NOT siteprofnode.isarray) {
+                    this->AddError(node, `Duplicate declaration of customnode ${node->localname} in same apply block`);
+                    CONTINUE;
+                  }
+
+                  //append to the existing array
+                  apply := CellUpdate(apply, storename, [...GetCell(apply, storename), cleared_for_json]);
+                } ELSE //insert as an array (even if it's not an array property, storing it as one for convenience)
+                  apply := CellInsert(apply, storename, RECORD[cleared_for_json]);
+              }
               BREAK;
             }
 

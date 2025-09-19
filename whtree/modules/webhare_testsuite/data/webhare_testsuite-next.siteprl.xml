@@ -5,6 +5,7 @@
   <apply>
     <to type="folder" sitemask="webhare_testsuite.testsite" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal-next" />
+    <xyz:testyaml data="applytest-throughglobal-next" />
   </apply>
 
   <applysiteprofile path="webhare_testsuite-next2.siteprl.xml" />

@@ -766,15 +766,18 @@
   <apply>
     <to type="folder" pathmask="/tmp/applytest1/" />
     <xyz:test data="pathmask-applytest1" />
+    <xyz:testyaml data="pathmask-applytest1" />
   </apply>
 
   <foldertype namespace="http://www.webhare.net/xmlns/webhare_testsuite/applytestfolder">
     <xyz:test data="folderapplytestertest" />
+    <xyz:testyaml data="folderapplytestertest" />
   </foldertype>
 
   <apply>
     <to type="folder" parentmask="/tmp/" />
     <xyz:test data="parentmask-tmp" />
+    <xyz:testyaml data="parentmask-tmp" />
     <allowfoldertype typemask="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynfolder" />
     <allowfoldertype typemask="http://www.webhare.net/xmlns/webhare_testsuite/webdesign-dynrouter" />
   </apply>
@@ -782,57 +785,68 @@
   <apply>
     <to type="folder" parentregex="^/[T][m][p]/$" />
     <xyz:test data="parentregex-tmp" />
+    <xyz:testyaml data="parentregex-tmp" />
   </apply>
 
   <apply>
     <to type="folder" parentregex="^/tmp/[A][p][p]l?[y]test1?/$" />
     <xyz:test data="parentregex-tmp-applytest1" />
+    <xyz:testyaml data="parentregex-tmp-applytest1" />
   </apply>
 
   <apply>
     <to type="folder" pathregex="/applytest1/$" />
     <xyz:test data="pathregex-applytest1" />
+    <xyz:testyaml data="pathregex-applytest1" />
   </apply>
 
   <apply>
     <to type="folder" pathmask="/tmp/applytest1/sub/" siteregex="^Some other site$" />
     <xyz:test data="siteregex-othersite" />
+    <xyz:testyaml data="siteregex-othersite" />
   </apply>
 
   <apply>
     <to type="folder" pathmask="/tmp/applytest1/sub/" siteregex="^WEBHARE_TESTSUITE\.TESTSITE$" />
     <xyz:test data="siteregex-webharetestsuitesuite" />
+    <xyz:testyaml data="siteregex-webharetestsuitesuite" />
   </apply>
 
   <!-- within type tests -->
   <apply>
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/systemfolder" />
     <xyz:test data="in-system-folder" />
+    <xyz:testyaml data="in-system-folder" />
   </apply>
 
   <apply>
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/systemfolder" />
     <xyz:test data="is-system-folder" />
+    <xyz:testyaml data="is-system-folder" />
   </apply>
 
   <apply>
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
     <xyz:test data="in-slots-folder" />
+    <xyz:testyaml data="in-slots-folder" />
   </apply>
 
   <apply>
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
     <xyz:test data="is-slots-folder" />
+    <xyz:testyaml data="is-slots-folder" />
   </apply>
 
   <apply>
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" />
     <xyz:test data="in-beacons-folder" />
+    <xyz:testyaml data="in-beacons-folder" />
   </apply>
 
   <apply>
     <to type="folder" foldertype="http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" />
     <xyz:test data="is-beacons-folder" />
+    <xyz:testyaml data="is-beacons-folder" />
   </apply>
 
   <!-- forums -->

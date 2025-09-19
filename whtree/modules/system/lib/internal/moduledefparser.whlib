@@ -658,8 +658,7 @@ PUBLIC RECORD ARRAY FUNCTION ParseWebFeatures(STRING moduledefpath, STRING modul
   RETURN designs;
 }
 
-PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
-<
+PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase <
   RECORD moduledef;
 
   MACRO NEW(OBJECT xmldoc, STRING respath) : XMLValidatorBase(xmldoc, respath)
@@ -1175,10 +1174,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
             STRING subchildgid := ParseGid(modulename, childgid, subchild);
             SWITCH(subchild->localname)
             {
-              CASE "internalservice"
-              {
+              CASE "internalservice" {
                 ParseXMLTidPtr(this->respath, subchildgid, subchild, "title");
-//                INSERT MakeTidCaptureRecordForNode(modulename, subchild, "title", subchildgid) INTO this->moduledef.captured_tids AT END;
               }
             }
           }
@@ -1216,7 +1213,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         FOREVERY(STRING err FROM CheckAccessChecks(modulename, app.accesscheck, rightnames, TRUE))
           this->AddErrorForLine(app.line, err);
     }
-//    DELETE FROM this->moduledef.captured_tids WHERE NOT RecordExists(captured_tids);
+
     RETURN this->moduledef;
   }
 
@@ -1289,8 +1286,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                ];
   }
 
-  MACRO ParseBackend(STRING childgid, OBJECT child)
-  {
+  MACRO ParseBackend(STRING childgid, OBJECT child) {
     FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(subchild))
@@ -1315,20 +1311,17 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     }
   }
 
-  MACRO ParsePublisher(STRING childgid, OBJECT child)
-  {
+  MACRO ParsePublisher(STRING childgid, OBJECT child) {
     RECORD designandpacks := this->ParseWebdesigns(child, childgid);
     this->moduledef.webdesigns := designandpacks.webdesigns;
     this->moduledef.addtowebdesigns := this->ParseAddToWebdesigns(child, childgid);
     this->moduledef.webfeatures := ParseWebFeatures(this->respath, this->moduledef.name, child, childgid);
 
-    FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements())
-    {
+    FOREVERY(OBJECT subchild FROM child->childnodes->GetCurrentElements()) {
       IF(NOT IsNodeApplicableToThisWebHare(subchild))
         CONTINUE;
 
-      SWITCH(subchild->localname)
-      {
+      SWITCH(subchild->localname) {
         CASE "virtualfs"
         {
           RECORD virtualfs := [ name := subchild->GetAttribute("name")
@@ -1370,8 +1363,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           IF (RecordExists(searchfilter))
             INSERT searchfilter INTO this->moduledef.searchfilters AT END;
         }
-        CASE "webdesignplugin"
-        {
+        CASE "webdesignplugin" {
           RECORD plugin := MakePluginRecord(MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("objectname")));
           plugin.name := subchild->GetAttribute("name");
           plugin.namespace := subchild->GetAttribute("namespace");
@@ -1385,10 +1377,16 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
 
           INSERT plugin INTO this->moduledef.webdesignplugins AT END;
         }
-        CASE "customnode"
-        {
+        CASE "customnode" {
+          STRING yamlproperty := subchild->GetAttribute("yamlproperty");
+          IF(yamlproperty != "" AND this->moduledef.name NOT IN whconstant_builtinmodules) //we'll need to prefix it
+            yamlproperty := this->moduledef.name || ":" || yamlproperty;
+
           RECORD plugin := [ name := subchild->GetAttribute("name")
                            , namespace := subchild->GetAttribute("namespace")
+                           , toyaml := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("toyaml"))
+                           , isarray := ParseXSBoolean(subchild->GetAttribute("isarray"))
+                           , yamlproperty := yamlproperty
                            ];
           INSERT plugin INTO this->moduledef.customnodes AT END;
         }

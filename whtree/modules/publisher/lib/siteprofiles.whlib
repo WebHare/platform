@@ -118,12 +118,19 @@ PUBLIC STRING FUNCTION GetSiteLanguage(INTEGER objectid)
 }
 
 /** @short Gather custom siteprofile settings for an object */
-PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileSettings(STRING ns, STRING localname, INTEGER fsobjectid)
-{
+PUBLIC RECORD ARRAY FUNCTION GetCustomSiteProfileSettings(STRING ns, STRING localname, INTEGER fsobjectid) {
   OBJECT applytester := GetApplyTesterForObject(fsobjectid);
   IF(NOT ObjectExists(applytester))
     RETURN DEFAULT RECORD ARRAY;
   RETURN applytester->GetCustomSettings(ns,localname);
+}
+
+/** @short Gather custom YAML siteprofile settings for an object */
+PUBLIC RECORD ARRAY FUNCTION GetYamlPluginSettings(INTEGER fsobjectid, STRING name) {
+  OBJECT applytester := GetApplyTesterForObject(fsobjectid);
+  IF(NOT ObjectExists(applytester))
+    RETURN DEFAULT RECORD ARRAY;
+  RETURN applytester->GetYamlPluginSettings(name);
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetAvailableWebDesigns(BOOLEAN gettemplates)

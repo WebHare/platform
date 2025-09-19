@@ -1697,7 +1697,6 @@
           <xs:simpleType>
             <xs:restriction base="xs:string">
               <xs:enumeration value="objectprops"/>
-              <xs:enumeration value="debugsettings"/>
               <xs:enumeration value="preparemail"/>
             </xs:restriction>
           </xs:simpleType>
@@ -1711,6 +1710,21 @@
   <xs:complexType name="CustomNode">
     <xs:attribute name="name" type="xs:string" use="required" />
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
+    <xs:attribute name="isarray" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Whether this node can occur multiple timesin a rule</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="toyaml" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Function to generate a snakecased JSON representation of this node which can then be written out as YAML</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="yamlproperty" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Property name to use in YAML (automatically module prefixed)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
 

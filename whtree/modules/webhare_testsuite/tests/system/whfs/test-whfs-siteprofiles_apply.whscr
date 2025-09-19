@@ -14,11 +14,18 @@ STRING FUNCTION GetMyIntercepts(INTEGER obj)
   RETURN Detokenize(data.result, ',');
 }
 
-STRING FUNCTION GetMyCustomNodes(INTEGER obj)
-{
+STRING FUNCTION GetMyCustomNodes(INTEGER obj) {
   STRING ARRAY result;
   FOREVERY(RECORD node FROM GetCustomSiteProfileSettings("urn:xyz", "test", obj))
     INSERT node.node->getattribute("data") INTO result AT END;
+  RETURN Detokenize(result,',');
+}
+
+STRING FUNCTION GetMyCustomNodesThroughYaml(INTEGER obj) {
+  STRING ARRAY result;
+  FOREVERY(RECORD node FROM GetYamlPluginSettings(obj, "webhareTestsuite:testYaml"))
+    INSERT node.data_attribute INTO result AT END;
+
   RETURN Detokenize(result,',');
 }
 
@@ -35,16 +42,26 @@ MACRO TestBeforeSite()
   OBJECT subfile := abeaconfolder->CreateFile([name:="subfile"]);
 
   testfw->CommitWork();
+  TestEq(RECORD[], GetCustomSiteProfileSettings("urn:xyz", "testyaml", siteroot2->id), "The xml nodes should not be visible to us as a toyam= is set up");
+  TestEq([[ data_attribute := "applytest-megaglobal", source := [ applyindex := 0, siteprofile := "mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml"] ]
+         ,[ data_attribute := "applytest-whfspath", source := [ applyindex := 2, siteprofile := "mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml"] ]
+         ], GetYamlPluginSettings(siteroot2->id, "webhareTestsuite:testYaml"));
 
   TestEq(0, siteroot2->parentsite);
   TestEq('/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2->whfspath);
   TestEq("applytest-megaglobal,applytest-whfspath", GetMyCustomNodes(siteroot2->id));
+  TestEq("applytest-megaglobal,applytest-whfspath", GetMyCustomNodesThroughYaml(siteroot2->id));
   TestEq("intercept-whfspath,intercept-megaglobal", GetMyIntercepts(siteroot2->id));
 
   TestEq("applytest-megaglobal,parentmask-tmp,parentregex-tmp,is-system-folder", GetMyCustomNodes(asystemfolder->id));
   TestEq("applytest-megaglobal,in-system-folder,is-slots-folder", GetMyCustomNodes(aslotsfolder->id));
   TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", GetMyCustomNodes(abeaconfolder->id));
   TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", GetMyCustomNodes(subfile->id));
+
+  TestEq("applytest-megaglobal,parentmask-tmp,parentregex-tmp,is-system-folder", GetMyCustomNodesThroughYaml(asystemfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,is-slots-folder", GetMyCustomNodesThroughYaml(aslotsfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", GetMyCustomNodesThroughYaml(abeaconfolder->id));
+  TestEq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", GetMyCustomNodesThroughYaml(subfile->id));
 }
 
 MACRO TestRules()
