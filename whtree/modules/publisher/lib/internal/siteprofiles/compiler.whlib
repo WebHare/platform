@@ -72,7 +72,7 @@ PUBLIC RECORD FUNCTION GatherSiteProfiles() {
 
 PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
   RECORD result;
-  RECORD ARRAY siteprofiles;
+  PUBLIC RECORD ARRAY siteprofiles;
   RECORD ARRAY contenttypes;
 
   PUBLIC BOOLEAN debug;
@@ -165,7 +165,6 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
 
   PUBLIC RECORD FUNCTION CompileSiteprofiles(RECORD gathersp) {
     DATETIME now := GetCurrentDateTime();
-    RECORD ARRAY compiledsiteprofiles;
 
     // First load all base profiles (these always apply)
     FOREVERY(INTEGER baseprofile FROM gathersp.baseprofiles)
@@ -204,7 +203,6 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
     this->result.applies := SELECT * FROM this->result.applies ORDER BY whfstype != "" DESC, priority;
 
     RETURN [ result := this->result  //FIXME state leak
-           , compiledsiteprofiles := compiledsiteprofiles
            , allcontenttypes := this->contenttypes
            ];
   }

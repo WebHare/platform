@@ -47,7 +47,7 @@ function determineLayout(matchtype: CSPContentType, layout: CustomFieldsLayout):
     return [
       {
         title: "",
-        members: matchtype.members
+        members: matchtype.members || []
       }
     ];
 
@@ -62,7 +62,7 @@ function determineLayout(matchtype: CSPContentType, layout: CustomFieldsLayout):
         continue; //eliminate duplicates
 
       seen.add(field);
-      const member = matchtype.members.find(_ => _.jsname === field);
+      const member = matchtype.members?.find(_ => _.jsname === field);
       if (!member)
         continue; //skip if not found
 

@@ -1426,7 +1426,7 @@ STATIC OBJECTTYPE ApplyRuleTester <
           CONTINUE;
 
         INSERT CELL[ ...extendprops
-                   , tabsextension := extendprops.extension ?? (extendprops.name != "" ? apply.siteprofile || "#" || extendprops.name : "")
+                   , tabsextension := extendprops.extension
                    ] INTO retval.propertyeditors AT END;
       }
 

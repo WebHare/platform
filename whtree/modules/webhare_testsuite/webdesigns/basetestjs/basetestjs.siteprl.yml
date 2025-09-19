@@ -108,7 +108,7 @@ apply:
                 value: true
 
   - to:
-      pathMatch: metaoverride1
+      whfsPath: "*metaoverride1*"
     baseProps: [seotitle]
     editProps:
       - type: base_test_props
@@ -122,13 +122,13 @@ apply:
               textarea:
 
   - to:
-      pathMatch: allprops
+      whfsPath: "*allprops*"
     editProps:
       - type: global.generic_test_type
         layout: all
 
   - to:
-      pathMatch: manualtabs
+      whfsPath: "*manualtabs*"
     editProps:
       - type: base_test_props
         layout:

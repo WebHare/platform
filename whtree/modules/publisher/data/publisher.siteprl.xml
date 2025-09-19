@@ -155,7 +155,6 @@
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/tagfolder"
               icon="tollium:folders/tag"
               indexfile="none"
-              protectindexfile="true"
               tid="publisher:foldertypes.tagfolder" />
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/previewinfo" cloneoncopy="false">
@@ -569,7 +568,7 @@
   </apply>
 
   <apply>
-    <to type="folder" sitemask="Repository" />
+    <to type="folder" sitename="Repository" />
 
     <!-- Don't add an index file to new folders in the Repository -->
     <folderindex indexfile="none" />
