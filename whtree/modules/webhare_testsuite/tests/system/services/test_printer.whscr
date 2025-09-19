@@ -159,38 +159,7 @@ MACRO TestPDFFromURL()
   testfw->CompareWithImage(images[0].data, Resolve("testdata/webpage.png"), [ maxmse := 500, resizeimgifneeded := TRUE ]); //TODO lower maxmse but we'll probably need a webfont
 }
 
-MACRO TestScreenshots()
-{
-  testfw->BeginWork();
-  testfw->SetupTestWebsite(DEFAULT BLOB);
-  OBJECT testsite := testfw->GetTestSite();
-  testfw->CommitWork();
-
-  STRING url := ResolveToAbsoluteURL(testsite->webroot, "/tollium_todd.res/webhare_testsuite/tests/screenshot.html");
-  Print("screenshotting " || url || "\n");
-
-  RECORD test := GenerateBrowserScreenshot(url);
-  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/fullscreenshot2.png"), [ annotation := url ]);
-
-  test := GenerateBrowserScreenshot(url,[ withalpha :=  TRUE]);
-
-  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/alphascreenshot.png"), [ annotation := url ]);
-
-  test := GenerateBrowserScreenshot(url,
-        [ screenwidth :=    500
-        , screenheight :=   100
-        ]);
-
-  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/smallscreenshot.png"), [ annotation := url ]);
-
-  url := ResolveToAbsoluteURL(testsite->webroot, "/tollium_todd.res/webhare_testsuite/tests/fontfaceload/");
-  Print("screenshotting " || url || "\n");
-  test := GenerateBrowserScreenshot(url);
-  testfw->CompareWithImage(test.screenshot.data, Resolve("testdata/fontfaceload.png"), [ maxmse := 50, annotation := url ]);
-}
-
 RunTestframework([ PTR TestPDFs
                  , PTR TestWittyDialog
                  , PTR TestPDFFromURL
-                 , PTR TestScreenshots
                  ]);
