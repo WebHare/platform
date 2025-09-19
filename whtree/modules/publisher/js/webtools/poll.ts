@@ -1,8 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
+//@ts-ignore -- still need to port to proper JSON/RPC or just straight to a whrpc
 import pollrpc from "@mod-publisher/js/webtools/internal/poll.rpc.json?proxy";
+import { throwError } from "@webhare/std";
 
 /*
 
@@ -14,20 +13,47 @@ FIXME: send allowvotingagainafter value back together with the results so the va
 
 */
 
-let pollstofetch = [];
+let pollstofetch = new Array<PollWebtool>;
+
+type PollData = {
+  toolid: string;
+  ismultiplechoice: boolean;
+  allowvotingagainafter: number;
+};
+
+type PollResults = {
+  amountofvoters: number;
+  options: Array<{
+    guid: string;
+    title: string;
+    votepercentage: number;
+    votes: number;
+  }>;
+};
+
+//parse JSON data, throw with more info on parse failure
+function getJSONAttribute<T>(node: Element, attributename: string): T | null {
+  try {
+    if (node.hasAttribute(attributename))
+      return JSON.parse(node.getAttribute(attributename) as string);
+  } catch (e) {
+    console.error("JSON parse failure on attribute '" + attributename + "' of node", node);
+    throw e;
+  }
+  return null;
+}
 
 export default class PollWebtool {
-  constructor(node) {
-    this.node = node;
+  constructor(public node: HTMLElement) {
     scheduleFetchResults(this);
 
     node.addEventListener("submit", e => this.doCheckForPollSubmit(e));
 
-    Array.from(node.querySelectorAll('.wh-poll__showresultsbutton')).forEach(
-      node => node.addEventListener("click", e => this.doCheckForShowResultsClick(e)));
+    for (const button of dompack.qSA(node, '.wh-poll__showresultsbutton'))
+      button.addEventListener("click", e => this.doCheckForShowResultsClick(e));
 
-    Array.from(node.querySelectorAll('.wh-poll__hideresultsbutton')).forEach(
-      node => node.addEventListener("click", e => this.doCheckForHideResultsClick(e)));
+    for (const button of dompack.qSA(node, '.wh-poll__hideresultsbutton'))
+      button.addEventListener("click", e => this.doCheckForHideResultsClick(e));
 
     this._disableInteraction(); //make sure the poll is blocked until we've retrieved the current results
 
@@ -39,7 +65,7 @@ export default class PollWebtool {
 
   // make poll input's and submit button inactive
   _disableInteraction() {
-    const inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
+    const inputnodes = this.node.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input,.wh-poll__votebutton");
     //let submitnodes = toolnode.querySelectorAll("form button,form input");
     for (const node of inputnodes)
       node.disabled = true;
@@ -47,23 +73,23 @@ export default class PollWebtool {
 
   // make poll input's and submit button active again
   _enableInteraction() {
-    const inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
+    const inputnodes = this.node.querySelectorAll<HTMLInputElement | HTMLButtonElement>("input,.wh-poll__votebutton");
     //let submitnodes = toolnode.querySelectorAll("form button,form input");
     for (const node of inputnodes)
       node.disabled = false;
   }
 
-  doCheckForShowResultsClick(evt) {
+  doCheckForShowResultsClick(evt: MouseEvent) {
     evt.preventDefault();
     this.node.classList.add("wh-poll--showresults");
   }
 
-  doCheckForHideResultsClick(evt) {
+  doCheckForHideResultsClick(evt: MouseEvent) {
     evt.preventDefault();
     this.node.classList.remove("wh-poll--showresults");
   }
 
-  doCheckForPollSubmit(evt) {
+  doCheckForPollSubmit(evt: Event) {
     evt.preventDefault();
 
     /*
@@ -74,7 +100,7 @@ export default class PollWebtool {
       return;
     }
     */
-    const polldata = dompack.getJSONAttribute(this.node, "data-poll");
+    const polldata = getJSONAttribute<PollData>(this.node, "data-poll");
     if (!polldata) {
       console.error("Missing the data-poll attribute on the .wh-poll element");
       return;
@@ -91,34 +117,29 @@ export default class PollWebtool {
     //        (or don't we need that for a checkbox/radiobutton?)
     //        Should we check if the focus is within our poll element before blurring?
     if (document.activeElement)
-      document.activeElement.blur();
+      (document.activeElement as HTMLElement).blur();
 
-    const pollvalue = [];
-    const options = this.node.querySelector("form").vote;
-    for (const optionnode of Array.from(options)) // We need to cast to an Array because in IE a NodeList doesn't support iteration this way
-    {
+    const pollvalue: string[] = [];
+    for (const optionnode of dompack.qSA<HTMLInputElement>(this.node, "form input[name=vote]")) {
       if (optionnode.checked)
         pollvalue.push(optionnode.value);
     }
 
     console.log("casting vote for", polldata.toolid, pollvalue);
 
-    this.castVote(polldata.toolid, pollvalue);
+    void this.castVote(polldata.toolid, pollvalue);
   }
 
-  async castVote(toolid, optionguids) {
-    const query = `[data-toolid="${CSS.escape(toolid)}"]`;
-    const toolnode = document.querySelector(query);
+  async castVote(toolid: string, optionguids: string[]) {
+    const toolnode = dompack.qR(`[data-toolid="${CSS.escape(toolid)}"]`);
 
     this._disableInteraction();
-
-    //console.info(query, "results in", toolnode);;
 
     toolnode.classList.add("wh-poll--submitting");
     const lock = dompack.flagUIBusy();
 
     try {
-      const result = await pollrpc.castVote(toolid, optionguids);
+      const result = await pollrpc.castVote(toolid, optionguids) as { success: boolean; pollresults: PollResults };
       toolnode.classList.remove("wh-poll--submitting");
 
       if (result.success) {
@@ -144,7 +165,7 @@ export default class PollWebtool {
   }
 
   // if unixtimestamps is set, this is the initial poll load getting results
-  _applyPollResults(toolid, poll, unixtimestampnow) {
+  _applyPollResults(toolid: string, poll: PollResults, unixtimestampnow: number | null) {
     const pollnode = document.querySelector(`[data-toolid="${CSS.escape(toolid)}"]`);
     if (!pollnode)
       return;
@@ -158,8 +179,8 @@ export default class PollWebtool {
 
         if (isNaN(votedtimestamp)) {
           localStorage.removeItem("wh-webtools-votetime:" + this._getToolId());
-        } else if (votedtimestamp !== "") {
-          const polldata = dompack.getJSONAttribute(this.node, "data-poll");
+        } else { // after parseInt voted
+          const polldata = getJSONAttribute<PollData>(this.node, "data-poll") ?? throwError("Missing the data-poll attribute on the .wh-poll element");
 
           console.log("Poll was voted on " + ((unixtimestampnow - votedtimestamp) / 1000).toFixed(0) + " seconds ago. Polls allows voting again after " + polldata.allowvotingagainafter + " seconds.");
 
@@ -183,32 +204,32 @@ export default class PollWebtool {
         return;
       }
 
-      const votecountnode = polloptionnode.querySelector(".wh-poll__option__votes");
-      votecountnode.setAttribute("data-votes", polloption.votes);
-      votecountnode.setAttribute("data-percentage", polloption.votepercentage);
+      const votecountnode = dompack.qR(polloptionnode, ".wh-poll__option__votes");
+      votecountnode.setAttribute("data-votes", String(polloption.votes));
+      votecountnode.setAttribute("data-percentage", String(polloption.votepercentage));
       //console.info("option now", votecountnode.getAttribute("votes"), votecountnode.getAttribute("percentage"));
     }
 
     const totalvotesnode = pollnode.querySelector(".wh-poll__votecount__amount");
     if (totalvotesnode)
-      totalvotesnode.innerText = poll.amountofvoters;
+      totalvotesnode.textContent = String(poll.amountofvoters);
   }
 
-  _getToolId() {
-    return this.node.dataset.toolid;
+  _getToolId(): string {
+    return this.node.dataset.toolid ?? throwError("PollWebtool: missing data-toolid attribute");
   }
 }
 
-function scheduleFetchResults(poll) {
+function scheduleFetchResults(poll: PollWebtool) {
   if (!pollstofetch.length) {
     const lock = dompack.flagUIBusy();
-    setTimeout(() => fetchResults(lock), 0);
+    setTimeout(() => void fetchResults(lock), 0);
   }
 
   pollstofetch.push(poll);
 }
 
-async function fetchResults(lock) {
+async function fetchResults(lock: dompack.UIBusyLock) {
   //clear the list
   try {
     const tofetch = pollstofetch;
