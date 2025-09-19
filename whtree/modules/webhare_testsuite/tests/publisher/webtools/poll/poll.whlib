@@ -1,6 +1,5 @@
 <?wh
-LOADLIB "wh::datetime.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
@@ -19,7 +18,7 @@ PUBLIC RECORD FUNCTION TESTINVOKE_RESETTESTPOLL()
 
   trans->CommitWork();
 
-  RETURN [ pollurl := CreateWidgetPreviewLink(AddDaysToDate(1, GetCurrentDatetime()), "", pollfile->id, pollfile->id)
+  RETURN [ pollurl := GetPreviewLink(pollfile->id)
          , pollholder := pollholder->link
          ];
 

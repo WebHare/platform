@@ -191,17 +191,6 @@ PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, I
   RETURN GetPreviewLink(baseobj, CELL[ validuntil, password, version := toview ]);
 }
 
-PUBLIC STRING FUNCTION CreateWidgetPreviewLink(DATETIME validuntil, STRING password, INTEGER baseobj, INTEGER toview)
-{
-  STRING baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = baseobj;
-  IF(baseurl="")
-    RETURN "";
-
-  RECORD viewdata := [ id := toview, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = toview), v := validuntil, p := password, t := "w" ];
-  STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
-  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
-}
-
 PUBLIC RECORD FUNCTION DoEditWidget(OBJECT parent, OBJECT rte, STRING whfstype, RECORD value, OBJECT fsbaseobject, OBJECT applytester, BOOLEAN isedit, BOOLEAN isfilewidget, STRING currenttitle, RECORD widgetsettings)
 {
   // Lookup embeddedobjecttype directly
