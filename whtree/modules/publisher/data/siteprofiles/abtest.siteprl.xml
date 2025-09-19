@@ -15,6 +15,9 @@
 
     <!-- only the real test should show the tab -->
     <extendproperties extension="#abtest" />
+
+    <!-- we need to control both contentlinks and normal publication -->
+    <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
   </filetype>
 
   <tabsextension xmlns="http://www.webhare.net/xmlns/tollium/screens" name="abtest">
@@ -58,12 +61,6 @@
       <p:browseforobject composition="row" cellname="target" acceptfiles="true" acceptfolders="false" required="true" />
     </body>
   </screen>
-
-  <apply>
-    <!-- we need to control both contentlinks and normal publication -->
-    <to type="file" filetype="http://www.webhare.net/xmlns/publisher/abtest/abtestfile" />
-    <usepublishtemplate script="mod::publisher/lib/internal/webdesign/abtest-publish.whscr" />
-  </apply>
 
   <apply>
     <to type="all" />
