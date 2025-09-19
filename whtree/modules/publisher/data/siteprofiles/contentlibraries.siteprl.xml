@@ -1,7 +1,7 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="siteprofile.contentlibraries">
 
-  <!-- adaptive content slots (folder of slots) -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/slots"
+              comment="adaptive content slots (folder of slots)"
               icon="tollium:objects/slots"
               tid=".slots">
     <foldersettings>
@@ -9,22 +9,20 @@
     </foldersettings>
   </foldertype>
 
-  <!-- add condition columns to slot widgets -->
-  <apply>
+  <apply comment="add condition columns to slot widgets">
     <to type="folder" parenttype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
     <foldersettings>
       <contentslisthandler objectname="/tolliumapps/filemanager/adaptivecontent.whlib#SlotFolderContents" />
     </foldersettings>
   </apply>
 
-  <!-- check for slot republishing if a slot or widget changes -->
-  <apply>
+  <apply comment="check for slot republishing if a slot or widget changes">
     <to type="all" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
     <scheduletimedtask task="publisher:updateslots" />
   </apply>
 
-  <!-- slottedwidget properties -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget"
+               comment="slottedwidget properties">
     <record name="condition" />
   </contenttype>
 
@@ -43,8 +41,7 @@
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/contentlibraries/beacon" />
   </apply>
 
-  <!-- Apply references to slots -->
-  <apply>
+  <apply comment="Apply references to slots">
     <to type="folder" withintype="http://www.webhare.net/xmlns/publisher/contentlibraries/slots" />
 
     <!-- set a contenttype because it's required, but we don't really care about it -->
@@ -52,9 +49,9 @@
                       contenttype="http://www.webhare.net/xmlns/publisher/contentlibraries/slottedwidget" />
   </apply>
 
-  <!-- beacon file type -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/beacon"
             kind="datafile"
+            comment="beacon file type"
             icon="tollium:objects/beacon"
             tid=".beacon">
     <members>
@@ -64,8 +61,8 @@
     <extendproperties extension="/tolliumapps/objectprops/references.xml#referencestab" />
   </filetype>
 
-  <!-- content snippets -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/contentlibraries/contentsnippets"
+              comment="content snippets"
               icon="tollium:folders/snippetfolder"
               tid=".contentsnippets">
     <foldersettings>

@@ -40,8 +40,8 @@
     </members>
   </widgettype>
 
-  <!-- RTD Video component -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/embedvideo"
+              comment="RTD Video component"
               editfunctionname="mod::publisher/widgets/video/video.whlib#EditEmbeddedVideoInstance"
               renderobjectname="mod::publisher/lib/widgets/videowidget.whlib#VideoWidgetBase"
               tid="siteprofile.widgets.embedvideo">

@@ -12,42 +12,36 @@
     - RPC
     - JS API (promise based)
    -->
-  <!--
-    Poll file
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/pollwebtool"
+              comment='Poll file
 
     These shared the same rendercode:
     - "http://www.webhare.net/xmlns/publisher/pollwebtool"
-    - "http://www.webhare.net/xmlns/publisher/pollwidget"
-  -->
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/pollwebtool"
+    - "http://www.webhare.net/xmlns/publisher/pollwidget"'
               icon="tollium:messageboxes/question"
               renderobjectname="mod::publisher/lib/webtools/internal/renderpoll.whlib#PollWidget"
               searchcontentprovider="publisher:webtoolform"
               tid="filetypes.webtool-poll"
               wittycomponent="mod::publisher/lib/webtools/internal/renderpoll.witty:renderpoll">
     <members>
-      <datetime name="allowvotestill" />  <!-- ADDME: implement this option -->
-
-      <!--
-           ADDME: (when a customer pays for this) option to specify when results become available
+      <datetime name="allowvotestill" comment="ADDME: implement this option" />
+      <boolean name="ismultiplechoice"
+               comment='ADDME: (when a customer pays for this) option to specify when results become available
 
            DEFAULT DATETIME - always
            ...              - from the specified date
                             - after the poll closes
            MAX DATETIME     - never
 
-      <member name="shoresults"     type="datetime" />
-      -->
-      <boolean name="ismultiplechoice" />
+      &lt;member name="shoresults"     type="datetime" />' />
       <richdocument name="question" />
       <richdocument name="messageaftervoting" />
       <string name="title" />
       <array name="options">
-        <string name="guid" />  <!-- GUID used for referencing the option -->
+        <string name="guid" comment="GUID used for referencing the option" />
         <string name="title" />
-
-        <!-- to make options (for which there already are votes) or to prepare an option to become available later) -->
-        <boolean name="hide" />
+        <boolean name="hide"
+                 comment="to make options (for which there already are votes) or to prepare an option to become available later)" />
 
         <!-- member name="intlink" type="whfsref" -->
 
@@ -166,9 +160,9 @@
     </newtab>
   </tabsextension>
 
-  <!-- This embedded object embeds the form results within the mail. We're not exposing it to all users for now, so the
-       form's mailrtdtype should explicity allow this widgettype to use it. -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/formresultsfield"
+              comment="This embedded object embeds the form results within the mail. We're not exposing it to all users for now, so the
+       form's mailrtdtype should explicity allow this widgettype to use it."
               ingroup="http://www.webhare.net/xmlns/publisher/mailwidgets"
               renderobjectname="mod::publisher/lib/internal/forms/resultsfield.whlib#ResultsFieldWidget"
               requiremergefieldscontext="true"
@@ -202,15 +196,14 @@
             tid="filetypes.webtool-form">
     <members>
       <boolean name="disablecaptcha" />
-
-      <!-- Because the default value is 0 and the default should be "use the server default retention period", the value -1 (or
-         any value < 0) is used to signify 0 days (don't store at all) -->
-      <integer name="storeresults" />
+      <integer name="storeresults"
+               comment="Because the default value is 0 and the default should be &quot;use the server default retention period&quot;, the value -1 (or          any value &lt; 0) is used to signify 0 days (don't store at all)" />
       <integer name="maxsignups" />
       <composeddocument name="data" />
       <boolean name="unavailable" />
       <richdocument name="unavailabletext" />
-      <record name="fixformoptions" />  <!-- archived original remapping in case we ever need it. at some point we can drop this member -->
+      <record name="fixformoptions"
+              comment="archived original remapping in case we ever need it. at some point we can drop this member" />
     </members>
     <dynamicexecution webpageobjectname="mod::publisher/lib/forms/base.whlib#WebtoolFormPage" />
     <setobjecteditor name="publisher:webtoolform" separateapp="true" />
@@ -223,22 +216,22 @@
 
   <contenttype namespace="http://www.webhare.net/xmlns/publisher/formcondition">
     <record name="data" />
-    <record name="fixformoptions" />  <!-- archived original condition in case we ever need it. at some point we can drop this member -->
+    <record name="fixformoptions"
+            comment="archived original condition in case we ever need it. at some point we can drop this member" />
   </contenttype>
 
-  <!-- The contenttype used to store mail handler attachments in an instance -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mailhandlerattachments">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/mailhandlerattachments"
+               comment="The contenttype used to store mail handler attachments in an instance">
     <array name="attachments">
       <file name="file" />
     </array>
   </contenttype>
 
-  <!-- form as widget
+  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formwidget"
+              comment="form as widget
 
        we can't set the standard form as a widget, because we can't control
-       the widget preview then
-   -->
-  <widgettype namespace="http://www.webhare.net/xmlns/publisher/formwidget"
+       the widget preview then"
               renderobjectname="mod::publisher/lib/widgets/formwidget.whlib#FormWidgetBase"
               tid="siteprofile.widgets.formwidget" />
 
@@ -254,8 +247,7 @@
     </blockstyles>
   </rtdtype>
 
-  <!-- Test form definition. we need this available everywhere so the publisher's form test works -->
-  <apply>
+  <apply comment="Test form definition. we need this available everywhere so the publisher's form test works">
     <to type="all" />
     <formdefinitions name="publisher:testpages" path="mod::publisher/lib/internal/forms/testpage.formdef.xml" />
   </apply>
