@@ -937,8 +937,6 @@ $defs:
               containerTag:
                 type: string
                 enum:
-                  # The subset of the flow elements in http://www.w3.org/TR/html-markup/common-models.html#common.elem.phrasing
-                  # <code> is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
                   [
                     p,
                     div,

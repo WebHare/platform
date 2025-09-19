@@ -172,8 +172,6 @@
 
   <xs:simpleType name="BlockstyleContainerTag">
     <xs:restriction base="xs:string">
-      <!-- The subset of the flow elements in http://www.w3.org/TR/html-markup/common-models.html#common.elem.phrasing
-           that may hold phrasing elements -->
       <xs:enumeration value="p" />
       <xs:enumeration value="div" />
       <xs:enumeration value="h1" />
@@ -193,9 +191,7 @@
       <xs:enumeration value="footer" />
       <xs:enumeration value="ol" />
       <xs:enumeration value="ul" />
-      <xs:enumeration value="code" />  <!-- code is multiuse and should be allowed too... TODO figure out if this needs we need to d more than phrasing explained above -->
-
-      <!-- ADDME: dl? it's like ol/ul, has a specific form -->
+      <xs:enumeration value="code" />
     </xs:restriction>
   </xs:simpleType>
 
