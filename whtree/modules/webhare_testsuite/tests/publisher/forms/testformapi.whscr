@@ -196,8 +196,7 @@ MACRO FormApitest()
   VerifyNot18Conditions(formdefs, formdef->GetPage(2), Get2ndGroup1stNot18(page2), cloned_toggleselectoptions);
 
   RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
-  TestEq(RECORD[], validation.errors);
-  TestEq(RECORD[], validation.warnings);
+  TestEq(RECORD[], validation.messages);
 
   // Save what we have we can inspect it in the formedit app
   testfw->BeginWork();

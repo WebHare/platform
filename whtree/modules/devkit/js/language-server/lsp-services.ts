@@ -14,6 +14,8 @@ import { URI } from "vscode-uri";
 import type { DocumentsLike, TextDocumentLike } from "./types";
 import type { StackTraceResponse } from "@webhare/lsp-types";
 
+export const hs_warningcode_unusedloadlib = 29;
+
 export const missingSymbolErrorCodes: number[] = [
   9, // UnknownVariable
   76, // UnknownObjectType
@@ -120,7 +122,7 @@ export async function getCodeActions(params: CodeActionParams): Promise<CodeActi
       }
     });
   }
-  const unusedLoadlibHint = params.context.diagnostics.find(_ => _.severity === DiagnosticSeverity.Information && _.data?.code === 29);
+  const unusedLoadlibHint = params.context.diagnostics.find(_ => _.severity === DiagnosticSeverity.Information && _.data?.code === hs_warningcode_unusedloadlib);
   if (unusedLoadlibHint) {
     codeactions.push({
       kind: CodeActionKind.QuickFix,

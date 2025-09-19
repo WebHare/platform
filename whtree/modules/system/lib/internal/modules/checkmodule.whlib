@@ -17,12 +17,25 @@ LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
 LOADLIB "mod::system/lib/internal/validation/scan.whlib";
 
 
-OBJECTTYPE CheckerObject
-<
+OBJECTTYPE CheckerObject <
   RECORD options;
   RECORD ARRAY seenissues;
   STRING module;
   RECORD validateconfig;
+
+  MACRO AddTypedIssues(RECORD ARRAY issues) {
+    FOREVERY(RECORD issue FROM issues)
+      this->AddTypedIssue(issue);
+  }
+
+  MACRO AddTypedIssue(RECORD issue) {
+    IF(NOT CellExists(issue,"type")) {
+      dumpvalue(issue);
+      THROW NEW Exception(`Issue is missing a type`);
+    }
+
+    this->AddIssue(issue, issue.type);
+  }
 
   MACRO AddIssue(RECORD issue, STRING category)
   {
@@ -92,8 +105,7 @@ OBJECTTYPE CheckerObject
     }
   }
 
-  PUBLIC MACRO Check(STRING modname, RECORD options)
-  {
+  PUBLIC MACRO Check(STRING modname, RECORD options) {
     this->module := modname;
     this->options := ValidateOptions([ printissues := FALSE
                                      , debug := FALSE
@@ -143,39 +155,74 @@ OBJECTTYPE CheckerObject
     IF (modname != "jssdk")
       this->VerifyModuleDefinition(modname);
 
+    RECORD validationoptions := CELL[ onlytids := this->options.onlytids
+                                     , ...GetValidationOptionsFromConfig(this->validateconfig)
+                                     ];
+
     //verify code
+    IF(this->options.debug)
+      Print(`Checking files matching '${this->options.filemask}' in module '${modname}'\n`);
     STRING ARRAY scanlist := GetValidatableFiles(this->validateconfig, modname
                                                  , [ onskippedfile := PTR this->OnSkippedFile
                                                    , filemask := this->options.filemask
                                                    ]);
+    IF (IsValueSet(this->options.onlypaths))
+      scanlist := SELECT AS STRING ARRAY name FROM ToRecordArray(scanlist,'name') WHERE GetWebHareResourceDiskPath(name) IN this->options.onlypaths;
 
-    FOREVERY(STRING toscan FROM scanlist)
-    {
-      IF (IsValueSet(this->options.onlypaths))
-      {
-        STRING path := GetWebHareResourceDiskPath(toscan);
-        IF (path NOT IN this->options.onlypaths)
-          CONTINUE;
-      }
+    IF(this->options.debug)
+      Print(`${modname} - got ${Length(scanlist)} files to scan\n`);
 
+
+    STRING ARRAY exclusions := SELECT AS STRING ARRAY mask FROM this->validateconfig.excludemasks;
+    RECORD ARRAY toscan := SELECT *
+                                , isjs := GetExtensionFromPath(name) IN whconstant_javascript_extensions
+                                , exclude := MatchesPathMasks(name, exclusions)
+                             FROM ToRecordArray(scanlist,'name');
+
+    RECORD ARRAY jsfiles := SELECT * FROM toscan WHERE isjs AND NOT exclude;
+    RECORD ARRAY otherfiles := SELECT * FROM toscan WHERE NOT isjs AND NOT exclude;
+
+    IF(this->options.printissues AND NOT this->options.hidehints)
+      FOREVERY(RECORD excluded FROM SELECT * FROM toscan WHERE exclude)
+        Print(`Info: Skipping ${excluded.name} because it matches an exclude mask\n`);
+
+    RECORD ARRAY eslintfiles;
+    FOREVERY(RECORD res FROM jsfiles) {
+      STRING resnameformasks := Substring(res.name, SearchSubString(res.name,'/')+1);
+      FOREVERY (STRING mask FROM this->validateconfig.eslintmasks)
+        IF (ToUppercase(resnameformasks) LIKE ToUppercase(mask))
+          INSERT CELL[ resourcepath := res.name ] INTO eslintfiles AT END;
+    }
+
+    IF(Length(eslintfiles) > 0 AND NOT this->options.onlytids) {
       IF(this->options.debug)
-        Print(`${toscan}\n`);
+        Print(`${modname} - running ESLint on ${Length(eslintfiles)} files\n`);
 
-      RECORD result := ValidateSingleFile(toscan, [ onlytids := this->options.onlytids
-                                                  , ...GetValidationOptionsFromConfig(this->validateconfig)
-                                                  ]);
+      RECORD ARRAY messages := RunESLint(eslintfiles).messages;
+      messages := ApplyIgnoreMessages(messages, validationoptions);
+      this->AddTypedIssues(messages);
+    }
 
-      FOREVERY(RECORD issue FROM result.errors)
-        this->AddIssue(issue,"error");
-      FOREVERY(RECORD issue FROM result.warnings)
-        this->AddIssue(issue,"warning");
-      FOREVERY(RECORD issue FROM result.hints)
-        this->AddIssue(issue,"hint");
+    FOREVERY(RECORD entry FROM otherfiles) {
+      IF(this->options.debug)
+        Print(`Validating ${entry.name}\n`);
+
+      RECORD result := ValidateSingleFile(entry.name, validationoptions);
+      this->AddTypedIssues(result.messages);
+    }
+
+    FOREVERY(RECORD entry FROM jsfiles) {
+      IF(this->options.debug)
+        Print(`Tid/icon scanning ${entry.name}\n`);
+
+      RECORD result := CELL[ messages := RECORD[], ... GetJSTexts(entry.name, GetWebhareResource(entry.name)) ];
+      result := MergeTidIconIssues(result, validationoptions);
+      result.messages := ApplyIgnoreMessages(result.messages, validationoptions);
+      this->AddTypedIssues(result.messages);
     }
 
     IF (ObjectExists(typescriptresultpromise))
     {
-      STRING ARRAY exclusions := SELECT AS STRING ARRAY mask FROM this->validateconfig.excludemasks;
       RECORD typescriptresult := WaitForPromise(typescriptresultpromise);
       FOREVERY (RECORD issue FROM typescriptresult.issues)
       {
@@ -192,7 +239,7 @@ OBJECTTYPE CheckerObject
         IF(issue.resourcename LIKE `mod::${modname}/*` AND MatchesPathMasks(Substring(issue.resourcename,SearchSubstring(issue.resourcename,'/')+1), exclusions))
           CONTINUE;
 
-        this->AddIssue(issue, issue.type);
+        this->AddTypedIssue(issue);
       }
 
     }

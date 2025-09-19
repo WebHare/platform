@@ -52,12 +52,9 @@ PUBLIC RECORD FUNCTION ReadLibraryLoadlibs(BLOB doc_blob, STRING resourcename)
 
 RECORD FUNCTION GenerateValidationResult(RECORD result, RECORD options)
 {
-   RECORD msgstructure := [resourcename := ""];
-   result := EnforceStructure(CELL[ errors := [msgstructure], warnings := [msgstructure], hints := [msgstructure]], result);
+   result := EnforceStructure(CELL[ messages := [[resourcename := ""]]], result);
    RETURN [ messages :=
-                (SELECT iserror :=    TRUE
-                      , iswarning :=  FALSE
-                      , ishint :=     FALSE
+                (SELECT type
                       , filename :=   resourcename
                       , line
                       , col
@@ -66,31 +63,7 @@ RECORD FUNCTION GenerateValidationResult(RECORD result, RECORD options)
                       , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
                       , message
                       , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
-                  FROM result.errors) CONCAT
-                (SELECT iserror :=    FALSE
-                      , iswarning :=  TRUE
-                      , ishint :=     NOT options.separatehints
-                      , filename :=   resourcename
-                      , line
-                      , col
-                      , code :=       COLUMN source = "harescript" ? metadata.code : 0
-                      , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
-                      , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
-                      , message
-                      , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
-                  FROM result.warnings) CONCAT
-                (SELECT iserror :=    FALSE
-                      , iswarning :=  NOT options.separatehints
-                      , ishint :=     options.separatehints
-                      , filename :=   resourcename
-                      , line
-                      , col
-                      , code :=       COLUMN source = "harescript" ? metadata.code : 0
-                      , msg1 :=       COLUMN source = "harescript" ? metadata.msg1 : ""
-                      , msg2 :=       COLUMN source = "harescript" ? metadata.msg2 : ""
-                      , message
-                      , istopfile :=  COLUMN source = "harescript" ? metadata.istopfile : TRUE
-                  FROM result.hints)
+                  FROM result.messages)
         ];
 }
 
@@ -110,13 +83,7 @@ RECORD FUNCTION GenerateValidationResult(RECORD result, RECORD options)
     @cell return.msg2 Message parameter 2
     @cell return.message Error/warning message
 */
-PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := CELL
-      [ separatehints :=    FALSE
-      , ...options
-      ];
-
+PUBLIC RECORD FUNCTION ValidateHarescriptSource(STRING liburi, BLOB source, RECORD options DEFAULTSTO DEFAULT RECORD) {
   EnsurePrimary();
   TRY
   {

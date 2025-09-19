@@ -2,67 +2,78 @@ import { ESLint } from "eslint";
 import { buildRelaxedConfig, buildStrictConfig } from "@webhare/eslint-config";
 import { backendConfig, parseResourcePath, toFSPath } from "@webhare/services";
 import { whconstant_builtinmodules } from "./webhareconstants";
+import { appendToArray } from "@webhare/std";
+import { readFileSync } from "node:fs";
+import type { ValidationMessageType, ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
 
 export type ESLintResult = {
-  messages: Array<{
-    line: number;
-    col: number;
-    message: string;
-    fatal: boolean;
+  messages: ValidationMessageWithType[];
+  fixes: Array<{
+    resourcename: string;
+    output: string;
   }>;
-  hasfixes: boolean;
-  output: string;
 };
 
-export async function handleLintingCommand(resourcepath: string, contents: string, fix: boolean, allowinlineconfig: boolean): Promise<ESLintResult> {
-  /* TODO resetup validation and eslinting to support batch validation, entering/exiting this API per file is time waster. And we would be doing
-     all platform modules + jssdk in a single command, eliminating some oddness around path handling here */
+export async function handleLintingCommand(resources: Array<{
+  resourcepath: string;
+  contents?: string;
+}>, options?: { fix: boolean; allowinlineconfig: boolean }): Promise<ESLintResult> {
+  /* TODO can we combine TS and ES validation, as ES bulds up a TS compiler anyway? */
 
-  const isjssdk = resourcepath.startsWith('direct::' + backendConfig.installationRoot + "jssdk/");
-  const module = isjssdk ? "jssdk" : parseResourcePath(resourcepath)?.module;
-  if (!module)
-    throw new Error(`No module found for '${resourcepath}`);
+  // Group resources per module
+  const toProcess = new Array<{
+    resourcepath: string;
+    contents?: string;
+    module: string;
+  }>();
 
-  const isPlatform = isjssdk || whconstant_builtinmodules.includes(module);
-  const tsconfigRootDir = isPlatform ? backendConfig.installationRoot : backendConfig.module[module].root;
-  // Treat any module shipped with WebHare (including testsuite & devkit) as requiring strict validation - there's no reason we can can't ensure strict correctness given that platform is CI-d as a whole
-  // We should mark this in the moduledefinition so other modules can go strict as well, but for now we'll just hardcode.. (can't do tricks with paths, CI installs webhare_testsuite in a different location than source)
-  const isStrict = isPlatform || ["webhare_testsuite", "devkit"].includes(module);
-  const project = tsconfigRootDir + "tsconfig.json";
-  const config = isStrict ? buildStrictConfig({ project, tsconfigRootDir }) : buildRelaxedConfig({ project, tsconfigRootDir });
+  const retval: ESLintResult = { messages: [], fixes: [] };
 
-  const options: ESLint.Options = {
-    cwd: '/', //without this, we risk "File ignored because outside of base path."
-    overrideConfigFile: true, //needed or eslint will still look for an ondisk file
-    overrideConfig: config,
-    fix: fix,
-    allowInlineConfig: allowinlineconfig,
-    warnIgnored: true
-  };
+  for (const entry of resources) {
+    const isjssdk = entry.resourcepath.startsWith('direct::' + backendConfig.installationRoot + "jssdk/");
+    const module = isjssdk ? "jssdk" : parseResourcePath(entry.resourcepath)?.module;
+    if (!module)
+      throw new Error(`No module found for '${entry.resourcepath}`);
 
-  const eslint = new ESLint(options);
-  //toFSPath doesn't support direct:: yet and didn't need it until now (so may still be worth it to see if we can get rid of direct:: )
-  const diskpath = resourcepath.startsWith('direct::') ? resourcepath.substring(8) : toFSPath(resourcepath);
-  const results = await eslint.lintText(contents, { filePath: diskpath });
-  if (!results.length) {
-    // no results, file was probably ignored in the eslint configuration
-    return {
-      messages: [],
-      hasfixes: false,
-      output: ''
-    };
+    const isPlatform = isjssdk || whconstant_builtinmodules.includes(module);
+    toProcess.push({ ...entry, module: isPlatform ? "platform" : module });
   }
 
-  return {
-    messages: results[0].messages.map((message) => ({
-      line: message.line || 1,
-      col: message.column || 1,
-      //a simple JS parse error (eg Unexpected character '`'") will have ruleId null
-      message: `${message.message} ${message.ruleId ? `(eslint rule: ${message.ruleId})` : "(eslint)"}`,
-      fatal: message.severity === 2, //2 = error
-      source: "eslint"
-    })),
-    hasfixes: typeof results[0].output === "string",
-    output: typeof results[0].output === "string" ? Buffer.from(results[0].output || "", "utf-8").toString("base64") : ''
-  };
+  for (const [module, entries] of Map.groupBy(toProcess, x => x.module)) {
+    const isStrict = ["platform", "webhare_testsuite", "devkit"].includes(module);
+    const tsconfigRootDir = module === "platform" ? backendConfig.installationRoot : backendConfig.module[module].root;
+    const project = tsconfigRootDir + "tsconfig.json";
+    const config = isStrict ? buildStrictConfig({ project, tsconfigRootDir }) : buildRelaxedConfig({ project, tsconfigRootDir });
+
+    const eslintoptions: ESLint.Options = {
+      cwd: '/', //without this, we risk "File ignored because outside of base path."
+      overrideConfigFile: true, //needed or eslint will still look for an ondisk file
+      overrideConfig: config,
+      fix: options?.fix,
+      allowInlineConfig: options?.allowinlineconfig,
+      warnIgnored: true
+    };
+
+    const eslint = new ESLint(eslintoptions);
+    for (const entry of entries) {
+      const diskpath = entry.resourcepath.startsWith('direct::') ? entry.resourcepath.substring(8) : toFSPath(entry.resourcepath);
+      const entryResults = await eslint.lintText(entry.contents ?? readFileSync(diskpath, 'utf8'), { filePath: diskpath });
+      if (entryResults.length) {
+        if (typeof entryResults[0].output === "string") {
+          retval.fixes.push({ resourcename: entry.resourcepath, output: entryResults[0].output });
+        }
+
+        appendToArray(retval.messages, entryResults[0].messages.map((message) => ({
+          line: message.line || 1,
+          col: message.column || 1,
+          //a simple JS parse error (eg Unexpected character '`'") will have ruleId null
+          message: `${message.message} ${message.ruleId ? `(eslint rule: ${message.ruleId})` : "(eslint)"}`,
+          type: message.severity === 2 ? "error" : "warning" as ValidationMessageType,
+          source: "eslint",
+          resourcename: entry.resourcepath
+        })));
+      }
+    } //for every path in this module
+  } //for every module (where we combine jssdk & builtin modules to one 'platform' module)
+  return retval;
 }

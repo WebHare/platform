@@ -32,8 +32,10 @@ export interface ValidationMessage extends ResourceMessage {
   metadata?: unknown;
 }
 
+export type ValidationMessageType = "error" | "warning" | "hint";
+
 export interface ValidationMessageWithType extends ValidationMessage {
-  type: "error" | "warning" | "hint";
+  type: ValidationMessageType;
 }
 
 export type ValidationResult = {

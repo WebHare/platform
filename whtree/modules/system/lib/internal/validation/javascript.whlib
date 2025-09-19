@@ -15,32 +15,15 @@ LOADLIB "mod::system/lib/internal/validation/scan.whlib";
 
 LOADLIB "wh::internal/interface.whlib";
 
-ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ fix := FALSE
-      , allowinlineconfig := TRUE
-      ], options);
-
-  RECORD result := CallJS("mod::system/js/internal/eslint.ts#handleLintingCommand", resourcename, BlobToString(libdata), options.fix, options.allowinlineconfig);
-
-  RETURN CELL
-      [ messages :=
-          (SELECT resourcename := VAR resourcename
-                , message
-                , line
-                , col
-                , fatal
-                , source
-             FROM result.messages)
-      , result.hasfixes
-      , output :=       result.hasfixes ? StringToBlob(DecodeBase64(result.output)) : libdata
-      ];
+PUBLIC RECORD FUNCTION RunESLint(RECORD ARRAY resources, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  RECORD res := CallJS("mod::system/js/internal/eslint.ts#handleLintingCommand", resources, options);
+  RETURN CELL[ messages := RECORD ARRAY(res.messages), fixes := RECORD ARRAY(res.fixes) ];
 }
 
-PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD options)
+//NOTE this API is no longer used for wh checkmodule
+PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcepath, RECORD options)
 {
-  STRING modulename := GetModulenameFromResourcePath(resourcename);
+  STRING modulename := GetModulenameFromResourcePath(resourcepath);
 
   RECORD ARRAY warnings, errors;
 
@@ -48,30 +31,30 @@ PUBLIC RECORD FUNCTION RunJSValidator(BLOB libdata, STRING resourcename, RECORD 
   IF(NOT options.onlytids)
   {
     BOOLEAN run_eslint;
-    STRING resnameformasks := Substring(resourcename,SearchSubString(resourcename,'/')+1);
+    STRING resnameformasks := Substring(resourcepath,SearchSubString(resourcepath,'/')+1);
     FOREVERY (STRING mask FROM validateconfig.eslintmasks)
       IF (ToUppercase(resnameformasks) LIKE ToUppercase(mask))
         run_eslint := TRUE;
 
     IF (run_eslint)
     {
-      RECORD ARRAY messages := WaitForPromise(RunESLint(libdata, resourcename)).messages;
-      errors := SELECT * FROM messages WHERE fatal;
-      warnings := SELECT * FROM messages WHERE NOT fatal;
+      RECORD ARRAY messages := RunESLint([CELL[ resourcepath, contents := BlobToString(libdata) ]]).messages;
+      errors := SELECT * FROM messages WHERE type="error";
+      warnings := SELECT * FROM messages WHERE type!="error";
     }
   }
 
-  RECORD texts := GetJSTexts(resourcename, libdata);
+  RECORD texts := GetJSTexts(resourcepath, libdata);
 
   RETURN CELL
          [ warnings
          , errors
-         , tids :=    texts.texts
+         , texts.tids
          , texts.icons
          ];
 }
 
-RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
+PUBLIC RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
 {
 //  BOOLEAN findscreens := TRUE; // we only need to search for screens in *.whlib files
   RECORD ARRAY texts;
@@ -84,7 +67,7 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
       SearchSubString(rawtext, 'GETHTMLTID') = -1 AND
       SearchSubString(rawtext, '/*TID*/') = -1 AND
       SearchSubString(rawtext, '/*ICON*/') = -1)
-    RETURN CELL[ texts, icons ];
+    RETURN CELL[ tids := texts, icons ];
 
   // Hack to be able to use the harescript tokenizer
   libdata := StringToBlob("<?wh " || Substitute(BlobToString(libdata), "?>", ""));
@@ -186,7 +169,7 @@ RECORD FUNCTION GetJSTexts(STRING resourcename, BLOB libdata)
   }
 
   CloseHarescriptFile(file);
-  RETURN CELL[ texts, icons ];
+  RETURN CELL[ tids := texts, icons ];
 }
 
 BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
@@ -256,38 +239,33 @@ PUBLIC ASYNC FUNCTION CheckModuleTypeScriptFiles(STRING modulename)
     @return Formatted file
     @cell(blob) return.output Formatted file
 */
-ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix)
-{
-  BLOB data := file.data;
+ASYNC FUNCTION FormatSingleFile(RECORD file, BOOLEAN autofix) {
+  STRING contents := BlobToString(file.data);
 
-  IF(autofix)
-  {
-    RECORD eslint := AWAIT RunESLint(file.data, file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
-    data := eslint.output;
+  IF(autofix) {
+    RECORD eslint := AWAIT RunESLint([CELL[ resourcepath := file.path, contents ]], [ fix := TRUE, allowinlineconfig := FALSE ]);
+    IF(Length(eslint.fixes) > 0)
+      contents := eslint.fixes[0].output;
   }
 
   STRING dir := GetDirectoryFromPath(file.path);
 
-  RECORD cmd := CELL
-      [ file.path
-      , data :=             BlobToString(data)
-      ];
+  RECORD cmd := CELL [ file.path, data := contents ];
 
   RECORD rec := CallJS("mod::system/js/internal/tsfmt.ts#handleFormattingCommand", cmd);
-  BLOB output;
-  IF (rec.output != cmd.data AND autofix)
-  {
+  IF (rec.output != cmd.data AND autofix) {
+    contents := rec.output;
+
     // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
-    RECORD eslintres := AWAIT RunESLint(StringToBlob(rec.output), file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
-    output := eslintres.output;
+    RECORD eslint := AWAIT RunESLint([CELL[ resourcepath := file.path, contents ]], [ fix := TRUE, allowinlineconfig := FALSE ]);
+    IF(Length(eslint.fixes) > 0)
+      contents := eslint.fixes[0].output;
   }
-  ELSE
-    output := StringToBlob(rec.output);
 
   RETURN CELL
       [ ...file
       , ...rec
-      , output
+      , output := StringToBlob(contents)
       ];
 }
 

@@ -532,7 +532,7 @@ PUBLIC RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path
   options := ValidateOptions([ verbose := FALSE, reorder := TRUE ], options);
 
   RECORD ARRAY messages := ValidateHarescriptSource(path, StringToBlob(infile), [ nomissingtids := TRUE ]).messages;
-  IF (RecordExists(SELECT * FROM messages WHERE iserror))
+  IF (RecordExists(SELECT * FROM messages WHERE type="error"))
   {
     IF (options.verbose)
       Print(`Errors while compiling:\n${AnyToString(messages, "boxed")}`);
@@ -580,7 +580,7 @@ PUBLIC RECORD FUNCTION GetOrganizeLoadlibInstructions(STRING infile, STRING path
 
     // Check if it still compiles
     RECORD res := ValidateHarescriptSource(path, StringToBlob(source), [ nomissingtids := TRUE ]);
-    RECORD error := SELECT * FROM res.messages WHERE iserror;
+    RECORD error := SELECT * FROM res.messages WHERE type="error";
     IF (RecordExists(error)) //it failed
     {
       BOOLEAN fixedanyway;

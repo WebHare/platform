@@ -38,39 +38,39 @@ BOOLEAN FUNCTION IsHareScriptFile(STRING path)
 
 RECORD FUNCTION ValidateTidsSyntax(RECORD ARRAY intids)
 {
-  RECORD ARRAY validtids, errors, warnings;
+  RECORD ARRAY validtids, messages;
   FOREVERY(RECORD tid FROM intids)
   {
     IF(NOT IsAbsoluteTid(tid.tid))
     {
-      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, missing module name: '${tid.tid}'` ] INTO errors AT END;
+      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, missing module name: '${tid.tid}'`, type := "error" ] INTO messages AT END;
       CONTINUE;
     }
     ELSE IF(tid.tid LIKE "*:*" AND tid.tid NOT LIKE "*.*")
     {
-      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, no group name: '${tid.tid}'` ] INTO errors AT END;
+      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, no group name: '${tid.tid}'`, type := "error" ] INTO messages AT END;
       CONTINUE;
     }
     ELSE IF(tid.tid LIKE "*::*" AND tid.tid NOT LIKE "*.*") //site:: tids existed at one point, ensure they're really really gone
     {
-      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid legacy tid '${tid.tid}'` ] INTO errors AT END;
+      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid legacy tid '${tid.tid}'`, type := "error" ] INTO messages AT END;
       CONTINUE;
     }
     ELSE IF(tid.tid LIKE "tollium:common.buttons.*" OR tid.tid LIKE "tollium:common.actions.*" OR tid.tid LIKE "tollium:common.labels.*")
     {
       STRING propertid := "~" || Detokenize(ArraySlice(Tokenize(tid.tid,'.'), 2),'.');
-      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Legacy tid '${tid.tid}' should be replaced by ${propertid} (dev module can rewrite these in XML files)` ] INTO warnings AT END;
+      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Legacy tid '${tid.tid}' should be replaced by ${propertid} (dev module can rewrite these in XML files)`, type := "warning" ] INTO messages AT END;
       CONTINUE;
     }
     ELSE IF(tid.tid LIKE "* *" OR ToLowercase(tid.tid)!=tid.tid)
     {
-      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, must have no spaces, be lowercase: '${tid.tid}'` ] INTO errors AT END;
+      INSERT CELL[ tid.resourcename, tid.line, tid.col, message := `Invalid tid, must have no spaces, be lowercase: '${tid.tid}'`, type := "error" ] INTO messages AT END;
       CONTINUE;
     }
 
     INSERT tid INTO validtids AT END;
   }
-  RETURN CELL[ validtids, errors, warnings ];
+  RETURN CELL[ validtids, messages ];
 }
 
 BOOLEAN FUNCTION IsTidTranslatedAnywhere(STRING tid)
@@ -99,7 +99,7 @@ BOOLEAN FUNCTION IsTidTranslatedAnywhere(STRING tid)
     @cell(integer) return.line Relevant line number
     @cell(integer) return.col Relevant column
 */
-RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
+PUBLIC RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
 {
   RECORD ARRAY warnings;
 
@@ -118,7 +118,7 @@ RECORD ARRAY FUNCTION ValidateTidsExistence(RECORD ARRAY tids)
   RETURN warnings;
 }
 
-RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
+PUBLIC RECORD ARRAY FUNCTION ValidateIcons(RECORD ARRAY icons)
 {
   RECORD ARRAY warnings;
 
@@ -165,7 +165,7 @@ PUBLIC RECORD FUNCTION ScanModuleTids(RECORD validationconfig, STRING module)
   {
     RECORD results      := ValidateSingleFile(toscan, [ onlytids := TRUE ]);
     scanresult.tids     := scanresult.tids     CONCAT results.tids;
-    scanresult.warnings := scanresult.warnings CONCAT results.warnings;
+    scanresult.warnings := scanresult.warnings CONCAT SELECT * FROM results.messages WHERE type="warning";
   }
   RETURN scanresult;
 }
@@ -283,13 +283,51 @@ RECORD FUNCTION RunValidatorForFile(BLOB doc_blob, STRING resourcename, RECORD o
   RETURN DEFAULT RECORD;
 }
 
-RECORD defaultvalidaterecord := [ warnings     := RECORD[]
-                                , errors       := RECORD[]
-                                , hints        := RECORD[]
+RECORD defaultvalidaterecord := [ messages     := RECORD[]
                                 , tids         := RECORD[]
                                 , eventmasks   := STRING[]
                                 , icons        := RECORD[]
                                 ];
+
+RECORD FUNCTION MergeMessagesIntoValidationRecord (RECORD inresult) {
+  IF(CellExists(inresult,'messages')) {
+    dumpvalue(inresult);
+    THROW NEW Exception("IIssue source is already returning 'messages' ?");
+  }
+  RETURN CELL [ ...defaultvalidaterecord
+              , ...EnforceStructure(defaultvalidaterecord, inresult) //fixes the array types for empty arrays, our validator might be JS based
+              , messages := RECORD ARRAY(SELECT *, type := "error" FROM inresult.errors)
+                                        CONCAT (CellExists(inresult,"warnings") ? (SELECT *, type := "warning" FROM inresult.warnings) : RECORD[])
+                                        CONCAT (CellExists(inresult,"hints") ? (SELECT *, type := "hint" FROM inresult.hints) : RECORD[])
+              , DELETE errors
+              , DELETE warnings
+              , DELETE hints
+              ];
+}
+
+PUBLIC RECORD FUNCTION MergeTidIconIssues(RECORD result, RECORD validationoptions) {
+  RECORD validatedtids := ValidateTidsSyntax(result.tids);
+  result.tids := validatedtids.validtids;
+  result.messages := result.messages CONCAT validatedtids.messages;
+
+  IF(NOT validationoptions.onlytids)
+  {
+    RECORD ARRAY tidissues := ValidateTidsExistence(result.tids);
+    result.messages := result.messages CONCAT SELECT *, type := validationoptions.nomissingtids ? "error" : "warning" FROM tidissues;
+
+    RECORD ARRAY iconissues := ValidateIcons(result.icons);
+    result.messages := result.messages CONCAT SELECT *, type := "error" FROM iconissues;
+  }
+  RETURN result;
+}
+
+PUBLIC RECORD ARRAY FUNCTION ApplyIgnoreMessages(RECORD ARRAY messages, RECORD validationoptions) {
+  FOREVERY(RECORD toignore FROM SELECT * FROM validationoptions.ignoremessages) {
+    OBJECT theregex := NEW RegEx(toignore.regex, "i");
+    DELETE FROM messages WHERE messages.resourcename LIKE toignore.mask AND theregex->Test(message);
+  }
+  RETURN messages;
+}
 
 RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
 {
@@ -297,13 +335,11 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     THROW NEW Exception(`Invalid resource path ${resourcename}`);
 
   BLOB doc_blob := CellExists(options,'overridedata') ? options.overridedata : GetWebhareResource(resourcename);
-  RECORD result := RunValidatorForFile(doc_blob, resourcename, options);
-
-  result := ValidateOptions(defaultvalidaterecord, result);
+  RECORD result := MergeMessagesIntoValidationRecord(RunValidatorForFile(doc_blob, resourcename, options));
   INSERT CELL resourcename := resourcename INTO result;
 
   //Sanity checks until validate works everywhere
-  FOREVERY(STRING checklist FROM ["tids","warnings","errors","hints","icons"])
+  FOREVERY(STRING checklist FROM ["tids","messages","icons"])
   {
     RECORD ARRAY list := GetCell(result,checklist);
     IF(RecordExists(SELECT FROM list WHERE NOT CellExists(list,'resourcename')))
@@ -323,36 +359,14 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     }
   }
 
-  RECORD validatedtids := ValidateTidsSyntax(result.tids);
-  result.tids := validatedtids.validtids;
-  result.errors := result.errors CONCAT validatedtids.errors;
-  result.warnings := result.warnings CONCAT validatedtids.warnings;
-
-  IF(NOT options.onlytids)
-  {
-    RECORD ARRAY tidissues := ValidateTidsExistence(result.tids);
-    IF(options.nomissingtids)
-      result.errors := result.errors CONCAT tidissues;
-    ELSE
-      result.warnings := result.warnings CONCAT tidissues;
-
-    RECORD ARRAY iconissues := ValidateIcons(result.icons);
-    result.errors := result.errors CONCAT iconissues;
-  }
-
-  FOREVERY(RECORD toignore FROM SELECT * FROM options.ignoremessages WHERE VAR resourcename LIKE COLUMN mask)
-  {
-    OBJECT theregex := NEW RegEx(toignore.regex, "i");
-    DELETE FROM result.errors WHERE theregex->Test(message);
-    DELETE FROM result.warnings WHERE theregex->Test(message);
-    DELETE FROM result.hints WHERE theregex->Test(message);
-  }
+  result := MergeTidIconIssues(result, options);
+  result.messages := ApplyIgnoreMessages(result.messages, options);
 
   STRING ARRAY eventmasks;
   IF (NOT CellExists(options,'overridedata'))
   {
     //also gather -other- resources which are triggering errors for us
-    STRING ARRAY files := SELECT AS STRING ARRAY DISTINCT COLUMN resourcename FROM (result.warnings CONCAT result.errors CONCAT result.tids);
+    STRING ARRAY files := SELECT AS STRING ARRAY DISTINCT COLUMN resourcename FROM (result.messages CONCAT result.tids);
     IF(resourcename != "" AND resourcename NOT IN files)
       INSERT resourcename INTO files AT END;
 
@@ -363,37 +377,16 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
   DELETE CELL eventmasks FROM result;
 
   //Normalize so noone relies on 'extra' cells
-  result.errors   :=
-      SELECT TEMPORARY source := CellExists(errors, "source") ? COLUMN source : "unknown"
+  result.messages   :=
+      SELECT TEMPORARY source := CellExists(messages, "source") ? COLUMN source : "unknown"
            , COLUMN resourcename
            , line
            , col
            , message
            , source :=        source
-           , metadata :=      source != "unknown" AND CellExists(errors, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.errors
-    ORDER BY COLUMN resourcename, line, col, message;
-
-  result.warnings :=
-      SELECT TEMPORARY source := CellExists(warnings, "source") ? COLUMN source : "unknown"
-           , COLUMN resourcename
-           , line
-           , col
-           , message
-           , source :=        source
-           , metadata :=      source != "unknown" AND CellExists(warnings, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.warnings
-    ORDER BY COLUMN resourcename, line, col, message;
-
-  result.hints :=
-      SELECT TEMPORARY source := CellExists(hints, "source") ? COLUMN source : "unknown"
-           , COLUMN resourcename
-           , line
-           , col
-           , message
-           , source :=        source
-           , metadata :=      source != "unknown" AND CellExists(hints, "metadata") ? metadata : DEFAULT RECORD
-        FROM result.hints
+           , metadata :=      source != "unknown" AND CellExists(messages, "metadata") ? metadata : DEFAULT RECORD
+           , type
+        FROM result.messages
     ORDER BY COLUMN resourcename, line, col, message;
 
   result.tids :=
@@ -420,21 +413,14 @@ RECORD FUNCTION ValidateDocument(STRING resourcename, RECORD options)
     @cell(boolean) options.nowarnings  @includecelldef #GetModuleValidationConfig.return.nowarnings
     @cell(string array) options.eslintmasks  @includecelldef #GetModuleValidationConfig.return.eslintmasks
     @return Validation results
-    @cell(record array) return.hints List of hints
-    @cell(string) return.hints.resourcename Resource name for this message
-    @cell(integer) return.hints.line Line number for this message
-    @cell(integer) return.hints.col Column number for this message
-    @cell(string) return.hints.source Source for this message
-    @cell(string) return.hints.message Message
-    @cell(record) return.hints.metadata metadata (only when source != "unknown")
-    @cell(record array) return.warnings List of warnings
-    @cell(string) return.warnings.resourcename Resource name for this message
-    @cell(integer) return.warnings.line Line number for this message
-    @cell(integer) return.warnings.col Column number for this message
-    @cell(string) return.warnings.source Source for this message
-    @cell(string) return.warnings.message Message
-    @cell(record) return.warnings.metadata metadata (only when source != "unknown")
-    @cell(record array) return.errors List of errors @includecelldef #ValidateSingleFile.return.warnings
+    @cell(record array) return.messages List of errors, warnings and hints
+    @cell(string) return.messages.resourcename Resource name for this message
+    @cell(integer) return.messages.line Line number for this message
+    @cell(integer) return.messages.col Column number for this message
+    @cell(string) return.messages.source Source for this message
+    @cell(string) return.messages.message Message
+    @cell(record) return.messages.metadata metadata (only when source != "unknown")
+    @cell(string) return.messages.type "error", "warning" or "hint"
     @cell(record array) return.tids List of tids
     @cell(string) return.tids.resourcename Resource where this tid was defined
     @cell(integer) return.tids.line Line number for this message

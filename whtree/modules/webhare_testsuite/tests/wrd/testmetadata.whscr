@@ -189,7 +189,7 @@ MACRO ExportXMLMetadata()
   //Try to recreate it from the metadata
   testfw->BeginWork();
   wrdschema := CreateWRDSchema(wrdschema->tag);
-  TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).errors);
+  TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).messages);
 
   wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc, fromexternal := TRUE ]);
   testfw->CommitWork();
@@ -465,7 +465,7 @@ MACRO TestCreateWithMetadata()
 {
   testfw->BeginWork();
 
-  TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := StringToBlob(schema_with_ordering_issues) ]).errors);
+  TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := StringToBlob(schema_with_ordering_issues) ]).messages);
   //test applying simple metadata with ordering issues
   OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testcreatewithmetadata");
   wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schema_with_ordering_issues) ]);
@@ -487,7 +487,7 @@ MACRO TestWRDAuthAccountStatus() {
        <import definitionfile="mod::webhare_testsuite/tests/wrd/nodejs/data/usermgmt_oidc.wrdschema.xml" />
       </schemadefinition>`);
 
-  TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := schemadef ]).errors);
+  TestEQ(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := schemadef ]).messages);
 
   //test applying simple metadata with ordering issues
   OBJECT wrdschema := CreateWRDSchema("webhare_testsuite:testwrdauthaccountstatus");
