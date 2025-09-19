@@ -158,9 +158,4 @@ PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase
     STRING code := `<noscript><iframe src="${EncodeJava(pixel)}?id=${EncodeURL(this->pvt_account)}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>` || (compact?'':'\n');
     Print(code);
   }
-
-  UPDATE PUBLIC RECORD ARRAY FUNCTION HookGetDebugSettings()
-  {
-    RETURN [[ grouptitle := "Commonly used", tag := "sne", title := "Don't embed external scripts like GTM" ]];
-  }
 >;

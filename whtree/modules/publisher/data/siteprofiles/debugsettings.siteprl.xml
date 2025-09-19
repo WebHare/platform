@@ -19,6 +19,7 @@
       <option requireright="" tag="pxl" title="Pxl events" />
       <option tag="bac" title="Beacons/Adapative Content" />
       <option tag="npm" title="Don't set previewmode when previewing" />  <!-- "No Preview Mode" -->
+      <option tag="sne" title="Don't embed external scripts like GTM" />
     </debugsettings>
     <debugsettings title="RPCs &amp; authentication">
       <option tag="rpc" title="RPC request and responses" />

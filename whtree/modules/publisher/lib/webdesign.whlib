@@ -1560,10 +1560,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignPluginBase
   {
     THROW NEW Exception("After setting hooksfeatures=\"objectprops\" you should override the HookObjectProps function");
   }
-  PUBLIC RECORD ARRAY FUNCTION HookGetDebugSettings()
-  {
-    THROW NEW Exception("After setting hooksfeatures=\"debugsettings\" you should override the HookGetDebugSettings function");
-  }
 
   /** Return merge record extensions used by the composer returned by %PrepareMailWitty. Enabled by hookfeature 'preparemail'.
       @return Merge record data

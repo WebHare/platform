@@ -125,9 +125,4 @@ PUBLIC STATIC OBJECTTYPE GoogleAnalytics4Plugin EXTEND WebDesignPluginBase
     Print(`${compact?"":"\n"}<script async src="https://www.googletagmanager.com/gtag/js?id=${EncodeURL(this->__account)}"></script>`
           || `${compact?"":"\n"}<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js', new Date());gtag('config', '${EncodeJava(this->__account)}', ${EncodeJSON(settings)});</script>${compact?"":"\n"}`);
   }
-  //TODO hook 'anl' ?
-  //UPDATE PUBLIC RECORD ARRAY FUNCTION HookGetDebugSettings()
-  //{
-  //  RETURN [[ grouptitle := "Commonly used", tag := "sne", title := "Don't embed external scripts like GTM" ]];
-  //}
 >;
