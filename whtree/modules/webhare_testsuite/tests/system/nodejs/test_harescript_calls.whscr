@@ -167,10 +167,11 @@ IF(NOT IsWasm()) { //Test crash resistance
   OBJECT service := WaitForPromise(OpenWebHareService("platform:calljs"));
   STRING servicerandom := WaitForPromise(service->Invoke(Resolve("./data/calls.ts"), "getOnceRandom", VARIANT[], CELL[auth := DEFAULT RECORD ]));
   TestEq(servicerandom, startrandom, "Verify it's the same connection");
-  service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[], CELL[auth := DEFAULT RECORD ]); //DISCARD the result as we expect a crash
+  //Crash it. wait for the crash to be done
+  TestRejectedLike("Worker exited with code*", service->Invoke(Resolve("./data/calls.ts"), "crash", VARIANT[], CELL[auth := DEFAULT RECORD ]));
 
   FOR (INTEGER i := 0; i < 20; i := i + 1)
     TestAssert(startrandom != CallJS("./data/calls.ts#getOnceRandom"), "verify we see a new calljs instance but not a crash");
 }
 
-PRINT("We've reached the end of this HareScript VM\n");
+PRINT("INFO: We've reached the end of this HareScript VM\n");

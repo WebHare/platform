@@ -1062,6 +1062,7 @@
           <text tid="forgotpassword-intro">Forgot password introduction</text>
           <text tid="linkexpired-intro">Link expired introduction</text>
           <text tid="login-intro">Login introduction</text>
+          <text tid="login-services-intro">Login select service introduction</text>
           <text tid="passwordchange-done">Password change finished</text>
           <text tid="passwordchange-intro">Password change introduction</text>
           <text tid="resetpassword-intro">Reset password introduction</text>

@@ -567,7 +567,10 @@ export class WASMModule extends WASMModuleBase {
         }
         if (stream.writableEnded)
           return 0;
-        const res = stream.write(toWrite, (err) => console.error(`write to fd ${fd} returned error`, err));
+        const res = stream.write(toWrite, (err) => {
+          if (err) //note that the callback is always invoked (even when write succeeds)
+            console.error(`write to fd ${fd} returned error`, err);
+        });
 
         // if write returns false, we need to wait for 'drain' to avoid excessive memory use
         if (!res) {
