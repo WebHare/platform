@@ -12,8 +12,7 @@ LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 
-STATIC OBJECTTYPE PollWebtool
-<
+STATIC OBJECTTYPE PollWebtool <
   RECORD fileinfo;
   RECORD polldata;
 
@@ -147,23 +146,14 @@ STATIC OBJECTTYPE PollWebtool
   }
 
 
-  PUBLIC RECORD FUNCTION GetWittyFields()
-  {
+  PUBLIC RECORD FUNCTION GetWittyFields() {
     RECORD pollresults := this->GetResults();
 
-    RECORD pollsettings :=
-        [ allowvotingagainafter := 1440 // a day
-        ];
+    RECORD pollsettings := [ revote_after := "P1D" ]; //a day
+    FOREVERY(RECORD poll FROM GetYamlPluginSettings(this->fileinfo.id, "pollSettings"))
+      pollsettings := CELL[...pollsettings, ...poll]; // merge all settings, later settings override earlier ones
 
-    // Find all apply's where webtools settings are changed
-    // (note: we could take the last one, but in case we will have multiple settings which can be overridden we do this instead)
-    RECORD ARRAY settings := GetCustomSiteProfileSettings(whconstant_xmlns_publisher, "pollsettings", this->fileinfo.id);
-    FOREVERY(RECORD setting FROM settings)
-    {
-      STRING voteafter := setting.node->GetAttribute("allowvotingagainafter");
-      IF (voteafter != "")
-        pollsettings.allowvotingagainafter := ParseXSInt(voteafter);
-    }
+    ParseISO8601Duration(pollsettings.revote_after); //just to validate
 
     RETURN [ toolid           := this->toolid
            , ismultiplechoice := this->ismultiplechoice
@@ -179,7 +169,7 @@ STATIC OBJECTTYPE PollWebtool
            // without any extra fields we add later breaking custom templates.
            , pollembedinfo      := EncodeJSON([ toolid := this->toolid
                                               , ismultiplechoice := this->ismultiplechoice
-                                              , allowvotingagainafter := pollsettings.allowvotingagainafter
+                                              , revote_after := pollsettings.revote_after
                                               ])
            ];
   }

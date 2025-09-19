@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 //@ts-ignore -- still need to port to proper JSON/RPC or just straight to a whrpc
 import pollrpc from "@mod-publisher/js/webtools/internal/poll.rpc.json?proxy";
-import { throwError } from "@webhare/std";
+import { addDuration, throwError } from "@webhare/std";
 
 /*
 
@@ -18,7 +18,8 @@ let pollstofetch = new Array<PollWebtool>;
 type PollData = {
   toolid: string;
   ismultiplechoice: boolean;
-  allowvotingagainafter: number;
+  allowvotingagainafter?: number; //in minutes. Pre-WH5.9 this field was published
+  revote_after?: string; //in ISO 8601 duration format. Since WH5.9 this field is published
 };
 
 type PollResults = {
@@ -181,12 +182,13 @@ export default class PollWebtool {
           localStorage.removeItem("wh-webtools-votetime:" + this._getToolId());
         } else { // after parseInt voted
           const polldata = getJSONAttribute<PollData>(this.node, "data-poll") ?? throwError("Missing the data-poll attribute on the .wh-poll element");
+          const revoteAfter = polldata.revote_after ?? `P${polldata.allowvotingagainafter ?? 1440}M`; //falback until all are WH5.9+ and republished
 
-          console.log("Poll was voted on " + ((unixtimestampnow - votedtimestamp) / 1000).toFixed(0) + " seconds ago. Polls allows voting again after " + polldata.allowvotingagainafter + " seconds.");
+          console.log("Poll was voted on " + ((unixtimestampnow - votedtimestamp) / 1000).toFixed(0) + " seconds ago. Polls allows voting again after " + revoteAfter);
 
           //console.log(votedtimestamp, "+", polldata.allowvotingagainafter ,"=", votedtimestamp + polldata.allowvotingagainafter, "<", unixtimestampnow);
 
-          canvote = (unixtimestampnow - votedtimestamp) / 1000 > polldata.allowvotingagainafter;
+          canvote = addDuration(new Date(votedtimestamp), revoteAfter) < new Date(unixtimestampnow);
         }
       }
 
