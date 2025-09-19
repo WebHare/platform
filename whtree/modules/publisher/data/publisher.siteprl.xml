@@ -226,19 +226,19 @@
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/pdffile"
             kind="rawfile"
+            browserpreview="/.publisher/backend/preview/direct.shtml"
             extensions=".pdf"
             icon="tollium:files/application_pdf"
             requirescontent="true"
             searchcontentprovider="publisher:contentblob"
-            tid="publisher:filetypes.pdf"
-            browserpreview="/.publisher/backend/preview/direct.shtml" />
+            tid="publisher:filetypes.pdf" />
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/imagefile"
             kind="rawfile"
+            browserpreview="/.publisher/backend/preview/image.shtml"
             icon="tollium:files/image"
             requirescontent="true"
-            tid="publisher:filetypes.image"
-            browserpreview="/.publisher/backend/preview/image.shtml" />
+            tid="publisher:filetypes.image" />
 
   <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/multimediafile"
@@ -281,7 +281,6 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
-            needstemplate="false"
             tid="publisher:filetypes.externallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
@@ -292,7 +291,6 @@
             isacceptableindex="true"
             ispublishable="true"
             ispublishedassubdir="true"
-            needstemplate="false"
             tid="publisher:filetypes.internallink">
     <usepublishtemplate script="mod::publisher/scripts/internal/publishlink.whscr" />
   </filetype>
