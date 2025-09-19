@@ -439,7 +439,7 @@ $defs:
         $ref: "#/$defs/ApplyBaseProps"
       bodyRenderer:
         $ref: "#/$defs/ApplyBodyRenderer"
-      editProps: # TODO now that we're converting XML to YML we've had to add tabsExtension= to editProps, and this is potentially doing a completely different thing from extending the RTD Editor. requireRight is especially 'off' as what does it mean to not have rights to a field but still hae it go through editdocuemnt workflow?
+      editProps: # TODO now that we're converting XML to YML we've had to add tabsExtension= to editProps, and this is potentially doing a completely different thing from extending the RTD Editor. requireRight is especially 'off' as what does it mean to not have rights to a field but still have it go through editdocument workflow?
         # We might have to properly split this between 'Properties dialog extensions' (where requireright and tabsextension makes sense) and 'Edditor app metadata' (the new versioned stuff)
         $ref: "#/$defs/ApplyEditProps"
       folderIndex:
@@ -740,7 +740,7 @@ $defs:
           - compact
           - wide
 
-  ApplyTypes: # allow/deny file/folder type - or only if a template is used§
+  ApplyTypes: # allow/deny file/folder type - or only if a template is used
     type: array
     items:
       type: object
