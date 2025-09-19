@@ -39,7 +39,7 @@ export const rtdTextStyles = { //Note that a-href is higher than all these style
 type OneProperty<K extends string, V> = K extends string ? { [arg in K]: V } & { tag?: never } : never;
 
 export type RTDParagraphType = typeof rtdParagraphTypes[number];
-type RTDBuildParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
+type RTDSourceParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 export type RTDListType = typeof rtdListTypes[number];
 
@@ -56,7 +56,7 @@ type RTDBaseParagraph<Mode extends RTDItemMode> = {
   className?: string;
   items: RTDBaseParagraphItems<Mode>;
 } | //When building also allow a simpler h1: [items] or "h1.heading1": [items] syntax
-  BuildOnly<Mode, OneProperty<RTDParagraphType | RTDBuildParagraphType, RTDBaseParagraphItems<Mode>>>;
+  BuildOnly<Mode, OneProperty<RTDParagraphType | RTDSourceParagraphType, RTDBaseParagraphItems<Mode>>>;
 
 type RTDBaseAnonymousParagraph<Mode extends RTDItemMode> = {
   tag?: never;
@@ -136,35 +136,32 @@ export type RTDListItemItems = RTDBaseListItemItems<"inMemory">;
 // copy for the export types
 //
 
-type RTDBuildList = {
+type RTDSourceList = {
   tag: RTDListType;
   className?: string;
-  listItems: RTDBuildListItems;
+  listItems: RTDSourceListItems;
 };
 
-type RTDBuildListItem = {
-  li: RTDBuildListItemItems;
+type RTDSourceListItem = {
+  li: RTDSourceListItemItems;
 };
 
-export type RTDBuildBlock =
+export type RTDSourceBlock =
   RTDBaseParagraph<"build"> |
-  RTDBuildList |
+  RTDSourceList |
   { widget: RTDBaseWidget<"build"> };
 
 /** The items of a list (type of list.listItems) */
-export type RTDBuildListItems = RTDBuildListItem[];
+export type RTDSourceListItems = RTDSourceListItem[];
 
 /** The type of list.listItems[*].liItems */
-type RTDBuildListItemItems = [RTDBaseAnonymousParagraph<"build">, ...RTDBuildList[]] | Array<RTDBaseParagraph<"build"> | RTDBuildList>;
+type RTDSourceListItemItems = [RTDBaseAnonymousParagraph<"build">, ...RTDSourceList[]] | Array<RTDBaseParagraph<"build"> | RTDSourceList>;
 
-//export type RTDBuildBlock = RTDBaseBlock<"build">;
-//export type RTDBuildListItems = RTDBaseListItems<"build">;
-
-export type RTDBuildInlineItem = RTDBaseInlineItem<"build">;
-export type RTDBuildInlineItems = RTDBaseParagraphItems<"build">;
+export type RTDSourceInlineItem = RTDBaseInlineItem<"build">;
+export type RTDSourceInlineItems = RTDBaseParagraphItems<"build">;
 
 /** The base RTD type accepted by buildRTD */
-export type RTDSource = RTDBuildBlock[];
+export type RTDSource = RTDSourceBlock[];
 
 // -------------
 // RTDBaseBlock<"export"> isn't assignable to RTDBaseBlock<"build"> due to the recursive type, so we need make a separate
@@ -319,7 +316,7 @@ export class RichTextDocument {
     return item as T & { link?: IntExtLink };
   }
 
-  async #buildParagraphItems(blockitems: RTDBuildInlineItems | string): Promise<RTDInlineItems> {
+  async #buildParagraphItems(blockitems: RTDSourceInlineItems | string): Promise<RTDInlineItems> {
     if (typeof blockitems === 'string')
       blockitems = [{ text: blockitems }];
 
@@ -384,7 +381,7 @@ export class RichTextDocument {
           }
         }
         // Build shortcuts handled, test nothing is left
-        item as Exclude<typeof item, OneProperty<RTDParagraphType | RTDBuildParagraphType, RTDBaseParagraphItems<"build">>> satisfies never;
+        item as Exclude<typeof item, OneProperty<RTDParagraphType | RTDSourceParagraphType, RTDBaseParagraphItems<"build">>> satisfies never;
         throw new Error(`Invalid list item ${JSON.stringify(item)}`);
       }
     }
@@ -395,7 +392,7 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async #buildListItems(listItems: RTDBuildListItems): Promise<RTDListItems> {
+  async #buildListItems(listItems: RTDSourceListItems): Promise<RTDListItems> {
     const outitems: RTDListItems = [];
 
     for (const item of listItems) {
@@ -404,7 +401,7 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async addBlock(tag: string, className: string | undefined, items?: RTDBuildInlineItems) {
+  async addBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems) {
     validateTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -434,7 +431,7 @@ export class RichTextDocument {
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
 
-  async addList(tag: string, className: string | undefined, listItems: RTDBuildListItems) {
+  async addList(tag: string, className: string | undefined, listItems: RTDSourceListItems) {
     validateListTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -449,7 +446,7 @@ export class RichTextDocument {
     this.#blocks.push(newblock);
   }
 
-  async addBlocks(blocks: RTDBuildBlock[]): Promise<void> {
+  async addBlocks(blocks: RTDSourceBlock[]): Promise<void> {
     //TODO validate, import disk objects etc
     for (const block of blocks) {
       if ("items" in block) {
