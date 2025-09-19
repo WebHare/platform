@@ -82,6 +82,7 @@
       <xs:extension base="Members">
         <xs:attribute name="namespace" type="xs:anyURI" />
         <xs:attribute name="cloneoncopy" type="xs:boolean" default="true" />
+        <xs:attributeGroup ref="TypeAttrs" />
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>
@@ -294,6 +295,14 @@
     <xs:attribute name="title" type="xs:string" />
   </xs:complexType>
 
+  <xs:attributeGroup name="TypeAttrs">
+    <xs:attribute name="comment" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>A developer's comment on this type. Not shown to unprivileged WebHare users.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+
   <xs:attributeGroup name="IndexTypeAttrs">
     <xs:attribute name="indexversion" />
   </xs:attributeGroup>
@@ -363,6 +372,7 @@
             </xs:restriction>
           </xs:simpleType>
         </xs:attribute>
+        <xs:attributeGroup ref="TypeAttrs" />
         <xs:attributeGroup ref="IndexTypeAttrs" />
       </xs:extension>
     </xs:complexContent>
@@ -625,7 +635,7 @@
     <xs:attribute name="name" type="sc:Name" use="required" />
     <xs:attribute name="comment" type="xs:string">
       <xs:annotation>
-        <xs:documentation>A developer's comment on this type. Not shown to non-prviileged WebHare users. Allows easier porting to YAML</xs:documentation>
+        <xs:documentation>A developer's comment on this member. Not shown to unprivileged WebHare users.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>
@@ -718,6 +728,7 @@
             <xs:list itemType="xs:string" />
           </xs:simpleType>
         </xs:attribute>
+        <xs:attributeGroup ref="TypeAttrs" />
         <xs:attributeGroup ref="IndexTypeAttrs" />
         <xs:attribute name="kind">
           <xs:annotation>
@@ -791,6 +802,7 @@
         <xs:attribute name="indextype" type="xs:string" />
         <xs:attribute name="protectindexfile" type="xs:boolean" />
         <xs:attribute name="ishidden" type="xs:boolean" />
+        <xs:attributeGroup ref="TypeAttrs" />
         <xs:attributeGroup ref="IndexTypeAttrs" />
       </xs:extension>
     </xs:complexContent>
