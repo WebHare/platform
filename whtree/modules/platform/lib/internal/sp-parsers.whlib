@@ -1,4 +1,6 @@
 <?wh
+
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 
@@ -52,4 +54,36 @@ PUBLIC RECORD FUNCTION ParseWRDPaymentsConfigurationNode(OBJECT siteprofile, OBJ
           ];
 
   RETURN config;
+}
+
+PUBLIC RECORD FUNCTION GetDebugSettingsAsYaml(OBJECT node) {
+  /* Imagined YAML
+     debugSettings:
+     - userWarning: ....
+       groupTitle: Goodies
+       flags:
+         win:
+           title: "Pxl events"
+           requirRright: xx
+  */
+
+  RECORD setting := [
+    flags := DEFAULT RECORD,
+    group_title := node->GetAttribute("title")
+  ];
+
+  IF(node->HasAttribute("userwarning"))
+    setting := CELL[...setting, user_warning := node->GetAttribute("userwarning") ];
+
+  FOREVERY (OBJECT subnode FROM node->childnodes->GetCurrentElements())
+    IF(subnode->localname = "option") {
+      RECORD flag := [
+        title := subnode->GetAttribute("title")
+      ];
+      IF(subnode->HasAttribute("requireright"))
+        INSERT CELL require_right := subnode->GetAttribute("requireright") INTO flag;
+      setting.flags := CellInsert(setting.flags, ToSnakeCase(subnode->GetAttribute("tag")), flag);
+    }
+
+  RETURN setting;
 }

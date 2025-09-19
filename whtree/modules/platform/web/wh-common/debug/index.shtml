@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::witty.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
@@ -108,24 +109,24 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
     }
   }
 
-  RECORD FUNCTION GetOptions(INTEGER targetobject)
-  {
+  RECORD FUNCTION GetOptions(INTEGER targetobject) {
     RECORD ARRAY options;
     OBJECT webcontext := GetWebContext(targetobject);
     STRING userwarning;
 
-    FOREVERY(RECORD debugsettings FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "debugsettings", targetobject))
-    {
-      IF(debugsettings.node->HasAttribute("userwarning"))
-        userwarning := debugsettings.node->GetAttribute("userwarning");
+    FOREVERY(RECORD debugsetting FROM GetYamlPluginSettings(targetobject, "debugSettings")) {
+      IF(CellExists(debugsetting, 'user_warning'))
+        userwarning := debugsetting.user_warning;
 
-      FOREVERY (OBJECT subnode FROM debugsettings.node->childnodes->GetCurrentElements())
-        IF(subnode->localname = "option")
-          INSERT [ grouptitle := debugsettings.node->GetAttribute("title")
-                 , title := subnode->GetAttribute("title")
-                 , tag := subnode->GetAttribute("tag")
-                 , requireright := subnode->HasAttribute("requireright") ? subnode->GetAttribute("requireright") : "system:supervisor"
-                 ] INTO options AT END;
+      STRING grouptitle := CellExists(debugsetting, 'group_title') ? GetCell(debugsetting, 'group_title') : "";
+      IF(CellExists(debugsetting, 'flags'))
+        FOREVERY (RECORD prop FROM UnpackRecord(debugsetting.flags)) {
+          INSERT CELL[ grouptitle
+                    , title := CellExists(prop.value, 'title') ? prop.value.title : ""
+                    , tag := ToCamelCase(ToLowercase(prop.name))
+                    , requireright := CellExists(prop.value, "require_right") ? prop.value.require_right : "system:supervisor"
+                    ] INTO options AT END;
+      }
     }
 
     STRING ARRAY grantedrights :=
