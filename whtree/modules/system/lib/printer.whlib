@@ -10,25 +10,6 @@ LOADLIB "mod::system/lib/internal/asynctools.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/pdfapi.whlib";
 LOADLIB "mod::system/lib/internal/services/javaservice.whlib";
 
-
-/* We've removed most of the options except what we've found used in practice. We need to consider in what form we'll be retaining PDF and Screenshot generation in the
-   future - will we wrap it in any form or just point users directly to Puppeteer APIs ?
-
-   Also note that screenshotting is faster if you directly connect to chrome for multiple screenshots as setting up the context is slow */
-PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFAULTSTO CELL[]) {
-  options := ValidateOptions([ withalpha := FALSE
-                             , screenwidth := 1920
-                             , screenheight := 1080
-                             ], options);
-
-  IF(NOT IsAbsoluteURL(url))
-    THROW NEW Exception("Invalid URL to screenshot: " || url);
-
-  STRING res := CallJS("mod::platform/js/services/puppeteer.ts#generateBrowserScreenshot", url, options);
-  RETURN [ screenshot := WrapBlob(StringToBlob(DecodeBase64(res)), "screenshot.png")
-         ];
-}
-
 /** @short Generate a PDF from a witty record
     @long Header and footer templates can use `<span class="pageNumber"></span>` and `<span class="totalPages"></span>` to show the page number and total number of pages respectively, but due to a Chrome limitation
           these are only shown if you also set the page margins to not intersect with these elements

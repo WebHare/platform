@@ -4,4 +4,4 @@ async function main() {
     throw new Error("It's not 42");
 }
 
-main();
+void main();

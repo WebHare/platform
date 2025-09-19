@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
@@ -28,6 +29,18 @@ PUBLIC STATIC OBJECTTYPE RepublishAssetpackUsersTask EXTEND ManagedTaskBase
     this->ResolveByCompletion([ siteids := SELECT AS INTEGER ARRAY id FROM associatedsites ]);
   }
 >;
+
+RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFAULTSTO CELL[]) {
+  options := ValidateOptions([ withalpha := FALSE
+                             , screenwidth := 1920
+                             , screenheight := 1080
+                             ], options);
+
+
+  STRING res := CallJS("mod::platform/js/services/puppeteer.ts#generateBrowserScreenshot", url, options);
+  RETURN [ screenshot := WrapBlob(StringToBlob(DecodeBase64(res)), "screenshot.png")
+         ];
+}
 
 PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase //publisher:generatewidgetpreview
 <
