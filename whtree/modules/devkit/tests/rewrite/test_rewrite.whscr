@@ -93,6 +93,7 @@ RunTestFramework([ PTR TestRewriter
                  , PTR TestRewriteXMLFile("rewritescreen.basics")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.basics")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.basics", [ mode := "431" ])
+                 , PTR TestRewriteXMLFile("rewritesiteprofile.basics", [ mode := "508" ])
                  , PTR TestRewriteXMLFile("rewritesiteprofile.propertyeditor")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.widgetedit")
                  , PTR TestRewriteXMLFile("rewritesiteprofile.editfragment", [ ignorewarninglines := [42] ])

@@ -11,8 +11,9 @@
   </contenttype>
 
   <contenttype namespace="urn::xmlns2" cloneoncopy="false">
+    <!-- about chatinfolink -->
     <member name="chatinfolink" type="whfsref" />
-    <member name="chatinfolink2" type="whfsref" />
+    <member name="chatinfolink2" type="whfsref" /> <!-- about chatinfolink2 -->
   </contenttype>
 
   <contenttype namespace="urn::xmlns3" cloneoncopy="true">
@@ -51,6 +52,7 @@
     <allowfiletype typedef="urn::dummy2" />
   </apply>
 
+  <!-- set up webdesign -->
   <apply>
     <to type="all"/>
     <webdesign assetpack="publisher:__dummy__"
@@ -65,6 +67,21 @@
   <foldertype typedef="urn::xmlns5">
     <dynamicexecution library="lib/dummy.whlib" startmacro="AnyMacro" />
   </foldertype>
+
+  <!-- Version metata -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false">
+    <!-- 'publish.draft' version number. first version is 0.1, first published version is 1.0 -->
+    <string name="version" />
+
+    <!-- webhare user who saved this draft or the last draft leading up to this final version -->
+    <record name="editor" />
+
+    <!-- webhare user who first published this version (ie approved the draft) -->
+    <record name="publisher" />
+
+    <!-- when this version was first published -->
+    <datetime name="published" />
+  </contenttype>
 
   <applysiteprofile path="rewritesiteprofile.editfragment.in.xml" />
 

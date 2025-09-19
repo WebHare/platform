@@ -18,7 +18,7 @@ PUBLIC STRING FUNCTION GetRewriteMode(STRING respath)
 {
   STRING module := Getmodulenamefromresourcepath(respath);
   IF(module IN whconstant_builtinmodules)
-    RETURN "431";
+    RETURN "508";
 
   RECORD modinfo := GetWebhareModuleInfo(module);
   IF(NOT RecordExists(modinfo) OR NOT RecordExists(modinfo.packagingapplicability))
@@ -26,6 +26,10 @@ PUBLIC STRING FUNCTION GetRewriteMode(STRING respath)
 
   STRING reqversion := modinfo.packagingapplicability.webhareversion;
   //a heuristic to determine what your rewrite targets...
+
+  //508 checks: see if your mdoule require 5.08 or above. Eg if 999.999.999 s in range but 5.07.999 isn't
+  IF(VersionSatisfiesRange("999.999.999", reqversion) AND NOT VersionSatisfiesRange("5.07.999", reqversion))
+    RETURN "508";
 
   //431 checks: see if your mdoule require 4.31 or above. Eg if 999.999.999 s in range but 4.30.999 isn't
   IF(VersionSatisfiesRange("999.999.999", reqversion) AND NOT VersionSatisfiesRange("4.30.999", reqversion))

@@ -8,8 +8,7 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::devkit/lib/rewrite/rewritesupport.whlib";
 
 
-PUBLIC STATIC OBJECTTYPE XMLUpdater
-<
+PUBLIC STATIC OBJECTTYPE XMLUpdater <
   OBJECT xmldoc;
   STRING resourcename;
   STRING mode;
@@ -46,6 +45,55 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
     }
   }
 
+  STRING FUNCTION ExtractComment(OBJECT startingpoint) {
+    //If we're a closed element, look behind us, ie <member /> <!-- comment
+    OBJECT next := startingpoint->nextsibling;
+    IF(ObjectExists(next) AND next->nodetype = 3 AND next->textcontent NOT LIKE "*\n*") {
+      next := next->nextsibling;
+      IF(ObjectExists(next) AND next->nodetype = 8) {
+        next->Remove();
+        RETURN TrimWhitespace(next->textcontent);
+      }
+    }
+
+    //If the prev is just whitespace, skip it
+    IF(ObjectExists(startingpoint->previoussibling) AND startingpoint->previoussibling->nodetype = 3 AND TrimWhitespace(startingpoint->previoussibling->textcontent) = "")
+      startingpoint := startingpoint->previoussibling;
+    //If the prev is a comment, return it
+    IF(ObjectExists(startingpoint->previoussibling) AND startingpoint->previoussibling->nodetype = 8) {
+      STRING content := TrimWhitespace(startingpoint->previoussibling->textcontent);
+      startingpoint->previoussibling->Remove();
+      RETURN content;
+    }
+
+    RETURN "";
+  }
+
+  MACRO ApplyNodeCommentRewrite(OBJECT node) {
+    IF(NOT node->HasAttribute("comment")) {
+      STRING trycomment := this->ExtractComment(node);
+      IF(trycomment != "")
+        node->SetAttribute("comment", trycomment);
+    }
+  }
+
+  MACRO ApplyTypeCommentRewrite(OBJECT parent) {
+    IF(this->mode != "508")
+      RETURN;
+
+    this->ApplyNodeCommentRewrite(parent);
+
+    OBJECT memberparent;
+    IF(parent->localname="contenttype")
+      memberparent := parent;
+    ELSE
+      memberparent := PickFirst(parent->ListChildren(publisher_sp,"members"));
+
+    IF(ObjectExists(memberparent))
+      FOREVERY(OBJECT membernode FROM memberparent->ListElements(publisher_sp,"*"))
+        this->ApplyNodeCommentRewrite(membernode);
+  }
+
   OBJECT FUNCTION GetContentType(STRING ns)
   {
     FOREVERY(OBJECT ctypenode FROM this->xmldoc->ListElements(publisher_sp, "contenttype"))
@@ -71,7 +119,7 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
     IF(ns = "")
       RETURN;
 
-    IF(this->mode IN ["431"] AND filefoldertype->HasAttribute("tolliumicon"))
+    IF(this->mode IN ["431","508"] AND filefoldertype->HasAttribute("tolliumicon"))
     {
       filefoldertype->SetAttribute("icon", filefoldertype->GetAttribute("tolliumicon"));
       filefoldertype->RemoveAttribute("tolliumicon");
@@ -648,8 +696,7 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
     action->RemoveAttribute("icon");
   }
 
-  PUBLIC MACRO ApplyRewrites(STRING resourcename, STRING format)
-  {
+  PUBLIC MACRO ApplyRewrites(STRING resourcename, STRING format) {
     IF(format = "http://www.webhare.net/xmlns/tollium/screens#screens" AND this->xmldoc->documentelement->HasAttribute("lib"))
      this->FixScreenLibAttribute(resourcename, this->xmldoc->documentelement);
 
@@ -661,21 +708,23 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
         tid_title_conflict->RemoveAttribute("title");
     }
 
-    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"contenttype"))
+    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"contenttype")) {
       this->ApplyMembers(widgetnode);
+      this->ApplyTypeCommentRewrite(widgetnode);
+    }
 
-    FOREVERY(OBJECT filetype FROM this->xmldoc->ListElements(publisher_sp, "filetype"))
-    {
+    FOREVERY(OBJECT filetype FROM this->xmldoc->ListElements(publisher_sp, "filetype")) {
       this->ApplyFileFolderTypeRewrite(filetype);
       this->ApplyFiletypeKinds(filetype);
       this->MergeApplyToIntoFileFolderType(filetype);
       this->ApplyFileTypeAttributeOptimziation(filetype);
+      this->ApplyTypeCommentRewrite(filetype);
     }
 
-    FOREVERY(OBJECT foldertype FROM this->xmldoc->ListElements(publisher_sp, "foldertype"))
-    {
+    FOREVERY(OBJECT foldertype FROM this->xmldoc->ListElements(publisher_sp, "foldertype")) {
       this->ApplyFileFolderTypeRewrite(foldertype);
       this->MergeApplyToIntoFileFolderType(foldertype);
+      this->ApplyTypeCommentRewrite(foldertype);
     }
 
     FOREVERY(OBJECT oldnode FROM this->xmldoc->ListElements(publisher_sp,"disablelegacysitesettings"))
@@ -684,8 +733,14 @@ PUBLIC STATIC OBJECTTYPE XMLUpdater
     FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"embeddedobjecttype"))
       this->FixEmbeddedObjectType(widgetnode);
 
-    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"widgettype"))
+    FOREVERY(OBJECT widgetnode FROM this->xmldoc->ListElements(publisher_sp,"widgettype")) {
       this->ApplyWidgetRewrite(widgetnode);
+      this->ApplyTypeCommentRewrite(widgetnode);
+    }
+
+    FOREVERY(OBJECT applynode FROM this->xmldoc->ListElements(publisher_sp,"apply")) {
+      this->ApplyTypeCommentRewrite(applynode);
+    }
 
     FOREVERY(STRING allowdenytype FROM ["allowfiletype","allowfoldertype","denyfiletype","denyfoldertype"])
       FOREVERY(OBJECT node FROM this->xmldoc->ListElements(publisher_sp, allowdenytype))

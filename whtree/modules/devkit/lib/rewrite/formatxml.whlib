@@ -165,8 +165,7 @@ RECORD ARRAY FUNCTION FixTwoPartRef(RECORD formattingstate, RECORD ARRAY attrs, 
   RETURN attrs;
 }
 
-RECORD FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate)
-{
+RECORD FUNCTION RewiteXMLElement(OBJECT el, RECORD formattingstate) {
   STRING usenodename := el->nodename;
   BOOLEAN eliminateifempty;
 
@@ -396,14 +395,12 @@ STRING FUNCTION ReformatComment(STRING comment)
   RETURN comment;
 }
 
-STRING FUNCTION RewriteChildren(OBJECT parent, RECORD formattingstate)
-{
+STRING FUNCTION RewriteChildren(OBJECT parent, RECORD formattingstate) {
   RECORD ARRAY nodes;
   BOOLEAN onelementline;
   BOOLEAN atleftpos; //are we at col 1? only a textelemnt ending with \n sets this
 
-  FOR(OBJECT  node := parent->firstchild; ObjectExists(node); node := node->nextsibling)
-  {
+  FOR(OBJECT  node := parent->firstchild; ObjectExists(node); node := node->nextsibling) {
     IF(node->nodetype = 1) //element
     {
       RECORD noderesult := RewiteXMLElement(node, formattingstate);

@@ -1,17 +1,15 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- Place empty line above, not below -->
-  <contenttype namespace="urn::xmlns1">
+  <contenttype namespace="urn::xmlns1" comment="Place empty line above, not below">
     <whfsref name="chatinfolink" />
   </contenttype>
 
   <contenttype namespace="urn::xmlns2" cloneoncopy="false">
-    <!-- about chatinfolink -->
-    <whfsref name="chatinfolink" />
-    <whfsref name="chatinfolink2" />  <!-- about chatinfolink2 -->
+    <whfsref name="chatinfolink" comment="about chatinfolink" />
+    <whfsref name="chatinfolink2" comment="about chatinfolink2" />
   </contenttype>
 
-  <filetype namespace="urn::xmlns3" kind="virtualfile" capturesubpaths="true" tolliumicon="tollium:folders/locked">
+  <filetype namespace="urn::xmlns3" kind="virtualfile" capturesubpaths="true" icon="tollium:folders/locked">
     <members>
       <whfsref name="chatinfolink" />
       <whfsref name="chatinfolink2" />
@@ -32,8 +30,7 @@
     <allowfiletype typemask="urn::dummy2" />
   </apply>
 
-  <!-- set up webdesign -->
-  <apply>
+  <apply comment="set up webdesign">
     <to type="all" />
     <webdesign assetpack="publisher:__dummy__"
                designfolder="."
@@ -48,19 +45,11 @@
     <dynamicexecution startmacro="lib/dummy.whlib#AnyMacro" />
   </foldertype>
 
-  <!-- Version metata -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false">
-    <!-- 'publish.draft' version number. first version is 0.1, first published version is 1.0 -->
-    <string name="version" />
-
-    <!-- webhare user who saved this draft or the last draft leading up to this final version -->
-    <record name="editor" />
-
-    <!-- webhare user who first published this version (ie approved the draft) -->
-    <record name="publisher" />
-
-    <!-- when this version was first published -->
-    <datetime name="published" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false" comment="Version metata">
+    <string name="version" comment="'publish.draft' version number. first version is 0.1, first published version is 1.0" />
+    <record name="editor" comment="webhare user who saved this draft or the last draft leading up to this final version" />
+    <record name="publisher" comment="webhare user who first published this version (ie approved the draft)" />
+    <datetime name="published" comment="when this version was first published" />
   </contenttype>
 
   <applysiteprofile path="rewritesiteprofile.editfragment.in.xml" />

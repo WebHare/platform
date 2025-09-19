@@ -21,9 +21,9 @@ CONSTANT RECORD ARRAY replacements :=
     , [ lib := "wh::internet/http.whlib",                          replacewith := ["wh::internet/urls.whlib" ],                                       requiresmode := STRING[]      ]
     , [ lib := "wh::internet/tcpip.whlib",                         replacewith := ["wh::internet/urls.whlib" ],                                       requiresmode := STRING[]      ]
     , [ lib := "mod::system/lib/internal/modules/defreader.whlib", replacewith := ["mod::system/lib/internal/modules/resourcemanager.whlib" ],        requiresmode := STRING[]      ]
-    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib" ],                                 requiresmode := STRING["431"] ]
-    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/services.whlib" ],                                requiresmode := STRING["431"] ]
-    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib","mod::system/lib/services.whlib"], requiresmode := STRING["431"] ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib" ],                                 requiresmode := STRING["431","508"] ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/services.whlib" ],                                requiresmode := STRING["431","508"] ]
+    , [ lib := "mod::system/lib/cluster.whlib",                    replacewith := ["mod::system/lib/logging.whlib","mod::system/lib/services.whlib"], requiresmode := STRING["431","508"] ]
     ];
 
 
