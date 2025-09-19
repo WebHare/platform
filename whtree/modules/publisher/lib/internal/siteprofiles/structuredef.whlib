@@ -129,7 +129,7 @@ STRING ARRAY blocknodes :=
     ];
 
 
-STRING ARRAY textstyletags := [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup', 'img' ];
+STRING ARRAY textstyletags := [ 'a-href', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup', 'img' ];
 
 RECORD ARRAY FUNCTION ExplainIntoLines(RECORD ARRAY parsed)
 {
@@ -434,7 +434,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     IF(nodename="a" AND node->HasAttribute("href"))
       nodename := "a-href";
 
-    IF (nodename NOT IN [ 'a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ])
+    IF (nodename NOT IN [ 'a-href', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup' ])
       RETURN DEFAULT RECORD;
 
     RECORD retval := [ nodename := nodename

@@ -220,8 +220,6 @@
       <xs:enumeration value="strike" />
       <xs:enumeration value="img" />
       <xs:enumeration value="code" />
-      <xs:enumeration value="ins" />
-      <xs:enumeration value="del" />
     </xs:restriction>
   </xs:simpleType>
 

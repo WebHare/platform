@@ -192,10 +192,10 @@ PUBLIC CONSTANT RECORD ARRAY restructuringtests :=
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines"
       , title :=          "inline node hierarchy"
-      , input :=          `<p><b><i><u><a href="http://example.com"><del><ins><strike><sub><sup>test1</sup></sub></strike></a href="http://example.com"></u></i></b></ins></del></p>` ||
-                          `<p><sup><sub><strike><a href="http://example.com"><u><i><b><del><ins>test2</ins></del></b></i></u></a href="http://example.com"></strike></sub></sup></p>`
-      , expect :=         `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test1</sup></sub></strike></u></b></i></del></ins></a></p>` ||
-                          `<p class="normal"><a href="http://example.com"><ins><del><i><b><u><strike><sub><sup>test2</sup></sub></strike></u></b></i></del></ins></a></p>`
+      , input :=          `<p><b><i><u><a href="http://example.com"><strike><sub><sup>test1</sup></sub></strike></a href="http://example.com"></u></i></b></p>` ||
+                          `<p><sup><sub><strike><a href="http://example.com"><u><i><b>test2</b></i></u></a href="http://example.com"></strike></sub></sup></p>`
+      , expect :=         `<p class="normal"><a href="http://example.com"><i><b><u><strike><sub><sup>test1</sup></sub></strike></u></b></i></a></p>` ||
+                          `<p class="normal"><a href="http://example.com"><i><b><u><strike><sub><sup>test2</sup></sub></strike></u></b></i></a></p>`
       ]
     , [ rtdtype :=        "http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines"
       , title :=          "Inline Embedded object" //HS doesn't need --inline classes and instanceid, JS uses encrypted refs
