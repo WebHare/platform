@@ -19,7 +19,7 @@ import type { ValueQueryChecker } from "./checker";
 import { getInstanceFromWHFS, getRTDFromWHFS, storeInstanceInWHFS, storeRTDinWHFS } from "./wrd-whfs";
 import { isPromise } from "node:util/types";
 import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
-import { buildInstance, isInstance, type ExportableRTD, type RTDBuildSource } from "@webhare/services/src/richdocument";
+import { buildInstance, isInstance, type RTDExport, type RTDSource } from "@webhare/services/src/richdocument";
 import type { AnyWRDType } from "./schema";
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -2226,7 +2226,7 @@ class WRDDBFileValue<Required extends boolean> extends WHDBResourceAttributeBase
 
 class WRDDBImageValue<Required extends boolean> extends WHDBResourceAttributeBase<Required> { }
 
-class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null, ExportableRTD | null> {
+class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextDocument | null, RichTextDocument | null, RichTextDocument | null, RTDExport | null> {
   getDefaultValue(): RichTextDocument | null {
     return null;
   }
@@ -2275,14 +2275,14 @@ class WRDDBRichDocumentValue extends WRDAttributeUncomparableValueBase<RichTextD
     };
   }
 
-  importValue(value: RTDBuildSource | RichTextDocument | null): Promise<RichTextDocument | null> | RichTextDocument | null {
+  importValue(value: RTDSource | RichTextDocument | null): Promise<RichTextDocument | null> | RichTextDocument | null {
     if (Array.isArray(value)) { //TODO can we do a more reliable 'is an Buildable RTD' check ?
       return buildRTD(value);
     }
     return value;
   }
 
-  exportValue(value: RichTextDocument | null): Promise<ExportableRTD> | null {
+  exportValue(value: RichTextDocument | null): Promise<RTDExport> | null {
     return value?.blocks.length ? value.export() : null;
   }
 }

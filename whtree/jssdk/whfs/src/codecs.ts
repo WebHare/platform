@@ -12,7 +12,7 @@ import type { InstanceExport, InstanceSource, WHFSTypeMember } from "./contentty
 import type { FSSettingsRow } from "./describe";
 import { describeWHFSType } from "./describe";
 import { getWHType, isTemporalInstant, isTemporalPlainDate } from "@webhare/std/src/quacks";
-import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDBuildSource, type ExportableRTD } from "@webhare/services/src/richdocument";
+import { buildRTD, buildInstance, isRichTextDocument, isInstance, type RTDSource, type RTDExport } from "@webhare/services/src/richdocument";
 import type { ExportedResource, ExportOptions } from "@webhare/services/src/descriptor";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
 import { ComposedDocument, type ComposedDocumentType } from "@webhare/services/src/composeddocument";
@@ -559,8 +559,8 @@ export const codecs = {
   },
   "richTextDocument": {
     getType: "RichTextDocument | null",
-    setType: "RichTextDocument | RTDBuildSource | null",
-    exportType: "ExportableRTD | null",
+    setType: "RichTextDocument | RTDSource | null",
+    exportType: "RTDExport | null",
 
     encoder: (value: RichTextDocument | null) => {
       if (value && !isRichTextDocument(value))
@@ -590,11 +590,11 @@ export const codecs = {
     exportValue: (value: RichTextDocument | null, member: WHFSTypeMember, afterDecode: boolean, options: ExportOptions) => {
       return value?.export() || null;
     },
-    importValue: (value: RTDBuildSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
+    importValue: (value: RTDSource | RichTextDocument | null): MaybePromise<RichTextDocument | null> => {
       if (!value || isRichTextDocument(value))
         return value;
       if (!Array.isArray(value))
-        throw new Error(`Incorrect type. Wanted a RichTextDocument or RTDBuildSource, got '${describeType(value)}'`);
+        throw new Error(`Incorrect type. Wanted a RichTextDocument or RTDSource, got '${describeType(value)}'`);
       return buildRTD(value);
     },
   },
@@ -890,7 +890,7 @@ export type CodecExportMemberType =
   IntExtLink |
   Money |
   { [K in string]?: CodecExportMemberType } |
-  ExportableRTD |
+  RTDExport |
   ExportedResource |
   InstanceExport |
   ExportedIntExtLink;
@@ -917,6 +917,6 @@ export type CodecImportMemberType =
   Record<string, unknown> |
   ResourceDescriptor |
   RichTextDocument |
-  RTDBuildSource |
+  RTDSource |
   Temporal.Instant |
   Temporal.PlainDate;

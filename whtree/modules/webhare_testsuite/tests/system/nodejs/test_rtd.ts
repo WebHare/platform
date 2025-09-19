@@ -5,11 +5,11 @@ import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
 import { openType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDBuildSource, type ExportableRTD, type Instance } from "@webhare/services/src/richdocument";
+import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
 import { isResourceDescriptor, type ExportedResource } from "@webhare/services/src/descriptor";
 
 // An exportable RTD should always be a valid input source
-({} as ExportableRTD) satisfies RTDBuildSource;
+({} as RTDExport) satisfies RTDSource;
 
 ///A resourcedescriptor compare that ignores filenames (because )
 function compareRDIgnoreFilename(expect: unknown, actual: unknown) {

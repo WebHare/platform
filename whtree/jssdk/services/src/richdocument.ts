@@ -164,7 +164,7 @@ export type RTDBuildInlineItem = RTDBaseInlineItem<"build">;
 export type RTDBuildInlineItems = RTDBaseParagraphItems<"build">;
 
 /** The base RTD type accepted by buildRTD */
-export type RTDBuildSource = RTDBuildBlock[];
+export type RTDSource = RTDBuildBlock[];
 
 // -------------
 // RTDBaseBlock<"export"> isn't assignable to RTDBaseBlock<"build"> due to the recursive type, so we need make a separate
@@ -192,7 +192,7 @@ export type RTDExportListItems = RTDExportListItem[];
 /** The type of list.listItems[*].liItems */
 type RTDExportListItemItems = [RTDBaseAnonymousParagraph<"export">, ...RTDExportList[]] | Array<RTDBaseParagraph<"export"> | RTDExportList>;
 
-export type ExportableRTD = RTDExportBlock[];
+export type RTDExport = RTDExportBlock[];
 
 
 
@@ -540,14 +540,14 @@ export class RichTextDocument {
     return mapMaybePromise(getArrayPromise(convertedItems), items => ({ ...block, listItems: items }));
   }
 
-  #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<ExportableRTD> {
+  #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<RTDExport> {
     return getArrayPromise(blocks.map(block => {
       if ("items" in block)
-        return this.#exportRTDParagraph(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDParagraph(block, options) satisfies MaybePromise<RTDExport[number]>;
       else if ("listItems" in block) {
-        return this.#exportRTDList(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDList(block, options) satisfies MaybePromise<RTDExport[number]>;
       } else if ("widget" in block)
-        return this.#exportRTDWidget(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDWidget(block, options) satisfies MaybePromise<RTDExport[number]>;
       else
         block satisfies never;
       throw new Error(`Block ${JSON.stringify(block)} has no export definition`);
@@ -555,7 +555,7 @@ export class RichTextDocument {
   }
 
   /** Export as buildable RTD */
-  async export(options?: ExportOptions): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
+  async export(options?: ExportOptions): Promise<RTDExport> { //TODO RTDSource is wider than what we'll build, eg it allows Widget objects
     return await this.#exportRTDBlocks(this.#blocks, { export: true, ...options });
   }
 
@@ -574,7 +574,7 @@ export class RichTextDocument {
   }
 }
 
-export async function buildRTD(source: RTDBuildSource): Promise<RichTextDocument> {
+export async function buildRTD(source: RTDSource): Promise<RichTextDocument> {
   //TODO validate, import disk objects etc
   const outdoc = new RichTextDocument;
   await outdoc.addBlocks(source);
@@ -600,11 +600,11 @@ export type { WidgetInterface as Widget, Instance };
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function verifyTypes() {
   // The separate declarations of the types for build/export mode and the parameterized type should be equal
-  true satisfies test.Equals<RTDBuildSource, RTDBaseBlocks<"build">>;
-  true satisfies test.Equals<ExportableRTD, RTDBaseBlocks<"export">>;
+  true satisfies test.Equals<RTDSource, RTDBaseBlocks<"build">>;
+  true satisfies test.Equals<RTDExport, RTDBaseBlocks<"export">>;
   true satisfies test.Equals<RTDBlock[], RTDBaseBlocks<"inMemory">>;
 
   // The export type and inMemory type should be assignable to the build type
-  true satisfies test.Assignable<RTDBuildSource, RTDBaseBlocks<"export">>;
-  true satisfies test.Assignable<RTDBuildSource, RTDBaseBlocks<"inMemory">>;
+  true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"export">>;
+  true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"inMemory">>;
 }

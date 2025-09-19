@@ -91,7 +91,7 @@ import type { } from "@webhare/whfs";
 import type { Money } from "@webhare/std";
 import type { IntExtLink, ResourceDescriptor, RichTextDocument } from "@webhare/services";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
-import type { RTDBuildSource, Instance, ExportableRTD } from "@webhare/services/src/richdocument";
+import type { RTDSource, Instance, RTDExport } from "@webhare/services/src/richdocument";
 import type { InstanceExport, InstanceSource } from "@webhare/whfs/src/contenttypes";
 import type { ComposedDocument } from "@webhare/services/src/composeddocument";
 import type { ExportedIntExtLink } from "@webhare/services/src/intextlink";
