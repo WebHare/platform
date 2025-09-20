@@ -13,7 +13,7 @@ import type { WebdesignPluginAPIs, WebResponse } from "@webhare/router";
 import type { WHConfigScriptData } from "@webhare/frontend/src/init";
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 import type { FrontendDataTypes } from "@webhare/frontend";
-import { getVersionInteger } from "@mod-system/js/internal/configuration";
+import { getExtractedConfig, getVersionInteger } from "@mod-system/js/internal/configuration";
 import { dtapStage } from "@webhare/env";
 import type { WittyData } from "@webhare/witty";
 
@@ -120,7 +120,9 @@ class CSiteRequest {
     const settings = new SiteResponseSettings;
     settings.assetpack = publicationsettings.assetPack;
     settings.witty = publicationsettings.witty;
-    settings.supportedlanguages = publicationsettings.supportedLanguages;
+
+    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+    settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
     settings.lang = this.#siteLanguage;
 
     const factory = await importJSFunction<WebDesignFunction<T>>(publicationsettings.siteResponseFactory);
@@ -167,7 +169,8 @@ class CSiteRequest {
     const settings = new SiteResponseSettings;
     settings.assetpack = publicationsettings.assetPack;
     settings.witty = publicationsettings.witty;
-    settings.supportedlanguages = publicationsettings.supportedLanguages;
+    const assetPackInfo = getExtractedConfig("assetpacks").find(_ => _.name === publicationsettings.assetPack);
+    settings.supportedlanguages = assetPackInfo?.supportedLanguages || [];
     settings.lang = this.#siteLanguage;
 
     const response = new SiteResponse<WittyData>(data, this, settings);

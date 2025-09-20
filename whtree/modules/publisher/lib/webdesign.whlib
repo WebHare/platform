@@ -48,13 +48,16 @@ CONSTANT RECORD initialrobotstag := [ noindex := FALSE
                                     , custom := ""
                                     ];
 
-RECORD FUNCTION GetSiteLanguageRecord(OBJECT webdesign)
-{
+RECORD FUNCTION GetSiteLanguageRecord(STRING assetpack, STRING matchlang) {
+  matchlang := ToUppercase(matchlang);
+
   RECORD langrec;
-  STRING matchlang := ToUppercase(webdesign->languagecode);
-  FOREVERY(STRING langcode FROM webdesign->__config.supportedlanguages)
-    IF(NOT CellExists(langrec,langcode))
-    {
+  RECORD assetpackinfo := SELECT * FROM __GetExtractedConfig("assetpacks") WHERE name = assetpack;
+  IF(NOT RecordExists(assetpackinfo))
+    RETURN langrec;
+
+  FOREVERY(STRING langcode FROM assetpackinfo.supportedlanguages)
+    IF(NOT CellExists(langrec,langcode)) {
       BOOLEAN ismatch := ToUppercase(langcode) = matchlang OR matchlang LIKE ToUppercase(langcode) || "-*";
       langrec := CellInsert(langrec, langcode, ismatch);
     }
@@ -670,7 +673,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
                    , ishomepage    := ObjectExists(this->targetsite) AND this->targetsite->id = this->targetfolder->id AND this->targetobject->id = this->targetfolder->indexdoc
                    , isindexdoc    := ObjectExists(this->targetsite) AND this->targetobject->id = this->targetfolder->indexdoc
                    , isrtdpreview  := FALSE
-                   , sitelanguage  := GetSiteLanguageRecord(PRIVATE this)
+                   , sitelanguage  := GetSiteLanguageRecord(this->assetpack, this->languagecode)
                    , structuredbreadcrumb := this->structuredbreadcrumb
                    ];
 

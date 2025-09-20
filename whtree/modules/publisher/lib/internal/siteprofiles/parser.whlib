@@ -584,7 +584,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
                         , siteprofile              := this->siteprof->name
                         , supportserrors           := ParseXSBoolean(node->GetAttribute("supportserrors"))
                         , supportsaccessdenied     := ParseXSBoolean(node->GetAttribute("supportsaccessdenied"))
-                        , supportedlanguages       := ParseXSList(node->GetAttribute("supportedlanguages"))
                         , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
 
                         , has_assetpack            := node->HasAttribute("assetpack")
@@ -597,15 +596,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     IF(webdesign.assetpack != "" AND webdesign.assetpack != "publisher:__dummy__") //publisher:__dummy__ is how we separate 'publisher:nodesign' from 'forgot to set asset pack'
     {
       RECORD assetpackinfo := SELECT * FROM this->parameters->assetpacks WHERE ToUppercase(name) = ToUppercase(webdesign.assetpack);
-      IF(RecordExists(assetpackinfo))
-      {
-        //Cache important settings which would be too slow to look up separately from <webdesign>
-        webdesign.supportedlanguages := assetpackinfo.supportedlanguages;
-      }
-      ELSE
-      {
+      IF(NOT RecordExists(assetpackinfo))
         this->AddError(node, `No such assetpack '${webdesign.assetpack}'`);
-      }
     }
 
     IF(webdesign.designfolder != "" AND webdesign.designfolder NOT LIKE "*/")

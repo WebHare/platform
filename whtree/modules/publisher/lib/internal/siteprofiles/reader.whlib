@@ -299,7 +299,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , renderinfo      := DEFAULT RECORD
                       , supportserrors  := TRUE
                       , supportsaccessdenied := FALSE
-                      , supportedlanguages := DEFAULT STRING ARRAY
                       , siteprofile     := ""
                       , is404           := FALSE
                       , contentnavstops := DEFAULT STRING ARRAY
@@ -1326,12 +1325,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
       webdesign.siteprofile     := apply.siteprofile;
       webdesign.wittyencoding   := apply.webdesign.wittyencoding   ?? webdesign.wittyencoding ;
 
-      //assetpack also triggers setting supportedlanguages
       IF(apply.webdesign.has_assetpack)
-      {
         webdesign.assetpack            := apply.webdesign.assetpack;
-        webdesign.supportedlanguages   := apply.webdesign.supportedlanguages;
-      }
 
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
