@@ -2,7 +2,7 @@
 
   <apply>
     <to type="all" />
-    <webdesign assetpack="publisher:__dummy__"
+    <webdesign assetpack=""
                designfolder="."
                objectname="nowebdesign.whlib#NoWebdesign"
                wittyencoding="HTML-NI" />

@@ -302,6 +302,7 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , siteprofile     := ""
                       , is404           := FALSE
                       , contentnavstops := DEFAULT STRING ARRAY
+                      , has_assetpack   := FALSE
                       ];
   RETURN webdesign;
 }
@@ -547,7 +548,7 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
                               ];
 
     //Prevent oldstyle webdesigns
-    IF(webdesigninfo.assetpack = "")
+    IF(NOT webdesigninfo.has_assetpack)
       THROW NEW Exception(`The webdesign for this page didn't set assetpack=`);
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
@@ -1325,8 +1326,10 @@ STATIC OBJECTTYPE ApplyRuleTester <
       webdesign.siteprofile     := apply.siteprofile;
       webdesign.wittyencoding   := apply.webdesign.wittyencoding   ?? webdesign.wittyencoding ;
 
-      IF(apply.webdesign.has_assetpack)
+      IF(apply.webdesign.has_assetpack) {
         webdesign.assetpack            := apply.webdesign.assetpack;
+        webdesign.has_assetpack        := TRUE;
+      }
 
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;

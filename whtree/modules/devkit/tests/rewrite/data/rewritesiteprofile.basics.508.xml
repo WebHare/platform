@@ -32,10 +32,7 @@
 
   <apply comment="set up webdesign">
     <to type="all" />
-    <webdesign assetpack="publisher:__dummy__"
-               designfolder="."
-               objectname="lib/dummy.whlib#anyobject"
-               wittyencoding="HTML-NI" />
+    <webdesign designfolder="." objectname="lib/dummy.whlib#anyobject" wittyencoding="HTML-NI" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"
              wrdschema="dev:nosuchschema"
              supportobjectname="lib/dummy.whlib#anyobject" />

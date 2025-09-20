@@ -55,8 +55,7 @@
   <!-- set up webdesign -->
   <apply>
     <to type="all"/>
-    <webdesign assetpack="publisher:__dummy__"
-               designfolder="."
+    <webdesign designfolder="."
                library="lib/dummy.whlib"
                objectname="anyobject"
                wittyencoding="HTML-NI" />
