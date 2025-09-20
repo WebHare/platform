@@ -5,6 +5,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/mailer.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -61,6 +62,13 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                FROM date_fs_members, fs_maxdatetime_settings
                               WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
 
+  //List 'compilables'
+  RECORD ARRAY shouldbeondisk := SELECT fs_objects.id, sitename := sites.name, fs_objects.fullpath, type, bytes := Length(fs_objects.data)
+                                 FROM system.fs_objects, system.sites
+                                WHERE fs_objects.type IN VAR whconstant_whfstypes_scriptsondisk
+                                      AND fs_objects.parentsite = sites.id
+                                      AND fs_objects.parentsite != 0
+                             ORDER BY sites.name, fullpath;
 
   RECORD ARRAY emailmembers := SELECT attrs.id
                                  FROM wrd.attrs
@@ -124,6 +132,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
              , name :=        GetServerName()
+             , shouldbeondisk
              , fs_maxdatetime_settings
              , wrd_brokenemails
              , wrd_brokenpasswords
@@ -134,12 +143,19 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                             + Length(wrd_brokenpasswords)
                             + Length(wrd_brokenaddresses)
                             + Length(wrd_brokendates)
+                            + Length(shouldbeondisk)
              ];
 }
 
 PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
 {
   Print(`Deprecation scan generated ${EncodeJSON(report.creationdate)} on ${report.name} (${report.versioninfo.version}). ${report.numissues > 0 ? report.numissues || " issues found." : "No known deprecation issues"}\n`);
+
+  IF(Length(report.shouldbeondisk) > 0)
+    FOREVERY(RECORD toreport FROM report.shouldbeondisk)
+      Print(`* ${toreport.sitename}: ${toreport.fullpath} (type ${toreport.type}, ${toreport.bytes} bytes) depends on writing HareScript code to disk (ie site:: compilation paths). Support will be removed in WebHare 6.0\n`);
+  ELSE
+    Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
 
   IF(Length(report.fs_maxdatetime_settings) > 0)
     FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
