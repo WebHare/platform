@@ -9,9 +9,6 @@
     <baseproperties keywords="false" />
     <denyfoldertype typemask="*" />
     <denyfiletype typemask="*" />
-    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload" mimetypemask="application/msword" />
-    <uploadtypemapping filetype="http://www.webhare.net/xmlns/publisher/msworddownload"
-                       mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/unknownfile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/htmlfile" />
     <allowfiletype typemask="http://www.webhare.net/xmlns/publisher/javascriptfile" />

@@ -1477,7 +1477,13 @@ STATIC OBJECTTYPE ApplyRuleTester <
       RETURN RecordExists(suggested) AND RecordExists(suggested.filetype) ? suggested.id : 0;
     }
 
-    RETURN MimetypeToFiletype(mimetype);
+    INTEGER totype := MimetypeToFiletype(mimetype);
+    IF(totype = 4) { //Word document is suggested by the mapping
+      //But can this folder even convert wordocs ? If not still map it to a download
+      IF(NOT RecordExists(this->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "mswordconversion")))
+        totype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/msworddownload")->id; //make downloadable
+    }
+    RETURN totype;
   }
 
   PUBLIC RECORD FUNCTION GetURLHistorySettings()
