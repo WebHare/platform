@@ -131,7 +131,6 @@ export type CSPRTDBlockStyle = {
   containertag: string;
   textstyles: string[];
   tabledefaultblockstyle: string;
-  split: boolean;
   hidden: boolean;
   title: string;
   tag: string;

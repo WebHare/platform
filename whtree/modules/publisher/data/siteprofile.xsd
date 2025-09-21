@@ -223,7 +223,6 @@
     <xs:attribute name="tag" type="Tag" use="required" />
     <xs:attribute name="importfrom" type="xs:string" />
     <xs:attribute name="title" type="xs:string" />
-    <xs:attribute name="split" type="xs:boolean" />
     <xs:attribute name="containertag" type="BlockstyleContainerTag" />
     <xs:attribute name="textstyles" type="AllowTextStyles" use="required" />
     <xs:attribute name="nextstyle" type="Tag" />

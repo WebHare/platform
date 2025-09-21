@@ -378,7 +378,6 @@ function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>):
       allowwidgets: true,
       importfrom: [],
       nextblockstyle: "",
-      split: false,
       title: "",
     });
   }
@@ -403,7 +402,6 @@ function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>):
       allowwidgets: true,
       importfrom: [],
       nextblockstyle: "",
-      split: false,
       title: "",
     });
   }

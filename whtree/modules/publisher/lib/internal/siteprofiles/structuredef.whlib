@@ -327,7 +327,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , tabledefaultblockstyle := ""
                     , allowstyles :=       DEFAULT STRING ARRAY
                     , allowwidgets :=      TRUE
-                    , split :=             FALSE
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
@@ -338,7 +337,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       {
         style.type := "text";
         style.containertag := styleblock->GetAttribute("containertag");
-        style.split := ParseXSBoolean(styleblock->GetAttribute("split"));
         style.importfrom := ParseXSList(styleblock->GetAttribute("importfrom")); //new format: read and split attribute to get the selectors
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())

@@ -273,7 +273,7 @@
   <!-- Test RTD typs -->
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/custompage">
     <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="HEADING1" split="true" textstyles="i u b" />
+      <textstyle tag="HEADING1" textstyles="i u b" />
       <textstyle tag="HEADING2" textstyles="i u" />
       <textstyle tag="NORMAL" textstyles="i u b sub sup a-href strike img" />
       <textstyle tag="LANGUAGE-HARESCRIPT" containertag="code" textstyles="" />
