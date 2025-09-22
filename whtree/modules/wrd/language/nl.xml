@@ -1057,6 +1057,7 @@
           <text tid="forgotpassword-intro">Wachtwoord vergeten introductie</text>
           <text tid="linkexpired-intro">Link verlopen introductie</text>
           <text tid="login-intro">Login introductie</text>
+          <text tid="login-services-intro">Login kies service introductie</text>
           <text tid="passwordchange-done">Wachtwoordwijziging afgerond</text>
           <text tid="passwordchange-intro">Wachtwoord wijzigen introductie</text>
           <text tid="resetpassword-intro">Wachtwoord herstellen introductie</text>

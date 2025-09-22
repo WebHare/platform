@@ -13,6 +13,11 @@ CONSTANT RECORD ARRAY authtext_options :=
       , headingtid := /*tid*/"wrd:site.forms.authpages.login-title"
       , texttid := "" // There are two different texts, which will both be shown
       ]
+    , [ rowkey := "login-services-intro"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.login-services-intro"
+      , headingtid := /*tid*/"wrd:site.forms.authpages.login-services"
+      , texttid := ""
+      ]
     , [ rowkey := "totp-intro"
       , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.totp-intro"
       , headingtid := /*tid*/"wrd:site.forms.authpages.totp-title"
