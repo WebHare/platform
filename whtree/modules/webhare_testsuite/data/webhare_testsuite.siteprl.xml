@@ -100,7 +100,7 @@
   </apply>
 
   <apply>
-    <to type="folder" pathmask="/tmp/applytest-throughglobal/*" sitemask="webhare_testsuite.testsite" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <to type="folder" pathmask="/tmp/applytest-throughglobal/*" sitename="webhare_testsuite.testsite" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal" />
     <xyz:testyaml data="applytest-throughglobal" />
   </apply>
