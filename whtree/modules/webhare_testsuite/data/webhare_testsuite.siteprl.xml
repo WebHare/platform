@@ -74,16 +74,19 @@
                interceptfunction="../tests/system/whfs/data/hooks.whlib#MegaGlobalHook"
                target="siteprofilehook" />
     <xyz:test data="applytest-megaglobal" />
+    <xyz:testyaml data="applytest-megaglobal" />
   </apply>
 
   <apply>
     <to type="all" whfspathmask="/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site2" />  <!-- missing / so never matches -->
     <xyz:test data="applytest-nevermatch1" />
+    <xyz:testyaml data="applytest-nevermatch1" />
   </apply>
 
   <apply>
     <to type="all" whfspathmask="/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.sit?2/" />
     <xyz:test data="applytest-whfspath" />
+    <xyz:testyaml data="applytest-whfspath" />
     <intercept name="whfspath"
                interceptfunction="../tests/system/whfs/data/hooks.whlib#WhfsPathHook"
                runbefore="webhare_testsuite:megaglobal"
@@ -93,11 +96,13 @@
   <apply>
     <to type="all" whfspathregex="^/webhare-tests/webhare_testsuite.testsite/.*/applytest(0|1)/$" />  <!-- just testing a bit of regex, applytest0 doesn't exist -->
     <xyz:test data="applytest-whfsregex" />
+    <xyz:testyaml data="applytest-whfsregex" />
   </apply>
 
   <apply>
     <to type="folder" pathmask="/tmp/applytest-throughglobal/*" sitemask="webhare_testsuite.testsite" />  <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal" />
+    <xyz:testyaml data="applytest-throughglobal" />
   </apply>
 
 

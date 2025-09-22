@@ -11,6 +11,7 @@
   <apply>
     <to type="all" />
     <xyz:test data="should-never-be-visible-(webfeature)" />
+    <xyz:testyaml data="should-never-be-visible-(webfeature)" />
   </apply>
 
 </siteprofile>

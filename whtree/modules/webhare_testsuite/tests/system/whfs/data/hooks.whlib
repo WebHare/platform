@@ -10,3 +10,7 @@ PUBLIC RECORD FUNCTION WHFSPathHook(RECORD input)
   INSERT "intercept-whfspath" INTO input.result AT END;
   RETURN input;
 }
+
+PUBLIC RECORD FUNCTION ParseBlubToYaml(OBJECT node) {
+  RETURN CELL[ data_attribute := node->GetAttribute("data") ];
+}

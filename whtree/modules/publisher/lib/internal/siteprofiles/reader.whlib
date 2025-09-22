@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::regex.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -1648,6 +1649,23 @@ STATIC OBJECTTYPE ApplyRuleTester <
         }
       }
     RETURN intypedef;
+  }
+
+  /** Get the yaml plugin settings associated with the specified name
+      @param name The name of the plugin, corresponding to a <module>:<name> property. Snake case if it was mixed case in the YAML
+      @return An array of settings records found. Each record includes a 'source' member specifying the source site profile rule. It's up to the caller to merge them as needed
+  */
+  PUBLIC RECORD ARRAY FUNCTION GetYamlPluginSettings(STRING name) {
+    STRING cellname := "yml_" || ToSnakeCase(name);
+    RECORD ARRAY results;
+    FOREVERY(RECORD apply FROM this->__GetAppliesForcell(cellname)) {
+      RECORD source := CELL[ siteprofile := apply.siteprofile, applyindex := apply.applyindex];
+      FOREVERY(RECORD setting FROM GetCell(apply, cellname)) {
+        INSERT CELL[ ...setting, source ] INTO results AT END;
+      }
+    }
+
+    RETURN results;
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetCustomSettings(STRING ns, STRING localname)
