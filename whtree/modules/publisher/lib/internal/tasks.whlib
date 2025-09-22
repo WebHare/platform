@@ -6,7 +6,7 @@ LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -72,7 +72,7 @@ PUBLIC STATIC OBJECTTYPE GenerateWidgetPreviewTask EXTEND ManagedTaskBase //publ
       RETURN;
     }
 
-    STRING link := CreateWidgetPreviewLink(MAX_DATETIME, "", widget.id, widget.id);
+    STRING link := GetPreviewLink(widget.id);
     IF(link="")
     {
       this->ResolveByCompletion([ status := "nourl"

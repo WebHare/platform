@@ -89,13 +89,11 @@ MACRO SendFileDirect(OBJECT openobj, INTEGER source, BOOLEAN usepublish)
   }
 }
 
-MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpreview, RECORD options DEFAULTSTO DEFAULT RECORD)
+MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   /* previews should never be crawled/stored. We'll use headers to prevent that so you can still view-source in preview mode
      and inspect the result of noindex/nofollow settings on the document */
   AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
-
-  options := ValidateOptions([ instanceid := 0 ], options);
 
   OBJECT applytester := GetApplyTesterForObject(source);
   IF(NOT ObjectExists(applytester))
@@ -121,8 +119,10 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
     }
   }
 
-  // Check if the file type needs a template (if not, send it directly)
   OBJECT contentfiletype := OpenWHFSTypeById(contentobject->type);
+  BOOLEAN renderwidgetpreview := contentfiletype->iswidgettype;
+
+  // Check if the file type needs a template (if not, send it directly)
   IF (NOT renderwidgetpreview AND NOT contentfiletype->needstemplate)
   {
     RECORD usetempl := applytester->GetUsePublishTemplate();
@@ -156,21 +156,11 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   //Update robot tags and remove analytics/gtm from previews, they generally confuse users
   webdesign->__renderpreview := NOT IsWHDebugOptionSet("npm"); //TODO move this into instantiate so NEW() can rely on it too
 
-  IF (renderwidgetpreview)
-  {
-    RECORD instancedata;
-    IF (options.instanceid != 0)
-    {
-      instancedata := GetWHFSInstanceDirect(options.instanceid);
-      instancedata.whfsfileid := openobj->id;
-    }
-    ELSE
-    {
-      OBJECT type := OpenWHFSTypeById(openobj->type);
-      instancedata := type->GetInstanceData(openobj->id);
-      INSERT CELL whfstype := type->namespace INTO instancedata;
-      INSERT CELL whfsfileid := openobj->id INTO instancedata;
-    }
+  IF (renderwidgetpreview) {
+    OBJECT type := OpenWHFSTypeById(openobj->type);
+    RECORD instancedata := type->GetInstanceData(openobj->id);
+    INSERT CELL whfstype := type->namespace INTO instancedata;
+    INSERT CELL whfsfileid := openobj->id INTO instancedata;
 
     // Lookup RTD type
     RECORD rtdtypesettings := applytester->GetRTDTypeSettings();
@@ -223,4 +213,4 @@ IF(topreview.password != "" AND topreview.password != pwd)
 IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
 
-RunPublisherPreview(openobj, source, topreview.renderwidgetpreview, CELL[topreview.instanceid]);
+RunPublisherPreview(openobj, source);

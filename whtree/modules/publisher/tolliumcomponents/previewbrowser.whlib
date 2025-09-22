@@ -286,7 +286,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
                , message := GetTid("publisher:tolliumcomponents.previewbrowser.widgetpreview")
                ] INTO this->previewmessages AT END;
 
-        this->currenturl := CreateWidgetPreviewLink(AddTimeToDate(publisher_settings.widget_preview_expiry, GetCurrentDateTime()), "", fileid, fileid);
+        this->currenturl := GetPreviewLink(fileid, [ validuntil := AddTimeToDate(publisher_settings.widget_preview_expiry, GetCurrentDateTime()) ]);
         this->refresh_unpublished := TRUE;
       }
     }

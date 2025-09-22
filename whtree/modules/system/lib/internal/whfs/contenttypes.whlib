@@ -7,7 +7,6 @@ LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 
-LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -223,6 +222,9 @@ STATIC OBJECTTYPE WHFSType <
 
   /// Whether to capture subpaths
   PUBLIC PROPERTY capturesubpaths(this->typedef.capturesubpaths, -);
+
+  /// Is a widget type?
+  PUBLIC PROPERTY iswidgettype(this->typedef.generatepreview, -);
 
   // ---------------------------------------------------------------------------
   //

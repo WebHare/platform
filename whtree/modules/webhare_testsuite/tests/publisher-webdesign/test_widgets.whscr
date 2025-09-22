@@ -1,6 +1,5 @@
 <?wh
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::xml/dom.whlib";
 
@@ -10,7 +9,7 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/widgets.whlib";
 
@@ -87,7 +86,7 @@ ASYNC MACRO SharedBlocks()
   TestEq(lvl1widgetobj->id, ToInteger(level1widget->GetAttribute("data-whfsfileid"),0));
 
   //Test widget preview
-  STRING previewlink := CreateWidgetPreviewLink(AddTimeToDate(60 * 60 * 1000, GetCurrentDateTime()), "", lvl1widgetobj->id, lvl1widgetobj->id);
+  STRING previewlink := GetPreviewLink(lvl1widgetobj->id);
   TestEq(TRUE, testfw->browser->GotoWebPage(previewlink), previewlink);
   OBJECT widgetpreviewnode := testfw->browser->document->GetElement("div.level1widget");
   TestEq(TRUE, ObjectExists(widgetpreviewnode));
@@ -126,7 +125,7 @@ MACRO WidgetTypeAsFile()
                                ]);
   testfw->CommitWork();
 
-  STRING link := CreateWidgetPreviewLink(AddTimeToDate(60000, GetCurrentDatetime()), "", widgetfile->id, widgetfile->id);
+  STRING link := GetPreviewLink(widgetfile->id);
   IF(testfw->debug)
     Print(`Preview link: ${link}\n`);
 
