@@ -519,11 +519,17 @@ $defs:
           site: # TODO share with sitefilter concept somehow
             description: Match site name
             $ref: "#/$defs/MatchOrRegExp"
-          whfsPath:
-            description: Match whfsPath
+          siteType:
+            description: Match the site root folder's type of this object
             $ref: "#/$defs/MatchOrRegExp"
           sitePath:
-            description: Match the object's sitePath
+            description: Match sitePath (path from the start of the site)
+            $ref: "#/$defs/MatchOrRegExp"
+          whfsPath:
+            description: Match whfsPath (path from the root of the WebHare filesystem)
+            $ref: "#/$defs/MatchOrRegExp"
+          withinType:
+            description: Match any of the parent folders (up to the site root) against the requested type
             $ref: "#/$defs/MatchOrRegExp"
           parentPath:
             $ref: "#/$defs/MatchOrRegExp"

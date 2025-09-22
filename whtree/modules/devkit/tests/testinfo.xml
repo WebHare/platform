@@ -8,5 +8,6 @@
   <test script="test_harescript_declarationparser.whscr" />
   <test script="test_sourcecodedoc.whscr" />
   <test script="test_processing.whscr" />
+  <test script="test_toyaml.ts" />
   <test name="lsp" path="lsp/" />
 </group>

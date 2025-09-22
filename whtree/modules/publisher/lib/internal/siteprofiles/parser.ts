@@ -305,8 +305,12 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     return [tester];
   }
 
+  if (apply.siteType && typeof apply.siteType === "object" && "regex" in apply.siteType)
+    throw new Error(`To: filter 'siteType' may not be a regex yet`); //can't export to HareScript yet
   if (apply.parentType && typeof apply.parentType === "object" && "regex" in apply.parentType)
     throw new Error(`To: filter 'parentType' may not be a regex yet`); //can't export to HareScript yet
+  if (apply.withinType && typeof apply.withinType === "object" && "regex" in apply.withinType)
+    throw new Error(`To: filter 'withinType' may not be a regex yet`); //can't export to HareScript yet
   if (apply.type && typeof apply.type === "object" && "regex" in apply.type)
     throw new Error(`To: filter 'type' may not be a regex yet`); //can't export to HareScript yet
 
@@ -330,6 +334,8 @@ function parseApplyToRecursive(apply: Sp.ApplyTo): CSPApplyTo[] {
     parentregex: apply.parentPath && typeof apply.parentPath === "object" && "regex" in apply.parentPath ? apply.parentPath.regex : "",
 
     parenttype: apply.parentType || "",
+    withintype: apply.withinType || "",
+    sitetype: apply.siteType || "",
 
     sitename: apply.site && typeof apply.site === "string" && ![...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",
     sitemask: apply.site && typeof apply.site === "string" && [...apply.site].some(c => c === '*' || c === '?') ? apply.site : "",

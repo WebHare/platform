@@ -1,15 +1,16 @@
-import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
+import type { CSPApplyTo, CSPApplyRule, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow, CSPPluginSettingsRow } from "./siteprofiles";
 import { openFolder, type WHFSObject, type WHFSFolder, describeWHFSType, openType, lookupURL, type LookupURLOptions } from "./whfs";
 import { db, type Selectable } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/src/strings";
-import { emplace, omit, pick, slugify } from "@webhare/std";
+import { emplace, nameToSnakeCase, omit, pick, slugify, toCamelCase } from "@webhare/std";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 import { isHistoricWHFSSpace, openFileOrFolder } from "./objects";
 import type { SiteRow } from "./sites";
 import type { CookieOptions } from "@webhare/dompack/src/cookiebuilder";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { selectSitesWebRoot } from "@webhare/whdb/src/functions";
+import { checkModuleScopedName } from "@webhare/services/src/naming";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -227,13 +228,6 @@ export class WHFSApplyTester {
     this.objinfo = objinfo;
   }
 
-  /*
-
-  BOOLEAN FUNCTION ToIsMatch(RECORD element, RECORD site, RECORD folder)
-  {
-  }
-*/
-
   //TODO shouldn't take access to dbrecord, just need to add some more fields to the base types
   private async toIsMatch(element: CSPApplyTo, site: SiteRow | null, folder: WHFSFolder | null): Promise<boolean> {
     switch (element.type) {
@@ -309,7 +303,7 @@ export class WHFSApplyTester {
           return false;
         if (element.webrootregex && (!site || !matchPathRegex(element.webrootregex, site.webroot)))
           return false;
-        if (!this.testPathConstraint(element, site, folder))
+        if (!await this.testPathConstraint(element, site, folder))
           return false;
       }
     }
@@ -326,7 +320,27 @@ export class WHFSApplyTester {
     return null;
   }
 
-  testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): boolean {
+  private async matchWithinType(folderType: string, matchwith: string, isfolder: boolean) {
+    //TODO API to optimize patterns like this and get the tree in one query.
+    let tryparent: number | null = this.objinfo.parent.id;
+    for (let maxdepth = 16; maxdepth > 0 && tryparent; maxdepth--) {
+      const rec = await db<PlatformDB>().selectFrom("system.fs_objects").select(["id", "type", "parent"]).where("id", "=", tryparent).executeTakeFirst();
+      if (!rec)
+        return false;
+
+      const typeInfo = await describeWHFSType(rec.type || 0, { allowMissing: true, metaType: "folderType" });
+      if (typeInfo && isLike(typeInfo.namespace, matchwith))
+        return true;
+
+      if (this.objinfo.site && rec.parent === this.objinfo.site.id)
+        break;
+
+      tryparent = rec.parent;
+    }
+    return false;
+  }
+
+  private async testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): Promise<boolean> {
     if (rec.pathmask && isNotLikeMask(this.getPath("sitePath"), rec.pathmask))
       return false;
     if (rec.parentmask && (!parentitem || isNotLikeMask(parentitem.sitePath, rec.parentmask)))
@@ -336,7 +350,7 @@ export class WHFSApplyTester {
     const numerictype = (parentitem as unknown as { dbrecord: Selectable<PlatformDB, "system.fs_objects"> }).dbrecord.type;
     if (rec.parenttype && (!parentitem || !this.matchType(numerictype, rec.parenttype, true)))
       return false;
-    if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
+    if (rec.withintype && (!parentitem || !await this.matchWithinType(parentitem.type, rec.withintype, true)))
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
     if (rec.whfspathmask && isNotLikeMask(this.getPath("whfsPath"), rec.whfspathmask))
       return false;
@@ -460,6 +474,27 @@ export class WHFSApplyTester {
           rows.push(plugin.data);
 
     return rows.length ? buildPluginData(rows) : null;
+  }
+
+  /** Get the plugin settings associated with the specified name
+      @param name The name of the plugin, corresponding to a <module>:<name> property. Snake case if it was mixed case in the YAML
+      @return An array of settings records found. Each record includes a 'source' member specifying the source site profile rule. It's up to the caller to merge them as needed
+  */
+  async getPluginSettings(name: string): Promise<CSPPluginSettingsRow[]> {
+    //FIXME consider whether we can replace getPluginData/getUserData ?
+    name = nameToSnakeCase(name);
+    checkModuleScopedName(name);
+    const cellname: keyof CSPApplyRule = "yml_" + name as keyof CSPApplyRule;
+
+    const rows: CSPPluginSettingsRow[] = [];
+    for (const apply of await this.getMatchingRules(cellname))
+      for (const setting of apply[cellname as keyof typeof apply] as CSPPluginDataRow[] || [])
+        rows.push({
+          source: { siteProfile: apply.siteprofile },
+          ...toCamelCase(setting)
+        });
+
+    return rows;
   }
 
   async getWRDAuth() {

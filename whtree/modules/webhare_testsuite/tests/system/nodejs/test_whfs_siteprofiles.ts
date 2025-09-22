@@ -7,6 +7,48 @@ async function getApplyTester(path: string) {
   return await getApplyTesterForObject(await whfs.openFile(path));
 }
 
+async function getMyCustomNodesThroughYaml(obj: whfs.WHFSObject): Promise<string> {
+  const tester = await getApplyTesterForObject(obj);
+  const rows = await tester.getPluginSettings("webhareTestsuite:testYaml");
+  return rows.map(_ => _.dataAttribute).join(",");
+}
+
+async function testBeforeSite() { //port of HS TestBeforeSite
+  await whdb.beginWork();
+
+  const siteroot2 = await (await test.getWHFSTestRoot()).ensureFolder("webhare_testsuite.site2");
+  const aSystemFolder = await (await test.getTestSiteHSTemp()).createFolder("systemfolder", { type: "http://www.webhare.net/xmlns/publisher/systemfolder" });
+  const aSlotsFolder = await aSystemFolder.createFolder("slotsfolder", { type: "http://www.webhare.net/xmlns/publisher/contentlibraries/slots" });
+  const aBeaconFolder = await aSlotsFolder.createFolder("beaconsfolder", { type: "http://www.webhare.net/xmlns/publisher/contentlibraries/beacons" });
+  const subFile = await aBeaconFolder.createFile("subfile");
+
+  await whdb.commitWork();
+
+  const siteroot2Tester = await getApplyTesterForObject(siteroot2);
+  test.eq([
+    {
+      source: {
+        siteProfile: 'mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml'
+      }, dataAttribute: "applytest-megaglobal"
+    },
+    {
+      source: {
+        siteProfile: 'mod::webhare_testsuite/data/webhare_testsuite.siteprl.xml'
+      }, dataAttribute: "applytest-whfspath"
+    }
+  ], await siteroot2Tester.getPluginSettings("webhareTestsuite:testYaml"));
+
+  test.eq(null, siteroot2.parentSite);
+  test.eq('/webhare-tests/webhare_testsuite.testfolder/webhare_testsuite.site2/', siteroot2.whfsPath);
+  test.eq("applytest-megaglobal,applytest-whfspath", await getMyCustomNodesThroughYaml(siteroot2));
+  // test.eq("intercept-whfspath,intercept-megaglobal", GetMyIntercepts(siteroot2.id));
+
+  test.eq("applytest-megaglobal,parentmask-tmp,parentregex-tmp,is-system-folder", await getMyCustomNodesThroughYaml(aSystemFolder));
+  test.eq("applytest-megaglobal,in-system-folder,is-slots-folder", await getMyCustomNodesThroughYaml(aSlotsFolder));
+  test.eq("applytest-megaglobal,in-system-folder,in-slots-folder,is-beacons-folder", await getMyCustomNodesThroughYaml(aBeaconFolder));
+  test.eq("applytest-megaglobal,in-system-folder,in-slots-folder,in-beacons-folder", await getMyCustomNodesThroughYaml(subFile));
+}
+
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
@@ -109,7 +151,8 @@ async function testSiteUpdates() {
 
 
 test.runTests([
-  test.reset,
+  test.resetWTS,
+  testBeforeSite,
   testSiteProfiles,
   testSiteUpdates,
 ]);

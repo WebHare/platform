@@ -163,6 +163,12 @@ export interface CSPPluginDataRow {
   __attributes: string[];
   __location: string;
 }
+export interface CSPPluginSettingsRow {
+  source: {
+    siteProfile: string;
+  };
+  [key: string]: unknown;
+}
 
 export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
   addressoptions: string[];
@@ -323,7 +329,7 @@ export type CSPModifyType = {
   typedef: string;
 };
 
-export interface CSPApplyRule {
+export type CSPApplyRule = {
   /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
   /** Directly applied to the type */
@@ -417,7 +423,9 @@ export interface CSPApplyRule {
   } | null;
   webdesign: CSPWebDesign | null;
   webtoolsformrules: CSPWebtoolsFormRule[];
-}
+} & {  /** Custom nodes/plugins */
+  [k in `yml_${string}`]?: Record<string, unknown>;
+};
 
 export interface CSPSiteFilter {
   sitename?: string;
