@@ -20,7 +20,7 @@ type TestFunction<T> = (value: T) => boolean;
 /** Recursively apply `Partial<>` on records in a type but also allow Regexps and Functions to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-type RecursivePartialTestable<T> =
+export type RecursivePartialTestable<T> =
   (T extends Array<infer U> ? ReadonlyArray<RecursivePartialTestable<U>> :
     T extends string ? T | `${T}` | RegExp :
     T extends PrimitiveType ? T :
@@ -30,7 +30,7 @@ type RecursivePartialTestable<T> =
 /** Recursively allow Regexps to match strings. Also allow the string values for string enums.
  * @typeParam T - Type to convert
 */
-type RecursiveTestable<T> =
+export type RecursiveTestable<T> =
   (T extends Array<infer U> ? ReadonlyArray<RecursiveTestable<U>> :
     T extends string ? T | `${T}` | RegExp :
     T extends PrimitiveType ? T :

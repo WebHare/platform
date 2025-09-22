@@ -4,7 +4,7 @@ import type { PlatformDB } from "@mod-platform/generated/db/platform";
 import type { } from "@mod-platform/generated/ts/whfstypes.ts";
 import { __openWHFSObj } from "./objects";
 import { getWHFSDescendantIds, isReadonlyWHFSSpace } from "./support";
-import { getData, setData, type EncodedFSSetting, type MemberType } from "./codecs";
+import { getData, setData, type CodecExportMemberType, type CodecGetMemberType, type CodecImportMemberType, type EncodedFSSetting, type MemberType } from "./codecs";
 import { addMissingScanData, decodeScanData, getUnifiedCC, ResourceDescriptor, type ExportOptions } from "@webhare/services/src/descriptor";
 import { appendToArray, compareProperties, convertWaitPeriodToDate, nameToCamelCase, omit, throwError, type WaitPeriod } from "@webhare/std";
 import { SettingsStorer } from "@webhare/wrd/src/entitysettings";
@@ -21,14 +21,26 @@ export interface WHFSTypes {
 
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
-export type WHFSInstanceData = {
+export type UntypedInstanceData = { [key in string]: CodecGetMemberType };
+
+export type InstanceSource = {
   whfsType: keyof WHFSTypes | string;
-  [key: string]: unknown;
+  data?: { [key in string]?: CodecImportMemberType };
 };
 
-export type TypedWHFSInstanceData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["GetFormat"]> }[keyof WHFSTypes];
-export type TypedWHFSInstanceExportData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["ExportFormat"]> }[keyof WHFSTypes];
-export type TypedWHFSInstanceSetData = { [K in keyof WHFSTypes]: kysely.Simplify<{ whfsType: K } & WHFSTypes[K]["SetFormat"]> }[keyof WHFSTypes];
+export type InstanceExport = {
+  whfsType: keyof WHFSTypes | string;
+  data?: { [key in string]?: CodecExportMemberType };
+};
+
+// export type WHFSInstanceData = {
+//   whfsType: keyof WHFSTypes | string;
+//   [key: string]: unknown;
+// };
+//
+export type TypedWHFSInstanceData = { [K in keyof WHFSTypes]: WHFSTypes[K]["GetFormat"] }[keyof WHFSTypes];
+export type TypedWHFSInstanceExportData = { [K in keyof WHFSTypes]: { whfsType: K; data: WHFSTypes[K]["ExportFormat"] } }[keyof WHFSTypes];
+export type TypedWHFSInstanceSetData = { [K in keyof WHFSTypes]: { whfsType: K; data: WHFSTypes[K]["SetFormat"] } }[keyof WHFSTypes];
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -201,6 +213,7 @@ class WHFSTypeAccessor<GetFormat extends object, SetFormat extends object, Expor
       const decoderContext = {
         allsettings: settings,
         cc,
+        export: false,
         ...options
       };
       //TODO if settings is empty, we could straight away take or reuse the defaultinstance

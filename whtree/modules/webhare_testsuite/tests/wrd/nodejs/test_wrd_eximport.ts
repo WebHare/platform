@@ -7,7 +7,7 @@ import type { WRD_TestschemaSchemaType } from "@mod-platform/generated/wrd/webha
 import { buildRTD, ResourceDescriptor } from "@webhare/services";
 import { throwError } from "@webhare/std";
 import type { ExportedResource } from "@webhare/services/src/descriptor";
-import { buildWHFSInstance } from "@webhare/services/src/richdocument";
+import { buildInstance } from "@webhare/services/src/richdocument";
 
 
 async function testExport() { //  tests
@@ -54,26 +54,32 @@ async function testExport() { //  tests
     richie: await buildRTD([
       { "h2": ["The Heading"] },
       {
-        "widget": await buildWHFSInstance({
+        "widget": await buildInstance({
           whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-          rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-          rtdright: null
+          data: {
+            rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+            rtdright: null
+          }
         })
       }
     ]),
-    testinstance: await buildWHFSInstance({
+    testinstance: await buildInstance({
       whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-      rtdleft: [
-        {
-          widget: {
-            whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
-            fsref: 10,
-            styletitle: "Test style",
-            id: "TestInstance-2"
+      data: {
+        rtdleft: [
+          {
+            widget: {
+              whfsType: "http://www.webhare.net/xmlns/beta/embedblock1",
+              data: {
+                fsref: 10,
+                styletitle: "Test style",
+                id: "TestInstance-2"
+              }
+            }
           }
-        }
-      ],
-      rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
+        ],
+        rtdright: [{ items: [{ text: "Right column" }], tag: "p" }],
+      }
     })
   };
 
@@ -125,17 +131,19 @@ async function testExport() { //  tests
       {
         widget: {
           whfsType: 'http://www.webhare.net/xmlns/publisher/widgets/twocolumns',
-          rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
+          data: {
+            rtdleft: [{ items: [{ text: "Left column" }], tag: "p" }],
+          }
         }
       }
     ],
   }, await wrdschema.getFields("wrdPerson", testPersonId, ["richie"], { export: true }));
 
   test.eq({
-    testinstance: test.expectWHFSInstanceData("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {
+    testinstance: test.expectInstanceExport("http://www.webhare.net/xmlns/publisher/widgets/twocolumns", {
       rtdleft: [
         {
-          widget: test.expectWHFSInstanceData("http://www.webhare.net/xmlns/beta/embedblock1", {
+          widget: test.expectInstanceExport("http://www.webhare.net/xmlns/beta/embedblock1", {
             fsref: "whfs::/webhare-private/",
             styletitle: "Test style",
             id: "TestInstance-2"

@@ -6,11 +6,11 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, type WHFSInstance, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob } from "@webhare/services";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
-import { buildWHFSInstance } from "@webhare/services/src/richdocument";
+import { buildInstance, type Instance } from "@webhare/services/src/richdocument";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -134,7 +134,9 @@ async function testInstanceData() {
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     anInstance: {
       whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1",
-      str1: "str1"
+      data: {
+        str1: "str1"
+      }
     },
     aDay: new Date("2023-09-29T23:59:59Z"),
     url: "http://www.webhare.com",
@@ -168,7 +170,7 @@ async function testInstanceData() {
     myWhfsRef: testfile.id,
     myWhfsRefArray: fileids,
     myLink: test.expectIntExtLink(testfile.id),
-    anInstance: test.expectWHFSInstance("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", { str1: "str1" })
+    anInstance: test.expectInstance("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", { str1: "str1" })
   }, await testtype.get(testfile.id));
 
   test.eq([{ getId: testfile.id, passThrough: 42, str: "String", aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) } }],
@@ -250,9 +252,11 @@ async function testInstanceData() {
         </form>
       </formdefinitions>`), {
     instances: {
-      'Yl98JQ8ztbgW3-KdqLzYBA': await buildWHFSInstance({
+      'Yl98JQ8ztbgW3-KdqLzYBA': await buildInstance({
         whfsType: 'http://www.webhare.net/xmlns/publisher/richdocumentfile',
-        data: await buildRTD([{ p: "asdf def" }])
+        data: {
+          data: await buildRTD([{ p: "asdf def" }])
+        }
       })
     }
   });
@@ -275,10 +279,10 @@ async function testInstanceData() {
   // Test: Build instance from scratch
   test.eq({
     str1: "str1b"
-  }, (await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })).data);
+  }, (await buildInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", data: { str1: "str1b" } })).data);
   test.eq({
     str1: ""
-  }, (await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" })).data);
+  }, (await buildInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" })).data);
 
   test.eq({
     str: "",
@@ -302,29 +306,31 @@ async function testInstanceData() {
     myWhfsRef: null,
     myWhfsRefArray: [],
     myLink: null,
-  }, (await buildWHFSInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).data);
+  }, (await buildInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).data);
 
   // Export of default values should result in only the whfsType property (default values should be omitted)
   test.eq({
     whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-  }, await (await buildWHFSInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).export());
+  }, await (await buildInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).export());
 
   // Test: Simple overwrite
   await testtype.set(testfile.id, {
-    anInstance: await buildWHFSInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", str1: "str1b" })
+    anInstance: await buildInstance({ whfsType: "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", data: { str1: "str1b" } })
   });
 
   await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", expectNumSettings);
   test.eqPartial({
-    anInstance: (instance: WHFSInstance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance?.data.str1 === "str1b" && getWHType(instance) === "WHFSInstance"
+    anInstance: (instance: Instance | null) => instance?.whfsType === "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1" && instance?.data.str1 === "str1b" && getWHType(instance) === "Instance"
   }, await testtype.get(testfile.id));
 
   // Test: Can we put a RTD Object inside an instance?
   await testtype.set(testfile.id, {
-    anInstance: await buildWHFSInstance({
+    anInstance: await buildInstance({
       whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
-      rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-      rtdright: null
+      data: {
+        rtdleft: await buildRTD([{ "p": ["Left column"] }]),
+        rtdright: null
+      }
     })
   });
 
@@ -452,33 +458,41 @@ async function testInstanceData() {
   // test recursive exports
   //Test arrays
   await testtype.set(testfile.id, {
-    anInstance: await buildWHFSInstance({
+    anInstance: await buildInstance({
       whfsType: "webhare_testsuite:global.generic_test_type",
-      anInstance: await buildWHFSInstance({
-        whfsType: "webhare_testsuite:global.generic_test_type",
-        str: "nested",
-        aTypedRecord: { intMember: 123 }
-      })
+      data: {
+        anInstance: await buildInstance({
+          whfsType: "webhare_testsuite:global.generic_test_type",
+          data: {
+            str: "nested",
+            aTypedRecord: { intMember: 123 }
+          }
+        })
+      }
     }),
     aTypedRecord: {
       richMember: await buildRTD([
         {
           p: ["A paragraph with a nested instance: "]
         }, {
-          widget: await buildWHFSInstance({
+          widget: await buildInstance({
             whfsType: "webhare_testsuite:global.generic_test_type",
-            str: "deeply nested",
-            aTypedRecord: { intMember: 456 }
+            data: {
+              str: "deeply nested",
+              aTypedRecord: { intMember: 456 }
+            }
           })
         }
       ]),
     },
     rich: await buildRTD([
       { p: "Another paragraph" }, {
-        widget: await buildWHFSInstance({
+        widget: await buildInstance({
           whfsType: "webhare_testsuite:global.generic_test_type",
-          str: "deeply nested",
-          aTypedRecord: { intMember: 456 }
+          data: {
+            str: "deeply nested",
+            aTypedRecord: { intMember: 456 }
+          }
         })
       }
     ])
@@ -487,10 +501,14 @@ async function testInstanceData() {
   test.eq({
     anInstance: {
       whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-      anInstance: {
-        whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-        str: "nested",
-        aTypedRecord: { intMember: 123 }
+      data: {
+        anInstance: {
+          whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+          data: {
+            str: "nested",
+            aTypedRecord: { intMember: 123 }
+          }
+        }
       }
     },
     aTypedRecord: {
@@ -501,8 +519,10 @@ async function testInstanceData() {
         }, {
           widget: {
             whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-            str: "deeply nested",
-            aTypedRecord: { intMember: 456 }
+            data: {
+              str: "deeply nested",
+              aTypedRecord: { intMember: 456 }
+            }
           }
         }
       ],
@@ -512,8 +532,10 @@ async function testInstanceData() {
       {
         widget: {
           whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-          str: "deeply nested",
-          aTypedRecord: { intMember: 456 }
+          data: {
+            str: "deeply nested",
+            aTypedRecord: { intMember: 456 }
+          }
         }
       }
     ]

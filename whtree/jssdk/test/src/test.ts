@@ -29,6 +29,8 @@ export type {
   Extends,
   RevEquals,
   JSONSchemaObject,
+  RecursiveTestable,
+  RecursivePartialTestable,
 } from './checks';
 
 export { sleep } from '@webhare/std';

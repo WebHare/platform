@@ -1,16 +1,16 @@
-import type { WHFSInstance } from "./richdocument";
+import type { Instance } from "./richdocument";
 import type { WebHareBlob } from "./webhareblob";
 import type { ResourceDescriptor } from "./descriptor";
 
 export type ComposedDocumentType = "platform:formdefinition" | "platform:markdown" | "platform:richtextdocument";
 
 export class ComposedDocument {
-  instances = new Map<string, WHFSInstance>;
+  instances = new Map<string, Instance>;
   links = new Map<string, number>();
   embedded = new Map<string, ResourceDescriptor>();
 
   constructor(public type: ComposedDocumentType, public text: WebHareBlob, opts?: {
-    instances?: Map<string, WHFSInstance> | Record<string, WHFSInstance>;
+    instances?: Map<string, Instance> | Record<string, Instance>;
     links?: Map<string, number> | Record<string, number>;
     embedded?: Map<string, ResourceDescriptor> | Record<string, ResourceDescriptor>;
   }) {

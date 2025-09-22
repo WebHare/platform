@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import { backendConfig } from "./config";
 import type { UploadManifest } from "@webhare/upload";
 import type { AccessLogLine, PxlLogLine } from "./logging";
-import type { RichTextDocument } from "./richdocument";
+import type { RichTextDocument, RTDSource } from "./richdocument";
 
 export { registerResourceDependency, addResourceChangeListener } from "@webhare/services/src/hmr.ts";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath, getResourceEventMasks } from "./resources";
@@ -38,7 +38,10 @@ export { loadWittyResource } from "./witty.ts";
 export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
 export { buildRTD, buildWidget, RichTextDocument } from "./richdocument";
-export type { WHFSInstance, Widget, RTDBuildSource } from "./richdocument";
+export type { Instance, Widget, RTDSource } from "./richdocument";
+
+/** @deprecated use RTDSource instead */
+export type RTDBuildSource = RTDSource;
 
 export type { CheckResult, CheckFunction } from "@mod-platform/js/checks/checkapi";
 export type { ContentValidationFunction, ValidationState, ValidationOptions } from "@mod-platform/js/devsupport/validation";

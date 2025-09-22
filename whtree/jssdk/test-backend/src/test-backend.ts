@@ -9,16 +9,16 @@ import * as test from "@webhare/test";
 import { beginWork } from "@webhare/whdb";
 import { loadlib } from "@webhare/harescript";
 import { lookupURL, openFileOrFolder, openFolder } from "@webhare/whfs";
-import { convertWaitPeriodToDate, omit, throwError, type WaitPeriod } from "@webhare/std";
+import { convertWaitPeriodToDate, throwError, type WaitPeriod } from "@webhare/std";
 import { createSchema, deleteSchema, listSchemas, WRDSchema } from "@webhare/wrd";
 import { whconstant_wrd_testschema } from "@mod-system/js/internal/webhareconstants";
 import type { SchemaTypeDefinition } from "@webhare/wrd/src/types";
 import type { AuthAuditEvent, AuthEventData } from "@webhare/auth";
 import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
-import type { IntExtLink, WHFSInstance } from "@webhare/services";
-import { isWHFSInstance } from "@webhare/services/src/richdocument";
-import type { WHFSInstanceData } from "@webhare/whfs/src/contenttypes";
+import type { IntExtLink, Instance } from "@webhare/services";
+import { isInstance } from "@webhare/services/src/richdocument";
+import type { InstanceExport, UntypedInstanceData } from "@webhare/whfs/src/contenttypes";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -171,23 +171,29 @@ export async function setGeoIPDatabaseTestMode(testmode: boolean) {
   await __closeDatabase();
 }
 
-/** Build a test callback whether a field is an expected WHFSInstance */
-export function expectWHFSInstance(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}) {
-  return ((instance: Pick<WHFSInstance, "whfsType" | "data"> | null) => {
+/** Build a test callback whether a field is an expected Instance */
+export function expectInstance(expectType: string, expectData: test.RecursivePartialTestable<UntypedInstanceData>, options: { partial: true }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
+export function expectInstance(expectType: string, expectData?: test.RecursiveTestable<UntypedInstanceData>, options?: { partial?: false }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
+export function expectInstance(expectType: string, expectData?: object, { partial = false } = {}) {
+  return ((instance: Pick<Instance, "whfsType" | "data"> | null) => {
     test.assert(instance);
-    test.assert(isWHFSInstance(instance));
+    test.assert(isInstance(instance));
     test.eq(expectType, instance.whfsType);
-    test[partial ? 'eqPartial' : 'eq'](expectData || {}, instance.data);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need to use 'any' here because we can't distinguish between partial and non-partial mode here
+    test[partial ? 'eqPartial' : 'eq'](expectData || {} as any, instance.data);
     return true;
   });
 }
 
-/** Build a test callback whether a field is an expected WHFSInstanceData (the exported version) */
-export function expectWHFSInstanceData(expectType: string, expectData?: Record<string, unknown>, { partial = false } = {}) {
-  return ((instance: WHFSInstanceData | null) => {
+/** Build a test callback whether a field is an expected UntypedInstanceData (the exported version) */
+export function expectInstanceExport(expectType: string, expectData: test.RecursivePartialTestable<InstanceExport["data"]>, options: { partial: true }): (instance: InstanceExport | null) => true;
+export function expectInstanceExport(expectType: string, expectData?: test.RecursiveTestable<InstanceExport["data"]>, options?: { partial?: false }): (instance: InstanceExport | null) => true;
+export function expectInstanceExport(expectType: string, expectData?: object, { partial = false } = {}) {
+  return ((instance: InstanceExport | null) => {
     test.assert(instance);
     test.eq(expectType, instance.whfsType);
-    test[partial ? 'eqPartial' : 'eq'](expectData || {}, omit(instance, ["whfsType"]));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- need to use 'any' here because we can't distinguish between partial and non-partial mode here
+    test[partial ? 'eqPartial' : 'eq']((expectData || {}) as any, instance.data, { annotation: `Testing instance export of type ${expectType}` });
     return true;
   });
 }

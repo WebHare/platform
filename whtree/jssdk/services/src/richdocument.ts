@@ -1,6 +1,6 @@
 import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { WHFSInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { InstanceExport, InstanceSource, UntypedInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
@@ -39,11 +39,11 @@ export const rtdTextStyles = { //Note that a-href is higher than all these style
 type OneProperty<K extends string, V> = K extends string ? { [arg in K]: V } & { tag?: never } : never;
 
 export type RTDParagraphType = typeof rtdParagraphTypes[number];
-type RTDBuildParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
+type RTDSourceParagraphType = `${typeof rtdParagraphTypes[number]}.${string}`;
 
 export type RTDListType = typeof rtdListTypes[number];
 
-type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? WHFSInstanceData : Mode extends "inMemory" ? WHFSInstance : WHFSInstance | WHFSInstanceData;
+type RTDBaseWidget<Mode extends RTDItemMode> = Mode extends "export" ? InstanceExport : Mode extends "inMemory" ? Instance : Instance | InstanceSource;
 
 type BuildOnly<Mode extends RTDItemMode, V> = "build" extends Mode ? V : never;
 
@@ -56,7 +56,7 @@ type RTDBaseParagraph<Mode extends RTDItemMode> = {
   className?: string;
   items: RTDBaseParagraphItems<Mode>;
 } | //When building also allow a simpler h1: [items] or "h1.heading1": [items] syntax
-  BuildOnly<Mode, OneProperty<RTDParagraphType | RTDBuildParagraphType, RTDBaseParagraphItems<Mode>>>;
+  BuildOnly<Mode, OneProperty<RTDParagraphType | RTDSourceParagraphType, RTDBaseParagraphItems<Mode>>>;
 
 type RTDBaseAnonymousParagraph<Mode extends RTDItemMode> = {
   tag?: never;
@@ -136,35 +136,32 @@ export type RTDListItemItems = RTDBaseListItemItems<"inMemory">;
 // copy for the export types
 //
 
-type RTDBuildList = {
+type RTDSourceList = {
   tag: RTDListType;
   className?: string;
-  listItems: RTDBuildListItems;
+  listItems: RTDSourceListItems;
 };
 
-type RTDBuildListItem = {
-  li: RTDBuildListItemItems;
+type RTDSourceListItem = {
+  li: RTDSourceListItemItems;
 };
 
-export type RTDBuildBlock =
+export type RTDSourceBlock =
   RTDBaseParagraph<"build"> |
-  RTDBuildList |
+  RTDSourceList |
   { widget: RTDBaseWidget<"build"> };
 
 /** The items of a list (type of list.listItems) */
-export type RTDBuildListItems = RTDBuildListItem[];
+export type RTDSourceListItems = RTDSourceListItem[];
 
 /** The type of list.listItems[*].liItems */
-type RTDBuildListItemItems = [RTDBaseAnonymousParagraph<"build">, ...RTDBuildList[]] | Array<RTDBaseParagraph<"build"> | RTDBuildList>;
+type RTDSourceListItemItems = [RTDBaseAnonymousParagraph<"build">, ...RTDSourceList[]] | Array<RTDBaseParagraph<"build"> | RTDSourceList>;
 
-//export type RTDBuildBlock = RTDBaseBlock<"build">;
-//export type RTDBuildListItems = RTDBaseListItems<"build">;
-
-export type RTDBuildInlineItem = RTDBaseInlineItem<"build">;
-export type RTDBuildInlineItems = RTDBaseParagraphItems<"build">;
+export type RTDSourceInlineItem = RTDBaseInlineItem<"build">;
+export type RTDSourceInlineItems = RTDBaseParagraphItems<"build">;
 
 /** The base RTD type accepted by buildRTD */
-export type RTDBuildSource = RTDBuildBlock[];
+export type RTDSource = RTDSourceBlock[];
 
 // -------------
 // RTDBaseBlock<"export"> isn't assignable to RTDBaseBlock<"build"> due to the recursive type, so we need make a separate
@@ -192,7 +189,7 @@ export type RTDExportListItems = RTDExportListItem[];
 /** The type of list.listItems[*].liItems */
 type RTDExportListItemItems = [RTDBaseAnonymousParagraph<"export">, ...RTDExportList[]] | Array<RTDBaseParagraph<"export"> | RTDExportList>;
 
-export type ExportableRTD = RTDExportBlock[];
+export type RTDExport = RTDExportBlock[];
 
 
 
@@ -214,18 +211,18 @@ export function isRichTextDocument(value: unknown): value is RichTextDocument {
   return Boolean(value && getWHType(value) === "RichTextDocument");
 }
 
-export function isWHFSInstance(value: unknown): value is WHFSInstance {
-  return Boolean(value && getWHType(value) === "WHFSInstance");
+export function isInstance(value: unknown): value is Instance {
+  return Boolean(value && getWHType(value) === "Instance");
 }
 
 
-class WHFSInstance {
-  private static "__ $whTypeSymbol" = "WHFSInstance";
+class Instance {
+  private static "__ $whTypeSymbol" = "Instance";
 
   #typeInfo: WHFSTypeInfo;
-  #data: Record<string, unknown>;
+  #data: UntypedInstanceData;
 
-  constructor(typeinfo: WHFSTypeInfo, data: Record<string, unknown>) {
+  constructor(typeinfo: WHFSTypeInfo, data: UntypedInstanceData) {
     this.#typeInfo = typeinfo;
     this.#data = data;
   }
@@ -238,10 +235,11 @@ class WHFSInstance {
     return this.#data;
   }
 
-  async export(options?: ExportOptions): Promise<WHFSInstanceData> {
+  async export(options?: ExportOptions): Promise<InstanceExport> {
+    const data = await exportData(this.#typeInfo.members, this.#data, options);
     return {
       whfsType: this.whfsType,
-      ...await exportData(this.#typeInfo.members, this.#data, options)
+      ...(Object.keys(data).length ? { data } : {}),
     };
   }
 }
@@ -284,15 +282,15 @@ function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Pr
   return isPromise(value) ? value.then(t => cb(t)) : cb(value);
 }
 
-/** @deprecated use WHFSInstance instead */
-type WidgetInterface = Pick<WHFSInstance, "whfsType" | "data" | "export">;
+/** @deprecated use Instance instead */
+type WidgetInterface = Pick<Instance, "whfsType" | "data" | "export">;
 
 export class RichTextDocument {
   private static "__ $whTypeSymbol" = "RichTextDocument";
 
   #blocks = new Array<RTDBlock>;
   //need to expose this for hscompat APIs
-  private __instanceIds = new WeakMap<Readonly<WHFSInstance>, string>;
+  private __instanceIds = new WeakMap<Readonly<Instance>, string>;
   private __imageIds = new WeakMap<Readonly<RTDBaseInlineImageItem<"inMemory">>, string>;
   private __linkIds = new WeakMap<Readonly<IntExtLink>, string>;
 
@@ -318,7 +316,7 @@ export class RichTextDocument {
     return item as T & { link?: IntExtLink };
   }
 
-  async #buildParagraphItems(blockitems: RTDBuildInlineItems | string): Promise<RTDInlineItems> {
+  async #buildParagraphItems(blockitems: RTDSourceInlineItems | string): Promise<RTDInlineItems> {
     if (typeof blockitems === 'string')
       blockitems = [{ text: blockitems }];
 
@@ -383,7 +381,7 @@ export class RichTextDocument {
           }
         }
         // Build shortcuts handled, test nothing is left
-        item as Exclude<typeof item, OneProperty<RTDParagraphType | RTDBuildParagraphType, RTDBaseParagraphItems<"build">>> satisfies never;
+        item as Exclude<typeof item, OneProperty<RTDParagraphType | RTDSourceParagraphType, RTDBaseParagraphItems<"build">>> satisfies never;
         throw new Error(`Invalid list item ${JSON.stringify(item)}`);
       }
     }
@@ -394,7 +392,7 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async #buildListItems(listItems: RTDBuildListItems): Promise<RTDListItems> {
+  async #buildListItems(listItems: RTDSourceListItems): Promise<RTDListItems> {
     const outitems: RTDListItems = [];
 
     for (const item of listItems) {
@@ -403,7 +401,7 @@ export class RichTextDocument {
     return outitems;
   }
 
-  async addBlock(tag: string, className: string | undefined, items?: RTDBuildInlineItems) {
+  async addBlock(tag: string, className: string | undefined, items?: RTDSourceInlineItems) {
     validateTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -424,16 +422,16 @@ export class RichTextDocument {
   }
 
   private async addWidget(widget: RTDBaseWidget<"build">): Promise<RTDBaseWidget<"inMemory">> {
-    if (isWHFSInstance(widget)) //we just keep the widget as is
+    if (isInstance(widget)) //we just keep the widget as is
       return widget;
 
     if ("whfsType" in widget)
-      return await buildWHFSInstance(widget);
+      return await buildInstance(widget);
 
     throw new Error(`Invalid widget data: ${JSON.stringify(widget)}`);
   }
 
-  async addList(tag: string, className: string | undefined, listItems: RTDBuildListItems) {
+  async addList(tag: string, className: string | undefined, listItems: RTDSourceListItems) {
     validateListTagName(tag);
 
     const useclass = className || rtdBlockDefaultClass[tag] || throwError(`No default class for tag '${tag}'`);
@@ -448,7 +446,7 @@ export class RichTextDocument {
     this.#blocks.push(newblock);
   }
 
-  async addBlocks(blocks: RTDBuildBlock[]): Promise<void> {
+  async addBlocks(blocks: RTDSourceBlock[]): Promise<void> {
     //TODO validate, import disk objects etc
     for (const block of blocks) {
       if ("items" in block) {
@@ -494,7 +492,7 @@ export class RichTextDocument {
     return getArrayPromise(block.map(async item => {
       item = await this.exportLink(item, options);
       if ("inlineWidget" in item)
-        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies WHFSInstanceData } as RTDBaseInlineItem<"export">;
+        return { ...item, inlineWidget: await item.inlineWidget.export() satisfies InstanceExport } as RTDBaseInlineItem<"export">;
       if ("image" in item)
         return { ...item, image: await item.image.export() satisfies ExportedResource } as RTDBaseInlineItem<"export">;
       return item as RTDBaseInlineItem<"export">;
@@ -539,14 +537,14 @@ export class RichTextDocument {
     return mapMaybePromise(getArrayPromise(convertedItems), items => ({ ...block, listItems: items }));
   }
 
-  #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<ExportableRTD> {
+  #exportRTDBlocks(blocks: RTDBlock[], options: ExportOptions): MaybePromise<RTDExport> {
     return getArrayPromise(blocks.map(block => {
       if ("items" in block)
-        return this.#exportRTDParagraph(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDParagraph(block, options) satisfies MaybePromise<RTDExport[number]>;
       else if ("listItems" in block) {
-        return this.#exportRTDList(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDList(block, options) satisfies MaybePromise<RTDExport[number]>;
       } else if ("widget" in block)
-        return this.#exportRTDWidget(block, options) satisfies MaybePromise<ExportableRTD[number]>;
+        return this.#exportRTDWidget(block, options) satisfies MaybePromise<RTDExport[number]>;
       else
         block satisfies never;
       throw new Error(`Block ${JSON.stringify(block)} has no export definition`);
@@ -554,8 +552,8 @@ export class RichTextDocument {
   }
 
   /** Export as buildable RTD */
-  async export(options?: ExportOptions): Promise<ExportableRTD> { //TODO RTDBuildSource is wider than what we'll build, eg it allows Widget objects
-    return await this.#exportRTDBlocks(this.#blocks, options || {});
+  async export(options?: ExportOptions): Promise<RTDExport> { //TODO RTDSource is wider than what we'll build, eg it allows Widget objects
+    return await this.#exportRTDBlocks(this.#blocks, { export: true, ...options });
   }
 
   /** @deprecated Use exportRTDToRawHTML in hscompat */
@@ -563,7 +561,7 @@ export class RichTextDocument {
     return (await exportRTDToRawHTML(this)) || '';
   }
 
-  __hintInstanceId(widget: WHFSInstance, instanceId: string) {
+  __hintInstanceId(widget: Instance, instanceId: string) {
     if (this.__instanceIds.get(widget))
       this.__instanceIds.set(widget, instanceId);
   }
@@ -573,34 +571,37 @@ export class RichTextDocument {
   }
 }
 
-export async function buildRTD(source: RTDBuildSource): Promise<RichTextDocument> {
+export async function buildRTD(source: RTDSource): Promise<RichTextDocument> {
   //TODO validate, import disk objects etc
   const outdoc = new RichTextDocument;
   await outdoc.addBlocks(source);
   return outdoc;
 }
 
-export async function buildWHFSInstance(data: WHFSInstanceData): Promise<WHFSInstance> {
+export async function buildInstance(data: InstanceSource): Promise<Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
-  return new WHFSInstance(typeinfo, await importData(typeinfo.members, data, { addMissingMembers: true }));
+  for (const key of (Object.keys(data)))
+    if (key !== "whfsType" && key !== "data")
+      throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true }));
 }
 
-/** @deprecated use buildWHFSInstance */
+/** @deprecated use buildInstance */
 export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
-  return buildWHFSInstance({ ...data, whfsType: ns });
+  return buildInstance({ whfsType: ns, data: data as UntypedInstanceData });
 }
 
-export type { WidgetInterface as Widget, WHFSInstance };
+export type { WidgetInterface as Widget, Instance };
 
 // Check types in the source code, so not everything has to be exported
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function verifyTypes() {
   // The separate declarations of the types for build/export mode and the parameterized type should be equal
-  true satisfies test.Equals<RTDBuildSource, RTDBaseBlocks<"build">>;
-  true satisfies test.Equals<ExportableRTD, RTDBaseBlocks<"export">>;
+  true satisfies test.Equals<RTDSource, RTDBaseBlocks<"build">>;
+  true satisfies test.Equals<RTDExport, RTDBaseBlocks<"export">>;
   true satisfies test.Equals<RTDBlock[], RTDBaseBlocks<"inMemory">>;
 
   // The export type and inMemory type should be assignable to the build type
-  true satisfies test.Assignable<RTDBuildSource, RTDBaseBlocks<"export">>;
-  true satisfies test.Assignable<RTDBuildSource, RTDBaseBlocks<"inMemory">>;
+  true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"export">>;
+  true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"inMemory">>;
 }

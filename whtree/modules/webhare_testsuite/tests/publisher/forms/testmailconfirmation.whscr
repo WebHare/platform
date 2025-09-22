@@ -115,7 +115,8 @@ PUBLIC ASYNC MACRO MailConfirmationHandler()
 - p:
   - inlineWidget:
       whfsType: http://www.webhare.net/xmlns/publisher/formconfirmfield
-      linktext: click here
+      data:
+        linktext: click here
   - "to confirm"
 `);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
