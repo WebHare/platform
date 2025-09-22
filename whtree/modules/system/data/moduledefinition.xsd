@@ -1712,7 +1712,7 @@
     <xs:attribute name="namespace" type="xs:anyURI" use="required" />
     <xs:attribute name="isarray" type="xs:boolean">
       <xs:annotation>
-        <xs:documentation>Whether this node can occur multiple timesin a rule</xs:documentation>
+        <xs:documentation>Whether this node can occur multiple times in a rule</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="toyaml" type="xs:string">

@@ -64,7 +64,7 @@ PUBLIC RECORD FUNCTION GetDebugSettingsAsYaml(OBJECT node) {
        flags:
          win:
            title: "Pxl events"
-           requirRright: xx
+           requireRight: xx
   */
 
   RECORD setting := [
