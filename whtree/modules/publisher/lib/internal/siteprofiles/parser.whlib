@@ -26,7 +26,6 @@ CONSTANT RECORD csp_base_applyrule :=
   , bodyrenderer := DEFAULT RECORD
   , contentlisting := DEFAULT RECORD
   , customnodes := DEFAULT RECORD ARRAY
-  , defaultsettings := DEFAULT RECORD ARRAY
   , disabletemplateprofile := FALSE
   , extendproperties := DEFAULT RECORD ARRAY
   , folderindex := DEFAULT RECORD

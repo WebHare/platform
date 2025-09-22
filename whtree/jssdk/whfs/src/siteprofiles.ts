@@ -338,8 +338,11 @@ export interface CSPApplyRule {
   bodyrenderer: CSPBodyRendererRule | null;
   col: number;
   contentlisting: { fullpath: string; site: string } | null;
-  customnodes: any[];
-  defaultsettings: any[];
+  comment: string;
+  customnodes: Array<{
+    namespaceuri: string;
+    localname: string;
+  }>;
   disabletemplateprofile: boolean;
   extendproperties: Array<{
     contenttype: string;
