@@ -27,7 +27,7 @@ PUBLIC STRING FUNCTION GetRewriteMode(STRING respath)
   STRING reqversion := modinfo.packagingapplicability.webhareversion;
   //a heuristic to determine what your rewrite targets...
 
-  //508 checks: see if your mdoule require 5.08 or above. Eg if 999.999.999 s in range but 5.07.999 isn't
+  //508 checks: see if your module require 5.08 or above. Eg if 999.999.999 s in range but 5.07.999 isn't
   IF(VersionSatisfiesRange("999.999.999", reqversion) AND NOT VersionSatisfiesRange("5.07.999", reqversion))
     RETURN "508";
 
