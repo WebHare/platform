@@ -225,7 +225,6 @@
     <xs:attribute name="tag" type="Tag" use="required" />
     <xs:attribute name="importfrom" type="xs:string" />
     <xs:attribute name="title" type="xs:string" />
-    <xs:attribute name="split" type="xs:boolean" />
     <xs:attribute name="containertag" type="BlockstyleContainerTag" />
     <xs:attribute name="textstyles" type="AllowTextStyles" use="required" />
     <xs:attribute name="nextstyle" type="Tag" />
@@ -238,12 +237,6 @@
     <xs:attribute name="allowstyles">
       <xs:annotation>
         <xs:documentation>Styles to allow in this table. If not set or empty, allows all styles</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
-    <xs:attribute name="allowwidgets">
-      <!-- Not yet specified as boolean, gives us some room to change our minds about this, eg turning it into wildcard masks list -->
-      <xs:annotation>
-        <xs:documentation>Set to 'false' to block widgets</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>

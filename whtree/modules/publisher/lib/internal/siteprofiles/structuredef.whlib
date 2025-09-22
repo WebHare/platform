@@ -326,8 +326,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
                     , allowstyles :=       DEFAULT STRING ARRAY
-                    , allowwidgets :=      TRUE
-                    , split :=             FALSE
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
@@ -338,7 +336,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       {
         style.type := "text";
         style.containertag := styleblock->GetAttribute("containertag");
-        style.split := ParseXSBoolean(styleblock->GetAttribute("split"));
         style.importfrom := ParseXSList(styleblock->GetAttribute("importfrom")); //new format: read and split attribute to get the selectors
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
@@ -363,7 +360,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.containertag := "table";
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
         style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
-        style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
         {
@@ -1372,7 +1368,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     RECORD structure := [ blockstyles := DEFAULT RECORD ARRAY
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
-                        , cellstyles := RECORD[ [ tag := "", title := "" ] ]
+                        , cellstyles := RECORD[]
                         , tag_b := xmlnode->GetAttribute("b") ?? "b"
                         , tag_i := xmlnode->GetAttribute("i") ?? "i"
                         ];

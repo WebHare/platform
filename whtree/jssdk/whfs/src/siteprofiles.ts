@@ -131,14 +131,12 @@ export type CSPRTDBlockStyle = {
   containertag: string;
   textstyles: string[];
   tabledefaultblockstyle: string;
-  split: boolean;
   hidden: boolean;
   title: string;
   tag: string;
   importfrom: string[];
   nextblockstyle: string;
   allowstyles: string[];
-  allowwidgets: boolean;
 };
 
 export interface CSPRTDAllowedObject {
@@ -339,8 +337,11 @@ export interface CSPApplyRule {
   bodyrenderer: CSPBodyRendererRule | null;
   col: number;
   contentlisting: { fullpath: string; site: string } | null;
-  customnodes: any[];
-  defaultsettings: any[];
+  comment: string;
+  customnodes: Array<{
+    namespaceuri: string;
+    localname: string;
+  }>;
   disabletemplateprofile: boolean;
   extendproperties: Array<{
     contenttype: string;

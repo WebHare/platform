@@ -375,10 +375,8 @@ function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>):
       hidden: false,
       tabledefaultblockstyle: "",
       allowstyles: [],
-      allowwidgets: true,
       importfrom: [],
       nextblockstyle: "",
-      split: false,
       title: "",
     });
   }
@@ -400,10 +398,8 @@ function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>):
       hidden: false,
       tabledefaultblockstyle: "",
       allowstyles: [],
-      allowwidgets: true,
       importfrom: [],
       nextblockstyle: "",
-      split: false,
       title: "",
     });
   }
@@ -566,9 +562,9 @@ function parseApply(gid: ResourceParserContext, module: string, siteprofile: str
     applyindex,
     applynodetype: "apply",
     col: 0,
+    comment: "",
     contentlisting: null,
     customnodes: [],
-    defaultsettings: [],
     disabletemplateprofile: false,
     folderindex: null,
     mailtemplates: [],

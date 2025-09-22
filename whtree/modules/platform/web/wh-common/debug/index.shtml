@@ -114,9 +114,6 @@ PUBLIC STATIC OBJECTTYPE DebugPage EXTEND DynamicPageBase
     OBJECT webcontext := GetWebContext(targetobject);
     STRING userwarning;
 
-    FOREVERY(OBJECT plugin FROM webcontext->GetPluginsByFeature("debugsettings"))
-      options := options CONCAT SELECT grouptitle, title, tag, requireright := CellExists(settings, "requireright") ? settings.requireright : "system:supervisor" FROM plugin->HookGetDebugSettings() AS settings;
-
     FOREVERY(RECORD debugsettings FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "debugsettings", targetobject))
     {
       IF(debugsettings.node->HasAttribute("userwarning"))

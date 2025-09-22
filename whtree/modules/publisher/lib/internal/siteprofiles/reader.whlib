@@ -299,7 +299,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , renderinfo      := DEFAULT RECORD
                       , supportserrors  := TRUE
                       , supportsaccessdenied := FALSE
-                      , supportedlanguages := DEFAULT STRING ARRAY
                       , siteprofile     := ""
                       , is404           := FALSE
                       , contentnavstops := DEFAULT STRING ARRAY
@@ -1326,12 +1325,8 @@ STATIC OBJECTTYPE ApplyRuleTester <
       webdesign.siteprofile     := apply.siteprofile;
       webdesign.wittyencoding   := apply.webdesign.wittyencoding   ?? webdesign.wittyencoding ;
 
-      //assetpack also triggers setting supportedlanguages
       IF(apply.webdesign.has_assetpack)
-      {
         webdesign.assetpack            := apply.webdesign.assetpack;
-        webdesign.supportedlanguages   := apply.webdesign.supportedlanguages;
-      }
 
       webdesign.supportserrors       := apply.webdesign.has_supportserrors       ? apply.webdesign.supportserrors       : webdesign.supportserrors;
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
@@ -1482,7 +1477,13 @@ STATIC OBJECTTYPE ApplyRuleTester <
       RETURN RecordExists(suggested) AND RecordExists(suggested.filetype) ? suggested.id : 0;
     }
 
-    RETURN MimetypeToFiletype(mimetype);
+    INTEGER totype := MimetypeToFiletype(mimetype);
+    IF(totype = 4) { //Word document is suggested by the mapping
+      //But can this folder even convert wordocs ? If not still map it to a download
+      IF(NOT RecordExists(this->GetCustomSettings("http://www.webhare.net/xmlns/publisher/siteprofile", "mswordconversion")))
+        totype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/msworddownload")->id; //make downloadable
+    }
+    RETURN totype;
   }
 
   PUBLIC RECORD FUNCTION GetURLHistorySettings()

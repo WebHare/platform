@@ -197,12 +197,15 @@ PUBLIC STATIC OBJECTTYPE TableProperties EXTEND TolliumScreenBase
 
     IF(data.data.type = "cell")
     {
-      ^cellstyle->options := SELECT rowkey := tag
-                                  , title := tag = "" ? this->GetTid(".normalcell") : (title ?? tag)
-                                  , tolliumselected := tag = data.data.cellstyletag
-                               FROM this->rte->rtdtypeinfo.structure.cellstyles
-                           ORDER BY tag="" DESC
-                                  , ToUppercase(title ?? tag);
+      ^cellstyle->options :=
+          [ [ rowkey := ""
+            , title := this->GetTid(".normalcell")
+            , tolliumselected := TRUE
+          ], ...SELECT rowkey := tag
+                     , title := title ?? tag
+                  FROM this->rte->rtdtypeinfo.structure.cellstyles
+              ORDER BY ToUppercase(title ?? tag)
+          ];
     }
     ELSE
     {

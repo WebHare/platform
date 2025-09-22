@@ -565,7 +565,6 @@
                      objectname="lib/internal/forum/forumplugin.whlib#forumplugin" />
     <webdesignplugin name="gtm"
                      composerhook="js/internal/plugins/gtmplugin.ts#hookComposer"
-                     hooksfeatures="debugsettings"
                      namespace="http://www.webhare.net/xmlns/publisher/siteprofile"
                      objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" />
     <webdesignplugin name="googleanalytics"

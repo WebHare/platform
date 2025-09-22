@@ -492,7 +492,6 @@ export class WHFSApplyTester {
       renderInfo: null,
       supportsErrors: true,
       supportsAccessDenied: false,
-      supportedLanguages: [] as string[],
       siteProfile: "",
       is404: false,
       contentNavStops: [] as string[],
@@ -517,10 +516,8 @@ export class WHFSApplyTester {
       webDesign.siteProfile = apply.siteprofile;
       webDesign.wittyEncoding = apply.webdesign.wittyencoding ?? webDesign.wittyEncoding;
 
-      //assetpack also triggers setting supportedlanguages
       if (apply.webdesign.has_assetpack) {
         webDesign.assetPack = apply.webdesign.assetpack;
-        webDesign.supportedLanguages = apply.webdesign.supportedlanguages;
       }
 
       webDesign.supportsErrors = apply.webdesign.has_supportserrors ? apply.webdesign.supportserrors : webDesign.supportsErrors;

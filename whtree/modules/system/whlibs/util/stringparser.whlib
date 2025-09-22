@@ -1,4 +1,8 @@
-<?wh
+<?wh (*ISSYSTEMLIBRARY*)
+
+LOADLIB "wh::system.whlib";
+LOADLIB "wh::internal/interface.whlib";
+
 /** @topic harescript-utils/stringparser */
 // This library contains a stringparser
 
