@@ -77,6 +77,9 @@ $defs:
         type: string
       tid:
         type: string
+      comment:
+        type: string
+        description: A developer's comment on this type. Not shown to unprivileged WebHare users.
       searchContentProvider: # this affects about all meta types except plain whfsType so we'll put it at BaseType level
         type: string
       members:
@@ -280,7 +283,7 @@ $defs:
         type: string
       comment:
         type: string
-        description: "A developer's comment on this type. Not shown to unprivileged WebHare users."
+        description: "A developer's comment on this member. Not shown to unprivileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/$defs/TypeMembers"
       constraints:
@@ -430,6 +433,9 @@ $defs:
           priority:
             type: integer
             description: Higher priority rules are applied later and thus override lower priority rules. Defaults to 0
+          comment:
+            type: string
+            description: "A developer's comment on this apply rule. Not shown to unprivileged WebHare users."
       - $ref: "#/$defs/ApplyRule"
 
   ApplyRule:
@@ -902,6 +908,9 @@ $defs:
     type: object
     additionalProperties: false
     properties:
+      comment:
+        type: string
+        description: "A developer's comment on this type. Not shown to unprivileged WebHare users."
       htmlClass:
         type: string
       bodyClass:

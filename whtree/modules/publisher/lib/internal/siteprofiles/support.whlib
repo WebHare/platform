@@ -111,7 +111,8 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
          , namespace := ""
          , scopedtype := ""
          , type := type
-         , siteprofile :=        ""
+         , siteprofile := ""
+         , comment := ""
          , line := 0
          , title := ""
          , tolliumicon := ""

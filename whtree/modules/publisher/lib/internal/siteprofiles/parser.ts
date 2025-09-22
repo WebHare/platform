@@ -420,6 +420,7 @@ function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
   return {
     id: 0,
     type: "rtdtype",
+    comment: type.comment || '',
     cloneonarchive: true,
     cloneoncopy: true,
     dynamicexecution: null,
@@ -557,6 +558,7 @@ function parseApplyRule(gid: ResourceParserContext, module: string, siteprofile:
   const rule = parseApply(gid, module, siteprofile, baseScope, applyindex, apply);
   rule.tos = parseApplyTo(apply.to);
   rule.priority = apply.priority || 0;
+  rule.comment = apply.comment || '';
   return rule;
 }
 
@@ -725,10 +727,10 @@ type TidCallback = (resource: string, tid: string) => void;
 class ResourceParserContext {
   readonly onTid?: TidCallback;
   readonly gid: string;
-  readonly resourcename: string;
+  readonly resourceName: string;
 
-  private constructor(resourcename: string, gid: string, onTid?: TidCallback) {
-    this.resourcename = resourcename;
+  private constructor(resourceName: string, gid: string, onTid?: TidCallback) {
+    this.resourceName = resourceName;
     this.onTid = onTid;
     this.gid = gid;
   }
@@ -747,7 +749,7 @@ class ResourceParserContext {
   /** Add a potential new gid scope */
   addGid(potentialGidObject?: { gid?: string }): ResourceParserContext {
     if (potentialGidObject?.gid)
-      return new ResourceParserContext(this.resourcename, resolveGid(this.gid, potentialGidObject.gid), this.onTid);
+      return new ResourceParserContext(this.resourceName, resolveGid(this.gid, potentialGidObject.gid), this.onTid);
     else
       return this;
   }
@@ -756,7 +758,7 @@ class ResourceParserContext {
   resolveTid(potentialTidObject: { name?: string; title?: string; tid?: string }): string {
     const resolved = resolveTid(this.gid, potentialTidObject);
     if (resolved && !resolved.startsWith(':') && this.onTid)
-      this.onTid(this.resourcename, resolved);
+      this.onTid(this.resourceName, resolved);
     return resolved;
   }
 }
@@ -816,6 +818,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
       dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(settings.dynamicExecution) : null,
+      comment: settings.comment || '',
       filetype: null,
       foldertype: null,
       ingroup: settings.group || '',

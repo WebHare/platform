@@ -67,6 +67,7 @@ export interface CSPDynamicExecution {
 export interface CSPContentType {
   cloneoncopy: boolean;
   cloneonarchive: boolean;
+  comment: string;
   workflow: boolean;
   dynamicexecution: CSPDynamicExecution | null;
   filetype: {
@@ -303,7 +304,6 @@ export type CSPWebDesign = {
   siteprofile: string;
   supportserrors: boolean;
   supportsaccessdenied: boolean;
-  supportedlanguages: string[];
   contentnavstops: string[];
 
   has_assetpack: boolean;
@@ -327,6 +327,16 @@ export type CSPModifyType = {
 } | {
   isallow: false;
   typedef: string;
+};
+
+export type CSPHookIntercept = {
+  module: string;
+  name: string;
+  target: string;
+  orderbefore: string[];
+  orderafter: string[];
+  interceptfunction: string;
+  line: number;
 };
 
 export type CSPApplyRule = {
@@ -368,7 +378,7 @@ export type CSPApplyRule = {
   } | null;
   foldersettings: CSPFolderSettings | null;
   formdefinitions: any[];
-  hookintercepts: any[];
+  hookintercepts: CSPHookIntercept[];
   line: number;
   mailtemplates: any[];
   modifyfiletypes: CSPModifyType[];
