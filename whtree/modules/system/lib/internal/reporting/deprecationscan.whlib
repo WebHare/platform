@@ -155,7 +155,7 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
     FOREVERY(RECORD toreport FROM report.shouldbeondisk)
       Print(`* ${toreport.sitename}: ${toreport.fullpath} (type ${toreport.type}, ${toreport.bytes} bytes) depends on writing HareScript code to disk (ie site:: compilation paths). Support will be removed in WebHare 6.0\n`);
   ELSE
-    Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
+    Print(`- Good! No HareScript code in WHFS\n`);
 
   IF(Length(report.fs_maxdatetime_settings) > 0)
     FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
