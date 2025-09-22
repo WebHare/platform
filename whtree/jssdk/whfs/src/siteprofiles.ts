@@ -137,7 +137,6 @@ export type CSPRTDBlockStyle = {
   importfrom: string[];
   nextblockstyle: string;
   allowstyles: string[];
-  allowwidgets: boolean;
 };
 
 export interface CSPRTDAllowedObject {

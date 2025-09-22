@@ -326,7 +326,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
                     , allowstyles :=       DEFAULT STRING ARRAY
-                    , allowwidgets :=      TRUE
                     , hidden :=            FALSE
                     , importfrom :=        DEFAULT STRING ARRAY //ADDME importfrom is purely clientside. should be serverside too (ie when publishing a RTD document through a new structure)
                     ];
@@ -361,7 +360,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.containertag := "table";
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
         style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
-        style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
 
         FOREVERY(OBJECT importnode FROM styleblock->GetChildElementsByTagNameNS(structuredefns, "importfrom")->GetCurrentElements())
         {
