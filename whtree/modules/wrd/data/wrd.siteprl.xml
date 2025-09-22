@@ -1,8 +1,8 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- SAML IDP -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/samlidpendpoint"
             blobiscontent="false"
+            comment="SAML IDP"
             icon="tollium:files/application_x-webhare-serverparsed"
             ispublishable="true"
             ispublishedassubdir="true"
@@ -10,9 +10,9 @@
     <dynamicexecution startmacro="mod::wrd/lib/internal/auth/samlidpendpoint.whlib#RunSAMLIdpEndpoint" />
   </filetype>
 
-  <!-- SAML SP -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/samlspendpoint"
             blobiscontent="false"
+            comment="SAML SP"
             icon="tollium:files/application_x-webhare-serverparsed"
             ispublishable="true"
             ispublishedassubdir="true"
@@ -25,9 +25,9 @@
     <formdefinitions name="wrd:authpages" path="mod::wrd/data/forms/authpages.formdef.xml" />
   </apply>
 
-  <!-- WRD Schema archive -->
   <filetype namespace="http://www.webhare.net/xmlns/wrd/schemaarchive"
             blobiscontent="true"
+            comment="WRD Schema archive"
             extensions=".wrdarchive"
             icon="tollium:files/application_wharchive"
             requirescontent="true"

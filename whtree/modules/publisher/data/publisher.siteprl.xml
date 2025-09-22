@@ -48,9 +48,8 @@
     </array>
   </contenttype>
 
-  <!-- Define the special '0' types
-  -->
   <foldertype namespace="http://www.webhare.net/xmlns/publisher/normalfolder"
+              comment="Define the special '0' types"
               icon="tollium:folders/normal"
               tid="publisher:terminology.types.normalfolder" />
 
@@ -117,8 +116,9 @@
     </newtab>
   </tabsextension>
 
-  <!-- DBfile publishing -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/dbpublication" cloneoncopy="false">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/dbpublication"
+               cloneoncopy="false"
+               comment="DBfile publishing">
     <array name="dbfiles">
       <string name="filename" />
       <file name="data" />
@@ -164,8 +164,7 @@
 
   <!-- Define the publisher file types
   -->
-  <!-- Tag meta for files: -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/taginfo">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/taginfo" comment="Tag meta for files:">
     <whfsrefarray name="tags" />
   </contenttype>
 
@@ -240,9 +239,9 @@
             requirescontent="true"
             tid="publisher:filetypes.image" />
 
-  <!-- The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/multimediafile"
             kind="rawfile"
+            comment="The multimedia file type uses the 'video' icon as we don't have a general 'multimedia' icon"
             icon="tollium:files/video"
             requirescontent="true"
             tid="publisher:filetypes.multimedia" />
@@ -261,9 +260,9 @@
             requirescontent="true"
             tid="publisher:filetypes.webharearchive" />
 
-  <!-- The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon -->
   <filetype namespace="http://www.webhare.net/xmlns/publisher/archivefile"
             kind="rawfile"
+            comment="The archive file type uses the 'application/zip' icon as we don't have a general 'archive' icon"
             icon="tollium:files/application_zip"
             requirescontent="true"
             tid="publisher:filetypes.archive" />
@@ -486,28 +485,19 @@
     -->
   </contenttype>
 
-  <!-- Version metata -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false">
-    <!-- 'publish.draft' version number. first version is 0.1, first published version is 1.0 -->
-    <string name="version" />
-
-    <!-- webhare user who saved this draft or the last draft leading up to this final version -->
-    <record name="editor" />
-
-    <!-- webhare user who first published this version (ie approved the draft) -->
-    <record name="publisher" />
-
-    <!-- when this version was first published -->
-    <datetime name="published" />
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/version" cloneoncopy="false" comment="Version metata">
+    <string name="version" comment="'publish.draft' version number. first version is 0.1, first published version is 1.0" />
+    <record name="editor" comment="webhare user who saved this draft or the last draft leading up to this final version" />
+    <record name="publisher" comment="webhare user who first published this version (ie approved the draft)" />
+    <datetime name="published" comment="when this version was first published" />
   </contenttype>
 
-  <!-- Lifecycle management -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/lifecycle">
-    <datetime name="deletion" />  <!-- When to delete this file. PERMANENT! -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/lifecycle" comment="Lifecycle management">
+    <datetime name="deletion" comment="When to delete this file. PERMANENT!" />
   </contenttype>
 
-  <!-- URLHistory save - saves URL history and other related data for recovery before migrating between servers -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/savedurlhistory">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/savedurlhistory"
+               comment="URLHistory save - saves URL history and other related data for recovery before migrating between servers">
     <datetime name="creationdate" />
     <datetime name="modificationdate" />
     <datetime name="firstpublishdate" />
@@ -572,8 +562,7 @@
     <folderindex indexfile="none" />
   </apply>
 
-  <!-- enable texteditors -->
-  <apply>
+  <apply comment="enable texteditors">
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/javascriptfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/semidynamicfile" />
     <to type="file" filetype="http://www.webhare.net/xmlns/publisher/cssfile" />
@@ -616,10 +605,10 @@
     <allowformrtdtype type="http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype" />
   </apply>
 
-  <!-- Sharedblocks -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/sharedblocks">
-    <integer name="overridetype" />  <!-- 0 = inherit from parent, 1 = don't show any blocks, 2 = set specific blocks -->
-    <boolean name="overridefromparent" />  <!-- Old, but remaining for a little while to be able to make convert scripts if needed -->
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/sharedblocks" comment="Sharedblocks">
+    <integer name="overridetype" comment="0 = inherit from parent, 1 = don't show any blocks, 2 = set specific blocks" />
+    <boolean name="overridefromparent"
+             comment="Old, but remaining for a little while to be able to make convert scripts if needed" />
     <array name="blocks">
       <whfsref name="block" />
     </array>
@@ -651,24 +640,17 @@
     <allowfoldertype typemask="http://www.webhare.net/xmlns/publisher/normalfolder" />
   </apply>
 
-  <!-- ======================================================================
-
-       Folder sync
-
-  ==== -->
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/foldersync" cloneoncopy="false">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/foldersync"
+               cloneoncopy="false"
+               comment="Folder sync">
     <array name="peers">
       <string name="peer" />
       <string name="remotepath" />
     </array>
   </contenttype>
 
-  <!-- ======================================================================
-
-       Key store
-
-  ==== -->
-  <foldertype namespace="http://www.webhare.net/xmlns/system/keystorefolder">
+  <foldertype namespace="http://www.webhare.net/xmlns/system/keystorefolder"
+              comment="Key store">
     <members>
       <integer name="warnexpirydays" />
     </members>

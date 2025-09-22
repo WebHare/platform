@@ -1,7 +1,9 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile" gid="webfeatures.sitecontent.searchpage">
 
-  <!-- Consilio search page -->
-  <filetype namespace="http://www.webhare.net/xmlns/consilio/searchpage" kind="virtualfile" tid=".searchpage">
+  <filetype namespace="http://www.webhare.net/xmlns/consilio/searchpage"
+            kind="virtualfile"
+            comment="Consilio search page"
+            tid=".searchpage">
     <dynamicexecution webpageobjectname="searchpage.whlib#ConsilioSearchPage" />
   </filetype>
 

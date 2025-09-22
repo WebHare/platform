@@ -1,7 +1,6 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- Global site settings -->
-  <apply>
+  <apply comment="Global site settings">
     <to type="all" />
 
     <!-- Set site language -->
@@ -42,8 +41,7 @@
     </blockstyles>
   </rtdtype>
 
-  <!-- on dev servers, open up a /testportal -->
-  <apply maxservertype="development">
+  <apply comment="on dev servers, open up a /testportal" maxservertype="development">
     <to type="file" pathmask="/testportal" />
     <portal xmlns="http://www.webhare.net/xmlns/tollium" allowinframe="true" />
     <wrdauth xmlns="http://www.webhare.net/xmlns/wrd"

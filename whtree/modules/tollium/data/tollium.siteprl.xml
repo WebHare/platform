@@ -1,9 +1,9 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- NOTE: we define both webpageobjectname and startmacro, as webpageobjectname receives RPCs -->
   <filetype namespace="http://www.webhare.net/xmlns/tollium/applicationportal"
             kind="datafile"
             capturesubpaths="true"
+            comment="NOTE: we define both webpageobjectname and startmacro, as webpageobjectname receives RPCs"
             isacceptableindex="true"
             ispublishedassubdir="true">
     <dynamicexecution routerfunction="mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib#TolliumPortalRouter"

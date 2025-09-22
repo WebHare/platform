@@ -6,16 +6,17 @@
       is parsed before any global or site local profile
 
   -->
-  <!-- Gathered links for checks -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/gatheredlinks" cloneoncopy="false">
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/gatheredlinks"
+               cloneoncopy="false"
+               comment="Gathered links for checks">
     <array name="links">
       <url name="link" />
       <string name="text" />
     </array>
   </contenttype>
 
-  <!-- Content type for link check reports -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck">
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/linkcheck"
+               comment="Content type for link check reports">
     <string name="sorting" />
     <boolean name="type_link" />
     <string name="grouping" />
@@ -32,16 +33,15 @@
     <boolean name="type_stylesheet" />
   </contenttype>
 
-  <!-- Content type for searches reports -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/queries">
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/reports/queries" comment="Content type for searches reports">
     <string name="sorting" />
     <boolean name="sortdesc" />
     <boolean name="grouping" />
     <string name="limit" />
   </contenttype>
 
-  <!-- Content type for extra indexing keywords -->
-  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords">
+  <contenttype namespace="http://www.webhare.net/xmlns/consilio/boostwords"
+               comment="Content type for extra indexing keywords">
     <stringarray name="words" />
   </contenttype>
 

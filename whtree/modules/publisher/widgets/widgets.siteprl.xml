@@ -1,7 +1,7 @@
 <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
 
-  <!-- Anchor -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/anchor"
+              comment="Anchor"
               editextension="widgets.xml#anchorwidget"
               renderobjectname="widgets.whlib#AnchorWidgetBase"
               tid="widgets.anchorwidget.title"
@@ -11,8 +11,8 @@
     </members>
   </widgettype>
 
-  <!-- Slideshow. Simple show with embedded images -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/slideshow"
+              comment="Slideshow. Simple show with embedded images"
               editextension="widgets.xml#slideshowwidget"
               renderobjectname="/lib/widgets/slideshowwidget.whlib#SlideshowWidgetBase"
               tid="widgets.slideshowwidget.title"
@@ -37,8 +37,8 @@
     </members>
   </widgettype>
 
-  <!-- beacon widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/triggerbeacon"
+              comment="beacon widget"
               editextension="beacon/beacon.xml#edittriggerbeaconwidget"
               icon="tollium:objects/beacon"
               renderobjectname="beacon/beacon.whlib#TriggerBeaconWidget"
@@ -48,8 +48,8 @@
     </members>
   </widgettype>
 
-  <!-- (photo)gallery widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/gallery"
+              comment="(photo)gallery widget"
               icon="tollium:folders/photoalbum"
               renderobjectname="/lib/widgets/gallerywidget.whlib#GalleryWidgetBase"
               tid="widgets.gallerywidget.title"
@@ -57,8 +57,8 @@
     <members />
   </widgettype>
 
-  <!-- contentsnippet widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/contentsnippet"
+              comment="contentsnippet widget"
               editextension="contentsnippet/contentsnippet.xml#snippeteditor"
               icon="tollium:objects/snippet"
               renderobjectname="contentsnippet/contentsnippet.whlib#SnippetWidget"
@@ -69,8 +69,8 @@
     <extendproperties extension="/tolliumapps/objectprops/references.xml#referencestab" />
   </widgettype>
 
-  <!-- insert contentsnippet widget -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/insertsnippet"
+              comment="insert contentsnippet widget"
               editextension="contentsnippet/contentsnippet.xml#insertsnippeteditor"
               renderobjectname="contentsnippet/contentsnippet.whlib#InsertSnippetWidget"
               tid="widgets.contentsnippet.insertsnippetwidget">
@@ -79,8 +79,8 @@
     </members>
   </widgettype>
 
-  <!-- witty code widgets -->
   <widgettype namespace="http://www.webhare.net/xmlns/publisher/widgets/wittyblock"
+              comment="witty code widgets"
               editextension="widgets.xml#wittywidget"
               embedtype="block"
               renderobjectname="widgets.whlib#WittyWidget"
