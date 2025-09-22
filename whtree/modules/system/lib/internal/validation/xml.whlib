@@ -150,7 +150,7 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
 
   RECORD srec := DetermineXMLFileValidationType(doc, resourcename);
   IF(NOT RecordExists(srec))
-    RETURN DEFAULT RECORD; //can't validate anything else
+    RETURN [ errors := RECORD[] ]; //can't validate anything else
 
   RECORD schemarec;
   RECORD ARRAY errors;

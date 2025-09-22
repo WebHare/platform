@@ -3,12 +3,11 @@ import type { DiagnosticsCallback, DocumentsLike, TextDocumentLike } from "./typ
 import { type Diagnostic, DiagnosticSeverity } from "vscode-languageserver";
 import { loadlib } from "@webhare/harescript";
 import { WebHareBlob } from "@webhare/services";
-import { missingSymbolErrorCodes, uriToResourcePath } from "./lsp-services";
+import { missingSymbolErrorCodes, uriToResourcePath, hs_warningcode_unusedloadlib } from "./lsp-services";
+import type { ValidationMessageType } from "@mod-platform/js/devsupport/validation";
 
 type ValidationMessage = {
-  iserror: boolean;
-  iswarning: boolean;
-  ishint: boolean;
+  type: ValidationMessageType;
   filename: string;
   line: number;
   col: number;
@@ -20,13 +19,13 @@ type ValidationMessage = {
 };
 
 //error codes where msg1 contains the error string. not robust against backquotes in string but fixes a lot of errors otherwise;
-const extendStringWarningCodes = [29];
+const extendStringWarningCodes = [hs_warningcode_unusedloadlib];
 
 //we need to get the length right for quickfixes to work
 function getErrorLength(msg: ValidationMessage) {
-  if (msg.iserror && missingSymbolErrorCodes.includes(msg.code))
+  if (msg.type === "error" && missingSymbolErrorCodes.includes(msg.code))
     return msg.msg1.length;
-  if (msg.iswarning && extendStringWarningCodes.includes(msg.code))
+  if (msg.type === "hint" && extendStringWarningCodes.includes(msg.code))
     return msg.msg1.length + 2;
   return 0;
 }
@@ -39,8 +38,8 @@ async function getHSDiagnostics(respath: string, content: string): Promise<Diagn
 
   const doclines: string[] = content.split(/\r?\n/g);
   const diagnostics = validation.messages.map(msg => ({
-    //Information is the highest level still directly visible in VSCode's problem tab. 29 = unused loadlib .. a warning looks too heavy
-    severity: msg.iserror ? DiagnosticSeverity.Error : msg.iswarning && msg.code !== 29 ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
+    //Information is the highest level still directly visible in VSCode's problem tab
+    severity: msg.type === "error" ? DiagnosticSeverity.Error : msg.type === "warning" ? DiagnosticSeverity.Warning : DiagnosticSeverity.Information,
     message: msg.message,
     data: msg,
     range: msg.col === 0 ?

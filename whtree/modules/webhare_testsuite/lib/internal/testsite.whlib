@@ -1185,8 +1185,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
 
   //Validate it - if we can't even pass our own validation...
   RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
-  TestEq(RECORD[], validation.errors);
-  TestEq(RECORD[], validation.warnings);
+  TestEq(RECORD[], validation.messages);
 
   //Export the form to disk
   formdefs->SaveToWHFS(formfile);
@@ -1195,8 +1194,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
   //Try fixing it. We won't save it, but it shouldn't break anything either
   RepairFormIfNeeded(formdef);
   validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := formdefs->ExportAsRecord().text]);
-  TestEq(RECORD[], validation.errors);
-  TestEq(RECORD[], validation.warnings);
+  TestEq(RECORD[], validation.messages);
 }
 
 PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD)

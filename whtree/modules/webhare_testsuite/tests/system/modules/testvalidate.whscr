@@ -249,19 +249,19 @@ MACRO TestTidsForInconsistentScreen(RECORD validateres)
 MACRO TestValidationValidates()
 {
   //Test whether our core schemas and resources actually validate, or other tests may prematurely fail
-  TestEq(RECORD[], ValidateSingleFile("mod::system/whres/xml/xmlschema.xsd").errors);
-  TestEq(RECORD[], ValidateSingleFile("mod::tollium/data/tolliumcomponents.xsd.xsd").errors);
-  TestEq(RECORD[], ValidateSingleFile("mod::system/moduledefinition.xml").errors);
+  TestEq(RECORD[], SELECT * FROM ValidateSingleFile("mod::system/whres/xml/xmlschema.xsd").messages WHERE type = "error");
+  TestEq(RECORD[], SELECT * FROM ValidateSingleFile("mod::tollium/data/tolliumcomponents.xsd.xsd").messages WHERE type = "error");
+  TestEq(RECORD[], SELECT * FROM ValidateSingleFile("mod::system/moduledefinition.xml").messages WHERE type = "error");
 }
 
 MACRO TestBasicValidate()
 {
   RECORD res := ValidateSingleFile("mod::system/moduledefinition.xml");
-  TestEq(RECORD[],res.errors);
+  TestEq(RECORD[],res.messages);
   Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="system:tolliumapps.dashboard.mailqueue.mailqueuepanel"), "Cannot find system:monitor.mailqueue.title");
 
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
-  TestEq(RECORD[],res.errors);
+  TestEq(RECORD[],res.messages);
   Testeq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.testsite.title"), "Cannot find webhare_testsuite:module.testsite.title");
 
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
@@ -270,27 +270,27 @@ MACRO TestBasicValidate()
                 ,[ line := 19, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
                 ,[ line := 22 ]
                 ,[ line := 25, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
-                ], res.errors, "*");
-  TestEqLike('Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource*', res.errors[2].message);
+                ], SELECT * FROM res.messages WHERE type="error", "*");
+  TestEqLike('Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource*', (SELECT * FROM res.messages WHERE type="error")[2].message);
 
   TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
          ,[ line := 9, message := "This path triggered a warning" ]
          ,[ line := 15, message := "Columns that are both unique and nullable are not supported, disabled nullability" ]
-         ], (SELECT line, message FROM res.warnings ORDER BY line));
+         ], (SELECT line, message FROM res.messages WHERE type="warning" ORDER BY line));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi] [if x]")]);
-  TestEq(1,Length(res.errors));
+  TestEq(1,Length(res.messages));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid test.hi]")]);
   TestEq(1,Length(res.tids));
   TestEq("webhare_testsuite:test.hi", res.tids[0].tid);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob("[gettid ungroupedtid]")]);
-  TestEq(1, Length(res.errors));
+  TestEq(1, Length(res.messages));
   TestEq(0, Length(res.tids));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="test.hi"></div>')]);
-  TestEq(1,Length(res.errors));
+  TestEq(1,Length(res.messages));
 
   res := ValidateSingleFile("mod::system/nosuch.witty", [ overridedata := StringToBlob('<div data-texttid="webhare_testsuite:test.hi"></div>')]);
   TestEq(1,Length(res.tids));
@@ -306,51 +306,51 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::system/moduledefinition.xml", [ overridedata := StringToBlob(data) ]);
   //DumpValue(res);
 
-  TestEq(1,Length(res.errors));
+  TestEq(1,Length(res.messages));
 
   // test proper screen validation with custom docs.
   //even if the screen on disk doesn't exist, i should still be allowed to validate it
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := GetWebHareResource(Resolve("data/brokenscreen.xml")) ]);
-  TestEq(RECORD[], (SELECT * FROM res.errors WHERE message NOT LIKE "*never_gonna_give_you_up*"));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*never_gonna_give_you_up*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
+  TestEq(RECORD[], (SELECT * FROM res.messages WHERE message NOT LIKE "*never_gonna_give_you_up*"));
+  TestEq(1, Length(SELECT FROM res.messages WHERE message LIKE "*never_gonna_give_you_up*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badimplementationscreen ]);
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "No such implementation*in namespace*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 3));
-  TestEq(1, Length(res.errors));
+  TestEq(1, Length(SELECT FROM res.messages WHERE message LIKE "No such implementation*in namespace*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 3));
+  TestEq(2, Length(res.messages));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := compositionwarningscreen ]);
-  TestEq(RECORD[], res.errors);
-  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 8));
-  TestEq(1, Length(res.warnings));
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="warning" AND message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 8));
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="warning"));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" deprecated="" />`) ]);
-  TestEq(RECORD[], res.errors);
-  TestEq([[ line := 1, message := "Attribute \'deprecated\' has been deprecated: Deprecated attribute" ]], SELECT line,message FROM res.warnings);
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
+  TestEq([[ line := 1, message := "Attribute \'deprecated\' has been deprecated: Deprecated attribute" ]], SELECT line,message FROM res.messages WHERE type="warning");
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<inlinecomp xmlns="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents" nowarning="false" />`) ]);
-  TestEq(RECORD[], res.errors);
-  TestEq([[ line := 1, message := "Warning!" ]], SELECT line,message FROM res.warnings);
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
+  TestEq([[ line := 1, message := "Warning!" ]], SELECT line,message FROM res.messages WHERE type="warning");
 
   //siteprofiles should also warn about broken screens
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml.siteprl", [ overridedata := compositionwarningscreen_siteprl ]);
-  TestEq(RECORD[], res.errors);
-  TestEq(1, Length(SELECT FROM res.warnings WHERE message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml.siteprl" AND line = 8));
-  TestEq(1, Length(res.warnings));
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="warning" AND message LIKE "*composition*without*cellname*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml.siteprl" AND line = 8));
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="warning"));
 
   //siteprofiles should also warn about bad webrules
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml.siteprl", [ overridedata := badwebrules_siteprl ]);
-  TestEq(RECORD[], res.errors);
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
   TestEq([[ line := 5, message := "This path triggered a warning" ]
-         ], (SELECT line, message FROM res.warnings));
+         ], (SELECT line, message FROM res.messages WHERE type="warning"));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(`<textedit nonexistingattribute="true"/>`) ]);
-  TestEq(1, Length(res.errors));
-  TestEqLike('*: The attribute*is not allowed.', res.errors[0].message);
+  TestEq(1, Length(SELECT * FROM res.messages WHERE type="error"));
+  TestEqLike('*: The attribute*is not allowed.', (SELECT * FROM res.messages WHERE type="error")[0].message);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := inconsistentscreen ]);
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*BADBUTTON*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*NOSUCHHANDLER*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
-  TestEq(2, Length(res.errors), "Unexpected errors!");
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="error" AND message LIKE "*BADBUTTON*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
+  TestEq(1, Length(SELECT FROM res.messages WHERE type="error" AND message LIKE "*NOSUCHHANDLER*" AND resourcename = "mod::webhare_testsuite/nosuchscreen.xml" AND line = 5));
+  TestEq(2, Length(SELECT * FROM res.messages WHERE type="error"), "Unexpected errors!");
   TestTidsForInconsistentScreen(res);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := inconsistentscreen, onlytids := TRUE ]);
@@ -359,7 +359,7 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::system/nosuchscreen.siteprl", [ overridedata := siteprofoptiontids
                                                                 , onlytids := TRUE
                                                                 ]);
-  TestEq(RECORD[], res.errors);//we got 'missing module module' on tids earlier
+  TestEq(RECORD[], res.messages);//we got 'missing module module' on tids earlier
   TestEq([[ attrname := "tid", col := 0, line := 5, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::system/nosuchscreen.siteprl", tid := "system:widgets.color-blue" ]
          ], res.tids);
@@ -367,7 +367,7 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := optiontidssynthesis
                                                                 , onlytids := TRUE
                                                                 ]);
-  TestEq(RECORD[],res.errors);//we got 'missing module module' on tids earlier
+  TestEq(RECORD[],res.messages);//we got 'missing module module' on tids earlier
   TestEq([[ attrname := "tid",    col := 0, line := 5, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color" ]
          ,[ attrname := "rowkey", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-red_and_white" ]
          ,[ attrname := "rowkey", col := 0, line := 7, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:widgets.color-blue_da_ba-dee" ]
@@ -379,23 +379,21 @@ MACRO TestBasicValidate()
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badglobalhandler ]);
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 6, message := 'Function \'NoSuchFunction\' not found in \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib\'' ]
                 ,[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 7, message := 'The \'ongetoptions\' handler points to function \'mod::webhare_testsuite/tests/tollium/components/screens/select.whlib#BadFreeOptionsHandler\' which has the wrong function signature. Expected RECORD FUNCTION (OBJECT param1), got RECORD FUNCTION (OBJECT param1, STRING param2)' ]
-                ],res.errors, "*");
-  TestEq(RECORD[],res.warnings);
+                ],res.messages, "*");
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := badlocalhandler ]);
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 11, message := 'No such method \'NOSUCHFUNCTION\' in objecttype mod::webhare_testsuite/tests/system/modules/data/brokenimpl.whlib#testbadlocalhandler' ]
                 ,[ resourcename := "mod::webhare_testsuite/nosuchscreen.xml", line := 12, message := 'The \'ongetoptions\' handler points to function \'BADOPTIONSHANDLER\' which has the wrong function signature. Expected RECORD FUNCTION (), got RECORD FUNCTION (STRING param1)' ]
-                ],res.errors, "*");
-  TestEq(RECORD[],res.warnings);
+                ],res.messages, "*");
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := WrapAsScreenBody(
       `<text tid="module:invalid" />
        <text tid="invalid" />
        <text tid="module:group.valid" />`)]);
 
-  TestEq(TRUE,  RecordExists(SELECT FROM res.errors WHERE line=1));
-  TestEq(TRUE,  RecordExists(SELECT FROM res.errors WHERE line=2));
-  TestEq(FALSE, RecordExists(SELECT FROM res.errors WHERE line=3));
+  TestEq(TRUE,  RecordExists(SELECT FROM res.messages WHERE type="error" AND line=1));
+  TestEq(TRUE,  RecordExists(SELECT FROM res.messages WHERE type="error" AND line=2));
+  TestEq(FALSE, RecordExists(SELECT FROM res.messages WHERE type="error" AND line=3));
 
   //Test validating against empty library - including anycomponent as the current bug required a library-screen before a non-library screen
   //TODO should deprecate the library= syntax - objectname= is a much more common solution
@@ -406,8 +404,8 @@ MACRO TestBasicValidate()
         <screen name="objectnametest" objectname="mod::webhare_testsuite/lib/screens/tests/anycomponent.whlib#anycomponent"><body></body></screen>
      </screens>`) ]);
 
-  TestEq(1,Length(res.errors));
-  TestEqLike("Cannot resolve reference*if no HareScript library is set",res.errors[0].message);
+  TestEq(1,Length(res.messages));
+  TestEqLike("Cannot resolve reference*if no HareScript library is set",res.messages[0].message);
 }
 
 MACRO TestIconValidation()
@@ -426,7 +424,7 @@ MACRO TestIconValidation()
          ,[ line := 4, message := 'No such icon \'webhare_testsuite:badoverlay\'' ]
          ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_1\'' ]
          ,[ line := 4, message := 'No such icon \'webhare_testsuite:nosuchicon_2\'' ]
-         ], SELECT line, message FROM res.errors);
+         ], SELECT line, message FROM res.messages);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchscreen.xml", [ overridedata := StringToBlob(
     `<screens xmlns="http://www.webhare.net/xmlns/tollium/screens">
@@ -439,7 +437,7 @@ MACRO TestIconValidation()
         </screen>
      </screens>`) ]);
 
-  TestEq(RECORD[], SELECT line, message FROM res.errors);
+  TestEq(RECORD[], res.messages);
 
   BLOB incorrect_filetype_namespace := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -449,7 +447,7 @@ MACRO TestIconValidation()
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_namespace ]);
   TestEq([[ line := 4, message := 'Missing icon: \'webhare_testsuite:nosuchicon_1\'' ]
-         ], SELECT line, message FROM res.errors);
+         ], SELECT line, message FROM res.messages);
 }
 
 MACRO TestValidateWitty()
@@ -468,7 +466,7 @@ MACRO TestValidateWitty()
          , [ line := 4, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          , [ line := 6, col := 2, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          , [ line := 7, col := 2, message := "Witty parse error on library mod::system/lib/nosuch.witty: Cannot load library mod::system/lib/nosuch.witty" ]
-         ], SELECT col, line, message FROM res.errors ORDER BY line,col,message)  ;
+         ], SELECT col, line, message FROM res.messages ORDER BY line,col,message)  ;
 
   res := ValidateSingleFile("mod::system/data/x.siteprl.xml", [ overridedata := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
     <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -484,7 +482,7 @@ MACRO TestValidateWitty()
          , [ line := 4, col := 0, message := "Invalid Witty component reference 'component'" ]
          , [ line := 6, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
          , [ line := 8, col := 0, message := "No such component 'nosuchcomponent' in 'wh::tests/testsuite.witty'" ]
-         ], SELECT col, line, message FROM res.errors ORDER BY line,col,message)  ;
+         ], SELECT col, line, message FROM res.messages ORDER BY line,col,message)  ;
 }
 
 MACRO TestValidateModuleDef()
@@ -499,7 +497,7 @@ MACRO TestValidateModuleDef()
 
   RECORD res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_badsearchproviders ]);
   TestEq([[ line := 5, message := `Cannot find \'SearchProviderBase\': No such library \'mod::webhare_testsuite/lib/nosuch.whlib\'` ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message);
+         ], SELECT line, message FROM res.messages WHERE type="error" ORDER BY line,message);
 
   BLOB moduledef_wrdschemainvalid := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
@@ -511,7 +509,7 @@ MACRO TestValidateModuleDef()
 
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledef_wrdschemainvalid ]);
   TestEq([[ line := 5, message := `Cannot find \'mod::webhare_testsuite/nosuchwrdschema.xml\'` ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.messages WHERE type="error" ORDER BY line,message)  ;
 }
 
 MACRO TestSiteProfiles()
@@ -525,7 +523,7 @@ MACRO TestSiteProfiles()
   RECORD res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := dupetypes_siteprl ]);
   //DumpValue(res.errors);
   TestEq([[ line := 4, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.messages ORDER BY line,message)  ;
 
   BLOB dupemembers_siteprl := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -542,7 +540,7 @@ MACRO TestSiteProfiles()
   //DumpValue(res.errors);
   TestEq([[ line := 3, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
          ,[ line := 6, message := "Duplicate member 'original'" ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.messages ORDER BY line,message)  ;
 
   BLOB incorrect_filetype_namespace := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -552,7 +550,7 @@ MACRO TestSiteProfiles()
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_namespace ]);
   TestEq([[ line := 4, message := 'Duplicate contenttype definition for http://www.webhare.net/xmlns/webhare_testsuite/validatetest' ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.messages ORDER BY line,message)  ;
 
   BLOB incorrect_filetype_members := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -568,7 +566,7 @@ MACRO TestSiteProfiles()
   TestEq([[ line := 3, message := 'Content type http://www.webhare.net/xmlns/webhare_testsuite/validatetest is not defined in this file' ]
          ,[ line := 5, message := 'A type cannot define <members> if it still uses typedef=' ]
          ,[ line := 7, message := 'kind= cannot be used with typedef=, you need to switch to namespace=' ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
+         ], SELECT line, message FROM res.messages ORDER BY line,message)  ;
 
   BLOB missing_searchcontentprovider := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -579,7 +577,7 @@ MACRO TestSiteProfiles()
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := missing_searchcontentprovider ]);
   TestEq([[ line := 3, message := `No such searchcontentprovider 'missingprovider' in module \'webhare_testsuite'` ]
          ,[ line := 4, message := `No such managed task type 'webhare_testsuite:missingtask'` ]
-         ], SELECT line, message FROM res.errors ORDER BY line,message) ;
+         ], SELECT line, message FROM res.messages ORDER BY line,message) ;
 
   BLOB badregexes := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -591,8 +589,8 @@ MACRO TestSiteProfiles()
   </siteprofile>`);
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badregexes ]);
-  TestEqLike("Invalid regular expression in \'parentregex\'*", res.errors[0].message);
-  TestEqLike("Invalid regular expression in \'pathregex\'*", res.errors[1].message);
+  TestEqLike("Invalid regular expression in \'parentregex\'*", res.messages[0].message);
+  TestEqLike("Invalid regular expression in \'pathregex\'*", res.messages[1].message);
 
   BLOB badelememnt := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
   <siteprofile xmlns="http://www.webhare.net/xmlns/publisher/siteprofile">
@@ -603,7 +601,7 @@ MACRO TestSiteProfiles()
   </siteprofile>`);
 
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := badelememnt ]);
-  TestEqLike("*The attribute 'api1979' is not allowed*", res.errors[0].message);
+  TestEqLike("*The attribute 'api1979' is not allowed*", res.messages[0].message);
 }
 
 MACRO TestTidScan()
@@ -628,13 +626,13 @@ MACRO TestTidScan()
          ,[ attrname := "tid", col := 0, line := 5, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "webhare_testsuite:aaa.limitlanguage_nl.nonexisting" ]
          ,[ attrname := "valuetid", col := 0, line := 6, resourcename := "mod::webhare_testsuite/nosuchscreen.xml", tid := "~add" ]
          ], res.tids);
-  TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
+  TestEq(1,Length(res.messages)); //should get ONE tid warning, for the nonexisting
 
   //Illegal GetTid format should not abort validation
   BLOB illegalgettid := StringToBlob(`<?wh LOADLIB "mod::tollium/lib/gettid.whlib";
 GetTid("missing.module"); GetTid("system:has.module");`);
   res := ValidateSingleFile("mod::webhare_testsuite/webhare_testsuite/nosuchfile.whlib", [ overridedata := illegalgettid, onlytids := TRUE ]); //MUST use onlytids as compiler cannot handle missing files
-  TestEq(1,Length(res.errors));
+  TestEq(1,Length(res.messages));
   TestEq(1,Length(res.tids));
 
   BLOB commenttid := StringToBlob(`<?wh STRING FUNCTION x() { RETURN /*tid*/"tollium:b.tid"; };
@@ -679,7 +677,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
 
   //Test YML
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml");
-  TestEq(RECORD[], res.errors);
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml" ]],
                 SELECT * FROM res.tids WHERE tid="webhare_testsuite:webdesigns.basetestjs.basetest.has_num2", "*");
   TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.yml" ]],
@@ -738,23 +736,23 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   </xs:schema>`);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuchschema.xsd", [ overridedata := tidxsd ]);
-  TestEq(2, Length(res.errors));
-  TestEqLike("Invalid fieldobject*", res.errors[0].message);
-  TestEqLike("Invalid fieldobject*", res.errors[1].message);
+  TestEq(2, Length((SELECT * FROM res.messages WHERE type="error")));
+  TestEqLike("Invalid fieldobject*", (SELECT * FROM res.messages WHERE type="error")[0].message);
+  TestEqLike("Invalid fieldobject*", (SELECT * FROM res.messages WHERE type="error")[1].message);
   TestEq(3,Length(res.tids));
   TestEq(["publisher:formcomponents.textedit.description","publisher:formcomponents.textedit.name","webhare_testsuite:comp.name"],SELECT AS STRING ARRAY tid FROM res.tids ORDER BY tid);
-  TestEq(1,Length(res.warnings)); //should get ONE tid warning, for the nonexisting
+  TestEq(1,Length(SELECT * FROM res.messages WHERE type="warning")); //should get ONE tid warning, for the nonexisting
 
   res := ValidateSingleFile("mod::webhare_testsuite/tests/publisher/forms/data/testformcomponents.xsd");
   TestEq([[line := 27, col := 0, attrname := "descriptiontid", tid := "webhare_testsuite:webtools.testsuitehandlerdesc" ]
          ], (SELECT *, DELETE resourcename FROM res.tids));
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badplacementxsd ]);
-  TestEqLike("*placement*downloadaction*", SELECT AS STRING message FROM res.errors WHERE line=12);
+  TestEqLike("*placement*downloadaction*", SELECT AS STRING message FROM res.messages WHERE line=12);
 
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := badsignaturexsd ]);
   TestEq([[line := 11, message := "Element \'{http://www.webhare.net/xmlns/tollium/appinfo}callbacksignature\', attribute \'returnvalue\': The attribute \'returnvalue\' is not allowed." ]
-         ], (SELECT line,message FROM res.errors));
+         ], (SELECT line,message FROM res.messages));
 
   BLOB componentxsd := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <xs:schema
@@ -777,10 +775,10 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   </xs:attribute>
 </xs:schema>`);
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.xsd", [ overridedata := componentxsd ]);
-  TestEq([[line := 13, message := `Cannot find \'xist\': No such library \'mod::webhare_testsuite/lib/doesnt.whlib\'` ]], SELECT line,message FROM res.errors);
+  TestEq([[line := 13, message := `Cannot find \'xist\': No such library \'mod::webhare_testsuite/lib/doesnt.whlib\'` ]], SELECT line,message FROM res.messages);
 
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
-  TestEq(RECORD[], res.errors);
+  TestEq(RECORD[], SELECT * FROM res.messages WHERE type="error");
   TestEq([[ line := 10,  attrname := "name" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.radiotest");
   TestEq(RECORD[], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtexttid");
   TestEq([[ line := 112,  attrname := "data-wh-gettid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtext-tid");
@@ -792,7 +790,7 @@ GetTid("missing.module"); GetTid("system:has.module");`);
 
   res := ValidateSingleFile("mod::webhare_testsuite/data/test.wrdschema.xml", [ overridedata := wrdschemawithtids ]);
 
-  TestEq(RECORD[], res.errors, 'wrdschemawithtids did not validate!');
+  TestEq(RECORD[], (SELECT * FROM res.messages WHERE type="error"), 'wrdschemawithtids did not validate!');
   TestEq([[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.a" ]
          ,[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.b" ]
          ,[ line := 5,  attrname := "allowedvalues", tid := "webhare_testsuite:wrd.schema.c" ]
@@ -844,9 +842,9 @@ MACRO TestValidateSVG()
 
   RECORD res := ValidateSingleFile("mod::tollium/web/img/broken.svg", [ overridedata := badsvg ]);
   TestEq([[ col := 1, line := 1, message := "Hidden layers! (consider `wh fixsvgs`)", resourcename := "mod::tollium/web/img/broken.svg"
-          , source := "unknown", metadata := DEFAULT RECORD
+          , source := "unknown", metadata := DEFAULT RECORD, type := "error"
           ]
-         ], res.errors);
+         ], res.messages);
 
   BLOB badids := StringToBlob(`<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="32px" height="32px" viewBox="0 0 32 32" x="0px" y="0px" version="1.1">
@@ -860,9 +858,9 @@ MACRO TestValidateSVG()
 
   res := ValidateSingleFile("mod::tollium/web/img/broken.svg", [ overridedata := badids ]);
   TestEq([[ col := 1, line := 7, message := "Invalid xlink:href references \'#reuse.svg:arrowrightturn\'", resourcename := "mod::tollium/web/img/broken.svg"
-          , source := "unknown", metadata := DEFAULT RECORD
+          , source := "unknown", metadata := DEFAULT RECORD, type := "error"
           ]
-         ], res.errors);
+         ], res.messages);
 }
 
 MACRO TestValidateForm()
@@ -881,7 +879,7 @@ MACRO TestValidateForm()
 </formdefinitions>`;
 
   RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
-  TestEq(RECORD[], validation.errors);
+  TestEq(RECORD[], validation.messages);
 
   //Test <select> missing type= which should error out in XML validation phase, not code
   formtext := `<?xml version="1.0" encoding="UTF-8"?>
@@ -894,7 +892,7 @@ MACRO TestValidateForm()
 </formdefinitions>`;
 
   validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
-  TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*select*type*missing*"));
+  TestEq(TRUE, RecordExists(SELECT FROM validation.messages WHERE message LIKE "*select*type*missing*"));
 
   //Test duplicate names
   formtext := `<?xml version="1.0" encoding="UTF-8"?>
@@ -911,14 +909,14 @@ MACRO TestValidateForm()
 </formdefinitions>`;
 
   validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := StringToBlob(formtext) ]);
-  TestEq(TRUE, RecordExists(SELECT FROM validation.errors WHERE message LIKE "*location*unique*"));
+  TestEq(TRUE, RecordExists(SELECT FROM validation.messages WHERE message LIKE "*location*unique*"));
 }
 
 MACRO TestValidateWHLIB()
 {
   //TODO let WHLIBs specify their XML file
   RECORD validation := ValidateSingleFile(Resolve("data/refcheck.whlib"));
-  TestEq(RECORD[], validation.errors);
+  TestEq(RECORD[], validation.messages);
 }
 
 MACRO OptionGids()
@@ -1014,25 +1012,19 @@ MACRO TestESLint()
   // js is parsed as ecmascript 2018, so 'using a = ...' is not supported
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("using a = 10;")]);
   TestEqMembers(
-      [ hints := RECORD[]
-      , warnings := RECORD[]
-      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 7, message := "Parsing error: Unexpected token a (eslint)", source := "eslint", metadata := DEFAULT RECORD ]]
+      [ messages := [[ type := "error", resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 7, message := "Parsing error: Unexpected token a (eslint)", source := "eslint", metadata := DEFAULT RECORD ]]
       ], res, "*");
 
   //we used to consider this as a warning, but eslint.config.mjs has marked it an error so why wouldn't we...
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("console.log('test')")]);
   TestEqMembers(
-      [ hints := RECORD[]
-      , warnings := RECORD[]
-      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @stylistic/semi)", source := "eslint", metadata := DEFAULT RECORD ]]
+      [ messages := [[ type := "error", resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 20, message := "Missing semicolon. (eslint rule: @stylistic/semi)", source := "eslint", metadata := DEFAULT RECORD ]]
       ], res, "*");
 
   // eqeqeq rule - a warning for installed modules (and testsuite should be considered installed, not builtin)
   res := ValidateSingleFile("mod::webhare_testsuite/nosuch.js", [ overridedata := StringToBlob("const a = 1; const b = 2; if (a == b) console.log(`a != b`);")]);
   TestEqMembers(
-      [ hints := RECORD[]
-      , warnings := RECORD[]
-      , errors := [[ resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 33, message := "Expected \'===\' and instead saw \'==\'. (eslint rule: eqeqeq)", source := "eslint", metadata := DEFAULT RECORD ]]
+      [ messages:= [[ type := "error", resourcename := "mod::webhare_testsuite/nosuch.js", line := 1, col := 33, message := "Expected \'===\' and instead saw \'==\'. (eslint rule: eqeqeq)", source := "eslint", metadata := DEFAULT RECORD ]]
       ], res, "*");
 }
 

@@ -58,8 +58,8 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
     ^source->markers := DEFAULT RECORD ARRAY;
     RECORD validation := ValidateSingleFile("whfs::dummy.formdef.xml", [ overridedata := data.text ]);
 
-    RECORD ARRAY validationerrors := SELECT * FROM validation.errors WHERE line >= 1 AND resourcename = "whfs::dummy.formdef.xml";
-    RECORD ARRAY othererrors := SELECT * FROM validation.errors WHERE NOT (line >= 1 AND resourcename = "whfs::dummy.formdef.xml");
+    RECORD ARRAY validationerrors := SELECT * FROM validation.messages WHERE type="error" AND line >= 1 AND resourcename = "whfs::dummy.formdef.xml";
+    RECORD ARRAY othererrors := SELECT * FROM validation.messages WHERE type="error" AND NOT (line >= 1 AND resourcename = "whfs::dummy.formdef.xml");
 
     IF (Length(validationerrors) > 0)
     {
@@ -69,10 +69,10 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
           SELECT line
                , type := "gutter"
                , color := "red"
-            FROM validation.errors;
+            FROM validationerrors;
 
       // Scroll to first error
-      ^source->GotoLine(validation.errors[0].line);
+      ^source->GotoLine(validationerrors[0].line);
 
       work->AddError(GetTid("publisher:tolliumapps.formedit.messages.validationerrors"));
     }
@@ -105,5 +105,3 @@ PUBLIC STATIC OBJECTTYPE EditSource EXTEND TolliumScreenBase
   {
     RETURN this->ValidateIt();  }
 >;
-
-

@@ -26,15 +26,15 @@ MACRO TestRewriteXMLFile(STRING basefilename, RECORD options DEFAULTSTO DEFAULT 
   STRING result := BlobToString(rewriteresult.result);
 
   RECORD finalvalidation := ValidateSingleFile(`${options.basepath}/${basefilename}.${options.mode ?? "out"}${options.extension}`, [ overridedata := StringToBlob(result) ]);
-  DELETE FROM finalvalidation.warnings WHERE line IN options.ignorewarninglines;
+  DELETE FROM finalvalidation.messages WHERE type="warning" AND line IN options.ignorewarninglines;
 
-  IF(Length(finalvalidation.errors) > 0 OR Length(finalvalidation.warnings) > 0)
+  IF(Length(SELECT FROM finalvalidation.messages WHERE type IN ["error","warning"]) > 0)
   {
     Print(`Rewrite of ${basefilename} failed due to validation errors.\n${RepeatText("-",76)}\nOriginal:\n`);
     SendBlobTo(0,indata);
     Print(`\nRewritten version (mode = ${options.mode ?? "default"}):\n`);
     Print(result || "\n\n");
-    PrintValidationMessages(finalvalidation);
+    PrintValidationMessagesToConsoleWithType(finalvalidation.messages);
     ABORT();
   }
 
