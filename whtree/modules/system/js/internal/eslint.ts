@@ -18,7 +18,7 @@ export async function handleLintingCommand(resources: Array<{
   resourcepath: string;
   contents?: string;
 }>, options?: { fix: boolean; allowinlineconfig: boolean }): Promise<ESLintResult> {
-  /* TODO can we combine TS and ES validation, as ES bulds up a TS compiler anyway? */
+  /* TODO can we combine TS and ES validation, as ES builds up a TS compiler anyway? */
 
   // Group resources per module
   const toProcess = new Array<{

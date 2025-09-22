@@ -292,7 +292,7 @@ RECORD defaultvalidaterecord := [ messages     := RECORD[]
 RECORD FUNCTION MergeMessagesIntoValidationRecord (RECORD inresult) {
   IF(CellExists(inresult,'messages')) {
     dumpvalue(inresult);
-    THROW NEW Exception("IIssue source is already returning 'messages' ?");
+    THROW NEW Exception("Issue source is already returning 'messages' ?");
   }
   RETURN CELL [ ...defaultvalidaterecord
               , ...EnforceStructure(defaultvalidaterecord, inresult) //fixes the array types for empty arrays, our validator might be JS based
