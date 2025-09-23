@@ -314,7 +314,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
   RECORD FUNCTION ReadFileOrFolderType(RECORD ctype, OBJECT ftype)
   {
     ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
+    ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title");
     this->AddIcon(ftype, ctype.tolliumicon);
 
     OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
@@ -536,7 +536,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     typeinfo.namespace := scopedtypeinfo.namespace;
     typeinfo.siteprofile := this->filename;
     typeinfo.line := ctype->linenum;
-    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
+    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title");
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.cloneoncopy := set_cloneoncopy;
     typeinfo.cloneonarchive := set_cloneoncopy;
@@ -1356,7 +1356,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     {
       RECORD typeinfo :=
           [ namespace :=          gtype->GetAttribute("namespace")
-          , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
+          , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title")
           , tolliumicon :=        gtype->GetAttribute("tolliumicon") ?? gtype->GetAttribute("icon") //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
           , members :=            DEFAULT RECORD ARRAY
           ];
