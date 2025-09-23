@@ -11,9 +11,10 @@ async function testYAMLVAlidations() {
         line: 2,
         col: 6,
         message: /Missing closing.*quote/,
-        source: 'validation'
+        source: 'validation',
+        type: "error"
       }
-    ], res.errors);
+    ], res.messages);
   }
 
   { //verify schema self-validation
@@ -30,9 +31,10 @@ disruption: "It should be 'description' not 'disruption'"
         line: 0,
         col: 0,
         message: /strict mode: unknown keyword.*disruption/,
-        source: 'validation'
+        source: 'validation',
+        type: "error"
       }
-    ], res.errors);
+    ], res.messages);
   }
 
   { //verify validation against schemas
@@ -50,9 +52,10 @@ backendServices:
         line: 4,
         col: 5,
         message: /must NOT have additional properties/,
-        source: 'validation'
+        source: 'validation',
+        type: "error"
       }
-    ], res.errors);
+    ], res.messages);
   }
 
   { //verify validation against custom parsers
@@ -67,9 +70,10 @@ answer: 43
         line: 0,
         col: 0,
         message: /Answer should be 42, not 43/,
-        source: 'validation'
+        source: 'validation',
+        type: "error"
       }
-    ], res.errors);
+    ], res.messages);
   }
 
   { //verify TID parsing

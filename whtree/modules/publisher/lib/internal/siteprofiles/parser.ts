@@ -930,13 +930,13 @@ export async function readAndParseSiteProfile(resource: string, options?: { over
 }
 
 export async function validateSiteProfile(resourceName: string, content: Sp.SiteProfile, result: ValidationState): Promise<void> {
-  const res = await parseSiteProfile(resourceName, content, { onTid: result.onTid });
+  const res = parseSiteProfile(resourceName, content, { onTid: result.onTid });
   for (const error of res.errors)
-    result.errors.push({ resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
+    result.messages.push({ type: "error", resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
   for (const warning of res.warnings)
-    result.warnings.push({ resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
+    result.messages.push({ type: "warning", resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
   for (const hint of res.hints)
-    result.hints.push({ resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+    result.messages.push({ type: "hint", resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
 }
 
 export async function getOfflineSiteProfiles(keepSources: boolean, overrides: Array<{ name: string; text: string }>) {
