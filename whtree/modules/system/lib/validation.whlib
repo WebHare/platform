@@ -438,13 +438,21 @@ PUBLIC RECORD FUNCTION ValidateSingleFile(STRING resourcename, RECORD options DE
 
   IF(resourcename != "" AND NOT IsAbsoluteResourcePath(resourcename))
     THROW NEW Exception(`Invalid resource path '${resourcename}'`);
-  IF(NOT CanValidateFile(resourcename, options.onlytids))
-    RETURN CELL [ ...defaultvalidaterecord, resourcename ];
 
-  IF(CellExists(options,"overridedata")) //uncacheable
-    RETURN ValidateDocument(resourcename, options).value;
+  RECORD result;
+  IF(NOT CanValidateFile(resourcename, options.onlytids))
+    result := CELL [ ...defaultvalidaterecord, resourcename ];
+  ELSE IF(CellExists(options,"overridedata")) //uncacheable
+    result := ValidateDocument(resourcename, options).value;
   ELSE
-    RETURN GetAdhocCached(CELL[ resourcename, options.onlytids ], PTR ValidateDocument(resourcename, options));
+    result := GetAdhocCached(CELL[ resourcename, options.onlytids ], PTR ValidateDocument(resourcename, options));
+
+  //As this is a public API we need to keep returning the old errors/warnings/hints arrays too
+  RETURN CELL[ ...result
+             , errors := (SELECT *, DELETE type FROM result.messages WHERE type="error")
+             , warnings := (SELECT *, DELETE type FROM result.messages WHERE type="warning")
+             , hints := (SELECT *, DELETE type FROM result.messages WHERE type="hint")
+             ];
 }
 
 /** Returns the string for a validation error from an XML (without column number)
