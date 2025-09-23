@@ -202,9 +202,9 @@ $defs:
           - type: object
             additionalProperties: false
             required:
-              - extension
+              - tabsExtension
             properties:
-              extension:
+              tabsExtension:
                 type: string
           - type: object
             additionalProperties: false
@@ -219,6 +219,8 @@ $defs:
         type: boolean
       wittyComponent:
         type: string
+      apply: # Note that widgets can have apply rules but these only affect widgets in the WHFS (Publisher), not RTD embedded widgets
+        $ref: "#/$defs/ApplyRule"
 
   FolderType:
     type: object
@@ -472,8 +474,26 @@ $defs:
         $ref: "#/$defs/ApplyScheduleTimedTasks"
       scheduleManagedTasks:
         $ref: "#/$defs/ApplyScheduleManagedTasks"
+      intercept:
+        $ref: "#/$defs/ApplyIntercept"
+      webDesign:
+        $ref: "#/$defs/ApplyWebdesign"
+      formDefinitions:
+        $ref: "#/$defs/ApplyFormDefinitions"
+      siteLanguage:
+        $ref: "#/$defs/ApplySiteLanguage"
       debugSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#debugsettings
         $ref: "#/$defs/ApplyDebugSettings"
+      pollSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#pollsettings
+        $ref: "#/$defs/ApplyPollSettings"
+    patternProperties:
+      "[a-z][a-zA-Z0-9_]+:[a-zA-Z0-9_]+$": # Custom properties prefixed with a site name are simply parsed and passed through
+        tsType: unknown # prevent broken schema, see also https://github.com/bcherny/json-schema-to-typescript/issues/671
+        oneOf: #depending on the customNode configuration this may be a single object or an array of objects
+          - type: object
+          - type: array
+            items:
+              type: object
 
   MatchOrRegExp:
     oneOf:
@@ -881,6 +901,72 @@ $defs:
         task:
           type: string
 
+  ApplyIntercept:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-zA-Z0-9_]+$":
+        type: object
+        additionalProperties: false
+        required: [target, interceptFunction]
+        properties:
+          target:
+            type: string
+          runAfter:
+            type: array
+            items:
+              type: string
+          runBefore:
+            type: array
+            items:
+              type: string
+          interceptFunction:
+            type: string
+
+  ApplyWebdesign:
+    type: object
+    additionalProperties: false
+    properties:
+      objectName:
+        type: string
+      getData:
+        type: string
+      siteResponseFactory:
+        type: string
+      witty:
+        type: string
+      assetPack:
+        type: string
+      wittyEncoding:
+        type: string
+      designFolder:
+        type: string
+      maxContentWidth:
+        type: string
+      supportsErrors:
+        type: boolean
+      supportsAccessDenied:
+        type: boolean
+      contentNavStops:
+        type: array
+        items:
+          type: string
+
+  ApplyFormDefinitions: # TODO this style is far from elegant because 1) name is optional and 2) it suggests global namespace but still goes through <apply> rules. we should consider moving formdefs to moduledefinitions?
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [path]
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+
+  ApplySiteLanguage:
+    type: string
+
   ApplyDebugSettings:
     type: array
     items:
@@ -910,6 +996,14 @@ $defs:
                 requireRight:
                   description: Require a specific right to set this option. Defaults to system:sysop. Rights that require a target are checked against the fsobject for which the settings are opened
                   type: string
+
+  ApplyPollSettings:
+    type: object
+    additionalProperties: false
+    properties:
+      revoteAfter:
+        description: "ISO8601 period (eg P1D) after which voting is allowed again. (this check is cookie based so it can be circumvented by any user which clears his cookies)"
+        type: string
 
   Component:
     type: object
@@ -981,6 +1075,8 @@ $defs:
             type: object
             additionalProperties: false
             properties:
+              title:
+                type: string
               containerTag:
                 type: string
                 enum:
@@ -1012,12 +1108,30 @@ $defs:
                 items:
                   type: string
                   enum: [i, u, b, a-href, img, sub, sup, strike]
+
+              importFrom:
+                type: array
+                items:
+                  type: string
+
+              nextBlockStyle:
+                type: string
+
       tableStyles:
         type: object
         patternProperties:
           "^[a-z0-9]+$":
             type: object
             additionalProperties: false
+            properties:
+              title:
+                type: string
+              defaultBlockStyle:
+                type: string
+              allowStyles:
+                type: array
+                items:
+                  type: string
 
       cellStyles:
         type: object
@@ -1033,5 +1147,6 @@ $defs:
         type: array
         items:
           type: string
+
       defaultBlockStyle:
         type: string

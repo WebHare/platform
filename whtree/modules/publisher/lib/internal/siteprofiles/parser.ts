@@ -1,7 +1,7 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
-import { parseResourcePath, toFSPath } from "@webhare/services";
-import { toHSSnakeCase } from "@webhare/services/src/naming";
+import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
+import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
@@ -400,9 +400,9 @@ function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>):
       hidden: false,
       tabledefaultblockstyle: "",
       allowstyles: [],
-      importfrom: [],
-      nextblockstyle: "",
-      title: "",
+      importfrom: entry.importFrom || [],
+      nextblockstyle: entry.nextBlockStyle?.toUpperCase() || "",
+      title: entry.title || '',
     });
   }
   return out;
@@ -414,18 +414,18 @@ function parseCellStyles(inCellStyle: NonNullable<Sp.RTDType["cellStyles"]>): CS
 
 function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>): CSPRTDBlockStyle[] {
   const out = new Array<CSPRTDBlockStyle>;
-  for (const [tag,] of typedEntries(inTableStyle)) {
+  for (const [tag, entry] of typedEntries(inTableStyle)) {
     out.push({
       tag: tag.toUpperCase(),
       type: "table",
       containertag: "table",
       textstyles: [],
       hidden: false,
-      tabledefaultblockstyle: "",
-      allowstyles: [],
+      tabledefaultblockstyle: entry.defaultBlockStyle?.toUpperCase() || '',
+      allowstyles: entry.allowStyles?.map(_ => _.toUpperCase()) || [],
       importfrom: [],
       nextblockstyle: "",
-      title: "",
+      title: entry.title || ''
     });
   }
   return out;
@@ -435,7 +435,7 @@ function parseAllowedObjects(_inAllowedObjects: NonNullable<Sp.RTDType["allowedO
   return [];
 }
 
-function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
+function parseRtdType(gid: ResourceParserContext, ns: string, type: Sp.RTDType): CSPContentType {
   return {
     id: 0,
     type: "rtdtype",
@@ -474,7 +474,7 @@ function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
     applytester: null,
     bodyclass: type.bodyClass || "",
     css: "",
-    cssfiles: type.css?.map(_ => ({ path: _ })) || [],
+    cssfiles: type.css?.map(_ => ({ path: resolveResource(gid.resourceName, _) })) || [],
     htmlclass: type.htmlClass || "",
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
@@ -492,7 +492,7 @@ function parseEditProps(gid: ResourceParserContext, baseScope: string, editProps
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
       contenttype: resolveType(baseScope, prop.type),
-      extension: prop.tabsExtension || '',
+      extension: resolveResource(gid.resourceName, prop.tabsExtension || ''),
       requireright: prop.requireRight || '',
     };
 
@@ -621,7 +621,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     baseproperties: null,
     bodyrenderer: null,
     urlhistory: null,
-    usepublishtemplate: apply.usePublishTemplate ? { script: apply.usePublishTemplate } : null,
+    usepublishtemplate: apply.usePublishTemplate ? { script: resolveResource(gid.resourceName, apply.usePublishTemplate) } : null,
     webdesign: null,
     foldersettings: null,
     userdata: []
@@ -632,9 +632,40 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
-      objectname: apply.bodyRenderer.objectName || '',
-      renderer: apply.bodyRenderer.renderer || ''
+      objectname: resolveResource(gid.resourceName, apply.bodyRenderer.objectName || ''),
+      renderer: resolveResource(gid.resourceName, apply.bodyRenderer.renderer || '')
     };
+
+  if (apply.webDesign) {
+    rule.webdesign = {
+      assetpack: apply.webDesign.assetPack || '',
+      has_assetpack: apply.webDesign.assetPack !== undefined,
+      contentnavstops: apply.webDesign.contentNavStops || [],
+      has_contentnavstops: apply.webDesign.contentNavStops !== undefined,
+      designfolder: resolveResource(gid.resourceName, apply.webDesign.designFolder || ''),
+      getdata: apply.webDesign.getData || '',
+      has_supportsaccessdenied: apply.webDesign.supportsAccessDenied !== undefined,
+      supportsaccessdenied: apply.webDesign.supportsAccessDenied === true,
+      has_supportserrors: apply.webDesign.supportsErrors !== undefined,
+      supportserrors: apply.webDesign.supportsErrors === true,
+      maxcontentwidth: apply.webDesign.maxContentWidth || '',
+      objectname: resolveResource(gid.resourceName, apply.webDesign.objectName || ''),
+      siteprofile: "",
+      siteresponsefactory: resolveResource(gid.resourceName, apply.webDesign.siteResponseFactory || ''),
+      witty: resolveResource(gid.resourceName, apply.webDesign.witty || ''),
+      wittyencoding: apply.webDesign.wittyEncoding || '',
+    };
+  }
+
+  for (const formdef of apply.formDefinitions || []) {
+    rule.formdefinitions.push({
+      name: formdef.name || '',
+      path: resolveResource(gid.resourceName, formdef.path),
+    });
+  }
+
+  if (apply.siteLanguage)
+    rule.sitelanguage = { lang: apply.siteLanguage, has_lang: true };
 
   if (apply.folderIndex) {
     rule.folderindex = {
@@ -709,8 +740,8 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
   if (apply.folderSettings) {
     rule.foldersettings = {
-      contentslisthandler: apply.folderSettings.contentsListHandler ? { objectname: apply.folderSettings.contentsListHandler } : null,
-      filterscreen: apply.folderSettings.filterScreen || '',
+      contentslisthandler: apply.folderSettings.contentsListHandler ? { objectname: resolveResource(gid.resourceName, apply.folderSettings.contentsListHandler) } : null,
+      filterscreen: resolveResource(gid.resourceName, apply.folderSettings.filterScreen || ''),
       has_filterscreen: apply.folderSettings.filterScreen ? true : false,
       ordering: apply.folderSettings.ordering || ""
     };
@@ -737,6 +768,19 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       task: task.task,
       delay: task.delay || 0
     });
+
+  if (apply.intercept)
+    for (const [name, intercept] of Object.entries(apply.intercept)) {
+      rule.hookintercepts.push({
+        name: module + ':' + name,
+        interceptfunction: resolveResource(gid.resourceName, intercept.interceptFunction || ''),
+        line: 0,
+        module: module,
+        target: addModule(module, intercept.target),
+        orderafter: intercept.runAfter?.map(_ => addModule(module, _)) || [],
+        orderbefore: intercept.runBefore?.map(_ => addModule(module, _)) || [],
+      });
+    }
 
   const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
   for (const node of context.plugins.customSPNodes)
@@ -807,12 +851,12 @@ function parseFolderType(ftype: Sp.Type & Sp.FolderType): CSPContentType["folder
   return folderType;
 }
 
-function parseDynamicExecution(exec: Sp.DynamicExecution): CSPDynamicExecution {
+function parseDynamicExecution(gid: ResourceParserContext, exec: Sp.DynamicExecution): CSPDynamicExecution {
   return {
     cachettl: exec.cacheTtl || 0,
-    routerfunction: exec.routerFunction || '',
-    startmacro: exec.startMacro || '',
-    webpageobjectname: exec.webPageObjectName || '',
+    routerfunction: resolveResource(gid.resourceName, exec.routerFunction || ''),
+    startmacro: resolveResource(gid.resourceName, exec.startMacro || ''),
+    webpageobjectname: resolveResource(gid.resourceName, exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],
     cacheblacklistvariables: exec.cacheIgnoreGetParameters || [],
 
@@ -855,7 +899,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
-      dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(settings.dynamicExecution) : null,
+      dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(rootParser, settings.dynamicExecution) : null,
       comment: settings.comment || '',
       filetype: null,
       foldertype: null,
@@ -878,7 +922,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
       workflow: (settings as Sp.InstanceType).workflow === true
     };
 
-    if (settings.metaType && ["auxiliary", "upload", "page", "blockWidget", "inlineWidget"].includes(settings.metaType)) {
+    if (settings.metaType && ["dataFile", "upload", "page", "blockWidget", "inlineWidget"].includes(settings.metaType)) {
       const isWidget = ["blockWidget", "inlineWidget"].includes(settings.metaType);
       if (isWidget) {
         const widgetSettings = settings as Sp.WidgetType;
@@ -887,11 +931,11 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
         ctype.embedtype = settings.metaType === "blockWidget" ? "block" : "inline";
         ctype.requiremergefieldscontext = widgetSettings.requireMergeFieldsContext || false;
         ctype.editor = widgetSettings.editor ?
-          "extension" in widgetSettings.editor ?
-            { type: "extension", extension: widgetSettings.editor.extension }
-            : { type: "function", functionname: widgetSettings.editor.function } : null;
-        ctype.renderer = widgetSettings.renderer ? { objectname: widgetSettings.renderer } : null;
-        ctype.wittycomponent = widgetSettings.wittyComponent || '';
+          "tabsExtension" in widgetSettings.editor ?
+            { type: "extension", extension: resolveResource(rootParser.resourceName, widgetSettings.editor.tabsExtension) }
+            : { type: "function", functionname: resolveResource(rootParser.resourceName, widgetSettings.editor.function || '') } : null;
+        ctype.renderer = widgetSettings.renderer ? { objectname: resolveResource(rootParser.resourceName, widgetSettings.renderer) } : null;
+        ctype.wittycomponent = resolveResource(rootParser.resourceName, widgetSettings.wittyComponent || '');
       } else {
         ctype.type = "filetype";
       }
@@ -916,7 +960,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
         */
         initialpublish: ispublishable && !(settings as Sp.PageType).workflow,
         needstemplate: (settings as Sp.PageType).useWebDesign ?? settings.metaType === "page",
-        pagelistprovider: (settings as Sp.PageType).pageListProvider || '',
+        pagelistprovider: resolveResource(rootParser.resourceName, (settings as Sp.PageType).pageListProvider || ''),
         requirescontent: (settings as Sp.UploadType).requiresContent || false,
         searchcontentprovider: settings.searchContentProvider || ''
       };
@@ -951,12 +995,12 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
   }
 
   for (const [rtdType, data] of Object.entries(sp.rtdTypes || {})) {
-    const parsedRtd = parseRtdType(rtdType, data);
+    const parsedRtd = parseRtdType(rootParser, rtdType, data);
     result.rtdtypes.push(parsedRtd);
   }
 
   for (const siteprofile of sp.applySiteProfiles || [])
-    result.applysiteprofiles.push(siteprofile);
+    result.applysiteprofiles.push(resolveResource(resource, siteprofile));
 
   return result;
 }

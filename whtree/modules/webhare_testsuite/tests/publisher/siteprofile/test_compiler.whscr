@@ -115,7 +115,7 @@ MACRO TestCompiler()
 
   //Test basesiteprofile against empty system
   compiler := NEW RecompileContext();
-  res := compiler->CompileSiteprofiles([ siteprofiles := [ "mod::publisher/data/publisher.siteprl.xml" ]
+  res := compiler->CompileSiteprofiles([ siteprofiles := [ "mod::platform/data/platform.siteprl.yml" ]
                                        , profilerefs := RECORD[]
                                        , baseprofiles := [ 1 ]
                                        ]);
@@ -144,7 +144,7 @@ MACRO TestCompiler()
   TestEq([orphan := FALSE ], htmlfile.toupdate, "Upgrade back to non-orphan type!");
 
   compiler := NEW RecompileContext();
-  res := compiler->CompileSiteprofiles([ siteprofiles := [  "mod::publisher/data/publisher.siteprl.xml", "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
+  res := compiler->CompileSiteprofiles([ siteprofiles := [  "mod::platform/data/platform.siteprl.yml", "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml" ]
                                        , profilerefs := RECORD[[ isfeature := FALSE, name := "webhare_testsuite:test1", siteprofileids := [2] ]]
                                        , baseprofiles := INTEGER[1]
                                        ]);
