@@ -202,7 +202,7 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
   const ns = nameparts.length === 1 ? "http://www.webhare.net/xmlns/tollium/screens" : nameparts[0];
   const component = nameparts.length === 1 ? nameparts[0] : nameparts[1];
 
-  return { ns, component, yamlprops: toSnakeCase(compentries[0][1]) as Record<string, unknown> };
+  return { ns, component, yamlprops: toSnakeCase(compentries[0][1] as object) as Record<string, unknown> };
 }
 
 function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {

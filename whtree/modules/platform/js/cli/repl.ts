@@ -5,7 +5,7 @@ import * as repl from "node:repl"; //https://nodejs.org/api/repl.html
 
 import { listDirectory } from "@webhare/system-tools";
 import { backendConfig, toFSPath } from "@webhare/services";
-import { toCamelCase } from "@webhare/std";
+import { nameToCamelCase } from "@webhare/std";
 
 console.log("Starting WebHare REPL. Use .help for help");
 
@@ -21,7 +21,7 @@ whrepl.setupHistory(toFSPath("storage::system/whrepl_history"), () => { });
 async function setupWhRepl() {
   for (const dir of await listDirectory(backendConfig.installationRoot + "jssdk")) {
     //map all @webhare/ dirs to a symbol, but translate eg jsonrpc-client to jsonrpcClient
-    Object.defineProperty(whrepl.context, toCamelCase(dir.name.replaceAll('-', '_')), {
+    Object.defineProperty(whrepl.context, nameToCamelCase(dir.name.replaceAll('-', '_')), {
       get: () => {
         return require(`@webhare/${dir.name}`);
       },

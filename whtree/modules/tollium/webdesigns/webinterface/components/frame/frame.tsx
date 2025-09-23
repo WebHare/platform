@@ -798,7 +798,7 @@ export class ObjFrame extends ToddCompBase {
     this.pendingRequests.delete(response.promiseid);
 
     if ("resolve" in response)
-      deferred.resolve(toCamelCase(response.resolve));
+      deferred.resolve(toCamelCase(response.resolve as object));
     else
       deferred.reject(new Error(response.reject));
   }

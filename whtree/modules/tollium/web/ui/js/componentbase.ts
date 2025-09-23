@@ -349,7 +349,7 @@ export class ToddCompBase<Attributes extends ComponentStandardAttributes = Compo
     const promiseid = generateRandomId();
     const defer = Promise.withResolvers<ReturnType>();
     this.owner.pendingRequests.set(promiseid, defer as PromiseWithResolvers<unknown>);
-    void this.asyncMessage("asyncRequest", { type, data: toSnakeCase(data), promiseid });
+    void this.asyncMessage("asyncRequest", { type, data: toSnakeCase(data as object), promiseid });
     return await defer.promise;
   }
 
