@@ -656,12 +656,6 @@
     </members>
   </foldertype>
 
-  <!-- ======================================================================
-
-       Consilio indexes
-
-  ==== -->
-  <applysiteprofile path="siteprofiles/debugsettings.siteprl.xml" />
   <applysiteprofile path="siteprofiles/abtest.siteprl.xml" />
   <applysiteprofile path="siteprofiles/pwa.siteprl.xml" />
   <applysiteprofile path="siteprofiles/shorturl.siteprl.xml" />

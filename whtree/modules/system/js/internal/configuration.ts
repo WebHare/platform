@@ -15,6 +15,7 @@ import type { WRDSchemasExtract } from "./generation/gen_wrd";
 import type { WebDesignsExtract } from "./generation/webdesigns";
 import type { HooksExtract } from "./generation/gen_extract_hooks";
 import type { UserRights } from "./generation/gen_extract_userrights";
+import type { ModulePlugins } from "./generation/gen_plugins";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -145,6 +146,7 @@ export function getExtractedConfig(which: "wrdschemas"): WRDSchemasExtract;
 export function getExtractedConfig(which: "webdesigns"): WebDesignsExtract;
 export function getExtractedConfig(which: "hooks"): HooksExtract;
 export function getExtractedConfig(which: "userrights"): UserRights;
+export function getExtractedConfig(which: "plugins"): ModulePlugins;
 
 /** Get JS managed configuration extracts */
 export function getExtractedConfig(which: string) {

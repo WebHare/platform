@@ -1,0 +1,79 @@
+apply:
+  - to: all
+    priority: -100
+    comment: Global Publisher configuration
+    debugSettings: # Debug settings available everywhere
+      - groupTitle: Commonly used
+        flags:
+          apr:
+            title: Auto-profile dynamic pagines
+            requireRight: ""
+          etr:
+            title: Show error stacktraces
+      - groupTitle: Tollium debugging
+        flags:
+          ild:
+            title: "Image loading: debug SVG composition"
+          isc:
+            title: "Image editor: Debug smartcrop"
+      - groupTitle: Site testing
+        flags:
+          anl:
+            title: Social & analytics
+          bac:
+            title: Beacons/Adapative Content
+          ner:
+            title: No errorhandler.js
+          npm:
+            title: Don't set previewmode when previewing
+          nsc:
+            title: No spam checks (disable recaptchas etc)
+          pxl:
+            title: Pxl events
+            requireRight: ""
+          sne:
+            title: Don't embed external scripts like GTM
+          win:
+            title: Witty invocations
+      - groupTitle: RPCs & authentication
+        flags:
+          aut:
+            title: wrd.auth
+          rpc:
+            title: RPC request and responses
+      - groupTitle: Formsapi
+        flags:
+          fdv:
+            title: Disable client-side validation
+          fhv:
+            title: Validation
+          fnh:
+            title: Never hide
+      - groupTitle: Designfiles components
+        flags:
+          men:
+            title: wh.menu debugging
+          meo:
+            title: wh.menu/pulldown keep open
+          rte:
+            title: wh.rich debugging
+          upl:
+            title: wh.net.upload debugging
+      - groupTitle: Miscellaneous
+        flags:
+          bus:
+            title: Busy & waits
+          gtd:
+            title: Debug getTid
+          key:
+            title: Dompack Keyboard
+          pro:
+            title: Trace promises for unhandled rejections
+          sho:
+            title: Webshop
+          sut:
+            title: Short unknown tids
+          testfw:
+            title: Testframework
+          wud:
+            title: Webserver url debugging
