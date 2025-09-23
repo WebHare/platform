@@ -1,6 +1,29 @@
 import { WebHareBlob } from "@webhare/services";
 import * as test from "@webhare/test-backend";
-import { runJSBasedValidator } from "@mod-platform/js/devsupport/validation";
+import { runJSBasedValidator, TrackedYAML } from "@mod-platform/js/devsupport/validation";
+
+async function testTrackedYaml() {
+  const res = new TrackedYAML<{
+    row: {
+      nrs: number[];
+      objs: Array<{ a: number | null }>;
+    };
+  }>(`# test file
+row:
+  nrs:
+    [1, 2, 3]
+  objs:
+    - a: 1
+    - a: 2
+    - a: null
+`);
+
+  test.eq({ row: { nrs: [1, 2, 3], objs: [{ a: 1 }, { a: 2 }, { a: null }] } }, res.doc);
+  test.eq({ line: 3, col: 3 }, res.getPosition(res.doc.row));
+  test.eq({ line: 7, col: 7 }, res.getPosition(res.doc.row.objs[1]));
+  test.eq(null, res.getPosition(res.doc.row.objs[1].a), "can't track individual array items yet (and definitely not through directly referring to that string");
+  test.eq(null, res.getPosition(res.doc.row.objs[2].a), "verify that we don't accidentally track nulls as they're still objects");
+}
 
 async function testYAMLVAlidations() {
   { //verify YAML syntax errors properly being reported
@@ -9,6 +32,7 @@ async function testYAMLVAlidations() {
       {
         resourcename: 'mod::webhare_testsuite/moduledefinition.yml',
         line: 2,
+        length: 1,
         col: 6,
         message: /Missing closing.*quote/,
         source: 'validation',
@@ -59,18 +83,41 @@ backendServices:
   }
 
   { //verify validation against custom parsers
-    const res = await runJSBasedValidator(WebHareBlob.from(`
-answer: 43
+    const res = await runJSBasedValidator(WebHareBlob.from(`# validated by validateTestFile
+root:
+  answer:
+    43
 `), "mod::webhare_testsuite/dummyfile.test.yml");
 
     test.eqPartial([
       {
         //The location and error are not ideal, I'd rather see the property name mentioned. but AN error is better than NONE
         resourcename: 'mod::webhare_testsuite/dummyfile.test.yml',
-        line: 0,
-        col: 0,
+        line: 3,
+        col: 3,
         message: /Answer should be 42, not 43/,
         source: 'validation',
+        type: "error"
+      }
+    ], res.messages);
+  }
+
+  { //verify siteprofile parser
+    const res = await runJSBasedValidator(WebHareBlob.from(`
+apply:
+  - to: all
+    usePublishTemplate: # we just need something that takes a resource
+      no/such/module/resource.xml#bla
+`), "mod::webhare_testsuite/dummyfile.siteprl.yml");
+
+    test.eqPartial([
+      {
+        //The location and error are not ideal, I'd rather see the property name mentioned. but AN error is better than NONE
+        resourcename: 'mod::webhare_testsuite/dummyfile.siteprl.yml',
+        line: 0,
+        col: 0,
+        message: /Resource.*does not exist/,
+        source: 'siteprofile',
         type: "error"
       }
     ], res.messages);
@@ -113,4 +160,7 @@ types:
   }
 }
 
-test.runTests([testYAMLVAlidations]);
+test.runTests([
+  testTrackedYaml,
+  testYAMLVAlidations
+]);

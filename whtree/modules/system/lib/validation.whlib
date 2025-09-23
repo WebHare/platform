@@ -551,14 +551,13 @@ PUBLIC RECORD FUNCTION ValidateSingleFileAdhoc(STRING resname, RECORD options DE
   }
   CATCH(OBJECT e)
   {
-    RETURN [ errors := [[ line := 0
-                        , col :=0
-                        , resourcename := resname
-                        , source := "exception"
-                        , message := "Unable to validate: " || e->what
-                       ]]
-           , warnings := RECORD[]
-           , hints := RECORD[]
+    RETURN [ messages := [[ line := 0
+                          , col := 0
+                          , resourcename := resname
+                          , source := "exception"
+                          , message := "Unable to validate: " || e->what
+                          , type := "error"
+                         ]]
            , tids := RECORD[]
            ];
   }

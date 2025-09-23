@@ -30,22 +30,22 @@ MACRO TestParsing()
   RECORD res;
 
   res := GetParsedSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/nosuchfile.siteprl.xml");
-  TestEq(1, Length(res.errors));
+  TestEq(1, Length(res.messages));
 
   res := GetParsedSiteProfile("inline::");
-  TestEq(1, Length(res.errors));
+  TestEq(1, Length(res.messages));
 
   STRING test1resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test1.siteprl.xml";
   res := GetParsedSiteProfile(test1resname);
-  TestEq(DEFAULT RECORD ARRAY, SELECT * FROM res.errors WHERE resourcename != test1resname); //nothing should sneak by....
+  TestEq(DEFAULT RECORD ARRAY, SELECT * FROM res.messages WHERE resourcename != test1resname); //nothing should sneak by....
 
-  dumpvalue((SELECT * FROM res.errors ORDER BY line),'boxed');
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*trying to match*")); //Apply <to> rule is trying to match a folder type, but is not set to apply to folders
-  TestEq(1, Length(SELECT FROM res.errors WHERE message LIKE "*Duplicate*webhare_testsuite/test1*")); //Duplicate key-sequence [\'http://www.webhare.net/xmlns/webhare_testsuite/test1\'] in key identity-constraint \'{http://www.webhare.net/xmlns/publisher/
-  TestEq(2, Length(SELECT FROM res.errors WHERE message LIKE "*No such resource*"));
-  TestEq(2, Length(SELECT DISTINCT line FROM res.errors WHERE message LIKE "*No such resource*"));
+  dumpvalue((SELECT * FROM res.messages ORDER BY line),'boxed');
+  TestEq(1, Length(SELECT FROM res.messages WHERE message LIKE "*trying to match*")); //Apply <to> rule is trying to match a folder type, but is not set to apply to folders
+  TestEq(1, Length(SELECT FROM res.messages WHERE message LIKE "*Duplicate*webhare_testsuite/test1*")); //Duplicate key-sequence [\'http://www.webhare.net/xmlns/webhare_testsuite/test1\'] in key identity-constraint \'{http://www.webhare.net/xmlns/publisher/
+  TestEq(2, Length(SELECT FROM res.messages WHERE message LIKE "*No such resource*"));
+  TestEq(2, Length(SELECT DISTINCT line FROM res.messages WHERE message LIKE "*No such resource*"));
 
-  TestEq(4, Length(res.errors));
+  TestEq(4, Length(res.messages));
 
 
   STRING test3resname := "mod::webhare_testsuite/tests/publisher/siteprofile/data/test3.siteprl.xml";
@@ -101,7 +101,7 @@ MACRO TestCompiler()
                                               , baseprofiles := [ 1 ]
                                               ]);
 
-  TestEqStructure([[ col := 0, resourcename := "", line := 0, message := ""]], compiler->GetErrors());
+  TestEqStructure([[ col := 0, resourcename := "", line := 0, message := "", type := ""]], compiler->GetMessages());
 
   //First test test3 directly
   compiler := NEW RecompileContext();

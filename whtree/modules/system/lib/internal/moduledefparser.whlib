@@ -106,15 +106,11 @@ PUBLIC RECORD FUNCTION GetBaseWebRule(INTEGER ruleid, STRING path, INTEGER prior
   RETURN rule;
 }
 
-RECORD FUNCTION AddMessage(RECORD retval, STRING type, STRING filename, OBJECT node, STRING message)
-{
-  RECORD msg := CELL[ message, resourcename := filename, line := node->linenum, col := 0 ];
-  SWITCH (type)
-  {
-    CASE "error"    { INSERT msg INTO retval.errors AT END; }
-    CASE "warning"  { INSERT msg INTO retval.warnings AT END; }
-    DEFAULT         { THROW NEW Exception(`Illegal type '${type}'`); }
-  }
+RECORD FUNCTION AddMessage(RECORD retval, STRING type, STRING filename, OBJECT node, STRING message) {
+  IF(type NOT IN ["error","warning"])
+    THROW NEW Exception(`Illegal type '${type}'`);
+
+  INSERT CELL[ message, resourcename := filename, line := node->linenum, col := 0, type ] INTO retval.messages AT END;
   RETURN retval;
 }
 
@@ -154,8 +150,7 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
       ], options);
 
   RECORD retval :=
-      [ errors :=   RECORD[]
-      , warnings := RECORD[]
+      [ messages := RECORD[]
       , rule :=     DEFAULT RECORD
       ];
 

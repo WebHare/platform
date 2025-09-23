@@ -51,7 +51,7 @@ PUBLIC RECORD FUNCTION GetBaseWebserverConfigRecord()
       , script_timeout := 900
       , keep_process_history := 60000
       , stripextensions := STRING[]
-      , errors := RECORD[]
+      , messages := RECORD[]
       , debugurltag := ""
       ];
 }
@@ -155,11 +155,10 @@ STRING ARRAY FUNCTION ParseCommaList(STRING list)
   RETURN list = "" ? STRING[] : Tokenize(list, ",");
 }
 
-OBJECTTYPE WebConfigBuilder
-<
+STATIC OBJECTTYPE WebConfigBuilder <
   STRING baseoutputpath;
   INTEGER nextruleid;
-  RECORD ARRAY errors;
+  RECORD ARRAY messages;
   RECORD finalconfig;
   BOOLEAN minimalconfig;
 
@@ -213,7 +212,7 @@ OBJECTTYPE WebConfigBuilder
 
         RECORD baserule := this->GetBaseRule(path, priority, sourcefile || ":" || rulenode->linenum);
         RECORD parsed := ParseWebRuleData(modname, baserule, rulenode, sourcefile);
-        this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
+        this->messages := this->messages CONCAT SELECT source, error := message FROM parsed.messages;
         IF(NOT RecordExists(parsed.rule))
           CONTINUE;
 
@@ -275,7 +274,7 @@ OBJECTTYPE WebConfigBuilder
       }
       CATCH(OBJECT e)
       {
-        INSERT [ source := rule.source, error := e->what ] INTO this->errors AT END;
+        INSERT [ source := rule.source, message := e->what, type := "error" ] INTO this->messages AT END;
       }
     }
     RETURN outrules;
@@ -382,13 +381,11 @@ OBJECTTYPE WebConfigBuilder
     RETURN this->baseoutputpath || Substring(inpath, Left(inpath,1)='/' ? 1 : 0);
   }
 
-  RECORD ARRAY FUNCTION GenerateModuleConfig(INTEGER ARRAY interfacehosts, RECORD ARRAY hosts)
-  {
+  RECORD ARRAY FUNCTION GenerateModuleConfig(INTEGER ARRAY interfacehosts, RECORD ARRAY hosts) {
     INTEGER ARRAY allhosts := SELECT AS INTEGER ARRAY id FROM hosts;
     RECORD ARRAY rules;
 
-    FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name))
-    {
+    FOREVERY(RECORD mod FROM (SELECT * FROM GetWebHareModules() ORDER BY name)) {
       OBJECT xmlfile;
       TRY
       {
@@ -416,8 +413,7 @@ OBJECTTYPE WebConfigBuilder
       INSERT rule INTO rules AT END;
 
       OBJECT backend := xmlfile->documentelement->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backend")->Item(0);
-      FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(backend))
-      {
+      FOREVERY(OBJECT rulenode FROM GetWebRuleNodes(backend)) {
         STRING path := rulenode->GetAttribute("path");
         BOOLEAN isproxy := ToUppercase(path) LIKE "PROXY:*";
         BOOLEAN iswildcardmatch := rulenode->GetAttribute("match") = "wildcards";
@@ -457,7 +453,7 @@ OBJECTTYPE WebConfigBuilder
         }
 
         RECORD parsed := ParseWebRuleData(mod.name, rule, rulenode, filename);
-        this->errors := this->errors CONCAT SELECT source, error := message FROM parsed.errors;
+        this->messages := this->messages CONCAT SELECT source, error := message FROM parsed.messages;
         IF(NOT RecordExists(parsed.rule))
           CONTINUE;
 
@@ -569,8 +565,9 @@ OBJECTTYPE WebConfigBuilder
       IF(NOT RecordExists(matchhost))
       {
         INSERT [ source := "shorturl domain " || shorturlfolder.name
-               , error := `Cannot find matching webserver to host shorturl domain '${shorturlfolder.name}'`
-               ] INTO this->errors AT END;
+               , message := `Cannot find matching webserver to host shorturl domain '${shorturlfolder.name}'`
+               , type := "error"
+               ] INTO this->messages AT END;
         CONTINUE;
       }
 
@@ -677,7 +674,7 @@ OBJECTTYPE WebConfigBuilder
     }
     CATCH (OBJECT e)
     {
-      INSERT [ source := rule.source, error := e->what ] INTO this->errors AT END;
+      INSERT [ source := rule.source, message := e->what, type := "error" ] INTO this->messages AT END;
       RETURN "";
     }
   }
@@ -1011,7 +1008,7 @@ OBJECTTYPE WebConfigBuilder
     this->finalconfig.ports := ports;
     this->finalconfig.hosts := hosts;
     this->finalconfig.rules := rules;
-    this->finalconfig.errors := this->errors;
+    this->finalconfig.messages := this->messages;
 
     IF(NOT this->minimalconfig)
     {

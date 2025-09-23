@@ -10,16 +10,19 @@ import YAML, { LineCounter, type YAMLParseError } from "yaml";
 import { getAjvForSchema, type AjvValidateFunction, type JSONSchemaObject } from "@webhare/test/src/ajv-wrapper";
 import { getAllModuleYAMLs } from "@webhare/services/src/moduledefparser";
 
-/** Basic location pointer used by various validators */
-export interface ResourceLocation {
-  /** Full resource name (eg mod::x/y/z) */
-  resourcename: string;
+export interface ResourcePosition {
   /** Line number, 1-based. 0 if unknown or file missing*/
   line: number;
   /** Column number, 1-based. 0 if unknown or file missing */
   col: number;
   /** Length of the text relevant to the error. 0 or missing if unknown */
   length?: number;
+}
+
+/** Basic location pointer used by various validators */
+export interface ResourceLocation extends ResourcePosition {
+  /** Full resource name (eg mod::x/y/z) */
+  resourcename: string;
 }
 
 /** Basic message (erorr, warning) structure used by various validators */
@@ -86,13 +89,82 @@ export class ValidationState {
  * @param content - Content to validate, already parsed
  * @param context - Validation context to add messages to
  */
-export type ContentValidationFunction<YamlType> = (resourceName: string, content: YamlType, context: ValidationState) => Promise<void>;
+export type ContentValidationFunction<YamlType> = (resourceName: string, content: TrackedYAML<YamlType>, context: ValidationState) => Promise<void>;
 
 ///Simply decode YAML data, throw on failure.
 export function decodeYAML<T>(text: string): T {
   const result = YAML.parse(text, { strict: true, version: "1.2" });
   return result;
 }
+
+export class TrackedYAML<T> {
+  doc: T;
+  errors: YAML.YAMLError[];
+  private lineCounter = new LineCounter;
+  private srcTokens = new WeakMap<object, YAML.CST.Token>;
+  private sourcedoc: YAML.Document.Parsed;
+
+  constructor(text: string) {
+    this.sourcedoc = YAML.parseDocument(text, { strict: true, version: "1.2", prettyErrors: false, lineCounter: this.lineCounter, keepSourceTokens: true });
+    this.errors = this.sourcedoc.errors;
+    this.doc = this.toJS(this.sourcedoc.contents) as T;
+  }
+
+  anyErrors() {
+    return this.errors.length > 0;
+  }
+
+  getMessages(resourceName: string): ValidationMessageWithType[] {
+    return this.errors.map((e: YAMLParseError): ValidationMessageWithType => {
+      const pos = e.pos?.length === 2 ? this.lineCounter.linePos(e.pos[0]) : null;
+      return {
+        type: "error",
+        resourcename: resourceName,
+        line: pos?.line || 0,
+        col: pos?.col || 0,
+        ...e.pos?.length ? { length: e.pos[1] - e.pos[0] } : null,
+        message: e.message,
+        source: "validation"
+      };
+    });
+  }
+
+  getPositionForPointer(pointer: string): ResourcePosition | null {
+    const pointsto = this.sourcedoc.getIn(pointerToYamlPath(pointer)) as { range?: [number] } | undefined;
+    return pointsto?.range?.[0] ? this.lineCounter.linePos(pointsto.range[0]) : null;
+  }
+
+  // Parse the document to JS but record offsets of all objects/arrays
+  private toJS(node: unknown): unknown {
+    if (node instanceof YAML.Scalar)
+      return node.value;
+
+    if (node instanceof YAML.YAMLSeq) {
+      const outarray = node.items.map(item => this.toJS(item)).filter(it => it !== undefined);
+      if (node.srcToken)
+        this.srcTokens.set(outarray, node.srcToken);
+      return outarray;
+    }
+    if (node instanceof YAML.YAMLMap) {
+      const outobj = Object.fromEntries(node.items.
+        map(item => [item.key, this.toJS(item.value)]). //convert the YAML obj to [key, jsvalue]
+        filter(([key, value]) => value !== undefined)); //filter out funny stuff
+      if (node.srcToken)
+        this.srcTokens.set(outobj, node.srcToken);
+      return outobj;
+    }
+    return undefined;
+  }
+
+  getPosition(node: unknown): ResourcePosition | null {
+    const tok = this.srcTokens.get(node as object);
+    if (!tok)
+      return null;
+
+    return { ...this.lineCounter.linePos(tok.offset) };
+  }
+}
+
 
 //TODO cache and invalidate validator list as needed
 async function getValidators(): Promise<Array<{
@@ -135,33 +207,20 @@ function pointerToYamlPath(ptr: string): string[] {
 
 export async function runYAMLBasedValidator(result: ValidationState, content: WebHareBlob, resource: string, options?: ValidationOptions): Promise<void> {
   const data = await content.text();
-  const counters = new LineCounter;
-  const sourcedoc = YAML.parseDocument(data, { strict: true, version: "1.2", prettyErrors: false, lineCounter: counters });
+  const tracked = new TrackedYAML<object>(data);
 
-  if (sourcedoc.errors.length) {
-    result.messages.push(...sourcedoc.errors.map((e: YAMLParseError): ValidationMessageWithType => {
-      const pos = e.pos?.length === 2 ? counters.linePos(e.pos[0]) : null;
-      return {
-        type: "error",
-        resourcename: resource,
-        line: pos?.line || 0,
-        col: pos?.col || 0,
-        message: e.message,
-        source: "validation"
-      };
-    }));
+  if (tracked.anyErrors()) {
+    result.messages.push(...tracked.getMessages(resource));
     return;
   }
 
-  const yamldata = sourcedoc.toJS();
   const validators = await getValidators();
-
   if (resource.endsWith(".schema.yml")) {
-    const ajv = await getAjvForSchema(yamldata as JSONSchemaObject);
+    const ajv = await getAjvForSchema(tracked.doc as JSONSchemaObject);
 
     // ajv.validateSchema didn't report typo 'desription' vs 'description'? but compile does..
     try {
-      ajv.compile(yamldata as JSONSchemaObject);
+      ajv.compile(tracked.doc as JSONSchemaObject);
     } catch (e) {
       //but we won't get errorinfo this way. well at least we get *some* indication the schema is broken
       result.messages.push({ type: "error", resourcename: resource, line: 0, col: 0, message: (e as Error)?.message || "Unknown error", source: "validation", metadata: {} });
@@ -181,15 +240,14 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
       validator.compiledSchemaValidator = ajv.compile(schema);
     }
 
-    if (!validator.compiledSchemaValidator(yamldata)) {
+    if (!validator.compiledSchemaValidator(tracked.doc)) {
       for (const error of validator.compiledSchemaValidator.errors || []) {
-        const pointsto = sourcedoc.getIn(pointerToYamlPath(error.instancePath)) as { range?: [number] } | undefined;
-        const pos = pointsto?.range?.[0] ? counters.linePos(pointsto.range[0]) : null;
         result.messages.push({
           type: "error",
           resourcename: resource,
-          line: pos?.line || 0,
-          col: pos?.col || 0,
+          line: 0,
+          col: 0,
+          ...tracked.getPositionForPointer(error.instancePath),
           message: error.message || "Unknown error",
           source: "validation",
           metadata: {}
@@ -199,7 +257,7 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
 
     if (validator.contentValidator) {
       const contentValidator = await importJSFunction<ContentValidationFunction<unknown>>(validator.contentValidator);
-      await contentValidator(resource, yamldata, result);
+      await contentValidator(resource, tracked, result);
     }
     return;
   }

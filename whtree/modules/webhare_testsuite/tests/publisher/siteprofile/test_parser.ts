@@ -1,11 +1,10 @@
 import * as test from "@webhare/test-backend";
-import { parseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
+import { readAndParseSiteProfile } from "@mod-publisher/lib/internal/siteprofiles/parser";
 import { CSPMemberType } from "@webhare/whfs/src/siteprofiles";
-import { decodeYAML } from "@mod-platform/js/devsupport/validation";
 import { getExtractedHSConfig } from "@mod-system/js/internal/configuration";
 
 async function parseSP(content: string) {
-  return await parseSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml", decodeYAML(content));
+  return await readAndParseSiteProfile("mod::webhare_testsuite/tests/publisher/siteprofile/data/test.siteprl.yml", { overridetext: content });
 }
 
 async function testSPCompiler() {

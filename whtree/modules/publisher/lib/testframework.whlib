@@ -115,9 +115,10 @@ PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
 PUBLIC MACRO TestSiteProfilesNoErrors()
 {
   RECORD csp := GetCachedSiteProfiles();
-  IF(Length(csp.errors)>0)
-    DumpValue(csp.errors,'boxed');
-  TestEq(0, Length(csp.errors), "There are siteprofile errors");
+  RECORD ARRAY errors := SELECT * FROM csp.messages WHERE type = "error";
+  IF(Length(errors)>0)
+    DumpValue(errors,'boxed');
+  TestEq(0, Length(errors), "There are siteprofile errors");
 }
 
 PUBLIC MACRO SetupTestModuleToLoadBaseProfile(STRING profile)

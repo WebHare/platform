@@ -44,7 +44,7 @@ types:
     workflow: false
     useWebDesign: false
     apply:
-      usePublishTemplate: /scripts/internal/publishlink.whscr
+      usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
   filetypes.htmlfile:
     namespace: http://www.webhare.net/xmlns/publisher/htmlfile
     tid: publisher:filetypes.html
@@ -74,7 +74,7 @@ types:
     workflow: false
     useWebDesign: false
     apply:
-      usePublishTemplate: /scripts/internal/publishlink.whscr
+      usePublishTemplate: mod::publisher/scripts/internal/publishlink.whscr
   filetypes.javascriptfile:
     namespace: http://www.webhare.net/xmlns/publisher/javascriptfile
     tid: publisher:filetypes.javascript
@@ -102,7 +102,7 @@ types:
         type: composedDocument
     apply:
       bodyRenderer:
-        renderer: /js/internal/markdown.ts#renderMarkdown
+        renderer: mod::publisher/js/internal/markdown.ts#renderMarkdown
       setObjectEditor:
         separateApp: true
         name: publisher:editmarkdown

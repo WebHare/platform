@@ -57,11 +57,11 @@ ELSE IF(args.sp)
   IF(args.twice)
     res := __DoRecompileSiteprofiles(TRUE, args.debug, args.reportmissing); //rerun it, for debugging/profiling
 
-  IF(Length(res.errors) > 0)
+  IF(Length(SELECT FROM res.messages WHERE type="error") > 0)
     SetConsoleExitCode(1);
 
-  PrintValidationMessages(res);
-  IF(Length(res.warnings CONCAT res.errors CONCAT res.hints) > 0)
+  PrintValidationMessagesToConsoleWithType(res.messages);
+  IF(Length(res.messages) > 0)
     Print("\n"); //extra linefeed
 
   Print("Validating siteprofiles\n");
