@@ -1403,16 +1403,16 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 //it should be save to persist this for the current job, as compilation/validation jobs generally dont run long, but a full siteprof recompiler can otherwise build this object 100s of times (341 for me)
 OBJECT parametersingleton;
 
-PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  IF(filename LIKE "*.yml" OR filename LIKE "*.yaml")
-    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->readAndParseSiteProfile(filename)) //CallJS is not availble during bootup
+PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
+                              , overridetext := ""
+                              ], options, [ optional := ["overridetext"]]);
+
+  IF(filename LIKE "*.yml" OR filename LIKE "*.yaml" OR CellExists(options, "overridetext"))
+    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->readAndParseSiteProfile(filename, PickCells(options, ["overridetext"]))) //CallJS is not availble during bootup
            , ttl := 60*60*1000
            , eventmasks := GetResourceEventMasks([filename])
            ];
-
-  options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
-                              ], options);
 
   RECORD siteprofdata := [ name := filename
                          , applysiteprofiles := DEFAULT STRING ARRAY

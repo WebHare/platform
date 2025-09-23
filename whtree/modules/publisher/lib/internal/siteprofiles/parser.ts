@@ -2,12 +2,13 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import { nameToSnakeCase, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
 import type { ContentValidationFunction, ValidationMessage, ValidationState } from "@mod-platform/js/devsupport/validation";
+import { loadlib } from "@webhare/harescript";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedApplyRule = CSPApplyRule & { ruletype: "apply" };
@@ -923,8 +924,9 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
   return result;
 }
 
-export async function readAndParseSiteProfile(resource: string) { //used by HareScript
-  return await parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(await readFileSync(toFSPath(resource), 'utf8')));
+export async function readAndParseSiteProfile(resource: string, options?: { overridetext?: string }) { //used by HareScript
+  const text = options?.overridetext ?? readFileSync(toFSPath(resource), 'utf8');
+  return parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(text));
 }
 
 export async function validateSiteProfile(resourceName: string, content: Sp.SiteProfile, result: ValidationState): Promise<void> {
@@ -935,6 +937,22 @@ export async function validateSiteProfile(resourceName: string, content: Sp.Site
     result.warnings.push({ resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
   for (const hint of res.hints)
     result.hints.push({ resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+}
+
+export async function getOfflineSiteProfiles(keepSources: boolean, overrides: Array<{ name: string; text: string }>) {
+  return await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").getOfflineSiteProfiles(keepSources, overrides) as {
+    allcontenttypes: CSPContentType[];
+    siteprofiles: Array<{
+      resourcename: string;
+      siteprofile: ParsedSiteProfile;
+      siteprofileids: number[];
+    }>;
+    result: {
+      applies: CSPApplyRule[];
+      webrules: CSPWebRule[];
+      addtocatalogs: CSPAddToCatalog[];
+    };
+  };
 }
 
 validateSiteProfile satisfies ContentValidationFunction<Sp.SiteProfile>;
