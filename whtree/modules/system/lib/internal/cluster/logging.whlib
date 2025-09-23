@@ -105,6 +105,9 @@ RECORD FUNCTION DecodeClassicAccessLogLine(STRING line)
 RECORD FUNCTION DecodeJSONAccessLogLine(STRING line)
 {
   RECORD rec := DecodeJSON(line);
+  IF(NOT RecordExists(rec))
+    RETURN DEFAULT RECORD;
+
   DATETIME time := MakeDateFromText(rec."@timestamp");
   BOOLEAN time_msecs := rec."@timestamp" LIKE "*.*";
   RECORD urlparts := UnpackURL(rec.url);
