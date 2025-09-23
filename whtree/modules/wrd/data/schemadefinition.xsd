@@ -39,6 +39,7 @@
       <xs:element name="migration" minOccurs="0" maxOccurs="unbounded">
         <xs:complexType>
           <xs:attribute name="tag" type="xs:string" use="required" />
+          <xs:attribute name="comment" type="xs:string" />
           <xs:attribute name="updatefunction" type="xs:string" use="required" />
           <xs:attribute name="revision" type="xs:nonNegativeInteger" />
           <xs:attribute name="at">
@@ -137,6 +138,7 @@
       </xs:choice>
     </xs:sequence>
     <xs:attribute name="tag" type="sc:Name" use="required" />
+    <xs:attribute name="comment" type="xs:string" />
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="parent" type="sc:Name" />
@@ -256,6 +258,7 @@
       <xs:element name="documentation" minOccurs="0" />
     </xs:sequence>
     <xs:attribute name="tag" type="sc:Name" use="required" />
+    <xs:attribute name="comment" type="xs:string" />
     <xs:attribute name="title" type="xs:string"  />
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="unique" type="xs:boolean" />
@@ -270,6 +273,7 @@
       <xs:element name="documentation" minOccurs="0" />
     </xs:sequence>
     <xs:attribute name="tag" type="sc:Name" use="required" />
+    <xs:attribute name="comment" type="xs:string" />
     <xs:attribute name="title" type="xs:string"  />
   </xs:complexType>
 
