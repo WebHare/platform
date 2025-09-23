@@ -67,6 +67,7 @@ export interface CSPDynamicExecution {
 export interface CSPContentType {
   cloneoncopy: boolean;
   cloneonarchive: boolean;
+  comment: string;
   workflow: boolean;
   dynamicexecution: CSPDynamicExecution | null;
   filetype: {
@@ -162,6 +163,12 @@ export interface CSPPluginDataRow {
   [key: string]: unknown;
   __attributes: string[];
   __location: string;
+}
+export interface CSPPluginSettingsRow {
+  source: {
+    siteProfile: string;
+  };
+  [key: string]: unknown;
 }
 
 export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
@@ -297,7 +304,6 @@ export type CSPWebDesign = {
   siteprofile: string;
   supportserrors: boolean;
   supportsaccessdenied: boolean;
-  supportedlanguages: string[];
   contentnavstops: string[];
 
   has_assetpack: boolean;
@@ -323,7 +329,17 @@ export type CSPModifyType = {
   typedef: string;
 };
 
-export interface CSPApplyRule {
+export type CSPHookIntercept = {
+  module: string;
+  name: string;
+  target: string;
+  orderbefore: string[];
+  orderafter: string[];
+  interceptfunction: string;
+  line: number;
+};
+
+export type CSPApplyRule = {
   /** <apply> rule with '<to>s' */
   tos: CSPApplyTo[];
   /** Directly applied to the type */
@@ -362,7 +378,7 @@ export interface CSPApplyRule {
   } | null;
   foldersettings: CSPFolderSettings | null;
   formdefinitions: any[];
-  hookintercepts: any[];
+  hookintercepts: CSPHookIntercept[];
   line: number;
   mailtemplates: any[];
   modifyfiletypes: CSPModifyType[];
@@ -417,7 +433,9 @@ export interface CSPApplyRule {
   } | null;
   webdesign: CSPWebDesign | null;
   webtoolsformrules: CSPWebtoolsFormRule[];
-}
+} & {  /** Custom nodes/plugins */
+  [k in `yml_${string}`]?: Record<string, unknown>;
+};
 
 export interface CSPSiteFilter {
   sitename?: string;

@@ -4,7 +4,7 @@ import { backendConfig, parseResourcePath, toFSPath } from "@webhare/services";
 import { whconstant_builtinmodules } from "./webhareconstants";
 import { appendToArray } from "@webhare/std";
 import { readFileSync } from "node:fs";
-import type { ValidationMessageType, ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
+import type { ValidationMessageWithType } from "@mod-platform/js/devsupport/validation";
 
 export type ESLintResult = {
   messages: ValidationMessageWithType[];
@@ -63,12 +63,12 @@ export async function handleLintingCommand(resources: Array<{
           retval.fixes.push({ resourcename: entry.resourcepath, output: entryResults[0].output });
         }
 
-        appendToArray(retval.messages, entryResults[0].messages.map((message) => ({
+        appendToArray(retval.messages, entryResults[0].messages.map((message): ValidationMessageWithType => ({
           line: message.line || 1,
           col: message.column || 1,
           //a simple JS parse error (eg Unexpected character '`'") will have ruleId null
           message: `${message.message} ${message.ruleId ? `(eslint rule: ${message.ruleId})` : "(eslint)"}`,
-          type: message.severity === 2 ? "error" : "warning" as ValidationMessageType,
+          type: message.severity === 2 ? "error" : "warning",
           source: "eslint",
           resourcename: entry.resourcepath
         })));

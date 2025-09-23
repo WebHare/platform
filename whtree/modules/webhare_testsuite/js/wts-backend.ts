@@ -20,6 +20,10 @@ export async function getTestSiteJS() {
   return await openSite("webhare_testsuite.testsitejs");
 }
 
+export async function getWHFSTestRoot() {
+  return await openFolder("/webhare-tests/webhare_testsuite.testfolder");
+}
+
 export async function resetWTS(options?: test.ResetOptions) {
   await test.reset(options);
 

@@ -540,6 +540,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.cloneoncopy := set_cloneoncopy;
     typeinfo.cloneonarchive := set_cloneoncopy;
+    typeinfo.comment := ctype->GetAttribute("comment");
     INSERT CELL members := newmembers.members INTO typeinfo;
 
     this->AddIcon(ctype, typeinfo.tolliumicon);
@@ -815,6 +816,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     RECORD apply := CELL[
       ...csp_base_applyrule,
       siteprofile := this->siteprof->name,
+      comment := targetnamespace = "" ? applyblock->GetAttribute("comment") : "", //if targetnamespace is set, this is a <filetype> or <foldertype> node, leave the comment for them
       line := applyblock->linenum,
       col := 0
       ];

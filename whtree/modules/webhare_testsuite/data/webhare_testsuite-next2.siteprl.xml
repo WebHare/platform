@@ -3,7 +3,7 @@
    xmlns:xyz="urn:xyz">
 
   <apply>
-    <to type="folder" sitemask="webhare_testsuite.testsite" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
+    <to type="folder" sitename="webhare_testsuite.testsite" pathmask="/tmp/applytest-throughglobal/*" /> <!-- only in subfolders because otherwise the above fsobjects mask generate dupes that will fail on intolerant systems -->
     <xyz:test data="applytest-throughglobal-next2" />
     <xyz:testyaml data="applytest-throughglobal-next2" />
   </apply>

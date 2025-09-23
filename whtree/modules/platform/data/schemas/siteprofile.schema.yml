@@ -77,6 +77,9 @@ $defs:
         type: string
       tid:
         type: string
+      comment:
+        type: string
+        description: A developer's comment on this type. Not shown to unprivileged WebHare users.
       searchContentProvider: # this affects about all meta types except plain whfsType so we'll put it at BaseType level
         type: string
       members:
@@ -280,7 +283,7 @@ $defs:
         type: string
       comment:
         type: string
-        description: "A developer's comment on this type. Not shown to unprivileged WebHare users."
+        description: "A developer's comment on this member. Not shown to unprivileged WebHare users."
       members: # TODO limit to arrays only
         $ref: "#/$defs/TypeMembers"
       constraints:
@@ -430,6 +433,9 @@ $defs:
           priority:
             type: integer
             description: Higher priority rules are applied later and thus override lower priority rules. Defaults to 0
+          comment:
+            type: string
+            description: "A developer's comment on this apply rule. Not shown to unprivileged WebHare users."
       - $ref: "#/$defs/ApplyRule"
 
   ApplyRule:
@@ -519,11 +525,17 @@ $defs:
           site: # TODO share with sitefilter concept somehow
             description: Match site name
             $ref: "#/$defs/MatchOrRegExp"
-          whfsPath:
-            description: Match whfsPath
+          siteType:
+            description: Match the site root folder's type of this object
             $ref: "#/$defs/MatchOrRegExp"
           sitePath:
-            description: Match the object's sitePath
+            description: Match sitePath (path from the start of the site)
+            $ref: "#/$defs/MatchOrRegExp"
+          whfsPath:
+            description: Match whfsPath (path from the root of the WebHare filesystem)
+            $ref: "#/$defs/MatchOrRegExp"
+          withinType:
+            description: Match any of the parent folders (up to the site root) against the requested type
             $ref: "#/$defs/MatchOrRegExp"
           parentPath:
             $ref: "#/$defs/MatchOrRegExp"
@@ -896,6 +908,9 @@ $defs:
     type: object
     additionalProperties: false
     properties:
+      comment:
+        type: string
+        description: "A developer's comment on this type. Not shown to unprivileged WebHare users."
       htmlClass:
         type: string
       bodyClass:
