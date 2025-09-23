@@ -2,12 +2,15 @@ import type * as Sp from "@mod-platform/generated/schema/siteprofile";
 import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
 import { parseResourcePath, toFSPath } from "@webhare/services";
 import { toHSSnakeCase } from "@webhare/services/src/naming";
-import { CSPMemberType, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
+import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
 import { readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
 import { nameToSnakeCase, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
-import type { ContentValidationFunction, ValidationMessage, ValidationState } from "@mod-platform/js/devsupport/validation";
+import type { ContentValidationFunction, ValidationMessage, ValidationMessageWithType, ValidationState } from "@mod-platform/js/devsupport/validation";
+import { loadlib } from "@webhare/harescript";
+import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 
 //this is what CompileSiteprofiles expects in the rules array for an apply:
 export type ParsedApplyRule = CSPApplyRule & { ruletype: "apply" };
@@ -176,6 +179,22 @@ const YamlTypeMapping: { [type in Sp.TypeMember["type"]]: MemberTypeInfo } = {
   }
 };
 
+
+type TidCallback = (resource: string, tid: string) => void;
+
+class SiteProfileParserContext {
+  readonly plugins: ModulePlugins;
+  messages: ValidationMessageWithType[] = [];
+
+  constructor(public readonly resourceName: string) {
+    this.plugins = getExtractedConfig("plugins");
+  }
+
+  addMessage(msg: Omit<ValidationMessageWithType, "resourcename" | "line" | "col" | "source">) {
+    this.messages.push({ source: "siteprofile", resourcename: this.resourceName, line: 0, col: 0, ...msg });
+  }
+}
+
 type YamlCompnentHolder = Pick<Sp.TypeMember, "component" | "lines" | "line">;
 
 export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDefinition | null {
@@ -201,7 +220,7 @@ export function parseYamlComponent(holder: YamlCompnentHolder): YamlComponentDef
   const ns = nameparts.length === 1 ? "http://www.webhare.net/xmlns/tollium/screens" : nameparts[0];
   const component = nameparts.length === 1 ? nameparts[0] : nameparts[1];
 
-  return { ns, component, yamlprops: toSnakeCase(compentries[0][1]) as Record<string, unknown> };
+  return { ns, component, yamlprops: toSnakeCase(compentries[0][1] as object) as Record<string, unknown> };
 }
 
 function parseMembers(gid: ResourceParserContext, members: { [key: string]: Sp.TypeMember }): CSPMember[] {
@@ -554,15 +573,15 @@ function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
     : { isallow: true, typedef: t.allowTemplate as string ?? t.allowType as string, newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
 }
 
-function parseApplyRule(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
-  const rule = parseApply(gid, module, siteprofile, baseScope, applyindex, apply);
+function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
+  const rule = parseApply(context, gid, module, siteprofile, baseScope, applyindex, apply);
   rule.tos = parseApplyTo(apply.to);
   rule.priority = apply.priority || 0;
   rule.comment = apply.comment || '';
   return rule;
 }
 
-function parseApply(gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): ParsedApplyRule {
+function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: [],
@@ -719,10 +738,28 @@ function parseApply(gid: ResourceParserContext, module: string, siteprofile: str
       delay: task.delay || 0
     });
 
+  const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
+  for (const node of context.plugins.customSPNodes)
+    if (apply[node.yamlProperty]) {
+      externalNodes.delete(node.yamlProperty); //we handled it here
+
+      const el = toSnakeCase(apply[node.yamlProperty] as object | object[]);
+      if (Array.isArray(el) !== node.isArray) {
+        context.addMessage({ type: "error", message: `Custom siteprofile property ${node.yamlProperty} must ${node.isArray ? '' : 'not '}be an array` });
+        continue;
+      }
+
+      //note that parser.whlib will make an array out of it anyway
+      const cellname = `yml_` + nameToSnakeCase(node.yamlProperty) as `yml_${string}`;
+      rule[cellname] ||= [];
+      rule[cellname].push(...Array.isArray(el) ? el : [el]);
+    }
+
+  for (const node of externalNodes)
+    context.addMessage({ type: "warning", message: `Ignoring unknown siteprofile property '${node}'` });
+
   return rule;
 }
-
-type TidCallback = (resource: string, tid: string) => void;
 
 class ResourceParserContext {
   readonly onTid?: TidCallback;
@@ -785,6 +822,7 @@ function parseDynamicExecution(exec: Sp.DynamicExecution): CSPDynamicExecution {
 }
 
 export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?: { onTid: TidCallback }) {
+  const context = new SiteProfileParserContext(resource);
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
     contenttypes: [],
@@ -891,7 +929,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
 
     if (settings.apply) {
       result.rules.push({
-        ...parseApply(typeParser, module, resource, baseScope, 0, (settings as Sp.FolderType).apply!),
+        ...parseApply(context, typeParser, module, resource, baseScope, 0, (settings as Sp.FolderType).apply!),
         whfstype: ns
       });
     }
@@ -909,7 +947,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
   }
 
   for (const [applyindex, apply] of (sp.apply || []).entries()) {
-    result.rules.push(parseApplyRule(rootParser, module, resource, baseScope, applyindex, apply));
+    result.rules.push(parseApplyRule(context, rootParser, module, resource, baseScope, applyindex, apply));
   }
 
   for (const [rtdType, data] of Object.entries(sp.rtdTypes || {})) {
@@ -923,18 +961,35 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
   return result;
 }
 
-export async function readAndParseSiteProfile(resource: string) { //used by HareScript
-  return await parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(await readFileSync(toFSPath(resource), 'utf8')));
+export async function readAndParseSiteProfile(resource: string, options?: { overridetext?: string }) { //used by HareScript
+  const text = options?.overridetext ?? readFileSync(toFSPath(resource), 'utf8');
+  return parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(text));
 }
 
 export async function validateSiteProfile(resourceName: string, content: Sp.SiteProfile, result: ValidationState): Promise<void> {
-  const res = await parseSiteProfile(resourceName, content, { onTid: result.onTid });
+  const res = parseSiteProfile(resourceName, content, { onTid: result.onTid });
   for (const error of res.errors)
-    result.errors.push({ resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
+    result.messages.push({ type: "error", resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
   for (const warning of res.warnings)
-    result.warnings.push({ resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
+    result.messages.push({ type: "warning", resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
   for (const hint of res.hints)
-    result.hints.push({ resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+    result.messages.push({ type: "hint", resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+}
+
+export async function getOfflineSiteProfiles(keepSources: boolean, overrides: Array<{ name: string; text: string }>) {
+  return await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").getOfflineSiteProfiles(keepSources, overrides) as {
+    allcontenttypes: CSPContentType[];
+    siteprofiles: Array<{
+      resourcename: string;
+      siteprofile: ParsedSiteProfile;
+      siteprofileids: number[];
+    }>;
+    result: {
+      applies: CSPApplyRule[];
+      webrules: CSPWebRule[];
+      addtocatalogs: CSPAddToCatalog[];
+    };
+  };
 }
 
 validateSiteProfile satisfies ContentValidationFunction<Sp.SiteProfile>;

@@ -87,7 +87,7 @@ PUBLIC STATIC OBJECTTYPE ChooseType EXTEND TolliumScreenBase <
     RETURN SELECT primarygroup := RecordBinaryGet(csp.grouptypes, [ namespace := ingroup ], [ "NAMESPACE" ])
                                   ?? RecordBinaryGet(csp.grouptypes, [ namespace := whconstant_defaultwidgetgroup ], [ "NAMESPACE" ])
                 , rowkey := namespace
-                , title :=         GetTid(title)
+                , title :=         GetTid(title) ?? namespace
                 , tolliumicon
                 , module :=        GetModuleNameFromResourcePath(siteprofile)
              FROM csp.contenttypes

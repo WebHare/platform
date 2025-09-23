@@ -5,16 +5,16 @@ import { CSPMemberType, type CSPContentType, type CSPMember } from "@webhare/whf
 import { nameToCamelCase, throwError } from "@webhare/std";
 import { membertypenames } from "@webhare/whfs/src/describe";
 import { codecs, type MemberType, type TypeCodec } from "@webhare/whfs/src/codecs";
-import { loadlib } from "@webhare/harescript";
+import { getOfflineSiteProfiles } from "@mod-publisher/lib/internal/siteprofiles/parser";
 
 class WHFSCompileContext {
   private contenttypes?: Promise<CSPContentType[]>;
 
   private async loadContentTypes() {
     //FIXME prepare to write this to an extract, but our extract might cache database ids currently? we might need two extracts, one for the Declared situation (based on modules) and one for the Actual situation (based on database). or just cache in process
-    const csp = await loadlib("mod::publisher/lib/internal/siteprofiles/compiler.whlib").getOfflineSiteProfiles();
+    const csp = await getOfflineSiteProfiles(false, []);
     // console.log(csp);
-    return csp.allcontenttypes as CSPContentType[];
+    return csp.allcontenttypes;
   }
 
   async getContentTypes() {

@@ -10,7 +10,7 @@ export function __decodeForHareScript(text: string, mode: "json" | "snakecase") 
   if (mode === "json")
     return JSON.stringify(result);
   else if (mode === "snakecase")
-    return toSnakeCase(result);
+    return toSnakeCase(result as object);
   else
     throw new Error("Invalid mode");
 }

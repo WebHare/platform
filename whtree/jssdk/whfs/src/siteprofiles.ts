@@ -434,7 +434,7 @@ export type CSPApplyRule = {
   webdesign: CSPWebDesign | null;
   webtoolsformrules: CSPWebtoolsFormRule[];
 } & {  /** Custom nodes/plugins */
-  [k in `yml_${string}`]?: Record<string, unknown>;
+  [k in `yml_${string}`]?: Array<Record<string, unknown>>;
 };
 
 export interface CSPSiteFilter {

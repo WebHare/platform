@@ -14,6 +14,7 @@ import { generateTasks } from "./gen_extract_tasks";
 import { generateHooks } from "./gen_extract_hooks";
 import { getAllModuleWRDSchemas } from "./gen_wrd";
 import { generateUserRights } from "./gen_extract_userrights";
+import { generatePlugins } from "./gen_plugins";
 
 const DefaultMaxBodySize = 64 * 1024;
 export interface AssetPack {
@@ -346,6 +347,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extracts",
       generator: (context: GenerateContext) => generateUserRights(context)
+    },
+    {
+      path: `extracts/plugins.json`,
+      module: "platform",
+      type: "extracts",
+      generator: (context: GenerateContext) => generatePlugins(context)
     }
   ];
 }

@@ -58,28 +58,36 @@ function recodeObject(inp: object) {
   return !isDate(inp) && !isMoney(inp) && !isBlob(inp) && !isTemporalInstant(inp) && !isTemporalPlainDate(inp) && !isTemporalPlainDateTime(inp) && !isTemporalZonedDateTime(inp);
 }
 
+function recursiveToSnakeCase<T>(inp: T): ToSnakeCase<T> {
+  if (Array.isArray(inp))
+    return inp.map(toSnakeCase) as ToSnakeCase<T>;
+  if (inp && typeof inp === "object" && recodeObject(inp))
+    return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToSnakeCase(key), recursiveToSnakeCase(value)])) as ToSnakeCase<T>;
+  return inp as ToSnakeCase<T>;
+}
+
+function recursiveToCamelCase<T>(inp: T): ToCamelCase<T> {
+  if (Array.isArray(inp))
+    return inp.map(toCamelCase) as ToCamelCase<T>;
+  if (inp && typeof inp === "object" && recodeObject(inp))
+    return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToCamelCase(key), recursiveToCamelCase(value)])) as ToCamelCase<T>;
+  return inp as ToCamelCase<T>;
+}
+
 /** Convert all keys to camel case recursively
  * @param inp - Array or object to convert
  * @returns Converted object
 */
-export function toSnakeCase<T>(inp: T): ToSnakeCase<T> {
-  if (Array.isArray(inp))
-    return inp.map(toSnakeCase) as ToSnakeCase<T>;
-  if (inp && typeof inp === "object" && recodeObject(inp))
-    return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToSnakeCase(key), toSnakeCase(value)])) as ToSnakeCase<T>;
-  return inp as ToSnakeCase<T>;
+export function toSnakeCase<T extends object | object[] | null>(inp: T): ToSnakeCase<T> {
+  return recursiveToSnakeCase(inp);
 }
 
 /** Convert all keys to snake case recursively
  * @param inp - Array or object to convert
  * @returns Converted object
 */
-export function toCamelCase<T>(inp: T): ToCamelCase<T> {
-  if (Array.isArray(inp))
-    return inp.map(toCamelCase) as ToCamelCase<T>;
-  if (inp && typeof inp === "object" && recodeObject(inp))
-    return Object.fromEntries(Object.entries(inp).map(([key, value]) => [nameToCamelCase(key), toCamelCase(value)])) as ToCamelCase<T>;
-  return inp as ToCamelCase<T>;
+export function toCamelCase<T extends object | object[] | null>(inp: T): ToCamelCase<T> {
+  return recursiveToCamelCase(inp);
 }
 
 // TODO make this a quack if we're sure Uint8array is what we want to support - this is here basically to give Buffer support to be compatible with hscompat' compare

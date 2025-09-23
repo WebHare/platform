@@ -39,12 +39,8 @@ export interface ValidationMessageWithType extends ValidationMessage {
 }
 
 export type ValidationResult = {
-  /** List of hints */
-  hints: ValidationMessage[];
-  /** List of warnings */
-  warnings: ValidationMessage[];
-  /** List of errors */
-  errors: ValidationMessage[];
+  /** List of messages */
+  messages: ValidationMessageWithType[];
   /** List of tids */
   tids: ValidationTid[];
   /** Event masks for invalidation of this validation result */
@@ -69,9 +65,7 @@ export interface ValidationTid extends ResourceLocation {
 }
 
 export class ValidationState {
-  warnings = new Array<ValidationMessage>;
-  errors = new Array<ValidationMessage>;
-  hints = new Array<ValidationMessage>;
+  messages = new Array<ValidationMessageWithType>;
   icons: unknown[] = [];
   tids = new Array<ValidationTid>;
 
@@ -83,7 +77,7 @@ export class ValidationState {
   };
 
   finalize(): ValidationResult {
-    return pick(this, ["warnings", "errors", "icons", "tids", "hints"]);
+    return pick(this, ["messages", "icons", "tids"]);
   }
 }
 
@@ -128,7 +122,7 @@ export async function runJSBasedValidator(content: WebHareBlob, resource: string
   if (resource.endsWith(".yml") || resource.endsWith(".yaml")) {
     await runYAMLBasedValidator(result, content, resource, options);
   } else {
-    result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No validator available for '${resource}'`, source: "validation", metadata: {} });
+    result.messages.push({ resourcename: resource, line: 0, col: 0, message: `No validator available for '${resource}'`, source: "validation", metadata: {}, type: "hint" });
   }
   return result.finalize();
 }
@@ -145,13 +139,14 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
   const sourcedoc = YAML.parseDocument(data, { strict: true, version: "1.2", prettyErrors: false, lineCounter: counters });
 
   if (sourcedoc.errors.length) {
-    result.errors.push(...sourcedoc.errors.map(e => {
-      const pos = (e as YAMLParseError).pos?.length === 2 ? counters.linePos((e as YAMLParseError).pos[0]) : null;
+    result.messages.push(...sourcedoc.errors.map((e: YAMLParseError): ValidationMessageWithType => {
+      const pos = e.pos?.length === 2 ? counters.linePos(e.pos[0]) : null;
       return {
+        type: "error",
         resourcename: resource,
         line: pos?.line || 0,
         col: pos?.col || 0,
-        message: (e as Error)?.message ?? "Unknown error",
+        message: e.message,
         source: "validation"
       };
     }));
@@ -169,7 +164,7 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
       ajv.compile(yamldata as JSONSchemaObject);
     } catch (e) {
       //but we won't get errorinfo this way. well at least we get *some* indication the schema is broken
-      result.errors.push({ resourcename: resource, line: 0, col: 0, message: (e as Error)?.message || "Unknown error", source: "validation", metadata: {} });
+      result.messages.push({ type: "error", resourcename: resource, line: 0, col: 0, message: (e as Error)?.message || "Unknown error", source: "validation", metadata: {} });
     }
     return;
   }
@@ -190,7 +185,8 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
       for (const error of validator.compiledSchemaValidator.errors || []) {
         const pointsto = sourcedoc.getIn(pointerToYamlPath(error.instancePath)) as { range?: [number] } | undefined;
         const pos = pointsto?.range?.[0] ? counters.linePos(pointsto.range[0]) : null;
-        result.errors.push({
+        result.messages.push({
+          type: "error",
           resourcename: resource,
           line: pos?.line || 0,
           col: pos?.col || 0,
@@ -208,6 +204,6 @@ export async function runYAMLBasedValidator(result: ValidationState, content: We
     return;
   }
 
-  result.hints.push({ resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
+  result.messages.push({ type: "hint", resourcename: resource, line: 0, col: 0, message: `No YAML validator available for '${resource}'`, source: "validation", metadata: {} });
   return;
 }

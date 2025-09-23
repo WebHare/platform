@@ -67,7 +67,6 @@ export async function deleteTestModule(name: string) {
 
 export async function parseAndValidateModuleDefYMLText(yaml: string, { module = "webhare_testsuite" } = {}): Promise<ModDefYML> {
   const validationresult = await runJSBasedValidator(WebHareBlob.from(yaml), `mod::${module}/moduledefinition.yml`);
-  test.eq([], validationresult.errors);
-  test.eq([], validationresult.warnings);
+  test.eq([], validationresult.messages);
   return parseModuleDefYMLText(module, yaml);
 }

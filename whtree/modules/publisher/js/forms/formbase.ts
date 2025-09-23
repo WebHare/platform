@@ -113,7 +113,7 @@ interface ValidationOptions {
   iffailedbefore?: boolean;
 }
 
-interface ValidationResult {
+interface FormValidationResult {
   /// True if the fields successfuly validated
   valid: boolean;
   failed: HTMLElement[];
@@ -123,7 +123,7 @@ interface ValidationResult {
 interface ValidationQueueElement {
   limitset?: LimitSet;
   options?: ValidationOptions;
-  defer: PromiseWithResolvers<ValidationResult>;
+  defer: PromiseWithResolvers<FormValidationResult>;
 }
 
 interface PageState {
@@ -161,7 +161,7 @@ function getPageIdx(state: PageState, page: number | HTMLElement) {
   return idx;
 }
 
-function getErrorFields(validationresult: ValidationResult) {
+function getErrorFields(validationresult: FormValidationResult) {
   return validationresult.failed.map(field => getFieldName(field) || field.dataset.whFormGroupFor || "?")
     .sort()
     .filter((value, index, self) => self.indexOf(value) === index) //unique filter
@@ -1559,14 +1559,14 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       @param limitset - A single element, nodelist or array of elements to validate (or their children)
       @returns a promise that will fulfill when the form is validated
        */
-  async validate(limitset?: LimitSet, options?: ValidationOptions): Promise<ValidationResult> {
+  async validate(limitset?: LimitSet, options?: ValidationOptions): Promise<FormValidationResult> {
     if (debugFlags.fdv) {
       console.warn(`[fdv] Validation of form was skipped`);
       return { valid: true, failed: [], firstfailed: null };
     }
 
     //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
-    const defer = Promise.withResolvers<ValidationResult>();
+    const defer = Promise.withResolvers<FormValidationResult>();
     this.validationqueue.push({ defer, limitset, options });
     if (this.validationqueue.length === 1)
       this._executeNextValidation(); //we're first on the queue so process it
@@ -1587,7 +1587,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
     }
   }
 
-  async _executeQueuedValidation(limitset?: LimitSet, options?: ValidationOptions): Promise<ValidationResult> {
+  async _executeQueuedValidation(limitset?: LimitSet, options?: ValidationOptions): Promise<FormValidationResult> {
     const original = limitset;
     if (!limitset)  //validate entire form if unspecified what to validate
       limitset = this._getFieldsToValidate();
@@ -1629,7 +1629,7 @@ export default class FormBase<DataShape extends object = Record<string, unknown>
       const validationresults = await Promise.all(tovalidatelist.map(fld => this._validateSingleFieldOurselves(fld)));
       //remove the elements from validate for which the promise failed
       const failed = tovalidatelist.filter((fld, idx) => !validationresults[idx]);
-      const result: ValidationResult = {
+      const result: FormValidationResult = {
         valid: failed.length === 0,
         failed: failed,
         firstfailed: null

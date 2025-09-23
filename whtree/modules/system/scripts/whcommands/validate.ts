@@ -23,11 +23,11 @@ run({
 
       const resname = file.startsWith(jssdk) ? `direct::${file}` : toResourcePath(file, { keepUnmatched: true });
       const result = await loadlib("mod::system/lib/validation.whlib").ValidateSingleFileAdHoc(resname) as ValidationResult;
-      if (result.errors.length)
+      if (result.messages.some(_ => _.type === "error"))
         anyErrors = true;
 
       if (opts.parsed) {
-        if (result.errors.length) {
+        if (anyErrors) {
           console.error("Cannot show parsed version, fix errors first");
         } else if (file.endsWith(".wrdschema.xml")) {
           //FIXME this is just equivalent of 'wh wrd parse-schema' -- what we really want is a parse *without* merging imports

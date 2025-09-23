@@ -72,13 +72,15 @@ PUBLIC RECORD FUNCTION GatherSiteProfiles() {
 
 PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
   RECORD result;
+  RECORD ARRAY overridemap;
   PUBLIC RECORD ARRAY siteprofiles;
   RECORD ARRAY contenttypes;
 
   PUBLIC BOOLEAN debug;
   RECORD ARRAY grouptypes;
 
-  MACRO NEW() {
+  MACRO NEW(RECORD ARRAY overridemap DEFAULTSTO RECORD[]) {
+    this->overridemap := overridemap;
     this->result := [ errors               := RECORD[]
                     , warnings             := RECORD[]
                     , hints                := RECORD[]
@@ -115,7 +117,13 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
     IF(existingpos=-1) {
       existingpos := Length(this->siteprofiles);
 
-      loaded := GetParsedSiteProfile(name);
+      RECORD override := SELECT * FROM this->overridemap WHERE overridemap.name = name;
+
+      IF(RecordExists(override))
+        loaded := ParseSiteProfile(name, CELL[ overridetext := override.text ]).value;
+      ELSE
+        loaded := GetParsedSiteProfile(name);
+
       this->result.errors := this->result.errors CONCAT RECORD ARRAY(loaded.errors);
       this->result.warnings := this->result.warnings CONCAT RECORD ARRAY(loaded.warnings);
       this->result.rtdtypes := this->result.rtdtypes CONCAT RECORD ARRAY(loaded.rtdtypes);
@@ -537,9 +545,12 @@ PUBLIC ASYNC FUNCTION AsyncRecompileSiteProfiles()
 }
 
 //Compile the siteprofiles offline. This is a helper for gen_whfs especially during finalize-webhare
-PUBLIC RECORD FUNCTION GetOfflineSiteProfiles() {
+PUBLIC RECORD FUNCTION GetOfflineSiteProfiles(BOOLEAN keepsources, RECORD ARRAY overridemap) {
   RECORD gathersp := GatherSiteProfiles();
-  OBJECT corecompiler := NEW CoreRecompileContext;
+  OBJECT corecompiler := NEW CoreRecompileContext(overridemap);
   RECORD compileresult := corecompiler->CompileSiteprofiles(gathersp);
-  RETURN compileresult;
+  RETURN CELL[
+    ...compileresult,
+    siteprofiles := keepsources ? corecompiler->siteprofiles : RECORD[]
+  ];
 }

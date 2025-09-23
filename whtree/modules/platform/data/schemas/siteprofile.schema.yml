@@ -87,20 +87,20 @@ $defs:
       metaType:
         description: Enables this type as a potential WHFS object, eg a file, folder or widget.
         oneOf:
-        - const: instance
-          description: A plain instance used to extend existing objects with additional properties. This is the default
-        - const: dataFile
-          description: A dataFile combines properties into a single file but cannot be downloaded or published.
-        - const: upload
-          description: A filetype that has 'raw' content that can be uploaded and downloaded, eg a PDF, Word Document or HTML file
-        - const: page
-          description: "A filetype whose content/properties are fully managed in Webare and is usually managed in a workflow (ie: draft/publish)"
-        - const: blockWidget
-          description: A top-level RTD widget
-        - const: inlineWidget
-          description: An inline RTD widget (can be embedded into paragraphs)
-        - const: folder
-          description: A folder stores other folders and files.
+          - const: instance
+            description: A plain instance used to extend existing objects with additional properties. This is the default
+          - const: dataFile
+            description: A dataFile combines properties into a single file but cannot be downloaded or published.
+          - const: upload
+            description: A filetype that has 'raw' content that can be uploaded and downloaded, eg a PDF, Word Document or HTML file
+          - const: page
+            description: "A filetype whose content/properties are fully managed in Webare and is usually managed in a workflow (ie: draft/publish)"
+          - const: blockWidget
+            description: A top-level RTD widget
+          - const: inlineWidget
+            description: An inline RTD widget (can be embedded into paragraphs)
+          - const: folder
+            description: A folder stores other folders and files.
 
   DataFileType:
     type: object
@@ -112,7 +112,7 @@ $defs:
       apply:
         $ref: "#/$defs/ApplyRule"
 
-  InstanceType:  # InstanceType is also implicitly selected without a metaType: as it's the only to not require it. Do *not* add other required: properties here or you'll implicitly require whfsType
+  InstanceType: # InstanceType is also implicitly selected without a metaType: as it's the only to not require it. Do *not* add other required: properties here or you'll implicitly require whfsType
     type: object
     properties:
       metaType:
@@ -472,6 +472,8 @@ $defs:
         $ref: "#/$defs/ApplyScheduleTimedTasks"
       scheduleManagedTasks:
         $ref: "#/$defs/ApplyScheduleManagedTasks"
+      debugSettings: # customnode http://www.webhare.net/xmlns/publisher/siteprofile#debugsettings
+        $ref: "#/$defs/ApplyDebugSettings"
 
   MatchOrRegExp:
     oneOf:
@@ -878,6 +880,36 @@ $defs:
       properties:
         task:
           type: string
+
+  ApplyDebugSettings:
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      required: [groupTitle]
+      properties:
+        groupTitle:
+          description: Debug settings option group title
+          type: string
+        userWarning:
+          description: A warning shown to users when they open the debug settings
+          type: string
+        flags:
+          description: The debug option tags (often three-letter debug flag for builtin flags)
+          type: object
+          additionalProperties: false
+          patternProperties:
+            "^[a-z][a-z0-9_-]+$":
+              type: object
+              additionalProperties: false
+              required: [title]
+              properties:
+                title:
+                  description: The title of the debug option shown to the user
+                  type: string
+                requireRight:
+                  description: Require a specific right to set this option. Defaults to system:sysop. Rights that require a target are checked against the fsobject for which the settings are opened
+                  type: string
 
   Component:
     type: object

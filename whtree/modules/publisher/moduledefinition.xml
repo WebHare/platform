@@ -597,7 +597,7 @@
     <customnode name="mswordconversion" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="debugsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="debugSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetDebugSettingsAsYaml" isarray="true" />
     <customnode name="webtools" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />  <!-- legacy, remove once webtools/poll is gone -->
-    <customnode name="pollsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="pollSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetPollSettingsAsYaml" isarray="true" />
+    <customnode name="pollsettings" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" yamlproperty="pollSettings" toyaml="mod::platform/lib/internal/sp-parsers.whlib#GetPollSettingsAsYaml"  />
     <customnode name="extendformeditor" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
     <customnode name="allowwidgettype" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" />
 

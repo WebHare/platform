@@ -314,7 +314,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
   RECORD FUNCTION ReadFileOrFolderType(RECORD ctype, OBJECT ftype)
   {
     ctype.tolliumicon := ftype->GetAttribute("tolliumicon") ?? ftype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
-    ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title") ?? ":" || ctype.namespace;
+    ctype.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ftype, "title");
     this->AddIcon(ftype, ctype.tolliumicon);
 
     OBJECT dyninfo := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "dynamicexecution"));
@@ -536,7 +536,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     typeinfo.namespace := scopedtypeinfo.namespace;
     typeinfo.siteprofile := this->filename;
     typeinfo.line := ctype->linenum;
-    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
+    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title");
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.cloneoncopy := set_cloneoncopy;
     typeinfo.cloneonarchive := set_cloneoncopy;
@@ -1356,7 +1356,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     {
       RECORD typeinfo :=
           [ namespace :=          gtype->GetAttribute("namespace")
-          , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title") ?? ":" || gtype->GetAttribute("namespace")
+          , title :=              ParseXMLTIDPtr(this->filename, this->toplevelgid, gtype, "title")
           , tolliumicon :=        gtype->GetAttribute("tolliumicon") ?? gtype->GetAttribute("icon") //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
           , members :=            DEFAULT RECORD ARRAY
           ];
@@ -1403,16 +1403,16 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 //it should be save to persist this for the current job, as compilation/validation jobs generally dont run long, but a full siteprof recompiler can otherwise build this object 100s of times (341 for me)
 OBJECT parametersingleton;
 
-PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  IF(filename LIKE "*.yml" OR filename LIKE "*.yaml")
-    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->readAndParseSiteProfile(filename)) //CallJS is not availble during bootup
+PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
+                              , overridetext := ""
+                              ], options, [ optional := ["overridetext"]]);
+
+  IF(filename LIKE "*.yml" OR filename LIKE "*.yaml" OR CellExists(options, "overridetext"))
+    RETURN [ value := WaitForPromise(ImportJS("./parser.ts")->readAndParseSiteProfile(filename, PickCells(options, ["overridetext"]))) //CallJS is not availble during bootup
            , ttl := 60*60*1000
            , eventmasks := GetResourceEventMasks([filename])
            ];
-
-  options := ValidateOptions( [ xmldoc := DEFAULT OBJECT
-                              ], options);
 
   RECORD siteprofdata := [ name := filename
                          , applysiteprofiles := DEFAULT STRING ARRAY
