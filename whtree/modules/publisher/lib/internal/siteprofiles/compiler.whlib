@@ -505,8 +505,9 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
 
   __SetCSPCacheFromSourceData(response.fullcspdata);
 
-  IF(Length(response.messages)>0)
-    LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.messages ]);
+  RECORD ARRAY errors := SELECT * FROM response.messages WHERE type = "error";
+  IF(Length(errors)>0)
+    LogError("publisher:siteprofiles", "siteprofilecompilation-error", CELL[ errors ]);
 
   //async update webserver check/indices
   GetPrimary()->BeginWork();
