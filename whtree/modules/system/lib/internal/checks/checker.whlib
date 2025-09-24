@@ -35,7 +35,7 @@ PUBLIC RECORD FUNCTION GetWHVersionInfo()
   versionname := versionname || Left(versioninfo.committag,7) || ")";
 
   RETURN CELL [ versionname
-              , built := TrimWhitespace(`${versioninfo.builddate} ${versioninfo.buildtime}`)
+              , built := TrimWhitespace(`${versioninfo.builddatetime}`)
               ];
 }
 

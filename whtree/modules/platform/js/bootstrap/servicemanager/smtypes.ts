@@ -10,9 +10,7 @@ export const defaultShutDownStage = Stage.Terminating;
 export type WebHareVersionFile = {
   basedataroot: string;
   branch: string;
-  builddate: string;
   builddatetime: string;
-  buildtime: string;
   committag: string;
   docker: boolean;
   installationroot: string;

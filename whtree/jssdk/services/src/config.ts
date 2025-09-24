@@ -20,8 +20,6 @@ export type BackendConfiguration = {
     branch: string;
     origin: string;
     builddatetime: string;
-    builddate: string;
-    buildtime: string;
   };
   /** The data path, ending with a slash. Usually /opt/whdata/. */
   dataRoot: string;

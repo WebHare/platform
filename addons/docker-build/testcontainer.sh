@@ -165,8 +165,7 @@ create_container()
     source "$BUILDINFOFILE"
     echo "WebHare version info:
       committag=$committag
-      builddate=$builddate
-      buildtime=$buildtime
+      builddatetime=$builddatetime
       branch=$branch
       version=$version"
     rm "$BUILDINFOFILE"
