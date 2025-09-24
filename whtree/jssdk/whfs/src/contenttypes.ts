@@ -19,28 +19,34 @@ import { CSPMemberType } from "./siteprofiles";
 export interface WHFSTypes {
 }
 
+/** All (short) names of the WHFS types in this installation */
+export type WHFSType = keyof WHFSTypes;
+
 export type WHFSMetaType = "fileType" | "folderType" | "widgetType";
 
-export type UntypedInstanceData = { [key in string]: CodecGetMemberType };
+/** Generic instance data format */
+export type InstanceData = { [key in string]: CodecGetMemberType };
 
+/** Generic instance source format */
 export type InstanceSource = {
-  whfsType: keyof WHFSTypes | string;
+  whfsType: WHFSType | string;
   data?: { [key in string]?: CodecImportMemberType };
 };
 
+/** Generic instance export format */
 export type InstanceExport = {
-  whfsType: keyof WHFSTypes | string;
+  whfsType: WHFSType | string;
   data?: { [key in string]?: CodecExportMemberType };
 };
 
-// export type WHFSInstanceData = {
-//   whfsType: keyof WHFSTypes | string;
-//   [key: string]: unknown;
-// };
-//
-export type TypedWHFSInstanceData = { [K in keyof WHFSTypes]: WHFSTypes[K]["GetFormat"] }[keyof WHFSTypes];
-export type TypedWHFSInstanceExportData = { [K in keyof WHFSTypes]: { whfsType: K; data: WHFSTypes[K]["ExportFormat"] } }[keyof WHFSTypes];
-export type TypedWHFSInstanceSetData = { [K in keyof WHFSTypes]: { whfsType: K; data: WHFSTypes[K]["SetFormat"] } }[keyof WHFSTypes];
+/** The type of the 'data' property of an instance of a specific type */
+export type TypedInstanceData<Type extends WHFSType> = WHFSTypes[Type]["GetFormat"];
+
+/** The result of a .export() operation on an instance of a specific type */
+export type TypedInstanceExport<Type extends WHFSType> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["ExportFormat"] } : never;
+
+/** The input of buildInstance for an instance of a specific type */
+export type TypedInstanceSource<Type extends WHFSType> = Type extends string ? { whfsType: Type; data?: WHFSTypes[Type]["SetFormat"] } : never;
 
 type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
 
@@ -57,6 +63,7 @@ export interface WHFSTypeBaseInfo {
   id: number | null;
   title?: string;
   namespace: string;
+  scopedType: string | null;
   members: WHFSTypeMember[];
 }
 
@@ -379,7 +386,7 @@ export async function visitResources(callback: VisitCallback, scope: {
       const update = await callback(
         {
           fsObject: result.fs_object,
-          fsType: typeInfo?.namespace,
+          fsType: typeInfo?.scopedType ?? typeInfo?.namespace,
           fieldType: result.type === CSPMemberType.File ? "file"
             : result.type === CSPMemberType.RichTextDocument ? "richTextDocument"
               : result.type === CSPMemberType.ComposedDocument ? "composedDocument"
@@ -409,9 +416,13 @@ export async function visitResources(callback: VisitCallback, scope: {
   return ''; //done!
 }
 
-export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
-export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
-export function whfsType(ns: string): WHFSTypeAccessor<object, object, object> {
+export function whfsType<const WHFSTypeName extends keyof WHFSTypes | string & {}>(ns: string extends WHFSTypeName ? WHFSTypeName : WHFSType): [WHFSTypeName] extends [WHFSType] ?
+  WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]> :
+  WHFSTypeAccessor<InstanceData, InstanceSource["data"] & object, InstanceExport["data"] & object> {
+
+  //export function whfsType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName): WHFSTypeAccessor<WHFSTypes[WHFSTypeName]["GetFormat"], WHFSTypes[WHFSTypeName]["SetFormat"], WHFSTypes[WHFSTypeName]["ExportFormat"]>;
+  //export function whfsType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>>;
+  //export function whfsType(ns: string): WHFSTypeAccessor<object, object, object> {
   //note that as we're sync, we can't actually promise to validate whether the type exists
   return new WHFSTypeAccessor(ns);
 }
@@ -425,9 +436,6 @@ export function openType<WHFSTypeName extends keyof WHFSTypes>(ns: WHFSTypeName)
 export function openType<GetFormat extends object = Record<string, unknown>>(ns: string): WHFSTypeAccessor<GetFormat, GetFormat, GetFormat>;
 
 export function openType(ns: string): WHFSTypeAccessor<Record<string, unknown>, Record<string, unknown>, Record<string, unknown>> {
-  //note that as we're sync, we can't actually promise to validate whether the type xists
+  //note that as we're sync, we can't actually promise to validate whether the type exists
   return new WHFSTypeAccessor(ns);
 }
-
-/** The result of a .get() operation */
-export type WHFSTypeGetResult<type extends keyof WHFSTypes> = WHFSTypes[type]["GetFormat"];

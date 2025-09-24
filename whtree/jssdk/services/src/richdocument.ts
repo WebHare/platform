@@ -1,12 +1,13 @@
 import { omit, throwError, typedEntries } from "@webhare/std";
 import { describeWHFSType } from "@webhare/whfs";
-import type { InstanceExport, InstanceSource, UntypedInstanceData, WHFSTypeInfo } from "@webhare/whfs/src/contenttypes";
+import type { InstanceExport, InstanceSource, TypedInstanceData, TypedInstanceExport, InstanceData, WHFSType, WHFSTypeInfo, WHFSTypes } from "@webhare/whfs/src/contenttypes";
 import { exportRTDToRawHTML } from "@webhare/hscompat/src/richdocument";
 import { getWHType, isPromise } from "@webhare/std/src/quacks";
 import { exportData, importData } from "@webhare/whfs/src/codecs";
 import type * as test from "@webhare/test";
 import { exportIntExtLink, importIntExtLink, isResourceDescriptor, ResourceDescriptor, type ExportedResource, type ExportOptions } from "./descriptor";
 import { IntExtLink, type ExportedIntExtLink } from "./intextlink";
+import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools/src/utility-types";
 
 /* Due to the recursive nature of the RTD types, the recursive parts of exportable and buildable RTD types
     are defined separately, so TypeScript can verify that the export type is assignable to the build type,
@@ -220,18 +221,18 @@ class Instance {
   private static "__ $whTypeSymbol" = "Instance";
 
   #typeInfo: WHFSTypeInfo;
-  #data: UntypedInstanceData;
+  #data: InstanceData;
 
-  constructor(typeinfo: WHFSTypeInfo, data: UntypedInstanceData) {
+  constructor(typeinfo: WHFSTypeInfo, data: InstanceData) {
     this.#typeInfo = typeinfo;
     this.#data = data;
   }
 
-  get whfsType() {
-    return this.#typeInfo.namespace;
+  get whfsType(): string {
+    return this.#typeInfo.scopedType ?? this.#typeInfo.namespace;
   }
 
-  get data() {
+  get data(): InstanceData {
     return this.#data;
   }
 
@@ -242,7 +243,31 @@ class Instance {
       ...(Object.keys(data).length ? { data } : {}),
     };
   }
+
+  is<Type extends WHFSType>(type: Type | string): this is TypedInstance<Type> {
+    return this.#typeInfo.scopedType === type || this.#typeInfo.namespace === type;
+  }
+
+  as<Type extends WHFSType>(type: Type): Instance & TypedInstance<Type> {
+    if (this.is<Type>(type))
+      return this as Instance & TypedInstance<Type>;
+    throw new Error(`Instance is not of type ${type}`);
+  }
+
+  assertType<Type extends WHFSType>(type: Type): asserts this is TypedInstance<Type> {
+    if (!this.is<Type>(type))
+      throw new Error(`Instance is not of type ${type}`);
+  }
 }
+
+interface TypedInstanceImpl<Type extends WHFSType> extends Instance {
+  get whfsType(): Type;
+  get data(): TypedInstanceData<Type>;
+  export(options?: ExportOptions): Promise<TypedInstanceExport<Type>>;
+}
+
+// Distribute over WHFSType
+export type TypedInstance<Type extends WHFSType> = Type extends WHFSType ? TypedInstanceImpl<Type> : never;
 
 function isTagEntry<E extends [string, unknown], T extends string>(entry: E, tags: readonly T[]): entry is E & [(T | `${T}.${string}`), unknown] {
   return tags.includes(entry[0].split('.')[0] as T);
@@ -283,7 +308,9 @@ function mapMaybePromise<T, U>(value: T | Promise<T>, cb: (arg: T) => U): U | Pr
 }
 
 /** @deprecated use Instance instead */
-type WidgetInterface = Pick<Instance, "whfsType" | "data" | "export">;
+type WidgetInterface = { whfsType: string; data: InstanceData; export(): Promise<InstanceExport> };
+
+/** A Rich Text Document (RTD) */
 
 export class RichTextDocument {
   private static "__ $whTypeSymbol" = "RichTextDocument";
@@ -578,17 +605,32 @@ export async function buildRTD(source: RTDSource): Promise<RichTextDocument> {
   return outdoc;
 }
 
-export async function buildInstance(data: InstanceSource): Promise<Instance> {
+/* The `[Type] extends [symbol] ? Type : ....;` pattern makes sure the Type argument captures the type of the argument , but
+   the actual type the argument is checked against is the second part of the conditional - without the actual type influencing the check.
+*/
+
+/** Constructs an Instance from source data. If the whfsType is a constant, an instance of that type is returned. The source data won't
+ * be type-checked at compile-time if the whfsType has type 'string'.
+ */
+export async function buildInstance<
+  const Type extends { whfsType: string; data?: object }
+>(data: ([Type] extends [symbol] ?
+  Type :
+  (string extends Type["whfsType"] ?
+    InstanceSource : {
+      whfsType: WHFSType;
+      data?: NoInfer<Type["whfsType"] extends WHFSType ? DisallowExtraPropsRecursive<Type["data"] & {}, WHFSTypes[Type["whfsType"]]["SetFormat"]> : InstanceSource["data"]>;
+    }))): Promise<[Type] extends [{ whfsType: WHFSType }] ? TypedInstance<Type["whfsType"]> : Instance> {
   const typeinfo = await describeWHFSType(data.whfsType);
   for (const key of (Object.keys(data)))
     if (key !== "whfsType" && key !== "data")
       throw new Error(`Invalid key '${key}' in instance source, only 'whfsType' and 'data' allowed`);
-  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true }));
+  return new Instance(typeinfo, await importData(typeinfo.members, data.data || {}, { addMissingMembers: true })) as [Type] extends [{ whfsType: WHFSType }] ? TypedInstance<Type["whfsType"]> : Instance;
 }
 
 /** @deprecated use buildInstance */
 export async function buildWidget(ns: string, data?: object): Promise<WidgetInterface> {
-  return buildInstance({ whfsType: ns, data: data as UntypedInstanceData });
+  return buildInstance({ whfsType: ns, data } as InstanceSource);
 }
 
 export type { WidgetInterface as Widget, Instance };
@@ -604,4 +646,15 @@ function verifyTypes() {
   // The export type and inMemory type should be assignable to the build type
   true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"export">>;
   true satisfies test.Assignable<RTDSource, RTDBaseBlocks<"inMemory">>;
+
+  // another test for the widget type
+  ({} as RTDBaseWidget<"inMemory"> satisfies RTDBaseWidget<"build">); //type check
+  ({} as RTDBaseWidget<"export"> satisfies RTDBaseWidget<"build">); //type check
+  ({} as RTDBaseInlineItem<"export"> satisfies RTDBaseInlineItem<"build">); //type check
+  const x = {} as RTDBaseInlineItem<"export">;
+  const y: RTDBaseInlineItem<"build"> = x;
+  console.log(y);
+
+  ({} as RTDExport) satisfies RTDSource;
+
 }

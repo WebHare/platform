@@ -78,7 +78,7 @@ function recursiveToCamelCase<T>(inp: T): ToCamelCase<T> {
  * @param inp - Array or object to convert
  * @returns Converted object
 */
-export function toSnakeCase<T extends object | object[] | null>(inp: T): ToSnakeCase<T> {
+export function toSnakeCase<T extends object | object[] | null | undefined>(inp: T): ToSnakeCase<T> {
   return recursiveToSnakeCase(inp);
 }
 
@@ -86,7 +86,7 @@ export function toSnakeCase<T extends object | object[] | null>(inp: T): ToSnake
  * @param inp - Array or object to convert
  * @returns Converted object
 */
-export function toCamelCase<T extends object | object[] | null>(inp: T): ToCamelCase<T> {
+export function toCamelCase<T extends object | object[] | null | undefined>(inp: T): ToCamelCase<T> {
   return recursiveToCamelCase(inp);
 }
 

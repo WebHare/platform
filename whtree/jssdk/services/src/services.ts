@@ -37,8 +37,8 @@ export { WittyEncodingStyle, type WittyOptions } from "@webhare/witty";
 export { loadWittyResource } from "./witty.ts";
 export { importJSFunction, importJSObject, JSLibraryImporter, signalOnImportChange, signalOnResourceChange, type ImportedJSLibrary as ImportedJSLibrary } from "./resourcetools.ts";
 
-export { buildRTD, buildWidget, RichTextDocument } from "./richdocument";
-export type { Instance, Widget, RTDSource } from "./richdocument";
+export { buildInstance, buildRTD, buildWidget, RichTextDocument } from "./richdocument";
+export type { Instance, TypedInstance, Widget, RTDSource } from "./richdocument";
 
 /** @deprecated use RTDSource instead */
 export type RTDBuildSource = RTDSource;

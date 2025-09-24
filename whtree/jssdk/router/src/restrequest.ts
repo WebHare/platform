@@ -2,6 +2,7 @@ import type { LoggableRecord } from "@webhare/services/src/logmessages";
 import type { WebRequest } from "./request";
 import { createJSONResponse, createWebResponse, type HTTPErrorCode, type HTTPSuccessCode, type WebResponse } from "./response";
 import type { Simplify } from "@mod-system/js/internal/util/algorithms";
+import type { DisallowExtraPropsRecursive } from "@webhare/js-api-tools";
 
 export type RestDefaultErrorBody = { status: HTTPErrorCode; error: string };
 
@@ -34,21 +35,6 @@ export type JSONResponseCodes<Responses extends RestResponsesBase> = HTTPErrorCo
 export type RawResponseCodes<Responses extends RestResponsesBase> = (Responses & { isjson: false })["status"];
 
 export type DefaultRestParams = Record<string, string | number | boolean | string[]>;
-
-/** Given a type Contract and a type Actual that extends Contract, returns Contract with
- * properties that are added in Actual with type never. If used in a function signature like
- * this: `<Actual extends Contact>(param: Actual & DisallowExtraPropsRecursive<Actual, Contract>`,
- * this has the effect that extra properties in Actual will be disallowed compile-time.
- */
-type DisallowExtraPropsRecursive<Actual extends Contract, Contract> = Contract extends unknown[]
-  ? (Actual extends unknown[]
-    ? Array<DisallowExtraPropsRecursive<Actual[number], Contract[number]>>
-    : Contract)
-  : (Contract extends object
-    ? (Actual extends Contract
-      ? { [K in keyof Contract]: K extends keyof Actual ? DisallowExtraPropsRecursive<Actual[K], Contract[K]> : Contract[K] } & { [K in Exclude<keyof Actual, keyof Contract>]: never }
-      : Contract)
-    : Contract);
 
 /** For responses specified in Responses, returns the type of the JSON body */
 export type ResponseForCode<

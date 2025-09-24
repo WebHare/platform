@@ -37,7 +37,7 @@ async function exportWHFSTree(source: WHFSObject, basePath: string, target: Crea
     } else {
 
       //FIXME this needs further generalization, allow 'any' type to be the content.json?
-      const richdata = await whfsType("http://www.webhare.net/xmlns/publisher/richdocumentfile").get(obj.id, { export: true });
+      const richdata = await whfsType("platform:filetypes.richdocumentfile").get(obj.id, { export: true });
       if (richdata.data) {
         await target.addFile(entryPath + "!content.json", stringify(richdata.data, { typed: true, space: options?.space }), obj.modificationDate);
       }

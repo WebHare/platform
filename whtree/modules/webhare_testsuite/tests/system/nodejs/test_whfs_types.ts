@@ -6,11 +6,11 @@ import type { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { generateRandomId, Money, pick } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob } from "@webhare/services";
+import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHareBlob, buildInstance, type Instance, type TypedInstance } from "@webhare/services";
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
-import { buildInstance, type Instance } from "@webhare/services/src/richdocument";
+//import { buildInstance, type Instance, type TypedInstance } from "@webhare/services/src/richdocument";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -87,6 +87,7 @@ async function testMockedTypes() {
   //verify scopedtypenames
   const scopedtype = await whfs.describeWHFSType("webhare_testsuite:global.generic_test_type");
   test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
+  test.eq("webhare_testsuite:global.generic_test_type", scopedtype.scopedType);
 
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
 }
@@ -99,8 +100,16 @@ async function testInstanceData() {
   const fileids = [tmpfolder.id, testfile.id];
 
   //We should be able to use whfsType() on the 'long' namespace URLs but we don't prefer these (or list them in the type map)
+  // @ts-expect-error -- long namespace types are not allowed as constants
   const testtypeScopedName = whfsType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
   test.eqPartial({ int: 0, yesNo: false, aTypedRecord: null }, await testtypeScopedName.get(testfile.id));
+
+  // But compile-type with type 'string' (for use from unknown sources), will run-time check
+  whfsType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" as string);
+
+  // @ts-expect-error -- Non-existing type constants should error at compile-time
+  const testNonExistingType = whfsType("does-not-exist");
+  await test.throws(/No such type: 'does-not-exist'/, () => testNonExistingType.get(testfile.id));
 
   //Using the short TS name should give us type intellisense
   const testtype = whfsType("webhare_testsuite:global.generic_test_type");
@@ -253,7 +262,7 @@ async function testInstanceData() {
       </formdefinitions>`), {
     instances: {
       'Yl98JQ8ztbgW3-KdqLzYBA': await buildInstance({
-        whfsType: 'http://www.webhare.net/xmlns/publisher/richdocumentfile',
+        whfsType: 'platform:filetypes.richdocumentfile',
         data: {
           data: await buildRTD([{ p: "asdf def" }])
         }
@@ -306,12 +315,13 @@ async function testInstanceData() {
     myWhfsRef: null,
     myWhfsRefArray: [],
     myLink: null,
+    // @ts-expect-error -- long namespace types are not allowed as constants, but allowed at run-time
   }, (await buildInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).data);
 
   // Export of default values should result in only the whfsType property (default values should be omitted)
   test.eq({
-    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
-  }, await (await buildInstance({ whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type" })).export());
+    whfsType: "webhare_testsuite:global.generic_test_type",
+  }, await (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).export());
 
   // Test: Simple overwrite
   await testtype.set(testfile.id, {
@@ -500,10 +510,10 @@ async function testInstanceData() {
 
   test.eq({
     anInstance: {
-      whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+      whfsType: "webhare_testsuite:global.generic_test_type",
       data: {
         anInstance: {
-          whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+          whfsType: "webhare_testsuite:global.generic_test_type",
           data: {
             str: "nested",
             aTypedRecord: { intMember: 123 }
@@ -518,7 +528,7 @@ async function testInstanceData() {
           items: [{ text: "A paragraph with a nested instance: " }]
         }, {
           widget: {
-            whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+            whfsType: "webhare_testsuite:global.generic_test_type",
             data: {
               str: "deeply nested",
               aTypedRecord: { intMember: 456 }
@@ -531,7 +541,7 @@ async function testInstanceData() {
       { tag: "p", items: [{ text: "Another paragraph" }] },
       {
         widget: {
-          whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+          whfsType: "webhare_testsuite:global.generic_test_type",
           data: {
             str: "deeply nested",
             aTypedRecord: { intMember: 456 }
@@ -542,6 +552,30 @@ async function testInstanceData() {
   }, pick((await testtype.get(testfile.id, { export: true })), ["aTypedRecord", "anInstance", "rich"]));
 
   await commitWork();
+
+  {
+    // Construct an untyped Instance, verify that `switch (true) { case instance.is(...): }` narrows the type correctly
+    const untypedInstance = await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" as string });
+    switch (true) {
+      case untypedInstance.is("webhare_testsuite:global.generic_test_type"): {
+        untypedInstance.data.str satisfies string;
+      }
+    }
+    // test if as() returns a narrowed type
+    untypedInstance.as("webhare_testsuite:global.generic_test_type") satisfies TypedInstance<"webhare_testsuite:global.generic_test_type">;
+    // It should still be an instance
+    const untypedInstanceAsInstance: Instance = untypedInstance.as("webhare_testsuite:global.generic_test_type");
+    void untypedInstanceAsInstance;
+
+    // test if assertType() also narrows the type correctly
+    const assertedInstance: Instance = await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" as string });
+    assertedInstance.assertType("webhare_testsuite:global.generic_test_type");
+    assertedInstance satisfies TypedInstance<"webhare_testsuite:global.generic_test_type">;
+
+    // test if whfsType().get() returns a typed instance when a (correct) constant whfsType is used
+    const typedInstance = await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" });
+    typedInstance satisfies TypedInstance<"webhare_testsuite:global.generic_test_type">;
+  }
 }
 
 async function testVisitor() {
@@ -586,7 +620,7 @@ async function testVisitor() {
   //Let's actually rewrite
   await whfs.visitResources(async (ctx, resource) => {
     if (ctx.fsObject === aboutAFish.id && ctx.fieldType === "richTextDocument") {
-      test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", ctx.fsType);
+      test.eq("platform:filetypes.richdocumentfile", ctx.fsType);
       test.eq("data", ctx.fieldName);
       return await ResourceDescriptor.fromResource("mod::system/web/tests/snowbeagle.jpg");
     }
