@@ -47,17 +47,15 @@ PUBLIC OBJECTTYPE CustomCheckBase
     @return A record describing the version
     @cell(string) return.version Semantic version (eg 4.26.3)
     @cell(integer) return.versionnum Version as number (eg 42603) - the IFVERSION number which should generally be used for version checks
-    @cell(string) return.builddate Build date (not set for developer's builds)
-    @cell(string) return.buildtime Build time (not set for developer's builds)
-    @cell(string) return.committag Git commit tag (not set for developer's builds)
-    @cell(string) return.branch Git branch of this build (not set for developer's builds)
+    @cell(string) return.builddatetime Build date & time
+    @cell(string) return.committag Git commit tag
+    @cell(string) return.branch Git branch of this build
     @cell(boolean) return.docker True if we're running inside docker
 */
 PUBLIC RECORD FUNCTION GetWebhareVersionInfo()
 {
   RECORD versioninfo := CELL[ ...__SYSTEM_WEBHAREVERSION()
-                            , builddate := ""
-                            , buildtime := ""
+                            , builddatetime := ""
                             , branch := ""
                             , committag := ""
                             , ...GetWebhareBuildInfo()

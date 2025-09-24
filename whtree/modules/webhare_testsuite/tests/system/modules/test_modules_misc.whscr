@@ -55,7 +55,7 @@ MACRO TestConfigurationAndVersion()
   IF(GetWebhareVersionInfo().docker)
   {
     TestEq(40,Length(GetWebhareVersionInfo().committag));
-    TestEq(FALSE, GetWebhareVersionInfo().builddate LIKE '*"*');
+    TestEq(FALSE, GetWebhareVersionInfo().builddatetime LIKE '*"*');
   }
 }
 

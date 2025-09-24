@@ -44,12 +44,10 @@ export function generateNoDBConfig(): NoDBConfig {
     branch: "",
     origin: "",
     builddatetime: "",
-    builddate: "",
-    buildtime: ""
   };
 
   //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
-  const buildinfo_keys = (["committag", "version", "branch", "origin", "builddatetime", "builddate", "buildtime"]) satisfies Array<keyof typeof buildinfo>;
+  const buildinfo_keys = (["committag", "version", "branch", "origin", "builddatetime"]) satisfies Array<keyof typeof buildinfo>;
 
   try {
     const buildinfo_lines = fs.readFileSync(installationRoot + "modules/platform/generated/buildinfo").toString().split("\n");

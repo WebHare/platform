@@ -56,8 +56,6 @@ version="${WEBHARE_VERSION}"
 branch="${BRANCH}"
 origin="${ORIGIN}"
 builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-builddate="$(date +'%Y-%m-%d')"
-buildtime="$(date +'%H:%M:%S')"
 HERE
   mv "${BUILDINFO_FILE}.tmp" "${BUILDINFO_FILE}"
 }
