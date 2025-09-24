@@ -36,13 +36,17 @@ function generatebuildinfo() {
   mkdir -p "$BUILDINFO_DIR"
 
   COMMITTAG="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
-  [ -n "$COMMITTAG" ] || die "Could not get commit tag from git in $WEBHARE_CHECKEDOUT_TO"
 
   ORIGIN="$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url | sed -E 's#(https://[^:/]+):[^@]+@#\1@#')"
-  [ -n "$ORIGIN" ] || die "Could not get origin from git in $WEBHARE_CHECKEDOUT_TO"
 
-  BRANCH="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
-  [ -n "$BRANCH" ] || die "Could not get branch name from git in $WEBHARE_CHECKEDOUT_TO"
+  BRANCH="${CI_COMMIT_BRANCH}"
+  [ -n "$BRANCH" ] || BRANCH="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)"
+
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then
+    [ -n "$COMMITTAG" ] || die "Could not get commit tag from git in $WEBHARE_CHECKEDOUT_TO"
+    [ -n "$ORIGIN" ] || die "Could not get origin from git in $WEBHARE_CHECKEDOUT_TO"
+    [ -n "$BRANCH" ] || die "Could not get branch name from git in $WEBHARE_CHECKEDOUT_TO"
+  fi
 
   # GitLab CI checks out the commit as a detached head, so we'll have to rely on the CI_ variables to find the branch name
   # Strip any password from the 'origin'
