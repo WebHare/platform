@@ -57,7 +57,7 @@ OBJECTTYPE CheckerObject <
 
     INSERT rec INTO this->seenissues AT pos.position;
     IF(this->options.printissues AND NOT (category = "hint" AND this->options.hidehints))
-      Print(`${category="error"?`${AnsiCmd("red")}ERR!:`:category="warning"?"Warn:":"Hint:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${issue.message}\n`);
+      Print(`${category="error"?`${AnsiCmd("red")}ERR!:`:category="warning"?"Warn:":"Hint:"}${AnsiCmd("reset")} ${issue.resourcename}:${issue.line}${issue.col > 0 ? ":" || issue.col : ""} ${UCTruncate(issue.message, 300)}\n`);
   }
 
   MACRO OnSkippedFile(STRING resourcename, STRING why)
