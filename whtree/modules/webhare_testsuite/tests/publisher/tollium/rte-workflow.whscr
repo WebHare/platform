@@ -31,9 +31,9 @@ ASYNC MACRO EditRTD()
   OBJECT rte := TT("doceditor")->contents->rte;
   rte->TolliumWeb_FormUpdate('<p class="normal">This is a previewable text</p>');
   rte->__debug_simulatedirty();
-  TestEq(TRUE, topscreen->saveasdraftbutton->TolliumClick());
 
-  AWAIT ExpectScreenChange(+1, PTR TTCLick("sendpreviewlink"));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("sendpreviewlink"), [ messagemask := "*save*preview*"]);
+  AWAIT ExpectScreenChange(+1, DEFAULT MACRO PTR);
 
   TT("passwordprotect")->value := TRUE;
   TT("password")->value := "secret";

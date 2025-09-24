@@ -1665,6 +1665,7 @@
         <text tid="otherhasdraft"><ifparam p="1" value="">Another user<else/>User <param p="1"/></ifparam> has created a draft version on <param p="2"/> for this document. <br/><br/>If you continue, you will be editing this draft including the changes.</text>
         <text tid="resumeautosave">You have unsaved changes for this file. Do you wish to load these changes?</text>
         <text tid="savebeforeclose">Do you want to save the changes you made to '<param p="1"/>' before closing?</text>
+        <text tid="savebeforepreview">You need to save your changes before you can send a preview.<br/><br/><br/>Do you want to save and continue?</text>
       </textgroup>
       <textgroup gid="sendpreviewlink">   <!-- tolliumapps.editdocument.sendpreviewlink -->
         <text tid="link">Preview link</text>

@@ -22,9 +22,9 @@ ASYNC MACRO CreateMDFile()
   TestEq(TRUE, RecordExists(TT("types")->selection));
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit());
   TT(":Name")->value:="md1";
+  TT("makeindex")->value := FALSE;
 
-
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //confirm dialog and create the file and
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok")); //confirm dialog and create the file
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel); //exit publisher
 
   //edit the file
@@ -38,7 +38,8 @@ ASYNC MACRO CreateMDFile()
   TestEq(FALSE, topscreen->frame->flags.isdirty);
 
   OBJECT mdfile := GetTestsuiteTempFolder()->OpenByPath("markdown/md1");
-  TestEq(DEFAULT RECORD, mdfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data);
+  //as initialpublish is now implcitly based on a file having workflow (and rightfully so) MDs now start unpublished and alreaddy fill their target file just liks RTDs would
+  //TestEq(DEFAULT RECORD, mdfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/markdownfile").data);
 
   AWAIT ExpectAndAnswerMessageBox("YES", PTR TTClick("Publish"), [ awaitcall := TRUE ]); //confirm save and publish
 

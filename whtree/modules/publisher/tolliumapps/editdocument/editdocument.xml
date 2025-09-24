@@ -7,7 +7,7 @@
           width="800px"
           height="600px"
           allowresize="true"
-          flags="canedit canpublish canrevertdraft cancancelrequest canpreview canview isdeveloper havesomethingtopublish isdirty"
+          flags="canedit canpublish canrevertdraft cancancelrequest canpreview canview isdeveloper isdirty"
           gid=".editdocumentapp"
           icon="tollium:applications/editor"
           interval="60000"
@@ -19,7 +19,7 @@
       <action name="save" frameflags="canedit isdirty" onexecute="dosave" shortcut="ctrl+s" />
       <action name="canceldraft" frameflags="canrevertdraft" onexecute="docanceldraft" />
       <action name="hidedraftbar" onexecute="dohidedraftbar" />
-      <action name="sendpreviewlink" ellipsis="true" frameflags="havesomethingtopublish" onexecute="dosendpreviewlink" />
+      <action name="sendpreviewlink" ellipsis="true" onexecute="dosendpreviewlink" />
       <action name="publish" frameflags="canpublish" onexecute="dopublish" />
       <action name="close" onexecute="doclose" tid="~close" />
       <windowopenaction name="viewpublished"

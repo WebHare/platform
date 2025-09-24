@@ -1663,6 +1663,7 @@
         <text tid="otherhasdraft"><ifparam p="1" value="">Een andere gebruiker<else/>Gebruiker <param p="1"/></ifparam> heeft op <param p="2"/> een conceptversie van dit document opgeslagen.<br/><br/> Als u doorgaat, neemt u deze versie inclusief wijzigingen over en gaat u verder met het bewerken van de conceptversie.</text>
         <text tid="resumeautosave">U heeft automatisch opgeslagen wijzigingen voor dit bestand. Wilt u met deze wijzigingen verder gaan?</text>
         <text tid="savebeforeclose">Wilt u de wijzigingen die u gemaakt heeft aan '<param p="1"/>' opslaan voordat u afsluit?</text>
+        <text tid="savebeforepreview">Openstaande wijzigingen moeten worden opgeslagen om een voorbeeld te versturen.<br/><br/>Wilt u deze opslaan en doorgaan?</text>
       </textgroup>
       <textgroup gid="sendpreviewlink">   <!-- tolliumapps.editdocument.sendpreviewlink -->
         <text tid="link">Voorbeeldlink</text>

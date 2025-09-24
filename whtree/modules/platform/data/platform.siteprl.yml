@@ -95,7 +95,7 @@ types:
     tid: publisher:filetypes.markdownfile
     icon: tollium:files/text_plain
     metaType: page
-    workflow: false
+    workflow: true
     searchContentProvider: publisher:markdown
     members:
       data:
@@ -546,42 +546,6 @@ types:
         type: instant
       previewimage:
         type: file
-  publisher.reports.publishstatus:
-    namespace: http://www.webhare.net/xmlns/publisher/reports/publishstatus
-    workflow: false
-    clone: never
-    members:
-      showPublishing:
-        type: boolean
-      showWarnings:
-        type: boolean
-      showPuberrors:
-        type: boolean
-      showIoerrors:
-        type: boolean
-      showAborted:
-        type: boolean
-      showErrors:
-        type: boolean
-      sorting:
-        type: string
-  publisher.reports.sitesummary:
-    namespace: http://www.webhare.net/xmlns/publisher/reports/sitesummary
-    workflow: false
-    clone: never
-    members:
-      showFilecount:
-        type: boolean
-      showFoldercount:
-        type: boolean
-      showInputsizes:
-        type: boolean
-      showOutputsizes:
-        type: boolean
-      showPublishstatus:
-        type: boolean
-      showLinkstatus:
-        type: boolean
 
 apply:
   - to: all
