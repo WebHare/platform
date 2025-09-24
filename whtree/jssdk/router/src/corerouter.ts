@@ -8,7 +8,7 @@ import { whconstant_webserver_hstrustedportoffset } from "@mod-system/js/interna
 import { getBasePort } from "@webhare/services/src/config";
 
 export async function lookupPublishedTarget(url: string, options?: whfs.LookupURLOptions) {
-  const lookupresult = await whfs.lookupURL(url, options);
+  const lookupresult = await whfs.lookupURL(new URL(url), options);
   if (!lookupresult.file)
     return null;
 

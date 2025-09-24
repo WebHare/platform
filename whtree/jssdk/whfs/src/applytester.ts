@@ -626,7 +626,7 @@ export async function getApplyTesterForMockedObject(parent: WHFSFolder, isFolder
 }
 
 export async function getApplyTesterForURL(url: string, options?: LookupURLOptions) {
-  const lookupresult = await lookupURL(url, options);
+  const lookupresult = await lookupURL(new URL(url), options);
   if (!lookupresult || !lookupresult.folder)
     return null;
 
