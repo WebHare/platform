@@ -433,7 +433,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
     BOOLEAN havesomethingtopublish := ObjectExists(this->currentdraft) OR (ObjectExists(fsobj) AND NOT fsobj->publish);
     //We do not care about ispublishabletoweb for the publish button as we let the Publish button act as 'publish when site goes online' button
     this->frame->flags.canpublish := this->frame->flags.canedit AND (this->frame->flags.isdirty OR havesomethingtopublish) AND this->contexts->editdocumentapi->canpublish;
-    this->frame->flags.havesomethingtopublish := havesomethingtopublish;
     this->frame->title := this->isnew ? GetTid("publisher:tolliumapps.editdocument.newdocument") : this->filedata.name;
 
     this->filestatusicon->SetImageSrc(state.icon);
@@ -769,24 +768,25 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
                                 ]) = "yes";
   }
 
-  MACRO DoSendPreviewLink()
-  {
-    this->LoadScreen(".sendpreviewlink")->RunModal();
+  MACRO DoSendPreviewLink() {
+    IF (this->frame->flags.isdirty) { //you must save before sending a link, as autosaves are too transient
+      IF(this->RunSimpleScreen("question",
+        GetTid("publisher:tolliumapps.editdocument.messageboxes.savebeforepreview", OpenWHFSObject(this->itemid)->name),
+        [ buttons := ["yes","no"], dontshowkey := "publisher.editdocument.savebeforepreview", dontshowbuttons := ["yes"]]) != "yes")
+         RETURN; //cancelled
+    }
+
+    this->ExecuteSave(FALSE, DEFAULT RECORD);
+    this->RunScreen("#sendpreviewlink");
   }
 
-  PUBLIC OBJECT FUNCTION GetPreviewObject(BOOLEAN autosave)
-  {
+  PUBLIC OBJECT FUNCTION GetPreviewObject(BOOLEAN autosave) {
     this->UpdateAutosave();
-
-    RETURN autosave
-        ? this->GetEditingSourceObject()
-        : this->GetBaseSourceObject();
+    RETURN autosave ? this->GetEditingSourceObject() : this->GetBaseSourceObject();
   }
 
-  PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave)
-  {
+  PUBLIC STRING FUNCTION CreatePreviewLink(DATETIME validuntil, STRING password, BOOLEAN autosave) {
     this->UpdateAutosave();
-
     RETURN CreatePreviewLink(validuntil, password, this->itemid, this->GetPreviewObject(autosave)->id);
   }
 
@@ -925,15 +925,12 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase
   }
 >;
 
-PUBLIC STATIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
+PUBLIC STATIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase <
+  MACRO Init(RECORD data)  {
     //round up to next hour, 7 days away
     ^validuntil->value := GetRoundedDatetime(AddTimeToDate(60*60000, AddDaysToDate(7, GetCurrentDateTime())), 60*60000);
   }
-  BOOLEAN FUNCTION OnShareNext()
-  {
+  BOOLEAN FUNCTION OnShareNext() {
     OBJECT work := this->BeginUnvalidatedFeedback();
     work->Validate(^sharepage);
     IF(^validuntil->value < GetCurrentDatetime())
@@ -941,10 +938,9 @@ PUBLIC STATIC OBJECTTYPE SendPreviewLink EXTEND TolliumScreenBase
 
     RETURN work->Finish();
   }
-  MACRO InitFinishPage(RECORD data)
-  {
+  MACRO InitFinishPage(RECORD data) {
     IF (this->contexts->editdocumentapi->onpreviewlink != DEFAULT MACRO PTR)
-      ^link->value := this->contexts->editdocumentapi->onpreviewlink(this->tolliumparent->GetPreviewObject(TRUE), ^validuntil->value, ^passwordprotect->value ? ^password->value : "");
+      ^link->value := this->contexts->editdocumentapi->onpreviewlink(this->tolliumparent->GetPreviewObject(FALSE), ^validuntil->value, ^passwordprotect->value ? ^password->value : "");
     ELSE
       ^link->value := this->tolliumparent->CreatePreviewLink(^validuntil->value, ^passwordprotect->value ? ^password->value : "", FALSE);
 
