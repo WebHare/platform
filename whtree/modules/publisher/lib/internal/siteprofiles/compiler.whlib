@@ -81,9 +81,7 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
 
   MACRO NEW(RECORD ARRAY overridemap DEFAULTSTO RECORD[]) {
     this->overridemap := overridemap;
-    this->result := [ errors               := RECORD[]
-                    , warnings             := RECORD[]
-                    , hints                := RECORD[]
+    this->result := [ messages             := RECORD[]
                     , contenttypes         := RECORD[]
                     , rtdtypes             := RECORD[]
                     , grouptypes           := RECORD[]
@@ -97,8 +95,8 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
                     ];
   }
 
-  MACRO LogSPError(STRING filename, STRING error, INTEGER line)   {
-    INSERT INTO this->result.errors(resourcename, message, line, col) VALUES(filename, error, line, 0) AT END;
+  MACRO LogSPError(STRING resourcename, STRING message, INTEGER line)   {
+    INSERT CELL[ resourcename, message, line, col := 0, type := "error" ] INTO this->result.messages AT END;
   }
 
   MACRO LoadSiteProfileRecursively(STRING name, INTEGER ARRAY siteprofileids, STRING ARRAY loadpath) {
@@ -124,8 +122,7 @@ PUBLIC STATIC OBJECTTYPE CoreRecompileContext <
       ELSE
         loaded := GetParsedSiteProfile(name);
 
-      this->result.errors := this->result.errors CONCAT RECORD ARRAY(loaded.errors);
-      this->result.warnings := this->result.warnings CONCAT RECORD ARRAY(loaded.warnings);
+      this->result.messages := this->result.messages CONCAT RECORD ARRAY(loaded.messages);
       this->result.rtdtypes := this->result.rtdtypes CONCAT RECORD ARRAY(loaded.rtdtypes);
       this->contenttypes := this->contenttypes CONCAT RECORD ARRAY(loaded.contenttypes);
       this->grouptypes := this->grouptypes CONCAT RECORD ARRAY(loaded.grouptypes);
@@ -234,9 +231,8 @@ PUBLIC STATIC OBJECTTYPE RecompileContext EXTEND CoreRecompileContext <
                               ORDER BY fs_type;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetErrors()
-  {
-    RETURN this->result.errors;
+  PUBLIC RECORD ARRAY FUNCTION GetMessages()   {
+    RETURN this->result.messages;
   }
 
   PUBLIC RECORD ARRAY FUNCTION GetMembersFor(INTEGER gettype)
@@ -382,9 +378,7 @@ PUBLIC STATIC OBJECTTYPE RecompileContext EXTEND CoreRecompileContext <
     INSERT CELL fullcspdata := this->result INTO compileresult;
 
     compileresult := CELL[ ...compileresult
-                         , this->result.errors
-                         , this->result.warnings
-                         , this->result.hints
+                         , this->result.messages
                          ];
 
     // Just assume we'll make changes
@@ -511,18 +505,17 @@ PUBLIC RECORD FUNCTION __DoRecompileSiteprofiles(BOOLEAN locked, BOOLEAN debug, 
 
   __SetCSPCacheFromSourceData(response.fullcspdata);
 
-  IF(Length(response.errors)>0)
-    LogError("publisher:siteprofiles", "siteprofilecompilation-error", [ errors := response.errors ]);
+  RECORD ARRAY errors := SELECT * FROM response.messages WHERE type = "error";
+  IF(Length(errors)>0)
+    LogError("publisher:siteprofiles", "siteprofilecompilation-error", CELL[ errors ]);
 
   //async update webserver check/indices
   GetPrimary()->BeginWork();
   GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
   GetPrimary()->CommitWork();
 
-  RETURN [ errors := response.errors
-         , warnings := response.warnings
-         , hints := response.hints
-         ];
+  RETURN CELL [ response.messages
+              ];
 }
 
 PUBLIC RECORD FUNCTION RecompileSiteProfiles()

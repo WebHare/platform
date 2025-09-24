@@ -225,9 +225,10 @@ RECORD ARRAY FUNCTION CheckWebServerConfig()
     IF (RecordExists(config))
     {
       RETURN
-          SELECT msg :=   source != "" ? `:${source}: ${error}` : `:${error}`
-               , ...(CellExists(errors, "jumpto") ? CELL[ jumpto ] : CELL[])
-            FROM config.errors;
+          SELECT msg :=   source != "" ? `:${source}: ${message}` : `:${message}`
+               , ...(CellExists(message, "jumpto") ? CELL[ jumpto ] : CELL[])
+            FROM config.messages
+           WHERE type = "error";
     }
   }
   CATCH(OBJECT e)

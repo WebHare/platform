@@ -1,13 +1,12 @@
 import type * as Sp from "@mod-platform/generated/schema/siteprofile";
-import { decodeYAML } from "@mod-system/js/internal/validation/yaml";
-import { parseResourcePath, toFSPath } from "@webhare/services";
-import { toHSSnakeCase } from "@webhare/services/src/naming";
+import { parseResourcePath, resolveResource, toFSPath } from "@webhare/services";
+import { addModule, toHSSnakeCase } from "@webhare/services/src/naming";
 import { CSPMemberType, type CSPAddToCatalog, type CSPApplyRule, type CSPApplyTo, type CSPApplyToTestData, type CSPApplyToTo, type CSPBaseProperties, type CSPContentType, type CSPDynamicExecution, type CSPMember, type CSPMemberOverride, type CSPModifyType, type CSPRTDAllowedObject, type CSPRTDBlockStyle, type CSPRTDCellStyle, type CSPWebRule, type CSPWebtoolsFormRule, type YamlComponentDefinition } from "@webhare/whfs/src/siteprofiles";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolveGid, resolveTid } from "@webhare/gettid/src/clients";
 import { mergeConstraints, type ValueConstraints } from "@mod-platform/js/tollium/valueconstraints";
-import { nameToSnakeCase, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
-import type { ContentValidationFunction, ValidationMessage, ValidationMessageWithType, ValidationState } from "@mod-platform/js/devsupport/validation";
+import { appendToArray, nameToSnakeCase, throwError, toSnakeCase, typedEntries, typedKeys } from "@webhare/std";
+import { type ContentValidationFunction, TrackedYAML, type ValidationMessageWithType, type ValidationState } from "@mod-platform/js/devsupport/validation";
 import { loadlib } from "@webhare/harescript";
 import type { ModulePlugins } from "@mod-system/js/internal/generation/gen_plugins";
 import { getExtractedConfig } from "@mod-system/js/internal/configuration";
@@ -20,7 +19,7 @@ export type ParsedSiteProfile = {
   applysiteprofiles: string[];
   contenttypes: CSPContentType[];
   rtdtypes: CSPContentType[];
-  errors: ValidationMessage[];
+  messages: ValidationMessageWithType[];
   grouptypes: Array<{
     namespace: string;
     title: string;
@@ -28,8 +27,6 @@ export type ParsedSiteProfile = {
     members: unknown[];
   }>;
   icons: unknown[];
-  hints: ValidationMessage[];
-  warnings: ValidationMessage[];
   rules: Array<ParsedApplyRule | ParsedSiteSetting>;
   gid: string;
 };
@@ -185,13 +182,35 @@ type TidCallback = (resource: string, tid: string) => void;
 class SiteProfileParserContext {
   readonly plugins: ModulePlugins;
   messages: ValidationMessageWithType[] = [];
+  doc: Sp.SiteProfile;
 
-  constructor(public readonly resourceName: string) {
+  constructor(public readonly resourceName: string, public tracked: TrackedYAML<Sp.SiteProfile>, public readonly options?: { validate?: boolean }) {
     this.plugins = getExtractedConfig("plugins");
+    this.doc = this.tracked.doc;
   }
 
-  addMessage(msg: Omit<ValidationMessageWithType, "resourcename" | "line" | "col" | "source">) {
-    this.messages.push({ source: "siteprofile", resourcename: this.resourceName, line: 0, col: 0, ...msg });
+  addMessage(msg: Omit<ValidationMessageWithType, "resourcename" | "line" | "col" | "source">, node?: unknown) {
+    this.messages.push({
+      source: "siteprofile", resourcename: this.resourceName, line: 0, col: 0,
+      ...node && this.tracked.getPosition(node) || null,
+      ...msg
+    });
+  }
+
+  resolve(resource: string, node?: unknown) {
+    if (!resource)
+      return '';
+
+    const dest = resolveResource(this.resourceName, resource);
+    //TODO also validate inside the file, or only when validating?
+    if (this.options?.validate) {
+      const targetpath = dest.match(/^([^#]+).*$/);
+      if (!targetpath?.[1] || !existsSync(toFSPath(targetpath[1]))) {
+        this.addMessage({ type: "error", message: `Resource '${resource}' (resolved to '${dest}') does not exist` }, node);
+      }
+    }
+
+    return dest;
   }
 }
 
@@ -400,9 +419,9 @@ function parseBlockStyles(inBlockStyle: NonNullable<Sp.RTDType["blockStyles"]>):
       hidden: false,
       tabledefaultblockstyle: "",
       allowstyles: [],
-      importfrom: [],
-      nextblockstyle: "",
-      title: "",
+      importfrom: entry.importFrom || [],
+      nextblockstyle: entry.nextBlockStyle?.toUpperCase() || "",
+      title: entry.title || '',
     });
   }
   return out;
@@ -414,18 +433,18 @@ function parseCellStyles(inCellStyle: NonNullable<Sp.RTDType["cellStyles"]>): CS
 
 function parseTableStyles(inTableStyle: NonNullable<Sp.RTDType["tableStyles"]>): CSPRTDBlockStyle[] {
   const out = new Array<CSPRTDBlockStyle>;
-  for (const [tag,] of typedEntries(inTableStyle)) {
+  for (const [tag, entry] of typedEntries(inTableStyle)) {
     out.push({
       tag: tag.toUpperCase(),
       type: "table",
       containertag: "table",
       textstyles: [],
       hidden: false,
-      tabledefaultblockstyle: "",
-      allowstyles: [],
+      tabledefaultblockstyle: entry.defaultBlockStyle?.toUpperCase() || '',
+      allowstyles: entry.allowStyles?.map(_ => _.toUpperCase()) || [],
       importfrom: [],
       nextblockstyle: "",
-      title: "",
+      title: entry.title || ''
     });
   }
   return out;
@@ -435,7 +454,7 @@ function parseAllowedObjects(_inAllowedObjects: NonNullable<Sp.RTDType["allowedO
   return [];
 }
 
-function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
+function parseRtdType(context: SiteProfileParserContext, gid: ResourceParserContext, ns: string, type: Sp.RTDType): CSPContentType {
   return {
     id: 0,
     type: "rtdtype",
@@ -474,7 +493,7 @@ function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
     applytester: null,
     bodyclass: type.bodyClass || "",
     css: "",
-    cssfiles: type.css?.map(_ => ({ path: _ })) || [],
+    cssfiles: type.css?.map(_ => ({ path: context.resolve(_) })) || [],
     htmlclass: type.htmlClass || "",
     ignoresiteprofilewidgets: type.ignoreSiteProfileWidgets === true,
     internallinkroots: [],
@@ -487,12 +506,12 @@ function parseRtdType(ns: string, type: Sp.RTDType): CSPContentType {
   };
 }
 
-function parseEditProps(gid: ResourceParserContext, baseScope: string, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
+function parseEditProps(context: SiteProfileParserContext, gid: ResourceParserContext, baseScope: string, editProps: Sp.ApplyEditProps): CSPApplyRule["extendproperties"] {
   const rules = new Array<CSPApplyRule["extendproperties"][0]>;
   for (const prop of editProps) {
     const rule: CSPApplyRule["extendproperties"][0] = {
       contenttype: resolveType(baseScope, prop.type),
-      extension: prop.tabsExtension || '',
+      extension: context.resolve(prop.tabsExtension || ''),
       requireright: prop.requireRight || '',
     };
 
@@ -573,15 +592,15 @@ function parseModifyTypes(types: Sp.ApplyTypes): CSPModifyType[] {
     : { isallow: true, typedef: t.allowTemplate as string ?? t.allowType as string, newonlytemplate: "allowTemplate" in t, setnewonlytemplate: "allowTemplate" in t });
 }
 
-function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
-  const rule = parseApply(context, gid, module, siteprofile, baseScope, applyindex, apply);
+function parseApplyRule(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.Apply): ParsedApplyRule {
+  const rule = parseApply(context, gid, module, baseScope, applyindex, apply);
   rule.tos = parseApplyTo(apply.to);
   rule.priority = apply.priority || 0;
   rule.comment = apply.comment || '';
   return rule;
 }
 
-function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, siteprofile: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): ParsedApplyRule {
+function parseApply(context: SiteProfileParserContext, gid: ResourceParserContext, module: string, baseScope: string, applyindex: number, apply: Sp.ApplyRule): ParsedApplyRule {
   const rule: ParsedApplyRule = {
     ruletype: "apply",
     tos: [],
@@ -589,6 +608,8 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     applyindex,
     applynodetype: "apply",
     col: 0,
+    line: 0,
+    ...context.tracked.getPosition(apply),
     comment: "",
     contentlisting: null,
     customnodes: [],
@@ -597,10 +618,9 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     mailtemplates: [],
     modifyfiletypes: [],
     modifyfoldertypes: [],
-    extendproperties: apply.editProps ? parseEditProps(gid, baseScope, apply.editProps) : [],
+    extendproperties: apply.editProps ? parseEditProps(context, gid, baseScope, apply.editProps) : [],
     formdefinitions: [],
     hookintercepts: [],
-    line: 0,
     plugins: [],
     priority: 0,
     republishes: [],
@@ -611,7 +631,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     setlibrary: [],
     setwidget: [],
     sitelanguage: null,
-    siteprofile,
+    siteprofile: context.resourceName,
     siteprofileids: [],
     tagsources: [],
     typemappings: [],
@@ -621,7 +641,7 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
     baseproperties: null,
     bodyrenderer: null,
     urlhistory: null,
-    usepublishtemplate: apply.usePublishTemplate ? { script: apply.usePublishTemplate } : null,
+    usepublishtemplate: apply.usePublishTemplate ? { script: context.resolve(apply.usePublishTemplate) } : null,
     webdesign: null,
     foldersettings: null,
     userdata: []
@@ -632,9 +652,40 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
   if (apply.bodyRenderer)
     rule.bodyrenderer = {
-      objectname: apply.bodyRenderer.objectName || '',
-      renderer: apply.bodyRenderer.renderer || ''
+      objectname: context.resolve(apply.bodyRenderer.objectName || ''),
+      renderer: context.resolve(apply.bodyRenderer.renderer || '')
     };
+
+  if (apply.webDesign) {
+    rule.webdesign = {
+      assetpack: apply.webDesign.assetPack || '',
+      has_assetpack: apply.webDesign.assetPack !== undefined,
+      contentnavstops: apply.webDesign.contentNavStops || [],
+      has_contentnavstops: apply.webDesign.contentNavStops !== undefined,
+      designfolder: context.resolve(apply.webDesign.designFolder || ''),
+      getdata: apply.webDesign.getData || '',
+      has_supportsaccessdenied: apply.webDesign.supportsAccessDenied !== undefined,
+      supportsaccessdenied: apply.webDesign.supportsAccessDenied === true,
+      has_supportserrors: apply.webDesign.supportsErrors !== undefined,
+      supportserrors: apply.webDesign.supportsErrors === true,
+      maxcontentwidth: apply.webDesign.maxContentWidth || '',
+      objectname: context.resolve(apply.webDesign.objectName || ''),
+      siteprofile: "",
+      siteresponsefactory: context.resolve(apply.webDesign.siteResponseFactory || ''),
+      witty: context.resolve(apply.webDesign.witty || ''),
+      wittyencoding: apply.webDesign.wittyEncoding || '',
+    };
+  }
+
+  for (const formdef of apply.formDefinitions || []) {
+    rule.formdefinitions.push({
+      name: formdef.name || '',
+      path: context.resolve(formdef.path),
+    });
+  }
+
+  if (apply.siteLanguage)
+    rule.sitelanguage = { lang: apply.siteLanguage, has_lang: true };
 
   if (apply.folderIndex) {
     rule.folderindex = {
@@ -709,8 +760,8 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
 
   if (apply.folderSettings) {
     rule.foldersettings = {
-      contentslisthandler: apply.folderSettings.contentsListHandler ? { objectname: apply.folderSettings.contentsListHandler } : null,
-      filterscreen: apply.folderSettings.filterScreen || '',
+      contentslisthandler: apply.folderSettings.contentsListHandler ? { objectname: context.resolve(apply.folderSettings.contentsListHandler) } : null,
+      filterscreen: context.resolve(apply.folderSettings.filterScreen || ''),
       has_filterscreen: apply.folderSettings.filterScreen ? true : false,
       ordering: apply.folderSettings.ordering || ""
     };
@@ -737,6 +788,19 @@ function parseApply(context: SiteProfileParserContext, gid: ResourceParserContex
       task: task.task,
       delay: task.delay || 0
     });
+
+  if (apply.intercept)
+    for (const [name, intercept] of Object.entries(apply.intercept)) {
+      rule.hookintercepts.push({
+        name: module + ':' + name,
+        interceptfunction: context.resolve(intercept.interceptFunction || ''),
+        line: 0,
+        module: module,
+        target: addModule(module, intercept.target),
+        orderafter: intercept.runAfter?.map(_ => addModule(module, _)) || [],
+        orderbefore: intercept.runBefore?.map(_ => addModule(module, _)) || [],
+      });
+    }
 
   const externalNodes = new Set(Object.keys(apply).filter(k => k.includes(':')));
   for (const node of context.plugins.customSPNodes)
@@ -807,12 +871,12 @@ function parseFolderType(ftype: Sp.Type & Sp.FolderType): CSPContentType["folder
   return folderType;
 }
 
-function parseDynamicExecution(exec: Sp.DynamicExecution): CSPDynamicExecution {
+function parseDynamicExecution(context: SiteProfileParserContext, gid: ResourceParserContext, exec: Sp.DynamicExecution): CSPDynamicExecution {
   return {
     cachettl: exec.cacheTtl || 0,
-    routerfunction: exec.routerFunction || '',
-    startmacro: exec.startMacro || '',
-    webpageobjectname: exec.webPageObjectName || '',
+    routerfunction: context.resolve(exec.routerFunction || ''),
+    startmacro: context.resolve(exec.startMacro || ''),
+    webpageobjectname: context.resolve(exec.webPageObjectName || ''),
     cachewebvariables: exec.cacheGetParameters || [],
     cacheblacklistvariables: exec.cacheIgnoreGetParameters || [],
 
@@ -821,26 +885,24 @@ function parseDynamicExecution(exec: Sp.DynamicExecution): CSPDynamicExecution {
   };
 }
 
-export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?: { onTid: TidCallback }) {
-  const context = new SiteProfileParserContext(resource);
+function parseSiteProfile(context: SiteProfileParserContext, options?: { onTid?: TidCallback }) {
   const result: ParsedSiteProfile = {
     applysiteprofiles: [],
     contenttypes: [],
     rtdtypes: [],
-    errors: [],
+    messages: [],
     grouptypes: [],
     icons: [],
-    hints: [],
-    warnings: [],
     rules: [],
     gid: ""
   };
 
-  const module = parseResourcePath(resource)?.module;
+  const sp = context.doc;
+  const module = parseResourcePath(context.resourceName)?.module;
   if (!module)
     throw new Error(`parseSiteProfile only supports siteprofiles inside a module`);
 
-  const rootParser = ResourceParserContext.forResource(resource, options?.onTid, sp);
+  const rootParser = ResourceParserContext.forResource(context.resourceName, options?.onTid, sp);
   result.gid = rootParser.gid;
 
   const baseScope = sp.typeGroup ? `${module}:${sp.typeGroup}.` : `${module}:`;
@@ -855,7 +917,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
     const ctype: CSPContentType = {
       cloneonarchive: (settings as Sp.InstanceType).clone !== "never",
       cloneoncopy: !["never", "onArchive"].includes((settings as Sp.InstanceType).clone!), //FIXME IMPLEMENT more extensive configuration, eg first/last publish data wants to be Archived but not Duplicated
-      dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(settings.dynamicExecution) : null,
+      dynamicexecution: settings.dynamicExecution ? parseDynamicExecution(context, rootParser, settings.dynamicExecution) : null,
       comment: settings.comment || '',
       filetype: null,
       foldertype: null,
@@ -863,13 +925,13 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
       id: 0,
       isembeddedobjecttype: false,
       isrtdtype: false,
-      line: 0, //TODO need to use the more sophisticated yaml parser for this
+      line: context.tracked.getPosition(settings)?.line || 0,
       members: parseMembers(typeParser, settings.members || {}),
       namespace: ns,
       orphan: false,
       previewcomponent: "",
       scopedtype,
-      siteprofile: resource,
+      siteprofile: context.resourceName,
       title: typeParser.resolveTid({ name: type, title: settings.title, tid: settings.tid }),
       tolliumicon: settings.icon || '',
       type: "contenttype",
@@ -878,7 +940,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
       workflow: (settings as Sp.InstanceType).workflow === true
     };
 
-    if (settings.metaType && ["auxiliary", "upload", "page", "blockWidget", "inlineWidget"].includes(settings.metaType)) {
+    if (settings.metaType && ["dataFile", "upload", "page", "blockWidget", "inlineWidget"].includes(settings.metaType)) {
       const isWidget = ["blockWidget", "inlineWidget"].includes(settings.metaType);
       if (isWidget) {
         const widgetSettings = settings as Sp.WidgetType;
@@ -887,11 +949,11 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
         ctype.embedtype = settings.metaType === "blockWidget" ? "block" : "inline";
         ctype.requiremergefieldscontext = widgetSettings.requireMergeFieldsContext || false;
         ctype.editor = widgetSettings.editor ?
-          "extension" in widgetSettings.editor ?
-            { type: "extension", extension: widgetSettings.editor.extension }
-            : { type: "function", functionname: widgetSettings.editor.function } : null;
-        ctype.renderer = widgetSettings.renderer ? { objectname: widgetSettings.renderer } : null;
-        ctype.wittycomponent = widgetSettings.wittyComponent || '';
+          "tabsExtension" in widgetSettings.editor ?
+            { type: "extension", extension: context.resolve(widgetSettings.editor.tabsExtension) }
+            : { type: "function", functionname: context.resolve(widgetSettings.editor.function || '') } : null;
+        ctype.renderer = widgetSettings.renderer ? { objectname: context.resolve(widgetSettings.renderer) } : null;
+        ctype.wittycomponent = context.resolve(widgetSettings.wittyComponent || '');
       } else {
         ctype.type = "filetype";
       }
@@ -916,7 +978,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
         */
         initialpublish: ispublishable && !(settings as Sp.PageType).workflow,
         needstemplate: (settings as Sp.PageType).useWebDesign ?? settings.metaType === "page",
-        pagelistprovider: (settings as Sp.PageType).pageListProvider || '',
+        pagelistprovider: context.resolve((settings as Sp.PageType).pageListProvider || ''),
         requirescontent: (settings as Sp.UploadType).requiresContent || false,
         searchcontentprovider: settings.searchContentProvider || ''
       };
@@ -929,7 +991,7 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
 
     if (settings.apply) {
       result.rules.push({
-        ...parseApply(context, typeParser, module, resource, baseScope, 0, (settings as Sp.FolderType).apply!),
+        ...parseApply(context, typeParser, module, baseScope, 0, (settings as Sp.FolderType).apply!),
         whfstype: ns
       });
     }
@@ -947,33 +1009,31 @@ export function parseSiteProfile(resource: string, sp: Sp.SiteProfile, options?:
   }
 
   for (const [applyindex, apply] of (sp.apply || []).entries()) {
-    result.rules.push(parseApplyRule(context, rootParser, module, resource, baseScope, applyindex, apply));
+    result.rules.push(parseApplyRule(context, rootParser, module, baseScope, applyindex, apply));
   }
 
   for (const [rtdType, data] of Object.entries(sp.rtdTypes || {})) {
-    const parsedRtd = parseRtdType(rtdType, data);
+    const parsedRtd = parseRtdType(context, rootParser, rtdType, data);
     result.rtdtypes.push(parsedRtd);
   }
 
   for (const siteprofile of sp.applySiteProfiles || [])
-    result.applysiteprofiles.push(siteprofile);
+    result.applysiteprofiles.push(context.resolve(siteprofile));
 
+  result.messages = context.messages;
   return result;
 }
 
 export async function readAndParseSiteProfile(resource: string, options?: { overridetext?: string }) { //used by HareScript
   const text = options?.overridetext ?? readFileSync(toFSPath(resource), 'utf8');
-  return parseSiteProfile(resource, decodeYAML<Sp.SiteProfile>(text));
+  const context = new SiteProfileParserContext(resource, new TrackedYAML(text));
+  return parseSiteProfile(context);
 }
 
-export async function validateSiteProfile(resourceName: string, content: Sp.SiteProfile, result: ValidationState): Promise<void> {
-  const res = parseSiteProfile(resourceName, content, { onTid: result.onTid });
-  for (const error of res.errors)
-    result.messages.push({ type: "error", resourcename: resourceName, line: error.line, col: error.col, message: error.message, source: "validation" });
-  for (const warning of res.warnings)
-    result.messages.push({ type: "warning", resourcename: resourceName, line: warning.line, col: warning.col, message: warning.message, source: "validation" });
-  for (const hint of res.hints)
-    result.messages.push({ type: "hint", resourcename: resourceName, line: hint.line, col: hint.col, message: hint.message, source: "validation" });
+export async function validateSiteProfile(resourceName: string, content: TrackedYAML<Sp.SiteProfile>, result: ValidationState): Promise<void> {
+  const context = new SiteProfileParserContext(resourceName, content, { validate: true });
+  const res = parseSiteProfile(context, { onTid: result.onTid });
+  appendToArray(result.messages, res.messages);
 }
 
 export async function getOfflineSiteProfiles(keepSources: boolean, overrides: Array<{ name: string; text: string }>) {

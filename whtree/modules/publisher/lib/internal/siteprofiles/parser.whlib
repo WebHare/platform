@@ -69,9 +69,7 @@ STRING ARRAY FUNCTION GetHasList(OBJECT node, STRING ARRAY searchfor)
 }
 
 STATIC OBJECTTYPE SiteprofileCompilationContext <
-  RECORD ARRAY errormessages;
-  RECORD ARRAY warnings;
-  RECORD ARRAY hints;
+  RECORD ARRAY messages;
   RECORD ARRAY icons;
   STRING filename;
   OBJECT siteprof;
@@ -83,8 +81,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
 
   PUBLIC PROPERTY siteprofile(siteprof, -);
 
-  MACRO NEW(STRING filename, OBJECT siteprof, OBJECT parameters)
-  {
+  MACRO NEW(STRING filename, OBJECT siteprof, OBJECT parameters) {
     this->parameters := parameters;
     this->filename := filename;
     this->siteprof := siteprof;
@@ -93,17 +90,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
     this->toplevelgid := ParseXMLGid(this->module, "", this->siteprof->xmldoc->documentelement, "", "gid");
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetErrors()
-  {
-    RETURN this->errormessages;
-  }
-  PUBLIC RECORD ARRAY FUNCTION GetWarnings()
-  {
-    RETURN this->warnings;
-  }
-  PUBLIC RECORD ARRAY FUNCTION GetHints()
-  {
-    RETURN this->hints;
+  PUBLIC RECORD ARRAY FUNCTION GetMessages() {
+    RETURN this->messages;
   }
   PUBLIC RECORD ARRAY FUNCTION GetIcons()
   {
@@ -116,7 +104,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
            , line  :=        node->linenum
            , col :=          0
            , message :=      message
-           ] INTO this->hints AT END;
+           , type :=         "hint"
+           ] INTO this->messages AT END;
   }
   PUBLIC MACRO AddWarning(OBJECT node, STRING warning)
   {
@@ -124,7 +113,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
            , line  :=        node->linenum
            , col :=          0
            , message :=      warning
-           ] INTO this->warnings AT END;
+           , type :=         "warning"
+           ] INTO this->messages AT END;
   }
   PUBLIC MACRO AddError(OBJECT node, STRING error)
   {
@@ -132,7 +122,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
            , line  :=        node->linenum
            , col :=          0
            , message :=      error
-           ] INTO this->errormessages AT END;
+           , type :=         "error"
+           ] INTO this->messages AT END;
   }
   PUBLIC MACRO AddIcon(OBJECT node, STRING icon)
   {
@@ -1312,8 +1303,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext <
         {
           RECORD baserule := GetBaseWebRule(-9999999, webrule->GetAttribute("path"), priority, this->siteprof->name || ":" || webrule->linenum);
           RECORD parsed := ParseWebRuleData(this->module, baserule, webrule, this->siteprof->name);
-          this->errormessages := this->errormessages CONCAT parsed.errors;
-          this->warnings := this->warnings CONCAT parsed.warnings;
+          this->messages := this->messages CONCAT parsed.messages;
 
           IF(NOT RecordExists(parsed.rule))
             CONTINUE;
@@ -1416,9 +1406,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
   RECORD siteprofdata := [ name := filename
                          , applysiteprofiles := DEFAULT STRING ARRAY
-                         , errors := RECORD[]
-                         , warnings := RECORD[]
-                         , hints := RECORD[]
+                         , messages := RECORD[]
                          , icons := RECORD[]
                          , contenttypes := DEFAULT RECORD ARRAY
                          , rtdtypes := RECORD[]
@@ -1427,7 +1415,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
                          , gid := ""
                          ];
 
-  RECORD ARRAY errors, warnings, hints, icons;
   OBJECT siteprof;
   OBJECT siteprofcontext;
   IF(NOT ObjectExists(parametersingleton))
@@ -1441,7 +1428,7 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
 
     IF(Length(realdoc->GetParseErrors()) > 0)
     {
-      siteprofdata.errors := SELECT resourcename := filename, line, col := 0, message FROM realdoc->GetParseErrors();
+      siteprofdata.messages := SELECT type := "error", resourcename := filename, line, col := 0, message FROM realdoc->GetParseErrors();
       RETURN [ value := siteprofdata
             , ttl := 60*60*1000
             , eventmasks := GetResourceEventMasks([filename])
@@ -1464,15 +1451,12 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
   }
   CATCH(OBJECT e)
   {
-    INSERT [ resourcename := filename, line := 0, col := 0, message := e->what ] INTO errors AT END;
+    INSERT [ resourcename := filename, line := 0, col := 0, message := e->what ] INTO siteprofdata.messages AT END;
   }
 
-  IF(ObjectExists(siteprofcontext))
-  {
-    errors := siteprofcontext->GetErrors() CONCAT errors;
-    warnings := siteprofcontext->GetWarnings() CONCAT warnings;
-    hints := siteprofcontext->GetHints() CONCAT hints;
-    icons := siteprofcontext->GetIcons() CONCAT icons;
+  IF(ObjectExists(siteprofcontext)) {
+    siteprofdata.messages := siteprofdata.messages CONCAT siteprofcontext->GetMessages();
+    siteprofdata.icons := siteprofdata.icons CONCAT siteprofcontext->GetIcons();
     siteprofdata.contenttypes := siteprofcontext->contenttypes;
     siteprofdata.rtdtypes := siteprofcontext->rtdtypes;
   }
@@ -1506,11 +1490,6 @@ PUBLIC RECORD FUNCTION ParseSiteProfile(STRING filename, RECORD options DEFAULTS
       DELETE CELL indexfile, protectindexfile FROM ftype.foldertype;
       siteprofdata.contenttypes[ #ftype ] := ftype; //update the record
     }
-
-  siteprofdata.errors := errors;
-  siteprofdata.warnings := warnings;
-  siteprofdata.hints := hints;
-  siteprofdata.icons := icons;
 
   // Stabilize per-siteprofile result
   siteprofdata.contenttypes := SELECT * FROM siteprofdata.contenttypes ORDER BY namespace;

@@ -7,6 +7,6 @@ PUBLIC OBJECTTYPE SiteProfileCheck EXTEND CustomCheckBase
   UPDATE PUBLIC STRING ARRAY FUNCTION GetIssues()
   {
     RECORD csp := GetCachedSiteProfiles();
-    RETURN SELECT AS STRING ARRAY resourcename || "(" || line || "): " || message FROM csp.errors;
+    RETURN SELECT AS STRING ARRAY resourcename || "(" || line || "): " || message FROM csp.messages WHERE type="error";
   }
 >;

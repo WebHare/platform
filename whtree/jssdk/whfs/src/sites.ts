@@ -150,7 +150,7 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 export async function listSites<K extends keyof ListableSiteRow = never>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
   const getkeys = new Set<keyof ListableSiteRow>(["id", "name", ...keys]);
   const selectkeys = new Set<keyof SiteRow>;
-  const getSiteProps: Array<keyof WHFSTypeGetResult<"http://www.webhare.net/xmlns/publisher/sitesettings">> = [];
+  const getSiteProps: Array<keyof WHFSTypeGetResult<"platform:publisher.sitesettings">> = [];
 
   for (const k of getkeys) {
     switch (k) {

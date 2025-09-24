@@ -121,8 +121,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       //We don't currently have an easier way to parse rules..
       RECORD baserule := GetBaseWebRule(-9999999, rulenode->GetAttribute("path"), ParseWebRulePriority(rulenode->GetAttribute("priority")), this->respath || ":" || rulenode->linenum);
       RECORD parsed := ParseWebRuleData(this->modulename, baserule, rulenode, this->respath, [ forvalidation := TRUE ]);
-      this->errors := this->errors CONCAT parsed.errors;
-      this->warnings := this->warnings CONCAT parsed.warnings;
+      this->errors := this->errors CONCAT SELECT * FROM parsed.messages WHERE type = "error";
+      this->warnings := this->warnings CONCAT SELECT * FROM parsed.messages WHERE type != "error";
       IF (RecordExists(parsed.rule))
       {
         RECORD validateres := ValidateWebRuleData(parsed.rule);
