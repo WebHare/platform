@@ -24,8 +24,9 @@ if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   fi
 fi
 
-generatebuildinfo()
-{
+function generatebuildinfo() {
+  local BUILDINFO_DIR BUILDINFO_FILE COMMITTAG ORIGIN BRANCH
+
   [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
   [ -n "$WEBHARE_VERSION" ] || die WEBHARE_VERSION not set
 
@@ -34,13 +35,22 @@ generatebuildinfo()
 
   mkdir -p "$BUILDINFO_DIR"
 
+  COMMITTAG="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
+  [ -n "$COMMITTAG" ] || die "Could not get commit tag from git in $WEBHARE_CHECKEDOUT_TO"
+
+  ORIGIN="$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url | sed -E 's#(https://[^:/]+):[^@]+@#\1@#')"
+  [ -n "$ORIGIN" ] || die "Could not get origin from git in $WEBHARE_CHECKEDOUT_TO"
+
+  BRANCH="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
+  [ -n "$BRANCH" ] || die "Could not get branch name from git in $WEBHARE_CHECKEDOUT_TO"
+
   # GitLab CI checks out the commit as a detached head, so we'll have to rely on the CI_ variables to find the branch name
   # Strip any password from the 'origin'
   cat > "${BUILDINFO_FILE}.tmp" << HERE
-committag="$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse HEAD)"
+committag="${COMMITTAG}"
 version="${WEBHARE_VERSION}"
-branch="${CI_COMMIT_BRANCH:$(git -C "$WEBHARE_CHECKEDOUT_TO" rev-parse --abbrev-ref HEAD)}"
-origin="$(git -C "$WEBHARE_CHECKEDOUT_TO" config --get remote.origin.url | sed -E 's#(https://[^:/]+):[^@]+@#\1@#')"
+branch="${BRANCH}"
+origin="${ORIGIN}"
 builddatetime="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 builddate="$(date +'%Y-%m-%d')"
 buildtime="$(date +'%H:%M:%S')"

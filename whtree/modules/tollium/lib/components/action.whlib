@@ -494,7 +494,7 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
   {
     IF(NOT this->MayExecuteAction())
     {
-      Print("action ignoring execute - action is globally disabled\n");
+      Print(`action '${this->name}' ignoring execute - action is globally disabled\n`);
       RETURN DEFAULT MACRO PTR;
     }
 
@@ -503,14 +503,14 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
     {
       MACRO PTR handler := GetMember(this, this->handlername) ?? this->__fallbackhandler;
       IF(handler = DEFAULT MACRO PTR)
-        Print("action ignoring execute - action has no onexecute handler\n");
+        Print(`action '${this->name}' ignoring execute - action has no onexecute handler\n`);
       RETURN handler;
     }
 
     RECORD enableon := this->pvt_enableons[msgdata.rule];
     IF(NOT this->MayExecuteEnableOn(enableon))
     {
-      Print("action ignoring execute - enableon #" || msgdata.rule || " MayExecuteEnableOn failed\n");
+      Print(`action '${this->name}' ignoring execute - enableon #${msgdata.rule} MayExecuteEnableOn failed\n`);
       RETURN DEFAULT MACRO PTR;
     }
 
@@ -520,7 +520,7 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
     IF(GetMember(this, this->handlername) != DEFAULT MACRO PTR)
       RETURN GetMember(this, this->handlername);
 
-    Print("action ignoring execute - enableon #" || msgdata.rule || " has no onexecute handler\n");
+    Print(`action '${this->name}' ignoring execute - enableon #${msgdata.rule} has no onexecute handler\n`);
     RETURN DEFAULT MACRO PTR;
   }
 
