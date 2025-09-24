@@ -301,6 +301,16 @@
         <xs:documentation>A developer's comment on this type. Not shown to unprivileged WebHare users.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="cloneonarchive" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Whether to clone the object when archiving. By default this will follow the cloneoncopy setting</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="workflow" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>Whether to track this type in draft/versioning flows</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="IndexTypeAttrs">
