@@ -832,7 +832,7 @@ export async function importData(members: WHFSTypeMember[], data: object, option
       if (setval === undefined)
         setval = codec.decoder([], member, { allsettings: [], cc: 0, export: false }); //get default value
       else if (codec.importValue)
-        setval = codec.importValue(setval, member, false);
+        setval = codec.importValue(setval, member, false, options);
       if (isPromise(setval))
         setval = await setval;
     } catch (e) {

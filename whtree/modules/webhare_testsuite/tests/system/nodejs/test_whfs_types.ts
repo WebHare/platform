@@ -10,7 +10,6 @@ import { ResourceDescriptor, buildRTD, type RichTextDocument, IntExtLink, WebHar
 import { ComposedDocument } from "@webhare/services/src/composeddocument";
 import { codecs } from "@webhare/whfs/src/codecs";
 import { getWHType } from "@webhare/std/src/quacks";
-//import { buildInstance, type Instance, type TypedInstance } from "@webhare/services/src/richdocument";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
 
@@ -322,6 +321,21 @@ async function testInstanceData() {
   test.eq({
     whfsType: "webhare_testsuite:global.generic_test_type",
   }, await (await buildInstance({ whfsType: "webhare_testsuite:global.generic_test_type" })).export());
+
+  // Test adding missing members inside arrays when building an instance
+  test.eq(test.expectInstance("webhare_testsuite:global.generic_test_type", {
+    anArray: [
+      {
+        intMember: 4,
+        richMember: null,
+      }
+    ]
+  }, { partial: true }), await buildInstance({
+    whfsType: "webhare_testsuite:global.generic_test_type",
+    data: {
+      anArray: [{ intMember: 4 }]
+    }
+  }));
 
   // Test: Simple overwrite
   await testtype.set(testfile.id, {
