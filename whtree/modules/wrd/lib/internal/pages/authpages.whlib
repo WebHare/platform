@@ -6,6 +6,7 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/otp.whlib";
+LOADLIB "wh::xml/dom.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -90,11 +91,11 @@ MACRO PTR FUNCTION RenderLinkExpiredText(OBJECT webdesign) {
 // Login
 //
 
-PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
-<
+PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase <
   STRING logincontrol;
 
   PUBLIC BOOLEAN loginemail;
+  PUBLIC STRING webharelogintitle;
 
   MACRO NEW()
   {
@@ -129,6 +130,12 @@ PUBLIC STATIC OBJECTTYPE LoginForm EXTEND Formbase
                 : GetTid("wrd:site.forms.authpages.login-username-intro")}
               </p>`)
           ];
+
+    RECORD webharebutton := SELECT AS RECORD text FROM authpages_texts WHERE tag = "login-services-webhare" AND language = this->formlanguagecode;
+    IF(RecordExists(webharebutton)) //quick and dirty html->text
+      this->webharelogintitle := MakeXMLDocumentFromHTML(webharebutton.htmltext)->documentelement->textcontent;
+    ELSE
+      this->webharelogintitle := GetTid("wrd:site.forms.authpages.login-withemail");
 
     this->logincontrol := GetFormWebVariable("wrdauth_logincontrol");
     // FIXME should this even be here, shouldn't a router handle it before invoking LoginPage ?
@@ -174,6 +181,7 @@ PUBLIC OBJECT FUNCTION GetLoginPage(OBJECT webdesign, RECORD options) {
                                            FROM options.loginmethods
                                           WHERE visibility = "always") //filtering for display, but not when processing POSTs
                       , form := loginform->GetWittyData()
+                      , webharelogintitle := loginform->webharelogintitle
                       ];
 
   IF(options.ongetloginwittydata != DEFAULT FUNCTION PTR)
