@@ -62,6 +62,15 @@ The source's version metadata 'editor' field is updated to reflect the draft's e
 to the current user. These 'published user/time' will not be updated if the file is later unpublished and republished - they're
 supposed to reflect the user that approved the file's content.
 
+Reverting a draft moves it to the snapshots folder and creates a 'revert' event pointing to the snapshot. A revert keeps
+its version number and a new draft generated from the source will have an incremented minor version.
+
 ## Background information
 - We use the `/webhare-private/system/whfs-XXX/<siteid>/` structure with fixed IDs for the whfs- folders so it only takes
   one `parent=xx and filelink=yy` query to find it.
+
+### SQL
+```sql
+-- List top 10 files with the most history entries
+select fs_object,count(*) from system.fs_history group by fs_object order by count(*) desc limit 10;
+```
