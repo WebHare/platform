@@ -81,6 +81,7 @@ export async function describeWHFSType(type: keyof WHFSTypes | string | number, 
   const baseinfo: WHFSTypeBaseInfo = {
     id: matchtype.id || null,
     namespace: matchtype.namespace,
+    scopedType: matchtype.scopedtype || null,
     title: matchtype.title,
     members: members //mapMembers(matchtype.members)
   };

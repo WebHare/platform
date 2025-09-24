@@ -2,7 +2,7 @@ import * as test from "@mod-webhare_testsuite/js/wts-backend";
 import { buildRTD, buildWidget, IntExtLink, ResourceDescriptor, RichTextDocument, WebHareBlob } from "@webhare/services";
 import { buildRTDFromHareScriptRTD, exportAsHareScriptRTD, type HareScriptRTD } from "@webhare/hscompat";
 import { beginWork, commitWork, rollbackWork, runInWork } from "@webhare/whdb";
-import { openType } from "@webhare/whfs";
+import { openType, whfsType } from "@webhare/whfs";
 import { loadlib } from "@webhare/harescript";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { buildInstance, type RTDBlock, type RTDInlineItem, type RTDSource, type RTDExport, type Instance } from "@webhare/services/src/richdocument";
@@ -79,7 +79,7 @@ async function verifyRoundTrip(doc: RichTextDocument) {
 }
 
 async function verifyWidgetRoundTrip(widget: Instance) {
-  const testtype = openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
+  const testtype = whfsType("webhare_testsuite:global.generic_test_type");
   test.eq(await widget.export(), await (await buildInstance(await widget.export())).export());
 
   await beginWork();
@@ -444,14 +444,14 @@ async function testBuildWHFSInstance() {
   const imgEditFile = await testsitejs.openFile("/testpages/imgeditfile.jpeg");
 
   const genericWidget = await buildInstance({
-    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+    whfsType: "webhare_testsuite:global.generic_test_type",
     data: {
       myLink: new IntExtLink(imgEditFile.id, { append: "#test" }),
     }
   });
 
   test.eq({
-    whfsType: "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type",
+    whfsType: "webhare_testsuite:global.generic_test_type",
     data: {
       myLink: { internalLink: 'site::webhare_testsuite.testsitejs/TestPages/imgeditfile.jpeg', append: "#test" }
     }
@@ -622,9 +622,16 @@ async function testBuildingRTDsWithInstances() {
     await verifyWidgetRoundTrip(twocolwidget);
   }
 
-  //Verify that we catch broken whfs types
-  await test.throws(/No such type/, () => buildInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
-  await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", data: { blah: "bu_field" } }));
+  {
+    //Verify that we catch broken whfs types
+    //@ts-expect-error -- Verify that we catch broken whfs types (string is allowed, but not arbitrary constant strings)
+    await test.throws(/No such type/, () => buildInstance({ whfsType: "http://www.webhare.net/nosuchtype" }));
+    //@ts-expect-error -- Verify that we signal extra data members in constants
+    await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildInstance({ whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield", data: { blah: "bu_field" } }));
+    const instanceDataWithExtraProperty = { whfsType: "http://www.webhare.net/xmlns/publisher/formmergefield" as const, data: { fieldname: "bu_field", blah: "extra" } };
+    //@ts-expect-error -- Verify that we signal extra data members in variables
+    await test.throws(/Trying to set a value for the non-existing cell 'blah'/, () => buildInstance(instanceDataWithExtraProperty));
+  }
 
 
   {  //Build a RTD containing a RTD
@@ -648,7 +655,7 @@ async function testBuildingRTDsWithInstances() {
           whfsType: "http://www.webhare.net/xmlns/publisher/widgets/twocolumns",
           data: {
             rtdleft: await buildRTD([{ "p": ["Left column"] }]),
-            rtdright: null
+            rtdright: null,
           }
         })
       }

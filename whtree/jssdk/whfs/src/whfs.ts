@@ -3,7 +3,17 @@ declare module "@webhare/whfs" {
 }
 
 export { openType, visitResources, whfsType } from "./contenttypes";
-export type { VisitedResourceContext, VisitCallback, InstanceSource, InstanceExport, WHFSTypeGetResult } from "./contenttypes";
+export type {
+  VisitedResourceContext,
+  VisitCallback,
+  WHFSType,
+  InstanceData,
+  InstanceSource,
+  InstanceExport,
+  TypedInstanceData,
+  TypedInstanceExport,
+  TypedInstanceSource,
+} from "./contenttypes";
 export { describeWHFSType } from "./describe";
 export { openTagManager } from "./tagmanager";
 export type { TagManager, Tag } from "./tagmanager";

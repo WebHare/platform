@@ -18,7 +18,7 @@ import { getAuditEvents } from "@webhare/auth/src/audit";
 import { __closeDatabase } from "@webhare/geoip";
 import type { IntExtLink, Instance } from "@webhare/services";
 import { isInstance } from "@webhare/services/src/richdocument";
-import type { InstanceExport, UntypedInstanceData } from "@webhare/whfs/src/contenttypes";
+import type { InstanceExport, WHFSType, TypedInstanceExport, TypedInstanceData } from "@webhare/whfs/src/contenttypes";
 
 export const passwordHashes = {
   //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble. Using snakecase so the text exactly matches the password
@@ -172,8 +172,8 @@ export async function setGeoIPDatabaseTestMode(testmode: boolean) {
 }
 
 /** Build a test callback whether a field is an expected Instance */
-export function expectInstance(expectType: string, expectData: test.RecursivePartialTestable<UntypedInstanceData>, options: { partial: true }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
-export function expectInstance(expectType: string, expectData?: test.RecursiveTestable<UntypedInstanceData>, options?: { partial?: false }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
+export function expectInstance<Type extends WHFSType>(expectType: Type, expectData: test.RecursivePartialTestable<TypedInstanceData<NoInfer<Type>>>, options: { partial: true }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
+export function expectInstance<Type extends WHFSType>(expectType: Type, expectData?: test.RecursiveTestable<TypedInstanceData<NoInfer<Type>>>, options?: { partial?: false }): (instance: Pick<Instance, "whfsType" | "data"> | null) => true;
 export function expectInstance(expectType: string, expectData?: object, { partial = false } = {}) {
   return ((instance: Pick<Instance, "whfsType" | "data"> | null) => {
     test.assert(instance);
@@ -185,9 +185,9 @@ export function expectInstance(expectType: string, expectData?: object, { partia
   });
 }
 
-/** Build a test callback whether a field is an expected UntypedInstanceData (the exported version) */
-export function expectInstanceExport(expectType: string, expectData: test.RecursivePartialTestable<InstanceExport["data"]>, options: { partial: true }): (instance: InstanceExport | null) => true;
-export function expectInstanceExport(expectType: string, expectData?: test.RecursiveTestable<InstanceExport["data"]>, options?: { partial?: false }): (instance: InstanceExport | null) => true;
+/** Build a test callback whether a field is an expected Instance export */
+export function expectInstanceExport<Type extends WHFSType>(expectType: Type, expectData: test.RecursivePartialTestable<TypedInstanceExport<NoInfer<Type>>["data"]>, options: { partial: true }): (instance: InstanceExport | null) => true;
+export function expectInstanceExport<Type extends WHFSType>(expectType: Type, expectData?: test.RecursiveTestable<TypedInstanceExport<NoInfer<Type>>["data"]>, options?: { partial?: false }): (instance: InstanceExport | null) => true;
 export function expectInstanceExport(expectType: string, expectData?: object, { partial = false } = {}) {
   return ((instance: InstanceExport | null) => {
     test.assert(instance);
