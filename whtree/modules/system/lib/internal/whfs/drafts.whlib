@@ -158,8 +158,7 @@ PUBLIC OBJECT FUNCTION __CloneDraftasPublicDraft(INTEGER draftid)
   RETURN OpenWHFSDraft(destid);
 }
 
-STATIC OBJECTTYPE WHFSDraft
-<
+STATIC OBJECTTYPE WHFSDraft <
   OBJECT pvt_fsobject;
   BOOLEAN pvt_ispublic;
   // The live object on which this draft is based
@@ -343,8 +342,7 @@ STATIC OBJECTTYPE WHFSDraft
       @param options
       @cell(stringarray) options.basefields If present, list of cells to save from fs_object
       @cell(stringarray) options.contenttypes If present, list of contenttypes to save */
-  PUBLIC MACRO SaveAsFinal(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
+  PUBLIC MACRO SaveAsFinal(OBJECT user, RECORD options DEFAULTSTO DEFAULT RECORD) {
     IF(this->pvt_source = 0)
       THROW NEW Exception("This draft no longer exists");
 

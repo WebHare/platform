@@ -57,7 +57,7 @@ PUBLIC STATIC OBJECTTYPE FieldScope EXTEND YamlScope
   }
 >;
 
-// Base class for a property editor. Preparing to share common code with objectprops
+// Base class for ObjectProperties and the Document Editor. Preparing to share common code with objectprops
 PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 <
   /// Id of edited object, 0 for new or duplicate objects
