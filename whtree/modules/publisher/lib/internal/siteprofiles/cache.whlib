@@ -143,7 +143,7 @@ PUBLIC RECORD FUNCTION LookupContentTypeById(INTEGER id)
 PUBLIC RECORD FUNCTION LookupContentTypeByName(STRING ns)
 {
   //FIXME its sorted so use that
-  RETURN SELECT * FROM GetCachedSiteProfiles().contenttypes WHERE contenttypes.namespace = VAR ns;
+  RETURN SELECT * FROM GetCachedSiteProfiles().contenttypes WHERE contenttypes.namespace = VAR ns OR contenttypes.scopedtype = VAR ns;
 }
 PUBLIC INTEGER ARRAY FUNCTION GetDynamicExecuteFolderTypes()
 {

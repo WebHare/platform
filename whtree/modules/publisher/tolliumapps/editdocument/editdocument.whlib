@@ -85,6 +85,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->frame->flags.isdirty := FALSE;
     this->developersmenu->visible := this->frame->flags.isdeveloper;
     this->contexts->editdocumentapi := NEW EditDocumentAPI(PRIVATE this);
+    this->requireworkflow := TRUE;
 
     this->frame->flags.canedit := FALSE;
     this->frame->flags.canpublish := FALSE;
@@ -126,36 +127,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
     this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
 
-    RECORD ARRAY drafts := GetDrafts(fsobject->id);
-    IF(Length(SELECT FROM drafts WHERE ispublic)>1)
-      THROW NEW Exception("Multiple public drafts");
-
-    /* Public draft present?
-          Submitted for approval?
-              Say so, exit
-          Someone else created it?
-              Say so, exit if user wants to exit
-
-        Private draft present for current user?
-            Open it, ask if user wants to resume
-                No->revert to default version
-                Yes->keep private draft as current version
-    */
-
-    STRING savemode := this->GetSaveMode();
-
-    //ADDME: Add a way for read-only users to switch between draft en live?
-    IF (NOT this->readonly)
-    {
-      RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
-      IF(RecordExists(currentdraft))
-      {
-        this->currentdraft := OpenDraft(fsobject->id, currentdraft.id);
-        IF(NOT ObjectExists(this->currentdraft))
-          THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
-      }
-    }
-
+    RECORD ARRAY drafts := this->RefreshCurrentDraft();
 
     RECORD otherdraft := SELECT * FROM drafts WHERE ispublic AND NOT mine ORDER BY creationdate DESC LIMIT 1;
     IF(NOT this->readonly AND RecordExists(otherdraft)) {
@@ -220,6 +192,38 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     this->RefreshState();
 
     RegisterTimedCallback(AddTimeToDate(1, GetCurrentDatetime()), PTR this->CalculateInitialDirty);
+  }
+
+  RECORD ARRAY FUNCTION RefreshCurrentDraft() {
+    RECORD ARRAY drafts := GetDrafts(this->itemid);
+    IF(Length(SELECT FROM drafts WHERE ispublic)>1)
+      THROW NEW Exception("Multiple public drafts");
+
+    /* Public draft present?
+          Submitted for approval?
+              Say so, exit
+          Someone else created it?
+              Say so, exit if user wants to exit
+
+        Private draft present for current user?
+            Open it, ask if user wants to resume
+                No->revert to default version
+                Yes->keep private draft as current version
+    */
+
+    this->currentdraft := DEFAULT OBJECT; //reset the current draft in case we can't find any active one,
+
+    //ADDME: Add a way for read-only users to switch between draft en live?
+    IF (NOT this->readonly) {
+      RECORD currentdraft := SELECT * FROM drafts WHERE ispublic;
+      IF(RecordExists(currentdraft)) {
+        this->currentdraft := OpenDraft(this->itemid, currentdraft.id);
+        IF(NOT ObjectExists(this->currentdraft))
+          THROW NEW Exception("Failed to open single draft #" || currentdraft.id);
+      }
+    }
+
+    RETURN drafts;
   }
 
   MACRO SetupForFileEdit(INTEGER objectid, RECORD objecteditor)
@@ -342,7 +346,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->frame->flags.canview := FALSE;
     }
     this->frame->flags.canrevertdraft := ObjectExists(this->currentautosave ?? this->currentdraft) AND this->frame->flags.canedit AND NOT this->readonly;
-    this->frame->flags.cancancelrequest := ObjectExists(this->currentautosave ?? this->currentdraft) AND NOT this->frame->flags.canedit AND NOT this->readonly;
 
     ^title->onchange := this->isnew ? PTR this->SyncNameWithTitle : DEFAULT MACRO PTR;
     IF(NOT this->isnew)
@@ -367,7 +370,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     } ELSE
       ^draftbar->visible := FALSE;
 
-    STRING savemode := this->GetSaveMode();
     BOOLEAN allowpublish;
 
     this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
@@ -442,24 +444,14 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       this->DoCanceldraft();
   }
 
-  /** Return the savemode for the current document, and calculates frame->flags.cancancelrequest
-      @return savemode
-      "unversioned-published": Site is not versioned, file is now published.
-      "unversioned-unpublished": Site is not versioned, file is now not published
-  */
-  STRING FUNCTION GetSaveMode()
-  {
-    // See if the current draft is locked for
-    this->frame->flags.cancancelrequest := FALSE;
-    IF (SELECT AS BOOLEAN IsPublish(published) FROM system.fs_objects WHERE id = this->itemid)
-      RETURN "unversioned-published";
-    ELSE
-      RETURN "unversioned-unpublished";
-  }
-
-  BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish, RECORD approval_metadata)
-  {
-    this->UpdateAutosave();
+  BOOLEAN FUNCTION ExecuteSave(BOOLEAN withpublish) {
+    IF(NOT this->UpdateAutosave()) { //NOTE Flushes to an autosave if needed but may also clear unneeded autosave objects and set this->currentautosave to DEFAULT OBJECT
+      //There is no autosave anymore - we are in sync with the latest draft/final version
+      IF(NOT withpublish) { //we're not asked to update a final object
+        Print("save ignored - no autosave to update draft/final with\n");
+        RETURN TRUE; //nothing to do. UpdateAutosave will have updated dirty flag & state
+      }
+    }
 
     IF(NOT this->isnew AND NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->itemid)) {
       Print("save aborted - not privileged\n");
@@ -480,32 +472,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
     OBJECT old_currentdraft := this->currentdraft;
 
     OBJECT work := this->BeginWork();
-    STRING savemode;
     OBJECT finalitem := OpenWHFSObject(this->itemid); //represents OpenHWHFSObject(this->itemid) in the original code, but we can't update this->itemid until we've committed
-    IF (NOT work->HasFailed())
-    {
-      savemode := this->GetSaveMode();
-      STRING savetarget;
-      SWITCH (savemode)
-      {
-        CASE "unversioned-unpublished"
-        {
-          // File is not published now. If publishing, save to live
-          // Otherwise, save to the draft only if there is one.
-          savetarget := withpublish OR NOT ObjectExists(this->currentdraft) ? "live" : "draft";
-        }
-        CASE "unversioned-published"
-        {
-          // File is published now. If not publishing, always save to the draft
-          savetarget := withpublish ? "live" : "draft";
-        }
-      }
 
-      IF(this->isnew) //TODO what we do here should be similar to objectprops name generation, can we share ? including the unique name check?
-      {
-        IF(savetarget NOT IN ["draft","live"])
-          THROW NEW Exception(`Invalid savetarget '${savetarget}' for new document`);
-
+    IF (NOT work->HasFailed()) {
+      IF(this->isnew) { //TODO what we do here should be similar to objectprops name generation, can we share ? including the unique name check?
         //New items, even *unpublished*, when created through objectprops, always live in their final folder. We basically simulate that: move the autosave to the final location
         RECORD draftmeta := OpenWHFSType("http://www.webhare.net/xmlns/publisher/draftmetadata")->GetInstanceData(this->itemid);
         IF(draftmeta.parent = 0)
@@ -515,56 +485,27 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         finalitem->MoveTo(parentfolder, ^name->value ?? ^name->placeholder);
         this->currentdraft := DEFAULT OBJECT;
       } ELSE { //We're updating an existing document
-        //which fields do we copy anyway ?
-        STRING ARRAY basefields := [ "DATA" ];
-        IF(^metapart->visible AND ^title->enabled AND ^title->visible)
-          INSERT "title" INTO basefields AT END;
-        IF(^metapart->visible AND ^description->enabled AND ^description->visible)
-          INSERT "description" INTO basefields AT END;
-
-        IF (savetarget = "draft")
-        {
-          IF (ObjectExists(this->currentautosave)) //FIXME when doesn't it exist?
-          {
-            // Ensure the public draft exists if we're actually saving something
-            IF (NOT ObjectExists(this->currentdraft))
-              this->currentdraft := CreateDraft(finalitem, this->currentautosave->id, TRUE);
-
-            this->currentautosave->SaveToPublicDraft(
-                [ basefields := basefields
-                , contenttypes := this->contexts->editdocumentapi->editcontenttypes
-                ]);
-          }
-        }
-        ELSE // savetarget = "live"
-        {
+        IF (withpublish = FALSE) { ///This is "SAVE". 'currentautosave' was either linked to the current public draft or the current published object
+          this->currentautosave->SaveAsNewPublicDraft(this->contexts->user);
+        } ELSE { // commit or publish
           OBJECT source := this->currentautosave ?? this->currentdraft;
           IF (ObjectExists(source)) {
             // Deletes the autosave and the public draft too (but keep it when it's versioned, will probably contain other data)
-            source->SaveAsFinal(GetEffectiveUser(),
-                [ basefields := basefields
-                , contenttypes := this->contexts->editdocumentapi->editcontenttypes
-                , keeppublicdraft := FALSE
-                ]);
-
-            this->currentdraft := DEFAULT OBJECT;
+            source->SaveAsFinal(this->contexts->user);
           }
         }
+        this->RefreshCurrentDraft();
       }
 
       this->currentautosave := DEFAULT OBJECT;
 
-      IF (withpublish)
-      {
-        IF (savemode IN [ "unversioned-unpublished", "unversioned-published" ])
-        {
-          //Warn if publishing to an unpublished site (but not if publishing outside a site)
-          IF(finalitem->parentsite !=0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
-            work->AddWarning(this->GetTid(".sitenotpublished"));
-          IF(savemode = "unversioned-unpublished" AND finalitem->ispinned)
-            work->AddError(this->GetTid(".cannotpublishpinnedfile"));
-          finalitem->UpdateMetadata([ publish := TRUE ]);
-        }
+      IF (withpublish) {
+        //Warn if publishing to an unpublished site (but not if publishing outside a site)
+        IF(finalitem->parentsite !=0 AND OpenSite(finalitem->parentsite)->outputweb = 0)
+          work->AddWarning(this->GetTid(".sitenotpublished"));
+        IF(finalitem->publish = FALSE AND finalitem->ispinned)
+          work->AddError(this->GetTid(".cannotpublishpinnedfile"));
+        finalitem->UpdateMetadata([ publish := TRUE ]);
       }
     }
 
@@ -621,9 +562,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       // Object isn't dirty anymore, remove last autosave
       this->currentautosave->DeleteSelf();
       this->currentautosave := DEFAULT OBJECT;
+      this->frame->flags.isdirty := FALSE;
     }
 
     work->Finish();
+    this->RefreshState();
     RETURN ObjectExists(this->currentautosave);
   }
 
@@ -707,7 +650,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       RETURN;
     }
 
-    IF (NOT this->ExecuteSave(FALSE, DEFAULT RECORD))
+    IF (NOT this->ExecuteSave(FALSE))
       RETURN;
 
     this->RefreshState();
@@ -715,20 +658,18 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
 
   MACRO DoPublish() { //Save and publish the file
     RECORD metadata;
-    STRING savemode := this->GetSaveMode();
     OBJECT targetfile := OpenWHFSObject(this->itemid);
-    IF(savemode = "unversioned-unpublished" AND targetfile->ispinned)
-    {
+
+    IF(targetfile->publish = FALSE AND targetfile->ispinned) { // The file's publish status is locked by the pin
       this->RunSimpleScreen("error", this->GetTid(".cannotpublishpinnedfile"));
       RETURN;
     }
-    ELSE
-    {
-      this->UpdateAutosave();
-      IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
-        RETURN;
-    }
-    this->ExecuteSave(TRUE, metadata);
+
+    this->UpdateAutosave();
+    IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
+      RETURN;
+
+    this->ExecuteSave(TRUE);
   }
 
   BOOLEAN FUNCTION DefaultConfirmAndSavePublishHandler()
@@ -746,9 +687,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
         GetTid("publisher:tolliumapps.editdocument.messageboxes.savebeforepreview", OpenWHFSObject(this->itemid)->name),
         [ buttons := ["yes","no"], dontshowkey := "publisher.editdocument.savebeforepreview", dontshowbuttons := ["yes"]]) != "yes")
          RETURN; //cancelled
+
+      this->ExecuteSave(FALSE);
     }
 
-    this->ExecuteSave(FALSE, DEFAULT RECORD);
     this->RunScreen("#sendpreviewlink");
   }
 
@@ -811,7 +753,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       {
         CASE "yes"
         {
-          IF (this->ExecuteSave(FALSE, DEFAULT RECORD))
+          IF (this->ExecuteSave(FALSE))
             this->tolliumresult := "ok";
         }
         CASE "no"

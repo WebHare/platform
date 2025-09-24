@@ -7,7 +7,7 @@
           width="800px"
           height="600px"
           allowresize="true"
-          flags="canedit canpublish canrevertdraft cancancelrequest canpreview canview isdeveloper isdirty"
+          flags="canedit canpublish canrevertdraft canpreview canview isdeveloper isdirty"
           gid=".editdocumentapp"
           icon="tollium:applications/editor"
           interval="60000"

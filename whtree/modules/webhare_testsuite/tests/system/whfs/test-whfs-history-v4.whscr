@@ -36,6 +36,9 @@ MACRO Prep()
     , instances := [[ whfstype := "http://www.webhare.net/xmlns/beta/test", stringarray := ["a","b","d"]  ]]
     ]);
   TestEq(newfile->creationdate, newfile->modificationdate);
+  newfile->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "created_0_1"]);
+  newfile->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "created_0_1"]);
+  newfile->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "created_0_1"]);
 
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge"), when := newfile->modificationdate, userdata := [ login := "marge@beta.webhare.net" ] ]
                 ], ListObjectHistory(newfile->id), "*");
@@ -69,12 +72,20 @@ MACRO DraftingTest()
   TestEq(TRUE, ObjectExists(draft->fsobject));
   TestEq(FALSE, draft->fsobject->isactive);
 
-  TestEq(['a','b','d'], draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  //Such a draft should only bother with workflow controlled data
+  TestEq([ no_clone_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_no_clone"));
+  TestEq([ with_workflow_string := "created_0_1" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ clone_only_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_clone_only"));
 
   draft->fsobject->UpdateData(StringToBlob("This just went into a temporary draft"));
-  draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["a","e","f"]]);
-  TestEq(['a','b','d'], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(['a','e','f'], draft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "pvt_draft_0_1" ]));
+  draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "pvt_draft_0_1" ]);
+  TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "pvt_draft_0_1" ]));
+
+  //TODO should drafts have a GetInstanceData? If so, would that then look at the main object for non-workflow data?
+  TestEq([ no_clone_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_no_clone"));
+  TestEq([ with_workflow_string := "pvt_draft_0_1" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ clone_only_string := "" ], draft->fsobject->GetInstanceData("webhare_testsuite:global.type_clone_only"));
 
   RECORD ARRAY drafts := GetDrafts(testfile->id);
   TestEq(1, Length(drafts));
@@ -94,20 +105,35 @@ MACRO DraftingTest()
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 ], ListObjectHistory(testfile->id), "*", "Private drafts always stay out of the history");
 
-  //Now create a public draft from the first autosave. A public draft will destroy all autosaves
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  //Set a clonable instance on the draft to see if its properly copied
+  TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_no_clone", [ no_clone_string := "draft_0_1"]));
+  draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "draft_0_1"]);
+  TestThrowsLike("*not*workflow*", PTR draft->SetInstanceData("webhare_testsuite:global.type_clone_only", [ clone_only_string := "draft_0_1"]));
+
+  //Now create a public draft from the first autosave. A public draft will destroy all autosaves FIXME why should it ? temp history may still have some value see VSCode file history
+  draft->SaveAsNewPublicDraft(testfw->GetUserObject("marge"));
   TestEq(TRUE, TestFlagFromPublished(OpenWHFSObject(testfile->id)->published, PublishedFlag_HasPublicDraft));
+
+  // FIXME verify that empty instances properly get copied too
 
   RECORD ARRAY history := ListObjectHistory(testfile->id);
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1" ]
                 , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge"), userdata := [ login := "marge@beta.webhare.net" ] ]
                 ], history, "*");
 
-  TestEq(['a','b','d'], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  // Original file is still untouched
+  TestEq([ no_clone_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_no_clone"));
+  TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ clone_only_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_clone_only"));
   TestEq("I'm a jolly good file", BlobToString(OpenWHFSObject(testfile->id)->data), "Testfile is still untouched");
 
-  TestEq(['a','e','f'], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(OpenWHFSObject(history[1].snapshot)->modificationdate, history[1].when);
+  // But we see new metadata on the public draft
+  OBJECT rawsnapshot := OpenWHFSObject(history[1].snapshot);
+  TestEq([ no_clone_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_no_clone"));
+  TestEq([ with_workflow_string := "draft_0_1" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ clone_only_string := "" ], rawsnapshot->GetInstanceData("webhare_testsuite:global.type_clone_only"));
+
+  TestEq(rawsnapshot->modificationdate, history[1].when);
   TestEq("This just went into a temporary draft", BlobToString(OpenWHFSObject(history[1].snapshot)->data), "Content of autosave is still updated");
 
   //Verify the autosaves were cleaned up
@@ -156,17 +182,18 @@ MACRO DraftingTest()
 
   //Let's save another draft
   draft := OpenWHFSDraft(drafts[1].id); //This is taking the autosave I created
-  draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := [ "yet-another-draft" ]]);
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SetInstanceData("webhare_testsuite:global.type_with_workflow", [ with_workflow_string := "yet-another-draft" ]);
+  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
 
   history := ListObjectHistory(testfile->id);
   TestEqMembers([ [ type := "created", snapshot := 0, version := "0.1", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved", version := "0.2", user := testfw->GetUserAuthobjectId("marge") ]
                 , [ type := "saved", version := "0.3", user := testfw->GetUserAuthobjectId("homer") ]
                 ], history, "*");
-  TestEq(['a','b','d'], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(['a','e','f'], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(["yet-another-draft"], OpenWHFSObject(history[2].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+
+  TestEq([ with_workflow_string := "created_0_1" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq(OpenWHFSObject(history[2].snapshot)->modificationdate, history[2].when);
 
   TestEqMembers([ version := "0.1"
@@ -185,14 +212,15 @@ MACRO DraftingTest()
   TestEq(TRUE, drafts[0].mine);
   TestEq(history[2].snapshot, drafts[0].id);
 
-  //We now need to publish the final draft
+  ///////////////////
+  // STORY: We will now actually publish the final draft. This adds version 1.0 to the history
   draft := OpenWHFSDraft(drafts[0].id);
 
   DATETIME oldmoddate := testfile->modificationdate;
-  draft->SaveAsFinal(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("marge"));
 
   testfile := OpenWHFSObject(testfile->id);
-  TestEq(["yet-another-draft" ], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
   TestEq("I'm a jolly good file with some data added by Homer!", BlobToString(OpenWHFSObject(testfile->id)->data));
 
   TestEq(0, Length(GetDrafts(testfile->id)));
@@ -213,14 +241,14 @@ MACRO DraftingTest()
                 ], testfile->GetInstanceData("http://www.webhare.net/xmlns/publisher/version"), "*");
 
   //Verify the snapshots in the history. They should contain the right info... but they should NOT be the public version!
-  TestEq(['a','e','f'], OpenWHFSObject(history[1].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(["yet-another-draft"], OpenWHFSObject(history[2].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(["yet-another-draft"], OpenWHFSObject(history[3].snapshot)->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
-  TestEq(["yet-another-draft"], testfile->GetInstanceData("http://www.webhare.net/xmlns/beta/test").stringarray);
+  //FIXME where did created_0_1 go ?
+  TestEq([ with_workflow_string := "yet-another-draft" ], testfile->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "draft_0_1" ], OpenWHFSObject(history[1].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[2].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
+  TestEq([ with_workflow_string := "yet-another-draft" ], OpenWHFSObject(history[3].snapshot)->GetInstanceData("webhare_testsuite:global.type_with_workflow"));
 
-  TestAssert(testfile->id != history[3].snapshot);
-
-  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
+  TestAssert(testfile->id != history[3].snapshot, "Assure us that the 1.0 version is really independent from the live file");
+  TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts"); //FIXME we probably don't want this in the future
 
   /////////////////////
   //
@@ -234,7 +262,7 @@ MACRO DraftingTest()
   testfw->SetTestUser("marge");
   draft := CreateDraft(testfile, testfile->id, FALSE);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["rabbits"] ]);
-  draft->SaveAsFinal(testfw->GetUserObject("marge"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("marge"));
 
   testfile := OpenWHFSObject(testfile->id);
   TestEqMembers([ version := "2.0"
@@ -259,10 +287,10 @@ MACRO DraftingTest()
 
   draft := CreateAutosave(testfw->GetUserObject("homer"), testfile->id);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["robots"] ]);
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
   draft := CreateAutosave(testfw->GetUserObject("homer"), testfile->id);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["death"] ]);
-  draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("homer"));
 
   TestEq(RECORD[], GetDrafts(testfile->id), "Finalizing should have discarded all drafts");
 
@@ -296,17 +324,17 @@ ASYNC MACRO UnpublishedSavesTest()
   OBJECT draft := CreateAutosave(testfw->GetUserObject("marge"), unpublishedfile->id);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["love"] ]);
 
-  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
   TestEqMembers([[ ispublic := TRUE ]], GetDrafts(unpublishedfile->id), "*", "SaveAsNewPublicDraft should have discarded all autosaves");
 
-  draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("homer"));
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
   TestEq(FALSE, OpenWHFSObject(unpublishedfile->id)->publish);
 
   //Create an autosave or an unpublished file and finalize it straight away
   draft := CreateAutosave(testfw->GetUserObject("marge"), unpublishedfile->id);
   draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["homer"] ]);
-  draft->SaveAsFinal(testfw->GetUserObject("homer"), [ basefields := ["data"], contenttypes := [ "http://www.webhare.net/xmlns/beta/test" ] ]);
+  draft->SaveAsFinal(testfw->GetUserObject("homer"));
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");
 
   RECORD ARRAY history := ListObjectHistory(unpublishedfile->id);

@@ -62,6 +62,8 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 <
   /// Id of edited object, 0 for new or duplicate objects
   INTEGER itemid;
+  /// Enable to only show workflow-enabled tabs
+  BOOLEAN requireworkflow;
 
   // Metatabs config as received from describeMetaTabsForHS
   RECORD metatabsconfig;
@@ -154,7 +156,7 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
 
   MACRO __SetupEditBase(INTEGER objectid, INTEGER parent, BOOLEAN isfolder, INTEGER type)
   {
-    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type] );
+    this->metatabsconfig := CallJS("@mod-publisher/lib/internal/siteprofiles/metatabs.ts#describeMetaTabsForHS", CELL[objectid, parent, isfolder, type, this->requireworkflow ] );
     this->contexts->applytester := RecordExists(this->metatabsconfig) ? GetApplyTesterForHSInfo(this->metatabsconfig.__hsinfo) : GetApplyTesterForObject(objectid); //fallback. test-whfs-history-v4 triggers it
     IF(NOT ObjectExists(this->contexts->applytester))
       THROW NEW TolliumException(this, "No applytester found for this object");
@@ -265,10 +267,6 @@ PUBLIC STATIC OBJECTTYPE PublisherEditorBase EXTEND TolliumScreenBase
         }
       }
     }
-
-    IF(ObjectExists(this->contexts->editdocumentapi)) //TODO it looks like *we* should manage the list of editcontentttypes
-      FOREVERY(RECORD controller FROM this->metacontrollers)
-        INSERT controller.type->namespace INTO this->contexts->editdocumentapi->editcontenttypes AT END;
 
     this->RefreshMetaTabsReadonly();
     RETURN RecordExists(this->metatabsconfig) AND Length(this->metatabsconfig.types) > 0;
