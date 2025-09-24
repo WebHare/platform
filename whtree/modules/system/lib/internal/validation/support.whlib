@@ -198,10 +198,10 @@ PUBLIC STATIC OBJECTTYPE XMLValidatorBase
     this->errors := this->errors CONCAT errors;
   }
 
-  PUBLIC MACRO AddTypedMessages(RECORD ARRAY mesages) {
-    this->errors := this->errors CONCAT SELECT * FROM mesages WHERE type="error";
-    this->warnings := this->warnings CONCAT SELECT * FROM mesages WHERE type="warning";
-    this->hints := this->hints CONCAT SELECT * FROM mesages WHERE type="hints";
+  PUBLIC MACRO AddTypedMessages(RECORD ARRAY messages) {
+    this->errors := this->errors CONCAT SELECT * FROM messages WHERE type="error";
+    this->warnings := this->warnings CONCAT SELECT * FROM messages WHERE type="warning";
+    this->hints := this->hints CONCAT SELECT * FROM messages WHERE type="hints";
   }
 
   /** Returns the module name of the current document
