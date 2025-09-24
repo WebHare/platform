@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+
 LOADLIB "mod::system/lib/database.whlib";
 
 // TODO factor out parts to share with objectprops
@@ -15,7 +17,7 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
   MACRO PTR pvt_oncanpreview;
 
 
-  // The content types that are edited by this editor (only these types are read/written through GetInstanceData/SetInstanceData)
+  /// Deprecated and ignored since WH5.9.
   PUBLIC STRING ARRAY editcontenttypes;
 
   /// Can this file be published? Some library/reusable content may disable this. This is not foolproof but prevents obvious mistakes
@@ -90,11 +92,17 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
     this->editscreen->GetInstanceObject()->UpdateMetadata(fields);
   }
 
+  MACRO AssertWorkflowSupport(STRING type) {
+    RECORD typeinfo := LookupContentTypeByName(type);
+    IF(NOT RecordExists(typeinfo))
+      THROW NEW Exception(`Type '${type}' is not a known content type`);
+    IF(NOT typeinfo.workflow)
+      THROW NEW Exception(`Type '${type}' has not been enabled for workflow. To enable it, set workflow="true" in the content type definition`);
+  }
+
   /// Get instance data of a given type from the object being edited (containing last changes)
-  PUBLIC RECORD FUNCTION GetInstanceData(STRING type)
-  {
-    IF (type NOT IN this->editcontenttypes)
-      THROW NEW Exception(`Type '${type}' is not edited by this screen`);
+  PUBLIC RECORD FUNCTION GetInstanceData(STRING type) {
+    this->AssertWorkflowSupport(type);
 
     RECORD originaldata := this->editscreen->GetInstanceObject()->GetInstanceData(type);
     RECORD cached := SELECT * FROM this->instancedatacache WHERE namespace = type;
@@ -106,18 +114,13 @@ PUBLIC STATIC OBJECTTYPE EditDocumentAPI
 
   /** Write instance data of a given type to the object being edited. We store any cell modified, but shouldn't 'save and continously replace' a cell that was never touched by the editor
   */
-  PUBLIC MACRO SetInstanceData(STRING type, RECORD data)
-  {
-    IF (type NOT IN this->editcontenttypes)
-      THROW NEW Exception(`Type '${type}' is not edited by this screen`);
+  PUBLIC MACRO SetInstanceData(STRING type, RECORD data)   {
+    this->AssertWorkflowSupport(type);
 
-    IF (NOT RecordExists(SELECT FROM this->instancedatacache WHERE namespace = type))
-    {
+    IF (NOT RecordExists(SELECT FROM this->instancedatacache WHERE namespace = type)) {
       INSERT [ namespace := type, data := data ]
         INTO this->instancedatacache AT END;
-    }
-    ELSE
-    {
+    } ELSE {
       UPDATE this->instancedatacache
          SET data := CELL[...COLUMN data, ...VAR data]
        WHERE namespace = type;

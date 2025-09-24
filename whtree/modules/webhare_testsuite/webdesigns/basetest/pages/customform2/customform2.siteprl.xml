@@ -13,7 +13,8 @@
             ispublishedassubdir="true"
             needstemplate="true"
             title="WebHare testsuite customform2 type"
-            icon="tollium:files/application_x-webhare-survey">
+            icon="tollium:files/application_x-webhare-survey"
+            workflow="true">
     <dynamicexecution routerfunction="customform2.whlib#CustomFormRouter2" />
   </filetype>
 

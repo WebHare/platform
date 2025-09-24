@@ -95,7 +95,7 @@ types:
     tid: publisher:filetypes.markdownfile
     icon: tollium:files/text_plain
     metaType: page
-    workflow: false
+    workflow: true
     searchContentProvider: publisher:markdown
     members:
       data:
