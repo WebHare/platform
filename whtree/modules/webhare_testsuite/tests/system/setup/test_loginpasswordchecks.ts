@@ -31,6 +31,8 @@ test.runTests(
       await test.wait('ui');
 
       test.setTodd('username', "pietje@allow2fa.test.webhare.net");
+      test.setTodd('language', "nl");
+
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -148,7 +150,7 @@ test.runTests(
       // policy: no reuse for 2 days
       test.eq(/doesn't have/, test.qR(".wh-form__page--visible").textContent);
 
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3");
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3", { expectLang: "nl" });
     },
 
     "force 2fa",
