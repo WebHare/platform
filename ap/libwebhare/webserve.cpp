@@ -385,7 +385,7 @@ void HandleSendAsIs(WebServer::Connection *webcon, std::string const &path)
                 /* Round down to a full second. Not ideal as files can easily change twice in as second on a modern system,
                    but we're stuck with HTTP granularity. TODO investigate use of ETag and hashing milliseconds (and inode?)
                    into it */
-                modtime -= Blex::DateTime::Msecs(modtime.GetMsecs());
+                modtime -= Blex::DateTime::Msecs(modtime.GetMsecs() % 1000);
                 if (webcon->request->condition_ifmodifiedsince != Blex::DateTime::Invalid()
                     && modtime <= webcon->request->condition_ifmodifiedsince)
                 {

@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 
@@ -48,7 +49,9 @@ MACRO ApiTest()
 {
   testfw->browser->SetSessionCookie("wh-debug", GetSignedWHDebugOptions([ "win", "etr" ])); //get witties and error traces
 
-  STRING formurl := OpentestsuiteSite()->OpenByPath("testpages/formtest")->url;
+  OBJECT formobj := OpentestsuiteSite()->OpenByPath("testpages/formtest");
+  STRING formurl := formobj->url;
+  WaitForPublishCompletion(formobj->id);
   TestEq(TRUE, testfw->browser->GotoWebPage(formurl));
 
   OBJECT tester := OpenFormsapiFormTester(testfw->browser, [ selector := "#coreform" ]);
