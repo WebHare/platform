@@ -18,7 +18,7 @@
             [/forevery]
             <button type="button" data-wh-form-action="next" class="wh-wrdauth-loginmethodbutton">
               <img class="wh-wrdauth-loginmethodicon" src="/.wh/ea/p/providers/password.24x24.b.svg" alt="" />
-              <span class="wh-wrdauth-loginmethodlabel">[gettid site.forms.authpages.login-withemail]</span>
+              <span class="wh-wrdauth-loginmethodlabel">[webharelogintitle]</span>
             </button>
           </div>
         </div>
