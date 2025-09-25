@@ -288,7 +288,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 
     STRING overridetoken := GetWebVariable('overridetoken');
     STRING openas := GetWebVariable("openas");
-    STRING language := GetWebVariable("lang") ?? GetWebVariable("language");
 
     DATETIME sessionexpires;
     this->wrdauthplugin := this->webdesign->GetWRDAuthPlugin();
@@ -344,11 +343,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
         , loggedin_expires := sessionexpires
         , openas
         ];
-
-    STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(this->webdesign->targetobject->id);
-
-    SetTidLanguage(lang);
-    this->webdesign->languagecode := lang;
   }
 
   RECORD ARRAY FUNCTION CalculateInitialInstructions()
@@ -407,9 +401,6 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 
     this->SetupPortal();
 
-    IF (GetWebVariable("language") != "")
-      this->webdesign->languagecode := GetWebVariable("language");
-
     // Starting with single ?app=manualname? Then redirect to that manual
     STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
     IF (LENGTH(apps) = 1)
@@ -428,7 +419,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
 
     this->appserviceparams := [ overridetoken := ""
                               , openas := ""
-                              , language := this->webdesign->languagecode
+                              , language := GetTidLanguage()
                               , debug := IsWHDebugOptionSet("tol")
                               ];
 
@@ -699,7 +690,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase <
                       , id
                       , author
                    FROM newsitems
-                  WHERE lang IN [ "nlen", this->currentuser->language ];
+                  WHERE lang IN [ "nlen", GetTidLanguage() ]; //follow language override so you can easily test newsitems in other languages
     RETURN newsitems;
   }
 
@@ -893,7 +884,6 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
     ExecuteSubmitInstruction([ type := "close" ]);
   }
 
-
   STRING overridetoken := GetWebVariable('overridetoken');
   IF(overridetoken != "") {
     IF(NOT VerifyOverrideToken(overridetoken))
@@ -901,19 +891,34 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
   }
 
   OBJECT authplugin := webdesign->GetWRDAuthPlugin();
-
-  IF(GetWebHeader("Content-Type") LIKE "application/json*")
-    RETURN NEW TolliumInterfacePage(ObjectExists(authplugin) ? authplugin->GetCurrentWebhareUser() : DEFAULT OBJECT); //incoming RPC. TODO get rid of the WCS_/WDS_ calls above and this bypass can go away too
-
-  RECORD config := GetApplicationPortalConfig(webdesign->targetobject->id);
   OBJECT currentuser;
 
-  IF(overridetoken = "" AND ObjectExists(authplugin)) { //we really need to enable auth things
+  IF(overridetoken = "" AND ObjectExists(authplugin))
+    currentuser := authplugin->GetCurrentWebhareUser();
+
+  // Determine language to use before handing off to RPCs
+  STRING uselanguage :=
+    GetWebVariable("lang") //explicit URL variable wins
+    ?? (ObjectExists(currentuser) ? currentuser->language : "") //follow user's choice
+    ?? ReadRegistryKey("system.userrights.newuserdefaults_language") //should system language should be per portal or schema? but then this key should move there too
+    ?? webdesign->languagecode; //take whatever the webdesign had configured
+
+  IF(uselanguage != GetTidLanguage()) { //switch language if needed
+    SetTidLanguage(uselanguage);
+    webdesign->languagecode := uselanguage;
+  }
+
+  IF(GetWebHeader("Content-Type") LIKE "application/json*")
+    RETURN NEW TolliumInterfacePage(currentuser); //incoming RPC. TODO get rid of the WCS_/WDS_ calls above and this bypass can go away too
+
+  RECORD config := GetApplicationPortalConfig(webdesign->targetobject->id);
+
+  IF(overridetoken = "" AND ObjectExists(authplugin)) { //even if logged in we need to go through authpages to implement ?prompt=login
     IF(config.usewrdauthloginpage) {
       /* TODO: should we still require this siteprofile option or just check if you have a loginpage= ?
                it's a bit double but also I'm not sure if we want to keep loginpage= and if it shouldn't
                be wrdauth or somewhere configuration (much easier to disable in case of problems) */
-      currentuser := authplugin->RequireLoggedinUser(); //is expected to redirect if user is not logged in
+      currentuser := authplugin->RequireLoggedinUser(); //is expected to redirect as the user is not logged in
     } ELSE { //use our 'embeded' auth page
       //FIXME convert to callback? as we ONLY need to retrieve images if rendering the login page
       RECORD images := RPC_RetrieveImages([ [ data := [ imgnames := (SELECT AS STRING ARRAY icon FROM config.loginmethods), color := "c", height := 24, width := 24 ] ] ], FALSE);
@@ -937,8 +942,6 @@ PUBLIC OBJECT FUNCTION TolliumPortalRouter(OBJECT webdesign) {
 
         RETURN page;
       }
-
-      currentuser := authplugin->GetCurrentWebhareUser();
     }
   }
 

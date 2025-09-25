@@ -18,6 +18,11 @@ CONSTANT RECORD ARRAY authtext_options :=
       , headingtid := /*tid*/"wrd:site.forms.authpages.login-services"
       , texttid := ""
       ]
+    , [ rowkey := "login-services-webhare"
+      , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.login-services-webhare"
+      , headingtid := ""
+      , texttid := /*tid*/"wrd:site.forms.authpages.login-withemail"
+      ]
     , [ rowkey := "totp-intro"
       , titletid := /*tid*/"wrd:tolliumapps.auth.settings.authtexts.totp-intro"
       , headingtid := /*tid*/"wrd:site.forms.authpages.totp-title"
@@ -195,6 +200,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthTexts EXTEND TolliumScreenBase <
 
         OBJECT defaultheading := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!defaultheading";
         defaultheading->title := SELECT AS STRING GetTidForLanguage(language, headingtid) FROM authtext_options WHERE rowkey = tag;
+        defaultheading->visible := defaultheading->title != "";
         OBJECT defaulttext := SELECT AS OBJECT comp FROM ToRecordArray(result.components, "comp") WHERE comp->name LIKE "*!defaulttext";
         // Handle some texts separately
         IF (tag = "login-intro")

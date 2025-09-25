@@ -934,8 +934,8 @@
         <text tid="login-email-intro">Voer het e-mailadres en wachtwoord in om in te loggen</text>
         <text tid="login-services">Kies een inlogmethode</text>
         <text tid="login-title">Inloggen</text>
-        <text tid="login-username-intro">Voer de gebruikersnaam en het wachtwoord in om in te loggen</text>
-        <text tid="login-withemail">Login met gebruikersnaam en wachtwoord</text>
+        <text tid="login-username-intro">Voer een gebruikersnaam en wachtwoord in om in te loggen</text>
+        <text tid="login-withemail">Log in met gebruikersnaam</text>
         <text tid="password">Wachtwoord</text>
         <text tid="passwordchange-button">Wijzig wachtwoord</text>
         <text tid="passwordchange-intro">Wachtwoord wijzigen</text>
@@ -1058,6 +1058,7 @@
           <text tid="linkexpired-intro">Link verlopen introductie</text>
           <text tid="login-intro">Login introductie</text>
           <text tid="login-services-intro">Login kies service introductie</text>
+          <text tid="login-services-webhare">Inloggen met WebHare account knop</text>
           <text tid="passwordchange-done">Wachtwoordwijziging afgerond</text>
           <text tid="passwordchange-intro">Wachtwoord wijzigen introductie</text>
           <text tid="resetpassword-intro">Wachtwoord herstellen introductie</text>
