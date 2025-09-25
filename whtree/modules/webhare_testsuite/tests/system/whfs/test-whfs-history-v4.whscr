@@ -67,7 +67,7 @@ MACRO DraftingTest()
   TestEq(FALSE, TestFlagFromPublished(testfile->published, PublishedFlag_HasPublicDraft));
 
   //Start editting this document. Create a private draft (autosave)
-  OBJECT draft := CreateDraft(testfile, testfile->id, FALSE);
+  OBJECT draft := StartWorkflowUpdate(testfile->id, [user := GetEffectiveUser()]);
   TestEq(FALSE, draft->ispublic);
   TestEq(TRUE, ObjectExists(draft->fsobject));
   TestEq(FALSE, draft->fsobject->isactive);
@@ -95,7 +95,7 @@ MACRO DraftingTest()
   TestEq(TRUE, drafts[0].mine);
 
   //Let's create another private draft. Ignore it though
-  CreateDraft(testfile, testfile->id, FALSE);
+  StartWorkflowUpdate(testfile->id, [user := GetEffectiveUser()]);
   TestEq(2, Length(GetDrafts(testfile->id)));
 
   //Get autosaves for this user
@@ -153,13 +153,13 @@ MACRO DraftingTest()
 
   //Create a draft!
   Sleep(1);
-  draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft := StartWorkflowUpdate(drafts[0].id, [user := GetEffectiveUser()]);
   draft->fsobject->UpdateData(StringToBlob("I'm a jolly good file, but now with more data!"));
 
   //We need more drafts!
   Sleep(1);
   testfw->SetTestUser("homer");
-  draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft := StartWorkflowUpdate(drafts[0].id, [user := GetEffectiveUser()]);
   draft->fsobject->UpdateData(StringToBlob("I'm a jolly good file with some data added by Homer!"));
 
   drafts := GetDrafts(testfile->id);
@@ -255,12 +255,11 @@ MACRO DraftingTest()
   // STORY: Going straight from autosave to final should not leave a lingering autosave
 
   //Create someone else's autosave
-  testfw->SetTestUser("homer");
-  CreateDraft(testfile, testfile->id, FALSE);
+  StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("homer")]);
 
   //Create our autosave for this draft
   testfw->SetTestUser("marge");
-  draft := CreateDraft(testfile, testfile->id, FALSE);
+  draft := StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("marge")]);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["rabbits"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("marge"));
 
@@ -285,10 +284,10 @@ MACRO DraftingTest()
   // STORY: Neither should: Autosave, Draft, Edit, Publish leave a lingering autosave
   //
 
-  draft := CreateAutosave(testfw->GetUserObject("homer"), testfile->id);
+  draft := StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("homer")]);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["robots"] ]);
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
-  draft := CreateAutosave(testfw->GetUserObject("homer"), testfile->id);
+  draft := StartWorkflowUpdate(testfile->id, [user := testfw->GetUserObject("homer")]);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["death"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("homer"));
 
@@ -321,7 +320,7 @@ ASYNC MACRO UnpublishedSavesTest()
     , publish := FALSE
     ]);
 
-  OBJECT draft := CreateAutosave(testfw->GetUserObject("marge"), unpublishedfile->id);
+  OBJECT draft := StartWorkflowUpdate(unpublishedfile->id, [user := testfw->GetUserObject("marge")]);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(draft->id, [ stringarray := ["love"] ]);
 
   draft->SaveAsNewPublicDraft(testfw->GetUserObject("homer"));
@@ -332,7 +331,7 @@ ASYNC MACRO UnpublishedSavesTest()
   TestEq(FALSE, OpenWHFSObject(unpublishedfile->id)->publish);
 
   //Create an autosave or an unpublished file and finalize it straight away
-  draft := CreateAutosave(testfw->GetUserObject("marge"), unpublishedfile->id);
+  draft := StartWorkflowUpdate(unpublishedfile->id, [user := testfw->GetUserObject("marge")]);
   draft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/beta/test", [ stringarray := ["homer"] ]);
   draft->SaveAsFinal(testfw->GetUserObject("homer"));
   TestEqMembers(RECORD[], GetDrafts(unpublishedfile->id), "*", "SaveAsFinal should have discarded all drafts");

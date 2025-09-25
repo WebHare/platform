@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
@@ -53,7 +54,7 @@ MACRO TestPreview()
 
   testfw->BeginWork();
   OBJECT dynamictmp := dynamicpage->CopyTo(GetTestsuiteTempFolder(), "dynpagecopy");
-  OBJECT dynamictmp_draft := CreateDraft(dynamictmp, dynamictmp->id, TRUE);
+  OBJECT dynamictmp_draft := StartWorkflowUpdate(dynamictmp->id, [user := GetEffectiveUser()]);
   OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(dynamictmp_draft->id, [ stringarray := ["rabbits"] ], [ ifreadonly := "update" ]);
   testfw->CommitWork();
 
@@ -298,6 +299,6 @@ RunTestFramework([ PTR TestRescueWithoutWebservers
                  , PTR TestBuiltinPortsNormally
                  , PTR TestPreview
                  , PTR LookupTest
-                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ] //createdraft requires a user
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]
                     ]);

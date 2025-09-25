@@ -549,7 +549,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND PublisherEditorBase <
       ELSE
       {
         IF(NOT ObjectExists(this->currentautosave))  //The autosave must be linked to the file we're editing, but we should grab instance data from the draft if it exists, otherwise we miss uncached data (as __FLushInstanceData won't see it)
-          this->currentautosave := CreateDraft(OpenWHFSObject(this->itemid), ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, FALSE);
+          this->currentautosave := StartWorkflowUpdate(ObjectExists(this->currentdraft) ? this->currentdraft->id : this->itemid, [ user := GetEffectiveUser() ]);
 
         toupdate := this->currentautosave->fsobject;
       }

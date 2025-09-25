@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib" ;
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -351,49 +352,34 @@ PUBLIC OBJECT FUNCTION CreateNewTemporary(OBJECT owner, INTEGER newparent, RECOR
   RETURN tempfile;
 }
 
-/** @short Create a new draft from this object
-    @param whfsobject Object to which the draft is linked
-    @param instancesource ID from which we should copy existing contenettype data, Usually whfsobject->id */
-PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BOOLEAN publicdraft, OBJECT __user DEFAULTSTO DEFAULT OBJECT)
-{
-  IF(whfsobject->isfolder)
+/** Start a workflow update (create an autosave to have an object that can receive a RTD being updated)
+    @param objid - The ID of the object we're updating. Draft or final object id */
+PUBLIC OBJECT FUNCTION StartWorkflowUpdate(INTEGER objid, RECORD options DEFAULTSTO DEFAULT RECORD) {
+  options := ValidateOptions([ user := DEFAULT OBJECT ], options);
+  IF(NOT ObjectExists(options.user))
+    THROW NEW Exception(`StartWorkflowUpdate requires a user object`);
+
+  // Determine the base object for the draft we're going to update
+  INTEGER baseobjectid;
+  RECORD objinfo := SELECT filelink, parent, isfolder, whfspath FROM system.fs_objects WHERE id = VAR objid;
+  IF(objinfo.parent = whconstant_whfsid_drafts)
+    baseobjectid := objinfo.filelink;
+  ELSE IF(IsRecycleOrHistoryWHFSPath(objinfo.whfspath))
+    THROW NEW Exception(`Cannot create a draft version from file #${objid} as it is in internal WHFS folder ${objinfo.whfspath}`);
+  ELSE IF(objinfo.isfolder)
     THROW NEW Exception("Cannot create a draft version from a folder");
-  IF(NOT ObjectExists(__user))
-    __user := GetEffectiveUser();
-  IF(NOT ObjectExists(__user))
-    THROW NEW Exception(`CreateDraft requires a user parameter if not available through GetEffectiveUser`);
+  ELSE
+    baseobjectid := objid;
 
-  IF (publicdraft)
-  {
-    // Test for public draft existence
-    IF ((SELECT AS INTEGER id FROM system.fs_objects WHERE filelink = whfsobject->id AND parent = whconstant_whfsid_drafts) != 0)
-      THROW NEW Exception("Cannot create a second public draft");
-
-    RECORD file :=
-        SELECT parent
-             , parentsite
-             , published
-          FROM system.fs_objects
-         WHERE id = whfsobject->id;
-
-    IF (NOT TestFlagFromPublished(file.published, PublishedFlag_HasPublicDraft))
-    {
-      UPDATE system.fs_objects
-         SET published := SetFlagsInPublished(published, PublishedFlag_HasPublicDraft, TRUE)
-       WHERE id = whfsobject->id;
-
-      GetWHFSCommitHandler()->ObjectUpdate(file.parentsite, file.parent, whfsobject->id);
-    }
-  }
-
+  // Set up the new object (the 'autosave', or at least it will be an autosave as soon as we start writing data from editdocument here)
   INTEGER destid := MakeAutonumber(system.fs_objects, "id");
-  QuickCopy(whfsobject->id, instancesource, destid, publicdraft ? whconstant_whfsid_drafts : whconstant_whfsid_autosaves,
-    [ modifiedby := __user->authobjectid
-    , filelink := whfsobject->id
+  QuickCopy(baseobjectid, objid, destid, whconstant_whfsid_autosaves,
+    [ modifiedby := options.user->authobjectid
+    , filelink := baseobjectid
     , creationdate := GetCurrentDatetime()
   ]);
 
-  OBJECT draft := NEW WHFSDraft(destid, publicdraft, whfsobject->id);
+  OBJECT draft := NEW WHFSDraft(destid, FALSE, baseobjectid);
   RETURN draft;
 }
 
