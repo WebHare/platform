@@ -16,7 +16,7 @@ test.runTests(
 
     "create Pietje",
     async function () {
-      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
       await test.wait('ui');
 
       // start usermgmt
@@ -49,7 +49,7 @@ test.runTests(
 
     "test logging in with non-compliant password",
     async function () {
-      await test.load(webroot + "portal1/?notifications=0&language=en");
+      await test.load(webroot + "portal1/?notifications=0&lang=en");
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "SECRET");
@@ -116,7 +116,7 @@ test.runTests(
         });
 
       // test password
-      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
       await test.wait('ui');
 
       // start usermgmt
@@ -168,7 +168,7 @@ test.runTests(
 
 
       // test login witn only password
-      await test.load(webroot + `portal1/?notifications=0&language=en`);
+      await test.load(webroot + `portal1/?notifications=0&lang=en`);
       await test.wait('ui');
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");

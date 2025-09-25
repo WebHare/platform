@@ -20,7 +20,7 @@ test.runTests(
 
     {
       name: "Configure IDP - open SAMLauth for domain",
-      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth&language=en"; },
+      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth&lang=en"; },
       waits: ["ui"]
     },
     {
@@ -53,7 +53,7 @@ test.runTests(
 
     {
       name: "Configure SP - open SAMLauth for domain",
-      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth&language=en"; },
+      loadpage: function () { return webroot + 'test-saml/portal-idp/?overridetoken=' + overridetoken + "&notifications=0&app=wrd(webhare_testsuite:saml-sp)/samlauth&lang=en"; },
       waits: ["ui"]
     },
     {
@@ -93,7 +93,7 @@ test.runTests(
 
     {
       name: "open sp-enabled portal",
-      loadpage: webroot + 'test-saml/portal-sp/?language=en',
+      loadpage: webroot + 'test-saml/portal-sp/?lang=en',
       waits: ["ui", 'ui']
     },
 
@@ -115,7 +115,7 @@ test.runTests(
 
     {
       name: "open sp-enabled nologout portal",
-      loadpage: webroot + 'test-saml/portal-sp/portal-sp-nologout/?language=en',
+      loadpage: webroot + 'test-saml/portal-sp/portal-sp-nologout/?lang=en',
       waits: ["ui"]
     },
 
@@ -143,7 +143,7 @@ test.runTests(
 
     "IdP initiated login",
     async function () {
-      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/samlproviders=[0]/connectedproviders=[0]&language=en`);
+      await test.load(`${webroot}test-saml/portal-idp/?overridetoken=${overridetoken}&notifications=0&app=wrd(webhare_testsuite:saml-idp)/samlauth/samlproviders=[0]/connectedproviders=[0]&lang=en`);
       await test.wait('ui');
       const newwin = await test.expectWindowOpen(() => test.clickToddButton('Login'));
       test.eq("submitinstruction", newwin.type);
