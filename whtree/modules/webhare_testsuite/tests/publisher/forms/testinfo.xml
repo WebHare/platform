@@ -43,6 +43,7 @@
   <jstest file="testredirect.ts" />
   <jstest file="testarrays.ts" />
   <test script="testmailconfirmation.whscr" />
+  <test script="testformfile_maxsignups.whscr" />
   <jstest file="testmailconfirmation-online.ts" />
   <test script="testformfile-editconditions.whscr" />
   <jstest file="testvisibleconditions.ts" />

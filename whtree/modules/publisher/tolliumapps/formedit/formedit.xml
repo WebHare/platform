@@ -306,15 +306,29 @@
           </panel>
         </tab>
         <tab name="availabilitytab" spacers="all">
-          <line layout="left">
-            <checkbox name="available" labeltid=".available" onchange="onavailablechange" title="" />
-          </line>
+          <select name="availability" type="radio" title="">
+            <option rowkey="available" tid=".available" />
+            <option rowkey="unavailable" enablecomponents="unavailabletext" tid=".unavailable" />
+            <option rowkey="maxsignups" enablecomponents="unavailabletext maxsignups" tid=".maxsignups">
+              <textedit name="maxsignups"
+                        maxlength="4"
+                        minvalue="1"
+                        maxvalue="9999"
+                        emptyvalue="0"
+                        errorlabeltid=".maxsignups"
+                        required="true"
+                        suffixtid=".maxsignups-unit"
+                        title=""
+                        valuetype="integer" />
+              <text name="cursignups" title="" />
+            </option>
+          </select>
           <heading tid=".unavailabletext" />
           <richdocument name="unavailabletext"
                         width="1pr"
                         height="1pr"
                         minwidth="120x"
-                        minheight="8x"
+                        minheight="8gr"
                         errorlabeltid=".unavailabletext"
                         required="true" />
         </tab>
