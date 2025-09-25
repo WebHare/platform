@@ -772,6 +772,8 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
   //FIXME dupe work, forms do this too
   RECORD session := GetIncompleteAccountSessionData();
   BOOLEAN require2fa := "require2fa" IN session.failedchecks;
+
+  // PasswordCheck = "externallogin" | "hibp" | "minlength" | "lowercase" | "uppercase" | "digits" | "symbols" | "maxage" | "noreuse" | "require2fa";
   STRING ARRAY failedpwdchecks := ArrayDelete(session.failedchecks,["require2fa"]);
 
   RECORD wittyvars := CELL[ ...webdesign->GetWRDAuthPlugin()->GetWRDAuthRouterWittyData(GetWRDPagesCleanURL())
@@ -791,14 +793,20 @@ PUBLIC OBJECT FUNCTION GetCompleteAccountPage(OBJECT webdesign, RECORD options) 
   RECORD userauthinfo := wrdschema->accounttype->GetEntityField(session.user, wrdschema->accountpasswordtag);
   IF(Length(failedpwdchecks) > 0) { //there were issues with the password itself
     IF (Length(userauthinfo.passwords) = 0 OR userauthinfo.passwords[END-1].validfrom <= session.badpasswordtime) { //you haven't fixed the password yet
+      STRING message;
+      IF("hibp" in failedpwdchecks)
+        message := GetHTMLTid("platform:frontend.worldwide.auth.completeaccount.passwordcompromised");
+      ELSE IF("maxage" in failedpwdchecks)
+        message := GetHTMLTid("platform:frontend.worldwide.auth.completeaccount.passwordexpired");
+      ELSE
+        message := GetHTMLTid("platform:frontend.worldwide.auth.completeaccount.passwordmustbereset");
+
       OBJECT completeform := webdesign->OpenForm("wrd:authpages#completeaccountpassword");
-      completeform->^message->richvalue := [ htmltext := StringToBlob(`<p class="normal">${GetHTMLTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")}</p>`) ];
+      completeform->^message->richvalue := [ htmltext := StringToBlob(`<p class="normal">${message}</p>`) ];
       completeform->^message->visible := TRUE;
 
       wittyvars := CELL[ ...wittyvars
                       , form := completeform->GetWittyData()
-                      // , message := GetTid("system:tolliumapps.login.forgotpassword.warning_passwordmustbereset")
-                      // , continuelink :=
                       ];
 
       RETURN NEW SimpleWebPage(PTR RunWRDAuthPageWitty(webdesign, "completeaccount_password", wittyvars));

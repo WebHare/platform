@@ -13,6 +13,11 @@
   <textgroup gid="frontend">   <!-- frontend -->
     <textgroup gid="worldwide">   <!-- frontend.worldwide -->
       <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
+        <textgroup gid="completeaccount">   <!-- frontend.worldwide.auth.completeaccount -->
+          <text tid="passwordcompromised">Het huidige wachtwoord staat in een lijst van uitgelekte wachtwoord. Kies een nieuw en uniek wachtwoord</text>
+          <text tid="passwordexpired">Het huidige wachtwoord is verlopen, kies a.u.b. een nieuwe wachtwoord.</text>
+          <text tid="passwordmustbereset">Het huidige wachtwoord voldoet niet aan de eisen, kies a.u.b. een nieuwe wachtwoord.</text>
+        </textgroup>
         <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
           <text tid="account-disabled">Dit account is uitgeschakeld</text>
           <text tid="incorrectlogin-email">De combinatie van e-mailadres en wachtwoord is onjuist</text>
