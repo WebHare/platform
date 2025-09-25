@@ -74,14 +74,6 @@ PUBLIC INTEGER PublishedFlag_HasPublicDraft       :=  3200000; //there are draft
 PUBLIC INTEGER PublishedFlag_SubmittedForApproval :=  6400000; //the draft has been submitted for approval (versioning)
 //PUBLIC INTEGER PublishedFlag_History              := 12800000; //whether to keep history for the object - obsolete since 502 but we'll need to reserve it for a bit...
 
-// Draft flag masks
-PUBLIC INTEGER DraftFlag_Publish :=                 1; // Whether the draft should be published
-PUBLIC INTEGER DraftFlag_IndexActionMask :=         6; // Action wrt index-ness
-PUBLIC INTEGER DraftFlag_MakeIndex :=               2; // Make this file the index
-PUBLIC INTEGER DraftFlag_UnmarkAsIndex :=           4; // Make this file not the index
-PUBLIC INTEGER DraftFlag_WasIndex :=                8; // Original was index at the moment of draft creation
-PUBLIC INTEGER DraftFlag_WasPublished :=           16; // Original was published at the moment of draft creation
-
 /** Converts publisher status to trigger a republish
     @param published Current published status
     @param firsttime Whether this is the first time the file is published at this place.

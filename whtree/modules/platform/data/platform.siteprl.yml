@@ -363,8 +363,8 @@ types:
         type: whfsRef
       name:
         type: string
-      flags:
-        type: integer
+      #flags: TODO explicitly obsolete this property for existing draftmetadats. Flags logged state isn't part of the workflow anyway
+      #  type: integer
   publisher.errorinfo:
     namespace: http://www.webhare.net/xmlns/publisher/errorinfo
     workflow: false
