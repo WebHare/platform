@@ -18,7 +18,7 @@ import { getAuditContext, writeAuthAuditEvent, type AuthAuditContext } from "./a
 import { calculateWRDSessionExpiry, defaultWRDAuthLoginSettings, getAuthPageURL, getAuthSettings, getUserValidationSettings, prepAuth, prepAuthForURL, type PrepAuthResult, type WRDAuthPluginSettings_Request } from "./support";
 import { tagToHS, tagToJS } from "@webhare/wrd/src/wrdsupport";
 import type { PublicAuthData } from "@webhare/frontend/src/auth";
-import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheckResult } from "./passwords";
+import { checkPasswordCompliance, verifyPasswordCompliance, type PasswordCheck, type PasswordCheckResult } from "./passwords";
 import { getCompleteAccountNavigation, type LoginTweaks, type LoginErrorCode, type LoginResult } from "./shared";
 import { AuthenticationSettings, describeEntity } from "@webhare/wrd";
 import { getGuidForEntity } from "@webhare/wrd/src/accessors";
@@ -138,7 +138,7 @@ declare module "@webhare/services" {
       /** Return url */
       returnTo: string;
       /** Failed checks */
-      failedchecks: string[];
+      failedchecks: PasswordCheck[];
       /** Time of the bad password */
       badPasswordTime: Temporal.Instant | null;
     };
