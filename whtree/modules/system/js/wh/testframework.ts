@@ -264,6 +264,9 @@ export function fillUpload(element: pointer.ValidElementTarget, files: Array<{ d
 }
 
 export function getTestSiteRoot(): string {
+  if (typeof window === 'undefined')
+    throw new Error("getTestSiteRoot is only available in frontend tests");
+
   const topdoc = window.parent.document.documentElement;
   if (!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");

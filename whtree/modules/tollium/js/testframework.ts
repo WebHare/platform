@@ -201,7 +201,6 @@ class ScreenProxy {
 function $screen(win) {
   return getCurrentApp().getActiveScreen();
 }
-window.$screen = $screen;
 
 function getCurrentApp() {
   const app = test.getWin().$tollium?.getActiveApplication();
@@ -409,17 +408,6 @@ function waitForResult(fn) {
   return defer.promise;
 }
 
-window.ToddTest =
-{
-  toolbarButton: function (name, toddlabel, submenulabel) {
-    return testClickTolliumToolbarButton(toddlabel, submenulabel, { name });
-  },
-  selectListRow: function (name, listname, textinrow, options) {
-    options = { name, ...options };
-    return testSelectListRow(listname, textinrow, options);
-  }
-};
-
 function getOpenSelectList() {
   return test.qSA('div').filter(node => Array.from(node.classList).some(name => name.match(/__items--open$/)))[0];
 }
@@ -527,4 +515,9 @@ export async function expectWindowOpen(code: () => void | Promise<void>) {
   } finally {
     test.getWin().open = _testfw_oldopen;
   }
+}
+
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, "$screen", { get: () => { throw new Error("Use ToddTest.$screen() instead of window.$screen"); } });
+  Object.defineProperty(window, "ToddTest", { get: () => { throw new Error("ToddTest has been removed, use testClickTolliumToolbarButton or testSelectListRow"); } });
 }
