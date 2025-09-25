@@ -146,7 +146,7 @@ export async function waitForPublishCompletion(startingpoint: number | string, o
 
   let target;
   if (typeof startingpoint === "string" && startingpoint.match(/^https?:/)) {
-    const urlinfo = await lookupURL(startingpoint);
+    const urlinfo = await lookupURL(new URL(startingpoint));
     if (!urlinfo?.folder)
       throw new Error(`Invalid URL ${startingpoint}`);
     target = await openFolder(urlinfo.folder);

@@ -105,14 +105,17 @@ function decodeUnifiedData(imgtok: Uint8Array) {
 
 /** LookupPublisherURL finds the associated URL and is the implementation between the Publisher's "Goto URL" function.
     Preview and imagecache URLs are resolved back to the original file or folder.
+
     @param url - URL to look up
     @returns Our guess at the URL's location
 */
-export async function lookupURL(url: string, options?: LookupURLOptions): Promise<LookupURLResult> {
+export async function lookupURL(url: URL, options?: LookupURLOptions): Promise<LookupURLResult> {
+  /* We specifically want a URL object (and not a string) so callers get to deal with Invalid URLs and
+     will not be tempted to throw away all exceptions from lookupURL if they're passing untrusted input, eg referrers from a log file */
+
   //Find the matching webserver
-  const up = new URL(url);
   const webserver = options?.clientWebServer === undefined ?
-    await lookupWebserver(up.hostname, getActualPort(up)) :
+    await lookupWebserver(url.hostname, getActualPort(url)) :
     (await enumerateAllWebServers(false)).filter(ws => ws.id === options.clientWebServer).map(({ id, baseurl, type }) => ({ id, baseurl, isinterface: type === whconstant_webservertype_interface }))[0];
 
   const result: LookupURLResult = {
@@ -124,13 +127,13 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
 
   if (!webserver) { //probably not even hosted here
     if (options?.matchProduction)
-      return { ...result, ...await tryProductionURLLookup(up, url, options?.ifPublished) };
+      return { ...result, ...await tryProductionURLLookup(url, options?.ifPublished) };
 
     return result;
   }
 
-  if (up.pathname.startsWith("/.publisher/preview/")) {
-    const baseurl = up.pathname.split('/')[3];
+  if (url.pathname.startsWith("/.publisher/preview/")) {
+    const baseurl = url.pathname.split('/')[3];
     const data = decryptForThisServer("publisher:preview", baseurl, { nullIfInvalid: true });
     if (data) {
       const info = await db<PlatformDB>().selectFrom("system.fs_objects").
@@ -152,8 +155,8 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
     }
   }
 
-  if (up.pathname.startsWith("/.wh/ea/uc/")) {
-    const tok = up.pathname.substring(11);
+  if (url.pathname.startsWith("/.wh/ea/uc/")) {
+    const tok = url.pathname.substring(11);
     const dec = analyzeUnifiedURLToken(tok);
     let objinfo;
 
@@ -183,7 +186,7 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
     }
   }
 
-  const lookup = decodeURIComponent(up.pathname);
+  const lookup = decodeURIComponent(url.pathname);
   let findwebservers: number[];
   if (webserver.isinterface)  //all interface webservers share the same output
     findwebservers = (await db<PlatformDB>().selectFrom("system.webservers").where("type", "=", whconstant_webservertype_interface).select("id").execute()).map(ws => ws.id);
@@ -198,10 +201,10 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
     limit(1).
     executeTakeFirst();
 
-  url = up.pathname;
+  let pathname = url.pathname;
   if (best_match) {
     // Ignore host parts, they may differ (ports, http vs https)
-    url = decodeURIComponent(url.substring(new URL(best_match.webroot).pathname.length));
+    pathname = decodeURIComponent(pathname.substring(new URL(best_match.webroot).pathname.length));
     result.site = best_match.id;
   } else {
     if (!webserver.isinterface)
@@ -211,21 +214,21 @@ export async function lookupURL(url: string, options?: LookupURLOptions): Promis
     result.site = whconstant_whfsid_webharebackend;
   }
 
-  return { ...result, ...await lookupPublisherURLByPath(result.site, url, up.pathname, options?.ifPublished ?? false) };
+  return { ...result, ...await lookupPublisherURLByPath(result.site, pathname, url.pathname, options?.ifPublished ?? false) };
 }
 
-async function tryProductionURLLookup(up: URL, url: string, ifPublished?: boolean) {
+async function tryProductionURLLookup(url: URL, ifPublished?: boolean) {
   //Looking up by productionurl. Get best match:
   const siteIds = await db<PlatformDB>().selectFrom("system.sites").select("id").execute();
   const prodSites = await openType("http://www.webhare.net/xmlns/publisher/sitesettings").enrich(siteIds, "id", ["productionurl"]) as Array<{ productionurl: string; id: number }>;
-  const bestMatch = prodSites.filter(site => site.productionurl && url.toUpperCase().startsWith(site.productionurl.toUpperCase())).sort((a, b) => b.productionurl.length - a.productionurl.length)[0];
+  const bestMatch = prodSites.filter(site => site.productionurl && url.toString().toUpperCase().startsWith(site.productionurl.toUpperCase())).sort((a, b) => b.productionurl.length - a.productionurl.length)[0];
   if (!bestMatch)
     return null;
 
   //we have a match!
   const site = bestMatch.id;
-  url = decodeURIComponent(url.substring(bestMatch.productionurl.length));
-  return { site, ...await lookupPublisherURLByPath(site, url, up.pathname, ifPublished ?? false) };
+  const path = decodeURIComponent(url.toString().substring(bestMatch.productionurl.length));
+  return { site, ...await lookupPublisherURLByPath(site, path, url.pathname, ifPublished ?? false) };
 }
 
 async function lookupPublisherURLByPath(startroot: number, url: string, origurlpath: string, ifpublished: boolean) {

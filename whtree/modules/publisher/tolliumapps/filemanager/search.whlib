@@ -680,7 +680,7 @@ PUBLIC STATIC OBJECTTYPE SelectType EXTEND TolliumScreenBase
 
     RECORD ARRAY rows :=
         SELECT rowkey := id
-             , title := GetTid(title)
+             , title := title != "" ? GetTid(title) : namespace
              , icon := ^typeslist->GetIcon(tolliumicon ?? whconstant_publisher_fileiconfallback)
              , namespace
           FROM this->contexts->^__publisher_searchfilters->whfstypes

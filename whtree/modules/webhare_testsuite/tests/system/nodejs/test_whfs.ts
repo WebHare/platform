@@ -351,12 +351,12 @@ async function testRescuePort() {
   test.eqPartial({
     site: whconstant_whfsid_webharebackend,
     folder: whconstant_whfsid_webharebackend,
-  }, await whfs.lookupURL(`http://127.0.0.1:${getBasePort()}/`));
+  }, await whfs.lookupURL(new URL(`http://127.0.0.1:${getBasePort()}/`)));
 
   test.eqPartial({
     site: whconstant_whfsid_webharebackend,
     folder: whconstant_whfsid_webharebackend,
-  }, await whfs.lookupURL(`http://127.0.0.1:${getBasePort()}/`, { clientWebServer: whwebserverconfig_rescuewebserverid }));
+  }, await whfs.lookupURL(new URL(`http://127.0.0.1:${getBasePort()}/`), { clientWebServer: whwebserverconfig_rescuewebserverid }));
 }
 
 async function testLookupWithoutConfig() { //mirrors TestRescueWithoutWebservers
@@ -382,7 +382,7 @@ async function testLookup() {
 
   test.assert(root.outputWeb);
   test.assert(root.outputFolder);
-  let lookupresult = await whfs.lookupURL(root.webRoot);
+  let lookupresult = await whfs.lookupURL(new URL(root.webRoot));
   test.eq(root.id, lookupresult.site);
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
@@ -398,53 +398,53 @@ async function testLookup() {
 
   await testRescuePort();
 
-  lookupresult = await whfs.lookupURL(root.webRoot);
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot));
   test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
   test.eq(root.id, lookupresult.site, root.webRoot + " did not return the proper site");
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/"));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
   await whfs.openType("http://www.webhare.net/xmlns/publisher/sitesettings").set(root.id, { productionurl: "https://www.example.com/subsite/" });
 
-  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/testfolder/");
+  lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/testfolder/"));
   test.eq(null, lookupresult.site);
   test.eq(null, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/testfolder/", { matchProduction: true });
+  lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/testfolder/"), { matchProduction: true });
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL("https://www.example.com/subsite/", { matchProduction: true });
+  lookupresult = await whfs.lookupURL(new URL("https://www.example.com/subsite/"), { matchProduction: true });
   test.eq(root.id, lookupresult.site);
   test.eq(root.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
   for (const shouldwork of ["test-alias.example.net", "test-alias.example.net", "test-lookup.example.net", "www.trampolineplein.example.net", "www.plein.example.net", "plein.example.net"]) {
     const testurl = root.webRoot.replace("test-lookup.example.net", shouldwork);
-    lookupresult = await whfs.lookupURL(testurl);
+    lookupresult = await whfs.lookupURL(new URL(testurl));
     test.eq(root.id, lookupresult.site, testurl + " should work");
   }
 
   for (const shouldfail of ["mytest-alias.example.net"]) {
     const testurl = root.webRoot.replace("test-lookup.example.net", shouldfail);
-    lookupresult = await whfs.lookupURL(testurl);
+    lookupresult = await whfs.lookupURL(new URL(testurl));
     test.eq(null, lookupresult.site, testurl + " should fail");
   }
 
   //any virtualhosted site should accept https versions too (ADDME: test: but only if that port# is actually being listened to by a virtualhost?)
-  lookupresult = await whfs.lookupURL(root.webRoot.replace('http:', 'https:'));
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot.replace('http:', 'https:')));
 
   test.eq(root.id, lookupresult.site);
   test.eq(root.id, lookupresult.folder);
@@ -453,32 +453,32 @@ async function testLookup() {
   let testfile = await testfolder.createFile("test.html", { publish: true });
   const testfile_unpublished = await testfolder.createFile("test_unpublished.html", { publish: false });
 
-  lookupresult = await whfs.lookupURL(testfile.link!);
+  lookupresult = await whfs.lookupURL(new URL(testfile.link!));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
   // test with ignored extension extension
   const testfile2 = await testfolder.createFile('test-ignoreext.doc', { /*published: PublishedFlag_StripExtension, */type: "http://www.webhare.net/xmlns/publisher/mswordfile" });
   await whdb.db<PlatformDB>().updateTable("system.fs_objects").set({ published: PublishedFlag_StripExtension }).where("id", "=", testfile2.id).execute();
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test-ignoreext.doc");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext.doc"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test-ignoreext");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test-ignoreext"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile2.id, lookupresult.file);
 
   // file of folder should be the indexdoc, 0 if not no indexdoc
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
@@ -486,64 +486,64 @@ async function testLookup() {
   testfolder = await whfs.openFolder(testfolder.id);
   test.eq(testfile3.id, testfolder.indexDoc);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile3.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder", { ifPublished: true });
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"), { ifPublished: true });
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file, "index.html isn't published!");
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile3.id, lookupresult.file);
 
   // hash ignored
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html#jo");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html#jo"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html#jo", { ifPublished: true });
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html#jo"), { ifPublished: true });
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test_unpublished.html#jo");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test_unpublished.html#jo"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile_unpublished.id, lookupresult.file);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test_unpublished.html#jo", { ifPublished: true });
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test_unpublished.html#jo"), { ifPublished: true });
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(null, lookupresult.file);
 
   // parameters ignored?
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html?param");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html?param"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
   // NOTE: ignoring HS edge case where params start with '&' - URL() doesn't recognize that either
 
   // !part ignored?
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!ignored/test.html?param");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/!ignored/test.html?param"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
   // ! terminates
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/!/test.html/");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/!/test.html/"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile3.id, lookupresult.file); // should go to indexdoc of testfolder, 'test.html' must be ignored.
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder/test.html/!/ignored");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder/test.html/!/ignored"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile.id, lookupresult.file);
 
   //Test through preview link
   const previewlink = await loadlib("mod::publisher/lib/internal/tollium-helpers.whlib").createPreviewLink(maxDateTime, "", lookupresult.file, lookupresult.file);
-  lookupresult = await whfs.lookupURL(previewlink);
-  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
-  lookupresult = await whfs.lookupURL(previewlink + "&bladiebla");
-  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
-  lookupresult = await whfs.lookupURL(previewlink + "#bladiebla");
-  test.eq(testfile.id, lookupresult.file, "lookupURL did not crack the preview link");
+  lookupresult = await whfs.lookupURL(new URL(previewlink));
+  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
+  lookupresult = await whfs.lookupURL(new URL(previewlink + "&bladiebla"));
+  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
+  lookupresult = await whfs.lookupURL(new URL(previewlink + "#bladiebla"));
+  test.eq(testfile.id, lookupresult.file, "lookupURL new URL(did not crack the preview link");
 
   await whfs.openType("http://www.webhare.net/xmlns/beta/test").set(testfile.id, {
     arraytest: [
@@ -557,7 +557,7 @@ async function testLookup() {
   });
 
   const testdata = await whfs.openType("http://www.webhare.net/xmlns/beta/test").get(testfile.id) as any;
-  lookupresult = await whfs.lookupURL(testdata.arraytest[1].blobcell.toLink({ baseURL: root.webRoot }));
+  lookupresult = await whfs.lookupURL(new URL(testdata.arraytest[1].blobcell.toLink({ baseURL: root.webRoot })));
   test.eq(root.id, lookupresult.site);
   test.eq(testfolder.id, lookupresult.folder);
 
@@ -566,19 +566,19 @@ async function testLookup() {
   testfile = await rootfolder.createFile("def.doc", { type: "http://www.webhare.net/xmlns/publisher/mswordfile", publish: true });
   test.assert(testfile.link);
   test.assert(!testfile.link.includes(".doc")); //shouldn't contain .doc anymore, given our strip code
-  lookupresult = await whfs.lookupURL(testfile.link);
+  lookupresult = await whfs.lookupURL(new URL(testfile.link));
   test.eq(testfile.id, lookupresult.file);
 
   //Regression
-  lookupresult = await whfs.lookupURL(new URL("/tollium_todd/download/iJTSMjXoVvWNNXrggqeq3g/", testfile.link).toString());
+  lookupresult = await whfs.lookupURL(new URL(new URL("/tollium_todd/download/iJTSMjXoVvWNNXrggqeq3g/", testfile.link).toString()));
   test.eq(testfile.parentSite, lookupresult.site);
   test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
-  lookupresult = await whfs.lookupURL(new URL("/.system/dl/ec~AQLrIyEAgpvLAiE2CwCjrcACOgas/yt-g.png", testfile.link).toString());
+  lookupresult = await whfs.lookupURL(new URL(new URL("/.system/dl/ec~AQLrIyEAgpvLAiE2CwCjrcACOgas/yt-g.png", testfile.link).toString()));
   test.eq(testfile.parentSite, lookupresult.site);
   test.eq(lookuptest.webservers[0].id, lookupresult.webServer);
 
   const webharetestsuitesite = await whfs.openSite("webhare_testsuite.testsite");
-  lookupresult = await whfs.lookupURL(new URL("/testoutput/webhare_testsuite.testsite/testpages/formtest/", backendConfig.backendURL).toString());
+  lookupresult = await whfs.lookupURL(new URL(new URL("/testoutput/webhare_testsuite.testsite/testpages/formtest/", backendConfig.backendURL).toString()));
   test.eq(webharetestsuitesite.id, lookupresult.site);
   test.eq(webharetestsuitesite.outputWeb, lookupresult.webServer);
 
@@ -587,16 +587,16 @@ async function testLookup() {
   root = await whfs.openSite("webhare_testsuite.site");
   test.eq(lookuptest2.webservers[0].url + "testoutput/mytestsite/", root.webRoot);
 
-  lookupresult = await whfs.lookupURL(root.webRoot + "testfolder");
+  lookupresult = await whfs.lookupURL(new URL(root.webRoot + "testfolder"));
   test.eq(testfolder.id, lookupresult.folder);
   test.eq(testfile3.id, lookupresult.file);
 
   await whdb.rollbackWork();
 
-  //it's important for lookupURL to work with the rescue port. even if, or especially if, the backend site is not connected to a URL
+  //it's important for lookupURL new URL(to work with the rescue port. even if, or especially if, the backend site is not connected to a UR)L
   await whdb.beginWork(); //we'll be rolling back!
   await whdb.db<PlatformDB>().deleteFrom("system.webservers").execute();
-  test.eqPartial({ site: whconstant_whfsid_webharebackend }, await whfs.lookupURL(getRescueOrigin(), { clientWebServer: whwebserverconfig_rescuewebserverid }));
+  test.eqPartial({ site: whconstant_whfsid_webharebackend }, await whfs.lookupURL(new URL(getRescueOrigin()), { clientWebServer: whwebserverconfig_rescuewebserverid }));
   await whdb.rollbackWork();
 }
 
