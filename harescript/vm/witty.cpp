@@ -1492,7 +1492,7 @@ std::pair< bool/*finished*/, bool/*success*/ > ParsedPart::SM_PrintCell(WittyExe
                 if (encoding==CE_Json || encoding==CE_JsonValue)
                 {
                         HSVM_VariableId temp = HSVM_AllocateVariable(hsvm);
-                        HareScript::JHSONEncode(hsvm, var, temp, false, false);
+                        HareScript::JHSONEncode(hsvm, var, temp, false, false, false);
                         if(!HSVM_IsUnwinding(hsvm)) //check if JHSONEncode failed
                         {
                                 Blex::StringPair data;

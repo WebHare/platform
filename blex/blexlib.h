@@ -788,6 +788,20 @@ inline bool IsLowercase(std::string const &data) { return IsLowercase(data.begin
 // Levenshtein distance between two strings
 BLEXLIB_PUBLIC int LevenshteinDistance(std::string const &source, std::string const &target);
 
+/**
+ * Convert a camelCaseName to corresponding snake_case_name
+ * @param name - Name to convert
+ * @returns Converted name
+ */
+BLEXLIB_PUBLIC std::string NameToSnakeCase(std::string_view name);
+
+/** Convert a snake_case_name to corresponding camelCaseName
+ * @param name - Name to convert
+ * @returns Converted name
+ */
+BLEXLIB_PUBLIC std::string NameToCamelCase(std::string_view name);
+
+
 } //end namespace Blex
 
 //compile the implementations
