@@ -837,6 +837,8 @@ PUBLIC OBJECT FUNCTION GetOIDCFailurePage(OBJECT webdesign, RECORD options) {
   STRING loginname := GetWebVariable("loginname");
   STRING backlink := ResolveToAbsoluteURL(GetFormRequestURL(), "/" || GetWebVariable("pathname"));
 
+  webdesign->isstandardcontentpage := TRUE;
+
   SWITCH(reason) {
     CASE "unknown-login" {
       reason := GetTid("wrd:site.forms.authpages.extloginfailure-unknownlogin", loginname);
