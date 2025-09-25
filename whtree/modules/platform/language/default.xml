@@ -13,6 +13,11 @@
   <textgroup gid="frontend">   <!-- frontend -->
     <textgroup gid="worldwide">   <!-- frontend.worldwide -->
       <textgroup gid="auth">   <!-- frontend.worldwide.auth -->
+        <textgroup gid="completeaccount">   <!-- frontend.worldwide.auth.completeaccount -->
+          <text tid="passwordcompromised">Your current password appears in a list of breached passwords. Please choose a new and unique password.</text>
+          <text tid="passwordexpired">Your current password has expired, please choose a new password.</text>
+          <text tid="passwordmustbereset">Your current password does not comply with the password policy, please choose a new password.</text>
+        </textgroup>
         <textgroup gid="login">   <!-- frontend.worldwide.auth.login -->
           <text tid="account-disabled">Account is disabled</text>
           <text tid="incorrectlogin-email">The combination of email address and password is incorrect</text>
