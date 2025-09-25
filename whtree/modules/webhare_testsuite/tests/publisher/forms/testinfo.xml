@@ -1,10 +1,10 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="lib data" tags="forms">
-  <test script="testformrpc.whscr" />
   <test script="testformfile.whscr" />
   <test script="testformfile_lowlevel.whscr" />
   <test script="testformfile_conditions.whscr" />
   <test script="testformfile-aswidget.whscr" />
   <test script="testformfile-pagetitles-infotexts.whscr" />
+  <test script="testformrpc.whscr" />
   <test script="testformapi.whscr" />
   <test script="testformcustomfile2.whscr" />
   <test script="testformcustomformdeffile.whscr" />
