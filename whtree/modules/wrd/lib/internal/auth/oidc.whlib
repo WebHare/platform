@@ -18,7 +18,7 @@ RECORD FUNCTION GetOpenIDConnectMetadata(STRING metadataurl)
   OBJECT browser := NEW WebBrowser;
   LogRPCForWebbrowser("wrd:auth-oidc", "", browser);
   IF(NOT browser->GotoWebPage(metadataurl))
-    THROW NEW Exception(`Metadata unavailable`);
+    THROW NEW Exception(`Metadata unavailable from ` || metadataurl);
 
   RECORD metadata := DecodeJSONBlob(browser->content);
   IF(NOT RecordExists(metadata))

@@ -26,7 +26,7 @@ test.runTests(
     },
     {
       name: "Start backend",
-      loadpage: function () { return webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en&transport=" + test.getTestArgument(0); },
+      loadpage: function () { return webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en&transport=" + test.getTestArgument(0); },
       waits: ['ui'] // Also wait for user profile data (applications & such)
     },
     {
@@ -138,7 +138,7 @@ test.runTests(
 
     "Login as jantje",
     async function () {
-      await test.load(webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0));
+      await test.load(webroot + 'portal1/?lang=en&transport=' + test.getTestArgument(0));
       await testwrd.runLogin('jantje@example.com', 'xecret2');
 
       test.eq('jantje@example.com', (await test.waitForElement('#dashboard-user-name')).textContent);
@@ -147,7 +147,7 @@ test.runTests(
     },
     {
       name: "login as pietje",
-      loadpage: function () { return webroot + "portal1/?openas=" + pietjeguid + "&language=en&transport=" + test.getTestArgument(0); },
+      loadpage: function () { return webroot + "portal1/?openas=" + pietjeguid + "&lang=en&transport=" + test.getTestArgument(0); },
       waits: ['ui']
     },
     async function () {
@@ -170,7 +170,7 @@ test.runTests(
 
     "to the requiresysop page",
     async function () {
-      await test.load(webroot + 'portal1/requiresysop/?language=en&wh-debug=aut');
+      await test.load(webroot + 'portal1/requiresysop/?lang=en&wh-debug=aut');
       //we should get redirected to portal1
       await testwrd.runLogin('pietje@example.com', 'xecret');
     },
@@ -181,7 +181,7 @@ test.runTests(
       }
     },
     {
-      loadpage: function () { return webroot + 'portal1/?language=en&wh-debug=aut'; },
+      loadpage: function () { return webroot + 'portal1/?lang=en&wh-debug=aut'; },
       waits: ['ui']
     },
     "logout and become jantje",
@@ -190,11 +190,11 @@ test.runTests(
       //verify logged out (should see login page)
       await test.waitForElement("[name=login]");
 
-      await test.load(webroot + 'portal1/requiresysop/?language=en&wh-debug=aut');
+      await test.load(webroot + 'portal1/requiresysop/?lang=en&wh-debug=aut');
       await testwrd.runLogin('jantje@example.com', 'xecret2');
       test.assert(test.qS('#success'));
 
-      await test.load(webroot + 'portal1/?language=en');
+      await test.load(webroot + 'portal1/?lang=en');
       await test.runTolliumLogout();
       await test.waitForElement("[name=login]");
     }

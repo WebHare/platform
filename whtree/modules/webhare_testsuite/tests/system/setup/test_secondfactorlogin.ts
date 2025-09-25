@@ -19,7 +19,7 @@ test.runTests(
 
     "create Pietje",
     async function () {
-      await test.load(webroot + 'portal1/' + setupdata?.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata?.overridetoken + "&notifications=0&lang=en");
       await test.wait('ui');
 
       // start usermgmt

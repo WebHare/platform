@@ -16,7 +16,7 @@ test.runTests(
 
     "create Pietje",
     async function () {
-      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
       await test.wait('ui');
 
       // start usermgmt
@@ -31,6 +31,8 @@ test.runTests(
       await test.wait('ui');
 
       test.setTodd('username', "pietje@allow2fa.test.webhare.net");
+      test.setTodd('language', "nl");
+
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -49,7 +51,7 @@ test.runTests(
 
     "test logging in with non-compliant password",
     async function () {
-      await test.load(webroot + "portal1/?notifications=0&language=en");
+      await test.load(webroot + "portal1/?notifications=0&lang=en");
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");
       test.fill("[name=password]", "SECRET");
@@ -116,7 +118,7 @@ test.runTests(
         });
 
       // test password
-      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&language=en");
+      await test.load(webroot + 'portal1/' + setupdata!.overridetoken + "&notifications=0&lang=en");
       await test.wait('ui');
 
       // start usermgmt
@@ -148,7 +150,7 @@ test.runTests(
       // policy: no reuse for 2 days
       test.eq(/doesn't have/, test.qR(".wh-form__page--visible").textContent);
 
-      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3");
+      await testwrd.runPasswordSetForm("pietje@allow2fa.test.webhare.net", "secret3", { expectLang: "nl" });
     },
 
     "force 2fa",
@@ -168,7 +170,7 @@ test.runTests(
 
 
       // test login witn only password
-      await test.load(webroot + `portal1/?notifications=0&language=en`);
+      await test.load(webroot + `portal1/?notifications=0&lang=en`);
       await test.wait('ui');
 
       test.fill("[name=login]", "pietje@allow2fa.test.webhare.net");

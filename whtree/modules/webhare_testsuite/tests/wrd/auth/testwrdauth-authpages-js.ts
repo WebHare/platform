@@ -139,9 +139,7 @@ test.runTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
       await testwrd.runLogin('pietje-authpages-js@beta.webhare.net', 'secret');
 
-      //FIXME or explicitly warn its a leaked passwrd
-      test.eq(/Your current password does not comply/, test.qR(".wh-form__page--visible").textContent);
-
+      test.eq(/Your current password .*breach/, test.qR(".wh-form__page--visible").textContent);
       await testwrd.tryPasswordSetForm("pietje-authpages-js@beta.webhare.net", 'secret123');
       await test.wait("ui");
       test.eq(/breach/, test.qR(".wh-form__error").textContent);

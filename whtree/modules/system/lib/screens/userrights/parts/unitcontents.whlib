@@ -540,7 +540,7 @@ PUBLIC STATIC OBJECTTYPE GetResetLink EXTEND TolliumScreenBase
 
     // Bake the user language into the reset link, so it opens in the language of the user
     STRING link := data.resettype = "directresetlink" ? resetlink.verifiedlink : resetlink.entrylink;
-    ^resetlink->value := UpdateURLVariables(link, CELL[ targetuser->language ]);
+    ^resetlink->value := UpdateURLVariables(link, CELL[ lang := targetuser->language ]);
 
     ^resetcode->visible := data.resettype = "codedresetlink";
     IF(data.resettype = "codedresetlink")

@@ -157,7 +157,12 @@ PUBLIC RECORD FUNCTION ScanModuleTids(RECORD validationconfig, STRING module)
 {
   __EnableTidCacheInvalidation();
 
-  STRING ARRAY scanlist := GetValidatableFiles(validationconfig, module);
+  STRING ARRAY scanlist;
+  IF(module = "platform")
+    FOREVERY(STRING mod FROM whconstant_builtinmodules)
+      scanlist := scanlist CONCAT GetValidatableFiles(validationconfig, mod);
+  ELSE
+    scanlist := GetValidatableFiles(validationconfig, module);
   RECORD scanresult := [ tids := RECORD[], warnings := RECORD[] ];
   RECORD ARRAY warnings;
 
