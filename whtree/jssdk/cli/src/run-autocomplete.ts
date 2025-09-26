@@ -1,4 +1,3 @@
-import { isError } from "@webhare/std";
 import { promises as fs } from "node:fs";
 import { normalize } from "node:path";
 
@@ -108,7 +107,7 @@ export async function autoCompleteCLIRunScript(cwd: string, path: string, args: 
 
     return completions;
   } catch (e) {
-    console.error(`Error running autocompletion for ${path}:`, isError(e) ? e.message : e);
+    console.error(`Error running autocompletion for ${path}:`, (e && typeof e === "object" && "message" in e) ? e.message : e);
     return [];
   } finally {
     loading = undefined;
