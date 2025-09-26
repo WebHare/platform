@@ -150,7 +150,10 @@ export function resolveResource(base: string, relativepath: string): string {
   if (relativepath.startsWith("/"))
     return basepart + relativepath + append;
 
-  return basepart + path.join(basesubpath, relativepath) + append;
+  let basepath = basepart + path.join(basesubpath, relativepath);
+  if (!basepath.endsWith('/') && [".", ".."].includes(path.basename(relativepath)) ? "/" : "")
+    basepath += '/';
+  return basepath + append;
 }
 
 /** Returns the event mask for a specific resource */

@@ -18,6 +18,33 @@ async function testResolve() {
   test.eq(null, services.parseResourcePath("/a/b/c/d#e"));
 
   test.eq("", services.resolveResource("mod::a/b/c/d", ""));
+
+  //resource paths that clearly point to a directory (ending in . or ..) should return a resourcepath ending in a slash
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d", "."));
+  test.eq("mod::a/b/c/d/", services.resolveResource("mod::a/b/c/d/", "."));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d", "./"));
+  test.eq("mod::a/b/c/d/", services.resolveResource("mod::a/b/c/d/", "./"));
+
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", ".."));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", ".."));
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", "../"));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", "../"));
+
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", "../."));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", "../."));
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", ".././"));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", ".././"));
+
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", "./.."));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", "./.."));
+  test.eq("mod::a/b/", services.resolveResource("mod::a/b/c/d", "./../"));
+  test.eq("mod::a/b/c/", services.resolveResource("mod::a/b/c/d/", "./../"));
+
+  test.eq("mod::a/b/#append", services.resolveResource("mod::a/b/c/d", "./..#append"));
+  test.eq("mod::a/b/c/#append", services.resolveResource("mod::a/b/c/d/", "./..#append"));
+  test.eq("mod::a/b/#append", services.resolveResource("mod::a/b/c/d", "./../#append"));
+  test.eq("mod::a/b/c/#append", services.resolveResource("mod::a/b/c/d/", "./../#append"));
+
   test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "/e"));
   test.eq("mod::a/b/c/e", services.resolveResource("mod::a/b/c/d", "./e"));
   test.eq("mod::a/b/e", services.resolveResource("mod::a/b/c/d", "../e"));
@@ -40,8 +67,7 @@ async function testResolve() {
   //test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", services.resolveResource("", 'mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
 
   test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.witty", services.resolveResource("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
-  // MakeAbsoluteResourcePath would return "mod::publisher/designs/emptydesign/" but without the slash makes more sense? you're referring to that directory
-  test.eq("mod::publisher/designs/emptydesign", services.resolveResource("mod::publisher/designs/emptydesign/siteprl.prl", "."));
+  test.eq("mod::publisher/designs/emptydesign/", services.resolveResource("mod::publisher/designs/emptydesign/siteprl.prl", "."));
 
   test.eq("site::lelibel/design/customleft.siteprl", services.resolveResource("site::lelibel/design/", "/design/customleft.siteprl"));
   /* TODO unlikely for wh:: support to return
